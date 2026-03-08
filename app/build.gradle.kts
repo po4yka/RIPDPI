@@ -1,27 +1,21 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
     namespace = "com.poyka.ripdpi"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.poyka.ripdpi"
-        minSdk = 21
-        targetSdk = 34
-        versionCode = 10
-        versionName = "1.2.0"
+        minSdk = 27
+        targetSdk = 35
+        versionCode = 1
+        versionName = "0.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        ndk {
-            abiFilters.add("armeabi-v7a")
-            abiFilters.add("arm64-v8a")
-            abiFilters.add("x86")
-            abiFilters.add("x86_64")
-        }
     }
 
     buildFeatures {
@@ -32,7 +26,8 @@ android {
         release {
             buildConfigField("String", "VERSION_NAME",  "\"${defaultConfig.versionName}\"")
 
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug {
@@ -40,20 +35,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures {
-        viewBinding = true
+        compose = true
     }
 
     // https://android.izzysoft.de/articles/named/iod-scan-apkchecks?lang=en#blobs
@@ -65,39 +51,41 @@ android {
     }
 }
 
-dependencies {
-    implementation("androidx.fragment:fragment-ktx:1.8.2")
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("androidx.preference:preference-ktx:1.2.1")
-    implementation("com.takisoft.preferencex:preferencex:1.1.0")
-    implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
-    implementation("androidx.lifecycle:lifecycle-service:2.8.4")
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-}
-
-tasks.register<Exec>("runNdkBuild") {
-    group = "build"
-
-    val ndkDir = android.ndkDirectory
-    executable = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
-        "$ndkDir\\ndk-build.cmd"
-    } else {
-        "$ndkDir/ndk-build"
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
-    setArgs(listOf(
-        "NDK_PROJECT_PATH=build/intermediates/ndkBuild",
-        "NDK_LIBS_OUT=src/main/jniLibs",
-        "APP_BUILD_SCRIPT=src/main/jni/Android.mk",
-        "NDK_APPLICATION_MK=src/main/jni/Application.mk"
-    ))
-
-    println("Command: $commandLine")
 }
 
-tasks.preBuild {
-    dependsOn("runNdkBuild")
+dependencies {
+    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0")
+
+    // Compose
+    val composeBom = platform("androidx.compose:compose-bom:2025.03.00")
+    implementation(composeBom)
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
+    implementation("androidx.navigation:navigation-compose:2.8.9")
+
+    // Modules
+    implementation(project(":core:data"))
+    implementation(project(":core:engine"))
+    implementation(project(":core:service"))
+
+    // Proto DataStore
+    implementation("androidx.datastore:datastore:1.2.0")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
+    testImplementation("app.cash.turbine:turbine:1.2.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
 }
