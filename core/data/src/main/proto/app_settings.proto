@@ -1,0 +1,59 @@
+syntax = "proto3";
+option java_package = "com.poyka.ripdpi.proto";
+option java_multiple_files = true;
+
+message AppSettings {
+  // General
+  string app_theme = 1;       // "system" | "light" | "dark"
+  string ripdpi_mode = 2;     // "vpn" | "proxy"
+  string dns_ip = 3;
+  bool ipv6_enable = 4;
+
+  // Mode toggle
+  bool enable_cmd_settings = 5;
+  string cmd_args = 6;
+
+  // Proxy
+  string proxy_ip = 7;
+  int32 proxy_port = 8;
+  int32 max_connections = 9;
+  int32 buffer_size = 10;
+  bool no_domain = 11;
+  bool tcp_fast_open = 12;
+
+  // Desync
+  int32 default_ttl = 13;
+  bool custom_ttl = 14;
+  string desync_method = 15;   // "none"|"split"|"disorder"|"fake"|"oob"|"disoob"
+  int32 split_position = 16;
+  bool split_at_host = 17;
+  int32 fake_ttl = 18;
+  string fake_sni = 19;
+  int32 fake_offset = 20;
+  string oob_data = 21;
+  bool drop_sack = 22;
+
+  // Protocol
+  bool desync_http = 23;
+  bool desync_https = 24;
+  bool desync_udp = 25;
+
+  // Hosts
+  string hosts_mode = 26;      // "disable" | "blacklist" | "whitelist"
+  string hosts_blacklist = 27;
+  string hosts_whitelist = 28;
+
+  // TLS
+  bool tlsrec_enabled = 29;
+  int32 tlsrec_position = 30;
+  bool tlsrec_at_sni = 31;
+
+  // UDP
+  int32 udp_fake_count = 32;
+
+  // HTTP
+  bool host_mixed_case = 33;
+  bool domain_mixed_case = 34;
+  bool host_remove_spaces = 35;
+  bool onboarding_complete = 56;
+}

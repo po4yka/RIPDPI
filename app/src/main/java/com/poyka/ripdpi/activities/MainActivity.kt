@@ -1,36 +1,32 @@
 package com.poyka.ripdpi.activities
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.view.Menu
-import android.view.MenuItem
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.*
-import com.poyka.ripdpi.fragments.MainSettingsFragment
-import com.poyka.ripdpi.databinding.ActivityMainBinding
-import com.poyka.ripdpi.services.ServiceManager
-import com.poyka.ripdpi.services.appStatus
-import com.poyka.ripdpi.utility.*
+import com.poyka.ripdpi.services.ServiceEvent
+import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.IOException
 
-class MainActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityMainBinding
+class MainActivity : ComponentActivity() {
+    private val viewModel: MainViewModel by viewModels()
 
     companion object {
         private val TAG: String = MainActivity::class.java.simpleName
@@ -49,12 +45,7 @@ class MainActivity : AppCompatActivity() {
 
     private val vpnRegister =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            if (it.resultCode == RESULT_OK) {
-                ServiceManager.start(this, Mode.VPN)
-            } else {
-                Toast.makeText(this, R.string.vpn_permission_denied, Toast.LENGTH_SHORT).show()
-                updateStatus()
-            }
+            viewModel.onVpnPermissionResult(this, it.resultCode == RESULT_OK)
         }
 
     private val logsRegister =
@@ -63,93 +54,34 @@ class MainActivity : AppCompatActivity() {
                 val logs = collectLogs()
 
                 if (logs == null) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        R.string.logs_failed,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    val uri = it.data?.data ?: run {
-                        Log.e(TAG, "No data in result")
-                        return@launch
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            R.string.logs_failed,
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
-                    contentResolver.openOutputStream(uri)?.use {
-                        try {
-                            it.write(logs.toByteArray())
-                        } catch (e: IOException) {
-                            Log.e(TAG, "Failed to save logs", e)
-                        }
-                    } ?: run {
-                        Log.e(TAG, "Failed to open output stream")
+                    return@launch
+                }
+
+                val uri = it.data?.data ?: run {
+                    Log.e(TAG, "No data in result")
+                    return@launch
+                }
+                contentResolver.openOutputStream(uri)?.use { stream ->
+                    try {
+                        stream.write(logs.toByteArray())
+                    } catch (e: IOException) {
+                        Log.e(TAG, "Failed to save logs", e)
                     }
+                } ?: run {
+                    Log.e(TAG, "Failed to open output stream")
                 }
             }
         }
-
-    private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            Log.d(TAG, "Received intent: ${intent?.action}")
-
-            if (intent == null) {
-                Log.w(TAG, "Received null intent")
-                return
-            }
-
-            val senderOrd = intent.getIntExtra(SENDER, -1)
-            val sender = Sender.entries.getOrNull(senderOrd)
-            if (sender == null) {
-                Log.w(TAG, "Received intent with unknown sender: $senderOrd")
-                return
-            }
-
-            when (val action = intent.action) {
-                STARTED_BROADCAST,
-                STOPPED_BROADCAST -> updateStatus()
-
-                FAILED_BROADCAST -> {
-                    Toast.makeText(
-                        context,
-                        getString(R.string.failed_to_start, sender.name),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                    updateStatus()
-                }
-
-                else -> Log.w(TAG, "Unknown action: $action")
-            }
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        val intentFilter = IntentFilter().apply {
-            addAction(STARTED_BROADCAST)
-            addAction(STOPPED_BROADCAST)
-            addAction(FAILED_BROADCAST)
-        }
-
-        @SuppressLint("UnspecifiedRegisterReceiverFlag")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(receiver, intentFilter, RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(receiver, intentFilter)
-        }
-
-        binding.statusButton.setOnClickListener {
-            val (status, _) = appStatus
-            when (status) {
-                AppStatus.Halted -> start()
-                AppStatus.Running -> stop()
-            }
-        }
-
-        val theme = getPreferences()
-            .getString("app_theme", null)
-        MainSettingsFragment.setTheme(theme ?: "system")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
@@ -159,113 +91,50 @@ class MainActivity : AppCompatActivity() {
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
-    }
 
-    override fun onResume() {
-        super.onResume()
-        updateStatus()
-    }
+        setContent {
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    override fun onDestroy() {
-        super.onDestroy()
-        unregisterReceiver(receiver)
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.menu_main, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        val (status, _) = appStatus
-
-        return when (item.itemId) {
-            R.id.action_settings -> {
-                if (status == AppStatus.Halted) {
-                    val intent = Intent(this, SettingsActivity::class.java)
-                    startActivity(intent)
-                } else {
-                    Toast.makeText(this, R.string.settings_unavailable, Toast.LENGTH_SHORT)
-                        .show()
-                }
-                true
-            }
-
-            R.id.action_save_logs -> {
-                val intent =
-                    Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
+            LaunchedEffect(Unit) {
+                viewModel.events.collect { event ->
+                    when (event) {
+                        is ServiceEvent.Failed -> {
+                            Toast.makeText(
+                                this@MainActivity,
+                                getString(R.string.failed_to_start, event.sender.senderName),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
                     }
-
-                logsRegister.launch(intent)
-                true
+                }
             }
 
-            else -> super.onOptionsItemSelected(item)
+            LaunchedEffect(Unit) {
+                viewModel.effects.collect { effect ->
+                    when (effect) {
+                        is MainEffect.RequestVpnPermission ->
+                            vpnRegister.launch(effect.prepareIntent)
+                        is MainEffect.NavigateToSettings -> Unit
+                        is MainEffect.ShowToast ->
+                            Toast.makeText(this@MainActivity, effect.messageResId, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+
+            RipDpiTheme(themePreference = uiState.theme) {
+                RipDpiNavHost(
+                    onSaveLogs = { saveLogs() },
+                )
+            }
         }
     }
 
-    private fun start() {
-        when (getPreferences().mode()) {
-            Mode.VPN -> {
-                val intentPrepare = VpnService.prepare(this)
-                if (intentPrepare != null) {
-                    vpnRegister.launch(intentPrepare)
-                } else {
-                    ServiceManager.start(this, Mode.VPN)
-                }
-            }
-
-            Mode.Proxy -> ServiceManager.start(this, Mode.Proxy)
+    private fun saveLogs() {
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
         }
-    }
-
-    private fun stop() {
-        ServiceManager.stop(this)
-    }
-
-    private fun updateStatus() {
-        val (status, mode) = appStatus
-
-        Log.i(TAG, "Updating status: $status, $mode")
-
-        val preferences = getPreferences()
-        val proxyIp = preferences.getStringNotNull("ripdpi_proxy_ip", "127.0.0.1")
-        val proxyPort = preferences.getStringNotNull("ripdpi_proxy_port", "1080")
-        binding.proxyAddress.text = getString(R.string.proxy_address, proxyIp, proxyPort)
-
-        when (status) {
-            AppStatus.Halted -> {
-                when (preferences.mode()) {
-                    Mode.VPN -> {
-                        binding.statusText.setText(R.string.vpn_disconnected)
-                        binding.statusButton.setText(R.string.vpn_connect)
-                    }
-
-                    Mode.Proxy -> {
-                        binding.statusText.setText(R.string.proxy_down)
-                        binding.statusButton.setText(R.string.proxy_start)
-                    }
-                }
-                binding.statusButton.isEnabled = true
-            }
-
-            AppStatus.Running -> {
-                when (mode) {
-                    Mode.VPN -> {
-                        binding.statusText.setText(R.string.vpn_connected)
-                        binding.statusButton.setText(R.string.vpn_disconnect)
-                    }
-
-                    Mode.Proxy -> {
-                        binding.statusText.setText(R.string.proxy_up)
-                        binding.statusButton.setText(R.string.proxy_stop)
-                    }
-                }
-                binding.statusButton.isEnabled = true
-            }
-        }
+        logsRegister.launch(intent)
     }
 }
