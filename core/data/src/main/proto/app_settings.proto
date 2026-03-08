@@ -56,4 +56,7 @@ message AppSettings {
   bool domain_mixed_case = 34;
   bool host_remove_spaces = 35;
   bool onboarding_complete = 56;
+  bool webrtc_protection_enabled = 57;
+  bool biometric_enabled = 58;
+  string backup_pin = 59;
 }

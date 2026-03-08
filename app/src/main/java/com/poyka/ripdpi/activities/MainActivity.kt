@@ -17,7 +17,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.coroutines.Dispatchers
@@ -96,27 +95,12 @@ class MainActivity : ComponentActivity() {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
             LaunchedEffect(Unit) {
-                viewModel.events.collect { event ->
-                    when (event) {
-                        is ServiceEvent.Failed -> {
-                            Toast.makeText(
-                                this@MainActivity,
-                                getString(R.string.failed_to_start, event.sender.senderName),
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    }
-                }
-            }
-
-            LaunchedEffect(Unit) {
                 viewModel.effects.collect { effect ->
                     when (effect) {
                         is MainEffect.RequestVpnPermission ->
                             vpnRegister.launch(effect.prepareIntent)
-                        is MainEffect.NavigateToSettings -> Unit
-                        is MainEffect.ShowToast ->
-                            Toast.makeText(this@MainActivity, effect.messageResId, Toast.LENGTH_SHORT).show()
+                        is MainEffect.ShowError ->
+                            Toast.makeText(this@MainActivity, effect.message, Toast.LENGTH_SHORT).show()
                     }
                 }
             }
