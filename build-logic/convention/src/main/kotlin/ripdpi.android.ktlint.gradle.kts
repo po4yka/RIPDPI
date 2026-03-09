@@ -5,7 +5,7 @@ plugins {
 }
 
 extensions.configure<KtlintExtension> {
-    version.set("1.5.0")
+    version.set("1.8.0")
     android.set(true)
     outputToConsole.set(true)
     ignoreFailures.set(false)

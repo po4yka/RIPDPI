@@ -10,6 +10,10 @@ trim_trailing_whitespace = true
 
 [*.{kt,kts}]
 max_line_length = 120
+# Compose @Composable functions use PascalCase by convention
+ktlint_standard_function-naming = disabled
+# Companion object vals in Android often use camelCase (e.g. intent extras, animation specs)
+ktlint_standard_property-naming = disabled
 
 [*.md]
 trim_trailing_whitespace = false
