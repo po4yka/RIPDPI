@@ -1,9 +1,8 @@
 package com.poyka.ripdpi.utility
 
-import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
-
-private const val TAG = "ThemeUtils"
+import logcat.LogPriority
+import logcat.logcat
 
 fun applyTheme(name: String) {
     val mode =
@@ -21,7 +20,7 @@ fun applyTheme(name: String) {
             }
 
             else -> {
-                Log.w(TAG, "Invalid value for app_theme: $name")
+                logcat("ThemeUtils", LogPriority.WARN) { "Invalid value for app_theme: $name" }
                 return
             }
         }

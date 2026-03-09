@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,6 +28,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 import java.io.IOException
 
 class MainActivity : ComponentActivity() {
@@ -36,7 +38,6 @@ class MainActivity : ComponentActivity() {
     private val openHomeRequests = MutableStateFlow(false)
 
     companion object {
-        private val TAG: String = MainActivity::class.java.simpleName
         private const val EXTRA_OPEN_HOME = "com.poyka.ripdpi.extra.OPEN_HOME"
 
         private fun collectLogs(): String? =
@@ -48,7 +49,7 @@ class MainActivity : ComponentActivity() {
                     .bufferedReader()
                     .use { it.readText() }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to collect logs", e)
+                logcat(LogPriority.ERROR) { "Failed to collect logs\n${e.asLog()}" }
                 null
             }
 
@@ -90,17 +91,17 @@ class MainActivity : ComponentActivity() {
 
                 val uri =
                     it.data?.data ?: run {
-                        Log.e(TAG, "No data in result")
+                        logcat(LogPriority.ERROR) { "No data in result" }
                         return@launch
                     }
                 contentResolver.openOutputStream(uri)?.use { stream ->
                     try {
                         stream.write(logs.toByteArray())
                     } catch (e: IOException) {
-                        Log.e(TAG, "Failed to save logs", e)
+                        logcat(LogPriority.ERROR) { "Failed to save logs\n${e.asLog()}" }
                     }
                 } ?: run {
-                    Log.e(TAG, "Failed to open output stream")
+                    logcat(LogPriority.ERROR) { "Failed to open output stream" }
                 }
             }
         }
