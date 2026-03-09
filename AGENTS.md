@@ -77,3 +77,18 @@ All dependency versions are in `gradle/libs.versions.toml`.
 - detekt config: `config/detekt/detekt.yml`
 - Max line length: 120 characters
 - SDK targets: compileSdk 36, minSdk 27, targetSdk 35
+
+## Agent Skills
+
+Project-specific skills are in `.github/skills/`:
+
+| Skill | Use when |
+|-------|----------|
+| `native-jni-development` | Modifying C code, JNI bridge, or CMake build |
+| `android-compose-patterns` | Building Compose UI, ViewModels, navigation |
+| `gradle-build-system` | Adding dependencies, modules, or convention plugins |
+| `protobuf-datastore` | Modifying app settings schema or DataStore persistence |
+| `service-lifecycle` | Working with VPN/proxy service start/stop logic |
+| `rust-android-ndk` | Building Rust for Android, cargo-ndk, cross-compilation targets |
+| `rust-jni-bridge` | Implementing JNI in Rust (jni crate vs UniFFI), type mapping |
+| `c-to-rust-migration` | Incremental C-to-Rust migration strategy, FFI interop during transition |
