@@ -33,6 +33,7 @@ class RipDpiVpnService : LifecycleVpnService() {
     private val ripDpiProxy = RipDpiProxy()
     private var proxyJob: Job? = null
     private var tunFd: ParcelFileDescriptor? = null
+    private var tun2SocksConfigFile: File? = null
     private val mutex = Mutex()
     private var stopping: Boolean = false
 
@@ -213,6 +214,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                 Log.e(TAG, "Failed to create config file", e)
                 throw e
             }
+        tun2SocksConfigFile = configPath
 
         val fd =
             createBuilder(dns, ipv6).establish()
@@ -231,9 +233,14 @@ class RipDpiVpnService : LifecycleVpnService() {
         TProxyService.TProxyStopService()
 
         try {
-            File(cacheDir, "config.tmp").delete()
+            val configFile = tun2SocksConfigFile
+            if (configFile != null && !configFile.delete() && configFile.exists()) {
+                Log.w(TAG, "Failed to delete config file: ${configFile.absolutePath}")
+            }
         } catch (e: SecurityException) {
             Log.e(TAG, "Failed to delete config file", e)
+        } finally {
+            tun2SocksConfigFile = null
         }
 
         tunFd?.close() ?: Log.w(TAG, "VPN not running")
