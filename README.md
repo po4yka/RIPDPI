@@ -32,6 +32,29 @@ git clone --recurse-submodules
 
 APK output: `app/build/outputs/apk/release/`
 
+## CI/CD
+
+The project uses GitHub Actions for continuous integration and release automation.
+
+**CI** (`.github/workflows/ci.yml`) runs on every push and PR to `main`:
+- Builds the debug APK
+- Runs unit tests
+
+**Release** (`.github/workflows/release.yml`) runs on `v*` tag pushes or manual dispatch:
+- Builds a signed release APK
+- Creates a GitHub Release with the APK attached
+
+### Required GitHub Secrets
+
+To enable signed release builds, configure these repository secrets:
+
+| Secret | Description |
+|--------|-------------|
+| `KEYSTORE_BASE64` | Base64-encoded release keystore (`base64 -i release.keystore`) |
+| `KEYSTORE_PASSWORD` | Keystore password |
+| `KEY_ALIAS` | Signing key alias |
+| `KEY_PASSWORD` | Signing key password |
+
 ## Dependencies
 
 - [ByeDPI](https://github.com/hufrea/byedpi)
