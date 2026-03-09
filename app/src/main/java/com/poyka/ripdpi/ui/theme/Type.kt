@@ -25,6 +25,10 @@ val GeistMonoFamily = FontFamily(
     Font(R.font.geist_mono_bold, FontWeight.Bold),
 )
 
+val GeistPixelCircleFamily = FontFamily(
+    Font(R.font.geist_pixel_circle, FontWeight.Normal),
+)
+
 private fun sansStyle(
     fontSize: Int,
     lineHeight: Int,
@@ -53,12 +57,28 @@ private fun monoStyle(
     platformStyle = PlatformTextStyle(includeFontPadding = false),
 )
 
+private fun pixelStyle(
+    fontSize: Int,
+    lineHeight: Int,
+    letterSpacing: Float = 0f,
+) = TextStyle(
+    fontFamily = GeistPixelCircleFamily,
+    fontWeight = FontWeight.Normal,
+    fontSize = fontSize.sp,
+    lineHeight = lineHeight.sp,
+    letterSpacing = letterSpacing.sp,
+    platformStyle = PlatformTextStyle(includeFontPadding = false),
+)
+
 @Immutable
 data class RipDpiTextStyles(
     val screenTitle: TextStyle,
     val appBarTitle: TextStyle,
     val sheetTitle: TextStyle,
     val sectionTitle: TextStyle,
+    val introAction: TextStyle,
+    val introTitle: TextStyle,
+    val introBody: TextStyle,
     val body: TextStyle,
     val bodyEmphasis: TextStyle,
     val secondaryBody: TextStyle,
@@ -71,6 +91,7 @@ data class RipDpiTextStyles(
     val monoInline: TextStyle,
     val monoLog: TextStyle,
     val monoSmall: TextStyle,
+    val brandGlyph: TextStyle,
     val brandMark: TextStyle,
     val brandStatus: TextStyle,
 )
@@ -85,6 +106,9 @@ val RipDpiTypeScale = RipDpiTextStyles(
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.88f,
     ),
+    introAction = sansStyle(fontSize = 14, lineHeight = 21, fontWeight = FontWeight.Normal),
+    introTitle = sansStyle(fontSize = 22, lineHeight = 30, fontWeight = FontWeight.Medium),
+    introBody = sansStyle(fontSize = 15, lineHeight = 22, fontWeight = FontWeight.Normal),
     body = sansStyle(fontSize = 14, lineHeight = 20, fontWeight = FontWeight.Normal),
     bodyEmphasis = sansStyle(fontSize = 14, lineHeight = 20, fontWeight = FontWeight.Medium),
     secondaryBody = sansStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Normal),
@@ -97,8 +121,8 @@ val RipDpiTypeScale = RipDpiTextStyles(
     monoInline = monoStyle(fontSize = 12, lineHeight = 20),
     monoLog = monoStyle(fontSize = 11, lineHeight = 20),
     monoSmall = monoStyle(fontSize = 10, lineHeight = 20),
-    // Figma uses Geist Pixel for branding, but the bundled foundation only includes Sans/Mono.
-    brandMark = monoStyle(fontSize = 20, lineHeight = 28, fontWeight = FontWeight.Bold),
+    brandGlyph = pixelStyle(fontSize = 24, lineHeight = 24),
+    brandMark = pixelStyle(fontSize = 32, lineHeight = 48, letterSpacing = 0.8f),
     brandStatus = monoStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Medium),
 )
 
