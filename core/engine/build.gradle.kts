@@ -1,7 +1,7 @@
 import java.util.Properties
 
 plugins {
-    id("com.android.library")
+    alias(libs.plugins.android.library)
 }
 
 android {
@@ -36,8 +36,8 @@ kotlin {
 
 dependencies {
     implementation(project(":core:data"))
-    implementation("androidx.datastore:datastore:1.2.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
+    implementation(libs.androidx.datastore)
+    implementation(libs.kotlinx.coroutines.core)
 }
 
 val localProperties = Properties().apply {
