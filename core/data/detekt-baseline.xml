@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>MagicNumber:ValidateUtils.kt$65535</ID>
+    <ID>NewLineAtEndOfFile:AppStatus.kt$com.poyka.ripdpi.data.AppStatus.kt</ID>
+    <ID>TopLevelPropertyNaming:Actions.kt$const val START_ACTION = "start"</ID>
+    <ID>TopLevelPropertyNaming:Actions.kt$const val STOP_ACTION = "stop"</ID>
+  </CurrentIssues>
+</SmellBaseline>

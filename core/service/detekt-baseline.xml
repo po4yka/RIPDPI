@@ -1,0 +1,17 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$1080</ID>
+    <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$128</ID>
+    <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$32</ID>
+    <ID>ThrowsCount:RipDpiVpnService.kt$RipDpiVpnService$private suspend fun startTun2Socks()</ID>
+    <ID>TooGenericExceptionCaught:RipDpiProxyService.kt$RipDpiProxyService$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RipDpiVpnService.kt$RipDpiVpnService$e: Exception</ID>
+    <ID>UseCheckOrError:RipDpiProxyService.kt$RipDpiProxyService$throw IllegalStateException("Proxy fields not null")</ID>
+    <ID>UseCheckOrError:RipDpiVpnService.kt$RipDpiVpnService$throw IllegalStateException("Proxy fields not null")</ID>
+    <ID>UseCheckOrError:RipDpiVpnService.kt$RipDpiVpnService$throw IllegalStateException("ProxyJob field null")</ID>
+    <ID>UseCheckOrError:RipDpiVpnService.kt$RipDpiVpnService$throw IllegalStateException("VPN connection failed")</ID>
+    <ID>UseCheckOrError:RipDpiVpnService.kt$RipDpiVpnService$throw IllegalStateException("VPN field not null")</ID>
+  </CurrentIssues>
+</SmellBaseline>
