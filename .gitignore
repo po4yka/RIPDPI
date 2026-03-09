@@ -15,3 +15,12 @@
 .cxx
 local.properties
 /app/src/main/jniLibs
+
+# Ralph loop
+.ralph/
+ralph.yml
+hats.yml
+PROMPT.md
+
+# Kotlin compiler/IDE cache
+.kotlin/
