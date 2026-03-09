@@ -31,11 +31,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.poyka.ripdpi.R
@@ -48,26 +48,27 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
-private val OnboardingPages = listOf(
-    OnboardingPageModel(
-        titleRes = R.string.onboarding_local_first_title,
-        descriptionRes = R.string.onboarding_local_first_body,
-        buttonLabelRes = R.string.onboarding_continue,
-        illustration = OnboardingIllustration.LocalFirst,
-    ),
-    OnboardingPageModel(
-        titleRes = R.string.onboarding_permission_title,
-        descriptionRes = R.string.onboarding_permission_body,
-        buttonLabelRes = R.string.onboarding_continue,
-        illustration = OnboardingIllustration.Permission,
-    ),
-    OnboardingPageModel(
-        titleRes = R.string.onboarding_modes_title,
-        descriptionRes = R.string.onboarding_modes_body,
-        buttonLabelRes = R.string.onboarding_get_started,
-        illustration = OnboardingIllustration.Modes,
-    ),
-)
+private val OnboardingPages =
+    listOf(
+        OnboardingPageModel(
+            titleRes = R.string.onboarding_local_first_title,
+            descriptionRes = R.string.onboarding_local_first_body,
+            buttonLabelRes = R.string.onboarding_continue,
+            illustration = OnboardingIllustration.LocalFirst,
+        ),
+        OnboardingPageModel(
+            titleRes = R.string.onboarding_permission_title,
+            descriptionRes = R.string.onboarding_permission_body,
+            buttonLabelRes = R.string.onboarding_continue,
+            illustration = OnboardingIllustration.Permission,
+        ),
+        OnboardingPageModel(
+            titleRes = R.string.onboarding_modes_title,
+            descriptionRes = R.string.onboarding_modes_body,
+            buttonLabelRes = R.string.onboarding_get_started,
+            illustration = OnboardingIllustration.Modes,
+        ),
+    )
 
 @Composable
 fun OnboardingRoute(
@@ -111,10 +112,11 @@ fun OnboardingScreen(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val introLayout = RipDpiThemeTokens.introLayout
-    val pagerState = rememberPagerState(
-        initialPage = uiState.currentPage.coerceIn(0, OnboardingPages.lastIndex),
-        pageCount = { OnboardingPages.size },
-    )
+    val pagerState =
+        rememberPagerState(
+            initialPage = uiState.currentPage.coerceIn(0, OnboardingPages.lastIndex),
+            pageCount = { OnboardingPages.size },
+        )
 
     LaunchedEffect(uiState.currentPage) {
         val targetPage = uiState.currentPage.coerceIn(0, OnboardingPages.lastIndex)
@@ -130,32 +132,36 @@ fun OnboardingScreen(
     }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background)
-            .padding(horizontal = RipDpiThemeTokens.layout.horizontalPadding),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background)
+                .padding(horizontal = RipDpiThemeTokens.layout.horizontalPadding),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(introLayout.topActionRowHeight),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(introLayout.topActionRowHeight),
             contentAlignment = Alignment.TopEnd,
         ) {
             Text(
                 text = stringResource(R.string.onboarding_skip),
                 style = type.introAction,
                 color = colors.mutedForeground,
-                modifier = Modifier
-                    .padding(top = introLayout.topActionTopPadding)
-                    .clickable(role = Role.Button, onClick = onSkip),
+                modifier =
+                    Modifier
+                        .padding(top = introLayout.topActionTopPadding)
+                        .clickable(role = Role.Button, onClick = onSkip),
             )
         }
 
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
         ) { page ->
             val pageModel = OnboardingPages[page]
             Column(
@@ -173,9 +179,10 @@ fun OnboardingScreen(
                     style = type.introTitle,
                     color = colors.foreground,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = introLayout.titleHorizontalPadding),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = introLayout.titleHorizontalPadding),
                 )
                 Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
                 Text(
@@ -183,17 +190,19 @@ fun OnboardingScreen(
                     style = type.introBody,
                     color = colors.mutedForeground,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = introLayout.bodyHorizontalPadding),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = introLayout.bodyHorizontalPadding),
                 )
             }
         }
 
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = introLayout.footerBottomPadding),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = introLayout.footerBottomPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             RipDpiPageIndicators(
@@ -204,10 +213,11 @@ fun OnboardingScreen(
             RipDpiButton(
                 text = stringResource(OnboardingPages[pagerState.currentPage].buttonLabelRes),
                 onClick = onContinue,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                    .heightIn(min = introLayout.footerButtonMinHeight),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = introLayout.footerButtonHorizontalInset)
+                        .heightIn(min = introLayout.footerButtonMinHeight),
                 trailingIcon = RipDpiIcons.ChevronRight,
             )
         }
@@ -224,12 +234,13 @@ private fun OnboardingIllustration(
     val strokeWidth = introLayout.illustrationIconStrokeWidth
 
     Box(
-        modifier = modifier
-            .border(
-                introLayout.illustrationBorderWidth,
-                colors.foreground,
-                RoundedCornerShape(introLayout.illustrationCornerRadius),
-            ),
+        modifier =
+            modifier
+                .border(
+                    introLayout.illustrationBorderWidth,
+                    colors.foreground,
+                    RoundedCornerShape(introLayout.illustrationCornerRadius),
+                ),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.size(introLayout.illustrationIconSize)) {
@@ -243,45 +254,48 @@ private fun OnboardingIllustration(
                 }
 
                 OnboardingIllustration.Permission -> {
-                    val shield = Path().apply {
-                        moveTo(size.width * 0.5f, size.height * 0.12f)
-                        lineTo(size.width * 0.78f, size.height * 0.22f)
-                        lineTo(size.width * 0.78f, size.height * 0.48f)
-                        cubicTo(
-                            size.width * 0.78f,
-                            size.height * 0.72f,
-                            size.width * 0.62f,
-                            size.height * 0.86f,
-                            size.width * 0.5f,
-                            size.height * 0.92f,
-                        )
-                        cubicTo(
-                            size.width * 0.38f,
-                            size.height * 0.86f,
-                            size.width * 0.22f,
-                            size.height * 0.72f,
-                            size.width * 0.22f,
-                            size.height * 0.48f,
-                        )
-                        lineTo(size.width * 0.22f, size.height * 0.22f)
-                        close()
-                    }
+                    val shield =
+                        Path().apply {
+                            moveTo(size.width * 0.5f, size.height * 0.12f)
+                            lineTo(size.width * 0.78f, size.height * 0.22f)
+                            lineTo(size.width * 0.78f, size.height * 0.48f)
+                            cubicTo(
+                                size.width * 0.78f,
+                                size.height * 0.72f,
+                                size.width * 0.62f,
+                                size.height * 0.86f,
+                                size.width * 0.5f,
+                                size.height * 0.92f,
+                            )
+                            cubicTo(
+                                size.width * 0.38f,
+                                size.height * 0.86f,
+                                size.width * 0.22f,
+                                size.height * 0.72f,
+                                size.width * 0.22f,
+                                size.height * 0.48f,
+                            )
+                            lineTo(size.width * 0.22f, size.height * 0.22f)
+                            close()
+                        }
                     drawPath(
                         path = shield,
                         color = colors.foreground,
-                        style = Stroke(
-                            width = strokeWidth.toPx(),
-                            cap = StrokeCap.Round,
-                            join = StrokeJoin.Round,
-                        ),
+                        style =
+                            Stroke(
+                                width = strokeWidth.toPx(),
+                                cap = StrokeCap.Round,
+                                join = StrokeJoin.Round,
+                            ),
                     )
                 }
 
                 OnboardingIllustration.Modes -> {
-                    val stroke = Stroke(
-                        width = strokeWidth.toPx(),
-                        cap = StrokeCap.Round,
-                    )
+                    val stroke =
+                        Stroke(
+                            width = strokeWidth.toPx(),
+                            cap = StrokeCap.Round,
+                        )
                     drawRoundRect(
                         color = colors.foreground,
                         topLeft = Offset(size.width * 0.12f, size.height * 0.18f),

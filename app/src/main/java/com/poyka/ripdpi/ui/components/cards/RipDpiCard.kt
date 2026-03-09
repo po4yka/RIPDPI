@@ -43,26 +43,26 @@ fun RipDpiCard(
     val shape = RoundedCornerShape(16.dp)
     val background = MaterialTheme.colorScheme.surface
     val borderColor = if (variant == RipDpiCardVariant.Outlined) colors.cardBorder else Color.Transparent
-    val cardModifier = modifier
-        .fillMaxWidth()
-        .shadow(if (variant == RipDpiCardVariant.Elevated) 24.dp else 0.dp, shape, clip = false)
-        .background(background, shape)
-        .border(if (variant == RipDpiCardVariant.Outlined) 1.dp else 0.dp, borderColor, shape)
-        .alpha(if (enabled) 1f else 0.38f)
-        .then(
-            if (onClick != null) {
-                Modifier.clickable(
-                    enabled = enabled,
-                    role = Role.Button,
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onClick,
-                )
-            } else {
-                Modifier
-            }
-        )
-        .padding(paddingValues)
+    val cardModifier =
+        modifier
+            .fillMaxWidth()
+            .shadow(if (variant == RipDpiCardVariant.Elevated) 24.dp else 0.dp, shape, clip = false)
+            .background(background, shape)
+            .border(if (variant == RipDpiCardVariant.Outlined) 1.dp else 0.dp, borderColor, shape)
+            .alpha(if (enabled) 1f else 0.38f)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        enabled = enabled,
+                        role = Role.Button,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
+            ).padding(paddingValues)
 
     Column(
         modifier = cardModifier,

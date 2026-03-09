@@ -57,10 +57,11 @@ fun RipDpiBottomSheet(
         modifier = modifier,
         sheetState = sheetState,
         sheetMaxWidth = Dp.Unspecified,
-        shape = MaterialTheme.shapes.extraLarge.copy(
-            bottomStart = ZeroCornerSize,
-            bottomEnd = ZeroCornerSize,
-        ),
+        shape =
+            MaterialTheme.shapes.extraLarge.copy(
+                bottomStart = ZeroCornerSize,
+                bottomEnd = ZeroCornerSize,
+            ),
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = RipDpiThemeTokens.colors.foreground,
         scrimColor = MaterialTheme.colorScheme.scrim,
@@ -105,15 +106,16 @@ fun RipDpiBottomSheetCard(
         border = BorderStroke(RipDpiStroke.Thin, colors.cardBorder),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(
-                    start = layout.horizontalPadding,
-                    end = layout.horizontalPadding,
-                    top = spacing.sm,
-                    bottom = spacing.xxl,
-                ),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(
+                        start = layout.horizontalPadding,
+                        end = layout.horizontalPadding,
+                        top = spacing.sm,
+                        bottom = spacing.xxl,
+                    ),
             verticalArrangement = Arrangement.spacedBy(spacing.lg),
         ) {
             icon?.let {
@@ -155,23 +157,23 @@ private fun RipDpiBottomSheetHandle() {
     val colors = RipDpiThemeTokens.colors
 
     Box(
-        modifier = Modifier
-            .padding(top = 12.dp)
-            .size(width = 36.dp, height = 4.dp)
-            .background(color = colors.border, shape = CircleShape),
+        modifier =
+            Modifier
+                .padding(top = 12.dp)
+                .size(width = 36.dp, height = 4.dp)
+                .background(color = colors.border, shape = CircleShape),
     )
 }
 
 @Composable
-private fun RipDpiBottomSheetIconBadge(
-    icon: ImageVector,
-) {
+private fun RipDpiBottomSheetIconBadge(icon: ImageVector) {
     val colors = RipDpiThemeTokens.colors
 
     Box(
-        modifier = Modifier
-            .size(40.dp)
-            .background(color = colors.inputBackground, shape = CircleShape),
+        modifier =
+            Modifier
+                .size(40.dp)
+                .background(color = colors.inputBackground, shape = CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -235,15 +237,14 @@ private fun RipDpiBottomSheetDarkPreview() {
 }
 
 @Composable
-private fun RipDpiBottomSheetPreview(
-    themePreference: String,
-) {
+private fun RipDpiBottomSheetPreview(themePreference: String) {
     RipDpiTheme(themePreference = themePreference) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(560.dp)
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.24f)),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(560.dp)
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.24f)),
             contentAlignment = Alignment.BottomCenter,
         ) {
             RipDpiBottomSheetCard(

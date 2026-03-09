@@ -58,6 +58,7 @@ data class ConfigUiState(
 
 sealed interface ConfigEffect {
     data object SaveSuccess : ConfigEffect
+
     data object ValidationFailed : ConfigEffect
 }
 
@@ -90,11 +91,12 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
 internal fun buildConfigPresets(currentDraft: ConfigDraft): List<ConfigPreset> {
     val recommendedDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
     val proxyDraft = recommendedDraft.copy(mode = Mode.Proxy)
-    val selectedId = when (currentDraft) {
-        recommendedDraft -> "recommended"
-        proxyDraft -> "proxy"
-        else -> "custom"
-    }
+    val selectedId =
+        when (currentDraft) {
+            recommendedDraft -> "recommended"
+            proxyDraft -> "proxy"
+            else -> "custom"
+        }
 
     return listOf(
         ConfigPreset(
@@ -118,87 +120,93 @@ internal fun buildConfigPresets(currentDraft: ConfigDraft): List<ConfigPreset> {
     )
 }
 
-internal fun validateConfigDraft(draft: ConfigDraft): Map<String, String> = buildMap {
-    if (draft.mode == Mode.VPN && !checkNotLocalIp(draft.dnsIp)) {
-        put(ConfigFieldDnsIp, "invalid_dns_ip")
+internal fun validateConfigDraft(draft: ConfigDraft): Map<String, String> =
+    buildMap {
+        if (draft.mode == Mode.VPN && !checkNotLocalIp(draft.dnsIp)) {
+            put(ConfigFieldDnsIp, "invalid_dns_ip")
+        }
+
+        if (!checkIp(draft.proxyIp)) {
+            put(ConfigFieldProxyIp, "invalid_proxy_ip")
+        }
+
+        if (!validatePort(draft.proxyPort)) {
+            put(ConfigFieldProxyPort, "invalid_port")
+        }
+
+        if (!validateIntRange(draft.maxConnections, 1, Short.MAX_VALUE.toInt())) {
+            put(ConfigFieldMaxConnections, "out_of_range")
+        }
+
+        if (!validateIntRange(draft.bufferSize, 1, Int.MAX_VALUE / 4)) {
+            put(ConfigFieldBufferSize, "out_of_range")
+        }
+
+        if (draft.defaultTtl.isNotEmpty() && !validateIntRange(draft.defaultTtl, 0, 255)) {
+            put(ConfigFieldDefaultTtl, "out_of_range")
+        }
     }
 
-    if (!checkIp(draft.proxyIp)) {
-        put(ConfigFieldProxyIp, "invalid_proxy_ip")
+private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSettings.Builder =
+    apply {
+        val defaults = AppSettingsSerializer.defaultValue
+        setRipdpiMode(draft.mode.toPreferenceValue())
+        setDnsIp(draft.dnsIp.ifBlank { defaults.dnsIp })
+        setEnableCmdSettings(draft.useCommandLineSettings)
+        setCmdArgs(draft.commandLineArgs)
+        setProxyIp(draft.proxyIp.ifBlank { defaults.proxyIp })
+        setProxyPort(draft.proxyPort.toIntOrNull() ?: defaults.proxyPort)
+        setMaxConnections(draft.maxConnections.toIntOrNull() ?: defaults.maxConnections)
+        setBufferSize(draft.bufferSize.toIntOrNull() ?: defaults.bufferSize)
+        setDesyncMethod(draft.desyncMethod.ifBlank { defaults.desyncMethod })
+        setCustomTtl(draft.defaultTtl.isNotBlank())
+        setDefaultTtl(draft.defaultTtl.toIntOrNull() ?: 0)
     }
 
-    if (!validatePort(draft.proxyPort)) {
-        put(ConfigFieldProxyPort, "invalid_port")
+private fun Mode.toPreferenceValue(): String =
+    when (this) {
+        Mode.Proxy -> "proxy"
+        Mode.VPN -> "vpn"
     }
 
-    if (!validateIntRange(draft.maxConnections, 1, Short.MAX_VALUE.toInt())) {
-        put(ConfigFieldMaxConnections, "out_of_range")
-    }
-
-    if (!validateIntRange(draft.bufferSize, 1, Int.MAX_VALUE / 4)) {
-        put(ConfigFieldBufferSize, "out_of_range")
-    }
-
-    if (draft.defaultTtl.isNotEmpty() && !validateIntRange(draft.defaultTtl, 0, 255)) {
-        put(ConfigFieldDefaultTtl, "out_of_range")
-    }
-}
-
-private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSettings.Builder = apply {
-    val defaults = AppSettingsSerializer.defaultValue
-    setRipdpiMode(draft.mode.toPreferenceValue())
-    setDnsIp(draft.dnsIp.ifBlank { defaults.dnsIp })
-    setEnableCmdSettings(draft.useCommandLineSettings)
-    setCmdArgs(draft.commandLineArgs)
-    setProxyIp(draft.proxyIp.ifBlank { defaults.proxyIp })
-    setProxyPort(draft.proxyPort.toIntOrNull() ?: defaults.proxyPort)
-    setMaxConnections(draft.maxConnections.toIntOrNull() ?: defaults.maxConnections)
-    setBufferSize(draft.bufferSize.toIntOrNull() ?: defaults.bufferSize)
-    setDesyncMethod(draft.desyncMethod.ifBlank { defaults.desyncMethod })
-    setCustomTtl(draft.defaultTtl.isNotBlank())
-    setDefaultTtl(draft.defaultTtl.toIntOrNull() ?: 0)
-}
-
-private fun Mode.toPreferenceValue(): String = when (this) {
-    Mode.Proxy -> "proxy"
-    Mode.VPN -> "vpn"
-}
-
-class ConfigViewModel(application: Application) : AndroidViewModel(application) {
-
+class ConfigViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val editorSession = MutableStateFlow(ConfigEditorSession())
 
     private val _effects = Channel<ConfigEffect>(Channel.BUFFERED)
     val effects: Flow<ConfigEffect> = _effects.receiveAsFlow()
 
-    val uiState: StateFlow<ConfigUiState> = combine(
-        application.settingsStore.data,
-        editorSession,
-    ) { settings, session ->
-        val currentDraft = settings.toConfigDraft()
-        val draft = session.draft ?: currentDraft
-        val presets = buildConfigPresets(currentDraft)
-        val editingPreset = session.presetId?.let { presetId ->
-            presets.firstOrNull { it.id == presetId }?.copy(draft = draft)
-                ?: ConfigPreset(
-                    id = presetId,
-                    kind = ConfigPresetKind.Custom,
-                    draft = draft,
-                )
-        }
+    val uiState: StateFlow<ConfigUiState> =
+        combine(
+            application.settingsStore.data,
+            editorSession,
+        ) { settings, session ->
+            val currentDraft = settings.toConfigDraft()
+            val draft = session.draft ?: currentDraft
+            val presets = buildConfigPresets(currentDraft)
+            val editingPreset =
+                session.presetId?.let { presetId ->
+                    presets.firstOrNull { it.id == presetId }?.copy(draft = draft)
+                        ?: ConfigPreset(
+                            id = presetId,
+                            kind = ConfigPresetKind.Custom,
+                            draft = draft,
+                        )
+                }
 
-        ConfigUiState(
-            activeMode = currentDraft.mode,
-            presets = presets,
-            editingPreset = editingPreset,
-            draft = draft,
-            validationErrors = validateConfigDraft(draft),
+            ConfigUiState(
+                activeMode = currentDraft.mode,
+                presets = presets,
+                editingPreset = editingPreset,
+                draft = draft,
+                validationErrors = validateConfigDraft(draft),
+            )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ConfigUiState(),
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = ConfigUiState(),
-    )
 
     fun selectMode(mode: Mode) {
         editorSession.update { current ->
@@ -207,7 +215,8 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
 
         viewModelScope.launch {
             getApplication<Application>().settingsStore.updateData { settings ->
-                settings.toBuilder()
+                settings
+                    .toBuilder()
                     .setRipdpiMode(mode.toPreferenceValue())
                     .build()
             }
@@ -223,7 +232,8 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
 
         viewModelScope.launch {
             getApplication<Application>().settingsStore.updateData { settings ->
-                settings.toBuilder()
+                settings
+                    .toBuilder()
                     .applyConfigDraft(preset.draft)
                     .build()
             }
@@ -234,10 +244,11 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
     fun startEditingPreset(presetId: String = "custom") {
         val preset = uiState.value.presets.firstOrNull { it.id == presetId }
         val draft = preset?.draft ?: uiState.value.draft
-        editorSession.value = ConfigEditorSession(
-            presetId = presetId,
-            draft = draft,
-        )
+        editorSession.value =
+            ConfigEditorSession(
+                presetId = presetId,
+                draft = draft,
+            )
     }
 
     fun updateDraft(transform: ConfigDraft.() -> ConfigDraft) {
@@ -260,7 +271,8 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
 
         viewModelScope.launch {
             getApplication<Application>().settingsStore.updateData { settings ->
-                settings.toBuilder()
+                settings
+                    .toBuilder()
                     .applyConfigDraft(draft)
                     .build()
             }
@@ -273,7 +285,8 @@ class ConfigViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
             getApplication<Application>().settingsStore.updateData { settings ->
-                settings.toBuilder()
+                settings
+                    .toBuilder()
                     .applyConfigDraft(defaultDraft)
                     .build()
             }

@@ -5,12 +5,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 
-internal val topLevelRouteOrder = listOf(
-    "home",
-    "config",
-    "logs",
-    "settings",
-)
+internal val topLevelRouteOrder =
+    listOf(
+        "home",
+        "config",
+        "logs",
+        "settings",
+    )
 
 sealed class Route(
     val route: String,
@@ -89,20 +90,21 @@ sealed class Route(
     companion object {
         val topLevel = listOf(Home, Config, Logs, Settings)
 
-        val all = listOf(
-            Splash,
-            Onboarding,
-            Home,
-            Config,
-            Logs,
-            Settings,
-            ModeEditor,
-            DnsSettings,
-            AdvancedSettings,
-            VpnPermission,
-            BiometricPrompt,
-            AppCustomization,
-            About,
-        )
+        val all =
+            listOf(
+                Splash,
+                Onboarding,
+                Home,
+                Config,
+                Logs,
+                Settings,
+                ModeEditor,
+                DnsSettings,
+                AdvancedSettings,
+                VpnPermission,
+                BiometricPrompt,
+                AppCustomization,
+                About,
+            )
     }
 }

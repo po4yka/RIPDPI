@@ -1,8 +1,11 @@
 package com.poyka.ripdpi.ui.screens.permissions
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -11,6 +14,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -26,10 +30,6 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
 
 enum class BiometricPromptStage {
     Biometric,
@@ -102,25 +102,28 @@ fun BiometricPromptScreen(
     val introLayout = RipDpiThemeTokens.introLayout
 
     AuthPromptScaffold(
-        title = stringResource(
+        title =
+            stringResource(
+                if (isPinStage) {
+                    R.string.biometric_prompt_pin_title
+                } else {
+                    R.string.biometric_prompt_title
+                },
+            ),
+        message =
+            stringResource(
+                if (isPinStage) {
+                    R.string.biometric_prompt_pin_body
+                } else {
+                    R.string.biometric_prompt_body
+                },
+            ),
+        illustration =
             if (isPinStage) {
-                R.string.biometric_prompt_pin_title
+                AuthPromptIllustration.Pin
             } else {
-                R.string.biometric_prompt_title
+                AuthPromptIllustration.Biometric
             },
-        ),
-        message = stringResource(
-            if (isPinStage) {
-                R.string.biometric_prompt_pin_body
-            } else {
-                R.string.biometric_prompt_body
-            },
-        ),
-        illustration = if (isPinStage) {
-            AuthPromptIllustration.Pin
-        } else {
-            AuthPromptIllustration.Biometric
-        },
         modifier = modifier,
         banner = {
             if (!isPinStage && !hasBackupPin) {
@@ -134,9 +137,10 @@ fun BiometricPromptScreen(
         content = {
             if (isPinStage) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = introLayout.bodyHorizontalPadding),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = introLayout.bodyHorizontalPadding),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     RipDpiTextField(
@@ -156,10 +160,11 @@ fun BiometricPromptScreen(
             RipDpiButton(
                 text = stringResource(R.string.biometric_prompt_action),
                 onClick = if (isPinStage) onSubmitPin else onAuthenticate,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                    .heightIn(min = introLayout.footerButtonMinHeight),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = introLayout.footerButtonHorizontalInset)
+                        .heightIn(min = introLayout.footerButtonMinHeight),
                 trailingIcon = if (isPinStage) null else com.poyka.ripdpi.ui.theme.RipDpiIcons.ChevronRight,
             )
 
@@ -168,20 +173,22 @@ fun BiometricPromptScreen(
                     text = stringResource(R.string.biometric_prompt_use_biometric),
                     onClick = onBackToBiometric,
                     variant = RipDpiButtonVariant.Outline,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                        .heightIn(min = introLayout.footerButtonMinHeight),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = introLayout.footerButtonHorizontalInset)
+                            .heightIn(min = introLayout.footerButtonMinHeight),
                 )
             } else if (hasBackupPin) {
                 RipDpiButton(
                     text = stringResource(R.string.biometric_prompt_use_pin),
                     onClick = onUseBackupPin,
                     variant = RipDpiButtonVariant.Outline,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                        .heightIn(min = introLayout.footerButtonMinHeight),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = introLayout.footerButtonHorizontalInset)
+                            .heightIn(min = introLayout.footerButtonMinHeight),
                 )
             }
         },
@@ -193,10 +200,11 @@ fun BiometricPromptScreen(
 private fun BiometricPromptScreenPreview() {
     RipDpiTheme(themePreference = "light") {
         BiometricPromptScreen(
-            uiState = SettingsUiState(
-                biometricEnabled = true,
-                backupPin = "1234",
-            ),
+            uiState =
+                SettingsUiState(
+                    biometricEnabled = true,
+                    backupPin = "1234",
+                ),
             stage = BiometricPromptStage.Biometric,
             pin = "",
             pinError = null,
@@ -214,10 +222,11 @@ private fun BiometricPromptScreenPreview() {
 private fun BiometricPromptPinDarkPreview() {
     RipDpiTheme(themePreference = "dark") {
         BiometricPromptScreen(
-            uiState = SettingsUiState(
-                biometricEnabled = true,
-                backupPin = "1234",
-            ),
+            uiState =
+                SettingsUiState(
+                    biometricEnabled = true,
+                    backupPin = "1234",
+                ),
             stage = BiometricPromptStage.Pin,
             pin = "0000",
             pinError = "The backup PIN does not match.",

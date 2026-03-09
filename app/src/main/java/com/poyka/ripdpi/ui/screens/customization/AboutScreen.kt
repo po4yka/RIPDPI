@@ -51,9 +51,10 @@ internal fun AboutScreen(
     val docsUrl = stringResource(R.string.ripdpi_docs)
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background),
     ) {
         RipDpiTopAppBar(
             title = stringResource(R.string.about_category),
@@ -63,12 +64,13 @@ internal fun AboutScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = layout.horizontalPadding,
-                top = spacing.sm,
-                end = layout.horizontalPadding,
-                bottom = spacing.xxl,
-            ),
+            contentPadding =
+                PaddingValues(
+                    start = layout.horizontalPadding,
+                    top = spacing.sm,
+                    end = layout.horizontalPadding,
+                    bottom = spacing.xxl,
+                ),
             verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
         ) {
             item {

@@ -61,7 +61,9 @@ fun ConfigRoute(
                     onOpenModeEditor()
                 }
 
-                else -> viewModel.selectPreset(preset.id)
+                else -> {
+                    viewModel.selectPreset(preset.id)
+                }
             }
         },
         onEditCurrent = {
@@ -87,23 +89,26 @@ fun ConfigScreen(
     val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
     val selectedPreset = uiState.presets.firstOrNull { it.isSelected } ?: uiState.presets.last()
-    val desyncSummary = uiState.draft.desyncMethod.takeIf { it.isNotBlank() }
-        ?: stringResource(R.string.config_desync_disorder)
+    val desyncSummary =
+        uiState.draft.desyncMethod.takeIf { it.isNotBlank() }
+            ?: stringResource(R.string.config_desync_disorder)
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background),
     ) {
         RipDpiTopAppBar(
             title = stringResource(R.string.config),
         )
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = layout.horizontalPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = layout.horizontalPadding),
             verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
         ) {
             Spacer(modifier = Modifier.height(spacing.sm))
@@ -141,11 +146,12 @@ fun ConfigScreen(
                 RipDpiButton(
                     text = stringResource(R.string.config_edit_current),
                     onClick = onEditCurrent,
-                    variant = if (selectedPreset.kind == ConfigPresetKind.Custom) {
-                        RipDpiButtonVariant.Primary
-                    } else {
-                        RipDpiButtonVariant.Outline
-                    },
+                    variant =
+                        if (selectedPreset.kind == ConfigPresetKind.Custom) {
+                            RipDpiButtonVariant.Primary
+                        } else {
+                            RipDpiButtonVariant.Outline
+                        },
                     trailingIcon = RipDpiIcons.ChevronRight,
                 )
             }
@@ -157,11 +163,12 @@ fun ConfigScreen(
                         PresetCard(
                             title = stringResource(titleResForPreset(preset.kind)),
                             description = stringResource(descriptionResForPreset(preset.kind)),
-                            badgeText = if (preset.isSelected) {
-                                stringResource(R.string.config_badge_active)
-                            } else {
-                                null
-                            },
+                            badgeText =
+                                if (preset.isSelected) {
+                                    stringResource(R.string.config_badge_active)
+                                } else {
+                                    null
+                                },
                             selected = preset.isSelected,
                             onClick = { onPresetSelected(preset) },
                         )
@@ -179,13 +186,14 @@ fun ConfigScreen(
                     )
                     SettingsRow(
                         title = stringResource(R.string.dbs_ip_setting),
-                        subtitle = stringResource(
-                            if (uiState.draft.mode == Mode.VPN) {
-                                R.string.config_dns_summary_enabled
-                            } else {
-                                R.string.config_dns_summary_disabled
-                            },
-                        ),
+                        subtitle =
+                            stringResource(
+                                if (uiState.draft.mode == Mode.VPN) {
+                                    R.string.config_dns_summary_enabled
+                                } else {
+                                    R.string.config_dns_summary_disabled
+                                },
+                            ),
                         value = uiState.draft.dnsIp,
                         onClick = onOpenDnsSettings,
                         monospaceValue = true,
@@ -193,11 +201,12 @@ fun ConfigScreen(
                     )
                     SettingsRow(
                         title = stringResource(R.string.bye_dpi_proxy_ip_setting),
-                        value = stringResource(
-                            R.string.proxy_address,
-                            uiState.draft.proxyIp,
-                            uiState.draft.proxyPort,
-                        ),
+                        value =
+                            stringResource(
+                                R.string.proxy_address,
+                                uiState.draft.proxyIp,
+                                uiState.draft.proxyPort,
+                            ),
                         monospaceValue = true,
                         showDivider = true,
                     )
@@ -246,33 +255,37 @@ internal fun ConfigModeChips(
     }
 }
 
-internal fun titleResForPreset(kind: ConfigPresetKind): Int = when (kind) {
-    ConfigPresetKind.Recommended -> R.string.config_preset_recommended_title
-    ConfigPresetKind.Proxy -> R.string.config_preset_proxy_title
-    ConfigPresetKind.Custom -> R.string.config_preset_custom_title
-}
+internal fun titleResForPreset(kind: ConfigPresetKind): Int =
+    when (kind) {
+        ConfigPresetKind.Recommended -> R.string.config_preset_recommended_title
+        ConfigPresetKind.Proxy -> R.string.config_preset_proxy_title
+        ConfigPresetKind.Custom -> R.string.config_preset_custom_title
+    }
 
-private fun descriptionResForPreset(kind: ConfigPresetKind): Int = when (kind) {
-    ConfigPresetKind.Recommended -> R.string.config_preset_recommended_body
-    ConfigPresetKind.Proxy -> R.string.config_preset_proxy_body
-    ConfigPresetKind.Custom -> R.string.config_preset_custom_body
-}
+private fun descriptionResForPreset(kind: ConfigPresetKind): Int =
+    when (kind) {
+        ConfigPresetKind.Recommended -> R.string.config_preset_recommended_body
+        ConfigPresetKind.Proxy -> R.string.config_preset_proxy_body
+        ConfigPresetKind.Custom -> R.string.config_preset_custom_body
+    }
 
-internal fun modeLabelRes(mode: Mode): Int = when (mode) {
-    Mode.VPN -> R.string.home_mode_vpn
-    Mode.Proxy -> R.string.home_mode_proxy
-}
+internal fun modeLabelRes(mode: Mode): Int =
+    when (mode) {
+        Mode.VPN -> R.string.home_mode_vpn
+        Mode.Proxy -> R.string.home_mode_proxy
+    }
 
 @Preview(showBackground = true)
 @Composable
 private fun ConfigScreenPreview() {
     RipDpiTheme {
         ConfigScreen(
-            uiState = ConfigUiState(
-                activeMode = Mode.VPN,
-                presets = buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
-                draft = AppSettingsSerializer.defaultValue.toConfigDraft(),
-            ),
+            uiState =
+                ConfigUiState(
+                    activeMode = Mode.VPN,
+                    presets = buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
+                    draft = AppSettingsSerializer.defaultValue.toConfigDraft(),
+                ),
             onModeSelected = {},
             onPresetSelected = {},
             onEditCurrent = {},
@@ -284,22 +297,24 @@ private fun ConfigScreenPreview() {
 @Preview(showBackground = true)
 @Composable
 private fun ConfigScreenDarkPreview() {
-    val draft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(
-        mode = Mode.Proxy,
-        proxyIp = "192.168.0.4",
-        proxyPort = "1086",
-        useCommandLineSettings = true,
-        commandLineArgs = "--fake --split 2",
-        desyncMethod = "fake",
-        defaultTtl = "12",
-    )
+    val draft =
+        AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+            mode = Mode.Proxy,
+            proxyIp = "192.168.0.4",
+            proxyPort = "1086",
+            useCommandLineSettings = true,
+            commandLineArgs = "--fake --split 2",
+            desyncMethod = "fake",
+            defaultTtl = "12",
+        )
     RipDpiTheme(themePreference = "dark") {
         ConfigScreen(
-            uiState = ConfigUiState(
-                activeMode = draft.mode,
-                presets = buildConfigPresets(draft),
-                draft = draft,
-            ),
+            uiState =
+                ConfigUiState(
+                    activeMode = draft.mode,
+                    presets = buildConfigPresets(draft),
+                    draft = draft,
+                ),
             onModeSelected = {},
             onPresetSelected = {},
             onEditCurrent = {},

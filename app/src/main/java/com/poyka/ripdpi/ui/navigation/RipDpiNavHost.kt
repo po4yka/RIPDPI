@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.navigation
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
@@ -7,36 +8,35 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.poyka.ripdpi.activities.LogsViewModel
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.settingsStore
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
-import com.poyka.ripdpi.ui.screens.splash.SplashScreen
 import com.poyka.ripdpi.ui.screens.config.ConfigRoute
 import com.poyka.ripdpi.ui.screens.config.ModeEditorRoute
+import com.poyka.ripdpi.ui.screens.customization.AboutRoute
+import com.poyka.ripdpi.ui.screens.customization.AppCustomizationRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionRoute
-import com.poyka.ripdpi.ui.screens.customization.AboutRoute
-import com.poyka.ripdpi.ui.screens.customization.AppCustomizationRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
+import com.poyka.ripdpi.ui.screens.splash.SplashScreen
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -66,7 +66,10 @@ fun RipDpiNavHost(
         }
 
         when {
-            currentRoute == Route.Home.route -> onLaunchHomeHandled()
+            currentRoute == Route.Home.route -> {
+                onLaunchHomeHandled()
+            }
+
             shouldNavigateToHomeFromLaunchRequest(
                 launchHomeRequested = launchHomeRequested,
                 currentRoute = currentRoute,
@@ -119,11 +122,12 @@ fun RipDpiNavHost(
             composable(Route.Splash.route) {
                 SplashScreen(
                     onFinished = {
-                        val destination = when {
-                            !settings.onboardingComplete -> Route.Onboarding
-                            settings.biometricEnabled -> Route.BiometricPrompt
-                            else -> Route.Home
-                        }
+                        val destination =
+                            when {
+                                !settings.onboardingComplete -> Route.Onboarding
+                                settings.biometricEnabled -> Route.BiometricPrompt
+                                else -> Route.Home
+                            }
                         navController.navigate(destination.route) {
                             popUpTo(Route.Splash.route) {
                                 inclusive = true
@@ -175,9 +179,10 @@ fun RipDpiNavHost(
                 )
             }
             composable(Route.ModeEditor.route) {
-                val configBackStackEntry = remember(navController) {
-                    navController.getBackStackEntry(Route.Config.route)
-                }
+                val configBackStackEntry =
+                    remember(navController) {
+                        navController.getBackStackEntry(Route.Config.route)
+                    }
                 ModeEditorRoute(
                     onBack = { navController.popBackStack() },
                     viewModel = viewModel(viewModelStoreOwner = configBackStackEntry),
@@ -244,7 +249,8 @@ internal fun shouldNavigateToHomeFromLaunchRequest(
     }
 
     return currentRoute != Route.Home.route &&
-        currentRoute !in setOf(
+        currentRoute !in
+        setOf(
             Route.Splash.route,
             Route.Onboarding.route,
             Route.BiometricPrompt.route,

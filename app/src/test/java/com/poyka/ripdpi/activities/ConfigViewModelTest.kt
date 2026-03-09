@@ -8,7 +8,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConfigViewModelTest {
-
     private val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
 
     @Test
@@ -31,14 +30,15 @@ class ConfigViewModelTest {
 
     @Test
     fun `invalid draft reports validation errors`() {
-        val errors = validateConfigDraft(
-            defaultDraft.copy(
-                proxyPort = "0",
-                maxConnections = "0",
-                bufferSize = "0",
-                defaultTtl = "999",
-            ),
-        )
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    proxyPort = "0",
+                    maxConnections = "0",
+                    bufferSize = "0",
+                    defaultTtl = "999",
+                ),
+            )
 
         assertEquals("invalid_port", errors[ConfigFieldProxyPort])
         assertEquals("out_of_range", errors[ConfigFieldMaxConnections])

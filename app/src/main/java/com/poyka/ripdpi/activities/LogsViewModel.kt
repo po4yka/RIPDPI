@@ -58,27 +58,29 @@ internal fun classifyLogType(message: String): LogType {
     }
 }
 
-class LogsViewModel(application: Application) : AndroidViewModel(application) {
-
+class LogsViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val logBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
     private val activeFilters = MutableStateFlow(LogType.entries.toSet())
     private val autoScrollEnabled = MutableStateFlow(true)
 
-    val uiState: StateFlow<LogsUiState> = combine(
-        logBuffer,
-        activeFilters,
-        autoScrollEnabled,
-    ) { logs, filters, autoScroll ->
-        LogsUiState(
-            logs = logs,
-            activeFilters = filters,
-            isAutoScroll = autoScroll,
+    val uiState: StateFlow<LogsUiState> =
+        combine(
+            logBuffer,
+            activeFilters,
+            autoScrollEnabled,
+        ) { logs, filters, autoScroll ->
+            LogsUiState(
+                logs = logs,
+                activeFilters = filters,
+                isAutoScroll = autoScroll,
+            )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = LogsUiState(),
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = LogsUiState(),
-    )
 
     init {
         observeStatusTransitions()
@@ -156,7 +158,10 @@ class LogsViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun appendConnectionLog(mode: Mode, action: String) {
+    private fun appendConnectionLog(
+        mode: Mode,
+        action: String,
+    ) {
         appendEntry(
             LogEntry(
                 id = System.currentTimeMillis(),
@@ -188,7 +193,8 @@ class LogsViewModel(application: Application) : AndroidViewModel(application) {
         SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(timestampMs))
 }
 
-private fun Mode.displayName(): String = when (this) {
-    Mode.Proxy -> "Proxy"
-    Mode.VPN -> "VPN"
-}
+private fun Mode.displayName(): String =
+    when (this) {
+        Mode.Proxy -> "Proxy"
+        Mode.VPN -> "VPN"
+    }

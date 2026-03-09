@@ -46,36 +46,37 @@ fun SettingsRow(
     val type = RipDpiThemeTokens.type
     val rowContent: @Composable () -> Unit = {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = if (subtitle == null) 52.dp else 67.dp)
-                .then(
-                    if (onClick != null || (checked != null && onCheckedChange != null)) {
-                        Modifier.clickable(
-                            enabled = enabled,
-                            role = Role.Button,
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {
-                                when {
-                                    checked != null && onCheckedChange != null -> onCheckedChange(!checked)
-                                    onClick != null -> onClick()
-                                }
-                            },
-                        )
-                    } else {
-                        Modifier
-                    }
-                )
-                .padding(vertical = if (subtitle == null) 14.dp else 14.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = if (subtitle == null) 52.dp else 67.dp)
+                    .then(
+                        if (onClick != null || (checked != null && onCheckedChange != null)) {
+                            Modifier.clickable(
+                                enabled = enabled,
+                                role = Role.Button,
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = {
+                                    when {
+                                        checked != null && onCheckedChange != null -> onCheckedChange(!checked)
+                                        onClick != null -> onClick()
+                                    }
+                                },
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ).padding(vertical = if (subtitle == null) 14.dp else 14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             leadingIcon?.let {
                 Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(colors.accent, RipDpiThemeTokens.shapes.full),
+                    modifier =
+                        Modifier
+                            .size(28.dp)
+                            .background(colors.accent, RipDpiThemeTokens.shapes.full),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -136,7 +137,11 @@ fun SettingsRow(
 @Composable
 private fun SettingsRowPreview() {
     RipDpiComponentPreview {
-        RipDpiCard(paddingValues = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 0.dp)) {
+        RipDpiCard(
+            paddingValues =
+                androidx.compose.foundation.layout
+                    .PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+        ) {
             SettingsRow(
                 title = "DNS provider",
                 subtitle = "Cloudflare DoH",

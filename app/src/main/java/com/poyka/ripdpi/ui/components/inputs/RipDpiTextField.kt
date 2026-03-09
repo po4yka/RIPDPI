@@ -58,28 +58,32 @@ fun RipDpiTextField(
     val type = RipDpiThemeTokens.type
     var isFocused by remember { mutableStateOf(false) }
     val fieldFocused = forceFocused || isFocused
-    val borderWidth = when {
-        !enabled -> 1.dp
-        errorText != null -> 2.dp
-        fieldFocused -> 2.dp
-        else -> 1.dp
-    }
-    val borderColor = when {
-        !enabled -> colors.border
-        errorText != null -> colors.destructive
-        fieldFocused -> colors.foreground
-        else -> MaterialTheme.colorScheme.outlineVariant
-    }
-    val contentColor = when {
-        !enabled -> colors.mutedForeground
-        value.isEmpty() -> colors.mutedForeground
-        fieldFocused || errorText != null -> colors.foreground
-        else -> colors.mutedForeground
-    }
-    val helperColor = when {
-        errorText != null -> colors.destructive
-        else -> colors.mutedForeground
-    }
+    val borderWidth =
+        when {
+            !enabled -> 1.dp
+            errorText != null -> 2.dp
+            fieldFocused -> 2.dp
+            else -> 1.dp
+        }
+    val borderColor =
+        when {
+            !enabled -> colors.border
+            errorText != null -> colors.destructive
+            fieldFocused -> colors.foreground
+            else -> MaterialTheme.colorScheme.outlineVariant
+        }
+    val contentColor =
+        when {
+            !enabled -> colors.mutedForeground
+            value.isEmpty() -> colors.mutedForeground
+            fieldFocused || errorText != null -> colors.foreground
+            else -> colors.mutedForeground
+        }
+    val helperColor =
+        when {
+            errorText != null -> colors.destructive
+            else -> colors.mutedForeground
+        }
 
     Column(
         modifier = modifier,
@@ -102,9 +106,10 @@ fun RipDpiTextField(
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
             visualTransformation = visualTransformation,
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { isFocused = it.isFocused },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { isFocused = it.isFocused },
             decorationBox = { innerTextField ->
                 RipDpiTextFieldShell(
                     enabled = enabled,
@@ -151,13 +156,14 @@ private fun RipDpiTextFieldShell(
     val endPadding = if (borderWidth > 1.dp) 18.dp else 17.dp
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(40.dp)
-            .background(colors.inputBackground, shape)
-            .border(borderWidth, borderColor, shape)
-            .padding(start = startPadding, end = endPadding)
-            .alpha(if (enabled) 1f else 0.38f),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .background(colors.inputBackground, shape)
+                .border(borderWidth, borderColor, shape)
+                .padding(start = startPadding, end = endPadding)
+                .alpha(if (enabled) 1f else 0.38f),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = {

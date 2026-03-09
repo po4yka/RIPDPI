@@ -34,11 +34,12 @@ fun RipDpiPageIndicators(
         repeat(pageCount.coerceAtLeast(0)) { index ->
             val selected = index == currentPage
             val width by animateDpAsState(
-                targetValue = if (selected) {
-                    introLayout.indicatorActiveWidth
-                } else {
-                    introLayout.indicatorSize
-                },
+                targetValue =
+                    if (selected) {
+                        introLayout.indicatorActiveWidth
+                    } else {
+                        introLayout.indicatorSize
+                    },
                 animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                 label = "pageIndicatorWidth",
             )
@@ -47,9 +48,10 @@ fun RipDpiPageIndicators(
                 label = "pageIndicatorColor",
             )
             Box(
-                modifier = Modifier
-                    .size(width = width, height = introLayout.indicatorSize)
-                    .background(color, RipDpiThemeTokens.shapes.full),
+                modifier =
+                    Modifier
+                        .size(width = width, height = introLayout.indicatorSize)
+                        .background(color, RipDpiThemeTokens.shapes.full),
             )
         }
     }

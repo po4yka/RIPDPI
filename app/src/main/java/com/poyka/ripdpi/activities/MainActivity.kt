@@ -41,9 +41,11 @@ class MainActivity : ComponentActivity() {
 
         private fun collectLogs(): String? =
             try {
-                Runtime.getRuntime()
+                Runtime
+                    .getRuntime()
                     .exec("logcat *:D -d")
-                    .inputStream.bufferedReader()
+                    .inputStream
+                    .bufferedReader()
                     .use { it.readText() }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to collect logs", e)
@@ -53,15 +55,15 @@ class MainActivity : ComponentActivity() {
         fun createLaunchIntent(
             context: Context,
             openHome: Boolean = false,
-        ): Intent = Intent(context, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            if (openHome) {
-                putExtra(EXTRA_OPEN_HOME, true)
+        ): Intent =
+            Intent(context, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                if (openHome) {
+                    putExtra(EXTRA_OPEN_HOME, true)
+                }
             }
-        }
 
-        internal fun requestsHomeTab(intent: Intent?): Boolean =
-            intent?.getBooleanExtra(EXTRA_OPEN_HOME, false) == true
+        internal fun requestsHomeTab(intent: Intent?): Boolean = intent?.getBooleanExtra(EXTRA_OPEN_HOME, false) == true
     }
 
     private val vpnRegister =
@@ -76,19 +78,21 @@ class MainActivity : ComponentActivity() {
 
                 if (logs == null) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            R.string.logs_failed,
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Toast
+                            .makeText(
+                                this@MainActivity,
+                                R.string.logs_failed,
+                                Toast.LENGTH_SHORT,
+                            ).show()
                     }
                     return@launch
                 }
 
-                val uri = it.data?.data ?: run {
-                    Log.e(TAG, "No data in result")
-                    return@launch
-                }
+                val uri =
+                    it.data?.data ?: run {
+                        Log.e(TAG, "No data in result")
+                        return@launch
+                    }
                 contentResolver.openOutputStream(uri)?.use { stream ->
                     try {
                         stream.write(logs.toByteArray())
@@ -108,7 +112,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
                 this,
-                Manifest.permission.POST_NOTIFICATIONS
+                Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
@@ -122,14 +126,17 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(viewModel, snackbarHostState) {
                 viewModel.effects.collect { effect ->
                     when (effect) {
-                        is MainEffect.RequestVpnPermission ->
+                        is MainEffect.RequestVpnPermission -> {
                             vpnRegister.launch(effect.prepareIntent)
-                        is MainEffect.ShowError ->
+                        }
+
+                        is MainEffect.ShowError -> {
                             snackbarHostState.showRipDpiSnackbar(
                                 message = effect.message,
                                 tone = RipDpiSnackbarTone.Error,
                                 duration = SnackbarDuration.Short,
                             )
+                        }
                     }
                 }
             }
@@ -157,11 +164,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun saveLogs() {
-        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
-        }
+        val intent =
+            Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
+            }
         logsRegister.launch(intent)
     }
 }

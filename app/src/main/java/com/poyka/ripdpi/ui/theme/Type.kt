@@ -13,21 +13,24 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.poyka.ripdpi.R
 
-val GeistSansFamily = FontFamily(
-    Font(R.font.geist_sans_regular, FontWeight.Normal),
-    Font(R.font.geist_sans_medium, FontWeight.Medium),
-    Font(R.font.geist_sans_bold, FontWeight.Bold),
-)
+val GeistSansFamily =
+    FontFamily(
+        Font(R.font.geist_sans_regular, FontWeight.Normal),
+        Font(R.font.geist_sans_medium, FontWeight.Medium),
+        Font(R.font.geist_sans_bold, FontWeight.Bold),
+    )
 
-val GeistMonoFamily = FontFamily(
-    Font(R.font.geist_mono_regular, FontWeight.Normal),
-    Font(R.font.geist_mono_medium, FontWeight.Medium),
-    Font(R.font.geist_mono_bold, FontWeight.Bold),
-)
+val GeistMonoFamily =
+    FontFamily(
+        Font(R.font.geist_mono_regular, FontWeight.Normal),
+        Font(R.font.geist_mono_medium, FontWeight.Medium),
+        Font(R.font.geist_mono_bold, FontWeight.Bold),
+    )
 
-val GeistPixelCircleFamily = FontFamily(
-    Font(R.font.geist_pixel_circle, FontWeight.Normal),
-)
+val GeistPixelCircleFamily =
+    FontFamily(
+        Font(R.font.geist_pixel_circle, FontWeight.Normal),
+    )
 
 private fun sansStyle(
     fontSize: Int,
@@ -96,47 +99,50 @@ data class RipDpiTextStyles(
     val brandStatus: TextStyle,
 )
 
-val RipDpiTypeScale = RipDpiTextStyles(
-    screenTitle = sansStyle(fontSize = 22, lineHeight = 28, fontWeight = FontWeight.Medium),
-    appBarTitle = sansStyle(fontSize = 20, lineHeight = 28, fontWeight = FontWeight.Medium),
-    sheetTitle = sansStyle(fontSize = 18, lineHeight = 24, fontWeight = FontWeight.Medium),
-    sectionTitle = sansStyle(
-        fontSize = 11,
-        lineHeight = 16,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0.88f,
-    ),
-    introAction = sansStyle(fontSize = 14, lineHeight = 21, fontWeight = FontWeight.Normal),
-    introTitle = sansStyle(fontSize = 22, lineHeight = 30, fontWeight = FontWeight.Medium),
-    introBody = sansStyle(fontSize = 15, lineHeight = 22, fontWeight = FontWeight.Normal),
-    body = sansStyle(fontSize = 14, lineHeight = 20, fontWeight = FontWeight.Normal),
-    bodyEmphasis = sansStyle(fontSize = 14, lineHeight = 20, fontWeight = FontWeight.Medium),
-    secondaryBody = sansStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Normal),
-    caption = sansStyle(fontSize = 12, lineHeight = 16, fontWeight = FontWeight.Normal),
-    smallLabel = sansStyle(fontSize = 11, lineHeight = 16, fontWeight = FontWeight.Medium),
-    button = sansStyle(fontSize = 15, lineHeight = 20, fontWeight = FontWeight.Medium),
-    navLabel = sansStyle(fontSize = 11, lineHeight = 14, fontWeight = FontWeight.Medium),
-    monoValue = monoStyle(fontSize = 13, lineHeight = 20),
-    monoConfig = monoStyle(fontSize = 13, lineHeight = 20),
-    monoInline = monoStyle(fontSize = 12, lineHeight = 20),
-    monoLog = monoStyle(fontSize = 11, lineHeight = 20),
-    monoSmall = monoStyle(fontSize = 10, lineHeight = 20),
-    brandGlyph = pixelStyle(fontSize = 24, lineHeight = 24),
-    brandMark = pixelStyle(fontSize = 32, lineHeight = 48, letterSpacing = 0.8f),
-    brandStatus = monoStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Medium),
-)
+val RipDpiTypeScale =
+    RipDpiTextStyles(
+        screenTitle = sansStyle(fontSize = 22, lineHeight = 28, fontWeight = FontWeight.Medium),
+        appBarTitle = sansStyle(fontSize = 20, lineHeight = 28, fontWeight = FontWeight.Medium),
+        sheetTitle = sansStyle(fontSize = 18, lineHeight = 24, fontWeight = FontWeight.Medium),
+        sectionTitle =
+            sansStyle(
+                fontSize = 11,
+                lineHeight = 16,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.88f,
+            ),
+        introAction = sansStyle(fontSize = 14, lineHeight = 21, fontWeight = FontWeight.Normal),
+        introTitle = sansStyle(fontSize = 22, lineHeight = 30, fontWeight = FontWeight.Medium),
+        introBody = sansStyle(fontSize = 15, lineHeight = 22, fontWeight = FontWeight.Normal),
+        body = sansStyle(fontSize = 14, lineHeight = 20, fontWeight = FontWeight.Normal),
+        bodyEmphasis = sansStyle(fontSize = 14, lineHeight = 20, fontWeight = FontWeight.Medium),
+        secondaryBody = sansStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Normal),
+        caption = sansStyle(fontSize = 12, lineHeight = 16, fontWeight = FontWeight.Normal),
+        smallLabel = sansStyle(fontSize = 11, lineHeight = 16, fontWeight = FontWeight.Medium),
+        button = sansStyle(fontSize = 15, lineHeight = 20, fontWeight = FontWeight.Medium),
+        navLabel = sansStyle(fontSize = 11, lineHeight = 14, fontWeight = FontWeight.Medium),
+        monoValue = monoStyle(fontSize = 13, lineHeight = 20),
+        monoConfig = monoStyle(fontSize = 13, lineHeight = 20),
+        monoInline = monoStyle(fontSize = 12, lineHeight = 20),
+        monoLog = monoStyle(fontSize = 11, lineHeight = 20),
+        monoSmall = monoStyle(fontSize = 10, lineHeight = 20),
+        brandGlyph = pixelStyle(fontSize = 24, lineHeight = 24),
+        brandMark = pixelStyle(fontSize = 32, lineHeight = 48, letterSpacing = 0.8f),
+        brandStatus = monoStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Medium),
+    )
 
-val RipDpiTypography = Typography(
-    headlineSmall = RipDpiTypeScale.screenTitle,
-    titleLarge = RipDpiTypeScale.appBarTitle,
-    titleMedium = RipDpiTypeScale.sheetTitle,
-    titleSmall = RipDpiTypeScale.sectionTitle,
-    bodyLarge = RipDpiTypeScale.body,
-    bodyMedium = RipDpiTypeScale.secondaryBody,
-    bodySmall = RipDpiTypeScale.caption,
-    labelLarge = RipDpiTypeScale.button,
-    labelMedium = RipDpiTypeScale.smallLabel,
-    labelSmall = RipDpiTypeScale.navLabel,
-)
+val RipDpiTypography =
+    Typography(
+        headlineSmall = RipDpiTypeScale.screenTitle,
+        titleLarge = RipDpiTypeScale.appBarTitle,
+        titleMedium = RipDpiTypeScale.sheetTitle,
+        titleSmall = RipDpiTypeScale.sectionTitle,
+        bodyLarge = RipDpiTypeScale.body,
+        bodyMedium = RipDpiTypeScale.secondaryBody,
+        bodySmall = RipDpiTypeScale.caption,
+        labelLarge = RipDpiTypeScale.button,
+        labelMedium = RipDpiTypeScale.smallLabel,
+        labelSmall = RipDpiTypeScale.navLabel,
+    )
 
 internal val LocalRipDpiTextStyles = staticCompositionLocalOf { RipDpiTypeScale }

@@ -11,7 +11,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 sealed class ServiceEvent {
-    data class Failed(val sender: Sender) : ServiceEvent()
+    data class Failed(
+        val sender: Sender,
+    ) : ServiceEvent()
 }
 
 object AppStateManager {
@@ -19,10 +21,14 @@ object AppStateManager {
     val status: StateFlow<Pair<AppStatus, Mode>> = _status.asStateFlow()
 
     private val _events = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
+
     /** Broadcast to all active collectors (MainActivity, QuickTileService). SharedFlow, not Channel. */
     val events: SharedFlow<ServiceEvent> = _events.asSharedFlow()
 
-    fun setStatus(status: AppStatus, mode: Mode) {
+    fun setStatus(
+        status: AppStatus,
+        mode: Mode,
+    ) {
         _status.value = status to mode
     }
 

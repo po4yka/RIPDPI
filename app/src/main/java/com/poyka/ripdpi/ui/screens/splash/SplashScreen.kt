@@ -11,11 +11,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -37,16 +37,18 @@ fun SplashScreen(
     }
 
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(colors.foreground, RipDpiThemeTokens.shapes.xl),
+                modifier =
+                    Modifier
+                        .size(56.dp)
+                        .background(colors.foreground, RipDpiThemeTokens.shapes.xl),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(

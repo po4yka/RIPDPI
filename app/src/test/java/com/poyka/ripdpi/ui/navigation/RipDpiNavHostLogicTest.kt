@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RipDpiNavHostLogicTest {
-
     @Test
     fun `top level routes stay in figma bottom bar order`() {
         assertEquals(

@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.logs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -86,16 +86,18 @@ internal fun LogsScreen(
     }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background),
     ) {
         RipDpiTopAppBar(title = stringResource(R.string.logs))
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = layout.horizontalPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = layout.horizontalPadding),
             verticalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
             Spacer(modifier = Modifier.height(spacing.sm))
@@ -106,37 +108,11 @@ internal fun LogsScreen(
                 onClearLogs = onClearLogs,
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                SettingsCategoryHeader(title = stringResource(R.string.logs_filters_section))
-                RipDpiCard {
-                    SettingsRow(
-                        title = stringResource(R.string.logs_auto_scroll_title),
-                        subtitle = stringResource(R.string.logs_auto_scroll_body),
-                        checked = uiState.isAutoScroll,
-                        onCheckedChange = onAutoScrollChanged,
-                        showDivider = true,
-                    )
-                    Text(
-                        text = stringResource(R.string.logs_filters_helper),
-                        style = RipDpiThemeTokens.type.caption,
-                        color = colors.mutedForeground,
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                    ) {
-                        LogType.entries.forEach { type ->
-                            RipDpiChip(
-                                text = logBadgeLabel(type),
-                                selected = type in uiState.activeFilters,
-                                onClick = { onToggleFilter(type) },
-                            )
-                        }
-                    }
-                }
-            }
+            LogsFiltersSection(
+                uiState = uiState,
+                onToggleFilter = onToggleFilter,
+                onAutoScrollChanged = onAutoScrollChanged,
+            )
 
             SettingsCategoryHeader(title = stringResource(R.string.logs_stream_section))
 
@@ -149,13 +125,57 @@ internal fun LogsScreen(
                 LogsStreamCard(
                     entries = filteredLogs,
                     listState = listState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
                 )
             }
 
             Spacer(modifier = Modifier.height(spacing.sm))
+        }
+    }
+}
+
+@Composable
+private fun LogsFiltersSection(
+    uiState: LogsUiState,
+    onToggleFilter: (LogType) -> Unit,
+    onAutoScrollChanged: (Boolean) -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        SettingsCategoryHeader(title = stringResource(R.string.logs_filters_section))
+        RipDpiCard {
+            SettingsRow(
+                title = stringResource(R.string.logs_auto_scroll_title),
+                subtitle = stringResource(R.string.logs_auto_scroll_body),
+                checked = uiState.isAutoScroll,
+                onCheckedChange = onAutoScrollChanged,
+                showDivider = true,
+            )
+            Text(
+                text = stringResource(R.string.logs_filters_helper),
+                style = RipDpiThemeTokens.type.caption,
+                color = colors.mutedForeground,
+            )
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                LogType.entries.forEach { type ->
+                    RipDpiChip(
+                        text = logBadgeLabel(type),
+                        selected = type in uiState.activeFilters,
+                        onClick = { onToggleFilter(type) },
+                    )
+                }
+            }
         }
     }
 }
@@ -169,11 +189,12 @@ private fun LogsOverviewCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val latestLog = uiState.latestLog
-    val activeFilterSummary = if (uiState.activeFilters.size == LogType.entries.size) {
-        stringResource(R.string.logs_filters_summary_all)
-    } else {
-        stringResource(R.string.logs_filters_summary_count, uiState.activeFilters.size)
-    }
+    val activeFilterSummary =
+        if (uiState.activeFilters.size == LogType.entries.size) {
+            stringResource(R.string.logs_filters_summary_all)
+        } else {
+            stringResource(R.string.logs_filters_summary_count, uiState.activeFilters.size)
+        }
 
     RipDpiCard(
         variant = if (uiState.logs.isEmpty()) RipDpiCardVariant.Outlined else RipDpiCardVariant.Elevated,
@@ -184,18 +205,20 @@ private fun LogsOverviewCard(
             color = colors.mutedForeground,
         )
         StatusIndicator(
-            label = stringResource(
+            label =
+                stringResource(
+                    if (uiState.logs.isEmpty()) {
+                        R.string.logs_status_empty
+                    } else {
+                        R.string.logs_status_live
+                    },
+                ),
+            tone =
                 if (uiState.logs.isEmpty()) {
-                    R.string.logs_status_empty
+                    StatusIndicatorTone.Idle
                 } else {
-                    R.string.logs_status_live
+                    StatusIndicatorTone.Active
                 },
-            ),
-            tone = if (uiState.logs.isEmpty()) {
-                StatusIndicatorTone.Idle
-            } else {
-                StatusIndicatorTone.Active
-            },
         )
         Text(
             text = stringResource(R.string.logs_overview_title),
@@ -215,11 +238,12 @@ private fun LogsOverviewCard(
                 text = stringResource(R.string.save_logs),
                 onClick = onSaveLogs,
                 modifier = Modifier.weight(1f),
-                variant = if (uiState.logs.isEmpty()) {
-                    RipDpiButtonVariant.Outline
-                } else {
-                    RipDpiButtonVariant.Primary
-                },
+                variant =
+                    if (uiState.logs.isEmpty()) {
+                        RipDpiButtonVariant.Outline
+                    } else {
+                        RipDpiButtonVariant.Primary
+                    },
             )
             RipDpiButton(
                 text = stringResource(R.string.logs_clear),
@@ -233,11 +257,12 @@ private fun LogsOverviewCard(
         SettingsRow(
             title = stringResource(R.string.logs_buffer_title),
             subtitle = activeFilterSummary,
-            value = stringResource(
-                R.string.logs_buffer_value,
-                uiState.logs.size,
-                uiState.bufferCapacity,
-            ),
+            value =
+                stringResource(
+                    R.string.logs_buffer_value,
+                    uiState.logs.size,
+                    uiState.bufferCapacity,
+                ),
             monospaceValue = true,
             showDivider = true,
         )
@@ -262,10 +287,11 @@ private fun LogsStreamCard(
 
     RipDpiCard(
         modifier = modifier,
-        paddingValues = PaddingValues(
-            horizontal = layout.cardPadding,
-            vertical = spacing.md,
-        ),
+        paddingValues =
+            PaddingValues(
+                horizontal = layout.cardPadding,
+                vertical = spacing.md,
+            ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -283,9 +309,10 @@ private fun LogsStreamCard(
             )
         }
         LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
             state = listState,
         ) {
             itemsIndexed(
@@ -320,24 +347,26 @@ private fun LogsEmptyStateCard(
 
     RipDpiCard(modifier = modifier) {
         Text(
-            text = stringResource(
-                if (hasBufferedLogs) {
-                    R.string.logs_filtered_empty_title
-                } else {
-                    R.string.logs_empty_title
-                },
-            ),
+            text =
+                stringResource(
+                    if (hasBufferedLogs) {
+                        R.string.logs_filtered_empty_title
+                    } else {
+                        R.string.logs_empty_title
+                    },
+                ),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
         Text(
-            text = stringResource(
-                if (hasBufferedLogs) {
-                    R.string.logs_filtered_empty_body
-                } else {
-                    R.string.logs_empty_body
-                },
-            ),
+            text =
+                stringResource(
+                    if (hasBufferedLogs) {
+                        R.string.logs_filtered_empty_body
+                    } else {
+                        R.string.logs_empty_body
+                    },
+                ),
             style = RipDpiThemeTokens.type.body,
             color = colors.mutedForeground,
             maxLines = 3,
@@ -347,48 +376,51 @@ private fun LogsEmptyStateCard(
 }
 
 @Composable
-private fun logBadgeLabel(type: LogType): String = stringResource(
+private fun logBadgeLabel(type: LogType): String =
+    stringResource(
+        when (type) {
+            LogType.DNS -> R.string.logs_type_dns
+            LogType.CONN -> R.string.logs_type_conn
+            LogType.ERR -> R.string.logs_type_err
+            LogType.WARN -> R.string.logs_type_warn
+        },
+    )
+
+private fun logRowTone(type: LogType): LogRowTone =
     when (type) {
-        LogType.DNS -> R.string.logs_type_dns
-        LogType.CONN -> R.string.logs_type_conn
-        LogType.ERR -> R.string.logs_type_err
-        LogType.WARN -> R.string.logs_type_warn
-    },
-)
+        LogType.DNS -> LogRowTone.Dns
+        LogType.CONN -> LogRowTone.Connection
+        LogType.ERR -> LogRowTone.Error
+        LogType.WARN -> LogRowTone.Warning
+    }
 
-private fun logRowTone(type: LogType): LogRowTone = when (type) {
-    LogType.DNS -> LogRowTone.Dns
-    LogType.CONN -> LogRowTone.Connection
-    LogType.ERR -> LogRowTone.Error
-    LogType.WARN -> LogRowTone.Warning
-}
-
-private val previewLogs = listOf(
-    LogEntry(
-        id = 1,
-        timestamp = "12:31:04",
-        type = LogType.CONN,
-        message = "VPN service started",
-    ),
-    LogEntry(
-        id = 2,
-        timestamp = "12:31:08",
-        type = LogType.DNS,
-        message = "DNS resolver switched to 1.1.1.1",
-    ),
-    LogEntry(
-        id = 3,
-        timestamp = "12:31:16",
-        type = LogType.WARN,
-        message = "Fallback resolver is active on the current network",
-    ),
-    LogEntry(
-        id = 4,
-        timestamp = "12:31:22",
-        type = LogType.ERR,
-        message = "Proxy service failed to start",
-    ),
-)
+private val previewLogs =
+    listOf(
+        LogEntry(
+            id = 1,
+            timestamp = "12:31:04",
+            type = LogType.CONN,
+            message = "VPN service started",
+        ),
+        LogEntry(
+            id = 2,
+            timestamp = "12:31:08",
+            type = LogType.DNS,
+            message = "DNS resolver switched to 1.1.1.1",
+        ),
+        LogEntry(
+            id = 3,
+            timestamp = "12:31:16",
+            type = LogType.WARN,
+            message = "Fallback resolver is active on the current network",
+        ),
+        LogEntry(
+            id = 4,
+            timestamp = "12:31:22",
+            type = LogType.ERR,
+            message = "Proxy service failed to start",
+        ),
+    )
 
 @Preview(showBackground = true)
 @Composable
