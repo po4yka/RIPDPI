@@ -12,7 +12,6 @@ android {
         versionName = "0.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
     }
 
     signingConfigs {
@@ -34,14 +33,14 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.findByName("release")
-            buildConfigField("String", "VERSION_NAME",  "\"${defaultConfig.versionName}\"")
+            buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}\"")
 
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug {
-            buildConfigField("String", "VERSION_NAME",  "\"${defaultConfig.versionName}-debug\"")
+            buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}-debug\"")
         }
     }
 
