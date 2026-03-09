@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.navigation.Route
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MainViewModelTest {
@@ -14,6 +16,14 @@ class MainViewModelTest {
     @Test
     fun `calculateTransferredBytes returns positive deltas`() {
         assertEquals(512L, calculateTransferredBytes(totalBytes = 1_024L, baselineBytes = 512L))
+    }
+
+    @Test
+    fun `connection metrics polling only runs while connected`() {
+        assertFalse(shouldPollConnectionMetrics(ConnectionState.Disconnected))
+        assertFalse(shouldPollConnectionMetrics(ConnectionState.Connecting))
+        assertTrue(shouldPollConnectionMetrics(ConnectionState.Connected))
+        assertFalse(shouldPollConnectionMetrics(ConnectionState.Error))
     }
 
     @Test
