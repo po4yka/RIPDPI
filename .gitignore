@@ -9,7 +9,7 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
-/build
+build/
 /captures
 .externalNativeBuild
 .cxx
@@ -21,6 +21,7 @@ local.properties
 ralph.yml
 hats.yml
 PROMPT.md
+specs/
 
 # Kotlin compiler/IDE cache
 .kotlin/
