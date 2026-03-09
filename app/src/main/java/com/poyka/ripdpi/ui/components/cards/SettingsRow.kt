@@ -67,7 +67,7 @@ fun SettingsRow(
                         } else {
                             Modifier
                         },
-                    ).padding(vertical = if (subtitle == null) 14.dp else 14.dp),
+                    ).padding(vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
