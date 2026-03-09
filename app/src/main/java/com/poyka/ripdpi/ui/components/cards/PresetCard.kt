@@ -82,7 +82,10 @@ fun PresetCard(
                             .background(
                                 colors.foreground.copy(alpha = if (selected) 0.12f else 0.08f),
                                 RipDpiThemeTokens.shapes.xxl,
-                            ).padding(horizontal = 8.dp, vertical = 2.dp),
+                            ).padding(
+                                horizontal = components.compactPillHorizontalPadding,
+                                vertical = components.compactPillVerticalPadding,
+                            ),
                 ) {
                     Text(
                         text = it,

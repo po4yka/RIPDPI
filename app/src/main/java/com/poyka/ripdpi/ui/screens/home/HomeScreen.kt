@@ -209,6 +209,7 @@ private fun HomeConnectionButton(
     onClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val type = RipDpiThemeTokens.type
     val scheme = MaterialTheme.colorScheme
     val infiniteTransition = rememberInfiniteTransition()
@@ -275,14 +276,14 @@ private fun HomeConnectionButton(
         Box(
             modifier =
                 Modifier
-                    .size(216.dp)
+                    .size(components.homeConnectionHaloSize)
                     .scale(buttonScale)
                     .background(haloColor, CircleShape),
         )
         Column(
             modifier =
                 Modifier
-                    .size(172.dp)
+                    .size(components.homeConnectionButtonSize)
                     .scale(buttonScale)
                     .background(containerColor, CircleShape)
                     .border(width = 1.dp, color = borderColor, shape = CircleShape)
@@ -291,7 +292,10 @@ private fun HomeConnectionButton(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onClick,
-                    ).padding(horizontal = 20.dp, vertical = 24.dp),
+                    ).padding(
+                        horizontal = components.homeConnectionHorizontalPadding,
+                        vertical = components.homeConnectionVerticalPadding,
+                    ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -299,7 +303,7 @@ private fun HomeConnectionButton(
                 imageVector = icon,
                 contentDescription = null,
                 tint = contentColor,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(components.homeConnectionIconSize),
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(

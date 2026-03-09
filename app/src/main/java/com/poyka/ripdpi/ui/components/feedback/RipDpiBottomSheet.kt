@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.ZeroCornerSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -155,25 +154,27 @@ fun RipDpiBottomSheetCard(
 @Composable
 private fun RipDpiBottomSheetHandle() {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
 
     Box(
         modifier =
             Modifier
                 .padding(top = 12.dp)
-                .size(width = 36.dp, height = 4.dp)
-                .background(color = colors.border, shape = CircleShape),
+                .size(width = components.sheetHandleWidth, height = components.sheetHandleHeight)
+                .background(color = colors.border, shape = RipDpiThemeTokens.shapes.full),
     )
 }
 
 @Composable
 private fun RipDpiBottomSheetIconBadge(icon: ImageVector) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
 
     Box(
         modifier =
             Modifier
-                .size(40.dp)
-                .background(color = colors.inputBackground, shape = CircleShape),
+                .size(components.dialogIconSize)
+                .background(color = colors.inputBackground, shape = RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {
         Icon(

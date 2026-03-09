@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -34,6 +33,7 @@ fun LogRow(
     tone: LogRowTone = LogRowTone.Connection,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val badgeBackground =
         when (tone) {
             LogRowTone.Dns -> colors.accent
@@ -65,8 +65,11 @@ fun LogRow(
         Box(
             modifier =
                 Modifier
-                    .background(badgeBackground, RoundedCornerShape(999.dp))
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .background(badgeBackground, RipDpiThemeTokens.shapes.xxl)
+                    .padding(
+                        horizontal = components.compactPillHorizontalPadding,
+                        vertical = components.compactPillVerticalPadding,
+                    ),
         ) {
             Text(
                 text = type.uppercase(),

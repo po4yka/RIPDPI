@@ -32,9 +32,13 @@ data class RipDpiLayout(
 @Immutable
 data class RipDpiComponentMetrics(
     val controlHeight: Dp = 40.dp,
+    val compactCornerRadius: Dp = 8.dp,
+    val mediumCornerRadius: Dp = 10.dp,
+    val largeCornerRadius: Dp = 12.dp,
     val controlCornerRadius: Dp = 16.dp,
     val cardCornerRadius: Dp = 16.dp,
     val chipCornerRadius: Dp = 12.dp,
+    val pillCornerRadius: Dp = 28.dp,
     val buttonMinHeight: Dp = 40.dp,
     val buttonHorizontalPadding: Dp = 20.dp,
     val buttonVerticalPadding: Dp = 10.dp,
@@ -48,10 +52,21 @@ data class RipDpiComponentMetrics(
     val switchThumbSize: Dp = 20.dp,
     val switchThumbPadding: Dp = 2.dp,
     val dialogIconSize: Dp = 40.dp,
+    val decorativeBadgeSize: Dp = 28.dp,
+    val compactPillHorizontalPadding: Dp = 8.dp,
+    val compactPillVerticalPadding: Dp = 2.dp,
+    val settingsRowVerticalPadding: Dp = 14.dp,
+    val sheetHandleWidth: Dp = 36.dp,
+    val sheetHandleHeight: Dp = 4.dp,
     val settingsRowMinHeight: Dp = 52.dp,
     val settingsRowMinHeightWithSubtitle: Dp = 68.dp,
     val bottomNavIndicatorWidth: Dp = 52.dp,
     val bottomNavIndicatorHeight: Dp = 28.dp,
+    val homeConnectionHaloSize: Dp = 216.dp,
+    val homeConnectionButtonSize: Dp = 172.dp,
+    val homeConnectionHorizontalPadding: Dp = 20.dp,
+    val homeConnectionVerticalPadding: Dp = 24.dp,
+    val homeConnectionIconSize: Dp = 28.dp,
 )
 
 @Immutable

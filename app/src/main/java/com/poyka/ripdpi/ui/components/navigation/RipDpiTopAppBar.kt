@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +35,7 @@ fun RipDpiTopAppBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val type = RipDpiThemeTokens.type
     val layout = RipDpiThemeTokens.layout
 
@@ -62,8 +62,8 @@ fun RipDpiTopAppBar(
                         Row(
                             modifier =
                                 Modifier
-                                    .size(28.dp)
-                                    .background(colors.foreground, CircleShape),
+                                    .size(components.decorativeBadgeSize)
+                                    .background(colors.foreground, RipDpiThemeTokens.shapes.full),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

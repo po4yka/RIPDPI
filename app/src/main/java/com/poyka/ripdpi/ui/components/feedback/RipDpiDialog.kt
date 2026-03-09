@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -162,6 +161,7 @@ private fun RipDpiModalIconBadge(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val containerColor =
         when (tone) {
             RipDpiDialogTone.Destructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
@@ -182,8 +182,8 @@ private fun RipDpiModalIconBadge(
     Box(
         modifier =
             modifier
-                .size(40.dp)
-                .background(color = containerColor, shape = CircleShape),
+                .size(components.dialogIconSize)
+                .background(color = containerColor, shape = RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
