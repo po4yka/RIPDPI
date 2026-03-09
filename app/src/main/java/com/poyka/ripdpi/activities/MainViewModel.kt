@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
@@ -87,6 +88,9 @@ internal fun calculateTransferredBytes(
     baselineBytes: Long,
 ): Long = (totalBytes - baselineBytes).coerceAtLeast(0L)
 
+internal fun shouldPollConnectionMetrics(connectionState: ConnectionState): Boolean =
+    connectionState == ConnectionState.Connected
+
 data class MainStartupState(
     val isReady: Boolean = false,
     val theme: String = "system",
@@ -104,6 +108,7 @@ class MainViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
     private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
+    private var connectionMetricsJob: Job? = null
     private val settingsState: StateFlow<AppSettings> =
         application.settingsStore.data.stateIn(
             scope = viewModelScope,
@@ -155,7 +160,6 @@ class MainViewModel(
     init {
         observeStatus()
         observeServiceEvents()
-        observeConnectionMetrics()
     }
 
     fun toggleService(context: Context) {
@@ -195,7 +199,7 @@ class MainViewModel(
         granted: Boolean,
     ) {
         if (granted) {
-            setConnectingState(Mode.VPN)
+            setConnectingState()
             ServiceManager.start(context, Mode.VPN)
             return
         }
@@ -219,14 +223,14 @@ class MainViewModel(
         if (intent != null) {
             _effects.trySend(MainEffect.RequestVpnPermission(intent))
         } else {
-            setConnectingState(Mode.VPN)
+            setConnectingState()
             ServiceManager.start(context, Mode.VPN)
         }
     }
 
     private fun start(context: Context) {
         val configuredMode = uiState.value.configuredMode
-        setConnectingState(configuredMode)
+        setConnectingState()
 
         when (configuredMode) {
             Mode.VPN -> {
@@ -269,15 +273,6 @@ class MainViewModel(
         }
     }
 
-    private fun observeConnectionMetrics() {
-        viewModelScope.launch {
-            while (isActive) {
-                delay(1.seconds)
-                refreshConnectionMetrics()
-            }
-        }
-    }
-
     private fun onConnected() {
         val baselineBytes = currentTransferredBytes()
         val connectedAtMs = SystemClock.elapsedRealtime()
@@ -296,9 +291,11 @@ class MainViewModel(
                 )
             }
         }
+        startConnectionMetricsPolling()
     }
 
     private fun onHalted() {
+        stopConnectionMetricsPolling()
         runtimeState.update { current ->
             if (current.connectionState == ConnectionState.Error) {
                 current.copy(
@@ -321,6 +318,7 @@ class MainViewModel(
     }
 
     private fun showError(message: String) {
+        stopConnectionMetricsPolling()
         runtimeState.update {
             it.copy(
                 connectionState = ConnectionState.Error,
@@ -334,7 +332,8 @@ class MainViewModel(
         _effects.trySend(MainEffect.ShowError(message))
     }
 
-    private fun setConnectingState(mode: Mode) {
+    private fun setConnectingState() {
+        stopConnectionMetricsPolling()
         runtimeState.update {
             it.copy(
                 connectionState = ConnectionState.Connecting,
@@ -345,15 +344,36 @@ class MainViewModel(
                 connectionDuration = ZERO,
             )
         }
-        if (mode == Mode.Proxy) {
-            refreshConnectionMetrics()
+    }
+
+    private fun startConnectionMetricsPolling() {
+        if (!shouldPollConnectionMetrics(runtimeState.value.connectionState)) {
+            stopConnectionMetricsPolling()
+            return
         }
+        if (connectionMetricsJob?.isActive == true) {
+            return
+        }
+
+        refreshConnectionMetrics()
+        connectionMetricsJob =
+            viewModelScope.launch {
+                while (isActive) {
+                    delay(1.seconds)
+                    refreshConnectionMetrics()
+                }
+            }
+    }
+
+    private fun stopConnectionMetricsPolling() {
+        connectionMetricsJob?.cancel()
+        connectionMetricsJob = null
     }
 
     private fun refreshConnectionMetrics() {
         val state = runtimeState.value
         val startedAtMs = state.connectionStartedAtMs ?: return
-        if (state.connectionState != ConnectionState.Connected) {
+        if (!shouldPollConnectionMetrics(state.connectionState)) {
             return
         }
 
