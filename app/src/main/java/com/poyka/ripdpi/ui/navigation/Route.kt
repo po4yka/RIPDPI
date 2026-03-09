@@ -18,11 +18,6 @@ sealed class Route(
     @param:StringRes val titleRes: Int,
     val icon: ImageVector? = null,
 ) {
-    data object Splash : Route(
-        route = "splash",
-        titleRes = R.string.title_splash,
-    )
-
     data object Onboarding : Route(
         route = "onboarding",
         titleRes = R.string.title_onboarding,
@@ -92,7 +87,6 @@ sealed class Route(
 
         val all =
             listOf(
-                Splash,
                 Onboarding,
                 Home,
                 Config,

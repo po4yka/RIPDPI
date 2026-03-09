@@ -86,7 +86,6 @@
     <string name="vpn_permission_denied">VPN permission denied</string>
     <string name="settings_unavailable">Please stop the VPN service before changing settings</string>
     <string name="title_settings">Settings</string>
-    <string name="title_splash">Splash</string>
     <string name="title_onboarding">Onboarding</string>
     <string name="title_mode_editor">Mode editor</string>
     <string name="title_dns_settings">DNS settings</string>

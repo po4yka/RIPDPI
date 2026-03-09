@@ -13,9 +13,11 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.settingsStore
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.AppStateManager
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceManager
+import com.poyka.ripdpi.ui.navigation.Route
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -83,6 +86,19 @@ internal fun calculateTransferredBytes(
     baselineBytes: Long,
 ): Long = (totalBytes - baselineBytes).coerceAtLeast(0L)
 
+data class MainStartupState(
+    val isReady: Boolean = false,
+    val theme: String = "system",
+    val startDestination: String = Route.Home.route,
+)
+
+internal fun resolveStartupDestination(settings: AppSettings): String =
+    when {
+        !settings.onboardingComplete -> Route.Onboarding.route
+        settings.biometricEnabled -> Route.BiometricPrompt.route
+        else -> Route.Home.route
+    }
+
 class MainViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
@@ -90,6 +106,20 @@ class MainViewModel(
 
     private val _effects = Channel<MainEffect>(Channel.BUFFERED)
     val effects: Flow<MainEffect> = _effects.receiveAsFlow()
+
+    val startupState: StateFlow<MainStartupState> =
+        application.settingsStore.data
+            .map { settings ->
+                MainStartupState(
+                    isReady = true,
+                    theme = settings.appTheme.ifEmpty { "system" },
+                    startDestination = resolveStartupDestination(settings),
+                )
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = MainStartupState(),
+            )
 
     val uiState: StateFlow<MainUiState> =
         combine(

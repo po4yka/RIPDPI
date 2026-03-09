@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.R
@@ -107,7 +108,9 @@ class MainActivity : ComponentActivity() {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        splashScreen.setKeepOnScreenCondition { !viewModel.startupState.value.isReady }
         openHomeRequests.value = requestsHomeTab(intent)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -120,7 +123,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            val startupState by viewModel.startupState.collectAsStateWithLifecycle()
             val openHomeRequested by openHomeRequests.collectAsStateWithLifecycle()
             val snackbarHostState = remember { SnackbarHostState() }
 
@@ -142,16 +145,20 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            RipDpiTheme(themePreference = uiState.theme) {
-                RipDpiNavHost(
-                    onSaveLogs = { saveLogs() },
-                    mainViewModel = viewModel,
-                    launchHomeRequested = openHomeRequested,
-                    onLaunchHomeHandled = {
-                        openHomeRequests.value = false
-                    },
-                    snackbarHostState = snackbarHostState,
-                )
+            RipDpiTheme(themePreference = startupState.theme) {
+                if (startupState.isReady) {
+                    val initialStartDestination = remember { startupState.startDestination }
+                    RipDpiNavHost(
+                        startDestination = initialStartDestination,
+                        onSaveLogs = { saveLogs() },
+                        mainViewModel = viewModel,
+                        launchHomeRequested = openHomeRequested,
+                        onLaunchHomeHandled = {
+                            openHomeRequests.value = false
+                        },
+                        snackbarHostState = snackbarHostState,
+                    )
+                }
             }
         }
     }

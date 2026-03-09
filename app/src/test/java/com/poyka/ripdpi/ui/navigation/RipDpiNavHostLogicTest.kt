@@ -25,16 +25,6 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
-    fun `launch home request is blocked during splash`() {
-        assertFalse(
-            shouldNavigateToHomeFromLaunchRequest(
-                launchHomeRequested = true,
-                currentRoute = Route.Splash.route,
-            ),
-        )
-    }
-
-    @Test
     fun `launch home request is blocked during biometric gate`() {
         assertFalse(
             shouldNavigateToHomeFromLaunchRequest(
