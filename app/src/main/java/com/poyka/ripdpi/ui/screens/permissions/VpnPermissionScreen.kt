@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.permissions
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +38,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -176,7 +176,7 @@ internal fun AuthPromptScaffold(
                     modifier =
                         Modifier
                             .padding(top = introLayout.topActionTopPadding)
-                            .clickable(role = Role.Button, onClick = onTopAction),
+                            .ripDpiClickable(role = Role.Button, onClick = onTopAction),
                 )
             }
         }
