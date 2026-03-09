@@ -153,7 +153,6 @@
     <string name="onboarding_permission_body">Android will ask to create a local VPN. This routes traffic through the app on your device, and nothing is sent externally.</string>
     <string name="onboarding_modes_title">Choose your mode</string>
     <string name="onboarding_modes_body">Start with a preset or configure manually. You can change everything later.</string>
-    <string name="placeholder_message">Placeholder content for the upcoming screen implementation.</string>
     <string name="reset_settings">Reset</string>
     <string name="logs_failed">Failed to collect logs</string>
     <string name="proxy_address">%1$s:%2$s</string>

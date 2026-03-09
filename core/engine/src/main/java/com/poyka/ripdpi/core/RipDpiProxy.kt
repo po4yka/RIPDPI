@@ -16,7 +16,7 @@ class RipDpiProxy {
     suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
         val fd = createSocket(preferences)
         if (fd < 0) {
-            return -1 // TODO: should be error code
+            return -fd
         }
         return jniStartProxy(fd)
     }

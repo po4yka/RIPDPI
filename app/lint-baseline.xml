@@ -670,17 +670,6 @@
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.placeholder_message` appears to be unused"
-        errorLine1="    &lt;string name=&quot;placeholder_message&quot;>Placeholder content for the upcoming screen implementation.&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="155"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
         message="The resource `R.string.reset_settings` appears to be unused"
         errorLine1="    &lt;string name=&quot;reset_settings&quot;>Reset&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~">
