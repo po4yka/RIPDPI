@@ -1,28 +1,26 @@
 package com.poyka.ripdpi.core
 
-import android.content.SharedPreferences
-import com.poyka.ripdpi.utility.getStringNotNull
+import android.content.Context
+import com.poyka.ripdpi.data.settingsStore
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.shellSplit
+import kotlinx.coroutines.flow.first
 
 sealed interface RipDpiProxyPreferences {
     companion object {
-        fun fromSharedPreferences(preferences: SharedPreferences): RipDpiProxyPreferences =
-            when (preferences.getBoolean("ripdpi_enable_cmd_settings", false)) {
-                true -> RipDpiProxyCmdPreferences(preferences)
-                false -> RipDpiProxyUIPreferences(preferences)
+        suspend fun fromSettingsStore(context: Context): RipDpiProxyPreferences {
+            val settings = context.settingsStore.data.first()
+            return if (settings.enableCmdSettings) {
+                RipDpiProxyCmdPreferences(settings.cmdArgs)
+            } else {
+                RipDpiProxyUIPreferences(settings)
             }
+        }
     }
 }
 
 class RipDpiProxyCmdPreferences(val args: Array<String>) : RipDpiProxyPreferences {
     constructor(cmd: String) : this(cmdToArgs(cmd))
-
-    constructor(preferences: SharedPreferences) : this(
-        preferences.getStringNotNull(
-            "ripdpi_cmd_args",
-            ""
-        )
-    )
 
     companion object {
         private fun cmdToArgs(cmd: String): Array<String> {
@@ -95,43 +93,40 @@ class RipDpiProxyUIPreferences(
     val dropSack: Boolean = dropSack ?: false
     val fakeOffset: Int = ripdpiFakeOffset ?: 0
 
-    constructor(preferences: SharedPreferences) : this(
-        ip = preferences.getString("ripdpi_proxy_ip", null),
-        port = preferences.getString("ripdpi_proxy_port", null)?.toIntOrNull(),
-        maxConnections = preferences.getString("ripdpi_max_connections", null)?.toIntOrNull(),
-        bufferSize = preferences.getString("ripdpi_buffer_size", null)?.toIntOrNull(),
-        defaultTtl = preferences.getString("ripdpi_default_ttl", null)?.toIntOrNull(),
-        noDomain = preferences.getBoolean("ripdpi_no_domain", false),
-        desyncHttp = preferences.getBoolean("ripdpi_desync_http", true),
-        desyncHttps = preferences.getBoolean("ripdpi_desync_https", true),
-        desyncUdp = preferences.getBoolean("ripdpi_desync_udp", false),
-        desyncMethod = preferences.getString("ripdpi_desync_method", null)
+    constructor(settings: AppSettings) : this(
+        ip = settings.proxyIp.ifEmpty { null },
+        port = settings.proxyPort.takeIf { it > 0 },
+        maxConnections = settings.maxConnections.takeIf { it > 0 },
+        bufferSize = settings.bufferSize.takeIf { it > 0 },
+        defaultTtl = if (settings.customTtl) settings.defaultTtl else null,
+        noDomain = settings.noDomain,
+        desyncHttp = settings.desyncHttp,
+        desyncHttps = settings.desyncHttps,
+        desyncUdp = settings.desyncUdp,
+        desyncMethod = settings.desyncMethod.ifEmpty { null }
             ?.let { DesyncMethod.fromName(it) },
-        splitPosition = preferences.getString("ripdpi_split_position", null)?.toIntOrNull(),
-        splitAtHost = preferences.getBoolean("ripdpi_split_at_host", false),
-        fakeTtl = preferences.getString("ripdpi_fake_ttl", null)?.toIntOrNull(),
-        fakeSni = preferences.getString("ripdpi_fake_sni", null),
-        oobChar = preferences.getString("ripdpi_oob_data", null),
-        hostMixedCase = preferences.getBoolean("ripdpi_host_mixed_case", false),
-        domainMixedCase = preferences.getBoolean("ripdpi_domain_mixed_case", false),
-        hostRemoveSpaces = preferences.getBoolean("ripdpi_host_remove_spaces", false),
-        tlsRecordSplit = preferences.getBoolean("ripdpi_tlsrec_enabled", false),
-        tlsRecordSplitPosition = preferences.getString("ripdpi_tlsrec_position", null)
-            ?.toIntOrNull(),
-        tlsRecordSplitAtSni = preferences.getBoolean("ripdpi_tlsrec_at_sni", false),
-        hostsMode = preferences.getString("ripdpi_hosts_mode", null)
+        splitPosition = settings.splitPosition,
+        splitAtHost = settings.splitAtHost,
+        fakeTtl = settings.fakeTtl.takeIf { it > 0 },
+        fakeSni = settings.fakeSni.ifEmpty { null },
+        oobChar = settings.oobData.ifEmpty { null },
+        hostMixedCase = settings.hostMixedCase,
+        domainMixedCase = settings.domainMixedCase,
+        hostRemoveSpaces = settings.hostRemoveSpaces,
+        tlsRecordSplit = settings.tlsrecEnabled,
+        tlsRecordSplitPosition = settings.tlsrecPosition,
+        tlsRecordSplitAtSni = settings.tlsrecAtSni,
+        hostsMode = settings.hostsMode.ifEmpty { null }
             ?.let { HostsMode.fromName(it) },
-        hosts = preferences.getString("ripdpi_hosts_mode", null)?.let {
-            when (HostsMode.fromName(it)) {
-                HostsMode.Blacklist -> preferences.getString("ripdpi_hosts_blacklist", null)
-                HostsMode.Whitelist -> preferences.getString("ripdpi_hosts_whitelist", null)
-                else -> null
-            }
+        hosts = when {
+            settings.hostsMode == "blacklist" -> settings.hostsBlacklist
+            settings.hostsMode == "whitelist" -> settings.hostsWhitelist
+            else -> null
         },
-        tcpFastOpen = preferences.getBoolean("ripdpi_tcp_fast_open", false),
-        udpFakeCount = preferences.getString("ripdpi_udp_fake_count", null)?.toIntOrNull(),
-        dropSack = preferences.getBoolean("ripdpi_drop_sack", false),
-        ripdpiFakeOffset = preferences.getString("ripdpi_fake_offset", null)?.toIntOrNull(),
+        tcpFastOpen = settings.tcpFastOpen,
+        udpFakeCount = settings.udpFakeCount,
+        dropSack = settings.dropSack,
+        ripdpiFakeOffset = settings.fakeOffset,
     )
 
     enum class DesyncMethod {
