@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 #include <netdb.h>
 
 #include <jni.h>
@@ -26,6 +27,12 @@ enum hosts_mode {
     HOSTS_WHITELIST,
 };
 
+static void free_argv(char **argv, int argc) {
+    for (int i = 0; i < argc; i++) {
+        free(argv[i]);
+    }
+}
+
 JNIEXPORT jint JNI_OnLoad(
         __attribute__((unused)) JavaVM *vm,
         __attribute__((unused)) void *reserved) {
@@ -40,26 +47,47 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocketWithCommandLine(
         jobjectArray args) {
     int argc = (*env)->GetArrayLength(env, args);
     char *argv[argc];
+    int fd = -1;
+
+    for (int i = 0; i < argc; i++) {
+        argv[i] = NULL;
+    }
+
     for (int i = 0; i < argc; i++) {
         jstring arg = (jstring) (*env)->GetObjectArrayElement(env, args, i);
+        if (!arg) {
+            goto cleanup;
+        }
+
         const char *arg_str = (*env)->GetStringUTFChars(env, arg, 0);
+        if (!arg_str) {
+            (*env)->DeleteLocalRef(env, arg);
+            goto cleanup;
+        }
+
         argv[i] = strdup(arg_str);
         (*env)->ReleaseStringUTFChars(env, arg, arg_str);
+        (*env)->DeleteLocalRef(env, arg);
+        if (!argv[i]) {
+            goto cleanup;
+        }
     }
 
     int res = parse_args(argc, argv);
     if (res < 0) {
         uniperror("parse_args");
-        return -1;
+        goto cleanup;
     }
 
-    int fd = listen_socket((struct sockaddr_ina *)&params.laddr);
+    fd = listen_socket((struct sockaddr_ina *)&params.laddr);
     if (fd < 0) {
         uniperror("listen_socket");
-        return -1;
+        goto cleanup;
     }
     LOG(LOG_S, "listen_socket, fd: %d", fd);
 
+cleanup:
+    free_argv(argv, argc);
     return fd;
 }
 
