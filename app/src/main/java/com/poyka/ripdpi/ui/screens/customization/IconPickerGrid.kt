@@ -3,8 +3,6 @@ package com.poyka.ripdpi.ui.screens.customization
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.activities.LauncherIconOption
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -82,10 +81,9 @@ private fun IconOptionCell(
     Column(
         modifier =
             modifier
-                .clickable(
+                .ripDpiSelectable(
+                    selected = selected,
                     role = Role.RadioButton,
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
                     onClick = onClick,
                 ),
         horizontalAlignment = Alignment.CenterHorizontally,

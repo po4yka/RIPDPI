@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.components.buttons
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -29,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -81,12 +81,13 @@ fun RipDpiButton(
                 .background(base.container, shape)
                 .border(width = borderWidth, color = borderColor, shape = shape)
                 .focusable(enabled = enabled, interactionSource = interactionSource)
-                .clickable(
+                .ripDpiClickable(
                     enabled = enabled,
                     role = Role.Button,
                     interactionSource = interactionSource,
                     onClick = onClick,
-                ).padding(
+                )
+                .padding(
                     horizontal = components.buttonHorizontalPadding,
                     vertical = components.buttonVerticalPadding,
                 ),

@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +41,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.OnboardingEffect
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.OnboardingViewModel
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -152,7 +152,7 @@ fun OnboardingScreen(
                 modifier =
                     Modifier
                         .padding(top = introLayout.topActionTopPadding)
-                        .clickable(role = Role.Button, onClick = onSkip),
+                        .ripDpiClickable(role = Role.Button, onClick = onSkip),
             )
         }
 
