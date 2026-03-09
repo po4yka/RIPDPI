@@ -73,5 +73,6 @@ jobs:
           name: static-analysis-reports
           path: |
             **/build/reports/detekt/
+            **/build/reports/ktlint/
             **/build/reports/lint-results*.html
           retention-days: 7
