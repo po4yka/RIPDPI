@@ -5,6 +5,7 @@ plugins {
     id("com.android.library")
     id("ripdpi.android.lint")
     id("ripdpi.android.detekt")
+    id("ripdpi.android.ktlint")
 }
 
 extensions.configure<LibraryExtension> {
