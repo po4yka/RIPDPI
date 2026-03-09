@@ -11,14 +11,19 @@ import androidx.core.app.NotificationCompat
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.STOP_ACTION
 
-fun registerNotificationChannel(context: Context, id: String, @StringRes name: Int) {
+fun registerNotificationChannel(
+    context: Context,
+    id: String,
+    @StringRes name: Int,
+) {
     val manager = context.getSystemService(NotificationManager::class.java) ?: return
 
-    val channel = NotificationChannel(
-        id,
-        context.getString(name),
-        NotificationManager.IMPORTANCE_DEFAULT
-    )
+    val channel =
+        NotificationChannel(
+            id,
+            context.getString(name),
+            NotificationManager.IMPORTANCE_DEFAULT,
+        )
     channel.enableLights(false)
     channel.enableVibration(false)
     channel.setShowBadge(false)
@@ -33,25 +38,26 @@ fun createConnectionNotification(
     @StringRes content: Int,
     service: Class<*>,
 ): Notification =
-    NotificationCompat.Builder(context, channelId)
+    NotificationCompat
+        .Builder(context, channelId)
         .setSmallIcon(R.drawable.ic_notification)
         .setSilent(true)
-            .setContentTitle(context.getString(title))
-            .setContentText(context.getString(content))
-            .addAction(0, "Stop",
-                PendingIntent.getService(
-                    context,
-                    0,
-                    Intent(context, service).setAction(STOP_ACTION),
-                    PendingIntent.FLAG_IMMUTABLE,
-                )
-            )
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    context,
-                    0,
-                    context.packageManager.getLaunchIntentForPackage(context.packageName),
-                    PendingIntent.FLAG_IMMUTABLE,
-                )
-            )
-        .build()
+        .setContentTitle(context.getString(title))
+        .setContentText(context.getString(content))
+        .addAction(
+            0,
+            "Stop",
+            PendingIntent.getService(
+                context,
+                0,
+                Intent(context, service).setAction(STOP_ACTION),
+                PendingIntent.FLAG_IMMUTABLE,
+            ),
+        ).setContentIntent(
+            PendingIntent.getActivity(
+                context,
+                0,
+                context.packageManager.getLaunchIntentForPackage(context.packageName),
+                PendingIntent.FLAG_IMMUTABLE,
+            ),
+        ).build()

@@ -11,7 +11,10 @@ import com.poyka.ripdpi.data.STOP_ACTION
 object ServiceManager {
     private val TAG: String = ServiceManager::class.java.simpleName
 
-    fun start(context: Context, mode: Mode) {
+    fun start(
+        context: Context,
+        mode: Mode,
+    ) {
         when (mode) {
             Mode.VPN -> {
                 Log.i(TAG, "Starting VPN")

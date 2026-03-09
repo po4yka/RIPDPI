@@ -40,35 +40,38 @@ fun RipDpiChip(
 ) {
     val colors = RipDpiThemeTokens.colors
     val scheme = MaterialTheme.colorScheme
-    val container = when {
-        selected -> colors.foreground
-        isPressed -> scheme.surfaceVariant
-        else -> Color.Transparent
-    }
-    val borderColor = when {
-        selected -> colors.foreground
-        enabled -> MaterialTheme.colorScheme.outlineVariant
-        else -> colors.border
-    }
-    val contentColor = when {
-        selected -> colors.background
-        enabled -> colors.foreground
-        else -> colors.mutedForeground
-    }
+    val container =
+        when {
+            selected -> colors.foreground
+            isPressed -> scheme.surfaceVariant
+            else -> Color.Transparent
+        }
+    val borderColor =
+        when {
+            selected -> colors.foreground
+            enabled -> MaterialTheme.colorScheme.outlineVariant
+            else -> colors.border
+        }
+    val contentColor =
+        when {
+            selected -> colors.background
+            enabled -> colors.foreground
+            else -> colors.mutedForeground
+        }
 
     Row(
-        modifier = modifier
-            .background(container, RoundedCornerShape(12.dp))
-            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-            .clickable(
-                enabled = enabled,
-                role = Role.Checkbox,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(horizontal = 17.dp, vertical = 6.dp)
-            .alpha(if (enabled) 1f else 0.38f),
+        modifier =
+            modifier
+                .background(container, RoundedCornerShape(12.dp))
+                .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                .clickable(
+                    enabled = enabled,
+                    role = Role.Checkbox,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                ).padding(horizontal = 17.dp, vertical = 6.dp)
+                .alpha(if (enabled) 1f else 0.38f),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

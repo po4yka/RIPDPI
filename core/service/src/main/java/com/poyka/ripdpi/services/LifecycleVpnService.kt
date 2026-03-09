@@ -11,7 +11,9 @@ import androidx.lifecycle.ServiceLifecycleDispatcher
 /**
  * Based on [androidx.lifecycle.LifecycleService]
  */
-open class LifecycleVpnService : VpnService(), LifecycleOwner {
+open class LifecycleVpnService :
+    VpnService(),
+    LifecycleOwner {
     @Suppress("LeakingThis")
     private val dispatcher = ServiceLifecycleDispatcher(this)
 
@@ -29,7 +31,10 @@ open class LifecycleVpnService : VpnService(), LifecycleOwner {
 
     @Deprecated("Deprecated in Java")
     @CallSuper
-    override fun onStart(intent: Intent?, startId: Int) {
+    override fun onStart(
+        intent: Intent?,
+        startId: Int,
+    ) {
         dispatcher.onServicePreSuperOnStart()
         @Suppress("DEPRECATION")
         super.onStart(intent, startId)
@@ -40,9 +45,11 @@ open class LifecycleVpnService : VpnService(), LifecycleOwner {
     // it results in dispatcher.onServicePreSuperOnStart() call, because
     // super.onStartCommand calls onStart().
     @CallSuper
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return super.onStartCommand(intent, flags, startId)
-    }
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int = super.onStartCommand(intent, flags, startId)
 
     @CallSuper
     override fun onDestroy() {

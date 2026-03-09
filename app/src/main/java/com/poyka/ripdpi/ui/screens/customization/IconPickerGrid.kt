@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
@@ -80,13 +80,14 @@ private fun IconOptionCell(
     val type = RipDpiThemeTokens.type
 
     Column(
-        modifier = modifier
-            .clickable(
-                role = Role.RadioButton,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
+        modifier =
+            modifier
+                .clickable(
+                    role = Role.RadioButton,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
@@ -95,15 +96,16 @@ private fun IconOptionCell(
             contentAlignment = Alignment.Center,
         ) {
             Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(shapes.xl)
-                    .background(colors.inputBackground)
-                    .border(
-                        width = 1.dp,
-                        color = if (selected) colors.foreground else colors.cardBorder,
-                        shape = shapes.xl,
-                    ),
+                modifier =
+                    Modifier
+                        .size(56.dp)
+                        .clip(shapes.xl)
+                        .background(colors.inputBackground)
+                        .border(
+                            width = 1.dp,
+                            color = if (selected) colors.foreground else colors.cardBorder,
+                            shape = shapes.xl,
+                        ),
                 contentAlignment = Alignment.Center,
             ) {
                 Image(
@@ -115,12 +117,13 @@ private fun IconOptionCell(
 
             if (selected) {
                 Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = 2.dp, y = (-2).dp)
-                        .size(18.dp)
-                        .clip(RipDpiThemeTokens.shapes.full)
-                        .background(colors.foreground),
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 2.dp, y = (-2).dp)
+                            .size(18.dp)
+                            .clip(RipDpiThemeTokens.shapes.full)
+                            .background(colors.foreground),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

@@ -98,9 +98,10 @@ fun HomeScreen(
     val type = RipDpiThemeTokens.type
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background),
     ) {
         RipDpiTopAppBar(
             title = stringResource(R.string.app_name),
@@ -108,10 +109,11 @@ fun HomeScreen(
         )
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = layout.horizontalPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = layout.horizontalPadding),
             verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
         ) {
             Spacer(modifier = Modifier.height(spacing.sm))
@@ -154,11 +156,12 @@ private fun HomeStatusCard(
     val type = RipDpiThemeTokens.type
 
     RipDpiCard(
-        variant = if (uiState.connectionState == ConnectionState.Connected) {
-            RipDpiCardVariant.Elevated
-        } else {
-            RipDpiCardVariant.Outlined
-        },
+        variant =
+            if (uiState.connectionState == ConnectionState.Connected) {
+                RipDpiCardVariant.Elevated
+            } else {
+                RipDpiCardVariant.Outlined
+            },
     ) {
         Text(
             text = stringResource(R.string.home_status_section),
@@ -192,10 +195,11 @@ private fun HomeStatusCard(
 internal fun shouldOpenVpnPermission(
     uiState: MainUiState,
     vpnPermissionRequired: Boolean,
-): Boolean = vpnPermissionRequired &&
-    uiState.configuredMode == Mode.VPN &&
-    uiState.connectionState != ConnectionState.Connected &&
-    uiState.connectionState != ConnectionState.Connecting
+): Boolean =
+    vpnPermissionRequired &&
+        uiState.configuredMode == Mode.VPN &&
+        uiState.connectionState != ConnectionState.Connected &&
+        uiState.connectionState != ConnectionState.Connecting
 
 @Composable
 private fun HomeConnectionButton(
@@ -211,75 +215,83 @@ private fun HomeConnectionButton(
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 0.96f,
         targetValue = 1.04f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_100, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 1_100, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
     )
 
-    val containerColor = when (state) {
-        ConnectionState.Connected,
-        ConnectionState.Connecting,
-        -> colors.foreground
+    val containerColor =
+        when (state) {
+            ConnectionState.Connected,
+            ConnectionState.Connecting,
+            -> colors.foreground
 
-        ConnectionState.Disconnected,
-        ConnectionState.Error,
-        -> scheme.surface
-    }
-    val contentColor = when (state) {
-        ConnectionState.Connected,
-        ConnectionState.Connecting,
-        -> colors.background
+            ConnectionState.Disconnected,
+            ConnectionState.Error,
+            -> scheme.surface
+        }
+    val contentColor =
+        when (state) {
+            ConnectionState.Connected,
+            ConnectionState.Connecting,
+            -> colors.background
 
-        ConnectionState.Disconnected,
-        ConnectionState.Error,
-        -> colors.foreground
-    }
-    val haloColor = when (state) {
-        ConnectionState.Connected -> colors.foreground.copy(alpha = 0.08f)
-        ConnectionState.Connecting -> colors.foreground.copy(alpha = 0.14f)
-        ConnectionState.Disconnected -> colors.accent
-        ConnectionState.Error -> colors.destructive.copy(alpha = 0.12f)
-    }
-    val borderColor = when (state) {
-        ConnectionState.Connected,
-        ConnectionState.Connecting,
-        -> Color.Transparent
+            ConnectionState.Disconnected,
+            ConnectionState.Error,
+            -> colors.foreground
+        }
+    val haloColor =
+        when (state) {
+            ConnectionState.Connected -> colors.foreground.copy(alpha = 0.08f)
+            ConnectionState.Connecting -> colors.foreground.copy(alpha = 0.14f)
+            ConnectionState.Disconnected -> colors.accent
+            ConnectionState.Error -> colors.destructive.copy(alpha = 0.12f)
+        }
+    val borderColor =
+        when (state) {
+            ConnectionState.Connected,
+            ConnectionState.Connecting,
+            -> Color.Transparent
 
-        ConnectionState.Disconnected -> colors.cardBorder
-        ConnectionState.Error -> colors.destructive
-    }
+            ConnectionState.Disconnected -> colors.cardBorder
+
+            ConnectionState.Error -> colors.destructive
+        }
     val buttonScale = if (state == ConnectionState.Connecting) pulseScale else 1f
-    val icon = when (state) {
-        ConnectionState.Connected -> RipDpiIcons.Connected
-        ConnectionState.Connecting -> RipDpiIcons.Vpn
-        ConnectionState.Disconnected -> RipDpiIcons.Offline
-        ConnectionState.Error -> RipDpiIcons.Warning
-    }
+    val icon =
+        when (state) {
+            ConnectionState.Connected -> RipDpiIcons.Connected
+            ConnectionState.Connecting -> RipDpiIcons.Vpn
+            ConnectionState.Disconnected -> RipDpiIcons.Offline
+            ConnectionState.Error -> RipDpiIcons.Warning
+        }
 
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            modifier = Modifier
-                .size(216.dp)
-                .scale(buttonScale)
-                .background(haloColor, CircleShape),
+            modifier =
+                Modifier
+                    .size(216.dp)
+                    .scale(buttonScale)
+                    .background(haloColor, CircleShape),
         )
         Column(
-            modifier = Modifier
-                .size(172.dp)
-                .scale(buttonScale)
-                .background(containerColor, CircleShape)
-                .border(width = 1.dp, color = borderColor, shape = CircleShape)
-                .clickable(
-                    enabled = state != ConnectionState.Connecting,
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onClick,
-                )
-                .padding(horizontal = 20.dp, vertical = 24.dp),
+            modifier =
+                Modifier
+                    .size(172.dp)
+                    .scale(buttonScale)
+                    .background(containerColor, CircleShape)
+                    .border(width = 1.dp, color = borderColor, shape = CircleShape)
+                    .clickable(
+                        enabled = state != ConnectionState.Connecting,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClick,
+                    ).padding(horizontal = 20.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -308,16 +320,15 @@ private fun HomeConnectionButton(
 }
 
 @Composable
-private fun HomeStatsGrid(
-    uiState: MainUiState,
-) {
+private fun HomeStatsGrid(uiState: MainUiState) {
     val spacing = RipDpiThemeTokens.spacing
     val context = LocalContext.current
     val resolvedMode = currentMode(uiState)
-    val routeValue = when (resolvedMode) {
-        Mode.VPN -> stringResource(R.string.home_route_local)
-        Mode.Proxy -> stringResource(R.string.proxy_address, uiState.proxyIp, uiState.proxyPort)
-    }
+    val routeValue =
+        when (resolvedMode) {
+            Mode.VPN -> stringResource(R.string.home_route_local)
+            Mode.Proxy -> stringResource(R.string.proxy_address, uiState.proxyIp, uiState.proxyPort)
+        }
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         Row(
@@ -380,57 +391,70 @@ private fun HomeStatCard(
 }
 
 @Composable
-private fun homeStatusLabel(state: ConnectionState): String = when (state) {
-    ConnectionState.Disconnected -> stringResource(R.string.vpn_disconnected)
-    ConnectionState.Connecting -> stringResource(R.string.home_status_connecting)
-    ConnectionState.Connected -> stringResource(R.string.vpn_connected)
-    ConnectionState.Error -> stringResource(R.string.home_status_attention)
-}
-
-private fun homeIndicatorTone(state: ConnectionState): StatusIndicatorTone = when (state) {
-    ConnectionState.Disconnected -> StatusIndicatorTone.Idle
-    ConnectionState.Connecting -> StatusIndicatorTone.Warning
-    ConnectionState.Connected -> StatusIndicatorTone.Active
-    ConnectionState.Error -> StatusIndicatorTone.Error
-}
-
-@Composable
-private fun homeHeadline(state: ConnectionState): String = when (state) {
-    ConnectionState.Disconnected -> stringResource(R.string.home_status_disconnected_title)
-    ConnectionState.Connecting -> stringResource(R.string.home_status_connecting_title)
-    ConnectionState.Connected -> stringResource(R.string.home_status_connected_title)
-    ConnectionState.Error -> stringResource(R.string.home_status_error_title)
-}
-
-@Composable
-private fun homeSupportingCopy(uiState: MainUiState): String = when (uiState.connectionState) {
-    ConnectionState.Disconnected -> stringResource(R.string.home_status_disconnected_body)
-    ConnectionState.Connecting -> stringResource(R.string.home_status_connecting_body)
-    ConnectionState.Connected -> stringResource(R.string.home_status_connected_body)
-    ConnectionState.Error -> stringResource(R.string.home_status_error_body)
-}
-
-@Composable
-private fun homePrimaryActionLabel(uiState: MainUiState): String = when (uiState.connectionState) {
-    ConnectionState.Connecting -> stringResource(R.string.home_connection_button_connecting)
-    ConnectionState.Connected -> when (uiState.activeMode) {
-        Mode.VPN -> stringResource(R.string.vpn_disconnect)
-        Mode.Proxy -> stringResource(R.string.proxy_stop)
+private fun homeStatusLabel(state: ConnectionState): String =
+    when (state) {
+        ConnectionState.Disconnected -> stringResource(R.string.vpn_disconnected)
+        ConnectionState.Connecting -> stringResource(R.string.home_status_connecting)
+        ConnectionState.Connected -> stringResource(R.string.vpn_connected)
+        ConnectionState.Error -> stringResource(R.string.home_status_attention)
     }
 
-    ConnectionState.Disconnected,
-    ConnectionState.Error,
-    -> when (uiState.configuredMode) {
-        Mode.VPN -> stringResource(R.string.vpn_connect)
-        Mode.Proxy -> stringResource(R.string.proxy_start)
+private fun homeIndicatorTone(state: ConnectionState): StatusIndicatorTone =
+    when (state) {
+        ConnectionState.Disconnected -> StatusIndicatorTone.Idle
+        ConnectionState.Connecting -> StatusIndicatorTone.Warning
+        ConnectionState.Connected -> StatusIndicatorTone.Active
+        ConnectionState.Error -> StatusIndicatorTone.Error
     }
-}
 
 @Composable
-private fun homeModeLabel(mode: Mode): String = when (mode) {
-    Mode.VPN -> stringResource(R.string.home_mode_vpn)
-    Mode.Proxy -> stringResource(R.string.home_mode_proxy)
-}
+private fun homeHeadline(state: ConnectionState): String =
+    when (state) {
+        ConnectionState.Disconnected -> stringResource(R.string.home_status_disconnected_title)
+        ConnectionState.Connecting -> stringResource(R.string.home_status_connecting_title)
+        ConnectionState.Connected -> stringResource(R.string.home_status_connected_title)
+        ConnectionState.Error -> stringResource(R.string.home_status_error_title)
+    }
+
+@Composable
+private fun homeSupportingCopy(uiState: MainUiState): String =
+    when (uiState.connectionState) {
+        ConnectionState.Disconnected -> stringResource(R.string.home_status_disconnected_body)
+        ConnectionState.Connecting -> stringResource(R.string.home_status_connecting_body)
+        ConnectionState.Connected -> stringResource(R.string.home_status_connected_body)
+        ConnectionState.Error -> stringResource(R.string.home_status_error_body)
+    }
+
+@Composable
+private fun homePrimaryActionLabel(uiState: MainUiState): String =
+    when (uiState.connectionState) {
+        ConnectionState.Connecting -> {
+            stringResource(R.string.home_connection_button_connecting)
+        }
+
+        ConnectionState.Connected -> {
+            when (uiState.activeMode) {
+                Mode.VPN -> stringResource(R.string.vpn_disconnect)
+                Mode.Proxy -> stringResource(R.string.proxy_stop)
+            }
+        }
+
+        ConnectionState.Disconnected,
+        ConnectionState.Error,
+        -> {
+            when (uiState.configuredMode) {
+                Mode.VPN -> stringResource(R.string.vpn_connect)
+                Mode.Proxy -> stringResource(R.string.proxy_start)
+            }
+        }
+    }
+
+@Composable
+private fun homeModeLabel(mode: Mode): String =
+    when (mode) {
+        Mode.VPN -> stringResource(R.string.home_mode_vpn)
+        Mode.Proxy -> stringResource(R.string.home_mode_proxy)
+    }
 
 private fun currentMode(uiState: MainUiState): Mode =
     if (uiState.connectionState == ConnectionState.Connected) {
@@ -463,11 +487,12 @@ private fun HomeScreenDisconnectedPreview() {
 private fun HomeScreenConnectedPreview() {
     RipDpiTheme(themePreference = "dark") {
         HomeScreen(
-            uiState = MainUiState(
-                connectionState = ConnectionState.Connected,
-                connectionDuration = Duration.parse("PT18M42S"),
-                dataTransferred = 18_242_560L,
-            ),
+            uiState =
+                MainUiState(
+                    connectionState = ConnectionState.Connected,
+                    connectionDuration = Duration.parse("PT18M42S"),
+                    dataTransferred = 18_242_560L,
+                ),
             onToggleConnection = {},
         )
     }
@@ -478,14 +503,15 @@ private fun HomeScreenConnectedPreview() {
 private fun HomeScreenErrorPreview() {
     RipDpiTheme(themePreference = "light") {
         HomeScreen(
-            uiState = MainUiState(
-                connectionState = ConnectionState.Error,
-                errorMessage = "Failed to start VPN",
-                configuredMode = Mode.Proxy,
-                proxyIp = "127.0.0.1",
-                proxyPort = "1080",
-                connectionDuration = ZERO,
-            ),
+            uiState =
+                MainUiState(
+                    connectionState = ConnectionState.Error,
+                    errorMessage = "Failed to start VPN",
+                    configuredMode = Mode.Proxy,
+                    proxyIp = "127.0.0.1",
+                    proxyPort = "1080",
+                    connectionDuration = ZERO,
+                ),
             onToggleConnection = {},
         )
     }

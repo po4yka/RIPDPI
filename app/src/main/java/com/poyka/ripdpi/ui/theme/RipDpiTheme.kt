@@ -12,18 +12,20 @@ fun RipDpiTheme(
     themePreference: String = "system",
     content: @Composable () -> Unit,
 ) {
-    val isDark = when (themePreference) {
-        "dark" -> true
-        "light" -> false
-        else -> isSystemInDarkTheme()
-    }
+    val isDark =
+        when (themePreference) {
+            "dark" -> true
+            "light" -> false
+            else -> isSystemInDarkTheme()
+        }
 
     LaunchedEffect(themePreference) {
-        val mode = when (themePreference) {
-            "dark" -> AppCompatDelegate.MODE_NIGHT_YES
-            "light" -> AppCompatDelegate.MODE_NIGHT_NO
-            else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-        }
+        val mode =
+            when (themePreference) {
+                "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                "light" -> AppCompatDelegate.MODE_NIGHT_NO
+                else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            }
         AppCompatDelegate.setDefaultNightMode(mode)
     }
 

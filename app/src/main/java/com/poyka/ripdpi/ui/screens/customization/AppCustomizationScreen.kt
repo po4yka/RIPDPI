@@ -1,12 +1,15 @@
 package com.poyka.ripdpi.ui.screens.customization
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,12 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.activities.SettingsUiState
@@ -94,9 +94,10 @@ internal fun AppCustomizationScreen(
     }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background),
     ) {
         RipDpiTopAppBar(
             title = stringResource(R.string.title_app_icon),
@@ -106,12 +107,13 @@ internal fun AppCustomizationScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = layout.horizontalPadding,
-                top = spacing.sm,
-                end = layout.horizontalPadding,
-                bottom = spacing.xxl,
-            ),
+            contentPadding =
+                PaddingValues(
+                    start = layout.horizontalPadding,
+                    top = spacing.sm,
+                    end = layout.horizontalPadding,
+                    bottom = spacing.xxl,
+                ),
             verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
         ) {
             item {
@@ -122,9 +124,10 @@ internal fun AppCustomizationScreen(
                         verticalArrangement = Arrangement.spacedBy(spacing.sm),
                     ) {
                         Box(
-                            modifier = Modifier
-                                .size(72.dp)
-                                .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl),
+                            modifier =
+                                Modifier
+                                    .size(72.dp)
+                                    .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl),
                             contentAlignment = Alignment.Center,
                         ) {
                             Image(
@@ -203,10 +206,11 @@ internal fun AppCustomizationScreen(
 private fun AppCustomizationScreenPreview() {
     RipDpiTheme(themePreference = "light") {
         AppCustomizationScreen(
-            uiState = SettingsUiState(
-                appIconVariant = LauncherIconManager.DefaultIconKey,
-                themedAppIconEnabled = true,
-            ),
+            uiState =
+                SettingsUiState(
+                    appIconVariant = LauncherIconManager.DefaultIconKey,
+                    themedAppIconEnabled = true,
+                ),
             onBack = {},
             onIconSelected = {},
             onThemedIconChanged = {},
@@ -219,10 +223,11 @@ private fun AppCustomizationScreenPreview() {
 private fun AppCustomizationScreenDarkPreview() {
     RipDpiTheme(themePreference = "dark") {
         AppCustomizationScreen(
-            uiState = SettingsUiState(
-                appIconVariant = LauncherIconManager.RavenIconKey,
-                themedAppIconEnabled = false,
-            ),
+            uiState =
+                SettingsUiState(
+                    appIconVariant = LauncherIconManager.RavenIconKey,
+                    themedAppIconEnabled = false,
+                ),
             onBack = {},
             onIconSelected = {},
             onThemedIconChanged = {},

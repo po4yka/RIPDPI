@@ -48,42 +48,47 @@ fun RipDpiIconButton(
     val colors = RipDpiThemeTokens.colors
     val scheme = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(16.dp)
-    val baseContainer = when (style) {
-        RipDpiIconButtonStyle.Ghost -> Color.Transparent
-        RipDpiIconButtonStyle.Tonal -> if (selected) scheme.surfaceVariant else colors.accent
-        RipDpiIconButtonStyle.Filled -> colors.foreground
-        RipDpiIconButtonStyle.Outline -> Color.Transparent
-    }
-    val background = when {
-        !enabled && style == RipDpiIconButtonStyle.Ghost -> Color.Transparent
-        !enabled -> colors.border
-        isPressed -> lerp(baseContainer, scheme.onSurfaceVariant, 0.25f)
-        else -> baseContainer
-    }
-    val iconTint = when {
-        !enabled -> colors.mutedForeground
-        style == RipDpiIconButtonStyle.Filled -> colors.background
-        else -> colors.foreground
-    }
-    val borderColor = when {
-        style == RipDpiIconButtonStyle.Outline && enabled -> colors.border
-        style == RipDpiIconButtonStyle.Outline -> colors.border
-        else -> Color.Transparent
-    }
+    val baseContainer =
+        when (style) {
+            RipDpiIconButtonStyle.Ghost -> Color.Transparent
+            RipDpiIconButtonStyle.Tonal -> if (selected) scheme.surfaceVariant else colors.accent
+            RipDpiIconButtonStyle.Filled -> colors.foreground
+            RipDpiIconButtonStyle.Outline -> Color.Transparent
+        }
+    val background =
+        when {
+            !enabled && style == RipDpiIconButtonStyle.Ghost -> Color.Transparent
+            !enabled -> colors.border
+            isPressed -> lerp(baseContainer, scheme.onSurfaceVariant, 0.25f)
+            else -> baseContainer
+        }
+    val iconTint =
+        when {
+            !enabled -> colors.mutedForeground
+            style == RipDpiIconButtonStyle.Filled -> colors.background
+            else -> colors.foreground
+        }
+    val borderColor =
+        when {
+            style == RipDpiIconButtonStyle.Outline && enabled -> colors.border
+            style == RipDpiIconButtonStyle.Outline -> colors.border
+            else -> Color.Transparent
+        }
 
     Row(
-        modifier = modifier
-            .size(40.dp)
-            .clip(shape)
-            .background(background, shape)
-            .border(if (style == RipDpiIconButtonStyle.Outline) 1.dp else 0.dp, borderColor, shape)
-            .clickable(
-                enabled = enabled,
-                role = Role.Button,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
+        modifier =
+            modifier
+                .size(40.dp)
+                .clip(shape)
+                .background(background, shape)
+                .border(if (style == RipDpiIconButtonStyle.Outline) 1.dp else 0.dp, borderColor, shape)
+                .clickable(
+                    enabled = enabled,
+                    role = Role.Button,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                ),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {

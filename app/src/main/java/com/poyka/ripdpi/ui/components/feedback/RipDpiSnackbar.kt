@@ -62,9 +62,10 @@ fun RipDpiSnackbar(
         shadowElevation = palette.shadowElevation,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = spacing.lg, vertical = spacing.md),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = spacing.lg, vertical = spacing.md),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -129,15 +130,16 @@ suspend fun SnackbarHostState.showRipDpiSnackbar(
     actionLabel: String? = null,
     duration: SnackbarDuration = SnackbarDuration.Short,
     withDismissAction: Boolean = false,
-): SnackbarResult = showSnackbar(
-    RipDpiSnackbarVisuals(
-        message = message,
-        tone = tone,
-        actionLabel = actionLabel,
-        duration = duration,
-        withDismissAction = withDismissAction,
-    ),
-)
+): SnackbarResult =
+    showSnackbar(
+        RipDpiSnackbarVisuals(
+            message = message,
+            tone = tone,
+            actionLabel = actionLabel,
+            duration = duration,
+            withDismissAction = withDismissAction,
+        ),
+    )
 
 @Immutable
 internal data class RipDpiSnackbarVisuals(
@@ -166,46 +168,61 @@ private fun ripDpiSnackbarPalette(tone: RipDpiSnackbarTone): RipDpiSnackbarPalet
     val colors = RipDpiThemeTokens.colors
 
     return when (tone) {
-        RipDpiSnackbarTone.Default -> RipDpiSnackbarPalette(
-            container = MaterialTheme.colorScheme.inverseSurface,
-            content = MaterialTheme.colorScheme.inverseOnSurface,
-            icon = MaterialTheme.colorScheme.inverseOnSurface,
-            action = MaterialTheme.colorScheme.inverseOnSurface,
-        )
-        RipDpiSnackbarTone.Warning -> RipDpiSnackbarPalette(
-            container = colors.warning,
-            content = colors.warningForeground,
-            icon = colors.warningForeground,
-            action = colors.warningForeground,
-        )
-        RipDpiSnackbarTone.Error -> RipDpiSnackbarPalette(
-            container = colors.destructive,
-            content = colors.destructiveForeground,
-            icon = colors.destructiveForeground,
-            action = colors.destructiveForeground,
-        )
-        RipDpiSnackbarTone.Info -> RipDpiSnackbarPalette(
-            container = colors.info,
-            content = colors.infoForeground,
-            icon = colors.infoForeground,
-            action = colors.infoForeground,
-        )
-        RipDpiSnackbarTone.Restricted -> RipDpiSnackbarPalette(
-            container = colors.restricted,
-            content = colors.restrictedForeground,
-            icon = colors.restrictedForeground,
-            action = colors.restrictedForeground,
-        )
+        RipDpiSnackbarTone.Default -> {
+            RipDpiSnackbarPalette(
+                container = MaterialTheme.colorScheme.inverseSurface,
+                content = MaterialTheme.colorScheme.inverseOnSurface,
+                icon = MaterialTheme.colorScheme.inverseOnSurface,
+                action = MaterialTheme.colorScheme.inverseOnSurface,
+            )
+        }
+
+        RipDpiSnackbarTone.Warning -> {
+            RipDpiSnackbarPalette(
+                container = colors.warning,
+                content = colors.warningForeground,
+                icon = colors.warningForeground,
+                action = colors.warningForeground,
+            )
+        }
+
+        RipDpiSnackbarTone.Error -> {
+            RipDpiSnackbarPalette(
+                container = colors.destructive,
+                content = colors.destructiveForeground,
+                icon = colors.destructiveForeground,
+                action = colors.destructiveForeground,
+            )
+        }
+
+        RipDpiSnackbarTone.Info -> {
+            RipDpiSnackbarPalette(
+                container = colors.info,
+                content = colors.infoForeground,
+                icon = colors.infoForeground,
+                action = colors.infoForeground,
+            )
+        }
+
+        RipDpiSnackbarTone.Restricted -> {
+            RipDpiSnackbarPalette(
+                container = colors.restricted,
+                content = colors.restrictedForeground,
+                icon = colors.restrictedForeground,
+                action = colors.restrictedForeground,
+            )
+        }
     }
 }
 
-private fun defaultSnackbarIcon(tone: RipDpiSnackbarTone) = when (tone) {
-    RipDpiSnackbarTone.Default -> null
-    RipDpiSnackbarTone.Warning -> RipDpiIcons.Warning
-    RipDpiSnackbarTone.Error -> RipDpiIcons.Error
-    RipDpiSnackbarTone.Info -> RipDpiIcons.Info
-    RipDpiSnackbarTone.Restricted -> RipDpiIcons.Lock
-}
+private fun defaultSnackbarIcon(tone: RipDpiSnackbarTone) =
+    when (tone) {
+        RipDpiSnackbarTone.Default -> null
+        RipDpiSnackbarTone.Warning -> RipDpiIcons.Warning
+        RipDpiSnackbarTone.Error -> RipDpiIcons.Error
+        RipDpiSnackbarTone.Info -> RipDpiIcons.Info
+        RipDpiSnackbarTone.Restricted -> RipDpiIcons.Lock
+    }
 
 @Preview(showBackground = true)
 @Composable

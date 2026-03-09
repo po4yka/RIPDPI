@@ -43,45 +43,49 @@ fun RipDpiSwitch(
     val scheme = MaterialTheme.colorScheme
     val isDark = scheme.background.luminance() < 0.5f
     val trackColor by animateColorAsState(
-        targetValue = when {
-            checked && isDark -> colors.foreground
-            checked -> colors.foreground
-            isDark -> lerp(colors.background, colors.foreground, 0.25f)
-            else -> lerp(colors.background, colors.foreground, 0.16f)
-        },
+        targetValue =
+            when {
+                checked && isDark -> colors.foreground
+                checked -> colors.foreground
+                isDark -> lerp(colors.background, colors.foreground, 0.25f)
+                else -> lerp(colors.background, colors.foreground, 0.16f)
+            },
         label = "switchTrack",
     )
     val thumbColor by animateColorAsState(
-        targetValue = when {
-            checked && isDark -> colors.background
-            checked -> Color.White
-            isDark -> lerp(colors.background, colors.foreground, 0.5f)
-            else -> Color.White
-        },
+        targetValue =
+            when {
+                checked && isDark -> colors.background
+                checked -> Color.White
+                isDark -> lerp(colors.background, colors.foreground, 0.5f)
+                else -> Color.White
+            },
         label = "switchThumb",
     )
     val thumbOffset by animateDpAsState(targetValue = if (checked) 20.dp else 0.dp, label = "switchOffset")
     val alpha by animateFloatAsState(targetValue = if (enabled) 1f else 0.38f, label = "switchAlpha")
 
     Box(
-        modifier = modifier
-            .size(width = 44.dp, height = 24.dp)
-            .background(trackColor.copy(alpha = alpha), CircleShape)
-            .clickable(
-                enabled = enabled,
-                role = Role.Switch,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { onCheckedChange(!checked) },
-            ),
+        modifier =
+            modifier
+                .size(width = 44.dp, height = 24.dp)
+                .background(trackColor.copy(alpha = alpha), CircleShape)
+                .clickable(
+                    enabled = enabled,
+                    role = Role.Switch,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { onCheckedChange(!checked) },
+                ),
     ) {
         Box(
-            modifier = Modifier
-                .padding(2.dp)
-                .offset(x = thumbOffset)
-                .size(20.dp)
-                .shadow(elevation = 3.dp, shape = CircleShape, clip = false)
-                .background(thumbColor.copy(alpha = alpha), CircleShape),
+            modifier =
+                Modifier
+                    .padding(2.dp)
+                    .offset(x = thumbOffset)
+                    .size(20.dp)
+                    .shadow(elevation = 3.dp, shape = CircleShape, clip = false)
+                    .background(thumbColor.copy(alpha = alpha), CircleShape),
         )
     }
 }

@@ -19,7 +19,9 @@ sealed interface RipDpiProxyPreferences {
     }
 }
 
-class RipDpiProxyCmdPreferences(val args: Array<String>) : RipDpiProxyPreferences {
+class RipDpiProxyCmdPreferences(
+    val args: Array<String>,
+) : RipDpiProxyPreferences {
     constructor(cmd: String) : this(cmdToArgs(cmd))
 
     companion object {
@@ -83,11 +85,17 @@ class RipDpiProxyUIPreferences(
     val tlsRecordSplitPosition: Int = tlsRecordSplitPosition ?: 0
     val tlsRecordSplitAtSni: Boolean = tlsRecordSplitAtSni ?: false
     val hostsMode: HostsMode =
-        if (hosts?.isBlank() != false) HostsMode.Disable
-        else hostsMode ?: HostsMode.Disable
+        if (hosts?.isBlank() != false) {
+            HostsMode.Disable
+        } else {
+            hostsMode ?: HostsMode.Disable
+        }
     val hosts: String? =
-        if (this.hostsMode == HostsMode.Disable) null
-        else hosts?.trim()
+        if (this.hostsMode == HostsMode.Disable) {
+            null
+        } else {
+            hosts?.trim()
+        }
     val tcpFastOpen: Boolean = tcpFastOpen ?: false
     val udpFakeCount: Int = udpFakeCount ?: 0
     val dropSack: Boolean = dropSack ?: false
@@ -103,8 +111,10 @@ class RipDpiProxyUIPreferences(
         desyncHttp = settings.desyncHttp,
         desyncHttps = settings.desyncHttps,
         desyncUdp = settings.desyncUdp,
-        desyncMethod = settings.desyncMethod.ifEmpty { null }
-            ?.let { DesyncMethod.fromName(it) },
+        desyncMethod =
+            settings.desyncMethod
+                .ifEmpty { null }
+                ?.let { DesyncMethod.fromName(it) },
         splitPosition = settings.splitPosition,
         splitAtHost = settings.splitAtHost,
         fakeTtl = settings.fakeTtl.takeIf { it > 0 },
@@ -116,13 +126,16 @@ class RipDpiProxyUIPreferences(
         tlsRecordSplit = settings.tlsrecEnabled,
         tlsRecordSplitPosition = settings.tlsrecPosition,
         tlsRecordSplitAtSni = settings.tlsrecAtSni,
-        hostsMode = settings.hostsMode.ifEmpty { null }
-            ?.let { HostsMode.fromName(it) },
-        hosts = when {
-            settings.hostsMode == "blacklist" -> settings.hostsBlacklist
-            settings.hostsMode == "whitelist" -> settings.hostsWhitelist
-            else -> null
-        },
+        hostsMode =
+            settings.hostsMode
+                .ifEmpty { null }
+                ?.let { HostsMode.fromName(it) },
+        hosts =
+            when {
+                settings.hostsMode == "blacklist" -> settings.hostsBlacklist
+                settings.hostsMode == "whitelist" -> settings.hostsWhitelist
+                else -> null
+            },
         tcpFastOpen = settings.tcpFastOpen,
         udpFakeCount = settings.udpFakeCount,
         dropSack = settings.dropSack,
@@ -135,11 +148,12 @@ class RipDpiProxyUIPreferences(
         Disorder,
         Fake,
         OOB,
-        DISOOB;
+        DISOOB,
+        ;
 
         companion object {
-            fun fromName(name: String): DesyncMethod {
-                return when (name) {
+            fun fromName(name: String): DesyncMethod =
+                when (name) {
                     "none" -> None
                     "split" -> Split
                     "disorder" -> Disorder
@@ -148,24 +162,23 @@ class RipDpiProxyUIPreferences(
                     "disoob" -> DISOOB
                     else -> throw IllegalArgumentException("Unknown desync method: $name")
                 }
-            }
         }
     }
 
     enum class HostsMode {
         Disable,
         Blacklist,
-        Whitelist;
+        Whitelist,
+        ;
 
         companion object {
-            fun fromName(name: String): HostsMode {
-                return when (name) {
+            fun fromName(name: String): HostsMode =
+                when (name) {
                     "disable" -> Disable
                     "blacklist" -> Blacklist
                     "whitelist" -> Whitelist
                     else -> throw IllegalArgumentException("Unknown hosts mode: $name")
                 }
-            }
         }
     }
 }

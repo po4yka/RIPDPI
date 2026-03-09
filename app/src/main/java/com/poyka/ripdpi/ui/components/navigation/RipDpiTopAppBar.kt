@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.components.navigation
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -39,10 +39,11 @@ fun RipDpiTopAppBar(
     val layout = RipDpiThemeTokens.layout
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(layout.appBarHeight)
-            .padding(horizontal = layout.horizontalPadding),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(layout.appBarHeight)
+                .padding(horizontal = layout.horizontalPadding),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -58,9 +59,10 @@ fun RipDpiTopAppBar(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Row(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .background(colors.foreground, CircleShape),
+                            modifier =
+                                Modifier
+                                    .size(28.dp)
+                                    .background(colors.foreground, CircleShape),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -79,9 +81,10 @@ fun RipDpiTopAppBar(
                         imageVector = navigationIcon,
                         contentDescription = null,
                         tint = colors.foreground,
-                        modifier = Modifier
-                            .size(RipDpiIconSizes.Default)
-                            .clickable(onClick = onNavigationClick),
+                        modifier =
+                            Modifier
+                                .size(RipDpiIconSizes.Default)
+                                .clickable(onClick = onNavigationClick),
                     )
                     Text(text = title, style = type.appBarTitle, color = colors.foreground)
                 }

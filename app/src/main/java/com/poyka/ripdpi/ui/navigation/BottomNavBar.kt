@@ -38,20 +38,22 @@ fun BottomNavBar(
     val layout = RipDpiThemeTokens.layout
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(colors.card)
-            .navigationBarsPadding(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(colors.card)
+                .navigationBarsPadding(),
     ) {
         HorizontalDivider(
             color = colors.border,
             thickness = RipDpiStroke.Hairline,
         )
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(layout.bottomBarHeight)
-                .padding(horizontal = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(layout.bottomBarHeight)
+                    .padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -76,24 +78,26 @@ private fun RowScope.BottomNavItem(
     val type = RipDpiThemeTokens.type
 
     Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .weight(1f)
-            .padding(vertical = 3.dp)
-            .clickable(
-                role = Role.Tab,
-                onClick = onClick,
-            ),
+        modifier =
+            Modifier
+                .fillMaxHeight()
+                .weight(1f)
+                .padding(vertical = 3.dp)
+                .clickable(
+                    role = Role.Tab,
+                    onClick = onClick,
+                ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Box(
-            modifier = Modifier
-                .size(width = 52.dp, height = 28.dp)
-                .background(
-                    color = if (selected) colors.inputBackground else Color.Transparent,
-                    shape = RipDpiThemeTokens.shapes.xxl,
-                ),
+            modifier =
+                Modifier
+                    .size(width = 52.dp, height = 28.dp)
+                    .background(
+                        color = if (selected) colors.inputBackground else Color.Transparent,
+                        shape = RipDpiThemeTokens.shapes.xxl,
+                    ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -104,7 +108,9 @@ private fun RowScope.BottomNavItem(
             )
         }
         Text(
-            text = androidx.compose.ui.res.stringResource(destination.titleRes),
+            text =
+                androidx.compose.ui.res
+                    .stringResource(destination.titleRes),
             style = type.navLabel,
             color = if (selected) colors.foreground else colors.mutedForeground,
         )

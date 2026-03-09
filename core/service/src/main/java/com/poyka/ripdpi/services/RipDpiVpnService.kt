@@ -7,10 +7,10 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.lifecycle.lifecycleScope
-import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.TProxyService
+import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.START_ACTION
@@ -18,7 +18,8 @@ import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.settingsStore
-import com.poyka.ripdpi.utility.*
+import com.poyka.ripdpi.utility.createConnectionNotification
+import com.poyka.ripdpi.utility.registerNotificationChannel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
@@ -52,7 +53,11 @@ class RipDpiVpnService : LifecycleVpnService() {
         )
     }
 
-    override fun onStartCommand(intent: android.content.Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: android.content.Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         super.onStartCommand(intent, flags, startId)
         return when (val action = intent?.action) {
             START_ACTION -> {
@@ -141,21 +146,22 @@ class RipDpiVpnService : LifecycleVpnService() {
 
         val preferences = getRipDpiPreferences()
 
-        proxyJob = lifecycleScope.launch(Dispatchers.IO) {
-            val code = ripDpiProxy.startProxy(preferences)
+        proxyJob =
+            lifecycleScope.launch(Dispatchers.IO) {
+                val code = ripDpiProxy.startProxy(preferences)
 
-            withContext(Dispatchers.Main) {
-                if (code != 0) {
-                    Log.e(TAG, "Proxy stopped with code $code")
-                    updateStatus(ServiceStatus.Failed)
-                } else {
-                    if (!stopping) {
-                        stop()
-                        updateStatus(ServiceStatus.Disconnected)
+                withContext(Dispatchers.Main) {
+                    if (code != 0) {
+                        Log.e(TAG, "Proxy stopped with code $code")
+                        updateStatus(ServiceStatus.Failed)
+                    } else {
+                        if (!stopping) {
+                            stop()
+                            updateStatus(ServiceStatus.Disconnected)
+                        }
                     }
                 }
             }
-        }
 
         Log.i(TAG, "Proxy started")
     }
@@ -187,7 +193,8 @@ class RipDpiVpnService : LifecycleVpnService() {
         val dns = settings.dnsIp.ifEmpty { "1.1.1.1" }
         val ipv6 = settings.ipv6Enable
 
-        val tun2socksConfig = """
+        val tun2socksConfig =
+            """
         | misc:
         |   task-stack-size: 81920
         | socks5:
@@ -197,17 +204,19 @@ class RipDpiVpnService : LifecycleVpnService() {
         |   udp: udp
         """.trimMargin("| ")
 
-        val configPath = try {
-            File.createTempFile("config", "tmp", cacheDir).apply {
-                writeText(tun2socksConfig)
+        val configPath =
+            try {
+                File.createTempFile("config", "tmp", cacheDir).apply {
+                    writeText(tun2socksConfig)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create config file", e)
+                throw e
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to create config file", e)
-            throw e
-        }
 
-        val fd = createBuilder(dns, ipv6).establish()
-            ?: throw IllegalStateException("VPN connection failed")
+        val fd =
+            createBuilder(dns, ipv6).establish()
+                ?: throw IllegalStateException("VPN connection failed")
 
         this.tunFd = fd
 
@@ -233,22 +242,26 @@ class RipDpiVpnService : LifecycleVpnService() {
         Log.i(TAG, "Tun2socks stopped")
     }
 
-    private suspend fun getRipDpiPreferences(): RipDpiProxyPreferences =
-        RipDpiProxyPreferences.fromSettingsStore(this)
+    private suspend fun getRipDpiPreferences(): RipDpiProxyPreferences = RipDpiProxyPreferences.fromSettingsStore(this)
 
     private fun updateStatus(newStatus: ServiceStatus) {
         Log.d(TAG, "VPN status changed from $status to $newStatus")
 
         status = newStatus
 
-        val appStatus = when (newStatus) {
-            ServiceStatus.Connected -> AppStatus.Running
-            ServiceStatus.Disconnected,
-            ServiceStatus.Failed -> {
-                proxyJob = null
-                AppStatus.Halted
+        val appStatus =
+            when (newStatus) {
+                ServiceStatus.Connected -> {
+                    AppStatus.Running
+                }
+
+                ServiceStatus.Disconnected,
+                ServiceStatus.Failed,
+                -> {
+                    proxyJob = null
+                    AppStatus.Halted
+                }
             }
-        }
         AppStateManager.setStatus(appStatus, Mode.VPN)
 
         if (newStatus == ServiceStatus.Failed) {
@@ -265,7 +278,10 @@ class RipDpiVpnService : LifecycleVpnService() {
             RipDpiVpnService::class.java,
         )
 
-    private fun createBuilder(dns: String, ipv6: Boolean): Builder {
+    private fun createBuilder(
+        dns: String,
+        ipv6: Boolean,
+    ): Builder {
         Log.d(TAG, "DNS: $dns")
         val builder = Builder()
         builder.setSession("RIPDPI")
@@ -275,14 +291,16 @@ class RipDpiVpnService : LifecycleVpnService() {
                 0,
                 packageManager.getLaunchIntentForPackage(packageName),
                 PendingIntent.FLAG_IMMUTABLE,
-            )
+            ),
         )
 
-        builder.addAddress("10.10.10.10", 32)
+        builder
+            .addAddress("10.10.10.10", 32)
             .addRoute("0.0.0.0", 0)
 
         if (ipv6) {
-            builder.addAddress("fd00::1", 128)
+            builder
+                .addAddress("fd00::1", 128)
                 .addRoute("::", 0)
         }
 

@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class LogsViewModelTest {
-
     @Test
     fun `classifyLogType detects dns entries`() {
         assertEquals(LogType.DNS, classifyLogType("DNS resolver switched to 1.1.1.1"))
@@ -30,10 +29,11 @@ class LogsViewModelTest {
         val dnsEntry = sampleLogEntry(id = 1, type = LogType.DNS)
         val errorEntry = sampleLogEntry(id = 2, type = LogType.ERR)
 
-        val uiState = LogsUiState(
-            logs = listOf(dnsEntry, errorEntry),
-            activeFilters = setOf(LogType.ERR),
-        )
+        val uiState =
+            LogsUiState(
+                logs = listOf(dnsEntry, errorEntry),
+                activeFilters = setOf(LogType.ERR),
+            )
 
         assertEquals(listOf(errorEntry), uiState.filteredLogs)
     }
@@ -53,9 +53,10 @@ private fun sampleLogEntry(
     id: Long,
     type: LogType,
     message: String = "entry-$id",
-): LogEntry = LogEntry(
-    id = id,
-    timestamp = "12:00:0$id",
-    type = type,
-    message = message,
-)
+): LogEntry =
+    LogEntry(
+        id = id,
+        timestamp = "12:00:0$id",
+        type = type,
+        message = message,
+    )

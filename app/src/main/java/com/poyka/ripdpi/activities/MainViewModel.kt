@@ -19,9 +19,9 @@ import com.poyka.ripdpi.services.ServiceManager
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -41,8 +41,13 @@ enum class ConnectionState {
 }
 
 sealed interface MainEffect {
-    data class RequestVpnPermission(val prepareIntent: Intent) : MainEffect
-    data class ShowError(val message: String) : MainEffect
+    data class RequestVpnPermission(
+        val prepareIntent: Intent,
+    ) : MainEffect
+
+    data class ShowError(
+        val message: String,
+    ) : MainEffect
 }
 
 data class MainUiState(
@@ -73,38 +78,42 @@ private data class ConnectionRuntimeState(
     val connectionDuration: Duration = ZERO,
 )
 
-internal fun calculateTransferredBytes(totalBytes: Long, baselineBytes: Long): Long =
-    (totalBytes - baselineBytes).coerceAtLeast(0L)
+internal fun calculateTransferredBytes(
+    totalBytes: Long,
+    baselineBytes: Long,
+): Long = (totalBytes - baselineBytes).coerceAtLeast(0L)
 
-class MainViewModel(application: Application) : AndroidViewModel(application) {
-
+class MainViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
 
     private val _effects = Channel<MainEffect>(Channel.BUFFERED)
     val effects: Flow<MainEffect> = _effects.receiveAsFlow()
 
-    val uiState: StateFlow<MainUiState> = combine(
-        application.settingsStore.data,
-        AppStateManager.status,
-        runtimeState,
-    ) { settings, (status, activeMode), runtime ->
-        MainUiState(
-            appStatus = status,
-            activeMode = activeMode,
-            configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }),
-            proxyIp = settings.proxyIp.ifEmpty { "127.0.0.1" },
-            proxyPort = if (settings.proxyPort > 0) settings.proxyPort.toString() else "1080",
-            theme = settings.appTheme.ifEmpty { "system" },
-            connectionState = runtime.connectionState,
-            connectionDuration = runtime.connectionDuration,
-            dataTransferred = runtime.dataTransferred,
-            errorMessage = runtime.errorMessage,
+    val uiState: StateFlow<MainUiState> =
+        combine(
+            application.settingsStore.data,
+            AppStateManager.status,
+            runtimeState,
+        ) { settings, (status, activeMode), runtime ->
+            MainUiState(
+                appStatus = status,
+                activeMode = activeMode,
+                configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }),
+                proxyIp = settings.proxyIp.ifEmpty { "127.0.0.1" },
+                proxyPort = if (settings.proxyPort > 0) settings.proxyPort.toString() else "1080",
+                theme = settings.appTheme.ifEmpty { "system" },
+                connectionState = runtime.connectionState,
+                connectionDuration = runtime.connectionDuration,
+                dataTransferred = runtime.dataTransferred,
+                errorMessage = runtime.errorMessage,
+            )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = MainUiState(),
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = MainUiState(),
-    )
 
     init {
         observeStatus()
@@ -114,8 +123,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleService(context: Context) {
         when (uiState.value.connectionState) {
-            ConnectionState.Connecting -> return
-            ConnectionState.Connected -> stop(context)
+            ConnectionState.Connecting -> {
+                return
+            }
+
+            ConnectionState.Connected -> {
+                stop(context)
+            }
+
             ConnectionState.Disconnected, ConnectionState.Error -> {
                 when (uiState.value.appStatus) {
                     AppStatus.Halted -> start(context)
@@ -138,7 +153,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun onVpnPermissionResult(context: Context, granted: Boolean) {
+    fun onVpnPermissionResult(
+        context: Context,
+        granted: Boolean,
+    ) {
         if (granted) {
             setConnectingState(Mode.VPN)
             ServiceManager.start(context, Mode.VPN)
@@ -183,7 +201,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            Mode.Proxy -> ServiceManager.start(context, Mode.Proxy)
+            Mode.Proxy -> {
+                ServiceManager.start(context, Mode.Proxy)
+            }
         }
     }
 
@@ -257,8 +277,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun onServiceFailed(sender: Sender) {
-        val message = getApplication<Application>()
-            .getString(R.string.failed_to_start, sender.senderName)
+        val message =
+            getApplication<Application>()
+                .getString(R.string.failed_to_start, sender.senderName)
         showError(message)
     }
 
@@ -308,10 +329,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 current.copy(
                     connectionDuration = (nowMs - currentStartedAtMs).coerceAtLeast(0L).milliseconds,
-                    dataTransferred = calculateTransferredBytes(
-                        totalBytes = totalBytes,
-                        baselineBytes = current.baselineTransferredBytes,
-                    ),
+                    dataTransferred =
+                        calculateTransferredBytes(
+                            totalBytes = totalBytes,
+                            baselineBytes = current.baselineTransferredBytes,
+                        ),
                 )
             }
         }

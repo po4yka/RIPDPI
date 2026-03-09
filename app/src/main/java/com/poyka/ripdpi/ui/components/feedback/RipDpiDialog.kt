@@ -59,18 +59,20 @@ fun RipDpiDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = layout.horizontalPadding),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = layout.horizontalPadding),
             contentAlignment = Alignment.Center,
         ) {
             RipDpiDialogCard(
                 title = title,
                 dismissLabel = dismissLabel,
                 onDismiss = onDismiss,
-                modifier = modifier
-                    .fillMaxWidth()
-                    .widthIn(max = layout.safeContentWidth),
+                modifier =
+                    modifier
+                        .fillMaxWidth()
+                        .widthIn(max = layout.safeContentWidth),
                 message = message,
                 confirmLabel = confirmLabel,
                 onConfirm = onConfirm,
@@ -109,9 +111,10 @@ fun RipDpiDialogCard(
         border = BorderStroke(RipDpiStroke.Thin, colors.cardBorder),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = spacing.xxl, vertical = spacing.xxl),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = spacing.xxl, vertical = spacing.xxl),
             verticalArrangement = Arrangement.spacedBy(spacing.lg),
         ) {
             icon?.let {
@@ -159,23 +162,28 @@ private fun RipDpiModalIconBadge(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val containerColor = when (tone) {
-        RipDpiDialogTone.Destructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
-        RipDpiDialogTone.Info,
-        RipDpiDialogTone.Default,
-        -> colors.inputBackground
-    }
-    val iconTint = when (tone) {
-        RipDpiDialogTone.Destructive -> MaterialTheme.colorScheme.error
-        RipDpiDialogTone.Info,
-        RipDpiDialogTone.Default,
-        -> colors.foreground
-    }
+    val containerColor =
+        when (tone) {
+            RipDpiDialogTone.Destructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+
+            RipDpiDialogTone.Info,
+            RipDpiDialogTone.Default,
+            -> colors.inputBackground
+        }
+    val iconTint =
+        when (tone) {
+            RipDpiDialogTone.Destructive -> MaterialTheme.colorScheme.error
+
+            RipDpiDialogTone.Info,
+            RipDpiDialogTone.Default,
+            -> colors.foreground
+        }
 
     Box(
-        modifier = modifier
-            .size(40.dp)
-            .background(color = containerColor, shape = CircleShape),
+        modifier =
+            modifier
+                .size(40.dp)
+                .background(color = containerColor, shape = CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -197,12 +205,14 @@ private fun DialogActionRow(
     hasConfirmAction: Boolean,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val primaryVariant = when (tone) {
-        RipDpiDialogTone.Destructive -> RipDpiButtonVariant.Destructive
-        RipDpiDialogTone.Info,
-        RipDpiDialogTone.Default,
-        -> RipDpiButtonVariant.Primary
-    }
+    val primaryVariant =
+        when (tone) {
+            RipDpiDialogTone.Destructive -> RipDpiButtonVariant.Destructive
+
+            RipDpiDialogTone.Info,
+            RipDpiDialogTone.Default,
+            -> RipDpiButtonVariant.Primary
+        }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -230,13 +240,12 @@ private fun DialogActionRow(
     }
 }
 
-private fun defaultDialogIcon(
-    tone: RipDpiDialogTone,
-): ImageVector? = when (tone) {
-    RipDpiDialogTone.Default -> null
-    RipDpiDialogTone.Destructive -> RipDpiIcons.Warning
-    RipDpiDialogTone.Info -> RipDpiIcons.Info
-}
+private fun defaultDialogIcon(tone: RipDpiDialogTone): ImageVector? =
+    when (tone) {
+        RipDpiDialogTone.Default -> null
+        RipDpiDialogTone.Destructive -> RipDpiIcons.Warning
+        RipDpiDialogTone.Info -> RipDpiIcons.Info
+    }
 
 @Preview(showBackground = true)
 @Composable

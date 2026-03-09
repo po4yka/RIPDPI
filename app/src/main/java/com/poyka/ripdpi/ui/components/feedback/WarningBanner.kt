@@ -52,9 +52,10 @@ fun WarningBanner(
         contentColor = palette.title,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = spacing.lg, vertical = spacing.lg),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = spacing.lg, vertical = spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.Top,
         ) {
@@ -62,9 +63,10 @@ fun WarningBanner(
                 imageVector = resolvedIcon,
                 contentDescription = null,
                 tint = palette.icon,
-                modifier = Modifier
-                    .size(RipDpiIconSizes.Default)
-                    .padding(top = spacing.xs),
+                modifier =
+                    Modifier
+                        .size(RipDpiIconSizes.Default)
+                        .padding(top = spacing.xs),
             )
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 Text(
@@ -96,43 +98,55 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
     val colors = RipDpiThemeTokens.colors
 
     return when (tone) {
-        WarningBannerTone.Warning -> WarningBannerPalette(
-            container = colors.warningContainer,
-            border = colors.warning,
-            icon = colors.warning,
-            title = colors.foreground,
-            message = colors.mutedForeground,
-        )
-        WarningBannerTone.Error -> WarningBannerPalette(
-            container = colors.destructiveContainer,
-            border = colors.destructive,
-            icon = colors.destructive,
-            title = colors.foreground,
-            message = colors.mutedForeground,
-        )
-        WarningBannerTone.Info -> WarningBannerPalette(
-            container = colors.infoContainer,
-            border = colors.info,
-            icon = colors.info,
-            title = colors.foreground,
-            message = colors.mutedForeground,
-        )
-        WarningBannerTone.Restricted -> WarningBannerPalette(
-            container = colors.restrictedContainer,
-            border = colors.restricted,
-            icon = colors.restricted,
-            title = colors.foreground,
-            message = colors.mutedForeground,
-        )
+        WarningBannerTone.Warning -> {
+            WarningBannerPalette(
+                container = colors.warningContainer,
+                border = colors.warning,
+                icon = colors.warning,
+                title = colors.foreground,
+                message = colors.mutedForeground,
+            )
+        }
+
+        WarningBannerTone.Error -> {
+            WarningBannerPalette(
+                container = colors.destructiveContainer,
+                border = colors.destructive,
+                icon = colors.destructive,
+                title = colors.foreground,
+                message = colors.mutedForeground,
+            )
+        }
+
+        WarningBannerTone.Info -> {
+            WarningBannerPalette(
+                container = colors.infoContainer,
+                border = colors.info,
+                icon = colors.info,
+                title = colors.foreground,
+                message = colors.mutedForeground,
+            )
+        }
+
+        WarningBannerTone.Restricted -> {
+            WarningBannerPalette(
+                container = colors.restrictedContainer,
+                border = colors.restricted,
+                icon = colors.restricted,
+                title = colors.foreground,
+                message = colors.mutedForeground,
+            )
+        }
     }
 }
 
-private fun defaultWarningBannerIcon(tone: WarningBannerTone): ImageVector = when (tone) {
-    WarningBannerTone.Warning -> RipDpiIcons.Warning
-    WarningBannerTone.Error -> RipDpiIcons.Error
-    WarningBannerTone.Info -> RipDpiIcons.Info
-    WarningBannerTone.Restricted -> RipDpiIcons.Lock
-}
+private fun defaultWarningBannerIcon(tone: WarningBannerTone): ImageVector =
+    when (tone) {
+        WarningBannerTone.Warning -> RipDpiIcons.Warning
+        WarningBannerTone.Error -> RipDpiIcons.Error
+        WarningBannerTone.Info -> RipDpiIcons.Info
+        WarningBannerTone.Restricted -> RipDpiIcons.Lock
+    }
 
 @Preview(showBackground = true)
 @Composable

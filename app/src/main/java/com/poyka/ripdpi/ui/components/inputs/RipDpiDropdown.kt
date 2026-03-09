@@ -65,14 +65,15 @@ fun <T> RipDpiDropdown(
         }
         Box {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .background(colors.inputBackground, RoundedCornerShape(16.dp))
-                    .border(borderWidth, borderColor, RoundedCornerShape(16.dp))
-                    .clickable(enabled = enabled && !forceExpanded) { expanded = true }
-                    .padding(horizontal = if (borderWidth > 1.dp) 18.dp else 17.dp)
-                    .alpha(if (enabled) 1f else 0.38f),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .background(colors.inputBackground, RoundedCornerShape(16.dp))
+                        .border(borderWidth, borderColor, RoundedCornerShape(16.dp))
+                        .clickable(enabled = enabled && !forceExpanded) { expanded = true }
+                        .padding(horizontal = if (borderWidth > 1.dp) 18.dp else 17.dp)
+                        .alpha(if (enabled) 1f else 0.38f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -93,9 +94,10 @@ fun <T> RipDpiDropdown(
             DropdownMenu(
                 expanded = isExpanded,
                 onDismissRequest = { expanded = false },
-                modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp)),
+                modifier =
+                    Modifier
+                        .fillMaxWidth(0.9f)
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp)),
             ) {
                 options.forEach { option ->
                     DropdownMenuItem(
@@ -128,11 +130,12 @@ fun <T> RipDpiDropdown(
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiDropdownPreview() {
-    val options = listOf(
-        RipDpiDropdownOption("auto", "Auto"),
-        RipDpiDropdownOption("fake", "desync (fake)"),
-        RipDpiDropdownOption("proxy", "SOCKS5 proxy"),
-    )
+    val options =
+        listOf(
+            RipDpiDropdownOption("auto", "Auto"),
+            RipDpiDropdownOption("fake", "desync (fake)"),
+            RipDpiDropdownOption("proxy", "SOCKS5 proxy"),
+        )
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             RipDpiDropdown(

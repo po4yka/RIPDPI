@@ -434,19 +434,22 @@ private fun AdvancedSettingsScreen(
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val visualEditorEnabled = !uiState.enableCmdSettings
-    val desyncOptions = rememberSettingsOptions(
-        labelArrayRes = R.array.ripdpi_desync_methods,
-        valueArrayRes = R.array.ripdpi_desync_methods_entries,
-    )
-    val hostsOptions = rememberSettingsOptions(
-        labelArrayRes = R.array.ripdpi_hosts_modes,
-        valueArrayRes = R.array.ripdpi_hosts_modes_entries,
-    )
+    val desyncOptions =
+        rememberSettingsOptions(
+            labelArrayRes = R.array.ripdpi_desync_methods,
+            valueArrayRes = R.array.ripdpi_desync_methods_entries,
+        )
+    val hostsOptions =
+        rememberSettingsOptions(
+            labelArrayRes = R.array.ripdpi_hosts_modes,
+            valueArrayRes = R.array.ripdpi_hosts_modes_entries,
+        )
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background),
     ) {
         RipDpiTopAppBar(
             title = stringResource(R.string.title_advanced_settings),
@@ -456,12 +459,13 @@ private fun AdvancedSettingsScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = layout.horizontalPadding,
-                top = spacing.sm,
-                end = layout.horizontalPadding,
-                bottom = spacing.xxl,
-            ),
+            contentPadding =
+                PaddingValues(
+                    start = layout.horizontalPadding,
+                    top = spacing.sm,
+                    end = layout.horizontalPadding,
+                    bottom = spacing.xxl,
+                ),
             verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
         ) {
             if (uiState.enableCmdSettings) {
@@ -524,10 +528,11 @@ private fun AdvancedSettingsScreen(
                             validator = ::validatePort,
                             invalidMessage = stringResource(R.string.config_error_invalid_port),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
                             setting = AdvancedTextSetting.ProxyPort,
                             onConfirm = onTextConfirmed,
                             showDivider = true,
@@ -540,10 +545,11 @@ private fun AdvancedSettingsScreen(
                             validator = { validateIntRange(it, 1, Short.MAX_VALUE.toInt()) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
                             setting = AdvancedTextSetting.MaxConnections,
                             onConfirm = onTextConfirmed,
                             showDivider = true,
@@ -556,10 +562,11 @@ private fun AdvancedSettingsScreen(
                             validator = { validateIntRange(it, 1, Int.MAX_VALUE / 4) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
                             setting = AdvancedTextSetting.BufferSize,
                             onConfirm = onTextConfirmed,
                             showDivider = true,
@@ -593,10 +600,11 @@ private fun AdvancedSettingsScreen(
                             validator = { it.isEmpty() || validateIntRange(it, 0, 255) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
                             setting = AdvancedTextSetting.DefaultTtl,
                             onConfirm = onTextConfirmed,
                             showDivider = true,
@@ -619,10 +627,11 @@ private fun AdvancedSettingsScreen(
                                 validator = { it.toIntOrNull() != null },
                                 invalidMessage = stringResource(R.string.config_error_out_of_range),
                                 disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done,
-                                ),
+                                keyboardOptions =
+                                    KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done,
+                                    ),
                                 setting = AdvancedTextSetting.SplitPosition,
                                 onConfirm = onTextConfirmed,
                                 showDivider = true,
@@ -643,10 +652,11 @@ private fun AdvancedSettingsScreen(
                                 validator = { validateIntRange(it, 1, 255) },
                                 invalidMessage = stringResource(R.string.config_error_out_of_range),
                                 disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done,
-                                ),
+                                keyboardOptions =
+                                    KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done,
+                                    ),
                                 setting = AdvancedTextSetting.FakeTtl,
                                 onConfirm = onTextConfirmed,
                                 showDivider = true,
@@ -667,10 +677,11 @@ private fun AdvancedSettingsScreen(
                                 validator = { it.toIntOrNull() != null },
                                 invalidMessage = stringResource(R.string.config_error_out_of_range),
                                 disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done,
-                                ),
+                                keyboardOptions =
+                                    KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done,
+                                    ),
                                 setting = AdvancedTextSetting.FakeOffset,
                                 onConfirm = onTextConfirmed,
                                 showDivider = true,
@@ -684,10 +695,11 @@ private fun AdvancedSettingsScreen(
                                 validator = { it.length <= 1 },
                                 invalidMessage = stringResource(R.string.advanced_settings_error_oob_data),
                                 disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Ascii,
-                                    imeAction = ImeAction.Done,
-                                ),
+                                keyboardOptions =
+                                    KeyboardOptions(
+                                        keyboardType = KeyboardType.Ascii,
+                                        imeAction = ImeAction.Done,
+                                    ),
                                 setting = AdvancedTextSetting.OobData,
                                 onConfirm = onTextConfirmed,
                                 showDivider = true,
@@ -780,15 +792,17 @@ private fun AdvancedSettingsScreen(
                                 enabled = visualEditorEnabled,
                                 validator = { validateIntRange(it, 2 * Short.MIN_VALUE, 2 * Short.MAX_VALUE) },
                                 invalidMessage = stringResource(R.string.config_error_out_of_range),
-                                disabledMessage = if (!visualEditorEnabled) {
-                                    stringResource(R.string.advanced_settings_visual_controls_disabled)
-                                } else {
-                                    null
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done,
-                                ),
+                                disabledMessage =
+                                    if (!visualEditorEnabled) {
+                                        stringResource(R.string.advanced_settings_visual_controls_disabled)
+                                    } else {
+                                        null
+                                    },
+                                keyboardOptions =
+                                    KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done,
+                                    ),
                                 setting = AdvancedTextSetting.TlsrecPosition,
                                 onConfirm = onTextConfirmed,
                                 showDivider = true,
@@ -813,15 +827,17 @@ private fun AdvancedSettingsScreen(
                             enabled = visualEditorEnabled && uiState.desyncUdpEnabled,
                             validator = { validateIntRange(it, 0, Int.MAX_VALUE) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
-                            disabledMessage = if (!visualEditorEnabled) {
-                                stringResource(R.string.advanced_settings_visual_controls_disabled)
-                            } else {
-                                null
-                            },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
+                            disabledMessage =
+                                if (!visualEditorEnabled) {
+                                    stringResource(R.string.advanced_settings_visual_controls_disabled)
+                                } else {
+                                    null
+                                },
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
                             setting = AdvancedTextSetting.UdpFakeCount,
                             onConfirm = onTextConfirmed,
                         )
@@ -848,7 +864,10 @@ private fun AdvancedSettingsScreen(
                                     value = uiState.hostsBlacklist,
                                     enabled = visualEditorEnabled,
                                     multiline = true,
-                                    disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                                    disabledMessage =
+                                        stringResource(
+                                            R.string.advanced_settings_visual_controls_disabled,
+                                        ),
                                     setting = AdvancedTextSetting.HostsBlacklist,
                                     onConfirm = onTextConfirmed,
                                 )
@@ -860,7 +879,10 @@ private fun AdvancedSettingsScreen(
                                     value = uiState.hostsWhitelist,
                                     enabled = visualEditorEnabled,
                                     multiline = true,
-                                    disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                                    disabledMessage =
+                                        stringResource(
+                                            R.string.advanced_settings_visual_controls_disabled,
+                                        ),
                                     setting = AdvancedTextSetting.HostsWhitelist,
                                     onConfirm = onTextConfirmed,
                                 )
@@ -959,10 +981,11 @@ private fun AdvancedTextSetting(
     validator: (String) -> Boolean = { true },
     invalidMessage: String? = null,
     disabledMessage: String? = null,
-    keyboardOptions: KeyboardOptions = KeyboardOptions(
-        keyboardType = KeyboardType.Ascii,
-        imeAction = ImeAction.Done,
-    ),
+    keyboardOptions: KeyboardOptions =
+        KeyboardOptions(
+            keyboardType = KeyboardType.Ascii,
+            imeAction = ImeAction.Done,
+        ),
     showDivider: Boolean = false,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -973,11 +996,12 @@ private fun AdvancedTextSetting(
     val isValid = remember(normalizedInput) { validator(normalizedInput) }
     val isDirty = normalizedInput != value
     val errorText = if (normalizedInput.isNotEmpty() && !isValid) invalidMessage else null
-    val helperText = if (errorText == null && !enabled) {
-        disabledMessage
-    } else {
-        null
-    }
+    val helperText =
+        if (errorText == null && !enabled) {
+            disabledMessage
+        } else {
+            null
+        }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -1004,13 +1028,14 @@ private fun AdvancedTextSetting(
                 helperText = helperText,
                 errorText = errorText,
                 keyboardOptions = keyboardOptions,
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        if (enabled && isDirty && isValid) {
-                            onConfirm(setting, normalizedInput)
-                        }
-                    },
-                ),
+                keyboardActions =
+                    KeyboardActions(
+                        onDone = {
+                            if (enabled && isDirty && isValid) {
+                                onConfirm(setting, normalizedInput)
+                            }
+                        },
+                    ),
             )
         } else {
             RipDpiTextField(
@@ -1021,13 +1046,14 @@ private fun AdvancedTextSetting(
                 helperText = helperText,
                 errorText = errorText,
                 keyboardOptions = keyboardOptions,
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        if (enabled && isDirty && isValid) {
-                            onConfirm(setting, normalizedInput)
-                        }
-                    },
-                ),
+                keyboardActions =
+                    KeyboardActions(
+                        onDone = {
+                            if (enabled && isDirty && isValid) {
+                                onConfirm(setting, normalizedInput)
+                            }
+                        },
+                    ),
             )
         }
         Row(
@@ -1064,23 +1090,26 @@ private fun AdvancedMultilineTextField(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     var isFocused by remember { mutableStateOf(false) }
-    val borderWidth = when {
-        !enabled -> 1.dp
-        errorText != null -> 2.dp
-        isFocused -> 2.dp
-        else -> 1.dp
-    }
-    val borderColor = when {
-        !enabled -> colors.border
-        errorText != null -> colors.destructive
-        isFocused -> colors.foreground
-        else -> colors.cardBorder
-    }
-    val contentColor = when {
-        !enabled -> colors.mutedForeground
-        value.isEmpty() -> colors.mutedForeground
-        else -> colors.foreground
-    }
+    val borderWidth =
+        when {
+            !enabled -> 1.dp
+            errorText != null -> 2.dp
+            isFocused -> 2.dp
+            else -> 1.dp
+        }
+    val borderColor =
+        when {
+            !enabled -> colors.border
+            errorText != null -> colors.destructive
+            isFocused -> colors.foreground
+            else -> colors.cardBorder
+        }
+    val contentColor =
+        when {
+            !enabled -> colors.mutedForeground
+            value.isEmpty() -> colors.mutedForeground
+            else -> colors.foreground
+        }
     val helperColor = if (errorText != null) colors.destructive else colors.mutedForeground
 
     Column(
@@ -1094,18 +1123,20 @@ private fun AdvancedMultilineTextField(
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
             textStyle = textStyle.copy(color = contentColor),
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { isFocused = it.isFocused },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { isFocused = it.isFocused },
             decorationBox = { innerTextField ->
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 96.dp)
-                        .background(colors.inputBackground, RipDpiThemeTokens.shapes.xl)
-                        .border(borderWidth, borderColor, RipDpiThemeTokens.shapes.xl)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .alpha(if (enabled) 1f else 0.38f),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 96.dp)
+                            .background(colors.inputBackground, RipDpiThemeTokens.shapes.xl)
+                            .border(borderWidth, borderColor, RipDpiThemeTokens.shapes.xl)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .alpha(if (enabled) 1f else 0.38f),
                 ) {
                     if (value.isEmpty() && placeholder != null) {
                         Text(
@@ -1136,31 +1167,32 @@ private val SettingsUiState.defaultTtlValue: String
 private fun AdvancedSettingsScreenPreview() {
     RipDpiTheme {
         AdvancedSettingsScreen(
-            uiState = SettingsUiState(
-                enableCmdSettings = false,
-                cmdArgs = "",
-                proxyIp = "127.0.0.1",
-                proxyPort = 1080,
-                maxConnections = 512,
-                bufferSize = 16_384,
-                noDomain = false,
-                tcpFastOpen = true,
-                customTtl = true,
-                defaultTtl = 8,
-                desyncMethod = "disorder",
-                splitPosition = 2,
-                splitAtHost = true,
-                dropSack = false,
-                desyncHttp = true,
-                desyncHttps = true,
-                desyncUdp = false,
-                hostMixedCase = true,
-                domainMixedCase = false,
-                hostRemoveSpaces = false,
-                tlsrecEnabled = false,
-                udpFakeCount = 0,
-                hostsMode = "disable",
-            ),
+            uiState =
+                SettingsUiState(
+                    enableCmdSettings = false,
+                    cmdArgs = "",
+                    proxyIp = "127.0.0.1",
+                    proxyPort = 1080,
+                    maxConnections = 512,
+                    bufferSize = 16_384,
+                    noDomain = false,
+                    tcpFastOpen = true,
+                    customTtl = true,
+                    defaultTtl = 8,
+                    desyncMethod = "disorder",
+                    splitPosition = 2,
+                    splitAtHost = true,
+                    dropSack = false,
+                    desyncHttp = true,
+                    desyncHttps = true,
+                    desyncUdp = false,
+                    hostMixedCase = true,
+                    domainMixedCase = false,
+                    hostRemoveSpaces = false,
+                    tlsrecEnabled = false,
+                    udpFakeCount = 0,
+                    hostsMode = "disable",
+                ),
             onBack = {},
             onToggleChanged = { _, _ -> },
             onTextConfirmed = { _, _ -> },
@@ -1174,35 +1206,36 @@ private fun AdvancedSettingsScreenPreview() {
 private fun AdvancedSettingsScreenDarkPreview() {
     RipDpiTheme(themePreference = "dark") {
         AdvancedSettingsScreen(
-            uiState = SettingsUiState(
-                enableCmdSettings = true,
-                cmdArgs = "--fake --split 2",
-                proxyIp = "127.0.0.1",
-                proxyPort = 1080,
-                maxConnections = 256,
-                bufferSize = 8192,
-                customTtl = true,
-                defaultTtl = 8,
-                desyncMethod = "fake",
-                splitPosition = 1,
-                splitAtHost = true,
-                fakeTtl = 12,
-                fakeSni = "www.iana.org",
-                fakeOffset = 2,
-                dropSack = true,
-                desyncHttp = true,
-                desyncHttps = true,
-                desyncUdp = true,
-                tlsrecEnabled = true,
-                tlsrecPosition = 4,
-                tlsrecAtSni = true,
-                udpFakeCount = 1,
-                hostsMode = "blacklist",
-                hostsBlacklist = "example.com\ncdn.example.net",
-                hostMixedCase = true,
-                domainMixedCase = true,
-                hostRemoveSpaces = false,
-            ),
+            uiState =
+                SettingsUiState(
+                    enableCmdSettings = true,
+                    cmdArgs = "--fake --split 2",
+                    proxyIp = "127.0.0.1",
+                    proxyPort = 1080,
+                    maxConnections = 256,
+                    bufferSize = 8192,
+                    customTtl = true,
+                    defaultTtl = 8,
+                    desyncMethod = "fake",
+                    splitPosition = 1,
+                    splitAtHost = true,
+                    fakeTtl = 12,
+                    fakeSni = "www.iana.org",
+                    fakeOffset = 2,
+                    dropSack = true,
+                    desyncHttp = true,
+                    desyncHttps = true,
+                    desyncUdp = true,
+                    tlsrecEnabled = true,
+                    tlsrecPosition = 4,
+                    tlsrecAtSni = true,
+                    udpFakeCount = 1,
+                    hostsMode = "blacklist",
+                    hostsBlacklist = "example.com\ncdn.example.net",
+                    hostMixedCase = true,
+                    domainMixedCase = true,
+                    hostRemoveSpaces = false,
+                ),
             onBack = {},
             onToggleChanged = { _, _ -> },
             onTextConfirmed = { _, _ -> },

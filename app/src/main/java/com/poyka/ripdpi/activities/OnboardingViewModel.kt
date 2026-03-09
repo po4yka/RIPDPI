@@ -24,8 +24,9 @@ sealed interface OnboardingEffect {
     data object OnboardingComplete : OnboardingEffect
 }
 
-class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
-
+class OnboardingViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
@@ -57,7 +58,8 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     fun finish() {
         viewModelScope.launch {
             getApplication<Application>().settingsStore.updateData { settings ->
-                settings.toBuilder()
+                settings
+                    .toBuilder()
                     .setOnboardingComplete(true)
                     .build()
             }

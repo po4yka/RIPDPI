@@ -17,8 +17,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -56,28 +56,29 @@ internal data class DnsResolverOption(
     @param:StringRes val descriptionRes: Int,
 )
 
-private val resolverOptions = listOf(
-    DnsResolverOption(
-        address = "1.1.1.1",
-        titleRes = R.string.dns_resolver_cloudflare_title,
-        descriptionRes = R.string.dns_resolver_cloudflare_body,
-    ),
-    DnsResolverOption(
-        address = "8.8.8.8",
-        titleRes = R.string.dns_resolver_google_title,
-        descriptionRes = R.string.dns_resolver_google_body,
-    ),
-    DnsResolverOption(
-        address = "9.9.9.9",
-        titleRes = R.string.dns_resolver_quad9_title,
-        descriptionRes = R.string.dns_resolver_quad9_body,
-    ),
-    DnsResolverOption(
-        address = "94.140.14.14",
-        titleRes = R.string.dns_resolver_adguard_title,
-        descriptionRes = R.string.dns_resolver_adguard_body,
-    ),
-)
+private val resolverOptions =
+    listOf(
+        DnsResolverOption(
+            address = "1.1.1.1",
+            titleRes = R.string.dns_resolver_cloudflare_title,
+            descriptionRes = R.string.dns_resolver_cloudflare_body,
+        ),
+        DnsResolverOption(
+            address = "8.8.8.8",
+            titleRes = R.string.dns_resolver_google_title,
+            descriptionRes = R.string.dns_resolver_google_body,
+        ),
+        DnsResolverOption(
+            address = "9.9.9.9",
+            titleRes = R.string.dns_resolver_quad9_title,
+            descriptionRes = R.string.dns_resolver_quad9_body,
+        ),
+        DnsResolverOption(
+            address = "94.140.14.14",
+            titleRes = R.string.dns_resolver_adguard_title,
+            descriptionRes = R.string.dns_resolver_adguard_body,
+        ),
+    )
 
 @Composable
 fun DnsSettingsRoute(
@@ -132,25 +133,28 @@ internal fun DnsSettingsScreen(
     val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
     val activeDns = uiState.dnsIp.trim().ifEmpty { "1.1.1.1" }
-    val selectedResolver = remember(activeDns) {
-        resolverOptions.firstOrNull { it.address == activeDns }
-    }
+    val selectedResolver =
+        remember(activeDns) {
+            resolverOptions.firstOrNull { it.address == activeDns }
+        }
     var customDnsInput by rememberSaveable(activeDns) {
         mutableStateOf(activeDns)
     }
     val trimmedCustomDns = customDnsInput.trim()
     val customDnsValid = trimmedCustomDns.isNotEmpty() && checkNotLocalIp(trimmedCustomDns)
     val customDnsDirty = trimmedCustomDns != activeDns
-    val customDnsError = if (trimmedCustomDns.isNotEmpty() && !customDnsValid) {
-        stringResource(R.string.config_error_invalid_dns)
-    } else {
-        null
-    }
+    val customDnsError =
+        if (trimmedCustomDns.isNotEmpty() && !customDnsValid) {
+            stringResource(R.string.config_error_invalid_dns)
+        } else {
+            null
+        }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background),
     ) {
         RipDpiTopAppBar(
             title = stringResource(R.string.title_dns_settings),
@@ -159,10 +163,11 @@ internal fun DnsSettingsScreen(
         )
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = layout.horizontalPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = layout.horizontalPadding),
             verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
         ) {
             Spacer(modifier = Modifier.height(spacing.sm))
@@ -176,11 +181,12 @@ internal fun DnsSettingsScreen(
             }
 
             RipDpiCard(
-                variant = if (selectedResolver != null) {
-                    RipDpiCardVariant.Elevated
-                } else {
-                    RipDpiCardVariant.Outlined
-                },
+                variant =
+                    if (selectedResolver != null) {
+                        RipDpiCardVariant.Elevated
+                    } else {
+                        RipDpiCardVariant.Outlined
+                    },
             ) {
                 Text(
                     text = stringResource(R.string.dns_active_section_title),
@@ -188,16 +194,18 @@ internal fun DnsSettingsScreen(
                     color = colors.mutedForeground,
                 )
                 StatusIndicator(
-                    label = if (selectedResolver == null) {
-                        stringResource(R.string.dns_resolver_custom_active)
-                    } else {
-                        stringResource(R.string.dns_resolver_active)
-                    },
+                    label =
+                        if (selectedResolver == null) {
+                            stringResource(R.string.dns_resolver_custom_active)
+                        } else {
+                            stringResource(R.string.dns_resolver_active)
+                        },
                     tone = StatusIndicatorTone.Active,
                 )
                 Text(
-                    text = selectedResolver?.let { stringResource(it.titleRes) }
-                        ?: stringResource(R.string.dns_custom_title),
+                    text =
+                        selectedResolver?.let { stringResource(it.titleRes) }
+                            ?: stringResource(R.string.dns_custom_title),
                     style = type.screenTitle,
                     color = colors.foreground,
                 )
@@ -207,11 +215,12 @@ internal fun DnsSettingsScreen(
                     color = colors.foreground,
                 )
                 Text(
-                    text = if (uiState.isVpn) {
-                        stringResource(R.string.config_dns_helper)
-                    } else {
-                        stringResource(R.string.config_dns_disabled_helper)
-                    },
+                    text =
+                        if (uiState.isVpn) {
+                            stringResource(R.string.config_dns_helper)
+                        } else {
+                            stringResource(R.string.config_dns_disabled_helper)
+                        },
                     style = type.body,
                     color = colors.mutedForeground,
                 )
@@ -248,35 +257,39 @@ internal fun DnsSettingsScreen(
                         onValueChange = { customDnsInput = it },
                         label = stringResource(R.string.dbs_ip_setting),
                         placeholder = stringResource(R.string.config_placeholder_dns),
-                        helperText = if (selectedResolver == null && customDnsValid && !customDnsDirty) {
-                            stringResource(R.string.dns_resolver_custom_active)
-                        } else if (uiState.isVpn) {
-                            stringResource(R.string.config_dns_helper)
-                        } else {
-                            stringResource(R.string.config_dns_disabled_helper)
-                        },
-                        errorText = customDnsError,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Ascii,
-                            imeAction = ImeAction.Done,
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                if (customDnsValid && customDnsDirty) {
-                                    onSaveCustomDns(trimmedCustomDns)
-                                }
+                        helperText =
+                            if (selectedResolver == null && customDnsValid && !customDnsDirty) {
+                                stringResource(R.string.dns_resolver_custom_active)
+                            } else if (uiState.isVpn) {
+                                stringResource(R.string.config_dns_helper)
+                            } else {
+                                stringResource(R.string.config_dns_disabled_helper)
                             },
-                        ),
+                        errorText = customDnsError,
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Ascii,
+                                imeAction = ImeAction.Done,
+                            ),
+                        keyboardActions =
+                            KeyboardActions(
+                                onDone = {
+                                    if (customDnsValid && customDnsDirty) {
+                                        onSaveCustomDns(trimmedCustomDns)
+                                    }
+                                },
+                            ),
                     )
                     RipDpiButton(
                         text = stringResource(R.string.config_save),
                         onClick = { onSaveCustomDns(trimmedCustomDns) },
                         enabled = customDnsValid && customDnsDirty,
-                        variant = if (selectedResolver == null) {
-                            RipDpiButtonVariant.Primary
-                        } else {
-                            RipDpiButtonVariant.Outline
-                        },
+                        variant =
+                            if (selectedResolver == null) {
+                                RipDpiButtonVariant.Primary
+                            } else {
+                                RipDpiButtonVariant.Outline
+                            },
                         trailingIcon = RipDpiIcons.Check,
                     )
                 }
@@ -354,12 +367,13 @@ private fun DnsResolverCard(
 private fun DnsSettingsScreenPreview() {
     RipDpiTheme {
         DnsSettingsScreen(
-            uiState = SettingsUiState(
-                dnsIp = "8.8.8.8",
-                ipv6Enable = true,
-                isVpn = true,
-                selectedMode = Mode.VPN,
-            ),
+            uiState =
+                SettingsUiState(
+                    dnsIp = "8.8.8.8",
+                    ipv6Enable = true,
+                    isVpn = true,
+                    selectedMode = Mode.VPN,
+                ),
             onBack = {},
             onResolverSelected = {},
             onSaveCustomDns = {},
@@ -373,13 +387,14 @@ private fun DnsSettingsScreenPreview() {
 private fun DnsSettingsScreenDarkPreview() {
     RipDpiTheme(themePreference = "dark") {
         DnsSettingsScreen(
-            uiState = SettingsUiState(
-                ripdpiMode = "proxy",
-                dnsIp = "76.76.2.0",
-                ipv6Enable = false,
-                isVpn = false,
-                selectedMode = Mode.Proxy,
-            ),
+            uiState =
+                SettingsUiState(
+                    ripdpiMode = "proxy",
+                    dnsIp = "76.76.2.0",
+                    ipv6Enable = false,
+                    isVpn = false,
+                    selectedMode = Mode.Proxy,
+                ),
             onBack = {},
             onResolverSelected = {},
             onSaveCustomDns = {},

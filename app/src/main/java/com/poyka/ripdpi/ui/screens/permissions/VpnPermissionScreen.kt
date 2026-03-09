@@ -110,17 +110,19 @@ fun VpnPermissionScreen(
         },
         footer = {
             RipDpiButton(
-                text = if (uiState.connectionState == ConnectionState.Connecting) {
-                    stringResource(R.string.home_connection_button_connecting)
-                } else {
-                    stringResource(R.string.permissions_vpn_continue)
-                },
+                text =
+                    if (uiState.connectionState == ConnectionState.Connecting) {
+                        stringResource(R.string.home_connection_button_connecting)
+                    } else {
+                        stringResource(R.string.permissions_vpn_continue)
+                    },
                 onClick = onContinue,
                 enabled = uiState.connectionState != ConnectionState.Connecting,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                    .heightIn(min = introLayout.footerButtonMinHeight),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = introLayout.footerButtonHorizontalInset)
+                        .heightIn(min = introLayout.footerButtonMinHeight),
                 trailingIcon = RipDpiIcons.ChevronRight,
             )
         },
@@ -153,15 +155,17 @@ internal fun AuthPromptScaffold(
     val type = RipDpiThemeTokens.type
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background)
-            .padding(horizontal = layout.horizontalPadding),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background)
+                .padding(horizontal = layout.horizontalPadding),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(introLayout.topActionRowHeight),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(introLayout.topActionRowHeight),
             contentAlignment = Alignment.TopEnd,
         ) {
             if (topActionText != null && onTopAction != null) {
@@ -169,9 +173,10 @@ internal fun AuthPromptScaffold(
                     text = topActionText,
                     style = type.introAction,
                     color = colors.mutedForeground,
-                    modifier = Modifier
-                        .padding(top = introLayout.topActionTopPadding)
-                        .clickable(role = Role.Button, onClick = onTopAction),
+                    modifier =
+                        Modifier
+                            .padding(top = introLayout.topActionTopPadding)
+                            .clickable(role = Role.Button, onClick = onTopAction),
                 )
             }
         }
@@ -182,9 +187,10 @@ internal fun AuthPromptScaffold(
         }
 
         Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
             Column(
@@ -201,9 +207,10 @@ internal fun AuthPromptScaffold(
                     style = type.introTitle,
                     color = colors.foreground,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = introLayout.titleHorizontalPadding),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = introLayout.titleHorizontalPadding),
                 )
                 Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
                 androidx.compose.material3.Text(
@@ -211,9 +218,10 @@ internal fun AuthPromptScaffold(
                     style = type.introBody,
                     color = colors.mutedForeground,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = introLayout.bodyHorizontalPadding),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = introLayout.bodyHorizontalPadding),
                 )
                 content?.let {
                     Spacer(modifier = Modifier.height(introLayout.bodyToContentGap))
@@ -223,9 +231,10 @@ internal fun AuthPromptScaffold(
         }
 
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = introLayout.footerBottomPadding),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = introLayout.footerBottomPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             progress?.let {
@@ -252,47 +261,50 @@ private fun AuthPromptBadge(
     val strokeWidth = introLayout.illustrationIconStrokeWidth
 
     Box(
-        modifier = modifier.border(
-            introLayout.illustrationBorderWidth,
-            colors.foreground,
-            RoundedCornerShape(introLayout.illustrationCornerRadius),
-        ),
+        modifier =
+            modifier.border(
+                introLayout.illustrationBorderWidth,
+                colors.foreground,
+                RoundedCornerShape(introLayout.illustrationCornerRadius),
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.size(introLayout.illustrationIconSize)) {
             when (illustration) {
                 AuthPromptIllustration.Permission -> {
-                    val shield = Path().apply {
-                        moveTo(size.width * 0.5f, size.height * 0.12f)
-                        lineTo(size.width * 0.78f, size.height * 0.22f)
-                        lineTo(size.width * 0.78f, size.height * 0.48f)
-                        cubicTo(
-                            size.width * 0.78f,
-                            size.height * 0.72f,
-                            size.width * 0.62f,
-                            size.height * 0.86f,
-                            size.width * 0.5f,
-                            size.height * 0.92f,
-                        )
-                        cubicTo(
-                            size.width * 0.38f,
-                            size.height * 0.86f,
-                            size.width * 0.22f,
-                            size.height * 0.72f,
-                            size.width * 0.22f,
-                            size.height * 0.48f,
-                        )
-                        lineTo(size.width * 0.22f, size.height * 0.22f)
-                        close()
-                    }
+                    val shield =
+                        Path().apply {
+                            moveTo(size.width * 0.5f, size.height * 0.12f)
+                            lineTo(size.width * 0.78f, size.height * 0.22f)
+                            lineTo(size.width * 0.78f, size.height * 0.48f)
+                            cubicTo(
+                                size.width * 0.78f,
+                                size.height * 0.72f,
+                                size.width * 0.62f,
+                                size.height * 0.86f,
+                                size.width * 0.5f,
+                                size.height * 0.92f,
+                            )
+                            cubicTo(
+                                size.width * 0.38f,
+                                size.height * 0.86f,
+                                size.width * 0.22f,
+                                size.height * 0.72f,
+                                size.width * 0.22f,
+                                size.height * 0.48f,
+                            )
+                            lineTo(size.width * 0.22f, size.height * 0.22f)
+                            close()
+                        }
                     drawPath(
                         path = shield,
                         color = colors.foreground,
-                        style = Stroke(
-                            width = strokeWidth.toPx(),
-                            cap = StrokeCap.Round,
-                            join = StrokeJoin.Round,
-                        ),
+                        style =
+                            Stroke(
+                                width = strokeWidth.toPx(),
+                                cap = StrokeCap.Round,
+                                join = StrokeJoin.Round,
+                            ),
                     )
                 }
 
@@ -367,10 +379,11 @@ private fun VpnPermissionScreenPreview() {
 private fun VpnPermissionScreenErrorPreview() {
     RipDpiTheme(themePreference = "dark") {
         VpnPermissionScreen(
-            uiState = MainUiState(
-                connectionState = ConnectionState.Error,
-                errorMessage = "VPN permission denied",
-            ),
+            uiState =
+                MainUiState(
+                    connectionState = ConnectionState.Error,
+                    errorMessage = "VPN permission denied",
+                ),
             onDismiss = {},
             onContinue = {},
         )

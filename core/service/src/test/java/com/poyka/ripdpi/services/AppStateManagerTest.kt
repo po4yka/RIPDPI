@@ -11,7 +11,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppStateManagerTest {
-
     @After
     fun tearDown() {
         AppStateManager.setStatus(AppStatus.Halted, Mode.VPN)
@@ -33,21 +32,23 @@ class AppStateManagerTest {
     }
 
     @Test
-    fun `emitFailed sends event`() = runTest {
-        AppStateManager.events.test {
-            AppStateManager.emitFailed(Sender.VPN)
-            val event = awaitItem()
-            assertTrue(event is ServiceEvent.Failed)
-            assertEquals(Sender.VPN, (event as ServiceEvent.Failed).sender)
+    fun `emitFailed sends event`() =
+        runTest {
+            AppStateManager.events.test {
+                AppStateManager.emitFailed(Sender.VPN)
+                val event = awaitItem()
+                assertTrue(event is ServiceEvent.Failed)
+                assertEquals(Sender.VPN, (event as ServiceEvent.Failed).sender)
+            }
         }
-    }
 
     @Test
-    fun `emitFailed proxy sends correct sender`() = runTest {
-        AppStateManager.events.test {
-            AppStateManager.emitFailed(Sender.Proxy)
-            val event = awaitItem() as ServiceEvent.Failed
-            assertEquals(Sender.Proxy, event.sender)
+    fun `emitFailed proxy sends correct sender`() =
+        runTest {
+            AppStateManager.events.test {
+                AppStateManager.emitFailed(Sender.Proxy)
+                val event = awaitItem() as ServiceEvent.Failed
+                assertEquals(Sender.Proxy, event.sender)
+            }
         }
-    }
 }

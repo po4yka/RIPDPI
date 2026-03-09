@@ -28,12 +28,13 @@ fun StatusIndicator(
     tone: StatusIndicatorTone = StatusIndicatorTone.Active,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val indicatorColor = when (tone) {
-        StatusIndicatorTone.Active -> colors.foreground
-        StatusIndicatorTone.Idle -> colors.mutedForeground
-        StatusIndicatorTone.Warning -> colors.warning
-        StatusIndicatorTone.Error -> colors.destructive
-    }
+    val indicatorColor =
+        when (tone) {
+            StatusIndicatorTone.Active -> colors.foreground
+            StatusIndicatorTone.Idle -> colors.mutedForeground
+            StatusIndicatorTone.Warning -> colors.warning
+            StatusIndicatorTone.Error -> colors.destructive
+        }
 
     Row(
         modifier = modifier,
@@ -41,9 +42,10 @@ fun StatusIndicator(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            modifier = Modifier
-                .size(8.dp)
-                .background(indicatorColor, CircleShape),
+            modifier =
+                Modifier
+                    .size(8.dp)
+                    .background(indicatorColor, CircleShape),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {}
