@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.settingsStore
@@ -103,12 +104,18 @@ class MainViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
     private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
+    private val settingsState: StateFlow<AppSettings> =
+        application.settingsStore.data.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = AppSettingsSerializer.defaultValue,
+        )
 
     private val _effects = Channel<MainEffect>(Channel.BUFFERED)
     val effects: Flow<MainEffect> = _effects.receiveAsFlow()
 
     val startupState: StateFlow<MainStartupState> =
-        application.settingsStore.data
+        settingsState
             .map { settings ->
                 MainStartupState(
                     isReady = true,
@@ -123,7 +130,7 @@ class MainViewModel(
 
     val uiState: StateFlow<MainUiState> =
         combine(
-            application.settingsStore.data,
+            settingsState,
             AppStateManager.status,
             runtimeState,
         ) { settings, (status, activeMode), runtime ->
