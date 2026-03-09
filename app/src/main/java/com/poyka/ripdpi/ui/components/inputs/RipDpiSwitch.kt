@@ -4,8 +4,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,16 +36,21 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Composable
 fun RipDpiSwitch(
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val scheme = MaterialTheme.colorScheme
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
     val isDark = scheme.background.luminance() < 0.5f
     val trackColor by animateColorAsState(
         targetValue =
             when {
+                isPressed && checked -> lerp(colors.foreground, scheme.onSurfaceVariant, 0.18f)
+                isPressed -> lerp(colors.background, colors.foreground, if (isDark) 0.32f else 0.22f)
                 checked && isDark -> colors.foreground
                 checked -> colors.foreground
                 isDark -> lerp(colors.background, colors.foreground, 0.25f)
@@ -62,28 +68,38 @@ fun RipDpiSwitch(
             },
         label = "switchThumb",
     )
-    val thumbOffset by animateDpAsState(targetValue = if (checked) 20.dp else 0.dp, label = "switchOffset")
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) components.switchThumbSize else 0.dp,
+        label = "switchOffset",
+    )
     val alpha by animateFloatAsState(targetValue = if (enabled) 1f else 0.38f, label = "switchAlpha")
+    val interactive = enabled && onCheckedChange != null
 
     Box(
         modifier =
             modifier
-                .size(width = 44.dp, height = 24.dp)
+                .size(width = components.switchWidth, height = components.switchHeight)
                 .background(trackColor.copy(alpha = alpha), CircleShape)
-                .clickable(
-                    enabled = enabled,
-                    role = Role.Switch,
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = { onCheckedChange(!checked) },
+                .then(
+                    if (interactive) {
+                        Modifier.toggleable(
+                            value = checked,
+                            enabled = true,
+                            role = Role.Switch,
+                            interactionSource = interactionSource,
+                            onValueChange = { value -> onCheckedChange(value) },
+                        )
+                    } else {
+                        Modifier
+                    },
                 ),
     ) {
         Box(
             modifier =
                 Modifier
-                    .padding(2.dp)
+                    .padding(components.switchThumbPadding)
                     .offset(x = thumbOffset)
-                    .size(20.dp)
+                    .size(components.switchThumbSize)
                     .shadow(elevation = 3.dp, shape = CircleShape, clip = false)
                     .background(thumbColor.copy(alpha = alpha), CircleShape),
         )

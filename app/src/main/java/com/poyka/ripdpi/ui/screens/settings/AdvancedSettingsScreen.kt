@@ -1020,13 +1020,16 @@ private fun AdvancedTextSetting(
             )
         }
         if (multiline) {
-            AdvancedMultilineTextField(
+            RipDpiTextField(
                 value = input,
                 onValueChange = { input = it },
                 placeholder = placeholder,
                 enabled = enabled,
                 helperText = helperText,
                 errorText = errorText,
+                singleLine = false,
+                minHeight = 96.dp,
+                textStyle = RipDpiThemeTokens.type.monoConfig,
                 keyboardOptions = keyboardOptions,
                 keyboardActions =
                     KeyboardActions(
@@ -1070,91 +1073,6 @@ private fun AdvancedTextSetting(
         }
         if (showDivider) {
             HorizontalDivider(color = colors.divider)
-        }
-    }
-}
-
-@Composable
-private fun AdvancedMultilineTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    placeholder: String? = null,
-    helperText: String? = null,
-    errorText: String? = null,
-    enabled: Boolean = true,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
-    textStyle: TextStyle = RipDpiThemeTokens.type.monoConfig,
-) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    var isFocused by remember { mutableStateOf(false) }
-    val borderWidth =
-        when {
-            !enabled -> 1.dp
-            errorText != null -> 2.dp
-            isFocused -> 2.dp
-            else -> 1.dp
-        }
-    val borderColor =
-        when {
-            !enabled -> colors.border
-            errorText != null -> colors.destructive
-            isFocused -> colors.foreground
-            else -> colors.cardBorder
-        }
-    val contentColor =
-        when {
-            !enabled -> colors.mutedForeground
-            value.isEmpty() -> colors.mutedForeground
-            else -> colors.foreground
-        }
-    val helperColor = if (errorText != null) colors.destructive else colors.mutedForeground
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            enabled = enabled,
-            keyboardOptions = keyboardOptions,
-            keyboardActions = keyboardActions,
-            textStyle = textStyle.copy(color = contentColor),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { isFocused = it.isFocused },
-            decorationBox = { innerTextField ->
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 96.dp)
-                            .background(colors.inputBackground, RipDpiThemeTokens.shapes.xl)
-                            .border(borderWidth, borderColor, RipDpiThemeTokens.shapes.xl)
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                            .alpha(if (enabled) 1f else 0.38f),
-                ) {
-                    if (value.isEmpty() && placeholder != null) {
-                        Text(
-                            text = placeholder,
-                            style = textStyle,
-                            color = colors.mutedForeground,
-                        )
-                    }
-                    innerTextField()
-                }
-            },
-        )
-        (errorText ?: helperText)?.let {
-            Text(
-                text = it,
-                style = type.caption,
-                color = helperColor,
-            )
         }
     }
 }

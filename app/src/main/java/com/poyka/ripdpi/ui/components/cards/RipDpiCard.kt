@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,9 +39,11 @@ fun RipDpiCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val shape = RoundedCornerShape(16.dp)
+    val spacing = RipDpiThemeTokens.spacing
+    val shape = RipDpiThemeTokens.shapes.xl
     val background = MaterialTheme.colorScheme.surface
     val borderColor = if (variant == RipDpiCardVariant.Outlined) colors.cardBorder else Color.Transparent
+    val interactionSource = remember { MutableInteractionSource() }
     val cardModifier =
         modifier
             .fillMaxWidth()
@@ -55,8 +56,7 @@ fun RipDpiCard(
                     Modifier.clickable(
                         enabled = enabled,
                         role = Role.Button,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
+                        interactionSource = interactionSource,
                         onClick = onClick,
                     )
                 } else {
@@ -66,7 +66,7 @@ fun RipDpiCard(
 
     Column(
         modifier = cardModifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
         content = content,
     )
 }

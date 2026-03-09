@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,8 +38,9 @@ fun PresetCard(
     onClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val scheme = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RipDpiThemeTokens.shapes.xl
     val borderColor = if (selected) colors.foreground else colors.cardBorder
     val background =
         if (selected) {
@@ -60,9 +60,8 @@ fun PresetCard(
                     enabled = enabled,
                     role = Role.Button,
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
                     onClick = onClick,
-                ).padding(horizontal = 17.dp, vertical = 13.dp)
+                ).padding(horizontal = components.fieldHorizontalPadding, vertical = 13.dp)
                 .alpha(if (enabled) 1f else 0.38f),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -82,7 +81,7 @@ fun PresetCard(
                         Modifier
                             .background(
                                 colors.foreground.copy(alpha = if (selected) 0.12f else 0.08f),
-                                RoundedCornerShape(999.dp),
+                                RipDpiThemeTokens.shapes.xxl,
                             ).padding(horizontal = 8.dp, vertical = 2.dp),
                 ) {
                     Text(
