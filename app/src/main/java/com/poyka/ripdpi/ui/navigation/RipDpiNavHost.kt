@@ -9,8 +9,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -21,8 +19,6 @@ import androidx.navigation.compose.rememberNavController
 import com.poyka.ripdpi.activities.LogsViewModel
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
-import com.poyka.ripdpi.data.AppSettingsSerializer
-import com.poyka.ripdpi.data.settingsStore
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.screens.config.ConfigRoute
 import com.poyka.ripdpi.ui.screens.config.ModeEditorRoute
@@ -36,28 +32,24 @@ import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
-import com.poyka.ripdpi.ui.screens.splash.SplashScreen
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
 fun RipDpiNavHost(
     modifier: Modifier = Modifier,
+    startDestination: String = Route.Home.route,
     onSaveLogs: () -> Unit = {},
     mainViewModel: MainViewModel,
     launchHomeRequested: Boolean = false,
     onLaunchHomeHandled: () -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    val context = LocalContext.current.applicationContext
     val navController = rememberNavController()
     val settingsViewModel: SettingsViewModel = viewModel()
     val logsViewModel: LogsViewModel = viewModel()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStackEntry?.destination
     val layout = RipDpiThemeTokens.layout
-    val settings by remember(context) {
-        context.settingsStore.data
-    }.collectAsStateWithLifecycle(initialValue = AppSettingsSerializer.defaultValue)
 
     LaunchedEffect(launchHomeRequested, currentDestination?.route) {
         val currentRoute = currentDestination?.route
@@ -116,26 +108,9 @@ fun RipDpiNavHost(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Route.Splash.route,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(Route.Splash.route) {
-                SplashScreen(
-                    onFinished = {
-                        val destination =
-                            when {
-                                !settings.onboardingComplete -> Route.Onboarding
-                                settings.biometricEnabled -> Route.BiometricPrompt
-                                else -> Route.Home
-                            }
-                        navController.navigate(destination.route) {
-                            popUpTo(Route.Splash.route) {
-                                inclusive = true
-                            }
-                        }
-                    },
-                )
-            }
             composable(Route.Onboarding.route) {
                 OnboardingRoute(
                     onComplete = {
@@ -251,7 +226,6 @@ internal fun shouldNavigateToHomeFromLaunchRequest(
     return currentRoute != Route.Home.route &&
         currentRoute !in
         setOf(
-            Route.Splash.route,
             Route.Onboarding.route,
             Route.BiometricPrompt.route,
         )
