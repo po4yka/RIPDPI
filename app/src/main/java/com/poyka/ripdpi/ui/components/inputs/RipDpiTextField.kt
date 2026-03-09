@@ -18,13 +18,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
@@ -52,11 +51,13 @@ fun RipDpiTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     minHeight: androidx.compose.ui.unit.Dp? = null,
     trailingContent: (@Composable () -> Unit)? = null,
+    interactionSource: MutableInteractionSource? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val type = RipDpiThemeTokens.type
-    var isFocused by remember { mutableStateOf(false) }
+    val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
+    val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
     val borderWidth =
         when {
             !enabled -> 1.dp
@@ -105,10 +106,10 @@ fun RipDpiTextField(
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
             visualTransformation = visualTransformation,
+            interactionSource = resolvedInteractionSource,
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { isFocused = it.isFocused },
+                    .fillMaxWidth(),
             decorationBox = { innerTextField ->
                 RipDpiTextFieldShell(
                     enabled = enabled,
@@ -158,6 +159,7 @@ fun RipDpiConfigTextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingContent: (@Composable () -> Unit)? = null,
+    interactionSource: MutableInteractionSource? = null,
 ) {
     val components = RipDpiThemeTokens.components
 
@@ -178,6 +180,7 @@ fun RipDpiConfigTextField(
         visualTransformation = visualTransformation,
         minHeight = if (multiline) components.multilineFieldMinHeight else null,
         trailingContent = trailingContent,
+        interactionSource = interactionSource,
     )
 }
 
