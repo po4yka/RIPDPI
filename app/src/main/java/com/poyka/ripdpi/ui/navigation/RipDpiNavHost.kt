@@ -15,8 +15,8 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
-import com.poyka.ripdpi.activities.LogsViewModel
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
@@ -34,6 +34,8 @@ import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val SettingsGraphRoute = "settings_graph"
+
 @Composable
 fun RipDpiNavHost(
     modifier: Modifier = Modifier,
@@ -45,8 +47,6 @@ fun RipDpiNavHost(
     snackbarHostState: SnackbarHostState? = null,
 ) {
     val navController = rememberNavController()
-    val settingsViewModel: SettingsViewModel = viewModel()
-    val logsViewModel: LogsViewModel = viewModel()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStackEntry?.destination
     val layout = RipDpiThemeTokens.layout
@@ -138,19 +138,9 @@ fun RipDpiNavHost(
                     onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
                 )
             }
-            composable(Route.Settings.route) {
-                SettingsRoute(
-                    onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
-                    onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings.route) },
-                    onOpenCustomization = { navController.navigate(Route.AppCustomization.route) },
-                    onOpenAbout = { navController.navigate(Route.About.route) },
-                    viewModel = settingsViewModel,
-                )
-            }
             composable(Route.Logs.route) {
                 LogsRoute(
                     onSaveLogs = onSaveLogs,
-                    viewModel = logsViewModel,
                 )
             }
             composable(Route.ModeEditor.route) {
@@ -161,18 +151,6 @@ fun RipDpiNavHost(
                 ModeEditorRoute(
                     onBack = { navController.popBackStack() },
                     viewModel = viewModel(viewModelStoreOwner = configBackStackEntry),
-                )
-            }
-            composable(Route.DnsSettings.route) {
-                DnsSettingsRoute(
-                    onBack = { navController.popBackStack() },
-                    viewModel = settingsViewModel,
-                )
-            }
-            composable(Route.AdvancedSettings.route) {
-                AdvancedSettingsRoute(
-                    onBack = { navController.popBackStack() },
-                    viewModel = settingsViewModel,
                 )
             }
             composable(Route.VpnPermission.route) {
@@ -192,14 +170,59 @@ fun RipDpiNavHost(
                             launchSingleTop = true
                         }
                     },
-                    viewModel = settingsViewModel,
                 )
             }
-            composable(Route.AppCustomization.route) {
-                AppCustomizationRoute(
-                    onBack = { navController.popBackStack() },
-                    viewModel = settingsViewModel,
-                )
+            navigation(
+                startDestination = Route.Settings.route,
+                route = SettingsGraphRoute,
+            ) {
+                composable(Route.Settings.route) {
+                    val settingsGraphEntry =
+                        remember(navController) {
+                            navController.getBackStackEntry(SettingsGraphRoute)
+                        }
+                    val settingsViewModel: SettingsViewModel = viewModel(viewModelStoreOwner = settingsGraphEntry)
+                    SettingsRoute(
+                        onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
+                        onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings.route) },
+                        onOpenCustomization = { navController.navigate(Route.AppCustomization.route) },
+                        onOpenAbout = { navController.navigate(Route.About.route) },
+                        viewModel = settingsViewModel,
+                    )
+                }
+                composable(Route.DnsSettings.route) {
+                    val settingsGraphEntry =
+                        remember(navController) {
+                            navController.getBackStackEntry(SettingsGraphRoute)
+                        }
+                    val settingsViewModel: SettingsViewModel = viewModel(viewModelStoreOwner = settingsGraphEntry)
+                    DnsSettingsRoute(
+                        onBack = { navController.popBackStack() },
+                        viewModel = settingsViewModel,
+                    )
+                }
+                composable(Route.AdvancedSettings.route) {
+                    val settingsGraphEntry =
+                        remember(navController) {
+                            navController.getBackStackEntry(SettingsGraphRoute)
+                        }
+                    val settingsViewModel: SettingsViewModel = viewModel(viewModelStoreOwner = settingsGraphEntry)
+                    AdvancedSettingsRoute(
+                        onBack = { navController.popBackStack() },
+                        viewModel = settingsViewModel,
+                    )
+                }
+                composable(Route.AppCustomization.route) {
+                    val settingsGraphEntry =
+                        remember(navController) {
+                            navController.getBackStackEntry(SettingsGraphRoute)
+                        }
+                    val settingsViewModel: SettingsViewModel = viewModel(viewModelStoreOwner = settingsGraphEntry)
+                    AppCustomizationRoute(
+                        onBack = { navController.popBackStack() },
+                        viewModel = settingsViewModel,
+                    )
+                }
             }
             composable(Route.About.route) {
                 AboutRoute(
