@@ -25,10 +25,19 @@ private val LightOutline = Color(0xFF757575)
 private val LightOutlineVariant = Color(0xFFD0D0D0)
 private val LightBorder = Color(0xFFE0E0E0)
 private val LightInputBackground = Color(0xFFF5F5F5)
-private val LightSuccess = Color(0xFF1A1A1A)
-private val LightWarning = Color(0xFF757575)
-private val LightDestructive = Color(0xFF444444)
+private val LightSuccess = Color(0xFF047857)
+private val LightWarning = Color(0xFFB45309)
+private val LightWarningForeground = Color(0xFFFFFFFF)
+private val LightWarningContainer = Color(0xFFFFF7ED)
+private val LightDestructive = Color(0xFFB91C1C)
 private val LightDestructiveForeground = Color(0xFFFFFFFF)
+private val LightDestructiveContainer = Color(0xFFFEF2F2)
+private val LightInfo = Color(0xFF1D4ED8)
+private val LightInfoForeground = Color(0xFFFFFFFF)
+private val LightInfoContainer = Color(0xFFEFF6FF)
+private val LightRestricted = Color(0xFF6B7280)
+private val LightRestrictedForeground = Color(0xFFFFFFFF)
+private val LightRestrictedContainer = Color(0xFFF3F4F6)
 private val LightDivider = Color(0xFFF0F0F0)
 private val LightCardBorder = Color(0xFFE8E8E8)
 
@@ -50,10 +59,19 @@ private val DarkOutline = Color(0xFF616161)
 private val DarkOutlineVariant = Color(0xFF333333)
 private val DarkBorder = Color(0xFF2A2A2A)
 private val DarkInputBackground = Color(0xFF1E1E1E)
-private val DarkSuccess = Color(0xFFE8E8E8)
-private val DarkWarning = Color(0xFF616161)
-private val DarkDestructive = Color(0xFF888888)
-private val DarkDestructiveForeground = Color(0xFF121212)
+private val DarkSuccess = Color(0xFF34D399)
+private val DarkWarning = Color(0xFFFBBF24)
+private val DarkWarningForeground = Color(0xFF1C1917)
+private val DarkWarningContainer = Color(0xFF451A03)
+private val DarkDestructive = Color(0xFFF87171)
+private val DarkDestructiveForeground = Color(0xFF210A0A)
+private val DarkDestructiveContainer = Color(0xFF450A0A)
+private val DarkInfo = Color(0xFF60A5FA)
+private val DarkInfoForeground = Color(0xFF0A2342)
+private val DarkInfoContainer = Color(0xFF0C4A6E)
+private val DarkRestricted = Color(0xFF9CA3AF)
+private val DarkRestrictedForeground = Color(0xFF111827)
+private val DarkRestrictedContainer = Color(0xFF1F2937)
 private val DarkDivider = Color(0xFF222222)
 private val DarkCardBorder = Color(0xFF2A2A2A)
 
@@ -74,8 +92,17 @@ data class RipDpiExtendedColors(
     val inputBackground: Color,
     val success: Color,
     val warning: Color,
+    val warningForeground: Color,
+    val warningContainer: Color,
     val destructive: Color,
     val destructiveForeground: Color,
+    val destructiveContainer: Color,
+    val info: Color,
+    val infoForeground: Color,
+    val infoContainer: Color,
+    val restricted: Color,
+    val restrictedForeground: Color,
+    val restrictedContainer: Color,
     val divider: Color,
     val hairline: Color,
 )
@@ -94,8 +121,17 @@ val LightRipDpiExtendedColors = RipDpiExtendedColors(
     inputBackground = LightInputBackground,
     success = LightSuccess,
     warning = LightWarning,
+    warningForeground = LightWarningForeground,
+    warningContainer = LightWarningContainer,
     destructive = LightDestructive,
     destructiveForeground = LightDestructiveForeground,
+    destructiveContainer = LightDestructiveContainer,
+    info = LightInfo,
+    infoForeground = LightInfoForeground,
+    infoContainer = LightInfoContainer,
+    restricted = LightRestricted,
+    restrictedForeground = LightRestrictedForeground,
+    restrictedContainer = LightRestrictedContainer,
     divider = LightDivider,
     hairline = RipDpiHairlineColor,
 )
@@ -114,8 +150,17 @@ val DarkRipDpiExtendedColors = RipDpiExtendedColors(
     inputBackground = DarkInputBackground,
     success = DarkSuccess,
     warning = DarkWarning,
+    warningForeground = DarkWarningForeground,
+    warningContainer = DarkWarningContainer,
     destructive = DarkDestructive,
     destructiveForeground = DarkDestructiveForeground,
+    destructiveContainer = DarkDestructiveContainer,
+    info = DarkInfo,
+    infoForeground = DarkInfoForeground,
+    infoContainer = DarkInfoContainer,
+    restricted = DarkRestricted,
+    restrictedForeground = DarkRestrictedForeground,
+    restrictedContainer = DarkRestrictedContainer,
     divider = DarkDivider,
     hairline = RipDpiHairlineColor,
 )
@@ -135,8 +180,8 @@ fun ripDpiLightColorScheme(): ColorScheme = lightColorScheme(
     onTertiaryContainer = LightForeground,
     error = LightDestructive,
     onError = LightDestructiveForeground,
-    errorContainer = LightDestructive,
-    onErrorContainer = LightDestructiveForeground,
+    errorContainer = LightDestructiveContainer,
+    onErrorContainer = LightDestructive,
     background = LightBackground,
     onBackground = LightForeground,
     surface = LightCard,
@@ -167,8 +212,8 @@ fun ripDpiDarkColorScheme(): ColorScheme = darkColorScheme(
     onTertiaryContainer = DarkForeground,
     error = DarkDestructive,
     onError = DarkDestructiveForeground,
-    errorContainer = DarkDestructive,
-    onErrorContainer = DarkDestructiveForeground,
+    errorContainer = DarkDestructiveContainer,
+    onErrorContainer = DarkDestructive,
     background = DarkBackground,
     onBackground = DarkForeground,
     surface = DarkCard,
