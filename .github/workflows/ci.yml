@@ -25,8 +25,14 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
+      - name: Read native toolchain policy
+        id: native-toolchain
+        run: |
+          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+          echo "cmake=$(grep '^ripdpi.nativeCmakeVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+
       - name: Install NDK and CMake
-        run: sdkmanager --install "ndk;29.0.14206865" "cmake;3.22.1"
+        run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}" "cmake;${{ steps.native-toolchain.outputs.cmake }}"
 
       - uses: gradle/actions/setup-gradle@v4
 
@@ -58,8 +64,14 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
+      - name: Read native toolchain policy
+        id: native-toolchain
+        run: |
+          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+          echo "cmake=$(grep '^ripdpi.nativeCmakeVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+
       - name: Install NDK and CMake
-        run: sdkmanager --install "ndk;29.0.14206865" "cmake;3.22.1"
+        run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}" "cmake;${{ steps.native-toolchain.outputs.cmake }}"
 
       - uses: gradle/actions/setup-gradle@v4
 
