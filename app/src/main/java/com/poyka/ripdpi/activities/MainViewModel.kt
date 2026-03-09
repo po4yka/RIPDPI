@@ -207,6 +207,10 @@ class MainViewModel(
         showError(getApplication<Application>().getString(R.string.vpn_permission_denied))
     }
 
+    fun onNotificationPermissionDenied() {
+        showError(getApplication<Application>().getString(R.string.permissions_notifications_denied))
+    }
+
     fun requestVpnPermission(context: Context) {
         when (uiState.value.connectionState) {
             ConnectionState.Connecting,

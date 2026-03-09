@@ -15,15 +15,20 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +42,8 @@ import java.io.IOException
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
     private val openHomeRequests = MutableStateFlow(false)
+    private val openVpnPermissionRequests = MutableStateFlow(false)
+    private var pendingNotificationAction: PendingStartAction? = null
 
     companion object {
         private const val EXTRA_OPEN_HOME = "com.poyka.ripdpi.extra.OPEN_HOME"
@@ -68,9 +75,27 @@ class MainActivity : ComponentActivity() {
         internal fun requestsHomeTab(intent: Intent?): Boolean = intent?.getBooleanExtra(EXTRA_OPEN_HOME, false) == true
     }
 
+    private enum class PendingStartAction {
+        StartConfiguredMode,
+        OpenVpnPermission,
+        RequestVpnPermission,
+    }
+
     private val vpnRegister =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             viewModel.onVpnPermissionResult(this, it.resultCode == RESULT_OK)
+        }
+
+    private val notificationPermissionRegister =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val action = pendingNotificationAction
+            pendingNotificationAction = null
+
+            if (granted) {
+                action?.let(::executePendingStartAction)
+            } else {
+                viewModel.onNotificationPermissionDenied()
+            }
         }
 
     private val logsRegister =
@@ -113,19 +138,12 @@ class MainActivity : ComponentActivity() {
         splashScreen.setKeepOnScreenCondition { !viewModel.startupState.value.isReady }
         openHomeRequests.value = requestsHomeTab(intent)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-        }
-
         setContent {
             val startupState by viewModel.startupState.collectAsStateWithLifecycle()
             val openHomeRequested by openHomeRequests.collectAsStateWithLifecycle()
+            val openVpnPermissionRequested by openVpnPermissionRequests.collectAsStateWithLifecycle()
             val snackbarHostState = remember { SnackbarHostState() }
+            var notificationPermissionDialogAction by remember { mutableStateOf<PendingStartAction?>(null) }
 
             LaunchedEffect(viewModel, snackbarHostState) {
                 viewModel.effects.collect { effect ->
@@ -147,14 +165,54 @@ class MainActivity : ComponentActivity() {
 
             RipDpiTheme(themePreference = startupState.theme) {
                 if (startupState.isReady) {
+                    notificationPermissionDialogAction?.let { action ->
+                        RipDpiDialog(
+                            onDismissRequest = { notificationPermissionDialogAction = null },
+                            title = getString(R.string.permissions_notifications_title),
+                            message = getString(R.string.permissions_notifications_body),
+                            dismissLabel = getString(R.string.permissions_notifications_not_now),
+                            onDismiss = { notificationPermissionDialogAction = null },
+                            confirmLabel = getString(R.string.permissions_notifications_continue),
+                            onConfirm = {
+                                notificationPermissionDialogAction = null
+                                pendingNotificationAction = action
+                                notificationPermissionRegister.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            },
+                            tone = RipDpiDialogTone.Info,
+                            icon = RipDpiIcons.Info,
+                        )
+                    }
+
                     val initialStartDestination = remember { startupState.startDestination }
                     RipDpiNavHost(
                         startDestination = initialStartDestination,
                         onSaveLogs = { saveLogs() },
                         mainViewModel = viewModel,
+                        openVpnPermissionRequested = openVpnPermissionRequested,
+                        onOpenVpnPermissionHandled = {
+                            openVpnPermissionRequests.value = false
+                        },
                         launchHomeRequested = openHomeRequested,
                         onLaunchHomeHandled = {
                             openHomeRequests.value = false
+                        },
+                        onStartConfiguredMode = {
+                            requestStartAction(
+                                action = PendingStartAction.StartConfiguredMode,
+                                onNeedsPermissionDialog = { notificationPermissionDialogAction = it },
+                            )
+                        },
+                        onOpenVpnPermission = {
+                            requestStartAction(
+                                action = PendingStartAction.OpenVpnPermission,
+                                onNeedsPermissionDialog = { notificationPermissionDialogAction = it },
+                            )
+                        },
+                        onRequestVpnPermission = {
+                            requestStartAction(
+                                action = PendingStartAction.RequestVpnPermission,
+                                onNeedsPermissionDialog = { notificationPermissionDialogAction = it },
+                            )
                         },
                         snackbarHostState = snackbarHostState,
                     )
@@ -180,4 +238,30 @@ class MainActivity : ComponentActivity() {
             }
         logsRegister.launch(intent)
     }
+
+    private fun requestStartAction(
+        action: PendingStartAction,
+        onNeedsPermissionDialog: (PendingStartAction) -> Unit,
+    ) {
+        if (needsNotificationPermissionForStart()) {
+            onNeedsPermissionDialog(action)
+        } else {
+            executePendingStartAction(action)
+        }
+    }
+
+    private fun executePendingStartAction(action: PendingStartAction) {
+        when (action) {
+            PendingStartAction.StartConfiguredMode -> viewModel.toggleService(this)
+            PendingStartAction.OpenVpnPermission -> openVpnPermissionRequests.value = true
+            PendingStartAction.RequestVpnPermission -> viewModel.requestVpnPermission(this)
+        }
+    }
+
+    private fun needsNotificationPermissionForStart(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
 }

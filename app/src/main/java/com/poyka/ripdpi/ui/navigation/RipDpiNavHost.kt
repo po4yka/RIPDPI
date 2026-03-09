@@ -42,8 +42,13 @@ fun RipDpiNavHost(
     startDestination: String = Route.Home.route,
     onSaveLogs: () -> Unit = {},
     mainViewModel: MainViewModel,
+    openVpnPermissionRequested: Boolean = false,
+    onOpenVpnPermissionHandled: () -> Unit = {},
     launchHomeRequested: Boolean = false,
     onLaunchHomeHandled: () -> Unit = {},
+    onStartConfiguredMode: () -> Unit = {},
+    onOpenVpnPermission: () -> Unit = {},
+    onRequestVpnPermission: () -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
 ) {
     val navController = rememberNavController()
@@ -76,6 +81,23 @@ fun RipDpiNavHost(
                 onLaunchHomeHandled()
             }
         }
+    }
+
+    LaunchedEffect(openVpnPermissionRequested, currentDestination?.route) {
+        val currentRoute = currentDestination?.route
+        if (!openVpnPermissionRequested || currentRoute == null) {
+            return@LaunchedEffect
+        }
+
+        if (currentRoute == Route.VpnPermission.route) {
+            onOpenVpnPermissionHandled()
+            return@LaunchedEffect
+        }
+
+        navController.navigate(Route.VpnPermission.route) {
+            launchSingleTop = true
+        }
+        onOpenVpnPermissionHandled()
     }
 
     Scaffold(
@@ -124,11 +146,8 @@ fun RipDpiNavHost(
             }
             composable(Route.Home.route) {
                 HomeRoute(
-                    onOpenVpnPermission = {
-                        navController.navigate(Route.VpnPermission.route) {
-                            launchSingleTop = true
-                        }
-                    },
+                    onOpenVpnPermission = onOpenVpnPermission,
+                    onStartConfiguredMode = onStartConfiguredMode,
                     viewModel = mainViewModel,
                 )
             }
@@ -157,6 +176,7 @@ fun RipDpiNavHost(
                 VpnPermissionRoute(
                     onDismiss = { navController.popBackStack() },
                     onGranted = { navController.popBackStack() },
+                    onContinue = onRequestVpnPermission,
                     viewModel = mainViewModel,
                 )
             }
