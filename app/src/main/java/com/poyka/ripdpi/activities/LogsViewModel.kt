@@ -37,9 +37,13 @@ data class LogsUiState(
     val logs: List<LogEntry> = emptyList(),
     val activeFilters: Set<LogType> = LogType.entries.toSet(),
     val isAutoScroll: Boolean = true,
+    val bufferCapacity: Int = MaxLogEntries,
 ) {
     val filteredLogs: List<LogEntry>
         get() = logs.filter { it.type in activeFilters }
+
+    val latestLog: LogEntry?
+        get() = logs.lastOrNull()
 }
 
 private const val MaxLogEntries = 250

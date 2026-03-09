@@ -5,6 +5,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 
+internal val topLevelRouteOrder = listOf(
+    "home",
+    "config",
+    "logs",
+    "settings",
+)
+
 sealed class Route(
     val route: String,
     @param:StringRes val titleRes: Int,
@@ -54,9 +61,24 @@ sealed class Route(
         titleRes = R.string.title_dns_settings,
     )
 
+    data object AdvancedSettings : Route(
+        route = "advanced_settings",
+        titleRes = R.string.title_advanced_settings,
+    )
+
+    data object VpnPermission : Route(
+        route = "vpn_permission",
+        titleRes = R.string.title_vpn_permission,
+    )
+
+    data object BiometricPrompt : Route(
+        route = "biometric_prompt",
+        titleRes = R.string.title_biometric_prompt,
+    )
+
     data object AppCustomization : Route(
         route = "app_customization",
-        titleRes = R.string.title_app_customization,
+        titleRes = R.string.title_app_icon,
     )
 
     data object About : Route(
@@ -65,17 +87,20 @@ sealed class Route(
     )
 
     companion object {
-        val topLevel = listOf(Home, Config, Settings, Logs)
+        val topLevel = listOf(Home, Config, Logs, Settings)
 
         val all = listOf(
             Splash,
             Onboarding,
             Home,
             Config,
-            Settings,
             Logs,
+            Settings,
             ModeEditor,
             DnsSettings,
+            AdvancedSettings,
+            VpnPermission,
+            BiometricPrompt,
             AppCustomization,
             About,
         )

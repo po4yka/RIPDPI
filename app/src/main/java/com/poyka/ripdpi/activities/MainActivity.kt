@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -11,24 +12,32 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
+import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
+    private val openHomeRequests = MutableStateFlow(false)
 
     companion object {
         private val TAG: String = MainActivity::class.java.simpleName
+        private const val EXTRA_OPEN_HOME = "com.poyka.ripdpi.extra.OPEN_HOME"
 
         private fun collectLogs(): String? =
             try {
@@ -40,6 +49,19 @@ class MainActivity : ComponentActivity() {
                 Log.e(TAG, "Failed to collect logs", e)
                 null
             }
+
+        fun createLaunchIntent(
+            context: Context,
+            openHome: Boolean = false,
+        ): Intent = Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            if (openHome) {
+                putExtra(EXTRA_OPEN_HOME, true)
+            }
+        }
+
+        internal fun requestsHomeTab(intent: Intent?): Boolean =
+            intent?.getBooleanExtra(EXTRA_OPEN_HOME, false) == true
     }
 
     private val vpnRegister =
@@ -81,6 +103,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        openHomeRequests.value = requestsHomeTab(intent)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
@@ -93,14 +116,20 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            val openHomeRequested by openHomeRequests.collectAsStateWithLifecycle()
+            val snackbarHostState = remember { SnackbarHostState() }
 
-            LaunchedEffect(Unit) {
+            LaunchedEffect(viewModel, snackbarHostState) {
                 viewModel.effects.collect { effect ->
                     when (effect) {
                         is MainEffect.RequestVpnPermission ->
                             vpnRegister.launch(effect.prepareIntent)
                         is MainEffect.ShowError ->
-                            Toast.makeText(this@MainActivity, effect.message, Toast.LENGTH_SHORT).show()
+                            snackbarHostState.showRipDpiSnackbar(
+                                message = effect.message,
+                                tone = RipDpiSnackbarTone.Error,
+                                duration = SnackbarDuration.Short,
+                            )
                     }
                 }
             }
@@ -108,8 +137,22 @@ class MainActivity : ComponentActivity() {
             RipDpiTheme(themePreference = uiState.theme) {
                 RipDpiNavHost(
                     onSaveLogs = { saveLogs() },
+                    mainViewModel = viewModel,
+                    launchHomeRequested = openHomeRequested,
+                    onLaunchHomeHandled = {
+                        openHomeRequests.value = false
+                    },
+                    snackbarHostState = snackbarHostState,
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (requestsHomeTab(intent)) {
+            openHomeRequests.value = true
         }
     }
 
