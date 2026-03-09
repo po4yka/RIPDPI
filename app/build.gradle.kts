@@ -15,12 +15,25 @@ android {
 
     }
 
+    signingConfigs {
+        val storeFilePath = System.getenv("SIGNING_STORE_FILE")
+        if (storeFilePath != null) {
+            create("release") {
+                storeFile = file(storeFilePath)
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildFeatures {
         buildConfig = true
     }
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             buildConfigField("String", "VERSION_NAME",  "\"${defaultConfig.versionName}\"")
 
             isMinifyEnabled = true
