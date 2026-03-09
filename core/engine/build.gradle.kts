@@ -4,15 +4,28 @@ plugins {
     id("ripdpi.android.library")
 }
 
+val nativeAbis =
+    providers.gradleProperty("ripdpi.nativeAbis").map { value ->
+        value.split(',')
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+    }
+val nativeMinSdk = providers.gradleProperty("ripdpi.minSdk")
+val engineNdkVersion = "29.0.14206865"
+val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
+val ndkProjectDir = layout.buildDirectory.dir("intermediates/ndkBuild")
+
 android {
     namespace = "com.poyka.ripdpi.core.engine"
-    ndkVersion = "29.0.14206865"
+    ndkVersion = engineNdkVersion
 
     defaultConfig {
         ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            abiFilters += nativeAbis.get()
         }
     }
+
+    sourceSets["main"].jniLibs.srcDir(generatedJniLibsDir.get().asFile)
 
     externalNativeBuild {
         cmake {
@@ -38,13 +51,26 @@ val localProperties =
     }
 val sdkDir =
     localProperties.getProperty("sdk.dir")
+        ?: System.getenv("ANDROID_SDK_ROOT")
         ?: System.getenv("ANDROID_HOME")
-        ?: throw GradleException("SDK location not found. Set sdk.dir in local.properties or ANDROID_HOME env var.")
+        ?: throw GradleException(
+            "SDK location not found. Set sdk.dir in local.properties or ANDROID_SDK_ROOT/ANDROID_HOME env var.",
+        )
 
 tasks.register<Exec>("runNdkBuild") {
     group = "build"
+    description = "Builds hev-socks5-tunnel into Gradle-managed jniLibs outputs."
 
-    val ndkDir = file("$sdkDir/ndk/${android.ndkVersion}")
+    inputs.files(
+        fileTree("src/main/jni") {
+            exclude("**/obj/**", "**/libs/**")
+        },
+    )
+    inputs.property("nativeAbis", nativeAbis)
+    inputs.property("nativeMinSdk", nativeMinSdk)
+    outputs.dir(generatedJniLibsDir)
+
+    val ndkDir = file("$sdkDir/ndk/$engineNdkVersion")
 
     executable =
         if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
@@ -54,16 +80,23 @@ tasks.register<Exec>("runNdkBuild") {
         }
     setArgs(
         listOf(
-            "NDK_PROJECT_PATH=build/intermediates/ndkBuild",
-            "NDK_LIBS_OUT=src/main/jniLibs",
+            "NDK_PROJECT_PATH=${ndkProjectDir.get().asFile.invariantSeparatorsPath}",
+            "NDK_LIBS_OUT=${generatedJniLibsDir.get().asFile.invariantSeparatorsPath}",
             "APP_BUILD_SCRIPT=src/main/jni/Android.mk",
-            "NDK_APPLICATION_MK=src/main/jni/Application.mk",
+            "APP_PLATFORM=android-${nativeMinSdk.get()}",
+            "APP_ABI=${nativeAbis.get().joinToString(" ")}",
+            "APP_CFLAGS=-O3 -DPKGNAME=com/poyka/ripdpi/core",
+            "APP_CPPFLAGS=-O3 -std=c++11",
+            "APP_SUPPORT_FLEXIBLE_PAGE_SIZES=true",
         ),
     )
 
-    println("Command: $commandLine")
+    doFirst {
+        generatedJniLibsDir.get().asFile.deleteRecursively()
+        ndkProjectDir.get().asFile.deleteRecursively()
+    }
 }
 
-tasks.preBuild {
+tasks.named("preBuild") {
     dependsOn("runNdkBuild")
 }
