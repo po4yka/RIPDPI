@@ -7,18 +7,21 @@ enum class AppStatus {
 
 enum class Mode {
     Proxy,
-    VPN;
+    VPN,
+    ;
 
     companion object {
-        fun fromSender(sender: Sender): Mode = when (sender) {
-            Sender.Proxy -> Proxy
-            Sender.VPN -> VPN
-        }
+        fun fromSender(sender: Sender): Mode =
+            when (sender) {
+                Sender.Proxy -> Proxy
+                Sender.VPN -> VPN
+            }
 
-        fun fromString(name: String): Mode = when (name) {
-            "proxy" -> Proxy
-            "vpn" -> VPN
-            else -> throw IllegalArgumentException("Invalid mode: $name")
-        }
+        fun fromString(name: String): Mode =
+            when (name) {
+                "proxy" -> Proxy
+                "vpn" -> VPN
+                else -> throw IllegalArgumentException("Invalid mode: $name")
+            }
     }
 }

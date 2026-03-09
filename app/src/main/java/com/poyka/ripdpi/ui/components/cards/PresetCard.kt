@@ -42,27 +42,28 @@ fun PresetCard(
     val scheme = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(16.dp)
     val borderColor = if (selected) colors.foreground else colors.cardBorder
-    val background = if (selected) {
-        lerp(scheme.background, colors.foreground, if (scheme.background.luminance() < 0.5f) 0.04f else 0.05f)
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
+    val background =
+        if (selected) {
+            lerp(scheme.background, colors.foreground, if (scheme.background.luminance() < 0.5f) 0.04f else 0.05f)
+        } else {
+            MaterialTheme.colorScheme.surface
+        }
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 65.dp)
-            .background(background, shape)
-            .border(1.dp, borderColor, shape)
-            .clickable(
-                enabled = enabled,
-                role = Role.Button,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(horizontal = 17.dp, vertical = 13.dp)
-            .alpha(if (enabled) 1f else 0.38f),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .heightIn(min = 65.dp)
+                .background(background, shape)
+                .border(1.dp, borderColor, shape)
+                .clickable(
+                    enabled = enabled,
+                    role = Role.Button,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                ).padding(horizontal = 17.dp, vertical = 13.dp)
+                .alpha(if (enabled) 1f else 0.38f),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Row(
@@ -77,9 +78,12 @@ fun PresetCard(
             )
             badgeText?.let {
                 Box(
-                    modifier = Modifier
-                        .background(colors.foreground.copy(alpha = if (selected) 0.12f else 0.08f), RoundedCornerShape(999.dp))
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    modifier =
+                        Modifier
+                            .background(
+                                colors.foreground.copy(alpha = if (selected) 0.12f else 0.08f),
+                                RoundedCornerShape(999.dp),
+                            ).padding(horizontal = 8.dp, vertical = 2.dp),
                 ) {
                     Text(
                         text = it,

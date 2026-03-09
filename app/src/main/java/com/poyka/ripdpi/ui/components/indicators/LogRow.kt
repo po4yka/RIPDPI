@@ -34,23 +34,26 @@ fun LogRow(
     tone: LogRowTone = LogRowTone.Connection,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val badgeBackground = when (tone) {
-        LogRowTone.Dns -> colors.accent
-        LogRowTone.Connection -> colors.foreground.copy(alpha = 0.08f)
-        LogRowTone.Warning -> colors.warning.copy(alpha = 0.18f)
-        LogRowTone.Error -> colors.destructive.copy(alpha = 0.18f)
-    }
-    val badgeContent = when (tone) {
-        LogRowTone.Dns -> colors.foreground
-        LogRowTone.Connection -> colors.foreground
-        LogRowTone.Warning -> colors.foreground
-        LogRowTone.Error -> colors.foreground
-    }
+    val badgeBackground =
+        when (tone) {
+            LogRowTone.Dns -> colors.accent
+            LogRowTone.Connection -> colors.foreground.copy(alpha = 0.08f)
+            LogRowTone.Warning -> colors.warning.copy(alpha = 0.18f)
+            LogRowTone.Error -> colors.destructive.copy(alpha = 0.18f)
+        }
+    val badgeContent =
+        when (tone) {
+            LogRowTone.Dns -> colors.foreground
+            LogRowTone.Connection -> colors.foreground
+            LogRowTone.Warning -> colors.foreground
+            LogRowTone.Error -> colors.foreground
+        }
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 24.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .heightIn(min = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -60,9 +63,10 @@ fun LogRow(
             color = colors.mutedForeground,
         )
         Box(
-            modifier = Modifier
-                .background(badgeBackground, RoundedCornerShape(999.dp))
-                .padding(horizontal = 8.dp, vertical = 2.dp),
+            modifier =
+                Modifier
+                    .background(badgeBackground, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
         ) {
             Text(
                 text = type.uppercase(),

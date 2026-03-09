@@ -18,7 +18,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed interface SettingsEffect {
-    data class SettingChanged(val key: String, val value: String) : SettingsEffect
+    data class SettingChanged(
+        val key: String,
+        val value: String,
+    ) : SettingsEffect
 }
 
 data class SettingsUiState(
@@ -101,7 +104,8 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
         settings = this,
         appTheme = appTheme.ifEmpty { "system" },
         appIconVariant = LauncherIconManager.normalizeIconKey(appIconVariant),
-        themedAppIconEnabled = LauncherIconManager.normalizeIconStyle(appIconStyle) == LauncherIconManager.ThemedIconStyle,
+        themedAppIconEnabled =
+            LauncherIconManager.normalizeIconStyle(appIconStyle) == LauncherIconManager.ThemedIconStyle,
         ripdpiMode = normalizedMode,
         dnsIp = dnsIp.ifEmpty { "1.1.1.1" },
         ipv6Enable = ipv6Enable,
@@ -154,18 +158,20 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
     )
 }
 
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-
+class SettingsViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
     private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
     val effects: Flow<SettingsEffect> = _effects.receiveAsFlow()
 
-    val uiState: StateFlow<SettingsUiState> = application.settingsStore.data
-        .map { it.toUiState() }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = AppSettingsSerializer.defaultValue.toUiState(isHydrated = false),
-        )
+    val uiState: StateFlow<SettingsUiState> =
+        application.settingsStore.data
+            .map { it.toUiState() }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = AppSettingsSerializer.defaultValue.toUiState(isHydrated = false),
+            )
 
     fun update(transform: AppSettings.Builder.() -> Unit) {
         mutateSettings(effect = null, transform = transform)
@@ -202,15 +208,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setAppIcon(iconKey: String) {
         val normalizedIconKey = LauncherIconManager.normalizeIconKey(iconKey)
-        val iconStyle = if (uiState.value.themedAppIconEnabled) {
-            LauncherIconManager.ThemedIconStyle
-        } else {
-            LauncherIconManager.PlainIconStyle
-        }
+        val iconStyle =
+            if (uiState.value.themedAppIconEnabled) {
+                LauncherIconManager.ThemedIconStyle
+            } else {
+                LauncherIconManager.PlainIconStyle
+            }
 
         viewModelScope.launch {
             getApplication<Application>().settingsStore.updateData { current ->
-                current.toBuilder()
+                current
+                    .toBuilder()
                     .setAppIconVariant(normalizedIconKey)
                     .build()
             }
@@ -224,15 +232,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setThemedAppIconEnabled(enabled: Boolean) {
-        val iconStyle = if (enabled) {
-            LauncherIconManager.ThemedIconStyle
-        } else {
-            LauncherIconManager.PlainIconStyle
-        }
+        val iconStyle =
+            if (enabled) {
+                LauncherIconManager.ThemedIconStyle
+            } else {
+                LauncherIconManager.PlainIconStyle
+            }
 
         viewModelScope.launch {
             getApplication<Application>().settingsStore.updateData { current ->
-                current.toBuilder()
+                current
+                    .toBuilder()
                     .setAppIconStyle(iconStyle)
                     .build()
             }

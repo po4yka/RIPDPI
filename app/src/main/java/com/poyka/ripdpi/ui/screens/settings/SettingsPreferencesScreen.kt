@@ -83,31 +83,36 @@ internal fun SettingsScreen(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
-    val themeOptions = stringArrayResource(R.array.themes)
-        .zip(stringArrayResource(R.array.themes_entries))
-        .map { (label, value) ->
-            RipDpiDropdownOption(
-                value = value,
-                label = label,
-            )
-        }
+    val themeOptions =
+        stringArrayResource(R.array.themes)
+            .zip(stringArrayResource(R.array.themes_entries))
+            .map { (label, value) ->
+                RipDpiDropdownOption(
+                    value = value,
+                    label = label,
+                )
+            }
     var backupPinDraft by rememberSaveable(uiState.backupPin) {
         mutableStateOf(uiState.backupPin)
     }
-    val pinErrorText = when {
-        backupPinDraft.isNotEmpty() && backupPinDraft.length < 4 -> {
-            stringResource(R.string.settings_backup_pin_error)
-        }
+    val pinErrorText =
+        when {
+            backupPinDraft.isNotEmpty() && backupPinDraft.length < 4 -> {
+                stringResource(R.string.settings_backup_pin_error)
+            }
 
-        else -> null
-    }
+            else -> {
+                null
+            }
+        }
     val canSaveBackupPin = backupPinDraft.length == 4 && backupPinDraft != uiState.backupPin
     val showBackupPinEditor = uiState.biometricEnabled || uiState.hasBackupPin || backupPinDraft.isNotBlank()
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(colors.background),
     ) {
         RipDpiTopAppBar(
             title = stringResource(R.string.settings),
@@ -115,12 +120,13 @@ internal fun SettingsScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = layout.horizontalPadding,
-                top = spacing.sm,
-                end = layout.horizontalPadding,
-                bottom = spacing.xxl,
-            ),
+            contentPadding =
+                PaddingValues(
+                    start = layout.horizontalPadding,
+                    top = spacing.sm,
+                    end = layout.horizontalPadding,
+                    bottom = spacing.xxl,
+                ),
             verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
         ) {
             item {
@@ -129,13 +135,14 @@ internal fun SettingsScreen(
                 ) {
                     SettingsRow(
                         title = stringResource(R.string.title_dns_settings),
-                        subtitle = stringResource(
-                            if (uiState.isVpn) {
-                                R.string.settings_connectivity_dns_body
-                            } else {
-                                R.string.settings_connectivity_dns_body_proxy
-                            },
-                        ),
+                        subtitle =
+                            stringResource(
+                                if (uiState.isVpn) {
+                                    R.string.settings_connectivity_dns_body
+                                } else {
+                                    R.string.settings_connectivity_dns_body_proxy
+                                },
+                            ),
                         value = uiState.dnsIp,
                         onClick = onOpenDnsSettings,
                         monospaceValue = true,
@@ -174,19 +181,22 @@ internal fun SettingsScreen(
                         )
                         SettingsRow(
                             title = stringResource(R.string.settings_biometric_title),
-                            subtitle = stringResource(
-                                when {
-                                    uiState.biometricEnabled && uiState.hasBackupPin -> {
-                                        R.string.settings_biometric_body_with_pin
-                                    }
+                            subtitle =
+                                stringResource(
+                                    when {
+                                        uiState.biometricEnabled && uiState.hasBackupPin -> {
+                                            R.string.settings_biometric_body_with_pin
+                                        }
 
-                                    uiState.biometricEnabled -> {
-                                        R.string.settings_biometric_body_without_pin
-                                    }
+                                        uiState.biometricEnabled -> {
+                                            R.string.settings_biometric_body_without_pin
+                                        }
 
-                                    else -> R.string.settings_biometric_body_disabled
-                                },
-                            ),
+                                        else -> {
+                                            R.string.settings_biometric_body_disabled
+                                        }
+                                    },
+                                ),
                             checked = uiState.biometricEnabled,
                             onCheckedChange = onBiometricChanged,
                             showDivider = showBackupPinEditor,
@@ -301,23 +311,26 @@ private fun BackupPinEditor(
             onValueChange = onValueChange,
             label = stringResource(R.string.biometric_prompt_pin_label),
             placeholder = stringResource(R.string.biometric_prompt_pin_placeholder),
-            helperText = if (hasSavedPin && errorText == null && value.length == 4) {
-                stringResource(R.string.settings_backup_pin_helper_saved)
-            } else {
-                stringResource(R.string.biometric_prompt_pin_helper)
-            },
-            errorText = errorText,
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                keyboardType = KeyboardType.NumberPassword,
-                imeAction = ImeAction.Done,
-            ),
-            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                onDone = {
-                    if (canSave) {
-                        onSave()
-                    }
+            helperText =
+                if (hasSavedPin && errorText == null && value.length == 4) {
+                    stringResource(R.string.settings_backup_pin_helper_saved)
+                } else {
+                    stringResource(R.string.biometric_prompt_pin_helper)
                 },
-            ),
+            errorText = errorText,
+            keyboardOptions =
+                androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = KeyboardType.NumberPassword,
+                    imeAction = ImeAction.Done,
+                ),
+            keyboardActions =
+                androidx.compose.foundation.text.KeyboardActions(
+                    onDone = {
+                        if (canSave) {
+                            onSave()
+                        }
+                    },
+                ),
             visualTransformation = PasswordVisualTransformation(),
         )
         Row(
@@ -347,11 +360,12 @@ private fun BackupPinEditor(
 private fun SettingsScreenPreview() {
     RipDpiTheme {
         SettingsScreen(
-            uiState = SettingsUiState(
-                dnsIp = "1.1.1.1",
-                webrtcProtectionEnabled = true,
-                biometricEnabled = true,
-            ),
+            uiState =
+                SettingsUiState(
+                    dnsIp = "1.1.1.1",
+                    webrtcProtectionEnabled = true,
+                    biometricEnabled = true,
+                ),
             onOpenDnsSettings = {},
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},
@@ -369,13 +383,14 @@ private fun SettingsScreenPreview() {
 private fun SettingsScreenDarkPreview() {
     RipDpiTheme(themePreference = "dark") {
         SettingsScreen(
-            uiState = SettingsUiState(
-                appTheme = "dark",
-                dnsIp = "9.9.9.9",
-                webrtcProtectionEnabled = true,
-                biometricEnabled = true,
-                backupPin = "1234",
-            ),
+            uiState =
+                SettingsUiState(
+                    appTheme = "dark",
+                    dnsIp = "9.9.9.9",
+                    webrtcProtectionEnabled = true,
+                    biometricEnabled = true,
+                    backupPin = "1234",
+                ),
             onOpenDnsSettings = {},
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},

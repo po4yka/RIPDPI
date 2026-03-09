@@ -22,10 +22,11 @@ internal fun RipDpiComponentPreview(
     RipDpiTheme(themePreference = themePreference) {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(RipDpiThemeTokens.layout.horizontalPadding),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(RipDpiThemeTokens.layout.horizontalPadding),
                 verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.lg),
                 content = content,
             )

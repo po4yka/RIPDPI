@@ -51,38 +51,42 @@ class RipDpiProxy {
 
     private fun createSocketFromPreferences(preferences: RipDpiProxyPreferences) =
         when (preferences) {
-            is RipDpiProxyCmdPreferences -> jniCreateSocketWithCommandLine(preferences.args)
+            is RipDpiProxyCmdPreferences -> {
+                jniCreateSocketWithCommandLine(preferences.args)
+            }
 
-            is RipDpiProxyUIPreferences -> jniCreateSocket(
-                ip = preferences.ip,
-                port = preferences.port,
-                maxConnections = preferences.maxConnections,
-                bufferSize = preferences.bufferSize,
-                defaultTtl = preferences.defaultTtl,
-                customTtl = preferences.customTtl,
-                noDomain = preferences.noDomain,
-                desyncHttp = preferences.desyncHttp,
-                desyncHttps = preferences.desyncHttps,
-                desyncUdp = preferences.desyncUdp,
-                desyncMethod = preferences.desyncMethod.ordinal,
-                splitPosition = preferences.splitPosition,
-                splitAtHost = preferences.splitAtHost,
-                fakeTtl = preferences.fakeTtl,
-                fakeSni = preferences.fakeSni,
-                oobChar = preferences.oobChar,
-                hostMixedCase = preferences.hostMixedCase,
-                domainMixedCase = preferences.domainMixedCase,
-                hostRemoveSpaces = preferences.hostRemoveSpaces,
-                tlsRecordSplit = preferences.tlsRecordSplit,
-                tlsRecordSplitPosition = preferences.tlsRecordSplitPosition,
-                tlsRecordSplitAtSni = preferences.tlsRecordSplitAtSni,
-                hostsMode = preferences.hostsMode.ordinal,
-                hosts = preferences.hosts,
-                tcpFastOpen = preferences.tcpFastOpen,
-                udpFakeCount = preferences.udpFakeCount,
-                dropSack = preferences.dropSack,
-                fakeOffset = preferences.fakeOffset,
-            )
+            is RipDpiProxyUIPreferences -> {
+                jniCreateSocket(
+                    ip = preferences.ip,
+                    port = preferences.port,
+                    maxConnections = preferences.maxConnections,
+                    bufferSize = preferences.bufferSize,
+                    defaultTtl = preferences.defaultTtl,
+                    customTtl = preferences.customTtl,
+                    noDomain = preferences.noDomain,
+                    desyncHttp = preferences.desyncHttp,
+                    desyncHttps = preferences.desyncHttps,
+                    desyncUdp = preferences.desyncUdp,
+                    desyncMethod = preferences.desyncMethod.ordinal,
+                    splitPosition = preferences.splitPosition,
+                    splitAtHost = preferences.splitAtHost,
+                    fakeTtl = preferences.fakeTtl,
+                    fakeSni = preferences.fakeSni,
+                    oobChar = preferences.oobChar,
+                    hostMixedCase = preferences.hostMixedCase,
+                    domainMixedCase = preferences.domainMixedCase,
+                    hostRemoveSpaces = preferences.hostRemoveSpaces,
+                    tlsRecordSplit = preferences.tlsRecordSplit,
+                    tlsRecordSplitPosition = preferences.tlsRecordSplitPosition,
+                    tlsRecordSplitAtSni = preferences.tlsRecordSplitAtSni,
+                    hostsMode = preferences.hostsMode.ordinal,
+                    hosts = preferences.hosts,
+                    tcpFastOpen = preferences.tcpFastOpen,
+                    udpFakeCount = preferences.udpFakeCount,
+                    dropSack = preferences.dropSack,
+                    fakeOffset = preferences.fakeOffset,
+                )
+            }
         }
 
     private external fun jniCreateSocketWithCommandLine(args: Array<String>): Int

@@ -7,16 +7,17 @@ import android.os.Build
 import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
+import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStatus
-import com.poyka.ripdpi.utility.*
+import com.poyka.ripdpi.utility.createConnectionNotification
+import com.poyka.ripdpi.utility.registerNotificationChannel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -47,7 +48,11 @@ class RipDpiProxyService : LifecycleService() {
         )
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         super.onStartCommand(intent, flags, startId)
         return when (val action = intent?.action) {
             START_ACTION -> {
@@ -129,18 +134,19 @@ class RipDpiProxyService : LifecycleService() {
         proxy = RipDpiProxy()
         val preferences = getRipDpiPreferences()
 
-        proxyJob = lifecycleScope.launch(Dispatchers.IO) {
-            val code = proxy.startProxy(preferences)
+        proxyJob =
+            lifecycleScope.launch(Dispatchers.IO) {
+                val code = proxy.startProxy(preferences)
 
-            withContext(Dispatchers.Main) {
-                if (code != 0) {
-                    Log.e(TAG, "Proxy stopped with code $code")
-                    updateStatus(ServiceStatus.Failed)
-                } else if (!stopping) {
-                    updateStatus(ServiceStatus.Disconnected)
+                withContext(Dispatchers.Main) {
+                    if (code != 0) {
+                        Log.e(TAG, "Proxy stopped with code $code")
+                        updateStatus(ServiceStatus.Failed)
+                    } else if (!stopping) {
+                        updateStatus(ServiceStatus.Disconnected)
+                    }
                 }
             }
-        }
 
         Log.i(TAG, "Proxy started")
     }
@@ -160,22 +166,26 @@ class RipDpiProxyService : LifecycleService() {
         Log.i(TAG, "Proxy stopped")
     }
 
-    private suspend fun getRipDpiPreferences(): RipDpiProxyPreferences =
-        RipDpiProxyPreferences.fromSettingsStore(this)
+    private suspend fun getRipDpiPreferences(): RipDpiProxyPreferences = RipDpiProxyPreferences.fromSettingsStore(this)
 
     private fun updateStatus(newStatus: ServiceStatus) {
         Log.d(TAG, "Proxy status changed from $status to $newStatus")
 
         status = newStatus
 
-        val appStatus = when (newStatus) {
-            ServiceStatus.Connected -> AppStatus.Running
-            ServiceStatus.Disconnected,
-            ServiceStatus.Failed -> {
-                proxyJob = null
-                AppStatus.Halted
+        val appStatus =
+            when (newStatus) {
+                ServiceStatus.Connected -> {
+                    AppStatus.Running
+                }
+
+                ServiceStatus.Disconnected,
+                ServiceStatus.Failed,
+                -> {
+                    proxyJob = null
+                    AppStatus.Halted
+                }
             }
-        }
         AppStateManager.setStatus(appStatus, Mode.Proxy)
 
         if (newStatus == ServiceStatus.Failed) {

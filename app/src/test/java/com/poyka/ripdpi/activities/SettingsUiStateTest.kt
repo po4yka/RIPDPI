@@ -7,7 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SettingsUiStateTest {
-
     private val defaults = AppSettingsSerializer.defaultValue
 
     @Test
@@ -74,11 +73,13 @@ class SettingsUiStateTest {
 
     @Test
     fun `all protocols unchecked enables all`() {
-        val settings = defaults.toBuilder()
-            .setDesyncHttp(false)
-            .setDesyncHttps(false)
-            .setDesyncUdp(false)
-            .build()
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(false)
+                .build()
         val state = settings.toUiState()
         assertTrue(state.desyncHttpEnabled)
         assertTrue(state.desyncHttpsEnabled)
@@ -87,11 +88,13 @@ class SettingsUiStateTest {
 
     @Test
     fun `only http checked enables only http`() {
-        val settings = defaults.toBuilder()
-            .setDesyncHttp(true)
-            .setDesyncHttps(false)
-            .setDesyncUdp(false)
-            .build()
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(true)
+                .setDesyncHttps(false)
+                .setDesyncUdp(false)
+                .build()
         val state = settings.toUiState()
         assertTrue(state.desyncHttpEnabled)
         assertFalse(state.desyncHttpsEnabled)
@@ -100,21 +103,25 @@ class SettingsUiStateTest {
 
     @Test
     fun `tlsrec enabled only when https enabled and toggle on`() {
-        val settings = defaults.toBuilder()
-            .setDesyncHttps(true)
-            .setTlsrecEnabled(true)
-            .build()
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttps(true)
+                .setTlsrecEnabled(true)
+                .build()
         assertTrue(settings.toUiState().tlsRecEnabled)
     }
 
     @Test
     fun `tlsrec disabled when https disabled even if toggle on`() {
-        val settings = defaults.toBuilder()
-            .setDesyncHttp(true)
-            .setDesyncHttps(false)
-            .setDesyncUdp(false)
-            .setTlsrecEnabled(true)
-            .build()
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(true)
+                .setDesyncHttps(false)
+                .setDesyncUdp(false)
+                .setTlsrecEnabled(true)
+                .build()
         assertFalse(settings.toUiState().tlsRecEnabled)
     }
 

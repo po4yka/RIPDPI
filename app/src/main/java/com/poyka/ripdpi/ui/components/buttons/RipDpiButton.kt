@@ -57,33 +57,35 @@ fun RipDpiButton(
     val type = RipDpiThemeTokens.type
     val shape = RipDpiThemeTokens.shapes.xl
     val base = buttonPalette(variant = variant, enabled = enabled, isPressed = isPressed)
-    val borderWidth = when {
-        !enabled && variant == RipDpiButtonVariant.Ghost -> 0.dp
-        isFocused -> 2.dp
-        variant == RipDpiButtonVariant.Outline -> 1.dp
-        else -> 0.dp
-    }
-    val borderColor = when {
-        !enabled && variant == RipDpiButtonVariant.Outline -> colors.border
-        isFocused -> MaterialTheme.colorScheme.outline
-        variant == RipDpiButtonVariant.Outline -> colors.border
-        else -> Color.Transparent
-    }
+    val borderWidth =
+        when {
+            !enabled && variant == RipDpiButtonVariant.Ghost -> 0.dp
+            isFocused -> 2.dp
+            variant == RipDpiButtonVariant.Outline -> 1.dp
+            else -> 0.dp
+        }
+    val borderColor =
+        when {
+            !enabled && variant == RipDpiButtonVariant.Outline -> colors.border
+            isFocused -> MaterialTheme.colorScheme.outline
+            variant == RipDpiButtonVariant.Outline -> colors.border
+            else -> Color.Transparent
+        }
 
     Row(
-        modifier = modifier
-            .defaultMinSize(minHeight = 40.dp)
-            .clip(shape)
-            .background(base.container, shape)
-            .border(width = borderWidth, color = borderColor, shape = shape)
-            .clickable(
-                enabled = enabled,
-                role = Role.Button,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+        modifier =
+            modifier
+                .defaultMinSize(minHeight = 40.dp)
+                .clip(shape)
+                .background(base.container, shape)
+                .border(width = borderWidth, color = borderColor, shape = shape)
+                .clickable(
+                    enabled = enabled,
+                    role = Role.Button,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                ).padding(horizontal = 20.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -135,17 +137,21 @@ private fun buttonPalette(
             RipDpiButtonVariant.Primary,
             RipDpiButtonVariant.Secondary,
             RipDpiButtonVariant.Destructive,
-            -> RipDpiButtonPalette(
-                container = colors.border,
-                content = colors.mutedForeground,
-            )
+            -> {
+                RipDpiButtonPalette(
+                    container = colors.border,
+                    content = colors.mutedForeground,
+                )
+            }
 
             RipDpiButtonVariant.Outline,
             RipDpiButtonVariant.Ghost,
-            -> RipDpiButtonPalette(
-                container = Color.Transparent,
-                content = colors.mutedForeground,
-            )
+            -> {
+                RipDpiButtonPalette(
+                    container = Color.Transparent,
+                    content = colors.mutedForeground,
+                )
+            }
         }
     }
 
@@ -167,15 +173,19 @@ private fun buttonPalette(
             )
         }
 
-        RipDpiButtonVariant.Outline -> RipDpiButtonPalette(
-            container = if (isPressed) scheme.surfaceVariant else Color.Transparent,
-            content = colors.foreground,
-        )
+        RipDpiButtonVariant.Outline -> {
+            RipDpiButtonPalette(
+                container = if (isPressed) scheme.surfaceVariant else Color.Transparent,
+                content = colors.foreground,
+            )
+        }
 
-        RipDpiButtonVariant.Ghost -> RipDpiButtonPalette(
-            container = if (isPressed) scheme.surfaceVariant else Color.Transparent,
-            content = colors.foreground,
-        )
+        RipDpiButtonVariant.Ghost -> {
+            RipDpiButtonPalette(
+                container = if (isPressed) scheme.surfaceVariant else Color.Transparent,
+                content = colors.foreground,
+            )
+        }
 
         RipDpiButtonVariant.Destructive -> {
             val base = if (scheme.background.luminance() < 0.5f) colors.foreground else colors.destructive

@@ -23,7 +23,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class QuickTileService : TileService() {
-
     companion object {
         private val TAG: String = QuickTileService::class.java.simpleName
     }
@@ -43,11 +42,12 @@ class QuickTileService : TileService() {
             AppStateManager.events.collect { event ->
                 when (event) {
                     is ServiceEvent.Failed -> {
-                        Toast.makeText(
-                            this@QuickTileService,
-                            getString(R.string.failed_to_start, event.sender.senderName),
-                            Toast.LENGTH_SHORT,
-                        ).show()
+                        Toast
+                            .makeText(
+                                this@QuickTileService,
+                                getString(R.string.failed_to_start, event.sender.senderName),
+                                Toast.LENGTH_SHORT,
+                            ).show()
                         updateStatus()
                     }
                 }
@@ -62,10 +62,14 @@ class QuickTileService : TileService() {
 
     private fun launchActivity() {
         TileServiceCompat.startActivityAndCollapse(
-            this, PendingIntentActivityWrapper(
-                this, 0, MainActivity.createLaunchIntent(this, openHome = true),
-                PendingIntent.FLAG_UPDATE_CURRENT, false
-            )
+            this,
+            PendingIntentActivityWrapper(
+                this,
+                0,
+                MainActivity.createLaunchIntent(this, openHome = true),
+                PendingIntent.FLAG_UPDATE_CURRENT,
+                false,
+            ),
         )
     }
 
@@ -97,11 +101,12 @@ class QuickTileService : TileService() {
         when (status) {
             AppStatus.Halted -> {
                 scope?.launch {
-                    val mode = withContext(Dispatchers.IO) {
-                        val settings = settingsStore.data.first()
-                        val modeStr = settings.ripdpiMode.ifEmpty { "vpn" }
-                        Mode.fromString(modeStr)
-                    }
+                    val mode =
+                        withContext(Dispatchers.IO) {
+                            val settings = settingsStore.data.first()
+                            val modeStr = settings.ripdpiMode.ifEmpty { "vpn" }
+                            Mode.fromString(modeStr)
+                        }
 
                     if (mode == Mode.VPN && VpnService.prepare(this@QuickTileService) != null) {
                         updateStatus()
@@ -113,7 +118,9 @@ class QuickTileService : TileService() {
                 }
             }
 
-            AppStatus.Running -> ServiceManager.stop(this)
+            AppStatus.Running -> {
+                ServiceManager.stop(this)
+            }
         }
     }
 }

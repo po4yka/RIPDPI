@@ -23,7 +23,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -71,7 +70,7 @@ fun ModeEditorRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
+    val validationMessage = stringResource(R.string.config_validation_fix)
     val handleBack = {
         viewModel.cancelEditing()
         onBack()
@@ -88,12 +87,17 @@ fun ModeEditorRoute(
     LaunchedEffect(viewModel, snackbarHostState) {
         viewModel.effects.collectLatest { effect ->
             when (effect) {
-                ConfigEffect.SaveSuccess -> onBack()
-                ConfigEffect.ValidationFailed -> snackbarHostState.showRipDpiSnackbar(
-                    message = context.getString(R.string.config_validation_fix),
-                    tone = RipDpiSnackbarTone.Warning,
-                    duration = SnackbarDuration.Short,
-                )
+                ConfigEffect.SaveSuccess -> {
+                    onBack()
+                }
+
+                ConfigEffect.ValidationFailed -> {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = validationMessage,
+                        tone = RipDpiSnackbarTone.Warning,
+                        duration = SnackbarDuration.Short,
+                    )
+                }
             }
         }
     }
@@ -139,12 +143,13 @@ fun ModeEditorScreen(
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val draft = uiState.editingPreset?.draft ?: uiState.draft
-    val desyncOptions = listOf(
-        RipDpiDropdownOption(value = "none", label = stringResource(R.string.config_desync_none)),
-        RipDpiDropdownOption(value = "disorder", label = stringResource(R.string.config_desync_disorder)),
-        RipDpiDropdownOption(value = "fake", label = stringResource(R.string.config_desync_fake)),
-        RipDpiDropdownOption(value = "split", label = stringResource(R.string.config_desync_split)),
-    )
+    val desyncOptions =
+        listOf(
+            RipDpiDropdownOption(value = "none", label = stringResource(R.string.config_desync_none)),
+            RipDpiDropdownOption(value = "disorder", label = stringResource(R.string.config_desync_disorder)),
+            RipDpiDropdownOption(value = "fake", label = stringResource(R.string.config_desync_fake)),
+            RipDpiDropdownOption(value = "split", label = stringResource(R.string.config_desync_split)),
+        )
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -164,11 +169,12 @@ fun ModeEditorScreen(
         },
         bottomBar = {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(colors.background)
-                    .navigationBarsPadding()
-                    .padding(horizontal = layout.horizontalPadding, vertical = spacing.lg),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(colors.background)
+                        .navigationBarsPadding()
+                        .padding(horizontal = layout.horizontalPadding, vertical = spacing.lg),
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 RipDpiButton(
@@ -186,12 +192,13 @@ fun ModeEditorScreen(
         },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(colors.background)
-                .verticalScroll(rememberScrollState())
-                .padding(innerPadding)
-                .padding(horizontal = layout.horizontalPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(colors.background)
+                    .verticalScroll(rememberScrollState())
+                    .padding(innerPadding)
+                    .padding(horizontal = layout.horizontalPadding),
             verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
         ) {
             Spacer(modifier = Modifier.height(spacing.sm))
@@ -203,7 +210,11 @@ fun ModeEditorScreen(
                     color = colors.foreground,
                 )
                 Text(
-                    text = stringResource(R.string.config_editor_body, stringResource(titleResForPreset(editorPresetKind(uiState)))),
+                    text =
+                        stringResource(
+                            R.string.config_editor_body,
+                            stringResource(titleResForPreset(editorPresetKind(uiState))),
+                        ),
                     style = RipDpiThemeTokens.type.body,
                     color = colors.mutedForeground,
                 )
@@ -235,13 +246,14 @@ fun ModeEditorScreen(
                         onValueChange = onDnsIpChanged,
                         label = stringResource(R.string.dbs_ip_setting),
                         placeholder = stringResource(R.string.config_placeholder_dns),
-                        helperText = stringResource(
-                            if (draft.mode == Mode.VPN) {
-                                R.string.config_dns_helper
-                            } else {
-                                R.string.config_dns_disabled_helper
-                            },
-                        ),
+                        helperText =
+                            stringResource(
+                                if (draft.mode == Mode.VPN) {
+                                    R.string.config_dns_helper
+                                } else {
+                                    R.string.config_dns_disabled_helper
+                                },
+                            ),
                         errorText = validationMessage(uiState.validationErrors[ConfigFieldDnsIp]),
                         enabled = draft.mode == Mode.VPN,
                     )
@@ -355,13 +367,14 @@ fun ModeEditorScreen(
 }
 
 @Composable
-private fun validationMessage(errorKey: String?): String? = when (errorKey) {
-    "invalid_dns_ip" -> stringResource(R.string.config_error_invalid_dns)
-    "invalid_proxy_ip" -> stringResource(R.string.config_error_invalid_proxy_ip)
-    "invalid_port" -> stringResource(R.string.config_error_invalid_port)
-    "out_of_range" -> stringResource(R.string.config_error_out_of_range)
-    else -> null
-}
+private fun validationMessage(errorKey: String?): String? =
+    when (errorKey) {
+        "invalid_dns_ip" -> stringResource(R.string.config_error_invalid_dns)
+        "invalid_proxy_ip" -> stringResource(R.string.config_error_invalid_proxy_ip)
+        "invalid_port" -> stringResource(R.string.config_error_invalid_port)
+        "out_of_range" -> stringResource(R.string.config_error_out_of_range)
+        else -> null
+    }
 
 private fun editorPresetKind(uiState: ConfigUiState): ConfigPresetKind =
     uiState.editingPreset?.kind ?: ConfigPresetKind.Custom
@@ -369,27 +382,30 @@ private fun editorPresetKind(uiState: ConfigUiState): ConfigPresetKind =
 @Preview(showBackground = true)
 @Composable
 private fun ModeEditorScreenPreview() {
-    val draft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(
-        mode = Mode.VPN,
-        dnsIp = "1.1.1.1",
-        proxyIp = "127.0.0.1",
-        proxyPort = "1080",
-        maxConnections = "512",
-        bufferSize = "16384",
-        desyncMethod = "disorder",
-    )
+    val draft =
+        AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+            mode = Mode.VPN,
+            dnsIp = "1.1.1.1",
+            proxyIp = "127.0.0.1",
+            proxyPort = "1080",
+            maxConnections = "512",
+            bufferSize = "16384",
+            desyncMethod = "disorder",
+        )
     RipDpiTheme {
         ModeEditorScreen(
-            uiState = ConfigUiState(
-                activeMode = draft.mode,
-                presets = buildConfigPresets(draft),
-                editingPreset = ConfigPreset(
-                    id = "custom",
-                    kind = ConfigPresetKind.Custom,
+            uiState =
+                ConfigUiState(
+                    activeMode = draft.mode,
+                    presets = buildConfigPresets(draft),
+                    editingPreset =
+                        ConfigPreset(
+                            id = "custom",
+                            kind = ConfigPresetKind.Custom,
+                            draft = draft,
+                        ),
                     draft = draft,
                 ),
-                draft = draft,
-            ),
             snackbarHostState = remember { SnackbarHostState() },
             onBack = {},
             onModeSelected = {},
@@ -410,34 +426,38 @@ private fun ModeEditorScreenPreview() {
 @Preview(showBackground = true)
 @Composable
 private fun ModeEditorScreenDarkPreview() {
-    val draft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(
-        mode = Mode.Proxy,
-        dnsIp = "1.1.1.1",
-        proxyIp = "10.0.0.14",
-        proxyPort = "1085",
-        maxConnections = "1024",
-        bufferSize = "32768",
-        desyncMethod = "fake",
-        defaultTtl = "12",
-        useCommandLineSettings = true,
-        commandLineArgs = "--fake --ttl 12 --split 2",
-    )
+    val draft =
+        AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+            mode = Mode.Proxy,
+            dnsIp = "1.1.1.1",
+            proxyIp = "10.0.0.14",
+            proxyPort = "1085",
+            maxConnections = "1024",
+            bufferSize = "32768",
+            desyncMethod = "fake",
+            defaultTtl = "12",
+            useCommandLineSettings = true,
+            commandLineArgs = "--fake --ttl 12 --split 2",
+        )
     RipDpiTheme(themePreference = "dark") {
         ModeEditorScreen(
-            uiState = ConfigUiState(
-                activeMode = draft.mode,
-                presets = buildConfigPresets(draft),
-                editingPreset = ConfigPreset(
-                    id = "recommended",
-                    kind = ConfigPresetKind.Recommended,
+            uiState =
+                ConfigUiState(
+                    activeMode = draft.mode,
+                    presets = buildConfigPresets(draft),
+                    editingPreset =
+                        ConfigPreset(
+                            id = "recommended",
+                            kind = ConfigPresetKind.Recommended,
+                            draft = draft,
+                        ),
                     draft = draft,
+                    validationErrors =
+                        mapOf(
+                            ConfigFieldDnsIp to "invalid_dns_ip",
+                            ConfigFieldDefaultTtl to "out_of_range",
+                        ),
                 ),
-                draft = draft,
-                validationErrors = mapOf(
-                    ConfigFieldDnsIp to "invalid_dns_ip",
-                    ConfigFieldDefaultTtl to "out_of_range",
-                ),
-            ),
             snackbarHostState = remember { SnackbarHostState() },
             onBack = {},
             onModeSelected = {},
