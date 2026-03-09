@@ -45,13 +45,14 @@ fun RipDpiIconButton(
     style: RipDpiIconButtonStyle = RipDpiIconButtonStyle.Ghost,
     enabled: Boolean = true,
     selected: Boolean = false,
+    interactionSource: MutableInteractionSource? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val scheme = MaterialTheme.colorScheme
     val shape = RipDpiThemeTokens.shapes.xl
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
+    val isPressed by resolvedInteractionSource.collectIsPressedAsState()
     val baseContainer =
         when (style) {
             RipDpiIconButtonStyle.Ghost -> Color.Transparent
@@ -86,11 +87,11 @@ fun RipDpiIconButton(
                 .clip(shape)
                 .background(background, shape)
                 .border(if (style == RipDpiIconButtonStyle.Outline) 1.dp else 0.dp, borderColor, shape)
-                .focusable(enabled = enabled, interactionSource = interactionSource)
+                .focusable(enabled = enabled, interactionSource = resolvedInteractionSource)
                 .ripDpiClickable(
                     enabled = enabled,
                     role = Role.Button,
-                    interactionSource = interactionSource,
+                    interactionSource = resolvedInteractionSource,
                     onClick = onClick,
                 ),
         horizontalArrangement = Arrangement.Center,
