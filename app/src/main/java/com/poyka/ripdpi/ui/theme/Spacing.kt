@@ -44,6 +44,7 @@ data class RipDpiComponentMetrics(
     val buttonVerticalPadding: Dp = 10.dp,
     val fieldHorizontalPadding: Dp = 17.dp,
     val fieldFocusedHorizontalPadding: Dp = 18.dp,
+    val multilineFieldMinHeight: Dp = 96.dp,
     val chipHorizontalPadding: Dp = 17.dp,
     val chipVerticalPadding: Dp = 6.dp,
     val iconButtonSize: Dp = 40.dp,

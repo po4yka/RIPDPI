@@ -16,7 +16,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -104,8 +103,8 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
                 container = colors.warningContainer,
                 border = colors.warning,
                 icon = colors.warning,
-                title = colors.foreground,
-                message = readableMessageColor(colors.warningContainer, colors),
+                title = colors.warningContainerForeground,
+                message = colors.warningContainerForeground,
             )
         }
 
@@ -114,8 +113,8 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
                 container = colors.destructiveContainer,
                 border = colors.destructive,
                 icon = colors.destructive,
-                title = colors.foreground,
-                message = readableMessageColor(colors.destructiveContainer, colors),
+                title = colors.destructiveContainerForeground,
+                message = colors.destructiveContainerForeground,
             )
         }
 
@@ -124,8 +123,8 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
                 container = colors.infoContainer,
                 border = colors.info,
                 icon = colors.info,
-                title = colors.foreground,
-                message = readableMessageColor(colors.infoContainer, colors),
+                title = colors.infoContainerForeground,
+                message = colors.infoContainerForeground,
             )
         }
 
@@ -134,17 +133,12 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
                 container = colors.restrictedContainer,
                 border = colors.restricted,
                 icon = colors.restricted,
-                title = colors.foreground,
-                message = readableMessageColor(colors.restrictedContainer, colors),
+                title = colors.restrictedContainerForeground,
+                message = colors.restrictedContainerForeground,
             )
         }
     }
 }
-
-private fun readableMessageColor(
-    container: Color,
-    colors: com.poyka.ripdpi.ui.theme.RipDpiExtendedColors,
-): Color = if (container.luminance() < 0.2f) colors.foreground else colors.mutedForeground
 
 private fun defaultWarningBannerIcon(tone: WarningBannerTone): ImageVector =
     when (tone) {
