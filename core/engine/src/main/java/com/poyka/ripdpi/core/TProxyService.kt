@@ -15,6 +15,6 @@ object TProxyService {
     external fun TProxyStopService()
 
     @JvmStatic
-    @Suppress("unused")
+    @Suppress("unused") // JNI binding reserved for future stats API
     external fun TProxyGetStats(): LongArray
 }
