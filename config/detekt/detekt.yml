@@ -1,0 +1,36 @@
+build:
+  maxIssues: 0
+
+complexity:
+  LongParameterList:
+    functionThreshold: 15
+    constructorThreshold: 15
+  LongMethod:
+    threshold: 80
+  CyclomaticComplexMethod:
+    threshold: 20
+  TooManyFunctions:
+    thresholdInFiles: 30
+    thresholdInClasses: 20
+
+naming:
+  FunctionNaming:
+    functionPattern: "[a-zA-Z][a-zA-Z0-9]*"
+  TopLevelPropertyNaming:
+    constantPattern: "[A-Z][A-Za-z0-9]*|[a-z][a-zA-Z0-9]*"
+  MatchingDeclarationName:
+    active: false
+
+style:
+  MagicNumber:
+    ignorePropertyDeclaration: true
+    ignoreEnums: true
+    ignoreAnnotation: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreNamedArgument: true
+  WildcardImport:
+    active: false
+  MaxLineLength:
+    maxLineLength: 120
+  UnusedPrivateMember:
+    allowedNames: "(_|ignored|expected|preview.*)"

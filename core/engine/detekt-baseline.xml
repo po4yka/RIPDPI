@@ -1,0 +1,12 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>ForbiddenComment:RipDpiProxy.kt$RipDpiProxy$// TODO: should be error code</ID>
+    <ID>LongParameterList:RipDpiProxy.kt$RipDpiProxy$( ip: String, port: Int, maxConnections: Int, bufferSize: Int, defaultTtl: Int, customTtl: Boolean, noDomain: Boolean, desyncHttp: Boolean, desyncHttps: Boolean, desyncUdp: Boolean, desyncMethod: Int, splitPosition: Int, splitAtHost: Boolean, fakeTtl: Int, fakeSni: String, oobChar: Byte, hostMixedCase: Boolean, domainMixedCase: Boolean, hostRemoveSpaces: Boolean, tlsRecordSplit: Boolean, tlsRecordSplitPosition: Int, tlsRecordSplitAtSni: Boolean, hostsMode: Int, hosts: String?, tcpFastOpen: Boolean, udpFakeCount: Int, dropSack: Boolean, fakeOffset: Int, )</ID>
+    <ID>LongParameterList:RipDpiProxyPreferences.kt$RipDpiProxyUIPreferences$( ip: String? = null, port: Int? = null, maxConnections: Int? = null, bufferSize: Int? = null, defaultTtl: Int? = null, noDomain: Boolean? = null, desyncHttp: Boolean? = null, desyncHttps: Boolean? = null, desyncUdp: Boolean? = null, desyncMethod: DesyncMethod? = null, splitPosition: Int? = null, splitAtHost: Boolean? = null, fakeTtl: Int? = null, fakeSni: String? = null, oobChar: String? = null, hostMixedCase: Boolean? = null, domainMixedCase: Boolean? = null, hostRemoveSpaces: Boolean? = null, tlsRecordSplit: Boolean? = null, tlsRecordSplitPosition: Int? = null, tlsRecordSplitAtSni: Boolean? = null, hostsMode: HostsMode? = null, hosts: String? = null, tcpFastOpen: Boolean? = null, udpFakeCount: Int? = null, dropSack: Boolean? = null, ripdpiFakeOffset: Int? = null, )</ID>
+    <ID>NewLineAtEndOfFile:RipDpiProxy.kt$com.poyka.ripdpi.core.RipDpiProxy.kt</ID>
+    <ID>UseCheckOrError:RipDpiProxy.kt$RipDpiProxy$throw IllegalStateException("Proxy is already running")</ID>
+    <ID>UseCheckOrError:RipDpiProxy.kt$RipDpiProxy$throw IllegalStateException("Proxy is not running")</ID>
+  </CurrentIssues>
+</SmellBaseline>
