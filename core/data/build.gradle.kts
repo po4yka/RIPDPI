@@ -1,6 +1,6 @@
 plugins {
-    id("com.android.library")
-    id("com.google.protobuf")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.protobuf)
 }
 
 android {
@@ -24,15 +24,15 @@ kotlin {
 }
 
 dependencies {
-    api("com.google.protobuf:protobuf-javalite:4.29.3")
-    implementation("androidx.datastore:datastore:1.2.0")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("androidx.core:core-ktx:1.17.0")
+    api(libs.protobuf.javalite)
+    implementation(libs.androidx.datastore)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.core.ktx)
 }
 
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:4.29.3"
+        artifact = libs.protobuf.protoc.get().toString()
     }
     generateProtoTasks {
         all().forEach { task ->
