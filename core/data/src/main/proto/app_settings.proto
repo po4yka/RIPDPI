@@ -59,4 +59,6 @@ message AppSettings {
   bool webrtc_protection_enabled = 57;
   bool biometric_enabled = 58;
   string backup_pin = 59;
+  string app_icon_variant = 60; // "default" | "dark" | "black" | "raven"
+  string app_icon_style = 61;   // "themed" | "plain"
 }
