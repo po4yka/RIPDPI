@@ -24,6 +24,8 @@ sealed interface SettingsEffect {
 data class SettingsUiState(
     val settings: AppSettings = AppSettingsSerializer.defaultValue,
     val appTheme: String = "system",
+    val appIconVariant: String = LauncherIconManager.DefaultIconKey,
+    val themedAppIconEnabled: Boolean = true,
     val ripdpiMode: String = "vpn",
     val dnsIp: String = "1.1.1.1",
     val ipv6Enable: Boolean = false,
@@ -72,10 +74,14 @@ data class SettingsUiState(
     val desyncHttpsEnabled: Boolean = true,
     val desyncUdpEnabled: Boolean = false,
     val tlsRecEnabled: Boolean = false,
-)
+    val isHydrated: Boolean = true,
+) {
+    val hasBackupPin: Boolean
+        get() = backupPin.isNotBlank()
+}
 
 @VisibleForTesting
-internal fun AppSettings.toUiState(): SettingsUiState {
+internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
     val normalizedDesyncMethod = desyncMethod.ifEmpty { "disorder" }
     val normalizedHostsMode = hostsMode.ifEmpty { "disable" }
@@ -94,6 +100,8 @@ internal fun AppSettings.toUiState(): SettingsUiState {
     return SettingsUiState(
         settings = this,
         appTheme = appTheme.ifEmpty { "system" },
+        appIconVariant = LauncherIconManager.normalizeIconKey(appIconVariant),
+        themedAppIconEnabled = LauncherIconManager.normalizeIconStyle(appIconStyle) == LauncherIconManager.ThemedIconStyle,
         ripdpiMode = normalizedMode,
         dnsIp = dnsIp.ifEmpty { "1.1.1.1" },
         ipv6Enable = ipv6Enable,
@@ -142,6 +150,7 @@ internal fun AppSettings.toUiState(): SettingsUiState {
         desyncHttpsEnabled = desyncHttpsEnabled,
         desyncUdpEnabled = desyncUdpEnabled,
         tlsRecEnabled = tlsRecEnabled,
+        isHydrated = isHydrated,
     )
 }
 
@@ -155,7 +164,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = AppSettingsSerializer.defaultValue.toUiState(),
+            initialValue = AppSettingsSerializer.defaultValue.toUiState(isHydrated = false),
         )
 
     fun update(transform: AppSettings.Builder.() -> Unit) {
@@ -179,6 +188,60 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             value = enabled.toString(),
         ) {
             setWebrtcProtectionEnabled(enabled)
+        }
+    }
+
+    fun setAppTheme(theme: String) {
+        updateSetting(
+            key = "appTheme",
+            value = theme,
+        ) {
+            setAppTheme(theme)
+        }
+    }
+
+    fun setAppIcon(iconKey: String) {
+        val normalizedIconKey = LauncherIconManager.normalizeIconKey(iconKey)
+        val iconStyle = if (uiState.value.themedAppIconEnabled) {
+            LauncherIconManager.ThemedIconStyle
+        } else {
+            LauncherIconManager.PlainIconStyle
+        }
+
+        viewModelScope.launch {
+            getApplication<Application>().settingsStore.updateData { current ->
+                current.toBuilder()
+                    .setAppIconVariant(normalizedIconKey)
+                    .build()
+            }
+            LauncherIconManager.applySelection(
+                context = getApplication(),
+                iconKey = normalizedIconKey,
+                iconStyle = iconStyle,
+            )
+            _effects.send(SettingsEffect.SettingChanged(key = "appIconVariant", value = normalizedIconKey))
+        }
+    }
+
+    fun setThemedAppIconEnabled(enabled: Boolean) {
+        val iconStyle = if (enabled) {
+            LauncherIconManager.ThemedIconStyle
+        } else {
+            LauncherIconManager.PlainIconStyle
+        }
+
+        viewModelScope.launch {
+            getApplication<Application>().settingsStore.updateData { current ->
+                current.toBuilder()
+                    .setAppIconStyle(iconStyle)
+                    .build()
+            }
+            LauncherIconManager.applySelection(
+                context = getApplication(),
+                iconKey = uiState.value.appIconVariant,
+                iconStyle = iconStyle,
+            )
+            _effects.send(SettingsEffect.SettingChanged(key = "appIconStyle", value = iconStyle))
         }
     }
 
