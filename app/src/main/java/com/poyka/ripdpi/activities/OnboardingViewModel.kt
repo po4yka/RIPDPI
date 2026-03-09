@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private const val DefaultOnboardingPageCount = 4
+private const val DefaultOnboardingPageCount = 3
 
 data class OnboardingUiState(
     val currentPage: Int = 0,

@@ -148,6 +148,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         showError(getApplication<Application>().getString(R.string.vpn_permission_denied))
     }
 
+    fun requestVpnPermission(context: Context) {
+        when (uiState.value.connectionState) {
+            ConnectionState.Connecting,
+            ConnectionState.Connected,
+            -> return
+
+            ConnectionState.Disconnected,
+            ConnectionState.Error,
+            -> Unit
+        }
+
+        dismissError()
+        val intent = VpnService.prepare(context)
+        if (intent != null) {
+            _effects.trySend(MainEffect.RequestVpnPermission(intent))
+        } else {
+            setConnectingState(Mode.VPN)
+            ServiceManager.start(context, Mode.VPN)
+        }
+    }
+
     private fun start(context: Context) {
         val configuredMode = uiState.value.configuredMode
         setConnectingState(configuredMode)
