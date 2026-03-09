@@ -117,7 +117,7 @@ fun RipDpiSnackbarHost(
                     actionLabel = data.visuals.actionLabel,
                     onAction = if (data.visuals.actionLabel != null) data::performAction else null,
                     tone = data.visuals.ripDpiToneOrDefault(),
-                    modifier = Modifier.widthIn(max = layout.safeContentWidth),
+                    modifier = Modifier.widthIn(max = layout.snackbarMaxWidth),
                 )
             }
         },

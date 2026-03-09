@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.components.navigation
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -15,13 +14,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
-import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -31,6 +31,7 @@ fun RipDpiTopAppBar(
     modifier: Modifier = Modifier,
     navigationIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     onNavigationClick: (() -> Unit)? = null,
+    navigationContentDescription: String? = null,
     brandGlyph: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
@@ -77,14 +78,11 @@ fun RipDpiTopAppBar(
                 }
 
                 navigationIcon != null && onNavigationClick != null -> {
-                    Icon(
-                        imageVector = navigationIcon,
-                        contentDescription = null,
-                        tint = colors.foreground,
-                        modifier =
-                            Modifier
-                                .size(RipDpiIconSizes.Default)
-                                .clickable(onClick = onNavigationClick),
+                    RipDpiIconButton(
+                        icon = navigationIcon,
+                        contentDescription = navigationContentDescription ?: stringResource(R.string.navigation_back),
+                        onClick = onNavigationClick,
+                        style = RipDpiIconButtonStyle.Ghost,
                     )
                     Text(text = title, style = type.appBarTitle, color = colors.foreground)
                 }

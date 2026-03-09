@@ -8,10 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -47,36 +46,36 @@ fun RipDpiTextField(
     enabled: Boolean = true,
     readOnly: Boolean = false,
     singleLine: Boolean = true,
-    forceFocused: Boolean = false,
     textStyle: TextStyle = RipDpiThemeTokens.type.monoValue,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    minHeight: androidx.compose.ui.unit.Dp? = null,
     trailingContent: (@Composable () -> Unit)? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val type = RipDpiThemeTokens.type
     var isFocused by remember { mutableStateOf(false) }
-    val fieldFocused = forceFocused || isFocused
     val borderWidth =
         when {
             !enabled -> 1.dp
             errorText != null -> 2.dp
-            fieldFocused -> 2.dp
+            isFocused -> 2.dp
             else -> 1.dp
         }
     val borderColor =
         when {
             !enabled -> colors.border
             errorText != null -> colors.destructive
-            fieldFocused -> colors.foreground
+            isFocused -> colors.foreground
             else -> MaterialTheme.colorScheme.outlineVariant
         }
     val contentColor =
         when {
             !enabled -> colors.mutedForeground
             value.isEmpty() -> colors.mutedForeground
-            fieldFocused || errorText != null -> colors.foreground
+            isFocused || errorText != null -> colors.foreground
             else -> colors.mutedForeground
         }
     val helperColor =
@@ -113,9 +112,10 @@ fun RipDpiTextField(
             decorationBox = { innerTextField ->
                 RipDpiTextFieldShell(
                     enabled = enabled,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RipDpiThemeTokens.shapes.xl,
                     borderColor = borderColor,
                     borderWidth = borderWidth,
+                    minHeight = minHeight ?: components.controlHeight,
                     trailingContent = trailingContent,
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
@@ -148,18 +148,20 @@ private fun RipDpiTextFieldShell(
     shape: Shape,
     borderColor: Color,
     borderWidth: androidx.compose.ui.unit.Dp,
+    minHeight: androidx.compose.ui.unit.Dp,
     trailingContent: (@Composable () -> Unit)?,
     content: @Composable RowScope.() -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val startPadding = if (borderWidth > 1.dp) 18.dp else 17.dp
-    val endPadding = if (borderWidth > 1.dp) 18.dp else 17.dp
+    val components = RipDpiThemeTokens.components
+    val startPadding = if (borderWidth > 1.dp) components.fieldFocusedHorizontalPadding else components.fieldHorizontalPadding
+    val endPadding = if (borderWidth > 1.dp) components.fieldFocusedHorizontalPadding else components.fieldHorizontalPadding
 
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(40.dp)
+                .heightIn(min = minHeight)
                 .background(colors.inputBackground, shape)
                 .border(borderWidth, borderColor, shape)
                 .padding(start = startPadding, end = endPadding)
@@ -188,7 +190,6 @@ private fun RipDpiTextFieldLightPreview() {
                 onValueChange = {},
                 placeholder = "128",
                 helperText = "Maximum connections",
-                forceFocused = true,
             )
             RipDpiTextField(
                 value = "128",

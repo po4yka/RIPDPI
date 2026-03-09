@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.navigation
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -35,6 +35,7 @@ fun BottomNavBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val layout = RipDpiThemeTokens.layout
 
     Column(
@@ -53,7 +54,7 @@ fun BottomNavBar(
                 Modifier
                     .fillMaxWidth()
                     .height(layout.bottomBarHeight)
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = components.chipVerticalPadding + components.switchThumbPadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -75,6 +76,7 @@ private fun RowScope.BottomNavItem(
     onClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val type = RipDpiThemeTokens.type
 
     Column(
@@ -83,7 +85,8 @@ private fun RowScope.BottomNavItem(
                 .fillMaxHeight()
                 .weight(1f)
                 .padding(vertical = 3.dp)
-                .clickable(
+                .selectable(
+                    selected = selected,
                     role = Role.Tab,
                     onClick = onClick,
                 ),
@@ -93,7 +96,7 @@ private fun RowScope.BottomNavItem(
         Box(
             modifier =
                 Modifier
-                    .size(width = 52.dp, height = 28.dp)
+                    .size(width = components.bottomNavIndicatorWidth, height = components.bottomNavIndicatorHeight)
                     .background(
                         color = if (selected) colors.inputBackground else Color.Transparent,
                         shape = RipDpiThemeTokens.shapes.xxl,

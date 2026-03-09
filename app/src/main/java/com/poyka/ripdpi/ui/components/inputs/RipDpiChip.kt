@@ -3,17 +3,19 @@ package com.poyka.ripdpi.ui.components.inputs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,11 +37,13 @@ fun RipDpiChip(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     enabled: Boolean = true,
-    isPressed: Boolean = false,
     leadingIcon: ImageVector? = if (selected) RipDpiIcons.Check else null,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val scheme = MaterialTheme.colorScheme
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
     val container =
         when {
             selected -> colors.foreground
@@ -62,15 +66,18 @@ fun RipDpiChip(
     Row(
         modifier =
             modifier
-                .background(container, RoundedCornerShape(12.dp))
-                .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                .background(container, RipDpiThemeTokens.shapes.lg)
+                .border(1.dp, borderColor, RipDpiThemeTokens.shapes.lg)
+                .focusable(enabled = enabled, interactionSource = interactionSource)
                 .clickable(
                     enabled = enabled,
                     role = Role.Checkbox,
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
+                    interactionSource = interactionSource,
                     onClick = onClick,
-                ).padding(horizontal = 17.dp, vertical = 6.dp)
+                ).padding(
+                    horizontal = components.chipHorizontalPadding,
+                    vertical = components.chipVerticalPadding,
+                )
                 .alpha(if (enabled) 1f else 0.38f),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -98,7 +105,6 @@ private fun RipDpiChipPreview() {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             RipDpiChip(text = "Filter", onClick = {})
             RipDpiChip(text = "Filter", onClick = {}, selected = true)
-            RipDpiChip(text = "Filter", onClick = {}, isPressed = true)
             RipDpiChip(text = "Filter", onClick = {}, enabled = false)
         }
     }

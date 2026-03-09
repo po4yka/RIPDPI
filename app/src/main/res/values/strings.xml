@@ -1,6 +1,7 @@
 <resources>
     <string name="ripdpi_docs">https://github.com/hufrea/ripdpi/blob/v0.13/README.md</string>
     <string name="app_name">RIPDPI</string>
+    <string name="navigation_back">Navigate back</string>
     <string name="vpn_connect">Connect</string>
     <string name="vpn_disconnect">Disconnect</string>
     <string name="vpn_connected">Connected</string>

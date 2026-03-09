@@ -3,27 +3,26 @@ package com.poyka.ripdpi.ui.components.buttons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,14 +47,16 @@ fun RipDpiButton(
     modifier: Modifier = Modifier,
     variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     enabled: Boolean = true,
-    isPressed: Boolean = false,
-    isFocused: Boolean = false,
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val type = RipDpiThemeTokens.type
     val shape = RipDpiThemeTokens.shapes.xl
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val isFocused by interactionSource.collectIsFocusedAsState()
     val base = buttonPalette(variant = variant, enabled = enabled, isPressed = isPressed)
     val borderWidth =
         when {
@@ -75,17 +76,20 @@ fun RipDpiButton(
     Row(
         modifier =
             modifier
-                .defaultMinSize(minHeight = 40.dp)
+                .defaultMinSize(minHeight = components.buttonMinHeight)
                 .clip(shape)
                 .background(base.container, shape)
                 .border(width = borderWidth, color = borderColor, shape = shape)
+                .focusable(enabled = enabled, interactionSource = interactionSource)
                 .clickable(
                     enabled = enabled,
                     role = Role.Button,
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
+                    interactionSource = interactionSource,
                     onClick = onClick,
-                ).padding(horizontal = 20.dp, vertical = 10.dp),
+                ).padding(
+                    horizontal = components.buttonHorizontalPadding,
+                    vertical = components.buttonVerticalPadding,
+                ),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -188,11 +192,9 @@ private fun buttonPalette(
         }
 
         RipDpiButtonVariant.Destructive -> {
-            val base = if (scheme.background.luminance() < 0.5f) colors.foreground else colors.destructive
-            val content = if (scheme.background.luminance() < 0.5f) colors.background else colors.destructiveForeground
             RipDpiButtonPalette(
-                container = if (isPressed) lerp(base, pressedOverlay, 0.3f) else base,
-                content = content,
+                container = if (isPressed) lerp(colors.destructive, pressedOverlay, 0.3f) else colors.destructive,
+                content = colors.destructiveForeground,
             )
         }
     }
@@ -204,8 +206,6 @@ private fun RipDpiButtonLightPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             RipDpiButton(text = "Connect", onClick = {})
-            RipDpiButton(text = "Connect", onClick = {}, isPressed = true)
-            RipDpiButton(text = "Connect", onClick = {}, isFocused = true)
             RipDpiButton(text = "Connect", onClick = {}, enabled = false)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 RipDpiButton(text = "Secondary", onClick = {}, variant = RipDpiButtonVariant.Secondary)
@@ -225,8 +225,6 @@ private fun RipDpiButtonDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             RipDpiButton(text = "Connect", onClick = {})
-            RipDpiButton(text = "Connect", onClick = {}, isPressed = true)
-            RipDpiButton(text = "Connect", onClick = {}, isFocused = true)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 RipDpiButton(text = "Cancel", onClick = {}, variant = RipDpiButtonVariant.Outline)
                 RipDpiButton(text = "Reset", onClick = {}, variant = RipDpiButtonVariant.Destructive)
