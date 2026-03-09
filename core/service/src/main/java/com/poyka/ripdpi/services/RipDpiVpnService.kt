@@ -2,21 +2,26 @@ package com.poyka.ripdpi.services
 
 import android.app.Notification
 import android.app.PendingIntent
-import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.lifecycle.lifecycleScope
-import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.MainActivity
+import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.TProxyService
-import com.poyka.ripdpi.data.*
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.START_ACTION
+import com.poyka.ripdpi.data.STOP_ACTION
+import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceStatus
+import com.poyka.ripdpi.data.settingsStore
 import com.poyka.ripdpi.utility.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -30,12 +35,12 @@ class RipDpiVpnService : LifecycleVpnService() {
     private val mutex = Mutex()
     private var stopping: Boolean = false
 
+    private var status: ServiceStatus = ServiceStatus.Disconnected
+
     companion object {
         private val TAG: String = RipDpiVpnService::class.java.simpleName
         private const val FOREGROUND_SERVICE_ID: Int = 1
         private const val NOTIFICATION_CHANNEL_ID: String = "RIPDPIVpn"
-
-        private var status: ServiceStatus = ServiceStatus.Disconnected
     }
 
     override fun onCreate() {
@@ -47,7 +52,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         )
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(intent: android.content.Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         return when (val action = intent?.action) {
             START_ACTION -> {
@@ -170,17 +175,17 @@ class RipDpiVpnService : LifecycleVpnService() {
         Log.i(TAG, "Proxy stopped")
     }
 
-    private fun startTun2Socks() {
+    private suspend fun startTun2Socks() {
         Log.i(TAG, "Starting tun2socks")
 
         if (tunFd != null) {
             throw IllegalStateException("VPN field not null")
         }
 
-        val sharedPreferences = getPreferences()
-        val port = sharedPreferences.getString("ripdpi_proxy_port", null)?.toInt() ?: 1080
-        val dns = sharedPreferences.getStringNotNull("dns_ip", "1.1.1.1")
-        val ipv6 = sharedPreferences.getBoolean("ipv6_enable", false)
+        val settings = withContext(Dispatchers.IO) { settingsStore.data.first() }
+        val port = if (settings.proxyPort > 0) settings.proxyPort else 1080
+        val dns = settings.dnsIp.ifEmpty { "1.1.1.1" }
+        val ipv6 = settings.ipv6Enable
 
         val tun2socksConfig = """
         | misc:
@@ -228,36 +233,27 @@ class RipDpiVpnService : LifecycleVpnService() {
         Log.i(TAG, "Tun2socks stopped")
     }
 
-    private fun getRipDpiPreferences(): RipDpiProxyPreferences =
-        RipDpiProxyPreferences.fromSharedPreferences(getPreferences())
+    private suspend fun getRipDpiPreferences(): RipDpiProxyPreferences =
+        RipDpiProxyPreferences.fromSettingsStore(this)
 
     private fun updateStatus(newStatus: ServiceStatus) {
         Log.d(TAG, "VPN status changed from $status to $newStatus")
 
         status = newStatus
 
-        setStatus(
-            when (newStatus) {
-                ServiceStatus.Connected -> AppStatus.Running
-
-                ServiceStatus.Disconnected,
-                ServiceStatus.Failed -> {
-                    proxyJob = null
-                    AppStatus.Halted
-                }
-            },
-            Mode.VPN
-        )
-
-        val intent = Intent(
-            when (newStatus) {
-                ServiceStatus.Connected -> STARTED_BROADCAST
-                ServiceStatus.Disconnected -> STOPPED_BROADCAST
-                ServiceStatus.Failed -> FAILED_BROADCAST
+        val appStatus = when (newStatus) {
+            ServiceStatus.Connected -> AppStatus.Running
+            ServiceStatus.Disconnected,
+            ServiceStatus.Failed -> {
+                proxyJob = null
+                AppStatus.Halted
             }
-        )
-        intent.putExtra(SENDER, Sender.VPN.ordinal)
-        sendBroadcast(intent)
+        }
+        AppStateManager.setStatus(appStatus, Mode.VPN)
+
+        if (newStatus == ServiceStatus.Failed) {
+            AppStateManager.emitFailed(Sender.VPN)
+        }
     }
 
     private fun createNotification(): Notification =
@@ -277,7 +273,7 @@ class RipDpiVpnService : LifecycleVpnService() {
             PendingIntent.getActivity(
                 this,
                 0,
-                Intent(this, MainActivity::class.java),
+                packageManager.getLaunchIntentForPackage(packageName),
                 PendingIntent.FLAG_IMMUTABLE,
             )
         )
