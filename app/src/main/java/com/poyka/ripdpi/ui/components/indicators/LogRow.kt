@@ -13,15 +13,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class LogRowTone {
-    Info,
+    Dns,
+    Connection,
     Warning,
     Error,
 }
@@ -32,16 +31,18 @@ fun LogRow(
     type: String,
     message: String,
     modifier: Modifier = Modifier,
-    tone: LogRowTone = LogRowTone.Info,
+    tone: LogRowTone = LogRowTone.Connection,
 ) {
     val colors = RipDpiThemeTokens.colors
     val badgeBackground = when (tone) {
-        LogRowTone.Info -> colors.foreground.copy(alpha = 0.08f)
+        LogRowTone.Dns -> colors.accent
+        LogRowTone.Connection -> colors.foreground.copy(alpha = 0.08f)
         LogRowTone.Warning -> colors.warning.copy(alpha = 0.18f)
         LogRowTone.Error -> colors.destructive.copy(alpha = 0.18f)
     }
     val badgeContent = when (tone) {
-        LogRowTone.Info -> colors.foreground
+        LogRowTone.Dns -> colors.foreground
+        LogRowTone.Connection -> colors.foreground
         LogRowTone.Warning -> colors.foreground
         LogRowTone.Error -> colors.foreground
     }
@@ -85,11 +86,18 @@ private fun LogRowPreview() {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             LogRow(
                 timestamp = "02:14:38",
-                type = "info",
-                message = "Service started on 127.0.0.1:1080",
+                type = "dns",
+                message = "DNS resolver switched to 1.1.1.1",
+                tone = LogRowTone.Dns,
             )
             LogRow(
                 timestamp = "02:14:42",
+                type = "conn",
+                message = "VPN service started on 127.0.0.1:1080",
+                tone = LogRowTone.Connection,
+            )
+            LogRow(
+                timestamp = "02:14:47",
                 type = "warn",
                 message = "Fallback DNS is active for this network",
                 tone = LogRowTone.Warning,

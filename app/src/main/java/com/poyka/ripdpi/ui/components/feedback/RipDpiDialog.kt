@@ -1,22 +1,24 @@
 package com.poyka.ripdpi.ui.components.feedback
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -25,118 +27,224 @@ import androidx.compose.ui.window.DialogProperties
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class RipDpiDialogTone {
     Default,
     Destructive,
+    Info,
 }
 
 @Composable
 fun RipDpiDialog(
     onDismissRequest: () -> Unit,
     title: String,
-    message: String,
-    confirmLabel: String,
     dismissLabel: String,
-    onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    message: String? = null,
+    confirmLabel: String? = null,
+    onConfirm: (() -> Unit)? = null,
     tone: RipDpiDialogTone = RipDpiDialogTone.Default,
-    icon: ImageVector = if (tone == RipDpiDialogTone.Destructive) RipDpiIcons.Warning else RipDpiIcons.Offline,
+    icon: ImageVector? = defaultDialogIcon(tone),
+    content: @Composable ColumnScope.() -> Unit = {},
 ) {
+    val layout = RipDpiThemeTokens.layout
+
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        RipDpiDialogCard(
-            title = title,
-            message = message,
-            confirmLabel = confirmLabel,
-            dismissLabel = dismissLabel,
-            onConfirm = onConfirm,
-            onDismiss = onDismiss,
-            modifier = modifier,
-            tone = tone,
-            icon = icon,
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = layout.horizontalPadding),
+            contentAlignment = Alignment.Center,
+        ) {
+            RipDpiDialogCard(
+                title = title,
+                dismissLabel = dismissLabel,
+                onDismiss = onDismiss,
+                modifier = modifier
+                    .fillMaxWidth()
+                    .widthIn(max = layout.safeContentWidth),
+                message = message,
+                confirmLabel = confirmLabel,
+                onConfirm = onConfirm,
+                tone = tone,
+                icon = icon,
+                content = content,
+            )
+        }
     }
 }
 
 @Composable
 fun RipDpiDialogCard(
     title: String,
-    message: String,
-    confirmLabel: String,
     dismissLabel: String,
-    onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    message: String? = null,
+    confirmLabel: String? = null,
+    onConfirm: (() -> Unit)? = null,
     tone: RipDpiDialogTone = RipDpiDialogTone.Default,
-    icon: ImageVector = if (tone == RipDpiDialogTone.Destructive) RipDpiIcons.Warning else RipDpiIcons.Offline,
+    icon: ImageVector? = defaultDialogIcon(tone),
+    content: @Composable ColumnScope.() -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val surfaceColor = if (isDark) colors.cardBorder else MaterialTheme.colorScheme.surface
-    val iconContainer = if (isDark) colors.accent else colors.inputBackground
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val hasConfirmAction = confirmLabel != null && onConfirm != null
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 220.dp)
-            .background(surfaceColor, RoundedCornerShape(28.dp))
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = colors.foreground,
+        shadowElevation = 24.dp,
+        border = BorderStroke(RipDpiStroke.Thin, colors.cardBorder),
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .size(40.dp)
-                .background(iconContainer, CircleShape),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+                .fillMaxWidth()
+                .padding(horizontal = spacing.xxl, vertical = spacing.xxl),
+            verticalArrangement = Arrangement.spacedBy(spacing.lg),
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = colors.foreground,
-                modifier = Modifier.size(20.dp),
+            icon?.let {
+                RipDpiModalIconBadge(
+                    icon = it,
+                    tone = tone,
+                )
+            }
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                Text(
+                    text = title,
+                    style = type.sheetTitle,
+                    color = colors.foreground,
+                )
+                message?.let {
+                    Text(
+                        text = it,
+                        style = type.body,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+
+            content()
+
+            DialogActionRow(
+                dismissLabel = dismissLabel,
+                onDismiss = onDismiss,
+                confirmLabel = confirmLabel,
+                onConfirm = onConfirm,
+                tone = tone,
+                hasConfirmAction = hasConfirmAction,
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = title, style = RipDpiThemeTokens.type.sheetTitle, color = colors.foreground)
-            Text(text = message, style = RipDpiThemeTokens.type.body, color = colors.mutedForeground)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    }
+}
+
+@Composable
+private fun RipDpiModalIconBadge(
+    icon: ImageVector,
+    tone: RipDpiDialogTone,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val containerColor = when (tone) {
+        RipDpiDialogTone.Destructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+        RipDpiDialogTone.Info,
+        RipDpiDialogTone.Default,
+        -> colors.inputBackground
+    }
+    val iconTint = when (tone) {
+        RipDpiDialogTone.Destructive -> MaterialTheme.colorScheme.error
+        RipDpiDialogTone.Info,
+        RipDpiDialogTone.Default,
+        -> colors.foreground
+    }
+
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .background(color = containerColor, shape = CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = iconTint,
+            modifier = Modifier.size(RipDpiIconSizes.Default),
+        )
+    }
+}
+
+@Composable
+private fun DialogActionRow(
+    dismissLabel: String,
+    onDismiss: () -> Unit,
+    confirmLabel: String?,
+    onConfirm: (() -> Unit)?,
+    tone: RipDpiDialogTone,
+    hasConfirmAction: Boolean,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val primaryVariant = when (tone) {
+        RipDpiDialogTone.Destructive -> RipDpiButtonVariant.Destructive
+        RipDpiDialogTone.Info,
+        RipDpiDialogTone.Default,
+        -> RipDpiButtonVariant.Primary
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (hasConfirmAction) {
             RipDpiButton(
                 text = dismissLabel,
                 onClick = onDismiss,
                 variant = RipDpiButtonVariant.Outline,
             )
             RipDpiButton(
-                text = confirmLabel,
-                onClick = onConfirm,
-                variant = if (tone == RipDpiDialogTone.Destructive) {
-                    RipDpiButtonVariant.Destructive
-                } else {
-                    RipDpiButtonVariant.Primary
-                },
+                text = confirmLabel.orEmpty(),
+                onClick = { onConfirm?.invoke() },
+                variant = primaryVariant,
+            )
+        } else {
+            RipDpiButton(
+                text = dismissLabel,
+                onClick = onDismiss,
+                variant = primaryVariant,
             )
         }
     }
 }
 
+private fun defaultDialogIcon(
+    tone: RipDpiDialogTone,
+): ImageVector? = when (tone) {
+    RipDpiDialogTone.Default -> null
+    RipDpiDialogTone.Destructive -> RipDpiIcons.Warning
+    RipDpiDialogTone.Info -> RipDpiIcons.Info
+}
+
 @Preview(showBackground = true)
 @Composable
-private fun RipDpiDialogLightPreview() {
+private fun RipDpiConfirmationDialogPreview() {
     RipDpiComponentPreview {
         RipDpiDialogCard(
-            title = "Stop service?",
-            message = "Active connections may be interrupted.",
+            title = "Stop connection?",
+            message = "Active traffic may be interrupted until you reconnect the service.",
             confirmLabel = "Stop",
             dismissLabel = "Cancel",
             onConfirm = {},
@@ -147,16 +255,30 @@ private fun RipDpiDialogLightPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun RipDpiDialogDarkPreview() {
+private fun RipDpiDestructiveDialogPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiDialogCard(
-            title = "Reset configuration?",
-            message = "All custom flags and modes will be removed.",
+            title = "Reset advanced flags?",
+            message = "Custom command line arguments and bypass rules will be removed.",
             confirmLabel = "Reset",
-            dismissLabel = "Cancel",
+            dismissLabel = "Keep",
             onConfirm = {},
             onDismiss = {},
             tone = RipDpiDialogTone.Destructive,
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun RipDpiInfoDialogPreview() {
+    RipDpiComponentPreview {
+        RipDpiDialogCard(
+            title = "Adaptive icons depend on the launcher",
+            message = "Android launchers control the mask shape, so the app can only preview the current icon family.",
+            dismissLabel = "Understood",
+            onDismiss = {},
+            tone = RipDpiDialogTone.Info,
         )
     }
 }
