@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.poyka.ripdpi.core.engine"
-    ndkVersion = "28.2.13676358"
+    ndkVersion = "29.0.14206865"
 
     defaultConfig {
         ndk {
