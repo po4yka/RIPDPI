@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
@@ -65,7 +66,7 @@ fun RipDpiTopAppBar(
                         ) {
                             Text(
                                 text = brandGlyph,
-                                style = type.brandStatus,
+                                style = type.brandGlyph.copy(fontSize = 13.sp, lineHeight = 13.sp),
                                 color = colors.background,
                             )
                         }

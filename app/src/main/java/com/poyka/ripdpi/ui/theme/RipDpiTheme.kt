@@ -35,6 +35,7 @@ fun RipDpiTheme(
         LocalRipDpiTextStyles provides RipDpiTypeScale,
         LocalRipDpiSpacing provides DefaultRipDpiSpacing,
         LocalRipDpiLayout provides DefaultRipDpiLayout,
+        LocalRipDpiIntroLayout provides DefaultRipDpiIntroLayout,
         LocalRipDpiShapes provides DefaultRipDpiShapes,
     ) {
         MaterialTheme(
@@ -58,6 +59,9 @@ object RipDpiThemeTokens {
 
     val layout: RipDpiLayout
         @Composable get() = LocalRipDpiLayout.current
+
+    val introLayout: RipDpiIntroLayout
+        @Composable get() = LocalRipDpiIntroLayout.current
 
     val shapes: RipDpiShapeTokens
         @Composable get() = LocalRipDpiShapes.current
