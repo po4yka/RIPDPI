@@ -32,6 +32,29 @@ git clone --recurse-submodules
 
 APK: `app/build/outputs/apk/release/`
 
+## CI/CD
+
+Проект использует GitHub Actions для непрерывной интеграции и автоматизации релизов.
+
+**CI** (`.github/workflows/ci.yml`) запускается при каждом push и PR в `main`:
+- Сборка debug APK
+- Запуск unit-тестов
+
+**Release** (`.github/workflows/release.yml`) запускается при push тегов `v*` или вручную:
+- Сборка подписанного release APK
+- Создание GitHub Release с прикрепленным APK
+
+### Необходимые GitHub Secrets
+
+Для подписанных релизных сборок настройте секреты репозитория:
+
+| Secret | Описание |
+|--------|----------|
+| `KEYSTORE_BASE64` | Keystore в Base64 (`base64 -i release.keystore`) |
+| `KEYSTORE_PASSWORD` | Пароль keystore |
+| `KEY_ALIAS` | Алиас ключа подписи |
+| `KEY_PASSWORD` | Пароль ключа подписи |
+
 ## Зависимости
 
 - [ByeDPI](https://github.com/hufrea/byedpi)
