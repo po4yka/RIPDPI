@@ -51,6 +51,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
+import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
@@ -350,13 +351,12 @@ fun ModeEditorScreen(
                             )
                         }
                     }
-                    RipDpiTextField(
+                    RipDpiConfigTextField(
                         value = draft.commandLineArgs,
                         onValueChange = onCommandLineArgsChanged,
                         label = stringResource(R.string.command_line_arguments),
                         placeholder = stringResource(R.string.config_placeholder_command_line),
                         helperText = stringResource(R.string.config_command_line_helper),
-                        textStyle = RipDpiThemeTokens.type.monoConfig,
                     )
                 }
             }

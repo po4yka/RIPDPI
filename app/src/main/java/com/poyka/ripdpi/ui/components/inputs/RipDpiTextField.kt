@@ -143,6 +143,45 @@ fun RipDpiTextField(
 }
 
 @Composable
+fun RipDpiConfigTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    placeholder: String? = null,
+    helperText: String? = null,
+    errorText: String? = null,
+    enabled: Boolean = true,
+    readOnly: Boolean = false,
+    multiline: Boolean = false,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailingContent: (@Composable () -> Unit)? = null,
+) {
+    val components = RipDpiThemeTokens.components
+
+    RipDpiTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        label = label,
+        placeholder = placeholder,
+        helperText = helperText,
+        errorText = errorText,
+        enabled = enabled,
+        readOnly = readOnly,
+        singleLine = !multiline,
+        textStyle = RipDpiThemeTokens.type.monoConfig,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        visualTransformation = visualTransformation,
+        minHeight = if (multiline) components.multilineFieldMinHeight else null,
+        trailingContent = trailingContent,
+    )
+}
+
+@Composable
 private fun RipDpiTextFieldShell(
     enabled: Boolean,
     shape: Shape,
