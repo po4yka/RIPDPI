@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import android.util.Log
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
@@ -27,6 +26,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 import java.io.File
 
 class RipDpiVpnService : LifecycleVpnService() {
@@ -40,7 +42,6 @@ class RipDpiVpnService : LifecycleVpnService() {
     private var status: ServiceStatus = ServiceStatus.Disconnected
 
     companion object {
-        private val TAG: String = RipDpiVpnService::class.java.simpleName
         private const val FOREGROUND_SERVICE_ID: Int = 1
         private const val NOTIFICATION_CHANNEL_ID: String = "RIPDPIVpn"
     }
@@ -72,22 +73,22 @@ class RipDpiVpnService : LifecycleVpnService() {
             }
 
             else -> {
-                Log.w(TAG, "Unknown action: $action")
+                logcat(LogPriority.WARN) { "Unknown action: $action" }
                 START_NOT_STICKY
             }
         }
     }
 
     override fun onRevoke() {
-        Log.i(TAG, "VPN revoked")
+        logcat(LogPriority.INFO) { "VPN revoked" }
         lifecycleScope.launch { stop() }
     }
 
     private suspend fun start() {
-        Log.i(TAG, "Starting")
+        logcat(LogPriority.INFO) { "Starting" }
 
         if (status == ServiceStatus.Connected) {
-            Log.w(TAG, "VPN already connected")
+            logcat(LogPriority.WARN) { "VPN already connected" }
             return
         }
 
@@ -99,7 +100,7 @@ class RipDpiVpnService : LifecycleVpnService() {
             updateStatus(ServiceStatus.Connected)
             startForeground()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start VPN", e)
+            logcat(LogPriority.ERROR) { "Failed to start VPN\n${e.asLog()}" }
             updateStatus(ServiceStatus.Failed)
             stop()
         }
@@ -119,7 +120,7 @@ class RipDpiVpnService : LifecycleVpnService() {
     }
 
     private suspend fun stop() {
-        Log.i(TAG, "Stopping")
+        logcat(LogPriority.INFO) { "Stopping" }
 
         mutex.withLock {
             stopping = true
@@ -127,7 +128,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                 stopTun2Socks()
                 stopProxy()
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to stop VPN", e)
+                logcat(LogPriority.ERROR) { "Failed to stop VPN\n${e.asLog()}" }
             } finally {
                 stopping = false
             }
@@ -138,10 +139,10 @@ class RipDpiVpnService : LifecycleVpnService() {
     }
 
     private suspend fun startProxy() {
-        Log.i(TAG, "Starting proxy")
+        logcat(LogPriority.INFO) { "Starting proxy" }
 
         if (proxyJob != null) {
-            Log.w(TAG, "Proxy fields not null")
+            logcat(LogPriority.WARN) { "Proxy fields not null" }
             throw IllegalStateException("Proxy fields not null")
         }
 
@@ -153,7 +154,7 @@ class RipDpiVpnService : LifecycleVpnService() {
 
                 withContext(Dispatchers.Main) {
                     if (code != 0) {
-                        Log.e(TAG, "Proxy stopped with code $code")
+                        logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
                         updateStatus(ServiceStatus.Failed)
                     } else {
                         if (!stopping) {
@@ -164,14 +165,14 @@ class RipDpiVpnService : LifecycleVpnService() {
                 }
             }
 
-        Log.i(TAG, "Proxy started")
+        logcat(LogPriority.INFO) { "Proxy started" }
     }
 
     private suspend fun stopProxy() {
-        Log.i(TAG, "Stopping proxy")
+        logcat(LogPriority.INFO) { "Stopping proxy" }
 
         if (status == ServiceStatus.Disconnected) {
-            Log.w(TAG, "Proxy already disconnected")
+            logcat(LogPriority.WARN) { "Proxy already disconnected" }
             return
         }
 
@@ -179,11 +180,11 @@ class RipDpiVpnService : LifecycleVpnService() {
         proxyJob?.join() ?: throw IllegalStateException("ProxyJob field null")
         proxyJob = null
 
-        Log.i(TAG, "Proxy stopped")
+        logcat(LogPriority.INFO) { "Proxy stopped" }
     }
 
     private suspend fun startTun2Socks() {
-        Log.i(TAG, "Starting tun2socks")
+        logcat(LogPriority.INFO) { "Starting tun2socks" }
 
         if (tunFd != null) {
             throw IllegalStateException("VPN field not null")
@@ -211,7 +212,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                     writeText(tun2socksConfig)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to create config file", e)
+                logcat(LogPriority.ERROR) { "Failed to create config file\n${e.asLog()}" }
                 throw e
             }
         tun2SocksConfigFile = configPath
@@ -224,35 +225,35 @@ class RipDpiVpnService : LifecycleVpnService() {
 
         TProxyService.TProxyStartService(configPath.absolutePath, fd.fd)
 
-        Log.i(TAG, "Tun2Socks started")
+        logcat(LogPriority.INFO) { "Tun2Socks started" }
     }
 
     private fun stopTun2Socks() {
-        Log.i(TAG, "Stopping tun2socks")
+        logcat(LogPriority.INFO) { "Stopping tun2socks" }
 
         TProxyService.TProxyStopService()
 
         try {
             val configFile = tun2SocksConfigFile
             if (configFile != null && !configFile.delete() && configFile.exists()) {
-                Log.w(TAG, "Failed to delete config file: ${configFile.absolutePath}")
+                logcat(LogPriority.WARN) { "Failed to delete config file: ${configFile.absolutePath}" }
             }
         } catch (e: SecurityException) {
-            Log.e(TAG, "Failed to delete config file", e)
+            logcat(LogPriority.ERROR) { "Failed to delete config file\n${e.asLog()}" }
         } finally {
             tun2SocksConfigFile = null
         }
 
-        tunFd?.close() ?: Log.w(TAG, "VPN not running")
+        tunFd?.close() ?: logcat(LogPriority.WARN) { "VPN not running" }
         tunFd = null
 
-        Log.i(TAG, "Tun2socks stopped")
+        logcat(LogPriority.INFO) { "Tun2socks stopped" }
     }
 
     private suspend fun getRipDpiPreferences(): RipDpiProxyPreferences = RipDpiProxyPreferences.fromSettingsStore(this)
 
     private fun updateStatus(newStatus: ServiceStatus) {
-        Log.d(TAG, "VPN status changed from $status to $newStatus")
+        logcat { "VPN status changed from $status to $newStatus" }
 
         status = newStatus
 
@@ -289,7 +290,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         dns: String,
         ipv6: Boolean,
     ): Builder {
-        Log.d(TAG, "DNS: $dns")
+        logcat { "DNS: $dns" }
         val builder = Builder()
         builder.setSession("RIPDPI")
         builder.setConfigureIntent(

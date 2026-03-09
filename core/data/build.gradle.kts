@@ -12,4 +12,5 @@ dependencies {
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.logcat)
 }

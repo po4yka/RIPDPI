@@ -18,6 +18,7 @@ espresso = "3.7.0"
 detekt = "1.23.8"
 detekt-compose-rules = "0.4.28"
 ktlint-plugin = "14.1.0"
+logcat = "0.4"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
@@ -44,6 +45,7 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext" }
 androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 detekt-compose-rules = { module = "io.nlopez.compose.rules:detekt", version.ref = "detekt-compose-rules" }
+logcat = { module = "com.squareup.logcat:logcat", version.ref = "logcat" }
 
 [bundles]
 lifecycle-app = [

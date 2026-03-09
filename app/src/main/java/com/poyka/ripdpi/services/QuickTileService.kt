@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.VpnService
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.util.Log
 import android.widget.Toast
 import androidx.core.service.quicksettings.PendingIntentActivityWrapper
 import androidx.core.service.quicksettings.TileServiceCompat
@@ -23,10 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class QuickTileService : TileService() {
-    companion object {
-        private val TAG: String = QuickTileService::class.java.simpleName
-    }
-
     private var scope: CoroutineScope? = null
 
     override fun onStartListening() {
