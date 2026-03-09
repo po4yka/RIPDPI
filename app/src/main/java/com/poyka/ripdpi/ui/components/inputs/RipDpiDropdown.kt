@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +24,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -66,7 +66,9 @@ fun <T> RipDpiDropdown(
                         .height(components.controlHeight)
                         .background(colors.inputBackground, RipDpiThemeTokens.shapes.xl)
                         .border(borderWidth, borderColor, RipDpiThemeTokens.shapes.xl)
-                        .clickable(enabled = enabled) { setExpanded(true) }
+                        .ripDpiClickable(enabled = enabled, role = androidx.compose.ui.semantics.Role.Button) {
+                            setExpanded(true)
+                        }
                         .padding(
                             horizontal =
                                 if (borderWidth > 1.dp) {

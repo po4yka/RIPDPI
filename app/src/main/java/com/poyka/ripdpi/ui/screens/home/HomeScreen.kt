@@ -10,8 +10,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +44,7 @@ import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -287,12 +286,12 @@ private fun HomeConnectionButton(
                     .scale(buttonScale)
                     .background(containerColor, CircleShape)
                     .border(width = 1.dp, color = borderColor, shape = CircleShape)
-                    .clickable(
+                    .ripDpiClickable(
                         enabled = state != ConnectionState.Connecting,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
+                        role = androidx.compose.ui.semantics.Role.Button,
                         onClick = onClick,
-                    ).padding(
+                    )
+                    .padding(
                         horizontal = components.homeConnectionHorizontalPadding,
                         vertical = components.homeConnectionVerticalPadding,
                     ),

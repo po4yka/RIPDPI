@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.components.feedback
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -90,7 +90,11 @@ fun RipDpiSnackbar(
                     text = actionLabel.uppercase(),
                     style = type.smallLabel,
                     color = palette.action,
-                    modifier = Modifier.clickable(onClick = onAction),
+                    modifier =
+                        Modifier.ripDpiClickable(
+                            role = androidx.compose.ui.semantics.Role.Button,
+                            onClick = onAction,
+                        ),
                 )
             }
         }

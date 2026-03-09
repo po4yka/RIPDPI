@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.components.cards
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +21,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class RipDpiCardVariant {
@@ -53,7 +53,7 @@ fun RipDpiCard(
             .alpha(if (enabled) 1f else 0.38f)
             .then(
                 if (onClick != null) {
-                    Modifier.clickable(
+                    Modifier.ripDpiClickable(
                         enabled = enabled,
                         role = Role.Button,
                         interactionSource = interactionSource,
