@@ -40,6 +40,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
@@ -63,6 +64,7 @@ import kotlin.time.Duration.Companion.ZERO
 fun HomeRoute(
     modifier: Modifier = Modifier,
     onOpenVpnPermission: () -> Unit,
+    onStartConfiguredMode: () -> Unit,
     viewModel: MainViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -78,6 +80,8 @@ fun HomeRoute(
                 )
             ) {
                 onOpenVpnPermission()
+            } else if (shouldStartConnection(uiState)) {
+                onStartConfiguredMode()
             } else {
                 viewModel.toggleService(context)
             }
@@ -199,6 +203,17 @@ internal fun shouldOpenVpnPermission(
         uiState.configuredMode == Mode.VPN &&
         uiState.connectionState != ConnectionState.Connected &&
         uiState.connectionState != ConnectionState.Connecting
+
+internal fun shouldStartConnection(uiState: MainUiState): Boolean =
+    when (uiState.connectionState) {
+        ConnectionState.Connecting,
+        ConnectionState.Connected,
+        -> false
+
+        ConnectionState.Disconnected,
+        ConnectionState.Error,
+        -> uiState.appStatus == AppStatus.Halted
+    }
 
 @Composable
 private fun HomeConnectionButton(
