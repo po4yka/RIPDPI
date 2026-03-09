@@ -27,7 +27,7 @@ jobs:
       - uses: android-actions/setup-android@v3
 
       - name: Install NDK and CMake
-        run: sdkmanager --install "ndk;28.2.13676358" "cmake;3.22.1"
+        run: sdkmanager --install "ndk;29.0.14206865" "cmake;3.22.1"
 
       - uses: gradle/actions/setup-gradle@v4
 
