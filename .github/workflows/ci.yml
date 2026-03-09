@@ -25,6 +25,11 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
+      - name: Install native verification tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils
+
       - name: Read native toolchain policy
         id: native-toolchain
         run: |
@@ -38,6 +43,9 @@ jobs:
 
       - name: Build debug APK
         run: ./gradlew assembleDebug
+
+      - name: Verify packaged native ELFs
+        run: python3 scripts/ci/verify_native_elfs.py
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest
@@ -64,6 +72,11 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
+      - name: Install native analysis tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+
       - name: Read native toolchain policy
         id: native-toolchain
         run: |
@@ -75,6 +88,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Run native static analysis
+        run: bash scripts/ci/run-cppcheck.sh
+
       - name: Run static analysis
         run: ./gradlew staticAnalysis
 
@@ -85,6 +101,7 @@ jobs:
           name: static-analysis-reports
           path: |
             **/build/reports/detekt/
+            **/build/reports/cppcheck/
             **/build/reports/ktlint/
             **/build/reports/lint-results*.html
           retention-days: 7
