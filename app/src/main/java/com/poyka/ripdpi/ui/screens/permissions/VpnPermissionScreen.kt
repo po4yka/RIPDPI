@@ -27,7 +27,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -54,11 +53,11 @@ private const val PermissionProgressPageCount = 3
 fun VpnPermissionRoute(
     onDismiss: () -> Unit,
     onGranted: () -> Unit,
+    onContinue: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: MainViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
     LaunchedEffect(uiState.connectionState) {
         if (
@@ -72,7 +71,7 @@ fun VpnPermissionRoute(
     VpnPermissionScreen(
         uiState = uiState,
         onDismiss = onDismiss,
-        onContinue = { viewModel.requestVpnPermission(context) },
+        onContinue = onContinue,
         modifier = modifier,
     )
 }

@@ -214,6 +214,11 @@
     <string name="permissions_vpn_not_now">Not now</string>
     <string name="permissions_vpn_error_title">Permission still required</string>
     <string name="permissions_vpn_error_body">Grant Android VPN permission to keep RIPDPI running locally on this device.</string>
+    <string name="permissions_notifications_title">Allow status notifications</string>
+    <string name="permissions_notifications_body">RIPDPI uses a foreground service while the local VPN or proxy is active. Android requires a visible notification so the session stays transparent and you can quickly return to the running connection.</string>
+    <string name="permissions_notifications_continue">Allow notifications</string>
+    <string name="permissions_notifications_not_now">Not now</string>
+    <string name="permissions_notifications_denied">Notification permission is required before RIPDPI can start its local VPN or proxy.</string>
     <string name="settings_connectivity_section">Connectivity</string>
     <string name="settings_connectivity_dns_body">Resolver, IPv6, and local tunnel DNS behavior.</string>
     <string name="settings_connectivity_dns_body_proxy">Saved now and applied the next time VPN mode is active.</string>
