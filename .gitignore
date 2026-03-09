@@ -15,6 +15,7 @@ build/
 .cxx
 local.properties
 /app/src/main/jniLibs
+/core/engine/src/main/jniLibs
 
 # Ralph loop
 .ralph/
