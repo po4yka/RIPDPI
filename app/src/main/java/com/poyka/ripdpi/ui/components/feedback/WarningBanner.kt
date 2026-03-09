@@ -16,6 +16,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -104,7 +105,7 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
                 border = colors.warning,
                 icon = colors.warning,
                 title = colors.foreground,
-                message = colors.mutedForeground,
+                message = readableMessageColor(colors.warningContainer, colors),
             )
         }
 
@@ -114,7 +115,7 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
                 border = colors.destructive,
                 icon = colors.destructive,
                 title = colors.foreground,
-                message = colors.mutedForeground,
+                message = readableMessageColor(colors.destructiveContainer, colors),
             )
         }
 
@@ -124,7 +125,7 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
                 border = colors.info,
                 icon = colors.info,
                 title = colors.foreground,
-                message = colors.mutedForeground,
+                message = readableMessageColor(colors.infoContainer, colors),
             )
         }
 
@@ -134,11 +135,16 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
                 border = colors.restricted,
                 icon = colors.restricted,
                 title = colors.foreground,
-                message = colors.mutedForeground,
+                message = readableMessageColor(colors.restrictedContainer, colors),
             )
         }
     }
 }
+
+private fun readableMessageColor(
+    container: Color,
+    colors: com.poyka.ripdpi.ui.theme.RipDpiExtendedColors,
+): Color = if (container.luminance() < 0.2f) colors.foreground else colors.mutedForeground
 
 private fun defaultWarningBannerIcon(tone: WarningBannerTone): ImageVector =
     when (tone) {

@@ -20,15 +20,38 @@ data class RipDpiSpacing(
 
 @Immutable
 data class RipDpiLayout(
-    val mobileFrameWidth: Dp = 360.dp,
-    val frameHeight: Dp = 800.dp,
     val horizontalPadding: Dp = 20.dp,
-    val safeContentWidth: Dp = 320.dp,
+    val dialogMaxWidth: Dp = 560.dp,
+    val snackbarMaxWidth: Dp = 560.dp,
     val cardPadding: Dp = 16.dp,
     val sectionGap: Dp = 20.dp,
     val appBarHeight: Dp = 48.dp,
     val bottomBarHeight: Dp = 64.dp,
-    val statusBarHeight: Dp = 28.dp,
+)
+
+@Immutable
+data class RipDpiComponentMetrics(
+    val controlHeight: Dp = 40.dp,
+    val controlCornerRadius: Dp = 16.dp,
+    val cardCornerRadius: Dp = 16.dp,
+    val chipCornerRadius: Dp = 12.dp,
+    val buttonMinHeight: Dp = 40.dp,
+    val buttonHorizontalPadding: Dp = 20.dp,
+    val buttonVerticalPadding: Dp = 10.dp,
+    val fieldHorizontalPadding: Dp = 17.dp,
+    val fieldFocusedHorizontalPadding: Dp = 18.dp,
+    val chipHorizontalPadding: Dp = 17.dp,
+    val chipVerticalPadding: Dp = 6.dp,
+    val iconButtonSize: Dp = 40.dp,
+    val switchWidth: Dp = 44.dp,
+    val switchHeight: Dp = 24.dp,
+    val switchThumbSize: Dp = 20.dp,
+    val switchThumbPadding: Dp = 2.dp,
+    val dialogIconSize: Dp = 40.dp,
+    val settingsRowMinHeight: Dp = 52.dp,
+    val settingsRowMinHeightWithSubtitle: Dp = 68.dp,
+    val bottomNavIndicatorWidth: Dp = 52.dp,
+    val bottomNavIndicatorHeight: Dp = 28.dp,
 )
 
 @Immutable
@@ -61,8 +84,10 @@ object RipDpiStroke {
 
 val DefaultRipDpiSpacing = RipDpiSpacing()
 val DefaultRipDpiLayout = RipDpiLayout()
+val DefaultRipDpiComponentMetrics = RipDpiComponentMetrics()
 val DefaultRipDpiIntroLayout = RipDpiIntroLayout()
 
 internal val LocalRipDpiSpacing = staticCompositionLocalOf { DefaultRipDpiSpacing }
 internal val LocalRipDpiLayout = staticCompositionLocalOf { DefaultRipDpiLayout }
+internal val LocalRipDpiComponentMetrics = staticCompositionLocalOf { DefaultRipDpiComponentMetrics }
 internal val LocalRipDpiIntroLayout = staticCompositionLocalOf { DefaultRipDpiIntroLayout }

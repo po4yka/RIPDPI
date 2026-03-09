@@ -72,7 +72,7 @@ fun RipDpiDialog(
                 modifier =
                     modifier
                         .fillMaxWidth()
-                        .widthIn(max = layout.safeContentWidth),
+                        .widthIn(max = layout.dialogMaxWidth),
                 message = message,
                 confirmLabel = confirmLabel,
                 onConfirm = onConfirm,

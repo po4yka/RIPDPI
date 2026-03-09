@@ -3,15 +3,17 @@ package com.poyka.ripdpi.ui.components.buttons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,11 +45,13 @@ fun RipDpiIconButton(
     style: RipDpiIconButtonStyle = RipDpiIconButtonStyle.Ghost,
     enabled: Boolean = true,
     selected: Boolean = false,
-    isPressed: Boolean = false,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val scheme = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RipDpiThemeTokens.shapes.xl
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
     val baseContainer =
         when (style) {
             RipDpiIconButtonStyle.Ghost -> Color.Transparent
@@ -78,15 +82,15 @@ fun RipDpiIconButton(
     Row(
         modifier =
             modifier
-                .size(40.dp)
+                .size(components.iconButtonSize)
                 .clip(shape)
                 .background(background, shape)
                 .border(if (style == RipDpiIconButtonStyle.Outline) 1.dp else 0.dp, borderColor, shape)
+                .focusable(enabled = enabled, interactionSource = interactionSource)
                 .clickable(
                     enabled = enabled,
                     role = Role.Button,
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
+                    interactionSource = interactionSource,
                     onClick = onClick,
                 ),
         horizontalArrangement = Arrangement.Center,
@@ -129,7 +133,6 @@ private fun RipDpiIconButtonPreview() {
                 contentDescription = "Close",
                 onClick = {},
                 style = RipDpiIconButtonStyle.Filled,
-                isPressed = true,
             )
         }
     }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -43,26 +44,30 @@ fun SettingsRow(
     monospaceValue: Boolean = false,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
     val type = RipDpiThemeTokens.type
     val rowContent: @Composable () -> Unit = {
+        val rowInteractionSource = remember { MutableInteractionSource() }
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = if (subtitle == null) 52.dp else 67.dp)
+                    .heightIn(min = if (subtitle == null) components.settingsRowMinHeight else components.settingsRowMinHeightWithSubtitle)
                     .then(
-                        if (onClick != null || (checked != null && onCheckedChange != null)) {
+                        if (checked != null && onCheckedChange != null) {
+                            Modifier.toggleable(
+                                enabled = enabled,
+                                value = checked,
+                                role = Role.Switch,
+                                interactionSource = rowInteractionSource,
+                                onValueChange = onCheckedChange,
+                            )
+                        } else if (onClick != null) {
                             Modifier.clickable(
                                 enabled = enabled,
                                 role = Role.Button,
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = {
-                                    when {
-                                        checked != null && onCheckedChange != null -> onCheckedChange(!checked)
-                                        onClick != null -> onClick()
-                                    }
-                                },
+                                interactionSource = rowInteractionSource,
+                                onClick = onClick,
                             )
                         } else {
                             Modifier
@@ -98,7 +103,7 @@ fun SettingsRow(
             }
             when {
                 checked != null && onCheckedChange != null -> {
-                    RipDpiSwitch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+                    RipDpiSwitch(checked = checked, onCheckedChange = null, enabled = enabled)
                 }
 
                 value != null -> {
