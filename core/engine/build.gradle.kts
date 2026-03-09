@@ -11,26 +11,28 @@ val nativeAbis =
             .filter(String::isNotEmpty)
     }
 val nativeMinSdk = providers.gradleProperty("ripdpi.minSdk")
-val engineNdkVersion = "29.0.14206865"
+val nativeNdkVersion = providers.gradleProperty("ripdpi.nativeNdkVersion")
+val nativeCmakeVersion = providers.gradleProperty("ripdpi.nativeCmakeVersion")
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
 val ndkProjectDir = layout.buildDirectory.dir("intermediates/ndkBuild")
 
 android {
     namespace = "com.poyka.ripdpi.core.engine"
-    ndkVersion = engineNdkVersion
-
-    defaultConfig {
-        ndk {
-            abiFilters += nativeAbis.get()
-        }
-    }
 
     sourceSets["main"].jniLibs.srcDir(generatedJniLibsDir.get().asFile)
 
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+            version = nativeCmakeVersion.get()
+        }
+    }
+
+    defaultConfig {
+        externalNativeBuild {
+            cmake {
+                arguments += "-DANDROID_PLATFORM=android-${nativeMinSdk.get()}"
+            }
         }
     }
 }
@@ -70,7 +72,7 @@ tasks.register<Exec>("runNdkBuild") {
     inputs.property("nativeMinSdk", nativeMinSdk)
     outputs.dir(generatedJniLibsDir)
 
-    val ndkDir = file("$sdkDir/ndk/$engineNdkVersion")
+    val ndkDir = file("$sdkDir/ndk/${nativeNdkVersion.get()}")
 
     executable =
         if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
