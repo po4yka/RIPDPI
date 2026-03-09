@@ -27,6 +27,11 @@ enum hosts_mode {
     HOSTS_WHITELIST,
 };
 
+static jint negative_error_code(jint fallback) {
+    const int err = get_e();
+    return -(err != 0 ? err : fallback);
+}
+
 static void free_argv(char **argv, int argc) {
     for (int i = 0; i < argc; i++) {
         free(argv[i]);
@@ -47,7 +52,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocketWithCommandLine(
         jobjectArray args) {
     int argc = (*env)->GetArrayLength(env, args);
     char *argv[argc];
-    int fd = -1;
+    jint result = -EINVAL;
 
     for (int i = 0; i < argc; i++) {
         argv[i] = NULL;
@@ -76,19 +81,22 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocketWithCommandLine(
     int res = parse_args(argc, argv);
     if (res < 0) {
         uniperror("parse_args");
+        result = negative_error_code(EINVAL);
         goto cleanup;
     }
 
-    fd = listen_socket((struct sockaddr_ina *)&params.laddr);
+    int fd = listen_socket((struct sockaddr_ina *)&params.laddr);
     if (fd < 0) {
         uniperror("listen_socket");
+        result = negative_error_code(EADDRINUSE);
         goto cleanup;
     }
     LOG(LOG_S, "listen_socket, fd: %d", fd);
+    result = fd;
 
 cleanup:
     free_argv(argv, argc);
-    return fd;
+    return result;
 }
 
 JNIEXPORT jint JNICALL
@@ -130,7 +138,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
     (*env)->ReleaseStringUTFChars(env, ip, address);
     if (res < 0) {
         uniperror("get_addr");
-        return -1;
+        return negative_error_code(EINVAL);
     }
 
     s.in.sin_port = htons(port);
@@ -149,7 +157,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
         if ((params.def_ttl = get_default_ttl()) < 1) {
             uniperror("get_default_ttl");
             reset_params();
-            return -1;
+            return negative_error_code(EINVAL);
         }
     }
 
@@ -162,7 +170,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
         if (!dp) {
             uniperror("add");
             reset_params();
-            return -1;
+            return negative_error_code(ENOMEM);
         }
 
         const char *str = (*env)->GetStringUTFChars(env, hosts, 0);
@@ -172,7 +180,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
         if (!dp->hosts) {
             perror("parse_hosts");
             clear_params();
-            return -1;
+            return negative_error_code(EINVAL);
         }
     }
 
@@ -184,7 +192,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
     if (!dp) {
         uniperror("add");
         reset_params();
-        return -1;
+        return negative_error_code(ENOMEM);
     }
 
     if (hosts_mode == HOSTS_BLACKLIST) {
@@ -195,7 +203,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
         if (!dp->hosts) {
             perror("parse_hosts");
             clear_params();
-            return -1;
+            return negative_error_code(EINVAL);
         }
     }
 
@@ -219,7 +227,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
     if (!part) {
         uniperror("add");
         reset_params();
-        return -1;
+        return negative_error_code(ENOMEM);
     }
 
     enum demode mode = DESYNC_METHODS[desync_method];
@@ -240,7 +248,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
         if (!tlsrec_part) {
             uniperror("add");
             reset_params();
-            return -1;
+            return negative_error_code(ENOMEM);
         }
 
         tlsrec_part->flag = tls_record_split_at_sni ? offset_flag : 0;
@@ -256,7 +264,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
         (*env)->ReleaseStringUTFChars(env, fake_sni, sni);
         if (res) {
             fprintf(stderr, "error chsni\n");
-            return -1;
+            return negative_error_code(EINVAL);
         }
     }
 
@@ -271,7 +279,7 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
         if (!dp) {
             uniperror("add");
             clear_params();
-            return -1;
+            return negative_error_code(ENOMEM);
         }
     }
 
@@ -279,13 +287,13 @@ Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
     if (!params.mempool) {
         uniperror("mem_pool");
         clear_params();
-        return -1;
+        return negative_error_code(ENOMEM);
     }
 
     int fd = listen_socket(&s);
     if (fd < 0) {
         uniperror("listen_socket");
-        return -1;
+        return negative_error_code(EADDRINUSE);
     }
     LOG(LOG_S, "listen_socket, fd: %d", fd);
 
