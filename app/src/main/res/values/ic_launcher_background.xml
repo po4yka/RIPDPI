@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#061A23</color>
+    <color name="ic_launcher_background_default">#FFFFFF</color>
+    <color name="ic_launcher_background_dark">#1A1A1A</color>
+    <color name="ic_launcher_background_black">#000000</color>
+    <color name="ic_launcher_background_neutral">#E0E0E0</color>
+    <color name="ic_launcher_background_charcoal">#2A2A2A</color>
+    <color name="ic_launcher_background_stealth">#121212</color>
 </resources>
