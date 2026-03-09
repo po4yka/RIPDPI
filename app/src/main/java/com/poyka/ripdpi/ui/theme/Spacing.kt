@@ -31,6 +31,29 @@ data class RipDpiLayout(
     val statusBarHeight: Dp = 28.dp,
 )
 
+@Immutable
+data class RipDpiIntroLayout(
+    val topActionRowHeight: Dp = 37.dp,
+    val topActionTopPadding: Dp = 16.dp,
+    val illustrationSize: Dp = 64.dp,
+    val illustrationCornerRadius: Dp = 16.dp,
+    val illustrationBorderWidth: Dp = 1.5.dp,
+    val illustrationIconSize: Dp = 24.dp,
+    val illustrationIconStrokeWidth: Dp = 2.dp,
+    val illustrationToTitleGap: Dp = 40.dp,
+    val titleToBodyGap: Dp = 16.dp,
+    val bodyToContentGap: Dp = 24.dp,
+    val titleHorizontalPadding: Dp = 12.dp,
+    val bodyHorizontalPadding: Dp = 14.dp,
+    val indicatorSize: Dp = 8.dp,
+    val indicatorActiveWidth: Dp = 24.dp,
+    val indicatorSpacing: Dp = 8.dp,
+    val footerProgressGap: Dp = 28.dp,
+    val footerButtonHorizontalInset: Dp = 18.dp,
+    val footerButtonMinHeight: Dp = 52.dp,
+    val footerBottomPadding: Dp = 40.dp,
+)
+
 object RipDpiStroke {
     val Thin = 1.dp
     val Hairline = 0.5.dp
@@ -38,6 +61,8 @@ object RipDpiStroke {
 
 val DefaultRipDpiSpacing = RipDpiSpacing()
 val DefaultRipDpiLayout = RipDpiLayout()
+val DefaultRipDpiIntroLayout = RipDpiIntroLayout()
 
 internal val LocalRipDpiSpacing = staticCompositionLocalOf { DefaultRipDpiSpacing }
 internal val LocalRipDpiLayout = staticCompositionLocalOf { DefaultRipDpiLayout }
+internal val LocalRipDpiIntroLayout = staticCompositionLocalOf { DefaultRipDpiIntroLayout }

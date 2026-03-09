@@ -93,7 +93,7 @@ fun RipDpiButton(
         Text(
             text = text,
             color = base.content,
-            style = type.bodyEmphasis,
+            style = type.button,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
