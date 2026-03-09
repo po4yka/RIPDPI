@@ -1,0 +1,8 @@
+<resources>
+    <string name="vpn_channel_name">VPN</string>
+    <string name="proxy_channel_name">Proxy</string>
+    <string name="notification_title">RIPDPI</string>
+    <string name="vpn_notification_content">VPN is running</string>
+    <string name="proxy_notification_content">Proxy is running</string>
+
+</resources>

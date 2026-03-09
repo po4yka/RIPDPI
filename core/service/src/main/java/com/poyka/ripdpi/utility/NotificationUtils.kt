@@ -6,28 +6,24 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
-import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.MainActivity
+import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.STOP_ACTION
 
 fun registerNotificationChannel(context: Context, id: String, @StringRes name: Int) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+    val manager = context.getSystemService(NotificationManager::class.java) ?: return
 
-        val channel = NotificationChannel(
-            id,
-            context.getString(name),
-            NotificationManager.IMPORTANCE_DEFAULT
-        )
-        channel.enableLights(false)
-        channel.enableVibration(false)
-        channel.setShowBadge(false)
+    val channel = NotificationChannel(
+        id,
+        context.getString(name),
+        NotificationManager.IMPORTANCE_DEFAULT
+    )
+    channel.enableLights(false)
+    channel.enableVibration(false)
+    channel.setShowBadge(false)
 
-        manager.createNotificationChannel(channel)
-    }
+    manager.createNotificationChannel(channel)
 }
 
 fun createConnectionNotification(
@@ -54,7 +50,7 @@ fun createConnectionNotification(
                 PendingIntent.getActivity(
                     context,
                     0,
-                    Intent(context, MainActivity::class.java),
+                    context.packageManager.getLaunchIntentForPackage(context.packageName),
                     PendingIntent.FLAG_IMMUTABLE,
                 )
             )

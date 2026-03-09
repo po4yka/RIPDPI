@@ -30,7 +30,7 @@ object ServiceManager {
     }
 
     fun stop(context: Context) {
-        val (_, mode) = appStatus
+        val (_, mode) = AppStateManager.status.value
         when (mode) {
             Mode.VPN -> {
                 Log.i(TAG, "Stopping VPN")
