@@ -25,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
+import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -45,6 +46,7 @@ fun SettingsRow(
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
+    val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val rowContent: @Composable () -> Unit = {
         val rowInteractionSource = remember { MutableInteractionSource() }
@@ -72,15 +74,15 @@ fun SettingsRow(
                         } else {
                             Modifier
                         },
-                    ).padding(vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ).padding(vertical = components.settingsRowVerticalPadding),
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             leadingIcon?.let {
                 Box(
                     modifier =
                         Modifier
-                            .size(28.dp)
+                            .size(components.decorativeBadgeSize)
                             .background(colors.accent, RipDpiThemeTokens.shapes.full),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -88,13 +90,13 @@ fun SettingsRow(
                         imageVector = it,
                         contentDescription = null,
                         tint = colors.foreground,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(RipDpiIconSizes.Small),
                     )
                 }
             }
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(components.compactPillVerticalPadding),
             ) {
                 Text(text = title, style = type.body, color = colors.foreground)
                 subtitle?.let {
@@ -108,7 +110,7 @@ fun SettingsRow(
 
                 value != null -> {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -121,7 +123,7 @@ fun SettingsRow(
                                 imageVector = RipDpiIcons.ChevronRight,
                                 contentDescription = null,
                                 tint = colors.mutedForeground,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(RipDpiIconSizes.Small),
                             )
                         }
                     }
@@ -145,7 +147,7 @@ private fun SettingsRowPreview() {
         RipDpiCard(
             paddingValues =
                 androidx.compose.foundation.layout
-                    .PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                    .PaddingValues(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = 0.dp),
         ) {
             SettingsRow(
                 title = "DNS provider",
