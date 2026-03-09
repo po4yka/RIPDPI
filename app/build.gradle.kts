@@ -1,16 +1,13 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
+    id("ripdpi.android.application")
+    id("ripdpi.android.compose")
 }
 
 android {
     namespace = "com.poyka.ripdpi"
-    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.poyka.ripdpi"
-        minSdk = 27
-        targetSdk = 35
         versionCode = 1
         versionName = "0.0.1"
 
@@ -34,13 +31,6 @@ android {
             buildConfigField("String", "VERSION_NAME",  "\"${defaultConfig.versionName}-debug\"")
         }
     }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    buildFeatures {
-        compose = true
-    }
 
     // https://android.izzysoft.de/articles/named/iod-scan-apkchecks?lang=en#blobs
     dependenciesInfo {
@@ -48,12 +38,6 @@ android {
         includeInApk = false
         // Disables dependency metadata when building Android App Bundles.
         includeInBundle = false
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 

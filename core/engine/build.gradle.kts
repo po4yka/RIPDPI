@@ -1,23 +1,16 @@
 import java.util.Properties
 
 plugins {
-    alias(libs.plugins.android.library)
+    id("ripdpi.android.library")
 }
 
 android {
     namespace = "com.poyka.ripdpi.core.engine"
-    compileSdk = 36
 
     defaultConfig {
-        minSdk = 27
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
 
     externalNativeBuild {
@@ -25,12 +18,6 @@ android {
             path = file("src/main/cpp/CMakeLists.txt")
             version = "3.22.1"
         }
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
