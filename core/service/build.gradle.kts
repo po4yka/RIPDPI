@@ -14,6 +14,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.logcat)
 
     testImplementation(libs.bundles.unit.test)
 }

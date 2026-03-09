@@ -72,6 +72,8 @@ dependencies {
     // Proto DataStore
     implementation(libs.androidx.datastore)
 
+    implementation(libs.logcat)
+
     testImplementation(libs.bundles.unit.test)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)

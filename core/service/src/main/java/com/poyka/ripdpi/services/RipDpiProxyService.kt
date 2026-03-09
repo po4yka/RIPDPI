@@ -4,7 +4,6 @@ import android.app.Notification
 import android.content.Intent
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 import android.os.Build
-import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.RipDpiProxy
@@ -24,6 +23,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 
 class RipDpiProxyService : LifecycleService() {
     private var proxy = RipDpiProxy()
@@ -34,7 +36,6 @@ class RipDpiProxyService : LifecycleService() {
     private var status: ServiceStatus = ServiceStatus.Disconnected
 
     companion object {
-        private val TAG: String = RipDpiProxyService::class.java.simpleName
         private const val FOREGROUND_SERVICE_ID: Int = 2
         private const val NOTIFICATION_CHANNEL_ID: String = "RIPDPI Proxy"
     }
@@ -66,17 +67,17 @@ class RipDpiProxyService : LifecycleService() {
             }
 
             else -> {
-                Log.w(TAG, "Unknown action: $action")
+                logcat(LogPriority.WARN) { "Unknown action: $action" }
                 START_NOT_STICKY
             }
         }
     }
 
     private suspend fun start() {
-        Log.i(TAG, "Starting")
+        logcat(LogPriority.INFO) { "Starting" }
 
         if (status == ServiceStatus.Connected) {
-            Log.w(TAG, "Proxy already connected")
+            logcat(LogPriority.WARN) { "Proxy already connected" }
             return
         }
 
@@ -87,7 +88,7 @@ class RipDpiProxyService : LifecycleService() {
             updateStatus(ServiceStatus.Connected)
             startForeground()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start proxy", e)
+            logcat(LogPriority.ERROR) { "Failed to start proxy\n${e.asLog()}" }
             updateStatus(ServiceStatus.Failed)
             stop()
         }
@@ -107,14 +108,14 @@ class RipDpiProxyService : LifecycleService() {
     }
 
     private suspend fun stop() {
-        Log.i(TAG, "Stopping proxy")
+        logcat(LogPriority.INFO) { "Stopping proxy" }
 
         mutex.withLock {
             stopping = true
             try {
                 stopProxy()
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to stop proxy", e)
+                logcat(LogPriority.ERROR) { "Failed to stop proxy\n${e.asLog()}" }
             } finally {
                 stopping = false
             }
@@ -124,10 +125,10 @@ class RipDpiProxyService : LifecycleService() {
     }
 
     private suspend fun startProxy() {
-        Log.i(TAG, "Starting proxy")
+        logcat(LogPriority.INFO) { "Starting proxy" }
 
         if (proxyJob != null) {
-            Log.w(TAG, "Proxy fields not null")
+            logcat(LogPriority.WARN) { "Proxy fields not null" }
             throw IllegalStateException("Proxy fields not null")
         }
 
@@ -140,7 +141,7 @@ class RipDpiProxyService : LifecycleService() {
 
                 withContext(Dispatchers.Main) {
                     if (code != 0) {
-                        Log.e(TAG, "Proxy stopped with code $code")
+                        logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
                         updateStatus(ServiceStatus.Failed)
                     } else if (!stopping) {
                         updateStatus(ServiceStatus.Disconnected)
@@ -148,14 +149,14 @@ class RipDpiProxyService : LifecycleService() {
                 }
             }
 
-        Log.i(TAG, "Proxy started")
+        logcat(LogPriority.INFO) { "Proxy started" }
     }
 
     private suspend fun stopProxy() {
-        Log.i(TAG, "Stopping proxy")
+        logcat(LogPriority.INFO) { "Stopping proxy" }
 
         if (status == ServiceStatus.Disconnected) {
-            Log.w(TAG, "Proxy already disconnected")
+            logcat(LogPriority.WARN) { "Proxy already disconnected" }
             return
         }
 
@@ -163,13 +164,13 @@ class RipDpiProxyService : LifecycleService() {
         proxyJob?.join()
         proxyJob = null
 
-        Log.i(TAG, "Proxy stopped")
+        logcat(LogPriority.INFO) { "Proxy stopped" }
     }
 
     private suspend fun getRipDpiPreferences(): RipDpiProxyPreferences = RipDpiProxyPreferences.fromSettingsStore(this)
 
     private fun updateStatus(newStatus: ServiceStatus) {
-        Log.d(TAG, "Proxy status changed from $status to $newStatus")
+        logcat { "Proxy status changed from $status to $newStatus" }
 
         status = newStatus
 
