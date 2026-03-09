@@ -26,6 +26,9 @@ class SettingsUiStateTest {
         assertFalse(state.webrtcProtectionEnabled)
         assertFalse(state.biometricEnabled)
         assertEquals("", state.backupPin)
+        assertFalse(state.hasBackupPin)
+        assertEquals(LauncherIconManager.DefaultIconKey, state.appIconVariant)
+        assertTrue(state.themedAppIconEnabled)
     }
 
     @Test
@@ -125,5 +128,36 @@ class SettingsUiStateTest {
     fun `empty desync method defaults to disorder`() {
         val settings = defaults.toBuilder().setDesyncMethod("").build()
         assertEquals("disorder", settings.toUiState().desyncMethod)
+    }
+
+    @Test
+    fun `backup pin presence is derived from stored value`() {
+        val settings = defaults.toBuilder().setBackupPin("1234").build()
+        assertTrue(settings.toUiState().hasBackupPin)
+    }
+
+    @Test
+    fun `empty app icon variant defaults to launcher default`() {
+        val settings = defaults.toBuilder().setAppIconVariant("").build()
+        assertEquals(LauncherIconManager.DefaultIconKey, settings.toUiState().appIconVariant)
+    }
+
+    @Test
+    fun `plain app icon style disables themed icon support`() {
+        val settings = defaults.toBuilder().setAppIconStyle(LauncherIconManager.PlainIconStyle).build()
+        assertFalse(settings.toUiState().themedAppIconEnabled)
+    }
+
+    @Test
+    fun `blank app icon style normalizes to themed`() {
+        val settings = defaults.toBuilder().setAppIconStyle("").build()
+        assertTrue(settings.toUiState().themedAppIconEnabled)
+    }
+
+    @Test
+    fun `ui state can remain unhydrated until datastore emits`() {
+        val state = defaults.toUiState(isHydrated = false)
+        assertFalse(state.isHydrated)
+        assertFalse(state.biometricEnabled)
     }
 }
