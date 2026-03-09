@@ -1,0 +1,31 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Group AndroidX updates together",
+      "matchPackagePrefixes": ["androidx."],
+      "groupName": "AndroidX"
+    },
+    {
+      "description": "Group Kotlin and Compose Compiler updates together",
+      "matchPackagePrefixes": ["org.jetbrains.kotlin"],
+      "groupName": "Kotlin"
+    },
+    {
+      "description": "Group static analysis tools",
+      "matchPackageNames": [
+        "io.gitlab.arturbosch.detekt",
+        "io.nlopez.compose.rules:detekt",
+        "org.jlleitschuh.gradle.ktlint"
+      ],
+      "groupName": "static-analysis"
+    }
+  ],
+  "git-submodules": {
+    "enabled": true
+  }
+}
