@@ -886,7 +886,7 @@ class DiagnosticsViewModel
                         DiagnosticsFieldUiModel("ASN", snapshot.publicAsn ?: "Unknown"),
                         DiagnosticsFieldUiModel("Validated", snapshot.networkValidated.toString()),
                         DiagnosticsFieldUiModel("Captive portal", snapshot.captivePortalDetected.toString()),
-                    ),
+                    ) + transportSpecificFields(snapshot, showSensitiveDetails),
             )
         }
 
@@ -1173,6 +1173,52 @@ class DiagnosticsViewModel
                         ),
                 ),
             )
+
+        private fun transportSpecificFields(
+            snapshot: NetworkSnapshotModel,
+            showSensitiveDetails: Boolean,
+        ): List<DiagnosticsFieldUiModel> =
+            buildList {
+                snapshot.wifiDetails?.let { wifi ->
+                    add(DiagnosticsFieldUiModel("Wi-Fi SSID", if (showSensitiveDetails) wifi.ssid else redactValue(wifi.ssid.takeUnless { it == "unknown" })))
+                    add(DiagnosticsFieldUiModel("Wi-Fi BSSID", if (showSensitiveDetails) wifi.bssid else redactValue(wifi.bssid.takeUnless { it == "unknown" })))
+                    add(DiagnosticsFieldUiModel("Wi-Fi band", wifi.band))
+                    add(DiagnosticsFieldUiModel("Wi-Fi standard", wifi.wifiStandard))
+                    add(DiagnosticsFieldUiModel("Wi-Fi frequency", wifi.frequencyMhz?.let { "$it MHz" } ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Wi-Fi channel width", wifi.channelWidth))
+                    add(DiagnosticsFieldUiModel("Wi-Fi RSSI", wifi.rssiDbm?.let { "$it dBm" } ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Wi-Fi link", wifi.linkSpeedMbps?.let { "$it Mbps" } ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Wi-Fi RX link", wifi.rxLinkSpeedMbps?.let { "$it Mbps" } ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Wi-Fi TX link", wifi.txLinkSpeedMbps?.let { "$it Mbps" } ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Wi-Fi hidden SSID", wifi.hiddenSsid?.toString() ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Wi-Fi Passpoint", wifi.isPasspoint?.toString() ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Wi-Fi OSU AP", wifi.isOsuAp?.toString() ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Wi-Fi network ID", wifi.networkId?.toString() ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Wi-Fi gateway", if (showSensitiveDetails) wifi.gateway ?: "Unknown" else redactValue(wifi.gateway)))
+                    add(DiagnosticsFieldUiModel("Wi-Fi DHCP server", if (showSensitiveDetails) wifi.dhcpServer ?: "Unknown" else redactValue(wifi.dhcpServer)))
+                    add(DiagnosticsFieldUiModel("Wi-Fi IP", if (showSensitiveDetails) wifi.ipAddress ?: "Unknown" else redactValue(wifi.ipAddress)))
+                    add(DiagnosticsFieldUiModel("Wi-Fi subnet", if (showSensitiveDetails) wifi.subnetMask ?: "Unknown" else redactValue(wifi.subnetMask)))
+                    add(DiagnosticsFieldUiModel("Wi-Fi lease", wifi.leaseDurationSeconds?.let { "${it}s" } ?: "Unknown"))
+                }
+                snapshot.cellularDetails?.let { cellular ->
+                    add(DiagnosticsFieldUiModel("Carrier", cellular.carrierName))
+                    add(DiagnosticsFieldUiModel("SIM operator", cellular.simOperatorName))
+                    add(DiagnosticsFieldUiModel("Network operator", cellular.networkOperatorName))
+                    add(DiagnosticsFieldUiModel("Network country", cellular.networkCountryIso))
+                    add(DiagnosticsFieldUiModel("SIM country", cellular.simCountryIso))
+                    add(DiagnosticsFieldUiModel("Operator code", cellular.operatorCode))
+                    add(DiagnosticsFieldUiModel("SIM operator code", cellular.simOperatorCode))
+                    add(DiagnosticsFieldUiModel("Data network", cellular.dataNetworkType))
+                    add(DiagnosticsFieldUiModel("Voice network", cellular.voiceNetworkType))
+                    add(DiagnosticsFieldUiModel("Data state", cellular.dataState))
+                    add(DiagnosticsFieldUiModel("Service state", cellular.serviceState))
+                    add(DiagnosticsFieldUiModel("Roaming", cellular.isNetworkRoaming?.toString() ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Carrier ID", cellular.carrierId?.toString() ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("SIM carrier ID", cellular.simCarrierId?.toString() ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Signal level", cellular.signalLevel?.toString() ?: "Unknown"))
+                    add(DiagnosticsFieldUiModel("Signal dBm", cellular.signalDbm?.let { "$it dBm" } ?: "Unknown"))
+                }
+            }
 
         private fun redactValue(value: String?): String = value?.let { "redacted" } ?: "Unknown"
 

@@ -119,7 +119,52 @@ data class NetworkSnapshotModel(
     val publicAsn: String?,
     val captivePortalDetected: Boolean,
     val networkValidated: Boolean,
+    val wifiDetails: WifiNetworkDetails? = null,
+    val cellularDetails: CellularNetworkDetails? = null,
     val capturedAt: Long,
+)
+
+@Serializable
+data class WifiNetworkDetails(
+    val ssid: String = "unknown",
+    val bssid: String = "unknown",
+    val hiddenSsid: Boolean? = null,
+    val frequencyMhz: Int? = null,
+    val band: String = "unknown",
+    val channelWidth: String = "unknown",
+    val wifiStandard: String = "unknown",
+    val rssiDbm: Int? = null,
+    val linkSpeedMbps: Int? = null,
+    val rxLinkSpeedMbps: Int? = null,
+    val txLinkSpeedMbps: Int? = null,
+    val networkId: Int? = null,
+    val isPasspoint: Boolean? = null,
+    val isOsuAp: Boolean? = null,
+    val gateway: String? = null,
+    val dhcpServer: String? = null,
+    val ipAddress: String? = null,
+    val subnetMask: String? = null,
+    val leaseDurationSeconds: Int? = null,
+)
+
+@Serializable
+data class CellularNetworkDetails(
+    val carrierName: String = "unknown",
+    val simOperatorName: String = "unknown",
+    val networkOperatorName: String = "unknown",
+    val networkCountryIso: String = "unknown",
+    val simCountryIso: String = "unknown",
+    val operatorCode: String = "unknown",
+    val simOperatorCode: String = "unknown",
+    val dataNetworkType: String = "unknown",
+    val voiceNetworkType: String = "unknown",
+    val dataState: String = "unknown",
+    val serviceState: String = "unknown",
+    val isNetworkRoaming: Boolean? = null,
+    val carrierId: Int? = null,
+    val simCarrierId: Int? = null,
+    val signalLevel: Int? = null,
+    val signalDbm: Int? = null,
 )
 
 @Serializable
