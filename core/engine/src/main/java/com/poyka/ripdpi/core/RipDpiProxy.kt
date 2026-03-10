@@ -1,9 +1,14 @@
 package com.poyka.ripdpi.core
 
+import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
-class RipDpiProxy {
+class RipDpiProxy
+    @Inject
+    constructor() {
     companion object {
         init {
             System.loadLibrary("ripdpi")
@@ -11,118 +16,53 @@ class RipDpiProxy {
     }
 
     private val mutex = Mutex()
-    private var fd = -1
+    private var handle = 0L
 
     suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
-        val fd = createSocket(preferences)
-        if (fd < 0) {
-            return -fd
+        val handle =
+            mutex.withLock {
+                if (this.handle != 0L) {
+                    throw IllegalStateException("Proxy is already running")
+                }
+
+                val createdHandle = jniCreate(preferences.toNativeConfigJson())
+                if (createdHandle == 0L) {
+                    throw IllegalStateException("Native proxy session was not created")
+                }
+                this.handle = createdHandle
+                createdHandle
+            }
+
+        try {
+            return withContext(Dispatchers.IO) { jniStart(handle) }
+        } finally {
+            mutex.withLock {
+                if (this.handle == handle) {
+                    try {
+                        jniDestroy(handle)
+                    } finally {
+                        this.handle = 0L
+                    }
+                }
+            }
         }
-        return jniStartProxy(fd)
     }
 
-    suspend fun stopProxy(): Int {
+    suspend fun stopProxy() {
         mutex.withLock {
-            if (fd < 0) {
+            if (handle == 0L) {
                 throw IllegalStateException("Proxy is not running")
             }
 
-            val result = jniStopProxy(fd)
-            if (result == 0) {
-                fd = -1
-            }
-            return result
+            jniStop(handle)
         }
     }
 
-    private suspend fun createSocket(preferences: RipDpiProxyPreferences): Int =
-        mutex.withLock {
-            if (fd >= 0) {
-                throw IllegalStateException("Proxy is already running")
-            }
+    private external fun jniCreate(configJson: String): Long
 
-            val fd = createSocketFromPreferences(preferences)
-            if (fd < 0) {
-                return -1
-            }
-            this.fd = fd
-            fd
-        }
+    private external fun jniStart(handle: Long): Int
 
-    private fun createSocketFromPreferences(preferences: RipDpiProxyPreferences) =
-        when (preferences) {
-            is RipDpiProxyCmdPreferences -> {
-                jniCreateSocketWithCommandLine(preferences.args)
-            }
+    private external fun jniStop(handle: Long)
 
-            is RipDpiProxyUIPreferences -> {
-                jniCreateSocket(
-                    ip = preferences.ip,
-                    port = preferences.port,
-                    maxConnections = preferences.maxConnections,
-                    bufferSize = preferences.bufferSize,
-                    defaultTtl = preferences.defaultTtl,
-                    customTtl = preferences.customTtl,
-                    noDomain = preferences.noDomain,
-                    desyncHttp = preferences.desyncHttp,
-                    desyncHttps = preferences.desyncHttps,
-                    desyncUdp = preferences.desyncUdp,
-                    desyncMethod = preferences.desyncMethod.ordinal,
-                    splitPosition = preferences.splitPosition,
-                    splitAtHost = preferences.splitAtHost,
-                    fakeTtl = preferences.fakeTtl,
-                    fakeSni = preferences.fakeSni,
-                    oobChar = preferences.oobChar,
-                    hostMixedCase = preferences.hostMixedCase,
-                    domainMixedCase = preferences.domainMixedCase,
-                    hostRemoveSpaces = preferences.hostRemoveSpaces,
-                    tlsRecordSplit = preferences.tlsRecordSplit,
-                    tlsRecordSplitPosition = preferences.tlsRecordSplitPosition,
-                    tlsRecordSplitAtSni = preferences.tlsRecordSplitAtSni,
-                    hostsMode = preferences.hostsMode.ordinal,
-                    hosts = preferences.hosts,
-                    tcpFastOpen = preferences.tcpFastOpen,
-                    udpFakeCount = preferences.udpFakeCount,
-                    dropSack = preferences.dropSack,
-                    fakeOffset = preferences.fakeOffset,
-                )
-            }
-        }
-
-    private external fun jniCreateSocketWithCommandLine(args: Array<String>): Int
-
-    private external fun jniCreateSocket(
-        ip: String,
-        port: Int,
-        maxConnections: Int,
-        bufferSize: Int,
-        defaultTtl: Int,
-        customTtl: Boolean,
-        noDomain: Boolean,
-        desyncHttp: Boolean,
-        desyncHttps: Boolean,
-        desyncUdp: Boolean,
-        desyncMethod: Int,
-        splitPosition: Int,
-        splitAtHost: Boolean,
-        fakeTtl: Int,
-        fakeSni: String,
-        oobChar: Byte,
-        hostMixedCase: Boolean,
-        domainMixedCase: Boolean,
-        hostRemoveSpaces: Boolean,
-        tlsRecordSplit: Boolean,
-        tlsRecordSplitPosition: Int,
-        tlsRecordSplitAtSni: Boolean,
-        hostsMode: Int,
-        hosts: String?,
-        tcpFastOpen: Boolean,
-        udpFakeCount: Int,
-        dropSack: Boolean,
-        fakeOffset: Int,
-    ): Int
-
-    private external fun jniStartProxy(fd: Int): Int
-
-    private external fun jniStopProxy(fd: Int): Int
+    private external fun jniDestroy(handle: Long)
 }

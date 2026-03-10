@@ -1,5 +1,6 @@
 plugins {
     id("ripdpi.android.library")
+    id("ripdpi.android.hilt")
 }
 
 android {

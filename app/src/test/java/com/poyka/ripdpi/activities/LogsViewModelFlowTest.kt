@@ -1,13 +1,8 @@
 package com.poyka.ripdpi.activities
 
-import android.app.Application
 import app.cash.turbine.test
-import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.services.AppStateManager
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.test.runTest
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -18,12 +13,7 @@ class LogsViewModelFlowTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    @After
-    fun tearDown() {
-        AppStateManager.setStatus(AppStatus.Halted, Mode.VPN)
-    }
-
-    private fun createViewModel() = LogsViewModel(Application())
+    private fun createViewModel() = LogsViewModel(FakeServiceStateStore())
 
     @Test
     fun `initial uiState has empty logs and all filters active`() = runTest {
