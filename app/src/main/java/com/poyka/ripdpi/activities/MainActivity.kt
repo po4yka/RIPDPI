@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
     private val openHomeRequests = MutableStateFlow(false)
     private val openVpnPermissionRequests = MutableStateFlow(false)
     private var pendingNotificationAction: PendingStartAction? = null
+    private var pendingDiagnosticsExport: PendingDiagnosticsExport? = null
 
     companion object {
         private const val EXTRA_OPEN_HOME = "com.poyka.ripdpi.extra.OPEN_HOME"
@@ -82,6 +83,11 @@ class MainActivity : ComponentActivity() {
         OpenVpnPermission,
         RequestVpnPermission,
     }
+
+    private data class PendingDiagnosticsExport(
+        val filePath: String,
+        val fileName: String,
+    )
 
     private val vpnRegister =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -130,6 +136,19 @@ class MainActivity : ComponentActivity() {
                     }
                 } ?: run {
                     logcat(LogPriority.ERROR) { "Failed to open output stream" }
+                }
+            }
+        }
+
+    private val diagnosticsExportRegister =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            val export = pendingDiagnosticsExport ?: return@registerForActivityResult
+            pendingDiagnosticsExport = null
+            lifecycleScope.launch(Dispatchers.IO) {
+                val uri = it.data?.data ?: return@launch
+                val source = java.io.File(export.filePath)
+                contentResolver.openOutputStream(uri)?.use { stream ->
+                    source.inputStream().use { input -> input.copyTo(stream) }
                 }
             }
         }
@@ -189,6 +208,11 @@ class MainActivity : ComponentActivity() {
                     RipDpiNavHost(
                         startDestination = initialStartDestination,
                         onSaveLogs = { saveLogs() },
+                        onExportDiagnostics = { filePath ->
+                            if (filePath != null) {
+                                saveDiagnosticsExport(filePath)
+                            }
+                        },
                         mainViewModel = viewModel,
                         openVpnPermissionRequested = openVpnPermissionRequested,
                         onOpenVpnPermissionHandled = {
@@ -239,6 +263,22 @@ class MainActivity : ComponentActivity() {
                 putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
             }
         logsRegister.launch(intent)
+    }
+
+    private fun saveDiagnosticsExport(filePath: String) {
+        val source = java.io.File(filePath)
+        pendingDiagnosticsExport =
+            PendingDiagnosticsExport(
+                filePath = filePath,
+                fileName = source.name,
+            )
+        val intent =
+            Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "application/zip"
+                putExtra(Intent.EXTRA_TITLE, source.name)
+            }
+        diagnosticsExportRegister.launch(intent)
     }
 
     private fun requestStartAction(

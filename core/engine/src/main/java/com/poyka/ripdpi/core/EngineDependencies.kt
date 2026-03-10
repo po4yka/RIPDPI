@@ -29,14 +29,16 @@ class DefaultProxyPreferencesResolver
     }
 
 interface RipDpiProxyFactory {
-    fun create(): RipDpiProxy
+    fun create(): RipDpiProxyRuntime
 }
 
 @Singleton
 class DefaultRipDpiProxyFactory
     @Inject
-    constructor() : RipDpiProxyFactory {
-        override fun create(): RipDpiProxy = RipDpiProxy()
+    constructor(
+        private val nativeBindings: RipDpiProxyBindings,
+    ) : RipDpiProxyFactory {
+        override fun create(): RipDpiProxyRuntime = RipDpiProxy(nativeBindings)
     }
 
 interface Tun2SocksBridge {
@@ -52,8 +54,10 @@ interface Tun2SocksBridge {
 
 class NativeTun2SocksBridge
     @Inject
-    constructor() : Tun2SocksBridge {
-        private val tunnel = Tun2SocksTunnel()
+    constructor(
+        private val nativeBindings: Tun2SocksBindings,
+    ) : Tun2SocksBridge {
+        private val tunnel = Tun2SocksTunnel(nativeBindings)
 
         override suspend fun start(
             config: Tun2SocksConfig,
@@ -80,24 +84,73 @@ class DefaultTun2SocksBridgeFactory
         override fun create(): Tun2SocksBridge = NativeTun2SocksBridge()
     }
 
+interface NetworkDiagnosticsBridgeFactory {
+    fun create(): NetworkDiagnosticsBridge
+}
+
+@Singleton
+class DefaultNetworkDiagnosticsBridgeFactory
+    @Inject
+    constructor() : NetworkDiagnosticsBridgeFactory {
+        override fun create(): NetworkDiagnosticsBridge = NetworkDiagnostics()
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class EngineBindingsModule {
+abstract class ProxyPreferencesResolverModule {
     @Binds
     @Singleton
     abstract fun bindProxyPreferencesResolver(
         resolver: DefaultProxyPreferencesResolver,
     ): ProxyPreferencesResolver
+}
 
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RipDpiProxyBindingsModule {
+    @Binds
+    @Singleton
+    abstract fun bindRipDpiProxyBindings(
+        bindings: RipDpiProxyNativeBindings,
+    ): RipDpiProxyBindings
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RipDpiProxyFactoryModule {
     @Binds
     @Singleton
     abstract fun bindRipDpiProxyFactory(
         factory: DefaultRipDpiProxyFactory,
     ): RipDpiProxyFactory
+}
 
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class Tun2SocksBindingsModule {
+    @Binds
+    @Singleton
+    abstract fun bindTun2SocksBindings(
+        bindings: Tun2SocksNativeBindings,
+    ): Tun2SocksBindings
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class Tun2SocksBridgeFactoryModule {
     @Binds
     @Singleton
     abstract fun bindTun2SocksBridgeFactory(
         factory: DefaultTun2SocksBridgeFactory,
     ): Tun2SocksBridgeFactory
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class NetworkDiagnosticsBridgeFactoryModule {
+    @Binds
+    @Singleton
+    abstract fun bindNetworkDiagnosticsBridgeFactory(
+        factory: DefaultNetworkDiagnosticsBridgeFactory,
+    ): NetworkDiagnosticsBridgeFactory
 }

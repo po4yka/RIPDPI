@@ -762,10 +762,19 @@ dependencies = [
  "libc",
  "log",
  "once_cell",
+ "ripdpi-monitor",
  "ripdpi-runtime",
  "serde",
  "serde_json",
  "socket2 0.5.10",
+]
+
+[[package]]
+name = "ripdpi-monitor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

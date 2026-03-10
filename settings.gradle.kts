@@ -20,5 +20,6 @@ dependencyResolutionManagement {
 rootProject.name = "RipDpi"
 include(":app")
 include(":core:data")
+include(":core:diagnostics")
 include(":core:engine")
 include(":core:service")

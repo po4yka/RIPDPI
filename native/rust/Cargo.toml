@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/android-support",
+    "crates/ripdpi-monitor",
     "crates/ripdpi-runtime",
     "crates/ripdpi-android",
     "crates/hs5t-android",
@@ -14,6 +15,7 @@ license = "MIT"
 
 [workspace.dependencies]
 android-support = { path = "crates/android-support" }
+ripdpi-monitor = { path = "crates/ripdpi-monitor" }
 ripdpi-runtime = { path = "crates/ripdpi-runtime" }
 
 ciadpi-config = { path = "third_party/byedpi/crates/ciadpi-config" }

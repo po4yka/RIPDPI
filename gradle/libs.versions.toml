@@ -23,6 +23,7 @@ ktlint-plugin = "14.1.0"
 logcat = "0.4"
 splashscreen = "1.2.0"
 kotlinx-serialization = "1.10.0"
+room = "2.8.3"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
@@ -40,6 +41,9 @@ androidx-compose-material-icons-core = { module = "androidx.compose.material:mat
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-datastore = { module = "androidx.datastore:datastore", version.ref = "datastore" }
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protobuf" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
@@ -73,6 +77,10 @@ unit-test = [
     "junit",
     "kotlinx-coroutines-test",
     "turbine",
+]
+room = [
+    "androidx-room-runtime",
+    "androidx-room-ktx",
 ]
 
 [plugins]

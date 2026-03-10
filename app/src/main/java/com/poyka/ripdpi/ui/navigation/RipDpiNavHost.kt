@@ -18,6 +18,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.screens.config.ConfigRoute
@@ -25,6 +26,7 @@ import com.poyka.ripdpi.ui.screens.config.ModeEditorRoute
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
 import com.poyka.ripdpi.ui.screens.customization.AppCustomizationRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
+import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
@@ -41,6 +43,7 @@ fun RipDpiNavHost(
     modifier: Modifier = Modifier,
     startDestination: String = Route.Home.route,
     onSaveLogs: () -> Unit = {},
+    onExportDiagnostics: (String?) -> Unit = {},
     mainViewModel: MainViewModel,
     openVpnPermissionRequested: Boolean = false,
     onOpenVpnPermissionHandled: () -> Unit = {},
@@ -155,6 +158,14 @@ fun RipDpiNavHost(
                 ConfigRoute(
                     onOpenModeEditor = { navController.navigate(Route.ModeEditor.route) },
                     onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
+                )
+            }
+            composable(Route.Diagnostics.route) {
+                val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
+                DiagnosticsRoute(
+                    onExport = onExportDiagnostics,
+                    onSaveLogs = onSaveLogs,
+                    viewModel = diagnosticsViewModel,
                 )
             }
             composable(Route.Logs.route) {
