@@ -97,8 +97,10 @@ interface NetworkDiagnosticsBridgeFactory {
 @Singleton
 class DefaultNetworkDiagnosticsBridgeFactory
     @Inject
-    constructor() : NetworkDiagnosticsBridgeFactory {
-        override fun create(): NetworkDiagnosticsBridge = NetworkDiagnostics()
+    constructor(
+        private val bindings: NetworkDiagnosticsBindings,
+    ) : NetworkDiagnosticsBridgeFactory {
+        override fun create(): NetworkDiagnosticsBridge = NetworkDiagnostics(bindings)
     }
 
 @Module
@@ -159,4 +161,14 @@ abstract class NetworkDiagnosticsBridgeFactoryModule {
     abstract fun bindNetworkDiagnosticsBridgeFactory(
         factory: DefaultNetworkDiagnosticsBridgeFactory,
     ): NetworkDiagnosticsBridgeFactory
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class NetworkDiagnosticsBindingsModule {
+    @Binds
+    @Singleton
+    abstract fun bindNetworkDiagnosticsBindings(
+        bindings: NetworkDiagnosticsNativeBindings,
+    ): NetworkDiagnosticsBindings
 }
