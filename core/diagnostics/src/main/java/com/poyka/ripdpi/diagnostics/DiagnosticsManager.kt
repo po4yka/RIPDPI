@@ -4,6 +4,8 @@ import android.content.Context
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
@@ -22,6 +24,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.io.File
+import java.util.Locale
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -35,6 +38,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,6 +50,7 @@ interface DiagnosticsManager {
     val activeScanProgress: StateFlow<ScanProgress?>
     val profiles: Flow<List<DiagnosticProfileEntity>>
     val sessions: Flow<List<ScanSessionEntity>>
+    val approachStats: Flow<List<BypassApproachSummary>>
     val snapshots: Flow<List<NetworkSnapshotEntity>>
     val contexts: Flow<List<DiagnosticContextEntity>>
     val telemetry: Flow<List<TelemetrySampleEntity>>
@@ -61,6 +66,11 @@ interface DiagnosticsManager {
     suspend fun setActiveProfile(profileId: String)
 
     suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail
+
+    suspend fun loadApproachDetail(
+        kind: BypassApproachKind,
+        id: String,
+    ): BypassApproachDetail
 
     suspend fun buildShareSummary(sessionId: String?): ShareSummary
 
@@ -80,10 +90,10 @@ class DefaultDiagnosticsManager
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
         private val serviceStateStore: ServiceStateStore,
     ) : DiagnosticsManager {
-    private companion object {
+        private companion object {
         private const val DiagnosticsArchiveDirectory = "diagnostics-archives"
         private const val DiagnosticsArchivePrefix = "ripdpi-diagnostics-"
-        private const val ArchiveSchemaVersion = 4
+        private const val ArchiveSchemaVersion = 5
         private const val ArchivePrivacyMode = "split_output"
         private const val ArchiveScopeHybrid = "hybrid"
         private const val MaxArchiveFiles = 5
@@ -99,6 +109,13 @@ class DefaultDiagnosticsManager
     override val activeScanProgress: StateFlow<ScanProgress?> = _activeScanProgress.asStateFlow()
     override val profiles: Flow<List<DiagnosticProfileEntity>> = historyRepository.observeProfiles()
     override val sessions: Flow<List<ScanSessionEntity>> = historyRepository.observeRecentScanSessions()
+    override val approachStats: Flow<List<BypassApproachSummary>> =
+        combine(
+            historyRepository.observeRecentScanSessions(limit = 200),
+            historyRepository.observeBypassUsageSessions(limit = 200),
+        ) { scanSessions, usageSessions ->
+            buildApproachSummaries(scanSessions = scanSessions, usageSessions = usageSessions)
+        }
     override val snapshots: Flow<List<NetworkSnapshotEntity>> = historyRepository.observeSnapshots()
     override val contexts: Flow<List<DiagnosticContextEntity>> = historyRepository.observeContexts()
     override val telemetry: Flow<List<TelemetrySampleEntity>> = historyRepository.observeTelemetry()
@@ -106,6 +123,7 @@ class DefaultDiagnosticsManager
     override val exports: Flow<List<ExportRecordEntity>> = historyRepository.observeExportRecords()
 
     private var activeDiagnosticsBridge: NetworkDiagnosticsBridge? = null
+    private var activeUsageSession: BypassUsageSessionEntity? = null
     @Volatile
     private var initialized = false
 
@@ -126,10 +144,22 @@ class DefaultDiagnosticsManager
         val request = json.decodeFromString(ScanRequest.serializer(), profile.requestJson)
         val sessionId = UUID.randomUUID().toString()
         val serviceMode = serviceStateStore.status.value.second.name
+        val contextSnapshot = diagnosticsContextProvider.captureContext()
+        val approachSnapshot =
+            createApproachSnapshot(
+                settings = settings,
+                profile = profile,
+                context = contextSnapshot,
+            )
         historyRepository.upsertScanSession(
             ScanSessionEntity(
                 id = sessionId,
                 profileId = profileId,
+                approachProfileId = approachSnapshot.profileId,
+                approachProfileName = approachSnapshot.profileName,
+                strategyId = approachSnapshot.strategyId,
+                strategyLabel = approachSnapshot.strategyLabel,
+                strategyJson = approachSnapshot.strategyJson,
                 pathMode = pathMode.name,
                 serviceMode = serviceMode,
                 status = "running",
@@ -153,7 +183,7 @@ class DefaultDiagnosticsManager
                 id = UUID.randomUUID().toString(),
                 sessionId = sessionId,
                 contextKind = "pre_scan",
-                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), diagnosticsContextProvider.captureContext()),
+                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), contextSnapshot),
                 capturedAt = System.currentTimeMillis(),
             ),
         )
@@ -175,10 +205,18 @@ class DefaultDiagnosticsManager
                         null
                     },
             )
-        bridge.startScan(
-            requestJson = json.encodeToString(ScanRequest.serializer(), requestForPath),
-            sessionId = sessionId,
-        )
+        try {
+            bridge.startScan(
+                requestJson = json.encodeToString(ScanRequest.serializer(), requestForPath),
+                sessionId = sessionId,
+            )
+        } catch (error: Throwable) {
+            activeDiagnosticsBridge = null
+            runCatching { bridge.destroy() }
+            _activeScanProgress.value = null
+            persistScanFailure(sessionId, error.message ?: "Diagnostics scan failed to start")
+            throw error
+        }
         _activeScanProgress.value =
             ScanProgress(
                 sessionId = sessionId,
@@ -189,20 +227,23 @@ class DefaultDiagnosticsManager
             )
 
         scope.launch {
-            val scanBlock: suspend () -> Unit = {
-                try {
+            try {
+                val scanBlock: suspend () -> Unit = {
                     pollScanResult(sessionId, bridge)
-                } finally {
-                    bridge.destroy()
-                    if (activeDiagnosticsBridge === bridge) {
-                        activeDiagnosticsBridge = null
-                    }
                 }
-            }
 
-            when (pathMode) {
-                ScanPathMode.RAW_PATH -> runtimeCoordinator.runRawPathScan(scanBlock)
-                ScanPathMode.IN_PATH -> scanBlock()
+                when (pathMode) {
+                    ScanPathMode.RAW_PATH -> runtimeCoordinator.runRawPathScan(scanBlock)
+                    ScanPathMode.IN_PATH -> scanBlock()
+                }
+            } catch (error: Throwable) {
+                persistScanFailure(sessionId, error.message ?: "Diagnostics scan failed")
+            } finally {
+                _activeScanProgress.value = null
+                runCatching { bridge.destroy() }
+                if (activeDiagnosticsBridge === bridge) {
+                    activeDiagnosticsBridge = null
+                }
             }
         }
         return sessionId
@@ -240,6 +281,63 @@ class DefaultDiagnosticsManager
                 snapshots = snapshots,
                 events = events,
                 context = latestContext,
+            )
+        }
+
+    override suspend fun loadApproachDetail(
+        kind: BypassApproachKind,
+        id: String,
+    ): BypassApproachDetail =
+        withContext(Dispatchers.IO) {
+            val sessions = historyRepository.observeRecentScanSessions(limit = 200).first()
+            val usageSessions = historyRepository.observeBypassUsageSessions(limit = 200).first()
+            val summary =
+                buildApproachSummaries(scanSessions = sessions, usageSessions = usageSessions)
+                    .firstOrNull { it.approachId.kind == kind && it.approachId.value == id }
+                    ?: throw IllegalArgumentException("Unknown bypass approach: $kind/$id")
+
+            val matchingSessions =
+                sessions.filter { session ->
+                    when (kind) {
+                        BypassApproachKind.Profile -> session.approachProfileId == id || session.profileId == id
+                        BypassApproachKind.Strategy -> session.strategyId == id
+                    }
+                }
+            val matchingUsageSessions =
+                usageSessions.filter { usage ->
+                    when (kind) {
+                        BypassApproachKind.Profile -> usage.approachProfileId == id
+                        BypassApproachKind.Strategy -> usage.strategyId == id
+                    }
+                }
+            val failureNotes =
+                matchingSessions
+                    .flatMap { session ->
+                        decodeScanReport(session.reportJson)
+                            ?.results
+                            .orEmpty()
+                            .filterNot { it.outcome.isSuccessfulOutcome() }
+                            .map { result -> "${result.probeType}:${result.target}=${result.outcome}" }
+                    }.take(8)
+            val strategySignature =
+                when (kind) {
+                    BypassApproachKind.Profile ->
+                        matchingSessions
+                            .firstNotNullOfOrNull { decodeStrategySignature(it.strategyJson) }
+                            ?: matchingUsageSessions.firstNotNullOfOrNull { decodeStrategySignature(it.strategyJson) }
+                    BypassApproachKind.Strategy ->
+                        matchingSessions
+                            .firstNotNullOfOrNull { decodeStrategySignature(it.strategyJson) }
+                            ?: matchingUsageSessions.firstNotNullOfOrNull { decodeStrategySignature(it.strategyJson) }
+                }
+
+            BypassApproachDetail(
+                summary = summary,
+                strategySignature = strategySignature,
+                recentValidatedSessions = matchingSessions.take(6),
+                recentUsageSessions = matchingUsageSessions.take(6),
+                commonProbeFailures = summary.topFailureOutcomes,
+                recentFailureNotes = failureNotes,
             )
         }
 
@@ -365,10 +463,12 @@ class DefaultDiagnosticsManager
             val fileName = "$DiagnosticsArchivePrefix$timestamp.zip"
             val target = File(archiveDirectory, fileName)
             val sessions = historyRepository.observeRecentScanSessions(limit = 50).first()
+            val usageSessions = historyRepository.observeBypassUsageSessions(limit = 120).first()
             val snapshots = historyRepository.observeSnapshots(limit = ArchiveSnapshotLimit).first()
             val telemetry = historyRepository.observeTelemetry(limit = ArchiveTelemetryLimit).first()
             val events = historyRepository.observeNativeEvents(limit = ArchiveGlobalEventLimit).first()
             val contexts = historyRepository.observeContexts(limit = ArchiveSnapshotLimit).first()
+            val approachSummaries = buildApproachSummaries(scanSessions = sessions, usageSessions = usageSessions)
             val primarySession =
                 sessionId
                     ?.let { historyRepository.getScanSession(it) }
@@ -398,7 +498,15 @@ class DefaultDiagnosticsManager
                     latestPassiveContext = latestPassiveContext,
                     telemetry = telemetry.take(ArchiveTelemetryLimit),
                     globalEvents = globalEvents,
+                    approachSummaries = approachSummaries,
                 )
+            val selectedApproachSummary =
+                primarySession?.strategyId?.let { strategyId ->
+                    approachSummaries.firstOrNull {
+                        it.approachId.kind == BypassApproachKind.Strategy &&
+                            it.approachId.value == strategyId
+                    }
+                }
             val primarySnapshotModel =
                 primarySnapshots
                     .maxByOrNull { it.capturedAt }
@@ -437,6 +545,7 @@ class DefaultDiagnosticsManager
                         latestContext = sessionContextModel ?: latestContextModel,
                         telemetry = telemetry,
                         globalEvents = globalEvents,
+                        selectedApproach = selectedApproachSummary,
                     )
                 zip.write(summary.toByteArray())
                 zip.closeEntry()
@@ -486,6 +595,8 @@ class DefaultDiagnosticsManager
                             sessionEventCount = primaryEvents.size,
                             telemetrySampleCount = payload.telemetry.size,
                             globalEventCount = globalEvents.size,
+                            approachCount = approachSummaries.size,
+                            selectedApproach = selectedApproachSummary,
                             networkSummary = latestSnapshotModel?.toRedactedSummary(),
                             contextSummary = (sessionContextModel ?: latestContextModel)?.toRedactedSummary(),
                         ),
@@ -544,9 +655,23 @@ class DefaultDiagnosticsManager
         scope.launch {
             while (true) {
                 val settings = appSettingsRepository.snapshot()
-                if (settings.diagnosticsMonitorEnabled && serviceStateStore.status.value.first.name == "Running") {
-                    val snapshot = networkMetadataProvider.captureSnapshot()
-                    val serviceTelemetry = serviceStateStore.telemetry.value
+                val status = serviceStateStore.status.value
+                val serviceTelemetry = serviceStateStore.telemetry.value
+                val runtimeSnapshot =
+                    if (status.first.name == "Running") {
+                        runCatching { networkMetadataProvider.captureSnapshot() }.getOrNull()
+                    } else {
+                        null
+                    }
+                syncUsageSession(
+                    settings = settings,
+                    serviceStatus = status.first,
+                    serviceMode = status.second,
+                    serviceTelemetry = serviceTelemetry,
+                    networkType = runtimeSnapshot?.transport ?: "unknown",
+                )
+                if (settings.diagnosticsMonitorEnabled && status.first.name == "Running") {
+                    val snapshot = runtimeSnapshot ?: networkMetadataProvider.captureSnapshot()
                     val tunnelStats = serviceTelemetry.tunnelStats
                     historyRepository.upsertSnapshot(
                         NetworkSnapshotEntity(
@@ -589,6 +714,97 @@ class DefaultDiagnosticsManager
         }
     }
 
+    private suspend fun syncUsageSession(
+        settings: com.poyka.ripdpi.proto.AppSettings,
+        serviceStatus: com.poyka.ripdpi.data.AppStatus,
+        serviceMode: Mode,
+        serviceTelemetry: com.poyka.ripdpi.services.ServiceTelemetrySnapshot,
+        networkType: String,
+    ) {
+        if (serviceStatus == com.poyka.ripdpi.data.AppStatus.Running) {
+            if (activeUsageSession == null) {
+                activeUsageSession = createUsageSession(settings = settings, serviceMode = serviceMode)
+                activeUsageSession?.let { historyRepository.upsertBypassUsageSession(it) }
+            }
+            updateActiveUsageSession(
+                serviceMode = serviceMode,
+                serviceTelemetry = serviceTelemetry,
+                networkType = networkType,
+            )
+        } else if (activeUsageSession != null) {
+            finalizeActiveUsageSession(serviceTelemetry = serviceTelemetry)
+        }
+    }
+
+    private suspend fun createUsageSession(
+        settings: com.poyka.ripdpi.proto.AppSettings,
+        serviceMode: Mode,
+    ): BypassUsageSessionEntity {
+        val profile =
+            settings.diagnosticsActiveProfileId
+                .takeIf { it.isNotBlank() }
+                ?.let { historyRepository.getProfile(it) }
+        val context = diagnosticsContextProvider.captureContext()
+        val approach = createApproachSnapshot(settings = settings, profile = profile, context = context)
+        return BypassUsageSessionEntity(
+            id = UUID.randomUUID().toString(),
+            startedAt = System.currentTimeMillis(),
+            finishedAt = null,
+            serviceMode = serviceMode.name,
+            approachProfileId = approach.profileId,
+            approachProfileName = approach.profileName,
+            strategyId = approach.strategyId,
+            strategyLabel = approach.strategyLabel,
+            strategyJson = approach.strategyJson,
+            networkType = "unknown",
+            txBytes = 0L,
+            rxBytes = 0L,
+            totalErrors = 0L,
+            routeChanges = 0L,
+            restartCount = context.service.restartCount,
+            endedReason = null,
+        )
+    }
+
+    private suspend fun updateActiveUsageSession(
+        serviceMode: Mode,
+        serviceTelemetry: com.poyka.ripdpi.services.ServiceTelemetrySnapshot,
+        networkType: String,
+    ) {
+        val current = activeUsageSession ?: return
+        val updated =
+            current.copy(
+                serviceMode = serviceMode.name,
+                networkType = networkType,
+                txBytes = serviceTelemetry.tunnelStats.txBytes,
+                rxBytes = serviceTelemetry.tunnelStats.rxBytes,
+                totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
+                routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
+                restartCount = serviceTelemetry.restartCount,
+            )
+        activeUsageSession = updated
+        historyRepository.upsertBypassUsageSession(updated)
+    }
+
+    private suspend fun finalizeActiveUsageSession(serviceTelemetry: com.poyka.ripdpi.services.ServiceTelemetrySnapshot) {
+        val current = activeUsageSession ?: return
+        val endedReason =
+            serviceTelemetry.lastFailureSender?.senderName?.let { "failed:$it" }
+                ?: "stopped"
+        historyRepository.upsertBypassUsageSession(
+            current.copy(
+                finishedAt = System.currentTimeMillis(),
+                txBytes = serviceTelemetry.tunnelStats.txBytes,
+                rxBytes = serviceTelemetry.tunnelStats.rxBytes,
+                totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
+                routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
+                restartCount = serviceTelemetry.restartCount,
+                endedReason = endedReason,
+            ),
+        )
+        activeUsageSession = null
+    }
+
     private fun settingsDelaySeconds(settings: com.poyka.ripdpi.proto.AppSettings): Int =
         settings.diagnosticsSampleIntervalSeconds.coerceIn(5, 300)
 
@@ -628,6 +844,7 @@ class DefaultDiagnosticsManager
         latestContext: DiagnosticContextModel?,
         telemetry: List<TelemetrySampleEntity>,
         globalEvents: List<NativeSessionEventEntity>,
+        selectedApproach: BypassApproachSummary?,
     ): String =
         buildString {
             appendLine("RIPDPI diagnostics archive")
@@ -640,6 +857,13 @@ class DefaultDiagnosticsManager
                 appendLine("serviceMode=${it.serviceMode ?: "unknown"}")
                 appendLine("status=${it.status}")
                 appendLine("summary=${it.summary}")
+            }
+            selectedApproach?.let {
+                appendLine("approach=${it.displayName}")
+                appendLine("approachVerification=${it.verificationState}")
+                appendLine("approachSuccessRate=${it.validatedSuccessRate?.let { rate -> "${(rate * 100).toInt()}%" } ?: "unverified"}")
+                appendLine("approachUsageCount=${it.usageCount}")
+                appendLine("approachRuntimeMs=${it.totalRuntimeDurationMs}")
             }
             latestSnapshot?.toRedactedSummary()?.let { summary ->
                 appendLine("transport=${summary.transport}")
@@ -727,7 +951,7 @@ class DefaultDiagnosticsManager
                 val report =
                     bridge.takeReportJson()
                         ?.let { json.decodeFromString(ScanReport.serializer(), it) }
-                        ?: break
+                        ?: throw IllegalStateException("Diagnostics scan completed without a report")
                 persistScanReport(report)
                 historyRepository.upsertSnapshot(
                     NetworkSnapshotEntity(
@@ -758,11 +982,31 @@ class DefaultDiagnosticsManager
         }
     }
 
+    private suspend fun persistScanFailure(
+        sessionId: String,
+        summary: String,
+    ) {
+        val existing = historyRepository.getScanSession(sessionId) ?: return
+        historyRepository.upsertScanSession(
+            existing.copy(
+                status = "failed",
+                summary = summary,
+                finishedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
     private suspend fun persistScanReport(report: ScanReport) {
+        val existing = historyRepository.getScanSession(report.sessionId)
         historyRepository.upsertScanSession(
             ScanSessionEntity(
                 id = report.sessionId,
                 profileId = report.profileId,
+                approachProfileId = existing?.approachProfileId,
+                approachProfileName = existing?.approachProfileName,
+                strategyId = existing?.strategyId,
+                strategyLabel = existing?.strategyLabel,
+                strategyJson = existing?.strategyJson,
                 pathMode = report.pathMode.name,
                 serviceMode = serviceStateStore.status.value.second.name,
                 status = "completed",
@@ -842,7 +1086,182 @@ class DefaultDiagnosticsManager
                 )
             }
     }
+
+    private fun createApproachSnapshot(
+        settings: com.poyka.ripdpi.proto.AppSettings,
+        profile: DiagnosticProfileEntity?,
+        context: DiagnosticContextModel,
+    ): ApproachSnapshot {
+        val signature =
+            deriveBypassStrategySignature(
+                settings = settings,
+                routeGroup = context.service.routeGroup,
+                modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }),
+            )
+        val strategyJson = json.encodeToString(BypassStrategySignature.serializer(), signature)
+        return ApproachSnapshot(
+            profileId = profile?.id ?: settings.diagnosticsActiveProfileId.takeIf { it.isNotBlank() },
+            profileName = profile?.name ?: context.service.selectedProfileName,
+            strategyId = signature.stableId(),
+            strategyLabel = signature.displayLabel(),
+            strategyJson = strategyJson,
+        )
+    }
+
+    private fun decodeScanReport(payload: String?): ScanReport? =
+        payload?.takeIf { it.isNotBlank() }?.let {
+            runCatching { json.decodeFromString(ScanReport.serializer(), it) }.getOrNull()
+        }
+
+    private fun decodeStrategySignature(payload: String?): BypassStrategySignature? =
+        payload?.takeIf { it.isNotBlank() }?.let {
+            runCatching { json.decodeFromString(BypassStrategySignature.serializer(), it) }.getOrNull()
+        }
+
+    private fun buildApproachSummaries(
+        scanSessions: List<ScanSessionEntity>,
+        usageSessions: List<BypassUsageSessionEntity>,
+    ): List<BypassApproachSummary> {
+        val profileIds =
+            (
+                scanSessions.mapNotNull { it.approachProfileId ?: it.profileId.takeIf { value -> value.isNotBlank() } } +
+                    usageSessions.mapNotNull { it.approachProfileId }
+            ).distinct()
+        val strategyIds =
+            (
+                scanSessions.mapNotNull { it.strategyId } +
+                    usageSessions.map { it.strategyId }
+            ).distinct()
+
+        val profileSummaries =
+            profileIds.map { profileId ->
+                val matchingSessions =
+                    scanSessions.filter { session ->
+                        session.approachProfileId == profileId || session.profileId == profileId
+                    }
+                val matchingUsage = usageSessions.filter { it.approachProfileId == profileId }
+                aggregateApproachSummary(
+                    kind = BypassApproachKind.Profile,
+                    id = profileId,
+                    displayName =
+                        matchingSessions.firstNotNullOfOrNull { it.approachProfileName }
+                            ?: matchingUsage.firstNotNullOfOrNull { it.approachProfileName }
+                            ?: profileId,
+                    secondaryLabel = "Profile",
+                    matchingSessions = matchingSessions,
+                    matchingUsage = matchingUsage,
+                )
+            }
+
+        val strategySummaries =
+            strategyIds.map { strategyId ->
+                val matchingSessions = scanSessions.filter { it.strategyId == strategyId }
+                val matchingUsage = usageSessions.filter { it.strategyId == strategyId }
+                aggregateApproachSummary(
+                    kind = BypassApproachKind.Strategy,
+                    id = strategyId,
+                    displayName =
+                        matchingSessions.firstNotNullOfOrNull { it.strategyLabel }
+                            ?: matchingUsage.firstOrNull()?.strategyLabel
+                            ?: strategyId,
+                    secondaryLabel = "Strategy",
+                    matchingSessions = matchingSessions,
+                    matchingUsage = matchingUsage,
+                )
+            }
+
+        return (profileSummaries + strategySummaries)
+            .sortedWith(
+                compareByDescending<BypassApproachSummary> { it.validatedSuccessRate ?: -1f }
+                    .thenByDescending { it.validatedScanCount }
+                    .thenByDescending { it.usageCount }
+                    .thenByDescending { it.lastUsedAt ?: 0L },
+            )
+    }
+
+    private fun aggregateApproachSummary(
+        kind: BypassApproachKind,
+        id: String,
+        displayName: String,
+        secondaryLabel: String,
+        matchingSessions: List<ScanSessionEntity>,
+        matchingUsage: List<BypassUsageSessionEntity>,
+    ): BypassApproachSummary {
+        val validatedReports =
+            matchingSessions
+                .mapNotNull { session -> decodeScanReport(session.reportJson)?.let { session to it } }
+        val successfulReports = validatedReports.count { (_, report) -> report.results.isNotEmpty() && report.results.all { it.outcome.isSuccessfulOutcome() } }
+        val allResults = validatedReports.flatMap { it.second.results }
+        val failureOutcomes =
+            allResults
+                .filterNot { it.outcome.isSuccessfulOutcome() }
+                .groupingBy { it.outcome }
+                .eachCount()
+                .entries
+                .sortedByDescending { it.value }
+                .map { "${it.key} (${it.value})" }
+                .take(3)
+        val outcomeBreakdown =
+            allResults
+                .groupBy { it.probeType }
+                .map { (probeType, results) ->
+                    val failures = results.filterNot { it.outcome.isSuccessfulOutcome() }
+                    BypassOutcomeBreakdown(
+                        probeType = probeType,
+                        successCount = results.count { it.outcome.isSuccessfulOutcome() },
+                        warningCount = results.count { it.outcome.isWarningOutcome() },
+                        failureCount = failures.size,
+                        dominantFailureOutcome =
+                            failures
+                                .groupingBy { it.outcome }
+                                .eachCount()
+                                .maxByOrNull { it.value }
+                                ?.key,
+                    )
+                }.sortedBy { it.probeType }
+        val totalRuntimeDurationMs =
+            matchingUsage.sumOf { usage ->
+                (usage.finishedAt ?: System.currentTimeMillis()) - usage.startedAt
+            }
+        val recentUsage = matchingUsage.sortedByDescending { it.startedAt }.take(5)
+        val latestValidated = validatedReports.maxByOrNull { it.first.startedAt }?.first
+        val verificationState = if (validatedReports.isEmpty()) "unverified" else "validated"
+
+        return BypassApproachSummary(
+            approachId = BypassApproachId(kind = kind, value = id),
+            displayName = displayName,
+            secondaryLabel = secondaryLabel,
+            verificationState = verificationState,
+            validatedScanCount = validatedReports.size,
+            validatedSuccessCount = successfulReports,
+            validatedSuccessRate =
+                validatedReports.size
+                    .takeIf { it > 0 }
+                    ?.let { successfulReports.toFloat() / it.toFloat() },
+            lastValidatedResult = latestValidated?.summary,
+            usageCount = matchingUsage.size,
+            totalRuntimeDurationMs = totalRuntimeDurationMs,
+            recentRuntimeHealth =
+                BypassRuntimeHealthSummary(
+                    totalErrors = recentUsage.sumOf { it.totalErrors },
+                    routeChanges = recentUsage.sumOf { it.routeChanges },
+                    restartCount = recentUsage.maxOfOrNull { it.restartCount } ?: 0,
+                    lastEndedReason = recentUsage.firstOrNull { !it.endedReason.isNullOrBlank() }?.endedReason,
+                ),
+            lastUsedAt = matchingUsage.maxOfOrNull { it.finishedAt ?: it.startedAt },
+            topFailureOutcomes = failureOutcomes,
+            outcomeBreakdown = outcomeBreakdown,
+        )
+    }
 }
+
+private data class ApproachSnapshot(
+    val profileId: String?,
+    val profileName: String,
+    val strategyId: String,
+    val strategyLabel: String,
+    val strategyJson: String,
+)
 
 @Serializable
 internal data class DiagnosticsArchivePayload(
@@ -858,6 +1277,7 @@ internal data class DiagnosticsArchivePayload(
     val latestPassiveContext: DiagnosticContextEntity?,
     val telemetry: List<TelemetrySampleEntity>,
     val globalEvents: List<NativeSessionEventEntity>,
+    val approachSummaries: List<BypassApproachSummary>,
 )
 
 @Serializable
@@ -874,6 +1294,8 @@ internal data class DiagnosticsArchiveManifest(
     val sessionEventCount: Int,
     val telemetrySampleCount: Int,
     val globalEventCount: Int,
+    val approachCount: Int,
+    val selectedApproach: BypassApproachSummary?,
     val networkSummary: RedactedNetworkSummary?,
     val contextSummary: RedactedDiagnosticContextSummary?,
 )
@@ -1039,6 +1461,26 @@ private fun DiagnosticContextModel.toRedactedSummary(): RedactedDiagnosticContex
                 roamingState = environment.roamingState,
             ),
     )
+
+private fun String.isSuccessfulOutcome(): Boolean {
+    val normalized = lowercase(Locale.US)
+    return normalized.contains("ok") ||
+        normalized.contains("success") ||
+        normalized.contains("completed") ||
+        normalized.contains("reachable") ||
+        normalized.contains("allowed")
+}
+
+private fun String.isWarningOutcome(): Boolean {
+    if (isSuccessfulOutcome()) {
+        return false
+    }
+    val normalized = lowercase(Locale.US)
+    return normalized.contains("timeout") ||
+        normalized.contains("partial") ||
+        normalized.contains("mixed") ||
+        normalized.contains("warn")
+}
 
 @Module
 @InstallIn(SingletonComponent::class)

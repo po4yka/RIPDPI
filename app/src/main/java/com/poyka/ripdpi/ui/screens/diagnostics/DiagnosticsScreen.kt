@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsEffect
 import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
@@ -81,6 +82,8 @@ fun DiagnosticsRoute(
     onSaveArchive: (String, String) -> Unit,
     onShareSummary: (String, String) -> Unit,
     onSaveLogs: () -> Unit,
+    initialSection: DiagnosticsSection? = null,
+    onInitialSectionHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: DiagnosticsViewModel = hiltViewModel(),
 ) {
@@ -110,6 +113,13 @@ fun DiagnosticsRoute(
         }
     }
 
+    LaunchedEffect(initialSection) {
+        initialSection?.let {
+            viewModel.selectSection(it)
+            onInitialSectionHandled()
+        }
+    }
+
     DiagnosticsScreen(
         uiState = uiState,
         pagerState = pagerState,
@@ -120,6 +130,9 @@ fun DiagnosticsRoute(
         onCancelScan = viewModel::cancelScan,
         onSelectSession = viewModel::selectSession,
         onDismissSessionDetail = viewModel::dismissSessionDetail,
+        onSelectApproachMode = viewModel::selectApproachMode,
+        onSelectApproach = viewModel::selectApproach,
+        onDismissApproachDetail = viewModel::dismissApproachDetail,
         onSelectEvent = viewModel::selectEvent,
         onDismissEventDetail = viewModel::dismissEventDetail,
         onSelectProbe = viewModel::selectProbe,
@@ -151,6 +164,9 @@ fun DiagnosticsScreen(
     onCancelScan: () -> Unit,
     onSelectSession: (String) -> Unit,
     onDismissSessionDetail: () -> Unit,
+    onSelectApproachMode: (DiagnosticsApproachMode) -> Unit,
+    onSelectApproach: (String) -> Unit,
+    onDismissApproachDetail: () -> Unit,
     onSelectEvent: (String) -> Unit,
     onDismissEventDetail: () -> Unit,
     onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
@@ -218,6 +234,13 @@ fun DiagnosticsScreen(
                         onPathModeFilter = onSessionPathFilter,
                         onStatusFilter = onSessionStatusFilter,
                         onSearch = onSessionSearch,
+                    )
+
+                DiagnosticsSection.Approaches ->
+                    ApproachesSection(
+                        uiState = uiState,
+                        onSelectMode = onSelectApproachMode,
+                        onSelectApproach = onSelectApproach,
                     )
 
                 DiagnosticsSection.Events ->
@@ -310,6 +333,50 @@ fun DiagnosticsScreen(
                 style = RipDpiThemeTokens.type.body,
                 color = colors.foreground,
             )
+        }
+    }
+
+    uiState.selectedApproachDetail?.let { detail ->
+        RipDpiBottomSheet(
+            onDismissRequest = onDismissApproachDetail,
+            title = detail.approach.title,
+            message = detail.approach.subtitle,
+            icon = RipDpiIcons.Search,
+        ) {
+            StatusIndicator(label = detail.approach.verificationState, tone = statusTone(detail.approach.tone))
+            if (detail.signature.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.diagnostics_approaches_signature_title),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                detail.signature.forEach { item ->
+                    SettingsRow(title = item.label, value = item.value, monospaceValue = false)
+                }
+            }
+            if (detail.breakdown.isNotEmpty()) {
+                MetricsRow(metrics = detail.breakdown)
+            }
+            if (detail.runtimeSummary.isNotEmpty()) {
+                MetricsRow(metrics = detail.runtimeSummary)
+            }
+            detail.recentSessions.forEach { session ->
+                SessionRow(session = session, onClick = {})
+            }
+            detail.recentUsageNotes.forEach { note ->
+                Text(
+                    text = note,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+            detail.failureNotes.forEach { note ->
+                Text(
+                    text = note,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.foreground,
+                )
+            }
         }
     }
 
@@ -448,6 +515,72 @@ private fun DiagnosticsHealthHero(uiState: DiagnosticsUiState) {
                 color = colors.mutedForeground,
             )
             MetricsRow(metrics = overview.metrics)
+        }
+    }
+}
+
+@Composable
+private fun ApproachesSection(
+    uiState: DiagnosticsUiState,
+    onSelectMode: (DiagnosticsApproachMode) -> Unit,
+    onSelectApproach: (String) -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val layout = RipDpiThemeTokens.layout
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
+    ) {
+        item {
+            RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+                Text(
+                    text = stringResource(R.string.diagnostics_approaches_title),
+                    style = RipDpiThemeTokens.type.sectionTitle,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    RipDpiChip(
+                        text = stringResource(R.string.diagnostics_approaches_profiles),
+                        selected = uiState.approaches.selectedMode == DiagnosticsApproachMode.Profiles,
+                        onClick = { onSelectMode(DiagnosticsApproachMode.Profiles) },
+                    )
+                    RipDpiChip(
+                        text = stringResource(R.string.diagnostics_approaches_strategies),
+                        selected = uiState.approaches.selectedMode == DiagnosticsApproachMode.Strategies,
+                        onClick = { onSelectMode(DiagnosticsApproachMode.Strategies) },
+                    )
+                }
+            }
+        }
+        items(uiState.approaches.rows, key = { it.id }) { row ->
+            RipDpiCard(
+                onClick = { onSelectApproach(row.id) },
+                variant = if (row.id == uiState.approaches.focusedApproachId) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
+            ) {
+                StatusIndicator(label = row.verificationState, tone = statusTone(row.tone))
+                Text(
+                    text = row.title,
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = RipDpiThemeTokens.colors.foreground,
+                )
+                Text(
+                    text = row.subtitle,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+                MetricsRow(metrics = row.metrics)
+                Text(
+                    text = row.lastValidatedResult,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.foreground,
+                )
+                Text(
+                    text = row.dominantFailurePattern,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
         }
     }
 }
@@ -1188,6 +1321,7 @@ private fun DiagnosticsSection.label(): String =
         DiagnosticsSection.Scan -> stringResource(R.string.diagnostics_scan_section)
         DiagnosticsSection.Live -> stringResource(R.string.diagnostics_monitor_section)
         DiagnosticsSection.Sessions -> stringResource(R.string.diagnostics_sessions_section)
+        DiagnosticsSection.Approaches -> stringResource(R.string.diagnostics_approaches_title)
         DiagnosticsSection.Events -> stringResource(R.string.diagnostics_events_title)
         DiagnosticsSection.Share -> stringResource(R.string.diagnostics_share_section)
     }

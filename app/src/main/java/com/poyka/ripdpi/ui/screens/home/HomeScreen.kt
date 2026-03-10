@@ -42,6 +42,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.activities.ConnectionState
+import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.permissions.PermissionRecovery
@@ -64,6 +65,7 @@ import kotlin.time.Duration.Companion.ZERO
 fun HomeRoute(
     modifier: Modifier = Modifier,
     onStartConfiguredMode: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     viewModel: MainViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -78,6 +80,7 @@ fun HomeRoute(
                 viewModel.onPrimaryConnectionAction()
             }
         },
+        onOpenDiagnostics = onOpenDiagnostics,
     )
 }
 
@@ -85,6 +88,7 @@ fun HomeRoute(
 fun HomeScreen(
     uiState: MainUiState,
     onToggleConnection: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -152,6 +156,13 @@ fun HomeScreen(
                 onToggleConnection = onToggleConnection,
             )
 
+            uiState.approachSummary?.let { summary ->
+                HomeApproachCard(
+                    summary = summary,
+                    onOpenDiagnostics = onOpenDiagnostics,
+                )
+            }
+
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 Text(
                     text = stringResource(R.string.home_overview_title),
@@ -163,6 +174,48 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(spacing.xxl))
         }
+    }
+}
+
+@Composable
+private fun HomeApproachCard(
+    summary: HomeApproachSummaryUiState,
+    onOpenDiagnostics: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    RipDpiCard(
+        onClick = onOpenDiagnostics,
+        variant = RipDpiCardVariant.Elevated,
+    ) {
+        Text(
+            text = stringResource(R.string.home_approach_title),
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = colors.mutedForeground,
+        )
+        Text(
+            text = summary.title,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Text(
+            text = "${summary.verification} · ${summary.successRate}",
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        Spacer(modifier = Modifier.height(spacing.xs))
+        Text(
+            text = summary.supportingText,
+            style = RipDpiThemeTokens.type.body,
+            color = colors.foreground,
+        )
+        Spacer(modifier = Modifier.height(spacing.sm))
+        Text(
+            text = stringResource(R.string.home_approach_cta),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
     }
 }
 
@@ -504,6 +557,7 @@ private fun HomeScreenDisconnectedPreview() {
         HomeScreen(
             uiState = MainUiState(),
             onToggleConnection = {},
+            onOpenDiagnostics = {},
         )
     }
 }
@@ -518,8 +572,16 @@ private fun HomeScreenConnectedPreview() {
                     connectionState = ConnectionState.Connected,
                     connectionDuration = Duration.parse("PT18M42S"),
                     dataTransferred = 18_242_560L,
+                    approachSummary =
+                        HomeApproachSummaryUiState(
+                            title = "VPN Split · HTTP/HTTPS",
+                            verification = "Validated",
+                            successRate = "83%",
+                            supportingText = "Stable on the last 3 runtime sessions",
+                        ),
                 ),
             onToggleConnection = {},
+            onOpenDiagnostics = {},
         )
     }
 }
@@ -539,6 +601,7 @@ private fun HomeScreenErrorPreview() {
                     connectionDuration = ZERO,
                 ),
             onToggleConnection = {},
+            onOpenDiagnostics = {},
         )
     }
 }

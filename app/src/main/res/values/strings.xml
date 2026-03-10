@@ -20,6 +20,10 @@
     <string name="diagnostics_scan_section">Scan</string>
     <string name="diagnostics_monitor_section">Live monitor</string>
     <string name="diagnostics_sessions_section">Sessions</string>
+    <string name="diagnostics_approaches_title">Approaches</string>
+    <string name="diagnostics_approaches_profiles">Profiles</string>
+    <string name="diagnostics_approaches_strategies">Strategies</string>
+    <string name="diagnostics_approaches_signature_title">Configuration signature</string>
     <string name="diagnostics_history_section">History</string>
     <string name="diagnostics_export_section">Export</string>
     <string name="diagnostics_share_section">Share</string>
@@ -79,6 +83,8 @@
     <string name="home_permission_issue_with_settings">%1$s Open Settings or use the button below to repair access.</string>
     <string name="home_connection_button_connecting">Connecting...</string>
     <string name="home_overview_title">Overview</string>
+    <string name="home_approach_title">Bypass approach</string>
+    <string name="home_approach_cta">Open Diagnostics and review approach analytics</string>
     <string name="home_stat_duration">Duration</string>
     <string name="home_stat_traffic">Traffic</string>
     <string name="home_stat_mode">Mode</string>

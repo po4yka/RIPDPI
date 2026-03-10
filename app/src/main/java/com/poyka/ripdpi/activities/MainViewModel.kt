@@ -14,6 +14,11 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
+import com.poyka.ripdpi.diagnostics.stableId
 import com.poyka.ripdpi.permissions.PermissionAction
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
@@ -90,6 +95,7 @@ data class MainUiState(
     val dataTransferred: Long = 0L,
     val errorMessage: String? = null,
     val permissionSummary: PermissionSummaryUiState = PermissionSummaryUiState(),
+    val approachSummary: HomeApproachSummaryUiState? = null,
 ) {
     val isConnected: Boolean
         get() = connectionState == ConnectionState.Connected
@@ -97,6 +103,13 @@ data class MainUiState(
     val isConnecting: Boolean
         get() = connectionState == ConnectionState.Connecting
 }
+
+data class HomeApproachSummaryUiState(
+    val title: String,
+    val verification: String,
+    val successRate: String,
+    val supportingText: String,
+)
 
 private data class ConnectionRuntimeState(
     val connectionState: ConnectionState = ConnectionState.Disconnected,
@@ -141,6 +154,7 @@ class MainViewModel
         appSettingsRepository: AppSettingsRepository,
         private val serviceStateStore: ServiceStateStore,
         private val serviceController: ServiceController,
+        private val diagnosticsManager: DiagnosticsManager,
         private val stringResolver: StringResolver,
         private val trafficStatsReader: TrafficStatsReader,
         private val permissionStatusProvider: PermissionStatusProvider,
@@ -182,7 +196,8 @@ class MainViewModel
                 serviceStateStore.status,
                 runtimeState,
                 permissionState,
-            ) { settings, (status, activeMode), runtime, permissions ->
+                diagnosticsManager.approachStats,
+            ) { settings, (status, activeMode), runtime, permissions, approachStats ->
                 val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
                 MainUiState(
                     appStatus = status,
@@ -200,6 +215,12 @@ class MainViewModel
                             snapshot = permissions.snapshot,
                             issue = permissions.issue,
                             configuredMode = configuredMode,
+                        ),
+                    approachSummary =
+                        buildApproachSummary(
+                            settings = settings,
+                            activeMode = if (status == AppStatus.Running) activeMode else configuredMode,
+                            approachStats = approachStats,
                         ),
                 )
             }.stateIn(
@@ -714,7 +735,44 @@ class MainViewModel
                         buildNotificationPermissionItem(snapshot.notifications),
                         buildVpnPermissionItem(snapshot.vpnConsent, configuredMode),
                         buildBatteryPermissionItem(snapshot.batteryOptimization),
-                    ),
+                ),
+            )
+        }
+
+        private fun buildApproachSummary(
+            settings: AppSettings,
+            activeMode: Mode,
+            approachStats: List<BypassApproachSummary>,
+        ): HomeApproachSummaryUiState? {
+            val strategyId =
+                deriveBypassStrategySignature(
+                    settings = settings,
+                    routeGroup = serviceStateStore.telemetry.value.proxyTelemetry.lastRouteGroup?.toString(),
+                    modeOverride = activeMode,
+                ).stableId()
+            val strategySummary =
+                approachStats.firstOrNull {
+                    it.approachId.kind == BypassApproachKind.Strategy && it.approachId.value == strategyId
+                }
+            val profileSummary =
+                settings.diagnosticsActiveProfileId
+                    .takeIf { it.isNotBlank() }
+                    ?.let { profileId ->
+                        approachStats.firstOrNull {
+                            it.approachId.kind == BypassApproachKind.Profile && it.approachId.value == profileId
+                        }
+                    }
+            val summary = strategySummary ?: profileSummary ?: return null
+            return HomeApproachSummaryUiState(
+                title = summary.displayName,
+                verification = summary.verificationState.replaceFirstChar { it.uppercase() },
+                successRate = summary.validatedSuccessRate?.let { "${(it * 100).toInt()}%" } ?: "Unverified",
+                supportingText =
+                    buildString {
+                        append(summary.lastValidatedResult ?: "No validated diagnostics run yet")
+                        append(" · ")
+                        append("${summary.usageCount} runtime session(s)")
+                    },
             )
         }
 

@@ -10,6 +10,9 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.BypassApproachDetail
+import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
@@ -43,8 +46,14 @@ enum class DiagnosticsSection {
     Scan,
     Live,
     Sessions,
+    Approaches,
     Events,
     Share,
+}
+
+enum class DiagnosticsApproachMode {
+    Profiles,
+    Strategies,
 }
 
 enum class DiagnosticsHealth {
@@ -197,6 +206,34 @@ data class DiagnosticsSessionsUiModel(
     val focusedSessionId: String? = null,
 )
 
+data class DiagnosticsApproachRowUiModel(
+    val id: String,
+    val kind: DiagnosticsApproachMode,
+    val title: String,
+    val subtitle: String,
+    val verificationState: String,
+    val lastValidatedResult: String,
+    val dominantFailurePattern: String,
+    val metrics: List<DiagnosticsMetricUiModel>,
+    val tone: DiagnosticsTone,
+)
+
+data class DiagnosticsApproachDetailUiModel(
+    val approach: DiagnosticsApproachRowUiModel,
+    val signature: List<DiagnosticsFieldUiModel>,
+    val breakdown: List<DiagnosticsMetricUiModel>,
+    val runtimeSummary: List<DiagnosticsMetricUiModel>,
+    val recentSessions: List<DiagnosticsSessionRowUiModel>,
+    val recentUsageNotes: List<String>,
+    val failureNotes: List<String>,
+)
+
+data class DiagnosticsApproachesUiModel(
+    val selectedMode: DiagnosticsApproachMode = DiagnosticsApproachMode.Profiles,
+    val rows: List<DiagnosticsApproachRowUiModel> = emptyList(),
+    val focusedApproachId: String? = null,
+)
+
 data class DiagnosticsEventFiltersUiModel(
     val source: String? = null,
     val severity: String? = null,
@@ -229,9 +266,11 @@ data class DiagnosticsUiState(
     val scan: DiagnosticsScanUiModel = DiagnosticsScanUiModel(),
     val live: DiagnosticsLiveUiModel = DiagnosticsLiveUiModel(),
     val sessions: DiagnosticsSessionsUiModel = DiagnosticsSessionsUiModel(),
+    val approaches: DiagnosticsApproachesUiModel = DiagnosticsApproachesUiModel(),
     val events: DiagnosticsEventsUiModel = DiagnosticsEventsUiModel(),
     val share: DiagnosticsShareUiModel = DiagnosticsShareUiModel(),
     val selectedSessionDetail: DiagnosticsSessionDetailUiModel? = null,
+    val selectedApproachDetail: DiagnosticsApproachDetailUiModel? = null,
     val selectedEvent: DiagnosticsEventUiModel? = null,
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,
 )
@@ -263,6 +302,8 @@ class DiagnosticsViewModel
         private val timestampFormatter = SimpleDateFormat("MMM d, HH:mm", Locale.US)
         private val selectedSectionRequest = MutableStateFlow(DiagnosticsSection.Overview)
         private val selectedProfileId = MutableStateFlow<String?>(null)
+        private val selectedApproachMode = MutableStateFlow(DiagnosticsApproachMode.Profiles)
+        private val selectedApproachDetail = MutableStateFlow<DiagnosticsApproachDetailUiModel?>(null)
         private val selectedProbe = MutableStateFlow<DiagnosticsProbeResultUiModel?>(null)
         private val selectedEventId = MutableStateFlow<String?>(null)
         private val sessionPathModeFilter = MutableStateFlow<String?>(null)
@@ -283,6 +324,7 @@ class DiagnosticsViewModel
                 diagnosticsManager.profiles,
                 diagnosticsManager.activeScanProgress,
                 diagnosticsManager.sessions,
+                diagnosticsManager.approachStats,
                 diagnosticsManager.snapshots,
                 diagnosticsManager.contexts,
                 diagnosticsManager.telemetry,
@@ -290,6 +332,7 @@ class DiagnosticsViewModel
                 diagnosticsManager.exports,
                 selectedSectionRequest,
                 selectedProfileId,
+                selectedApproachMode,
                 selectedProbe,
                 selectedEventId,
                 sessionPathModeFilter,
@@ -300,6 +343,7 @@ class DiagnosticsViewModel
                 eventSearch,
                 eventAutoScroll,
                 selectedSessionDetail,
+                selectedApproachDetail,
                 sensitiveSessionDetailsVisible,
                 archiveActionState,
             ) { values ->
@@ -307,30 +351,34 @@ class DiagnosticsViewModel
                 val profiles = values[0] as List<DiagnosticProfileEntity>
                 val progress = values[1] as ScanProgress?
                 val sessions = values[2] as List<ScanSessionEntity>
-                val snapshots = values[3] as List<NetworkSnapshotEntity>
-                val contexts = values[4] as List<DiagnosticContextEntity>
-                val telemetry = values[5] as List<TelemetrySampleEntity>
-                val nativeEvents = values[6] as List<NativeSessionEventEntity>
-                val exports = values[7] as List<ExportRecordEntity>
-                val selectedSectionRequest = values[8] as DiagnosticsSection
-                val selectedProfileId = values[9] as String?
-                val selectedProbe = values[10] as DiagnosticsProbeResultUiModel?
-                val selectedEventId = values[11] as String?
-                val sessionPathMode = values[12] as String?
-                val sessionStatus = values[13] as String?
-                val sessionSearch = values[14] as String
-                val eventSource = values[15] as String?
-                val eventSeverity = values[16] as String?
-                val eventSearch = values[17] as String
-                val eventAutoScroll = values[18] as Boolean
-                val sessionDetail = values[19] as DiagnosticsSessionDetailUiModel?
-                val sensitiveSessionDetailsVisible = values[20] as Boolean
-                val archiveActionState = values[21] as ArchiveActionState
+                val approachStats = values[3] as List<BypassApproachSummary>
+                val snapshots = values[4] as List<NetworkSnapshotEntity>
+                val contexts = values[5] as List<DiagnosticContextEntity>
+                val telemetry = values[6] as List<TelemetrySampleEntity>
+                val nativeEvents = values[7] as List<NativeSessionEventEntity>
+                val exports = values[8] as List<ExportRecordEntity>
+                val selectedSectionRequest = values[9] as DiagnosticsSection
+                val selectedProfileId = values[10] as String?
+                val selectedApproachMode = values[11] as DiagnosticsApproachMode
+                val selectedProbe = values[12] as DiagnosticsProbeResultUiModel?
+                val selectedEventId = values[13] as String?
+                val sessionPathMode = values[14] as String?
+                val sessionStatus = values[15] as String?
+                val sessionSearch = values[16] as String
+                val eventSource = values[17] as String?
+                val eventSeverity = values[18] as String?
+                val eventSearch = values[19] as String
+                val eventAutoScroll = values[20] as Boolean
+                val sessionDetail = values[21] as DiagnosticsSessionDetailUiModel?
+                val approachDetail = values[22] as DiagnosticsApproachDetailUiModel?
+                val sensitiveSessionDetailsVisible = values[23] as Boolean
+                val archiveActionState = values[24] as ArchiveActionState
 
                 buildUiState(
                     profiles = profiles,
                     progress = progress,
                     sessions = sessions,
+                    approachStats = approachStats,
                     snapshots = snapshots,
                     contexts = contexts,
                     telemetry = telemetry,
@@ -338,6 +386,7 @@ class DiagnosticsViewModel
                     exports = exports,
                     selectedSectionRequest = selectedSectionRequest,
                     selectedProfileId = selectedProfileId,
+                    selectedApproachMode = selectedApproachMode,
                     selectedProbe = selectedProbe,
                     selectedEventId = selectedEventId,
                     sessionPathMode = sessionPathMode,
@@ -348,6 +397,7 @@ class DiagnosticsViewModel
                     eventSearch = eventSearch,
                     eventAutoScroll = eventAutoScroll,
                     selectedSessionDetail = sessionDetail,
+                    selectedApproachDetail = approachDetail,
                     sensitiveSessionDetailsVisible = sensitiveSessionDetailsVisible,
                     archiveActionState = archiveActionState,
                 )
@@ -382,10 +432,34 @@ class DiagnosticsViewModel
             }
         }
 
+        fun selectApproachMode(mode: DiagnosticsApproachMode) {
+            selectedApproachMode.value = mode
+            selectedApproachDetail.value = null
+        }
+
+        fun selectApproach(approachId: String) {
+            viewModelScope.launch {
+                val detail =
+                    diagnosticsManager.loadApproachDetail(
+                        kind =
+                            when (selectedApproachMode.value) {
+                                DiagnosticsApproachMode.Profiles -> BypassApproachKind.Profile
+                                DiagnosticsApproachMode.Strategies -> BypassApproachKind.Strategy
+                            },
+                        id = approachId,
+                    )
+                selectedApproachDetail.value = detail.toUiModel()
+            }
+        }
+
         fun dismissSessionDetail() {
             selectedSessionDetail.value = null
             selectedProbe.value = null
             sensitiveSessionDetailsVisible.value = false
+        }
+
+        fun dismissApproachDetail() {
+            selectedApproachDetail.value = null
         }
 
         fun selectEvent(eventId: String) {
@@ -518,6 +592,7 @@ class DiagnosticsViewModel
             profiles: List<DiagnosticProfileEntity>,
             progress: ScanProgress?,
             sessions: List<ScanSessionEntity>,
+            approachStats: List<BypassApproachSummary>,
             snapshots: List<NetworkSnapshotEntity>,
             contexts: List<DiagnosticContextEntity>,
             telemetry: List<TelemetrySampleEntity>,
@@ -525,6 +600,7 @@ class DiagnosticsViewModel
             exports: List<ExportRecordEntity>,
             selectedSectionRequest: DiagnosticsSection,
             selectedProfileId: String?,
+            selectedApproachMode: DiagnosticsApproachMode,
             selectedProbe: DiagnosticsProbeResultUiModel?,
             selectedEventId: String?,
             sessionPathMode: String?,
@@ -535,6 +611,7 @@ class DiagnosticsViewModel
             eventSearch: String,
             eventAutoScroll: Boolean,
             selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
+            selectedApproachDetail: DiagnosticsApproachDetailUiModel?,
             sensitiveSessionDetailsVisible: Boolean,
             archiveActionState: ArchiveActionState,
         ): DiagnosticsUiState {
@@ -572,6 +649,15 @@ class DiagnosticsViewModel
             val sharePreview = buildSharePreview(latestCompletedSession, latestSnapshot, latestContext, currentTelemetry, nativeEvents, latestReport)
             val liveMetrics = buildLiveMetrics(currentTelemetry, nativeEvents)
             val liveTrends = buildLiveTrends(telemetry)
+            val selectedApproachKind =
+                when (selectedApproachMode) {
+                    DiagnosticsApproachMode.Profiles -> BypassApproachKind.Profile
+                    DiagnosticsApproachMode.Strategies -> BypassApproachKind.Strategy
+                }
+            val filteredApproaches =
+                approachStats
+                    .filter { it.approachId.kind == selectedApproachKind }
+                    .map { it.toApproachRowUiModel(selectedApproachMode) }
             val warnings =
                 (buildContextWarnings(latestContext) + eventModels.filter { it.tone == DiagnosticsTone.Negative || it.tone == DiagnosticsTone.Warning })
                     .take(3)
@@ -668,6 +754,12 @@ class DiagnosticsViewModel
                         statuses = sessions.map { it.status }.distinct(),
                         focusedSessionId = selectedSessionDetail?.session?.id,
                     ),
+                approaches =
+                    DiagnosticsApproachesUiModel(
+                        selectedMode = selectedApproachMode,
+                        rows = filteredApproaches,
+                        focusedApproachId = selectedApproachDetail?.approach?.id,
+                    ),
                 events =
                     DiagnosticsEventsUiModel(
                         filters =
@@ -686,14 +778,39 @@ class DiagnosticsViewModel
                     DiagnosticsShareUiModel(
                         targetSessionId = selectedSessionDetail?.session?.id ?: latestCompletedSession?.id,
                         previewTitle = sharePreview.title,
-                        previewBody = sharePreview.body,
-                        metrics = sharePreview.compactMetrics.map { DiagnosticsMetricUiModel(it.label, it.value) },
+                        previewBody =
+                            buildString {
+                                append(sharePreview.body)
+                                approachStats
+                                    .firstOrNull { it.approachId.kind == BypassApproachKind.Strategy }
+                                    ?.let { summary ->
+                                        append("\n\nArchive includes approach analytics for ")
+                                        append(summary.displayName)
+                                        append(" with ")
+                                        append(summary.verificationState)
+                                        append(" validation and runtime health context.")
+                                    }
+                            },
+                        metrics =
+                            sharePreview.compactMetrics.map { DiagnosticsMetricUiModel(it.label, it.value) } +
+                                listOfNotNull(
+                                    approachStats
+                                        .firstOrNull { it.approachId.kind == BypassApproachKind.Strategy }
+                                        ?.let { summary ->
+                                            DiagnosticsMetricUiModel(
+                                                label = "Approach",
+                                                value = summary.displayName,
+                                                tone = summary.toTone(),
+                                            )
+                                        },
+                                ),
                         latestArchiveFileName = archiveActionState.latestArchiveFileName ?: exports.firstOrNull()?.fileName,
                         archiveStateMessage = archiveActionState.message,
                         archiveStateTone = archiveActionState.tone,
                         isArchiveBusy = archiveActionState.isBusy,
                     ),
                 selectedSessionDetail = sessionDetailWithVisibility,
+                selectedApproachDetail = selectedApproachDetail,
                 selectedEvent = selectedEvent,
                 selectedProbe = selectedProbe,
             )
@@ -922,6 +1039,93 @@ class DiagnosticsViewModel
             )
         }
 
+        private fun BypassApproachSummary.toApproachRowUiModel(mode: DiagnosticsApproachMode): DiagnosticsApproachRowUiModel =
+            DiagnosticsApproachRowUiModel(
+                id = approachId.value,
+                kind = mode,
+                title = displayName,
+                subtitle = secondaryLabel,
+                verificationState = verificationState.replaceFirstChar { it.uppercase() },
+                lastValidatedResult = lastValidatedResult ?: "Unverified",
+                dominantFailurePattern = topFailureOutcomes.firstOrNull() ?: "No dominant failure recorded",
+                metrics =
+                    buildList {
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "Validated",
+                                value = validatedScanCount.toString(),
+                                tone = if (validatedScanCount > 0) DiagnosticsTone.Info else DiagnosticsTone.Neutral,
+                            ),
+                        )
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "Success",
+                                value = validatedSuccessRate?.let { "${(it * 100).toInt()}%" } ?: "Unverified",
+                                tone = toTone(),
+                            ),
+                        )
+                        add(DiagnosticsMetricUiModel(label = "Usage", value = usageCount.toString(), tone = DiagnosticsTone.Info))
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "Runtime",
+                                value = formatDurationMs(totalRuntimeDurationMs),
+                                tone = DiagnosticsTone.Neutral,
+                            ),
+                        )
+                    },
+                tone = toTone(),
+            )
+
+        private fun BypassApproachDetail.toUiModel(): DiagnosticsApproachDetailUiModel =
+            DiagnosticsApproachDetailUiModel(
+                approach =
+                    summary.toApproachRowUiModel(
+                        mode =
+                            when (summary.approachId.kind) {
+                                BypassApproachKind.Profile -> DiagnosticsApproachMode.Profiles
+                                BypassApproachKind.Strategy -> DiagnosticsApproachMode.Strategies
+                            },
+                    ),
+                signature =
+                    buildList {
+                        strategySignature?.let { signature ->
+                            add(DiagnosticsFieldUiModel("Mode", signature.mode))
+                            add(DiagnosticsFieldUiModel("Config source", signature.configSource))
+                            add(DiagnosticsFieldUiModel("Desync", signature.desyncMethod))
+                            add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
+                            add(DiagnosticsFieldUiModel("TLS record split", signature.tlsRecordSplitEnabled.toString()))
+                            add(DiagnosticsFieldUiModel("Split at host", signature.splitAtHost.toString()))
+                            add(DiagnosticsFieldUiModel("Route group", signature.routeGroup ?: "Unknown"))
+                        }
+                    },
+                breakdown =
+                    summary.outcomeBreakdown.map { breakdown ->
+                        DiagnosticsMetricUiModel(
+                            label = breakdown.probeType,
+                            value = "${breakdown.successCount}/${breakdown.failureCount}",
+                            tone =
+                                when {
+                                    breakdown.failureCount > 0 -> DiagnosticsTone.Warning
+                                    breakdown.successCount > 0 -> DiagnosticsTone.Positive
+                                    else -> DiagnosticsTone.Neutral
+                                },
+                        )
+                    },
+                runtimeSummary =
+                    listOf(
+                        DiagnosticsMetricUiModel("Usage", summary.usageCount.toString(), DiagnosticsTone.Info),
+                        DiagnosticsMetricUiModel("Runtime", formatDurationMs(summary.totalRuntimeDurationMs), DiagnosticsTone.Info),
+                        DiagnosticsMetricUiModel("Errors", summary.recentRuntimeHealth.totalErrors.toString(), DiagnosticsTone.Warning),
+                        DiagnosticsMetricUiModel("Route changes", summary.recentRuntimeHealth.routeChanges.toString(), DiagnosticsTone.Info),
+                    ),
+                recentSessions = recentValidatedSessions.map(::toSessionRowUiModel),
+                recentUsageNotes =
+                    recentUsageSessions.map { usage ->
+                        "${usage.serviceMode} · ${usage.networkType} · ${formatDurationMs((usage.finishedAt ?: usage.startedAt) - usage.startedAt)}"
+                    },
+                failureNotes = recentFailureNotes,
+            )
+
         private fun DiagnosticSessionDetail.toUiModel(showSensitiveDetails: Boolean): DiagnosticsSessionDetailUiModel {
             val probeGroups =
                 results
@@ -1003,6 +1207,14 @@ class DiagnosticsViewModel
                 else -> DiagnosticsTone.Neutral
             }
         }
+
+        private fun BypassApproachSummary.toTone(): DiagnosticsTone =
+            when {
+                verificationState.equals("unverified", ignoreCase = true) -> DiagnosticsTone.Neutral
+                (validatedSuccessRate ?: 0f) >= 0.75f -> DiagnosticsTone.Positive
+                (validatedSuccessRate ?: 0f) > 0f -> DiagnosticsTone.Warning
+                else -> DiagnosticsTone.Negative
+            }
 
         private fun parsePathMode(value: String): ScanPathMode =
             runCatching { ScanPathMode.valueOf(value) }.getOrDefault(ScanPathMode.RAW_PATH)

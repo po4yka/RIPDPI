@@ -46,6 +46,11 @@ data class TargetPackVersionEntity(
 data class ScanSessionEntity(
     @PrimaryKey val id: String,
     val profileId: String,
+    val approachProfileId: String? = null,
+    val approachProfileName: String? = null,
+    val strategyId: String? = null,
+    val strategyLabel: String? = null,
+    val strategyJson: String? = null,
     val pathMode: String,
     val serviceMode: String?,
     val status: String,
@@ -124,6 +129,27 @@ data class ExportRecordEntity(
     val createdAt: Long,
 )
 
+@Entity(tableName = "bypass_usage_sessions")
+@Serializable
+data class BypassUsageSessionEntity(
+    @PrimaryKey val id: String,
+    val startedAt: Long,
+    val finishedAt: Long?,
+    val serviceMode: String,
+    val approachProfileId: String?,
+    val approachProfileName: String?,
+    val strategyId: String,
+    val strategyLabel: String,
+    val strategyJson: String,
+    val networkType: String,
+    val txBytes: Long,
+    val rxBytes: Long,
+    val totalErrors: Long,
+    val routeChanges: Long,
+    val restartCount: Int,
+    val endedReason: String?,
+)
+
 @Dao
 interface DiagnosticsDao {
     @Query("SELECT * FROM diagnostic_profiles ORDER BY updatedAt DESC")
@@ -197,6 +223,15 @@ interface DiagnosticsDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExportRecord(record: ExportRecordEntity)
+
+    @Query("SELECT * FROM bypass_usage_sessions ORDER BY startedAt DESC LIMIT :limit")
+    fun observeBypassUsageSessions(limit: Int = 100): Flow<List<BypassUsageSessionEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity)
+
+    @Query("DELETE FROM bypass_usage_sessions WHERE finishedAt IS NOT NULL AND finishedAt < :threshold")
+    suspend fun deleteBypassUsageSessionsOlderThan(threshold: Long)
 }
 
 @Database(
@@ -210,8 +245,9 @@ interface DiagnosticsDao {
         TelemetrySampleEntity::class,
         NativeSessionEventEntity::class,
         ExportRecordEntity::class,
+        BypassUsageSessionEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -232,6 +268,8 @@ interface DiagnosticsHistoryRepository {
     fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
 
     fun observeExportRecords(limit: Int = 50): Flow<List<ExportRecordEntity>>
+
+    fun observeBypassUsageSessions(limit: Int = 100): Flow<List<BypassUsageSessionEntity>>
 
     suspend fun getProfile(id: String): DiagnosticProfileEntity?
 
@@ -262,6 +300,8 @@ interface DiagnosticsHistoryRepository {
 
     suspend fun insertExportRecord(record: ExportRecordEntity)
 
+    suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity)
+
     suspend fun trimOldData(retentionDays: Int)
 }
 
@@ -290,6 +330,9 @@ class RoomDiagnosticsHistoryRepository
 
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> =
         dao.observeExportRecords(limit)
+
+    override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> =
+        dao.observeBypassUsageSessions(limit)
 
     override suspend fun getProfile(id: String): DiagnosticProfileEntity? = dao.getProfile(id)
 
@@ -344,6 +387,10 @@ class RoomDiagnosticsHistoryRepository
         dao.insertExportRecord(record)
     }
 
+    override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) {
+        dao.upsertBypassUsageSession(session)
+    }
+
     override suspend fun trimOldData(retentionDays: Int) {
         if (retentionDays <= 0) {
             return
@@ -352,6 +399,7 @@ class RoomDiagnosticsHistoryRepository
         dao.deleteContextOlderThan(threshold)
         dao.deleteTelemetryOlderThan(threshold)
         dao.deleteNativeEventsOlderThan(threshold)
+        dao.deleteBypassUsageSessionsOlderThan(threshold)
     }
 }
 
