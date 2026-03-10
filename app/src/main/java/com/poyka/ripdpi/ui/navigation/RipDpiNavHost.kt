@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
@@ -20,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.screens.config.ConfigRoute
 import com.poyka.ripdpi.ui.screens.config.ModeEditorRoute
@@ -53,12 +55,14 @@ fun RipDpiNavHost(
     onStartConfiguredMode: () -> Unit = {},
     onOpenVpnPermission: () -> Unit = {},
     onRequestVpnPermission: () -> Unit = {},
+    onRepairPermission: (PermissionKind) -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
 ) {
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStackEntry?.destination
     val layout = RipDpiThemeTokens.layout
+    val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(launchHomeRequested, currentDestination?.route) {
         val currentRoute = currentDestination?.route
@@ -150,7 +154,6 @@ fun RipDpiNavHost(
             }
             composable(Route.Home.route) {
                 HomeRoute(
-                    onOpenVpnPermission = onOpenVpnPermission,
                     onStartConfiguredMode = onStartConfiguredMode,
                     viewModel = mainViewModel,
                 )
@@ -216,6 +219,8 @@ fun RipDpiNavHost(
                         onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings.route) },
                         onOpenCustomization = { navController.navigate(Route.AppCustomization.route) },
                         onOpenAbout = { navController.navigate(Route.About.route) },
+                        permissionSummary = mainUiState.permissionSummary,
+                        onRepairPermission = onRepairPermission,
                         viewModel = settingsViewModel,
                     )
                 }
