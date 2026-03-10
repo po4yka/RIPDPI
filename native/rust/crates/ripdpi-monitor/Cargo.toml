@@ -7,3 +7,9 @@ license.workspace = true
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+rustls = { workspace = true }
+url = { workspace = true }
+webpki-roots = { workspace = true }
+
+[dev-dependencies]
+rcgen = { workspace = true }
