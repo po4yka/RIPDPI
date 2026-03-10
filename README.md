@@ -59,3 +59,5 @@ To enable signed release builds, configure these repository secrets:
 
 - [ByeDPI](https://github.com/hufrea/byedpi)
 - [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel)
+
+Native integration details: [docs/native/README.md](docs/native/README.md)
