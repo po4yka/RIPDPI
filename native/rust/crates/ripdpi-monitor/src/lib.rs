@@ -274,6 +274,13 @@ struct TlsObservation {
     certificate_anomaly: bool,
 }
 
+#[derive(Clone, Copy, Debug)]
+enum TlsClientProfile {
+    Auto,
+    Tls12Only,
+    Tls13Only,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum FatHeaderStatus {
     Success,
@@ -370,8 +377,10 @@ fn run_scan(
         "engine",
         "info",
         format!(
-            "Starting {} in {:?}",
-            request.display_name, request.path_mode
+            "Starting {} in {:?} transport={}",
+            request.display_name,
+            request.path_mode,
+            describe_transport(&transport),
         ),
     );
 
@@ -385,7 +394,7 @@ fn run_scan(
             &shared,
             "dns_integrity",
             event_level_for_outcome(&probe.outcome),
-            format!("{} -> {}", dns_target.domain, probe.outcome),
+            summarize_probe_event(&probe),
         );
         results.push(probe);
         completed_steps += 1;
@@ -412,7 +421,7 @@ fn run_scan(
             &shared,
             "domain_reachability",
             event_level_for_outcome(&probe.outcome),
-            format!("{} -> {}", domain_target.host, probe.outcome),
+            summarize_probe_event(&probe),
         );
         results.push(probe);
         completed_steps += 1;
@@ -439,7 +448,7 @@ fn run_scan(
             &shared,
             "tcp_fat_header",
             event_level_for_outcome(&probe.outcome),
-            format!("{} -> {}", tcp_target.provider, probe.outcome),
+            summarize_probe_event(&probe),
         );
         results.push(probe);
         completed_steps += 1;
@@ -554,7 +563,7 @@ fn run_dns_probe(
         .doh_url
         .clone()
         .unwrap_or_else(|| DEFAULT_DOH_URL.to_string());
-    let udp_result = resolve_via_udp(&target.domain, &udp_server);
+    let udp_result = resolve_via_udp(&target.domain, &udp_server, transport);
     let doh_result = resolve_via_doh(&target.domain, &doh_url, transport);
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
 
@@ -615,12 +624,21 @@ fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> Probe
     let https_port = target.https_port.unwrap_or(443);
     let http_port = target.http_port.unwrap_or(80);
     let resolved = resolve_addresses(&TargetAddress::Host(target.host.clone()), https_port);
-    let tls = try_tls_handshake(
+    let tls13 = try_tls_handshake(
         &TargetAddress::Host(target.host.clone()),
         https_port,
         transport,
         &target.host,
         true,
+        TlsClientProfile::Tls13Only,
+    );
+    let tls12 = try_tls_handshake(
+        &TargetAddress::Host(target.host.clone()),
+        https_port,
+        transport,
+        &target.host,
+        true,
+        TlsClientProfile::Tls12Only,
     );
     let http = try_http_request(
         &TargetAddress::Host(target.host.clone()),
@@ -630,11 +648,15 @@ fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> Probe
         &target.http_path,
         false,
     );
+    let tls_signal = classify_tls_signal(&tls13, &tls12);
+    let preferred_tls = preferred_tls_observation(&tls13, &tls12);
 
-    let outcome = if tls.status == "tls_ok" {
-        "tls_ok".to_string()
-    } else if tls.certificate_anomaly {
+    let outcome = if tls13.certificate_anomaly || tls12.certificate_anomaly {
         "tls_cert_invalid".to_string()
+    } else if tls13.status == "tls_ok" && tls12.status == "tls_ok" {
+        "tls_ok".to_string()
+    } else if tls13.status == "tls_ok" || tls12.status == "tls_ok" {
+        "tls_version_split".to_string()
     } else if is_blockpage(&http) {
         "http_blockpage".to_string()
     } else if http.status == "http_ok" {
@@ -654,15 +676,49 @@ fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> Probe
             },
             ProbeDetail {
                 key: "tlsStatus".to_string(),
-                value: tls.status,
+                value: preferred_tls.status.clone(),
             },
             ProbeDetail {
                 key: "tlsVersion".to_string(),
-                value: tls.version.unwrap_or_else(|| "unknown".to_string()),
+                value: preferred_tls
+                    .version
+                    .clone()
+                    .unwrap_or_else(|| "unknown".to_string()),
             },
             ProbeDetail {
                 key: "tlsError".to_string(),
-                value: tls.error.unwrap_or_else(|| "none".to_string()),
+                value: preferred_tls
+                    .error
+                    .clone()
+                    .unwrap_or_else(|| "none".to_string()),
+            },
+            ProbeDetail {
+                key: "tlsSignal".to_string(),
+                value: tls_signal.to_string(),
+            },
+            ProbeDetail {
+                key: "tls13Status".to_string(),
+                value: tls13.status,
+            },
+            ProbeDetail {
+                key: "tls13Version".to_string(),
+                value: tls13.version.unwrap_or_else(|| "unknown".to_string()),
+            },
+            ProbeDetail {
+                key: "tls13Error".to_string(),
+                value: tls13.error.unwrap_or_else(|| "none".to_string()),
+            },
+            ProbeDetail {
+                key: "tls12Status".to_string(),
+                value: tls12.status,
+            },
+            ProbeDetail {
+                key: "tls12Version".to_string(),
+                value: tls12.version.unwrap_or_else(|| "unknown".to_string()),
+            },
+            ProbeDetail {
+                key: "tls12Error".to_string(),
+                value: tls12.error.unwrap_or_else(|| "none".to_string()),
             },
             ProbeDetail {
                 key: "httpStatus".to_string(),
@@ -793,23 +849,29 @@ fn run_fat_header_attempt(
     };
 
     let uses_tls = target.port == 443;
-    let mut stream =
-        match open_probe_stream(&connect_target, target.port, transport, Some(sni), false) {
-            Ok(stream) => stream,
-            Err(err) => {
-                let status = if uses_tls {
-                    FatHeaderStatus::HandshakeFailed
-                } else {
-                    FatHeaderStatus::ConnectFailed
-                };
-                return FatHeaderObservation {
-                    status,
-                    bytes_sent: 0,
-                    responses_seen: 0,
-                    error: Some(err),
-                };
-            }
-        };
+    let mut stream = match open_probe_stream(
+        &connect_target,
+        target.port,
+        transport,
+        Some(sni),
+        false,
+        TlsClientProfile::Auto,
+    ) {
+        Ok(stream) => stream,
+        Err(err) => {
+            let status = if uses_tls {
+                FatHeaderStatus::HandshakeFailed
+            } else {
+                FatHeaderStatus::ConnectFailed
+            };
+            return FatHeaderObservation {
+                status,
+                bytes_sent: 0,
+                responses_seen: 0,
+                error: Some(err),
+            };
+        }
+    };
 
     let requests = target
         .fat_header_requests
@@ -947,6 +1009,80 @@ fn probe_is_success(outcome: &str) -> bool {
     )
 }
 
+fn describe_transport(transport: &TransportConfig) -> String {
+    match transport {
+        TransportConfig::Direct => "DIRECT".to_string(),
+        TransportConfig::Socks5 { host, port } => format!("SOCKS5({host}:{port})"),
+    }
+}
+
+fn preferred_tls_observation<'a>(
+    tls13: &'a TlsObservation,
+    tls12: &'a TlsObservation,
+) -> &'a TlsObservation {
+    if tls13.certificate_anomaly {
+        tls13
+    } else if tls12.certificate_anomaly {
+        tls12
+    } else if tls13.status == "tls_ok" {
+        tls13
+    } else if tls12.status == "tls_ok" {
+        tls12
+    } else {
+        tls13
+    }
+}
+
+fn classify_tls_signal(tls13: &TlsObservation, tls12: &TlsObservation) -> &'static str {
+    if tls13.certificate_anomaly || tls12.certificate_anomaly {
+        "tls_cert_invalid"
+    } else if tls13.status == "tls_ok" && tls12.status == "tls_ok" {
+        "tls_consistent"
+    } else if tls13.status == "tls_ok" || tls12.status == "tls_ok" {
+        "tls_version_split_low_confidence"
+    } else {
+        "tls_unavailable"
+    }
+}
+
+fn summarize_probe_event(probe: &ProbeResult) -> String {
+    match probe.probe_type.as_str() {
+        "dns_integrity" => format!(
+            "{} -> {} (udp={}, doh={})",
+            probe.target,
+            probe.outcome,
+            probe_detail_value(probe, "udpAddresses"),
+            probe_detail_value(probe, "dohAddresses"),
+        ),
+        "domain_reachability" => format!(
+            "{} -> {} (tls13={}, tls12={}, http={})",
+            probe.target,
+            probe.outcome,
+            probe_detail_value(probe, "tls13Status"),
+            probe_detail_value(probe, "tls12Status"),
+            probe_detail_value(probe, "httpStatus"),
+        ),
+        "tcp_fat_header" => format!(
+            "{} -> {} (sni={}, bytes={}, responses={})",
+            probe.target,
+            probe.outcome,
+            probe_detail_value(probe, "selectedSni"),
+            probe_detail_value(probe, "bytesSent"),
+            probe_detail_value(probe, "responsesSeen"),
+        ),
+        _ => format!("{} -> {}", probe.target, probe.outcome),
+    }
+}
+
+fn probe_detail_value<'a>(probe: &'a ProbeResult, key: &str) -> &'a str {
+    probe
+        .details
+        .iter()
+        .find(|detail| detail.key == key)
+        .map(|detail| detail.value.as_str())
+        .unwrap_or("unknown")
+}
+
 fn event_level_for_outcome(outcome: &str) -> &'static str {
     if probe_is_success(outcome) {
         "info"
@@ -955,22 +1091,21 @@ fn event_level_for_outcome(outcome: &str) -> &'static str {
     }
 }
 
-fn resolve_via_udp(domain: &str, server: &str) -> Result<Vec<String>, String> {
+fn resolve_via_udp(
+    domain: &str,
+    server: &str,
+    transport: &TransportConfig,
+) -> Result<Vec<String>, String> {
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
     let packet = build_dns_query(domain, query_id)?;
-    let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).map_err(|err| err.to_string())?;
-    socket
-        .set_read_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
-    socket
-        .set_write_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
-    socket
-        .send_to(&packet, server)
-        .map_err(|err| err.to_string())?;
-    let mut buf = [0u8; 512];
-    let (size, _) = socket.recv_from(&mut buf).map_err(|err| err.to_string())?;
-    parse_dns_response(&buf[..size], query_id)
+    let response = match transport {
+        TransportConfig::Direct => relay_udp_direct(server, &packet)?,
+        TransportConfig::Socks5 { host, port } => {
+            let server_addr = resolve_first_socket_addr(server)?;
+            relay_udp_via_socks5(host, *port, server_addr, &packet)?
+        }
+    };
+    parse_dns_response(&response, query_id)
 }
 
 fn resolve_via_doh(
@@ -1053,6 +1188,7 @@ fn execute_http_request(
         transport,
         if secure { Some(host_header) } else { None },
         secure,
+        TlsClientProfile::Auto,
     )?;
     let request = format!(
         "GET {path} HTTP/1.1\r\nHost: {host_header}\r\nAccept: */*\r\nConnection: close\r\n\r\n"
@@ -1072,6 +1208,7 @@ fn try_tls_handshake(
     transport: &TransportConfig,
     server_name: &str,
     verify_certificates: bool,
+    profile: TlsClientProfile,
 ) -> TlsObservation {
     match open_probe_stream(
         target,
@@ -1079,6 +1216,7 @@ fn try_tls_handshake(
         transport,
         Some(server_name),
         verify_certificates,
+        profile,
     ) {
         Ok(mut stream) => {
             let version = match &mut stream {
@@ -1115,6 +1253,7 @@ fn open_probe_stream(
     transport: &TransportConfig,
     tls_name: Option<&str>,
     verify_certificates: bool,
+    profile: TlsClientProfile,
 ) -> Result<ConnectionStream, String> {
     let socket = connect_transport(target, port, transport)?;
     socket
@@ -1125,16 +1264,27 @@ fn open_probe_stream(
         .map_err(|err| err.to_string())?;
 
     match tls_name {
-        Some(name) if verify_certificates || port == 443 => {
+        Some(name)
+            if verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto) =>
+        {
+            let builder = match profile {
+                TlsClientProfile::Auto => ClientConfig::builder(),
+                TlsClientProfile::Tls12Only => {
+                    ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS12])
+                }
+                TlsClientProfile::Tls13Only => {
+                    ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
+                }
+            };
             let config = if verify_certificates {
                 Arc::new(
-                    ClientConfig::builder()
+                    builder
                         .with_root_certificates(default_root_store())
                         .with_no_client_auth(),
                 )
             } else {
                 Arc::new(
-                    ClientConfig::builder()
+                    builder
                         .dangerous()
                         .with_custom_certificate_verifier(Arc::new(NoCertificateVerification))
                         .with_no_client_auth(),
@@ -1171,6 +1321,182 @@ fn connect_transport(
             negotiate_socks5(proxy, target, port)
         }
     }
+}
+
+fn relay_udp_direct(server: &str, payload: &[u8]) -> Result<Vec<u8>, String> {
+    let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).map_err(|err| err.to_string())?;
+    socket
+        .set_read_timeout(Some(IO_TIMEOUT))
+        .map_err(|err| err.to_string())?;
+    socket
+        .set_write_timeout(Some(IO_TIMEOUT))
+        .map_err(|err| err.to_string())?;
+    socket
+        .send_to(payload, server)
+        .map_err(|err| err.to_string())?;
+    let mut buf = [0u8; 2048];
+    let (size, _) = socket.recv_from(&mut buf).map_err(|err| err.to_string())?;
+    Ok(buf[..size].to_vec())
+}
+
+fn relay_udp_via_socks5(
+    proxy_host: &str,
+    proxy_port: u16,
+    destination: SocketAddr,
+    payload: &[u8],
+) -> Result<Vec<u8>, String> {
+    let mut control = connect_direct(&TargetAddress::Host(proxy_host.to_string()), proxy_port)?;
+    control
+        .set_read_timeout(Some(IO_TIMEOUT))
+        .map_err(|err| err.to_string())?;
+    control
+        .set_write_timeout(Some(IO_TIMEOUT))
+        .map_err(|err| err.to_string())?;
+    socks5_noauth_handshake(&mut control)?;
+    let relay_addr = normalize_udp_relay_addr(socks5_udp_associate(&mut control)?, &control)?;
+
+    let bind_addr: SocketAddr = if relay_addr.is_ipv4() {
+        "0.0.0.0:0".parse().expect("valid IPv4 UDP bind")
+    } else {
+        "[::]:0".parse().expect("valid IPv6 UDP bind")
+    };
+    let udp = UdpSocket::bind(bind_addr).map_err(|err| err.to_string())?;
+    udp.set_read_timeout(Some(IO_TIMEOUT))
+        .map_err(|err| err.to_string())?;
+    udp.set_write_timeout(Some(IO_TIMEOUT))
+        .map_err(|err| err.to_string())?;
+    udp.connect(relay_addr).map_err(|err| err.to_string())?;
+    let frame = encode_socks5_udp_frame(destination, payload);
+    udp.send(&frame).map_err(|err| err.to_string())?;
+
+    let mut buf = [0u8; 65535];
+    let size = udp.recv(&mut buf).map_err(|err| err.to_string())?;
+    let (_, payload) = decode_socks5_udp_frame(&buf[..size])?;
+    Ok(payload)
+}
+
+fn socks5_noauth_handshake(stream: &mut TcpStream) -> Result<(), String> {
+    stream
+        .write_all(&[0x05, 0x01, 0x00])
+        .map_err(|err| err.to_string())?;
+    let mut reply = [0u8; 2];
+    stream
+        .read_exact(&mut reply)
+        .map_err(|err| err.to_string())?;
+    if reply != [0x05, 0x00] {
+        return Err(format!("SOCKS5 auth failed: {reply:?}"));
+    }
+    Ok(())
+}
+
+fn socks5_udp_associate(stream: &mut TcpStream) -> Result<SocketAddr, String> {
+    let request = [0x05, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+    stream.write_all(&request).map_err(|err| err.to_string())?;
+    let mut header = [0u8; 4];
+    stream
+        .read_exact(&mut header)
+        .map_err(|err| err.to_string())?;
+    if header[1] != 0x00 {
+        return Err(format!("SOCKS5 UDP ASSOCIATE failed: {:x}", header[1]));
+    }
+    match header[3] {
+        0x01 => {
+            let mut addr = [0u8; 4];
+            let mut port = [0u8; 2];
+            stream
+                .read_exact(&mut addr)
+                .map_err(|err| err.to_string())?;
+            stream
+                .read_exact(&mut port)
+                .map_err(|err| err.to_string())?;
+            Ok(SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::from(addr)),
+                u16::from_be_bytes(port),
+            ))
+        }
+        0x04 => {
+            let mut addr = [0u8; 16];
+            let mut port = [0u8; 2];
+            stream
+                .read_exact(&mut addr)
+                .map_err(|err| err.to_string())?;
+            stream
+                .read_exact(&mut port)
+                .map_err(|err| err.to_string())?;
+            Ok(SocketAddr::new(
+                IpAddr::V6(std::net::Ipv6Addr::from(addr)),
+                u16::from_be_bytes(port),
+            ))
+        }
+        atyp => Err(format!("SOCKS5 UDP ASSOCIATE atyp unsupported: {atyp}")),
+    }
+}
+
+fn normalize_udp_relay_addr(
+    relay_addr: SocketAddr,
+    control: &TcpStream,
+) -> Result<SocketAddr, String> {
+    if relay_addr.ip().is_unspecified() {
+        let peer = control.peer_addr().map_err(|err| err.to_string())?;
+        Ok(SocketAddr::new(peer.ip(), relay_addr.port()))
+    } else {
+        Ok(relay_addr)
+    }
+}
+
+fn encode_socks5_udp_frame(destination: SocketAddr, payload: &[u8]) -> Vec<u8> {
+    let mut frame = Vec::with_capacity(payload.len() + 22);
+    frame.extend_from_slice(&[0x00, 0x00, 0x00]);
+    match destination {
+        SocketAddr::V4(addr) => {
+            frame.push(0x01);
+            frame.extend_from_slice(&addr.ip().octets());
+            frame.extend_from_slice(&addr.port().to_be_bytes());
+        }
+        SocketAddr::V6(addr) => {
+            frame.push(0x04);
+            frame.extend_from_slice(&addr.ip().octets());
+            frame.extend_from_slice(&addr.port().to_be_bytes());
+        }
+    }
+    frame.extend_from_slice(payload);
+    frame
+}
+
+fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u8>), String> {
+    if frame.len() < 10 {
+        return Err("SOCKS5 UDP frame too short".to_string());
+    }
+    match frame[3] {
+        0x01 => {
+            let address = SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::new(frame[4], frame[5], frame[6], frame[7])),
+                u16::from_be_bytes([frame[8], frame[9]]),
+            );
+            Ok((address, frame[10..].to_vec()))
+        }
+        0x04 => {
+            if frame.len() < 22 {
+                return Err("SOCKS5 UDP IPv6 frame too short".to_string());
+            }
+            let mut raw = [0u8; 16];
+            raw.copy_from_slice(&frame[4..20]);
+            let address = SocketAddr::new(
+                IpAddr::V6(std::net::Ipv6Addr::from(raw)),
+                u16::from_be_bytes([frame[20], frame[21]]),
+            );
+            Ok((address, frame[22..].to_vec()))
+        }
+        atyp => Err(format!("SOCKS5 UDP atyp unsupported: {atyp}")),
+    }
+}
+
+fn resolve_first_socket_addr(value: &str) -> Result<SocketAddr, String> {
+    value
+        .to_socket_addrs()
+        .map_err(|err| err.to_string())?
+        .next()
+        .ok_or_else(|| "no_socket_addrs".to_string())
 }
 
 fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
@@ -1683,6 +2009,7 @@ mod tests {
     use rustls::pki_types::PrivateKeyDer;
     use rustls::{ServerConfig, ServerConnection};
     use std::net::TcpListener;
+    use std::sync::atomic::AtomicUsize;
 
     #[test]
     fn dns_probe_reports_substitution_when_udp_and_doh_differ() {
@@ -1714,6 +2041,32 @@ mod tests {
     }
 
     #[test]
+    fn dns_probe_reports_match_over_socks5_udp_and_doh() {
+        let udp = UdpDnsServer::start("203.0.113.10");
+        let doh = HttpTextServer::start_json(r#"{"Answer":[{"type":1,"data":"203.0.113.10"}]}"#);
+        let proxy = Socks5RelayServer::start();
+        let target = DnsTarget {
+            domain: "blocked.example".to_string(),
+            udp_server: Some(udp.addr()),
+            doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
+            expected_ips: vec![],
+        };
+
+        let result = run_dns_probe(
+            &target,
+            &TransportConfig::Socks5 {
+                host: "127.0.0.1".to_string(),
+                port: proxy.port(),
+            },
+            &ScanPathMode::InPath,
+        );
+
+        println!("dns socks result: {:?}", result);
+        assert_eq!(result.outcome, "dns_match");
+        assert!(proxy.udp_associate_attempts() >= 1);
+    }
+
+    #[test]
     fn domain_probe_reports_tls_certificate_anomaly() {
         let server = TlsHttpServer::start(
             TlsMode::Single("localhost".to_string()),
@@ -1728,6 +2081,48 @@ mod tests {
 
         let result = run_domain_probe(&target, &TransportConfig::Direct);
         assert_eq!(result.outcome, "tls_cert_invalid");
+    }
+
+    #[test]
+    fn tls_signal_reports_version_split_low_confidence() {
+        let tls13 = TlsObservation {
+            status: "tls_handshake_failed".to_string(),
+            version: None,
+            error: Some("blocked".to_string()),
+            certificate_anomaly: false,
+        };
+        let tls12 = TlsObservation {
+            status: "tls_ok".to_string(),
+            version: Some("TLS1.2".to_string()),
+            error: None,
+            certificate_anomaly: false,
+        };
+
+        assert_eq!(
+            classify_tls_signal(&tls13, &tls12),
+            "tls_version_split_low_confidence"
+        );
+    }
+
+    #[test]
+    fn try_tls_handshake_forces_tls_on_non_default_https_port() {
+        let server = TlsHttpServer::start(
+            TlsMode::Single("localhost".to_string()),
+            FatServerMode::AlwaysOk,
+        );
+        let target = TargetAddress::Host("localhost".to_string());
+
+        let tls = try_tls_handshake(
+            &target,
+            server.port(),
+            &TransportConfig::Direct,
+            "localhost",
+            false,
+            TlsClientProfile::Tls13Only,
+        );
+
+        assert_eq!(tls.status, "tls_ok");
+        assert!(tls.version.is_some());
     }
 
     #[test]
@@ -1767,14 +2162,8 @@ mod tests {
 
     #[test]
     fn tcp_probe_reports_whitelist_sni_success() {
-        let server = HttpTextServer::start(move |request| {
-            let lower = String::from_utf8_lossy(&request).to_ascii_lowercase();
-            if lower.contains("allow.example") {
-                b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
-            } else {
-                Vec::new()
-            }
-        });
+        let server =
+            PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
         let target = TcpTarget {
             id: "test".to_string(),
             provider: "tls-fat".to_string(),
@@ -1796,14 +2185,8 @@ mod tests {
 
     #[test]
     fn tcp_probe_reports_whitelist_sni_failure() {
-        let server = HttpTextServer::start(move |request| {
-            let lower = String::from_utf8_lossy(&request).to_ascii_lowercase();
-            if lower.contains("allow.example") {
-                b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec()
-            } else {
-                Vec::new()
-            }
-        });
+        let server =
+            PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
         let target = TcpTarget {
             id: "test".to_string(),
             provider: "tls-fat".to_string(),
@@ -1821,6 +2204,61 @@ mod tests {
             &TransportConfig::Direct,
         );
         assert_eq!(result.outcome, "whitelist_sni_failed");
+    }
+
+    #[test]
+    fn monitor_session_drains_passive_events_with_probe_details() {
+        let server = HttpTextServer::start_text(
+            "HTTP/1.1 403 Forbidden",
+            "Access denied by upstream filtering",
+        );
+        let request = ScanRequest {
+            profile_id: "default".to_string(),
+            display_name: "Passive events".to_string(),
+            path_mode: ScanPathMode::RawPath,
+            proxy_host: None,
+            proxy_port: None,
+            domain_targets: vec![DomainTarget {
+                host: "127.0.0.1".to_string(),
+                https_port: Some(9),
+                http_port: Some(server.port()),
+                http_path: "/".to_string(),
+            }],
+            dns_targets: vec![],
+            tcp_targets: vec![],
+            whitelist_sni: vec![],
+        };
+        let session = MonitorSession::new();
+        session
+            .start_scan("session-1".to_string(), request)
+            .expect("start scan");
+
+        let report = wait_for_report(&session);
+        assert_eq!(
+            report.outcome_for("domain_reachability"),
+            Some("http_blockpage")
+        );
+
+        let first = session
+            .poll_passive_events_json()
+            .expect("poll passive events")
+            .expect("events json");
+        let events: Vec<NativeSessionEvent> =
+            serde_json::from_str(&first).expect("decode native events");
+        assert!(events
+            .iter()
+            .any(|event| event.message.contains("transport=DIRECT")));
+        assert!(events
+            .iter()
+            .any(|event| event.message.contains("http=http_blockpage")));
+
+        let second = session
+            .poll_passive_events_json()
+            .expect("poll passive events again")
+            .expect("events json");
+        let drained: Vec<NativeSessionEvent> =
+            serde_json::from_str(&second).expect("decode drained events");
+        assert!(drained.is_empty());
     }
 
     struct UdpDnsServer {
@@ -1878,6 +2316,270 @@ mod tests {
                 handle.join().expect("join udp dns");
             }
         }
+    }
+
+    struct Socks5RelayServer {
+        addr: SocketAddr,
+        stop: Arc<AtomicBool>,
+        udp_associate_attempts: Arc<AtomicUsize>,
+        handle: Option<JoinHandle<()>>,
+    }
+
+    impl Socks5RelayServer {
+        fn start() -> Self {
+            let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind socks5 relay");
+            listener
+                .set_nonblocking(true)
+                .expect("set socks5 relay nonblocking");
+            let addr = listener.local_addr().expect("socks5 relay addr");
+            let stop = Arc::new(AtomicBool::new(false));
+            let stop_flag = stop.clone();
+            let udp_associate_attempts = Arc::new(AtomicUsize::new(0));
+            let udp_attempts_ref = udp_associate_attempts.clone();
+            let handle = thread::spawn(move || {
+                let udp_relay =
+                    UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind socks udp relay");
+                udp_relay
+                    .set_read_timeout(Some(Duration::from_millis(100)))
+                    .expect("set socks udp timeout");
+                let udp_local = udp_relay.local_addr().expect("socks udp local addr");
+                let udp_socket = udp_relay.try_clone().expect("clone socks udp relay");
+                let udp_stop = stop_flag.clone();
+                thread::spawn(move || {
+                    let mut frame = [0u8; 65535];
+                    while !udp_stop.load(Ordering::Relaxed) {
+                        match udp_socket.recv_from(&mut frame) {
+                            Ok((size, peer)) => {
+                                if let Ok((destination, payload)) =
+                                    decode_socks5_udp_frame(&frame[..size])
+                                {
+                                    let forward = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+                                        .expect("bind udp forward");
+                                    forward
+                                        .set_read_timeout(Some(IO_TIMEOUT))
+                                        .expect("set udp forward timeout");
+                                    let _ = forward.send_to(&payload, destination);
+                                    let mut response = [0u8; 2048];
+                                    if let Ok((read, from)) = forward.recv_from(&mut response) {
+                                        let reply =
+                                            encode_socks5_udp_frame(from, &response[..read]);
+                                        let _ = udp_socket.send_to(&reply, peer);
+                                    }
+                                }
+                            }
+                            Err(err)
+                                if matches!(
+                                    err.kind(),
+                                    ErrorKind::WouldBlock | ErrorKind::TimedOut
+                                ) => {}
+                            Err(_) => break,
+                        }
+                    }
+                });
+
+                while !stop_flag.load(Ordering::Relaxed) {
+                    match listener.accept() {
+                        Ok((mut stream, _)) => {
+                            let udp_attempts_ref = udp_attempts_ref.clone();
+                            thread::spawn(move || {
+                                let _ = stream.set_nonblocking(false);
+                                let _ = stream.set_write_timeout(Some(IO_TIMEOUT));
+                                if read_socks_greeting(&mut stream).is_err() {
+                                    return;
+                                }
+                                let _ = stream.write_all(&[0x05, 0x00]);
+
+                                let mut header = [0u8; 4];
+                                if stream.read_exact(&mut header).is_err() {
+                                    return;
+                                }
+                                match header[1] {
+                                    0x03 => {
+                                        udp_attempts_ref.fetch_add(1, Ordering::Relaxed);
+                                        if consume_socks_addr(&mut stream, header[3]).is_err() {
+                                            return;
+                                        }
+                                        let reply = encode_socks_reply(udp_local);
+                                        let _ = stream.write_all(&reply);
+                                        let mut drain = [0u8; 16];
+                                        loop {
+                                            match stream.read(&mut drain) {
+                                                Ok(0) => break,
+                                                Ok(_) => {}
+                                                Err(err)
+                                                    if matches!(
+                                                        err.kind(),
+                                                        ErrorKind::WouldBlock | ErrorKind::TimedOut
+                                                    ) => {}
+                                                Err(_) => break,
+                                            }
+                                            thread::sleep(Duration::from_millis(20));
+                                        }
+                                    }
+                                    0x01 => {
+                                        let target = match read_socks_target(&mut stream, header[3])
+                                        {
+                                            Ok(target) => target,
+                                            Err(_) => return,
+                                        };
+                                        let upstream = match TcpStream::connect_timeout(
+                                            &target,
+                                            CONNECT_TIMEOUT,
+                                        ) {
+                                            Ok(stream) => stream,
+                                            Err(_) => return,
+                                        };
+                                        let reply_addr =
+                                            upstream.local_addr().unwrap_or_else(|_| {
+                                                SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)
+                                            });
+                                        let _ = stream.write_all(&encode_socks_reply(reply_addr));
+                                        relay_bidirectional(stream, upstream);
+                                    }
+                                    _ => {}
+                                }
+                            });
+                        }
+                        Err(err) if err.kind() == ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(20));
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+
+            Self {
+                addr,
+                stop,
+                udp_associate_attempts,
+                handle: Some(handle),
+            }
+        }
+
+        fn port(&self) -> u16 {
+            self.addr.port()
+        }
+
+        fn udp_associate_attempts(&self) -> usize {
+            self.udp_associate_attempts.load(Ordering::Relaxed)
+        }
+    }
+
+    impl Drop for Socks5RelayServer {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Relaxed);
+            let _ = TcpStream::connect(self.addr);
+            let wake = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind socks wake udp");
+            let _ = wake.send_to(b"wake", self.addr);
+            if let Some(handle) = self.handle.take() {
+                handle.join().expect("join socks5 relay");
+            }
+        }
+    }
+
+    fn encode_socks_reply(address: SocketAddr) -> Vec<u8> {
+        match address {
+            SocketAddr::V4(addr) => {
+                let mut reply = vec![0x05, 0x00, 0x00, 0x01];
+                reply.extend_from_slice(&addr.ip().octets());
+                reply.extend_from_slice(&addr.port().to_be_bytes());
+                reply
+            }
+            SocketAddr::V6(addr) => {
+                let mut reply = vec![0x05, 0x00, 0x00, 0x04];
+                reply.extend_from_slice(&addr.ip().octets());
+                reply.extend_from_slice(&addr.port().to_be_bytes());
+                reply
+            }
+        }
+    }
+
+    fn read_socks_greeting(stream: &mut TcpStream) -> Result<(), std::io::Error> {
+        let mut header = [0u8; 2];
+        stream.read_exact(&mut header)?;
+        let methods_len = header[1] as usize;
+        let mut methods = vec![0u8; methods_len];
+        stream.read_exact(&mut methods)?;
+        Ok(())
+    }
+
+    fn consume_socks_addr(stream: &mut TcpStream, atyp: u8) -> Result<(), std::io::Error> {
+        match atyp {
+            0x01 => {
+                let mut buf = [0u8; 6];
+                stream.read_exact(&mut buf)
+            }
+            0x04 => {
+                let mut buf = [0u8; 18];
+                stream.read_exact(&mut buf)
+            }
+            0x03 => {
+                let mut len = [0u8; 1];
+                stream.read_exact(&mut len)?;
+                let mut buf = vec![0u8; len[0] as usize + 2];
+                stream.read_exact(&mut buf)
+            }
+            _ => Err(std::io::Error::new(
+                ErrorKind::InvalidData,
+                "unsupported atyp",
+            )),
+        }
+    }
+
+    fn read_socks_target(stream: &mut TcpStream, atyp: u8) -> Result<SocketAddr, std::io::Error> {
+        match atyp {
+            0x01 => {
+                let mut addr = [0u8; 4];
+                let mut port = [0u8; 2];
+                stream.read_exact(&mut addr)?;
+                stream.read_exact(&mut port)?;
+                Ok(SocketAddr::new(
+                    IpAddr::V4(Ipv4Addr::from(addr)),
+                    u16::from_be_bytes(port),
+                ))
+            }
+            0x03 => {
+                let mut len = [0u8; 1];
+                stream.read_exact(&mut len)?;
+                let mut domain = vec![0u8; len[0] as usize];
+                let mut port = [0u8; 2];
+                stream.read_exact(&mut domain)?;
+                stream.read_exact(&mut port)?;
+                let domain = String::from_utf8_lossy(&domain).to_string();
+                (domain.as_str(), u16::from_be_bytes(port))
+                    .to_socket_addrs()?
+                    .next()
+                    .ok_or_else(|| {
+                        std::io::Error::new(ErrorKind::AddrNotAvailable, "no target addr")
+                    })
+            }
+            0x04 => {
+                let mut addr = [0u8; 16];
+                let mut port = [0u8; 2];
+                stream.read_exact(&mut addr)?;
+                stream.read_exact(&mut port)?;
+                Ok(SocketAddr::new(
+                    IpAddr::V6(std::net::Ipv6Addr::from(addr)),
+                    u16::from_be_bytes(port),
+                ))
+            }
+            _ => Err(std::io::Error::new(
+                ErrorKind::InvalidData,
+                "unsupported atyp",
+            )),
+        }
+    }
+
+    fn relay_bidirectional(client: TcpStream, upstream: TcpStream) {
+        let mut client_reader = client.try_clone().expect("clone client reader");
+        let mut client_writer = client;
+        let mut upstream_reader = upstream.try_clone().expect("clone upstream reader");
+        let mut upstream_writer = upstream;
+        let to_upstream = thread::spawn(move || {
+            let _ = std::io::copy(&mut client_reader, &mut upstream_writer);
+        });
+        let _ = std::io::copy(&mut upstream_reader, &mut client_writer);
+        let _ = to_upstream.join();
     }
 
     struct HttpTextServer {
@@ -1964,6 +2666,29 @@ mod tests {
         }
     }
 
+    fn wait_for_report(session: &MonitorSession) -> ScanReport {
+        for _ in 0..50 {
+            if let Some(report_json) = session.take_report_json().expect("take report json") {
+                return serde_json::from_str(&report_json).expect("decode scan report");
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+        panic!("timed out waiting for scan report");
+    }
+
+    trait ScanReportExt {
+        fn outcome_for(&self, probe_type: &str) -> Option<&str>;
+    }
+
+    impl ScanReportExt for ScanReport {
+        fn outcome_for(&self, probe_type: &str) -> Option<&str> {
+            self.results
+                .iter()
+                .find(|result| result.probe_type == probe_type)
+                .map(|result| result.outcome.as_str())
+        }
+    }
+
     #[derive(Clone)]
     enum TlsMode {
         Single(String),
@@ -1973,6 +2698,7 @@ mod tests {
     enum FatServerMode {
         AlwaysOk,
         CutoffAtThreshold,
+        AllowHost(String),
     }
 
     struct TlsHttpServer {
@@ -2114,6 +2840,12 @@ mod tests {
                 return;
             }
             total_read += request.len();
+            let request_text = String::from_utf8_lossy(&request).to_ascii_lowercase();
+            if let FatServerMode::AllowHost(expected) = &fat_mode {
+                if !request_text.contains(&expected.to_ascii_lowercase()) {
+                    return;
+                }
+            }
             if matches!(&fat_mode, FatServerMode::CutoffAtThreshold)
                 && total_read >= FAT_HEADER_THRESHOLD_BYTES
             {
