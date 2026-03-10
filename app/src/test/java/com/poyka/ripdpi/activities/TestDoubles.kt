@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
+import com.poyka.ripdpi.permissions.PermissionSnapshot
+import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceEvent
@@ -112,4 +114,10 @@ class FakeTrafficStatsReader(
     var transferredBytes: Long = 0L,
 ) : TrafficStatsReader {
     override fun currentTransferredBytes(): Long = transferredBytes
+}
+
+class FakePermissionStatusProvider(
+    var snapshot: PermissionSnapshot = PermissionSnapshot(),
+) : PermissionStatusProvider {
+    override fun currentSnapshot(): PermissionSnapshot = snapshot
 }

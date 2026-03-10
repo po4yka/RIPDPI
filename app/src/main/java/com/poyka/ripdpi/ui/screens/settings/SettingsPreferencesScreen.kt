@@ -28,6 +28,8 @@ import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -48,6 +50,8 @@ fun SettingsRoute(
     onOpenAdvancedSettings: () -> Unit,
     onOpenCustomization: () -> Unit,
     onOpenAbout: () -> Unit,
+    permissionSummary: PermissionSummaryUiState,
+    onRepairPermission: (PermissionKind) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -59,6 +63,8 @@ fun SettingsRoute(
         onOpenAdvancedSettings = onOpenAdvancedSettings,
         onOpenCustomization = onOpenCustomization,
         onOpenAbout = onOpenAbout,
+        permissionSummary = permissionSummary,
+        onRepairPermission = onRepairPermission,
         onThemeSelected = viewModel::setAppTheme,
         onWebRtcProtectionChanged = viewModel::setWebRtcProtectionEnabled,
         onBiometricChanged = viewModel::setBiometricEnabled,
@@ -74,6 +80,8 @@ internal fun SettingsScreen(
     onOpenAdvancedSettings: () -> Unit,
     onOpenCustomization: () -> Unit,
     onOpenAbout: () -> Unit,
+    permissionSummary: PermissionSummaryUiState,
+    onRepairPermission: (PermissionKind) -> Unit,
     onThemeSelected: (String) -> Unit,
     onWebRtcProtectionChanged: (Boolean) -> Unit,
     onBiometricChanged: (Boolean) -> Unit,
@@ -254,6 +262,23 @@ internal fun SettingsScreen(
 
             item {
                 SettingsSection(
+                    title = stringResource(R.string.settings_permissions_section),
+                ) {
+                    permissionSummary.items.forEachIndexed { index, item ->
+                        SettingsRow(
+                            title = item.title,
+                            subtitle = item.subtitle,
+                            value = item.actionLabel ?: item.statusLabel,
+                            onClick = item.actionLabel?.let { { onRepairPermission(item.kind) } },
+                            enabled = item.enabled,
+                            showDivider = index != permissionSummary.items.lastIndex,
+                        )
+                    }
+                }
+            }
+
+            item {
+                SettingsSection(
                     title = stringResource(R.string.settings_support_section),
                 ) {
                     SettingsRow(
@@ -370,6 +395,8 @@ private fun SettingsScreenPreview() {
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},
             onOpenAbout = {},
+            permissionSummary = PermissionSummaryUiState(),
+            onRepairPermission = {},
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
             onBiometricChanged = {},
@@ -395,6 +422,8 @@ private fun SettingsScreenDarkPreview() {
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},
             onOpenAbout = {},
+            permissionSummary = PermissionSummaryUiState(),
+            onRepairPermission = {},
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
             onBiometricChanged = {},
