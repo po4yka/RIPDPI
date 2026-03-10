@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
@@ -59,6 +60,7 @@ class DiagnosticsManagerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = runtimeCoordinator,
                     serviceStateStore = serviceStateStore,
@@ -97,6 +99,7 @@ class DiagnosticsManagerTest {
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     historyRepository = history,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
                     runtimeCoordinator = runtimeCoordinator,
                     serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
@@ -123,6 +126,7 @@ class DiagnosticsManagerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                     serviceStateStore = FakeServiceStateStore(),
@@ -204,6 +208,8 @@ class DiagnosticsManagerTest {
                             sessionId = null,
                         ),
                     )
+                    upsertContextSnapshot(context(id = "context-selected", sessionId = "session-selected"))
+                    upsertContextSnapshot(context(id = "context-passive", sessionId = null))
                     insertTelemetrySample(sample(id = "telemetry-1", publicIp = "198.51.100.8"))
                     insertNativeSessionEvent(event(id = "event-selected", sessionId = "session-selected", source = "dns", level = "warn"))
                     insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "warn"))
@@ -214,6 +220,7 @@ class DiagnosticsManagerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                     serviceStateStore = FakeServiceStateStore(),
@@ -230,12 +237,18 @@ class DiagnosticsManagerTest {
             assertFalse(entries.getValue("summary.txt").contains("198.51.100.8"))
             assertFalse(entries.getValue("summary.txt").contains("192.0.2.10"))
             assertFalse(entries.getValue("summary.txt").contains("AS64500"))
+            assertTrue(entries.getValue("summary.txt").contains("appVersion=0.0.1"))
+            assertTrue(entries.getValue("summary.txt").contains("proxyEndpoint=redacted"))
             assertTrue(entries.getValue("report.json").contains("\"publicIp\": \"198.51.100.8\""))
             assertTrue(entries.getValue("report.json").contains("1.1.1.1"))
+            assertTrue(entries.getValue("report.json").contains("\"sessionContexts\": ["))
+            assertTrue(entries.getValue("report.json").contains("127.0.0.1:1080"))
             assertTrue(entries.getValue("telemetry.csv").contains("198.51.100.8"))
             assertTrue(entries.getValue("manifest.json").contains("\"includedSessionId\": \"session-selected\""))
             assertTrue(entries.getValue("manifest.json").contains("\"privacyMode\": \"split_output\""))
             assertTrue(entries.getValue("manifest.json").contains("\"publicIp\": \"redacted\""))
+            assertTrue(entries.getValue("manifest.json").contains("\"contextSnapshotCount\": 1"))
+            assertTrue(entries.getValue("manifest.json").contains("\"proxyEndpoint\": \"redacted\""))
             assertFalse(entries.getValue("manifest.json").contains("198.51.100.8"))
             assertEquals("session-selected", history.exportsState.value.single().sessionId)
         }
@@ -265,6 +278,7 @@ class DiagnosticsManagerTest {
                         )
                     replaceProbeResults("session-latest", listOf(ProbeResultEntity("probe-1", "session-latest", "http", "example.org", "ok", "[]", 20L)))
                     upsertSnapshot(snapshot(id = "snapshot-passive", sessionId = null))
+                    upsertContextSnapshot(context(id = "context-latest", sessionId = "session-latest"))
                     insertTelemetrySample(sample(id = "telemetry-1", publicIp = "198.51.100.8"))
                     insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "info"))
                 }
@@ -274,6 +288,7 @@ class DiagnosticsManagerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
                     runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
                     serviceStateStore = FakeServiceStateStore(),
@@ -285,6 +300,7 @@ class DiagnosticsManagerTest {
             assertEquals("session-latest", archive.sessionId)
             assertTrue(entries.getValue("manifest.json").contains("\"includedSessionId\": \"session-latest\""))
             assertTrue(entries.getValue("report.json").contains("\"id\": \"session-latest\""))
+            assertTrue(entries.getValue("report.json").contains("\"contextKind\": \"post_scan\""))
             assertEquals("session-latest", history.exportsState.value.single().sessionId)
         }
 
@@ -332,6 +348,7 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
     val profilesState = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
     val sessionsState = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
     val snapshotsState = MutableStateFlow<List<NetworkSnapshotEntity>>(emptyList())
+    val contextsState = MutableStateFlow<List<DiagnosticContextEntity>>(emptyList())
     val telemetryState = MutableStateFlow<List<TelemetrySampleEntity>>(emptyList())
     val nativeEventsState = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
@@ -343,6 +360,8 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
     override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> = sessionsState
 
     override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = snapshotsState
+
+    override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> = contextsState
 
     override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> = telemetryState
 
@@ -380,6 +399,10 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
 
     override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) {
         snapshotsState.value = snapshotsState.value + snapshot
+    }
+
+    override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) {
+        contextsState.value = contextsState.value + snapshot
     }
 
     override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) {
@@ -435,6 +458,56 @@ private class FakeNetworkMetadataProvider : NetworkMetadataProvider {
             captivePortalDetected = false,
             networkValidated = true,
             capturedAt = 123L,
+        )
+}
+
+private class FakeDiagnosticsContextProvider : DiagnosticsContextProvider {
+    override suspend fun captureContext(): DiagnosticContextModel = captureContextForTest()
+
+    fun captureContextForTest(): DiagnosticContextModel =
+        DiagnosticContextModel(
+            service =
+                ServiceContextModel(
+                    serviceStatus = "Running",
+                    configuredMode = "VPN",
+                    activeMode = "VPN",
+                    selectedProfileId = "default",
+                    selectedProfileName = "Default",
+                    configSource = "ui",
+                    proxyEndpoint = "127.0.0.1:1080",
+                    desyncMethod = "split",
+                    routeGroup = "3",
+                    sessionUptimeMs = 15_000L,
+                    lastNativeErrorHeadline = "none",
+                    restartCount = 2,
+                ),
+            permissions =
+                PermissionContextModel(
+                    vpnPermissionState = "enabled",
+                    notificationPermissionState = "enabled",
+                    batteryOptimizationState = "disabled",
+                    dataSaverState = "disabled",
+                ),
+            device =
+                DeviceContextModel(
+                    appVersionName = "0.0.1",
+                    appVersionCode = 1L,
+                    buildType = "debug",
+                    androidVersion = "16",
+                    apiLevel = 36,
+                    manufacturer = "Google",
+                    model = "Pixel",
+                    primaryAbi = "arm64-v8a",
+                    locale = "en-US",
+                    timezone = "UTC",
+                ),
+            environment =
+                EnvironmentContextModel(
+                    batterySaverState = "disabled",
+                    powerSaveModeState = "disabled",
+                    networkMeteredState = "disabled",
+                    roamingState = "disabled",
+                ),
         )
 }
 
@@ -638,8 +711,24 @@ private fun snapshot(
                     networkValidated = true,
                     capturedAt = 123L,
                 ),
-            ),
+        ),
         capturedAt = 123L,
+    )
+
+private fun context(
+    id: String,
+    sessionId: String?,
+): DiagnosticContextEntity =
+    DiagnosticContextEntity(
+        id = id,
+        sessionId = sessionId,
+        contextKind = if (sessionId == null) "passive" else "post_scan",
+        payloadJson =
+            Json.encodeToString(
+                DiagnosticContextModel.serializer(),
+                FakeDiagnosticsContextProvider().captureContextForTest(),
+            ),
+        capturedAt = 124L,
     )
 
 private fun sample(
