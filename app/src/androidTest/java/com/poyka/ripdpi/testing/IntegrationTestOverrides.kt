@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.testing
 
 import android.os.ParcelFileDescriptor
+import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
@@ -83,6 +84,8 @@ class RecordingRipDpiProxyRuntime(
     private val events: MutableList<String>,
 ) : RipDpiProxyRuntime {
     private var exitCode = CompletableDeferred<Int>()
+    var startFailure: Throwable? = null
+    var telemetryValue: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy")
 
     var lastPreferences: com.poyka.ripdpi.core.RipDpiProxyPreferences? = null
         private set
@@ -92,6 +95,7 @@ class RecordingRipDpiProxyRuntime(
     override suspend fun startProxy(preferences: com.poyka.ripdpi.core.RipDpiProxyPreferences): Int {
         lastPreferences = preferences
         events += "proxy:start"
+        startFailure?.let { throw it }
         return exitCode.await()
     }
 
@@ -103,6 +107,8 @@ class RecordingRipDpiProxyRuntime(
         }
     }
 
+    override suspend fun pollTelemetry(): NativeRuntimeSnapshot = telemetryValue
+
     fun complete(exitCode: Int) {
         if (!this.exitCode.isCompleted) {
             this.exitCode.complete(exitCode)
@@ -113,6 +119,7 @@ class RecordingRipDpiProxyRuntime(
         exitCode = CompletableDeferred()
         lastPreferences = null
         stopCount = 0
+        startFailure = null
     }
 }
 
@@ -139,7 +146,9 @@ class RecordingTun2SocksBridge(
     var stopCount: Int = 0
         private set
     var failOnStart: Throwable? = null
+    var failOnStats: Throwable? = null
     var statsValue: TunnelStats = TunnelStats()
+    var telemetryValue: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel")
 
     override suspend fun start(
         config: Tun2SocksConfig,
@@ -156,14 +165,21 @@ class RecordingTun2SocksBridge(
         events += "tunnel:stop"
     }
 
-    override suspend fun stats(): TunnelStats = statsValue
+    override suspend fun stats(): TunnelStats {
+        failOnStats?.let { throw it }
+        return statsValue
+    }
+
+    override suspend fun telemetry(): NativeRuntimeSnapshot = telemetryValue
 
     fun reset() {
         startedConfig = null
         startedTunFd = null
         stopCount = 0
         failOnStart = null
+        failOnStats = null
         statsValue = TunnelStats()
+        telemetryValue = NativeRuntimeSnapshot.idle(source = "tunnel")
     }
 }
 
@@ -210,6 +226,7 @@ class RecordingVpnTunnelSession(
 class RecordingVpnTunnelSessionProvider(
     private val events: MutableList<String>,
 ) : VpnTunnelSessionProvider {
+    var establishFailure: Throwable? = null
     var lastDns: String? = null
         private set
     var lastIpv6: Boolean? = null
@@ -225,6 +242,7 @@ class RecordingVpnTunnelSessionProvider(
         lastDns = dns
         lastIpv6 = ipv6
         events += "vpn:establish"
+        establishFailure?.let { throw it }
         return session
     }
 
@@ -232,6 +250,7 @@ class RecordingVpnTunnelSessionProvider(
         session = RecordingVpnTunnelSession.open(events)
         lastDns = null
         lastIpv6 = null
+        establishFailure = null
     }
 }
 
@@ -265,6 +284,10 @@ object IntegrationTestOverrides {
         tun2SocksBridgeFactory = RecordingTun2SocksBridgeFactory(orderEvents)
         vpnTunnelSessionProvider = RecordingVpnTunnelSessionProvider(orderEvents)
         proxyPreferencesResolver = FixedProxyPreferencesResolver()
+    }
+
+    fun overrideProxyPreferencesResolver(resolver: ProxyPreferencesResolver) {
+        proxyPreferencesResolver = resolver
     }
 
     fun orderSnapshot(): List<String> = orderEvents.toList()

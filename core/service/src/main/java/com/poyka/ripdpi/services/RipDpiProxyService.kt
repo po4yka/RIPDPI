@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
+import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.service.R
@@ -96,13 +97,13 @@ class RipDpiProxyService : LifecycleService() {
             return
         }
 
+        startForeground()
         try {
             mutex.withLock {
                 startProxy()
             }
             updateStatus(ServiceStatus.Connected)
             startTelemetryUpdates()
-            startForeground()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start proxy\n${e.asLog()}" }
             updateStatus(ServiceStatus.Failed)
@@ -219,6 +220,8 @@ class RipDpiProxyService : LifecycleService() {
                 mode = Mode.Proxy,
                 status = appStatus,
                 tunnelStats = com.poyka.ripdpi.core.TunnelStats(),
+                proxyTelemetry = NativeRuntimeSnapshot.idle(source = "proxy"),
+                tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -233,12 +236,17 @@ class RipDpiProxyService : LifecycleService() {
         telemetryJob =
             lifecycleScope.launch {
                 while (status == ServiceStatus.Connected) {
+                    val proxyTelemetry =
+                        runCatching { proxy?.pollTelemetry() }.getOrNull()
+                            ?: NativeRuntimeSnapshot.idle(source = "proxy")
                     serviceStateStore.updateTelemetry(
                         ServiceTelemetrySnapshot(
                             mode = Mode.Proxy,
                             status = AppStatus.Running,
                             tunnelStats = com.poyka.ripdpi.core.TunnelStats(),
-                            updatedAt = System.currentTimeMillis(),
+                            proxyTelemetry = proxyTelemetry,
+                            tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
+                            updatedAt = maxOf(System.currentTimeMillis(), proxyTelemetry.capturedAt),
                         ),
                     )
                     delay(1_000)

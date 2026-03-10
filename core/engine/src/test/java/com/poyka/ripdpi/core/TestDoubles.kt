@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.core
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.runBlocking
+
 class FakeProxyPreferencesResolver(
     private var preferences: RipDpiProxyPreferences = RipDpiProxyUIPreferences(),
 ) : ProxyPreferencesResolver {
@@ -21,6 +24,7 @@ class FakeRipDpiProxyRuntime : RipDpiProxyRuntime {
     var stopCount: Int = 0
     var startCount: Int = 0
     var lastPreferences: RipDpiProxyPreferences? = null
+    var telemetryValue: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy")
 
     override suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
         startCount += 1
@@ -31,29 +35,46 @@ class FakeRipDpiProxyRuntime : RipDpiProxyRuntime {
     override suspend fun stopProxy() {
         stopCount += 1
     }
+
+    override suspend fun pollTelemetry(): NativeRuntimeSnapshot = telemetryValue
 }
 
 class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     var createdHandle: Long = 1L
     var startResult: Int = 0
+    var createFailure: Throwable? = null
+    var startFailure: Throwable? = null
+    var stopFailure: Throwable? = null
+    var startedSignal: CompletableDeferred<Long>? = null
+    var startBlocker: CompletableDeferred<Unit>? = null
     var lastCreatePayload: String? = null
     var lastStartedHandle: Long? = null
     var lastStoppedHandle: Long? = null
     var lastDestroyedHandle: Long? = null
+    var telemetryJson: String? = null
 
     override fun create(configJson: String): Long {
+        createFailure?.let { throw it }
         lastCreatePayload = configJson
         return createdHandle
     }
 
     override fun start(handle: Long): Int {
         lastStartedHandle = handle
+        startedSignal?.complete(handle)
+        startBlocker?.let { blocker ->
+            runBlocking { blocker.await() }
+        }
+        startFailure?.let { throw it }
         return startResult
     }
 
     override fun stop(handle: Long) {
         lastStoppedHandle = handle
+        stopFailure?.let { throw it }
     }
+
+    override fun pollTelemetry(handle: Long): String? = telemetryJson
 
     override fun destroy(handle: Long) {
         lastDestroyedHandle = handle
@@ -65,6 +86,8 @@ class FakeTun2SocksBridge : Tun2SocksBridge {
     var startedTunFd: Int? = null
     var stopCount: Int = 0
     var statsValue: TunnelStats = TunnelStats()
+    var statsFailure: Throwable? = null
+    var telemetryValue: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel")
 
     override suspend fun start(
         config: Tun2SocksConfig,
@@ -78,7 +101,12 @@ class FakeTun2SocksBridge : Tun2SocksBridge {
         stopCount += 1
     }
 
-    override suspend fun stats(): TunnelStats = statsValue
+    override suspend fun stats(): TunnelStats {
+        statsFailure?.let { throw it }
+        return statsValue
+    }
+
+    override suspend fun telemetry(): NativeRuntimeSnapshot = telemetryValue
 }
 
 class FakeTun2SocksBridgeFactory(
@@ -89,14 +117,20 @@ class FakeTun2SocksBridgeFactory(
 
 class FakeTun2SocksBindings : Tun2SocksBindings {
     var createdHandle: Long = 1L
+    var createFailure: Throwable? = null
+    var startFailure: Throwable? = null
+    var stopFailure: Throwable? = null
+    var statsFailure: Throwable? = null
     var lastCreatePayload: String? = null
     var lastStartHandle: Long? = null
     var lastStartTunFd: Int? = null
     var lastStopHandle: Long? = null
     var lastDestroyedHandle: Long? = null
     var nativeStats: LongArray = longArrayOf()
+    var telemetryJson: String? = null
 
     override fun create(configJson: String): Long {
+        createFailure?.let { throw it }
         lastCreatePayload = configJson
         return createdHandle
     }
@@ -107,13 +141,20 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     ) {
         lastStartHandle = handle
         lastStartTunFd = tunFd
+        startFailure?.let { throw it }
     }
 
     override fun stop(handle: Long) {
         lastStopHandle = handle
+        stopFailure?.let { throw it }
     }
 
-    override fun getStats(handle: Long): LongArray = nativeStats
+    override fun getStats(handle: Long): LongArray {
+        statsFailure?.let { throw it }
+        return nativeStats
+    }
+
+    override fun getTelemetry(handle: Long): String? = telemetryJson
 
     override fun destroy(handle: Long) {
         lastDestroyedHandle = handle

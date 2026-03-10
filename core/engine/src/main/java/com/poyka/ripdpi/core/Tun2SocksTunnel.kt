@@ -18,6 +18,8 @@ interface Tun2SocksBindings {
 
     fun getStats(handle: Long): LongArray
 
+    fun getTelemetry(handle: Long): String?
+
     fun destroy(handle: Long)
 }
 
@@ -45,6 +47,8 @@ class Tun2SocksNativeBindings
 
         override fun getStats(handle: Long): LongArray = jniGetStats(handle)
 
+        override fun getTelemetry(handle: Long): String? = jniGetTelemetry(handle)
+
         override fun destroy(handle: Long) {
             jniDestroy(handle)
         }
@@ -60,12 +64,15 @@ class Tun2SocksNativeBindings
 
         private external fun jniGetStats(handle: Long): LongArray
 
+        private external fun jniGetTelemetry(handle: Long): String?
+
         private external fun jniDestroy(handle: Long)
     }
 
 class Tun2SocksTunnel(
     private val nativeBindings: Tun2SocksBindings,
 ) {
+    private val json = Json { ignoreUnknownKeys = true }
     private val mutex = Mutex()
     private var handle = 0L
 
@@ -119,6 +126,18 @@ class Tun2SocksTunnel(
                 TunnelStats.fromNative(nativeBindings.getStats(handle))
             }
         }
+
+    suspend fun telemetry(): NativeRuntimeSnapshot =
+        mutex.withLock {
+            if (handle == 0L) {
+                NativeRuntimeSnapshot.idle(source = "tunnel")
+            } else {
+                nativeBindings.getTelemetry(handle)
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+                    ?: NativeRuntimeSnapshot.idle(source = "tunnel")
+            }
+        }
 }
 
 @Serializable
@@ -152,6 +171,7 @@ data class Tun2SocksConfig(
     val limitNofile: Int? = null,
 )
 
+@Serializable
 data class TunnelStats(
     val txPackets: Long = 0,
     val txBytes: Long = 0,
