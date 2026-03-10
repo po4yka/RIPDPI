@@ -419,6 +419,7 @@ dependencies = [
  "libc",
  "local-network-fixture",
  "log",
+ "native-soak-support",
  "once_cell",
  "proptest",
  "serde",
@@ -741,6 +742,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "native-soak-support"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1022,6 +1032,8 @@ dependencies = [
 name = "ripdpi-monitor"
 version = "0.1.0"
 dependencies = [
+ "local-network-fixture",
+ "native-soak-support",
  "rcgen",
  "rustls",
  "serde",
@@ -1042,7 +1054,9 @@ dependencies = [
  "local-network-fixture",
  "log",
  "mio 0.8.11",
+ "native-soak-support",
  "rustls",
+ "serde_json",
  "socket2 0.5.10",
  "windows-service",
 ]
