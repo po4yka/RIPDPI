@@ -29,7 +29,7 @@ class RipDpiProxyCmdPreferences(
     }
 
     override fun toNativeConfigJson(): String =
-        NativeProxyJson.encodeToString(
+        NativeProxyJson.encodeToString<NativeProxyConfig>(
             NativeProxyConfig.CommandLine(
                 args = args.toList(),
             ),
@@ -146,7 +146,7 @@ class RipDpiProxyUIPreferences(
     )
 
     override fun toNativeConfigJson(): String =
-        NativeProxyJson.encodeToString(
+        NativeProxyJson.encodeToString<NativeProxyConfig>(
             NativeProxyConfig.Ui(
                 ip = ip,
                 port = port,
