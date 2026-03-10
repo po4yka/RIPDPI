@@ -20,6 +20,7 @@ detekt-compose-rules = "0.5.6"
 ktlint-plugin = "14.1.0"
 logcat = "0.4"
 splashscreen = "1.2.0"
+kotlinx-serialization = "1.10.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
@@ -48,6 +49,7 @@ androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core",
 detekt-compose-rules = { module = "io.nlopez.compose.rules:detekt", version.ref = "detekt-compose-rules" }
 logcat = { module = "com.squareup.logcat:logcat", version.ref = "logcat" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 
 [bundles]
 lifecycle-app = [
@@ -73,6 +75,7 @@ unit-test = [
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin-compose" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin-compose" }
 protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-plugin" }
