@@ -61,7 +61,7 @@ Android VPN/proxy app for DPI bypass using in-repository Rust native modules for
 
 ## Gotchas
 
-- `android.newDsl=false` in `gradle.properties` is a workaround for protobuf-gradle-plugin 0.9.6 incompatibility with AGP 9's new DSL. Do not remove until the plugin supports AGP 9 natively.
+- `ripdpi.android.protobuf` is a repo-owned lite-codegen task that runs `protoc` directly against `src/main/proto` and writes generated sources under `build/generated/source/protoLite/main/java`.
 - `:core:engine:buildRustNativeLibs` runs before `preBuild`, uses Cargo incremental outputs per ABI, and only copies changed `.so` files into Gradle-managed `jniLibs`.
 - Signing config for release builds uses environment variables (`SIGNING_STORE_FILE`, etc.) -- never commit keystores.
 
