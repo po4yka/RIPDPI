@@ -4,7 +4,7 @@
 
 Android application that runs a local VPN service to bypass DPI (Deep Packet Inspection) and censorship.
 
-Runs a SOCKS5 proxy [ByeDPI](https://github.com/hufrea/byedpi) locally and redirects all traffic through it.
+Runs a local SOCKS5 proxy derived from [ByeDPI](https://github.com/hufrea/byedpi) and redirects all traffic through it.
 
 ## Settings
 
@@ -23,10 +23,10 @@ To bypass some blocks, you may need to change the settings. More info in the [By
 
 ## Building
 
-Requirements: JDK 8+, Android SDK, Android NDK, CMake 3.22.1+
+Requirements: JDK 17+, Android SDK, Android NDK, Rust toolchain
 
 ```bash
-git clone --recurse-submodules
+git clone
 ./gradlew assembleRelease
 ```
 
@@ -55,9 +55,9 @@ To enable signed release builds, configure these repository secrets:
 | `KEY_ALIAS` | Signing key alias |
 | `KEY_PASSWORD` | Signing key password |
 
-## Dependencies
+## Native Modules
 
-- [ByeDPI](https://github.com/hufrea/byedpi)
-- [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel)
+- In-repo Rust module based on [ByeDPI](https://github.com/hufrea/byedpi)
+- In-repo Rust module based on [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel)
 
 Native integration details: [docs/native/README.md](docs/native/README.md)

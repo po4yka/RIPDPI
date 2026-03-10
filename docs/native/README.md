@@ -1,13 +1,13 @@
 # Native Libraries
 
-This directory documents the native code integrated into RIPDPI, how it is built, and which dependency methods the app actually calls.
+This directory documents the in-repository Rust native modules used by RIPDPI.
 
 ## Overview
 
-| Dependency | Built artifact | Used in app | Main Kotlin bridge | Methods actually reached from app |
+| Native module | Built artifact | Used in app | Main Kotlin bridge | Methods actually reached from app |
 | --- | --- | --- | --- | --- |
-| `byedpi` | `libripdpi.so` | Proxy mode and VPN mode | `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt` | `listen_socket`, `event_loop`, `get_addr`, `get_default_ttl`, `add`, `data_from_str`, `parse_hosts`, `change_tls_sni`, `mem_pool`, `clear_params`; command-line mode also reaches `ftob` and `parse_offset` |
-| `hev-socks5-tunnel` | `libhev-socks5-tunnel.so` | VPN mode only | `core/engine/src/main/java/com/poyka/ripdpi/core/TProxyService.kt` | `hev_socks5_tunnel_main`, `hev_socks5_tunnel_quit`; `hev_socks5_tunnel_stats` is exposed but currently unused |
+| `native/rust/third_party/byedpi/crates/ciadpi-jni` | `libripdpi.so` | Proxy mode and VPN mode | `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt` | `ciadpi_config::parse_cli`, `ciadpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_listener`, `process::prepare_embedded`, `process::request_shutdown`, `platform::detect_default_ttl` |
+| `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-jni` | `libhev-socks5-tunnel.so` | VPN mode only | `core/engine/src/main/java/com/poyka/ripdpi/core/TProxyService.kt` | `hs5t_config::Config::from_file`, `hs5t_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot` |
 
 ## Runtime Topology
 
@@ -25,21 +25,26 @@ flowchart LR
 ## Build Integration
 
 - `core/engine/build.gradle.kts` builds all native code in the `core:engine` module.
-- `src/main/cpp/CMakeLists.txt` builds `libripdpi.so` from bundled `byedpi` sources plus JNI wrapper files.
-- `runNdkBuild` runs `ndk-build` with `src/main/jni/Android.mk` and writes `libhev-socks5-tunnel.so` into `src/main/jniLibs`.
+- `scripts/native/build-rust-android.sh` cross-compiles the Rust native modules with Cargo plus the Android NDK linker toolchain.
 - The Android build targets these ABIs: `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`.
+- The repo no longer depends on `CMake`, `ndk-build`, or Git submodules for native code.
 
-## Direct and Transitive Native Pieces
+## Direct Native Modules
 
-- Direct native dependencies:
-  - `byedpi`
-  - `hev-socks5-tunnel`
-- Transitive native pieces inside `hev-socks5-tunnel`:
-  - `yaml`
-  - `lwip`
-  - `hev-task-system`
-- Vendored but not used by the Android build:
-  - `wintun`
+- `native/rust/third_party/byedpi`
+- `native/rust/third_party/hev-socks5-tunnel`
+
+## Runtime ELF Dependencies
+
+- `libripdpi.so` links against `libc.so` and `libdl.so`.
+- `libhev-socks5-tunnel.so` links against `libc.so`, `libdl.so`, and `libm.so`.
+
+## Removed From Android Build
+
+- Vendored C sources under `core/engine/src/main/cpp`
+- `ndk-build` integration under `core/engine/src/main/jni`
+- The `hev-socks5-tunnel` Git submodule
+- Legacy transitive C deps such as `yaml`, `lwip`, `hev-task-system`, and `wintun`
 
 ## Documents
 

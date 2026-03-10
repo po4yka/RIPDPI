@@ -1,0 +1,27 @@
+[package]
+name = "ciadpi-bin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ciadpi-config = { path = "../ciadpi-config" }
+ciadpi-desync = { path = "../ciadpi-desync" }
+ciadpi-packets = { path = "../ciadpi-packets" }
+ciadpi-session = { path = "../ciadpi-session" }
+mio = { version = "0.8", features = ["net", "os-poll"] }
+socket2 = "0.5"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.8"
+
+[[bin]]
+name = "ciadpi"
+path = "src/main.rs"
+
+[dev-dependencies]
+rcgen = "0.13.2"
+rustls = "0.23.37"

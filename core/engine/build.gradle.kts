@@ -12,29 +12,13 @@ val nativeAbis =
     }
 val nativeMinSdk = providers.gradleProperty("ripdpi.minSdk")
 val nativeNdkVersion = providers.gradleProperty("ripdpi.nativeNdkVersion")
-val nativeCmakeVersion = providers.gradleProperty("ripdpi.nativeCmakeVersion")
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
-val ndkProjectDir = layout.buildDirectory.dir("intermediates/ndkBuild")
+val rustNativeBuildDir = layout.buildDirectory.dir("intermediates/rust")
 
 android {
     namespace = "com.poyka.ripdpi.core.engine"
 
     sourceSets["main"].jniLibs.srcDir(generatedJniLibsDir.get().asFile)
-
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = nativeCmakeVersion.get()
-        }
-    }
-
-    defaultConfig {
-        externalNativeBuild {
-            cmake {
-                arguments += "-DANDROID_PLATFORM=android-${nativeMinSdk.get()}"
-            }
-        }
-    }
 }
 
 dependencies {
@@ -59,46 +43,51 @@ val sdkDir =
             "SDK location not found. Set sdk.dir in local.properties or ANDROID_SDK_ROOT/ANDROID_HOME env var.",
         )
 
-tasks.register<Exec>("runNdkBuild") {
+tasks.register<Exec>("buildRustNativeLibs") {
     group = "build"
-    description = "Builds hev-socks5-tunnel into Gradle-managed jniLibs outputs."
+    description = "Builds Rust native libraries into Gradle-managed jniLibs outputs."
+
+    val nativeSourceRoots =
+        listOf(
+            rootProject.file("native/rust"),
+            rootProject.file("scripts/native"),
+        )
 
     inputs.files(
-        fileTree("src/main/jni") {
-            exclude("**/obj/**", "**/libs/**")
+        nativeSourceRoots.map { root ->
+            fileTree(root) {
+                exclude("**/target/**")
+            }
         },
     )
     inputs.property("nativeAbis", nativeAbis)
     inputs.property("nativeMinSdk", nativeMinSdk)
+    inputs.property("nativeNdkVersion", nativeNdkVersion)
     outputs.dir(generatedJniLibsDir)
 
-    val ndkDir = file("$sdkDir/ndk/${nativeNdkVersion.get()}")
-
-    executable =
-        if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
-            "$ndkDir\\ndk-build.cmd"
-        } else {
-            "$ndkDir/ndk-build"
-        }
-    setArgs(
-        listOf(
-            "NDK_PROJECT_PATH=${ndkProjectDir.get().asFile.invariantSeparatorsPath}",
-            "NDK_LIBS_OUT=${generatedJniLibsDir.get().asFile.invariantSeparatorsPath}",
-            "APP_BUILD_SCRIPT=src/main/jni/Android.mk",
-            "APP_PLATFORM=android-${nativeMinSdk.get()}",
-            "APP_ABI=${nativeAbis.get().joinToString(" ")}",
-            "APP_CFLAGS=-O3 -DPKGNAME=com/poyka/ripdpi/core",
-            "APP_CPPFLAGS=-O3 -std=c++11",
-            "APP_SUPPORT_FLEXIBLE_PAGE_SIZES=true",
-        ),
+    executable = "bash"
+    args(
+        rootProject.file("scripts/native/build-rust-android.sh").invariantSeparatorsPath,
+        "--sdk-dir",
+        sdkDir,
+        "--ndk-version",
+        nativeNdkVersion.get(),
+        "--min-sdk",
+        nativeMinSdk.get(),
+        "--abis",
+        nativeAbis.get().joinToString(","),
+        "--build-dir",
+        rustNativeBuildDir.get().asFile.invariantSeparatorsPath,
+        "--output-dir",
+        generatedJniLibsDir.get().asFile.invariantSeparatorsPath,
     )
 
     doFirst {
         generatedJniLibsDir.get().asFile.deleteRecursively()
-        ndkProjectDir.get().asFile.deleteRecursively()
+        rustNativeBuildDir.get().asFile.deleteRecursively()
     }
 }
 
 tasks.named("preBuild") {
-    dependsOn("runNdkBuild")
+    dependsOn("buildRustNativeLibs")
 }
