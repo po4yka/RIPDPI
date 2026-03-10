@@ -23,11 +23,14 @@ import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
 import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
+import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipFile
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -239,18 +242,78 @@ class DiagnosticsManagerTest {
             assertFalse(entries.getValue("summary.txt").contains("AS64500"))
             assertTrue(entries.getValue("summary.txt").contains("appVersion=0.0.1"))
             assertTrue(entries.getValue("summary.txt").contains("proxyEndpoint=redacted"))
+            assertTrue(entries.getValue("summary.txt").contains("wifiSsid=redacted"))
+            assertTrue(entries.getValue("summary.txt").contains("wifiBand=5 GHz"))
             assertTrue(entries.getValue("report.json").contains("\"publicIp\": \"198.51.100.8\""))
             assertTrue(entries.getValue("report.json").contains("1.1.1.1"))
             assertTrue(entries.getValue("report.json").contains("\"sessionContexts\": ["))
             assertTrue(entries.getValue("report.json").contains("127.0.0.1:1080"))
+            assertTrue(entries.getValue("report.json").contains("RIPDPI Lab"))
             assertTrue(entries.getValue("telemetry.csv").contains("198.51.100.8"))
             assertTrue(entries.getValue("manifest.json").contains("\"includedSessionId\": \"session-selected\""))
             assertTrue(entries.getValue("manifest.json").contains("\"privacyMode\": \"split_output\""))
             assertTrue(entries.getValue("manifest.json").contains("\"publicIp\": \"redacted\""))
             assertTrue(entries.getValue("manifest.json").contains("\"contextSnapshotCount\": 1"))
             assertTrue(entries.getValue("manifest.json").contains("\"proxyEndpoint\": \"redacted\""))
+            assertTrue(entries.getValue("manifest.json").contains("\"ssid\": \"redacted\""))
             assertFalse(entries.getValue("manifest.json").contains("198.51.100.8"))
             assertEquals("session-selected", history.exportsState.value.single().sessionId)
+        }
+
+    @Test
+    fun `createArchive keeps carrier diagnostics in raw report and share summary`() =
+        runTest {
+            val cacheDir = Files.createTempDirectory("diagnostics-archive-cellular").toFile()
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    sessionsState.value = listOf(session(id = "session-cell", profileId = "default", pathMode = "RAW_PATH", summary = "Carrier"))
+                    upsertSnapshot(
+                        snapshot(
+                            id = "snapshot-cell",
+                            sessionId = "session-cell",
+                            transport = "cellular",
+                            cellularDetails =
+                                CellularNetworkDetails(
+                                    carrierName = "Example Carrier",
+                                    simOperatorName = "Example Carrier",
+                                    networkOperatorName = "Example Carrier LTE",
+                                    networkCountryIso = "us",
+                                    simCountryIso = "us",
+                                    operatorCode = "310260",
+                                    simOperatorCode = "310260",
+                                    dataNetworkType = "NR",
+                                    voiceNetworkType = "LTE",
+                                    dataState = "connected",
+                                    serviceState = "in_service",
+                                    isNetworkRoaming = false,
+                                    carrierId = 42,
+                                    simCarrierId = 42,
+                                    signalLevel = 4,
+                                    signalDbm = -95,
+                                ),
+                        ),
+                    )
+                    upsertContextSnapshot(context(id = "context-cell", sessionId = "session-cell"))
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(cacheDir),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val archive = manager.createArchive("session-cell")
+            val entries = unzipEntries(archive.absolutePath)
+
+            assertTrue(entries.getValue("summary.txt").contains("carrier=Example Carrier"))
+            assertTrue(entries.getValue("summary.txt").contains("dataNetwork=NR"))
+            assertTrue(entries.getValue("report.json").contains("310260"))
+            assertTrue(entries.getValue("manifest.json").contains("\"carrierName\": \"Example Carrier\""))
         }
 
     @Test
@@ -308,13 +371,15 @@ class DiagnosticsManagerTest {
         history: FakeDiagnosticsHistoryRepository,
         sessionId: String,
     ) {
-        withTimeout(2_000) {
-            while (
-                history.getScanSession(sessionId)?.status != "completed" ||
-                history.snapshotsState.value.size < 2 ||
-                history.nativeEventsState.value.size < 2
-            ) {
-                delay(25)
+        kotlinx.coroutines.withContext(Dispatchers.Default.limitedParallelism(1)) {
+            withTimeout(2_000) {
+                while (
+                    history.getScanSession(sessionId)?.status != "completed" ||
+                    history.snapshotsState.value.size < 2 ||
+                    history.nativeEventsState.value.size < 2
+                ) {
+                    delay(25)
+                }
             }
         }
     }
@@ -457,6 +522,28 @@ private class FakeNetworkMetadataProvider : NetworkMetadataProvider {
             publicAsn = "AS64500",
             captivePortalDetected = false,
             networkValidated = true,
+            wifiDetails =
+                WifiNetworkDetails(
+                    ssid = "RIPDPI Lab",
+                    bssid = "aa:bb:cc:dd:ee:ff",
+                    frequencyMhz = 5180,
+                    band = "5 GHz",
+                    channelWidth = "80 MHz",
+                    wifiStandard = "802.11ax",
+                    rssiDbm = -53,
+                    linkSpeedMbps = 866,
+                    rxLinkSpeedMbps = 780,
+                    txLinkSpeedMbps = 720,
+                    hiddenSsid = false,
+                    networkId = 7,
+                    isPasspoint = false,
+                    isOsuAp = false,
+                    gateway = "192.0.2.1",
+                    dhcpServer = "192.0.2.2",
+                    ipAddress = "192.0.2.10",
+                    subnetMask = "255.255.255.0",
+                    leaseDurationSeconds = 3600,
+                ),
             capturedAt = 123L,
         )
 }
@@ -690,6 +777,30 @@ private fun session(
 private fun snapshot(
     id: String,
     sessionId: String?,
+    transport: String = "wifi",
+    wifiDetails: WifiNetworkDetails? =
+        WifiNetworkDetails(
+            ssid = "RIPDPI Lab",
+            bssid = "aa:bb:cc:dd:ee:ff",
+            frequencyMhz = 5180,
+            band = "5 GHz",
+            channelWidth = "80 MHz",
+            wifiStandard = "802.11ax",
+            rssiDbm = -53,
+            linkSpeedMbps = 866,
+            rxLinkSpeedMbps = 780,
+            txLinkSpeedMbps = 720,
+            hiddenSsid = false,
+            networkId = 7,
+            isPasspoint = false,
+            isOsuAp = false,
+            gateway = "192.0.2.1",
+            dhcpServer = "192.0.2.2",
+            ipAddress = "192.0.2.10",
+            subnetMask = "255.255.255.0",
+            leaseDurationSeconds = 3600,
+        ),
+    cellularDetails: CellularNetworkDetails? = null,
 ): NetworkSnapshotEntity =
     NetworkSnapshotEntity(
         id = id,
@@ -699,7 +810,7 @@ private fun snapshot(
             Json.encodeToString(
                 NetworkSnapshotModel.serializer(),
                 NetworkSnapshotModel(
-                    transport = "wifi",
+                    transport = transport,
                     capabilities = listOf("validated"),
                     dnsServers = listOf("1.1.1.1"),
                     privateDnsMode = "system",
@@ -709,6 +820,8 @@ private fun snapshot(
                     publicAsn = "AS64500",
                     captivePortalDetected = false,
                     networkValidated = true,
+                    wifiDetails = if (transport == "wifi") wifiDetails else null,
+                    cellularDetails = if (transport == "cellular") cellularDetails else null,
                     capturedAt = 123L,
                 ),
         ),

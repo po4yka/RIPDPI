@@ -83,7 +83,7 @@ class DefaultDiagnosticsManager
     private companion object {
         private const val DiagnosticsArchiveDirectory = "diagnostics-archives"
         private const val DiagnosticsArchivePrefix = "ripdpi-diagnostics-"
-        private const val ArchiveSchemaVersion = 3
+        private const val ArchiveSchemaVersion = 4
         private const val ArchivePrivacyMode = "split_output"
         private const val ArchiveScopeHybrid = "hybrid"
         private const val MaxArchiveFiles = 5
@@ -295,6 +295,19 @@ class DefaultDiagnosticsManager
                         appendLine("dns=${snapshot.dnsServers}")
                         appendLine("privateDns=${snapshot.privateDnsMode}")
                         appendLine("validated=${snapshot.networkValidated}")
+                        snapshot.wifiDetails?.let { wifi ->
+                            appendLine("wifiSsid=${wifi.ssid}")
+                            appendLine("wifiBand=${wifi.band}")
+                            appendLine("wifiStandard=${wifi.wifiStandard}")
+                            appendLine("wifiSignal=${wifi.rssiDbm ?: "unknown"}")
+                        }
+                        snapshot.cellularDetails?.let { cellular ->
+                            appendLine("carrier=${cellular.carrierName}")
+                            appendLine("networkOperator=${cellular.networkOperatorName}")
+                            appendLine("dataNetwork=${cellular.dataNetworkType}")
+                            appendLine("voiceNetwork=${cellular.voiceNetworkType}")
+                            appendLine("roaming=${cellular.isNetworkRoaming ?: "unknown"}")
+                        }
                     }
                     latestContextModel?.toRedactedSummary()?.let { contextSummary ->
                         appendLine("appVersion=${contextSummary.device.appVersionName}")
@@ -386,12 +399,20 @@ class DefaultDiagnosticsManager
                     telemetry = telemetry.take(ArchiveTelemetryLimit),
                     globalEvents = globalEvents,
                 )
+            val primarySnapshotModel =
+                primarySnapshots
+                    .maxByOrNull { it.capturedAt }
+                    ?.payloadJson
+                    ?.let { payloadJson ->
+                        runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payloadJson) }.getOrNull()
+                    }
             val latestSnapshotModel =
                 latestPassiveSnapshot
                     ?.payloadJson
                     ?.let { payloadJson ->
                         runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payloadJson) }.getOrNull()
                     }
+                    ?: primarySnapshotModel
             val latestContextModel =
                 latestPassiveContext
                     ?.payloadJson
@@ -629,6 +650,25 @@ class DefaultDiagnosticsManager
                 appendLine("localAddresses=${summary.localAddresses}")
                 appendLine("validated=${summary.networkValidated}")
                 appendLine("captivePortal=${summary.captivePortalDetected}")
+                summary.wifiDetails?.let { wifi ->
+                    appendLine("wifiSsid=${wifi.ssid}")
+                    appendLine("wifiBand=${wifi.band}")
+                    appendLine("wifiStandard=${wifi.wifiStandard}")
+                    appendLine("wifiFrequencyMhz=${wifi.frequencyMhz ?: "unknown"}")
+                    appendLine("wifiLinkSpeedMbps=${wifi.linkSpeedMbps ?: "unknown"}")
+                    appendLine("wifiSignalDbm=${wifi.rssiDbm ?: "unknown"}")
+                    appendLine("wifiGateway=${wifi.gateway}")
+                }
+                summary.cellularDetails?.let { cellular ->
+                    appendLine("carrier=${cellular.carrierName}")
+                    appendLine("networkOperator=${cellular.networkOperatorName}")
+                    appendLine("dataNetwork=${cellular.dataNetworkType}")
+                    appendLine("voiceNetwork=${cellular.voiceNetworkType}")
+                    appendLine("networkCountry=${cellular.networkCountryIso}")
+                    appendLine("roaming=${cellular.isNetworkRoaming ?: "unknown"}")
+                    appendLine("signalLevel=${cellular.signalLevel ?: "unknown"}")
+                    appendLine("signalDbm=${cellular.signalDbm ?: "unknown"}")
+                }
             }
             latestContext?.toRedactedSummary()?.let { contextSummary ->
                 appendLine("appVersion=${contextSummary.device.appVersionName}")
@@ -848,6 +888,32 @@ internal data class RedactedNetworkSummary(
     val localAddresses: String,
     val networkValidated: Boolean,
     val captivePortalDetected: Boolean,
+    val wifiDetails: RedactedWifiSummary? = null,
+    val cellularDetails: RedactedCellularSummary? = null,
+)
+
+@Serializable
+internal data class RedactedWifiSummary(
+    val ssid: String,
+    val bssid: String,
+    val band: String,
+    val wifiStandard: String,
+    val frequencyMhz: Int?,
+    val linkSpeedMbps: Int?,
+    val rssiDbm: Int?,
+    val gateway: String,
+)
+
+@Serializable
+internal data class RedactedCellularSummary(
+    val carrierName: String,
+    val networkOperatorName: String,
+    val dataNetworkType: String,
+    val voiceNetworkType: String,
+    val networkCountryIso: String,
+    val isNetworkRoaming: Boolean?,
+    val signalLevel: Int?,
+    val signalDbm: Int?,
 )
 
 @Serializable
@@ -907,6 +973,32 @@ private fun NetworkSnapshotModel.toRedactedSummary(): RedactedNetworkSummary =
         localAddresses = if (localAddresses.isEmpty()) "unknown" else "redacted(${localAddresses.size})",
         networkValidated = networkValidated,
         captivePortalDetected = captivePortalDetected,
+        wifiDetails =
+            wifiDetails?.let {
+                RedactedWifiSummary(
+                    ssid = if (it.ssid == "unknown") "unknown" else "redacted",
+                    bssid = if (it.bssid == "unknown") "unknown" else "redacted",
+                    band = it.band,
+                    wifiStandard = it.wifiStandard,
+                    frequencyMhz = it.frequencyMhz,
+                    linkSpeedMbps = it.linkSpeedMbps,
+                    rssiDbm = it.rssiDbm,
+                    gateway = if (it.gateway.isNullOrBlank()) "unknown" else "redacted",
+                )
+            },
+        cellularDetails =
+            cellularDetails?.let {
+                RedactedCellularSummary(
+                    carrierName = it.carrierName,
+                    networkOperatorName = it.networkOperatorName,
+                    dataNetworkType = it.dataNetworkType,
+                    voiceNetworkType = it.voiceNetworkType,
+                    networkCountryIso = it.networkCountryIso,
+                    isNetworkRoaming = it.isNetworkRoaming,
+                    signalLevel = it.signalLevel,
+                    signalDbm = it.signalDbm,
+                )
+            },
     )
 
 private fun DiagnosticContextModel.toRedactedSummary(): RedactedDiagnosticContextSummary =

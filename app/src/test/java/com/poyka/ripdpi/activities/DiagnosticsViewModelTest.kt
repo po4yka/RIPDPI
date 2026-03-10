@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.DeviceContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
@@ -23,6 +24,7 @@ import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.SummaryMetric
+import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -240,6 +242,75 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `snapshot detail shows wifi and cellular transport fields`() =
+        runTest {
+            val wifiDetail =
+                DiagnosticSessionDetail(
+                    session = session(id = "session-wifi", profileId = "default", pathMode = "RAW_PATH", summary = "Wi-Fi"),
+                    results = emptyList(),
+                    snapshots =
+                        listOf(
+                            snapshot(
+                                id = "snapshot-wifi",
+                                sessionId = "session-wifi",
+                                transport = "wifi",
+                            ),
+                        ),
+                    context = context(id = "context-wifi", sessionId = "session-wifi"),
+                    events = emptyList(),
+                )
+            val manager = FakeDiagnosticsManager(detail = wifiDetail)
+            val viewModel = DiagnosticsViewModel(manager)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+
+            viewModel.selectSession("session-wifi")
+            advanceUntilIdle()
+
+            val wifiFields = viewModel.uiState.value.selectedSessionDetail?.snapshots?.first()?.fields.orEmpty()
+            assertTrue(wifiFields.any { it.label == "Wi-Fi band" && it.value == "5 GHz" })
+            assertTrue(wifiFields.any { it.label == "Wi-Fi SSID" && it.value == "redacted" })
+
+            manager.detail =
+                wifiDetail.copy(
+                    session = session(id = "session-cell", profileId = "default", pathMode = "RAW_PATH", summary = "Cell"),
+                    snapshots =
+                        listOf(
+                            snapshot(
+                                id = "snapshot-cell",
+                                sessionId = "session-cell",
+                                transport = "cellular",
+                                cellularDetails =
+                                    CellularNetworkDetails(
+                                        carrierName = "Example Carrier",
+                                        simOperatorName = "Example Carrier",
+                                        networkOperatorName = "Example Carrier LTE",
+                                        networkCountryIso = "us",
+                                        simCountryIso = "us",
+                                        operatorCode = "310260",
+                                        simOperatorCode = "310260",
+                                        dataNetworkType = "NR",
+                                        voiceNetworkType = "LTE",
+                                        dataState = "connected",
+                                        serviceState = "in_service",
+                                        isNetworkRoaming = false,
+                                        carrierId = 42,
+                                        simCarrierId = 42,
+                                        signalLevel = 4,
+                                        signalDbm = -95,
+                                    ),
+                            ),
+                        ),
+                )
+            viewModel.selectSession("session-cell")
+            advanceUntilIdle()
+
+            val cellFields = viewModel.uiState.value.selectedSessionDetail?.snapshots?.first()?.fields.orEmpty()
+            assertTrue(cellFields.any { it.label == "Carrier" && it.value == "Example Carrier" })
+            assertTrue(cellFields.any { it.label == "Data network" && it.value == "NR" })
+            collector.cancel()
+        }
+
+    @Test
     fun `share summary emits effect and archive actions use selected target session`() =
         runTest {
             val manager = FakeDiagnosticsManager().apply {
@@ -390,6 +461,8 @@ class DiagnosticsViewModelTest {
     private fun snapshot(
         id: String,
         sessionId: String?,
+        transport: String = "wifi",
+        cellularDetails: CellularNetworkDetails? = null,
     ): NetworkSnapshotEntity =
         NetworkSnapshotEntity(
             id = id,
@@ -398,7 +471,7 @@ class DiagnosticsViewModelTest {
             payloadJson =
                 json.encodeToString(
                     NetworkSnapshotModel(
-                        transport = "wifi",
+                        transport = transport,
                         capabilities = listOf("validated"),
                         dnsServers = listOf("1.1.1.1"),
                         privateDnsMode = "strict",
@@ -408,6 +481,33 @@ class DiagnosticsViewModelTest {
                         publicAsn = "AS64500",
                         captivePortalDetected = false,
                         networkValidated = true,
+                        wifiDetails =
+                            if (transport == "wifi") {
+                                WifiNetworkDetails(
+                                    ssid = "RIPDPI Lab",
+                                    bssid = "aa:bb:cc:dd:ee:ff",
+                                    frequencyMhz = 5180,
+                                    band = "5 GHz",
+                                    channelWidth = "80 MHz",
+                                    wifiStandard = "802.11ax",
+                                    rssiDbm = -53,
+                                    linkSpeedMbps = 866,
+                                    rxLinkSpeedMbps = 780,
+                                    txLinkSpeedMbps = 720,
+                                    hiddenSsid = false,
+                                    networkId = 7,
+                                    isPasspoint = false,
+                                    isOsuAp = false,
+                                    gateway = "192.168.1.1",
+                                    dhcpServer = "192.168.1.2",
+                                    ipAddress = "192.168.1.4",
+                                    subnetMask = "255.255.255.0",
+                                    leaseDurationSeconds = 3600,
+                                )
+                            } else {
+                                null
+                            },
+                        cellularDetails = if (transport == "cellular") cellularDetails else null,
                         capturedAt = 10L,
                     ),
                 ),
@@ -474,7 +574,7 @@ class DiagnosticsViewModelTest {
 }
 
 private class FakeDiagnosticsManager(
-    private val detail: DiagnosticSessionDetail? = null,
+    var detail: DiagnosticSessionDetail? = null,
     private val archiveFailure: Throwable? = null,
 ) : DiagnosticsManager {
     private val _progressState = MutableStateFlow<ScanProgress?>(null)
