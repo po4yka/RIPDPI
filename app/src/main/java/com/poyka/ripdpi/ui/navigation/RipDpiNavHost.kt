@@ -28,7 +28,6 @@ import com.poyka.ripdpi.ui.screens.customization.AppCustomizationRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
-import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionRoute
@@ -44,6 +43,7 @@ fun RipDpiNavHost(
     startDestination: String = Route.Home.route,
     onSaveLogs: () -> Unit = {},
     onExportDiagnostics: (String?) -> Unit = {},
+    onShareDiagnosticsSummary: (String, String) -> Unit = { _, _ -> },
     mainViewModel: MainViewModel,
     openVpnPermissionRequested: Boolean = false,
     onOpenVpnPermissionHandled: () -> Unit = {},
@@ -164,13 +164,9 @@ fun RipDpiNavHost(
                 val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
                 DiagnosticsRoute(
                     onExport = onExportDiagnostics,
+                    onShareSummary = onShareDiagnosticsSummary,
                     onSaveLogs = onSaveLogs,
                     viewModel = diagnosticsViewModel,
-                )
-            }
-            composable(Route.Logs.route) {
-                LogsRoute(
-                    onSaveLogs = onSaveLogs,
                 )
             }
             composable(Route.ModeEditor.route) {

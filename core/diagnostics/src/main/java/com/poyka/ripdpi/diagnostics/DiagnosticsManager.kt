@@ -56,6 +56,12 @@ interface DiagnosticsManager {
 
     suspend fun cancelActiveScan()
 
+    suspend fun setActiveProfile(profileId: String)
+
+    suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail
+
+    suspend fun buildShareSummary(sessionId: String?): ShareSummary
+
     suspend fun exportBundle(sessionId: String?): ExportBundle
 }
 
@@ -179,6 +185,105 @@ class DefaultDiagnosticsManager
         activeDiagnosticsBridge?.cancelScan()
         _activeScanProgress.value = null
     }
+
+    override suspend fun setActiveProfile(profileId: String) {
+        requireNotNull(historyRepository.getProfile(profileId)) { "Unknown diagnostics profile: $profileId" }
+        appSettingsRepository.update {
+            diagnosticsActiveProfileId = profileId
+        }
+    }
+
+    override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
+        withContext(Dispatchers.IO) {
+            val session = requireNotNull(historyRepository.getScanSession(sessionId)) { "Unknown diagnostics session: $sessionId" }
+            val results = historyRepository.getProbeResults(sessionId)
+            val snapshots =
+                historyRepository.observeSnapshots(limit = 200).first().filter { it.sessionId == sessionId }
+            val events =
+                historyRepository.observeNativeEvents(limit = 500).first().filter { it.sessionId == sessionId }
+            DiagnosticSessionDetail(
+                session = session,
+                results = results,
+                snapshots = snapshots,
+                events = events,
+            )
+        }
+
+    override suspend fun buildShareSummary(sessionId: String?): ShareSummary =
+        withContext(Dispatchers.IO) {
+            val selectedSession =
+                sessionId
+                    ?.let { id -> historyRepository.getScanSession(id) }
+                    ?: historyRepository.observeRecentScanSessions(limit = 1).first().firstOrNull()
+            val selectedResults =
+                selectedSession?.id?.let { id -> historyRepository.getProbeResults(id) }.orEmpty()
+            val latestSnapshot =
+                selectedSession
+                    ?.id
+                    ?.let { id -> historyRepository.observeSnapshots(limit = 200).first().firstOrNull { it.sessionId == id } }
+                    ?: historyRepository.observeSnapshots(limit = 1).first().firstOrNull()
+            val latestSnapshotModel =
+                latestSnapshot?.payloadJson
+                    ?.let { payload -> runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payload) }.getOrNull() }
+            val latestTelemetry = historyRepository.observeTelemetry(limit = 1).first().firstOrNull()
+            val latestWarnings =
+                historyRepository.observeNativeEvents(limit = 50).first().filter {
+                    it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
+                }
+            val title =
+                selectedSession?.let { "RIPDPI diagnostics ${it.id.take(8)}" } ?: "RIPDPI diagnostics summary"
+            val body =
+                buildString {
+                    appendLine("RIPDPI diagnostics summary")
+                    appendLine("session=${selectedSession?.id ?: "latest-live"}")
+                    selectedSession?.let { session ->
+                        appendLine("pathMode=${session.pathMode}")
+                        appendLine("serviceMode=${session.serviceMode ?: "unknown"}")
+                        appendLine("status=${session.status}")
+                        appendLine("summary=${session.summary}")
+                        appendLine("startedAt=${session.startedAt}")
+                        appendLine("finishedAt=${session.finishedAt ?: "running"}")
+                    }
+                    latestSnapshotModel?.let { snapshot ->
+                        appendLine("transport=${snapshot.transport}")
+                        appendLine("publicIp=${snapshot.publicIp ?: "unknown"}")
+                        appendLine("publicAsn=${snapshot.publicAsn ?: "unknown"}")
+                        appendLine("dns=${snapshot.dnsServers.joinToString().ifBlank { "unknown" }}")
+                        appendLine("privateDns=${snapshot.privateDnsMode}")
+                        appendLine("validated=${snapshot.networkValidated}")
+                    }
+                    latestTelemetry?.let { telemetry ->
+                        appendLine("networkType=${telemetry.networkType}")
+                        appendLine("txBytes=${telemetry.txBytes}")
+                        appendLine("rxBytes=${telemetry.rxBytes}")
+                        appendLine("txPackets=${telemetry.txPackets}")
+                        appendLine("rxPackets=${telemetry.rxPackets}")
+                    }
+                    if (selectedResults.isNotEmpty()) {
+                        appendLine("results=${selectedResults.size}")
+                        selectedResults.take(5).forEach { result ->
+                            appendLine("${result.probeType}:${result.target}=${result.outcome}")
+                        }
+                    }
+                    if (latestWarnings.isNotEmpty()) {
+                        appendLine("warnings=")
+                        latestWarnings.take(3).forEach { warning ->
+                            appendLine("- ${warning.source}: ${warning.message}")
+                        }
+                    }
+                }
+            ShareSummary(
+                title = title,
+                body = body.trim(),
+                compactMetrics =
+                    listOfNotNull(
+                        selectedSession?.pathMode?.let { SummaryMetric(label = "Path", value = it) },
+                        latestSnapshotModel?.transport?.let { SummaryMetric(label = "Transport", value = it) },
+                        latestTelemetry?.txBytes?.let { SummaryMetric(label = "TX", value = it.toString()) },
+                        latestTelemetry?.rxBytes?.let { SummaryMetric(label = "RX", value = it.toString()) },
+                    ),
+            )
+        }
 
     override suspend fun exportBundle(sessionId: String?): ExportBundle =
         withContext(Dispatchers.IO) {
