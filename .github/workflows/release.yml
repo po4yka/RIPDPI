@@ -16,13 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
+
+      - uses: dtolnay/rust-toolchain@stable
 
       - uses: android-actions/setup-android@v3
 
@@ -30,10 +30,12 @@ jobs:
         id: native-toolchain
         run: |
           echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-          echo "cmake=$(grep '^ripdpi.nativeCmakeVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
 
-      - name: Install NDK and CMake
-        run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}" "cmake;${{ steps.native-toolchain.outputs.cmake }}"
+      - name: Install Rust Android targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+      - name: Install NDK
+        run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
       - uses: gradle/actions/setup-gradle@v4
 

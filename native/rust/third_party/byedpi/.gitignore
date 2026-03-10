@@ -1,0 +1,17 @@
+.vscode
+ciadpi.exe
+ciadpi
+*.o
+compile_flags.txt
+ciadpi-sanitize
+tests/bin/
+tests/corpus/packets/.stamp
+tests/corpus/packets/*.bin
+target/
+.ralph/
+.agent/
+.ralph-loop/
+.worktrees/
+.desloppify/
+.agents/skills/desloppify/
+scorecard.png
