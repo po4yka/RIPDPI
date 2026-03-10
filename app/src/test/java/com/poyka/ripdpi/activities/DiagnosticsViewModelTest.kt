@@ -4,22 +4,35 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.ExportBundle
+import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
+import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.diagnostics.ScanReport
+import com.poyka.ripdpi.diagnostics.ShareSummary
+import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -28,8 +41,10 @@ class DiagnosticsViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    private val json = Json
+
     @Test
-    fun `ui state mirrors diagnostics telemetry and event streams`() =
+    fun `ui state groups overview live sessions and share models`() =
         runTest {
             val manager = FakeDiagnosticsManager().apply {
                 profilesState.value =
@@ -43,36 +58,20 @@ class DiagnosticsViewModelTest {
                             updatedAt = 1L,
                         ),
                     )
-                progressState.value =
-                    ScanProgress(
-                        sessionId = "session-1",
-                        phase = "dns",
-                        completedSteps = 1,
-                        totalSteps = 2,
-                        message = "Checking DNS",
-                    )
                 sessionsState.value =
                     listOf(
-                        ScanSessionEntity(
+                        session(
                             id = "session-1",
                             profileId = "default",
-                            pathMode = "RAW_PATH",
-                            serviceMode = "VPN",
-                            status = "running",
-                            summary = "Running",
-                            reportJson = null,
-                            startedAt = 1L,
-                            finishedAt = null,
+                            pathMode = "IN_PATH",
+                            summary = "Latest report",
                         ),
                     )
                 snapshotsState.value =
                     listOf(
-                        NetworkSnapshotEntity(
+                        snapshot(
                             id = "snapshot-1",
                             sessionId = "session-1",
-                            snapshotKind = "passive",
-                            payloadJson = "{}",
-                            capturedAt = 10L,
                         ),
                     )
                 telemetryState.value =
@@ -83,11 +82,11 @@ class DiagnosticsViewModelTest {
                             activeMode = "VPN",
                             connectionState = "Running",
                             networkType = "wifi",
-                            publicIp = "198.51.100.7",
-                            txPackets = 1,
-                            txBytes = 2,
-                            rxPackets = 3,
-                            rxBytes = 4,
+                            publicIp = "198.51.100.8",
+                            txPackets = 3,
+                            txBytes = 4_000,
+                            rxPackets = 5,
+                            rxBytes = 6_000,
                             createdAt = 20L,
                         ),
                     )
@@ -95,10 +94,10 @@ class DiagnosticsViewModelTest {
                     listOf(
                         NativeSessionEventEntity(
                             id = "event-1",
-                            sessionId = null,
+                            sessionId = "session-1",
                             source = "proxy",
-                            level = "info",
-                            message = "accepted",
+                            level = "warn",
+                            message = "Route advanced",
                             createdAt = 30L,
                         ),
                     )
@@ -113,69 +112,256 @@ class DiagnosticsViewModelTest {
                         ),
                     )
             }
+
             val viewModel = DiagnosticsViewModel(manager)
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
             assertEquals(1, manager.initializeCalls)
-            assertEquals("Default", state.activeProfile?.name)
-            assertEquals("Checking DNS", state.activeScanMessage)
-            assertEquals(1, state.telemetry.size)
-            assertEquals(1, state.events.size)
-            assertEquals(1, state.exports.size)
-
+            assertEquals(DiagnosticsSection.Overview, state.selectedSection)
+            assertEquals("Default", state.overview.activeProfile?.name)
+            assertEquals("Running", state.live.statusLabel)
+            assertEquals(1, state.sessions.sessions.size)
+            assertEquals("report.zip", state.share.latestExportFileName)
+            assertTrue(state.events.events.first().severity.contains("WARN"))
             collector.cancel()
         }
 
     @Test
-    fun `exportLatest uses first session in current diagnostics history`() =
+    fun `active scan forces scan section and profile selection updates manager`() =
         runTest {
             val manager =
                 FakeDiagnosticsManager().apply {
-                    sessionsState.value =
+                    profilesState.value =
                         listOf(
-                            ScanSessionEntity(
-                                id = "session-latest",
-                                profileId = "default",
-                                pathMode = "IN_PATH",
-                                serviceMode = "Proxy",
-                                status = "completed",
-                                summary = "Latest",
-                                reportJson = "{}",
-                                startedAt = 2L,
-                                finishedAt = 3L,
+                            DiagnosticProfileEntity(
+                                id = "default",
+                                name = "Default",
+                                source = "bundled",
+                                version = 1,
+                                requestJson = "{}",
+                                updatedAt = 1L,
                             ),
-                            ScanSessionEntity(
-                                id = "session-older",
-                                profileId = "default",
-                                pathMode = "RAW_PATH",
-                                serviceMode = "VPN",
-                                status = "completed",
-                                summary = "Older",
-                                reportJson = "{}",
-                                startedAt = 1L,
-                                finishedAt = 2L,
+                            DiagnosticProfileEntity(
+                                id = "custom",
+                                name = "Custom",
+                                source = "local",
+                                version = 1,
+                                requestJson = "{}",
+                                updatedAt = 2L,
                             ),
                         )
+                    progressState.value =
+                        ScanProgress(
+                            sessionId = "session-running",
+                            phase = "dns",
+                            completedSteps = 1,
+                            totalSteps = 3,
+                            message = "Checking DNS",
+                        )
                 }
+
             val viewModel = DiagnosticsViewModel(manager)
-            var exportedPath: String? = null
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-
+            viewModel.selectSection(DiagnosticsSection.Events)
+            viewModel.selectProfile("custom")
             advanceUntilIdle()
-            viewModel.exportLatest { exportedPath = it }
-            advanceUntilIdle()
 
-            assertEquals("session-latest", manager.lastExportSessionId)
-            assertEquals("/tmp/export-session-latest.zip", exportedPath)
-
+            val state = viewModel.uiState.value
+            assertEquals(DiagnosticsSection.Scan, state.selectedSection)
+            assertEquals("custom", manager.lastActiveProfileId)
+            assertEquals("custom", state.scan.selectedProfileId)
+            assertNotNull(state.scan.activeProgress)
             collector.cancel()
         }
+
+    @Test
+    fun `select session loads grouped detail model`() =
+        runTest {
+            val detail =
+                DiagnosticSessionDetail(
+                    session = session(id = "session-1", profileId = "default", pathMode = "RAW_PATH", summary = "Session"),
+                    results =
+                        listOf(
+                            ProbeResultEntity(
+                                id = "probe-1",
+                                sessionId = "session-1",
+                                probeType = "dns",
+                                target = "example.org",
+                                outcome = "blocked",
+                                detailJson = json.encodeToString(listOf(ProbeDetail("resolver", "1.1.1.1"))),
+                                createdAt = 1L,
+                            ),
+                        ),
+                    snapshots = listOf(snapshot(id = "snapshot-1", sessionId = "session-1")),
+                    events =
+                        listOf(
+                            NativeSessionEventEntity(
+                                id = "event-1",
+                                sessionId = "session-1",
+                                source = "proxy",
+                                level = "info",
+                                message = "accepted",
+                                createdAt = 2L,
+                            ),
+                        ),
+                )
+            val manager = FakeDiagnosticsManager(detail = detail)
+            val viewModel = DiagnosticsViewModel(manager)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+
+            viewModel.selectSession("session-1")
+            advanceUntilIdle()
+
+            val selected = viewModel.uiState.value.selectedSessionDetail
+            assertNotNull(selected)
+            assertEquals("Session", selected?.session?.title)
+            assertEquals(1, selected?.probeGroups?.first()?.items?.size)
+            assertEquals("example.org", selected?.probeGroups?.first()?.items?.first()?.target)
+            collector.cancel()
+        }
+
+    @Test
+    fun `share summary emits effect and export uses selected target session`() =
+        runTest {
+            val manager = FakeDiagnosticsManager().apply {
+                sessionsState.value =
+                    listOf(
+                        session(
+                            id = "session-1",
+                            profileId = "default",
+                            pathMode = "RAW_PATH",
+                            summary = "Selected",
+                        ),
+                    )
+            }
+            val viewModel = DiagnosticsViewModel(manager)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val shareEffect = async { viewModel.effects.first() }
+            viewModel.shareSummary("session-1")
+            advanceUntilIdle()
+
+            val effect = shareEffect.await() as DiagnosticsEffect.ShareSummaryRequested
+            assertEquals("RIPDPI summary", effect.title)
+            assertTrue(effect.body.contains("session-1"))
+
+            val exportEffect = async { viewModel.effects.first() }
+            viewModel.exportBundle("session-1")
+            advanceUntilIdle()
+
+            val export = exportEffect.await() as DiagnosticsEffect.ExportBundleRequested
+            assertEquals("session-1", manager.lastExportSessionId)
+            assertEquals("/tmp/export-session-1.zip", export.absolutePath)
+            collector.cancel()
+        }
+
+    @Test
+    fun `event filter narrows the visible stream`() =
+        runTest {
+            val manager = FakeDiagnosticsManager().apply {
+                nativeEventsState.value =
+                    listOf(
+                        NativeSessionEventEntity(
+                            id = "event-1",
+                            sessionId = null,
+                            source = "proxy",
+                            level = "warn",
+                            message = "First warning",
+                            createdAt = 1L,
+                        ),
+                        NativeSessionEventEntity(
+                            id = "event-2",
+                            sessionId = null,
+                            source = "tunnel",
+                            level = "info",
+                            message = "Healthy session",
+                            createdAt = 2L,
+                        ),
+                    )
+            }
+            val viewModel = DiagnosticsViewModel(manager)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.toggleEventFilter(source = "Proxy")
+            advanceUntilIdle()
+
+            assertEquals(1, viewModel.uiState.value.events.events.size)
+            assertEquals("Proxy", viewModel.uiState.value.events.events.first().source)
+            collector.cancel()
+        }
+
+    private fun session(
+        id: String,
+        profileId: String,
+        pathMode: String,
+        summary: String,
+    ): ScanSessionEntity =
+        ScanSessionEntity(
+            id = id,
+            profileId = profileId,
+            pathMode = pathMode,
+            serviceMode = "VPN",
+            status = "completed",
+            summary = summary,
+            reportJson =
+                json.encodeToString(
+                    ScanReport(
+                        sessionId = id,
+                        profileId = profileId,
+                        pathMode = ScanPathMode.valueOf(pathMode),
+                        startedAt = 1L,
+                        finishedAt = 2L,
+                        summary = summary,
+                        results =
+                            listOf(
+                                com.poyka.ripdpi.diagnostics.ProbeResult(
+                                    probeType = "dns",
+                                    target = "example.org",
+                                    outcome = "ok",
+                                    details = listOf(ProbeDetail("resolver", "1.1.1.1")),
+                                ),
+                            ),
+                    ),
+                ),
+            startedAt = 1L,
+            finishedAt = 2L,
+        )
+
+    private fun snapshot(
+        id: String,
+        sessionId: String?,
+    ): NetworkSnapshotEntity =
+        NetworkSnapshotEntity(
+            id = id,
+            sessionId = sessionId,
+            snapshotKind = "passive",
+            payloadJson =
+                json.encodeToString(
+                    NetworkSnapshotModel(
+                        transport = "wifi",
+                        capabilities = listOf("validated"),
+                        dnsServers = listOf("1.1.1.1"),
+                        privateDnsMode = "strict",
+                        mtu = 1500,
+                        localAddresses = listOf("192.168.1.4"),
+                        publicIp = "198.51.100.8",
+                        publicAsn = "AS64500",
+                        captivePortalDetected = false,
+                        networkValidated = true,
+                        capturedAt = 10L,
+                    ),
+                ),
+            capturedAt = 10L,
+        )
 }
 
-private class FakeDiagnosticsManager : DiagnosticsManager {
+private class FakeDiagnosticsManager(
+    private val detail: DiagnosticSessionDetail? = null,
+) : DiagnosticsManager {
     private val _progressState = MutableStateFlow<ScanProgress?>(null)
     val progressState: MutableStateFlow<ScanProgress?> = _progressState
     val profilesState = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
@@ -186,6 +372,7 @@ private class FakeDiagnosticsManager : DiagnosticsManager {
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
     var initializeCalls = 0
     var lastExportSessionId: String? = null
+    var lastActiveProfileId: String? = null
 
     override val activeScanProgress: StateFlow<ScanProgress?> = _progressState.asStateFlow()
     override val profiles: Flow<List<DiagnosticProfileEntity>> = profilesState
@@ -204,6 +391,20 @@ private class FakeDiagnosticsManager : DiagnosticsManager {
     override suspend fun cancelActiveScan() {
         progressState.value = null
     }
+
+    override suspend fun setActiveProfile(profileId: String) {
+        lastActiveProfileId = profileId
+    }
+
+    override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
+        requireNotNull(detail) { "Missing fake detail for $sessionId" }
+
+    override suspend fun buildShareSummary(sessionId: String?): ShareSummary =
+        ShareSummary(
+            title = "RIPDPI summary",
+            body = "Summary for ${sessionId ?: "latest"}",
+            compactMetrics = listOf(SummaryMetric("Path", "RAW_PATH")),
+        )
 
     override suspend fun exportBundle(sessionId: String?): ExportBundle {
         lastExportSessionId = sessionId

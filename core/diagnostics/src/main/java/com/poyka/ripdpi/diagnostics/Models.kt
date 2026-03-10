@@ -118,6 +118,24 @@ data class ExportBundle(
     val absolutePath: String,
 )
 
+data class SummaryMetric(
+    val label: String,
+    val value: String,
+)
+
+data class DiagnosticSessionDetail(
+    val session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
+    val results: List<com.poyka.ripdpi.data.diagnostics.ProbeResultEntity>,
+    val snapshots: List<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>,
+    val events: List<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>,
+)
+
+data class ShareSummary(
+    val title: String,
+    val body: String,
+    val compactMetrics: List<SummaryMetric> = emptyList(),
+)
+
 @Serializable
 data class BundledDiagnosticProfile(
     val id: String,
