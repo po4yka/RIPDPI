@@ -7,7 +7,15 @@ import android.net.VpnService
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
+import com.poyka.ripdpi.core.ProxyPreferencesResolver
+import com.poyka.ripdpi.core.ProxyPreferencesResolverModule
+import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
+import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
+import com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.START_ACTION
@@ -16,9 +24,15 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
+import com.poyka.ripdpi.services.ServiceStateStore
+import com.poyka.ripdpi.services.ServiceStateStoreModule
+import com.poyka.ripdpi.services.VpnTunnelSessionProvider
+import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
 import com.poyka.ripdpi.testing.IntegrationTestOverrides
+import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import dagger.hilt.android.testing.UninstallModules
 import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
@@ -33,6 +47,14 @@ import org.junit.Rule
 import org.junit.Test
 
 @HiltAndroidTest
+@UninstallModules(
+    AppSettingsRepositoryModule::class,
+    ProxyPreferencesResolverModule::class,
+    RipDpiProxyFactoryModule::class,
+    Tun2SocksBridgeFactoryModule::class,
+    ServiceStateStoreModule::class,
+    VpnTunnelSessionProviderModule::class,
+)
 class ServiceLifecycleIntegrationTest {
     @get:Rule
     val hiltRule = HiltAndroidRule(this)
@@ -44,9 +66,39 @@ class ServiceLifecycleIntegrationTest {
     private val appContext: Context
         get() = ApplicationProvider.getApplicationContext()
 
+    @BindValue
+    @JvmField
+    var appSettingsRepository: AppSettingsRepository = IntegrationTestOverrides.appSettingsRepository
+
+    @BindValue
+    @JvmField
+    var proxyPreferencesResolver: ProxyPreferencesResolver = IntegrationTestOverrides.proxyPreferencesResolver
+
+    @BindValue
+    @JvmField
+    var proxyFactory: RipDpiProxyFactory = IntegrationTestOverrides.proxyFactory
+
+    @BindValue
+    @JvmField
+    var tun2SocksBridgeFactory: Tun2SocksBridgeFactory = IntegrationTestOverrides.tun2SocksBridgeFactory
+
+    @BindValue
+    @JvmField
+    var serviceStateStore: ServiceStateStore = IntegrationTestOverrides.serviceStateStore
+
+    @BindValue
+    @JvmField
+    var vpnTunnelSessionProvider: VpnTunnelSessionProvider = IntegrationTestOverrides.vpnTunnelSessionProvider
+
     @Before
     fun setUp() {
         IntegrationTestOverrides.reset()
+        appSettingsRepository = IntegrationTestOverrides.appSettingsRepository
+        proxyPreferencesResolver = IntegrationTestOverrides.proxyPreferencesResolver
+        proxyFactory = IntegrationTestOverrides.proxyFactory
+        tun2SocksBridgeFactory = IntegrationTestOverrides.tun2SocksBridgeFactory
+        serviceStateStore = IntegrationTestOverrides.serviceStateStore
+        vpnTunnelSessionProvider = IntegrationTestOverrides.vpnTunnelSessionProvider
         hiltRule.inject()
     }
 

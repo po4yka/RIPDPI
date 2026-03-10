@@ -23,11 +23,42 @@ interface NetworkMetadataProvider {
     suspend fun captureSnapshot(): NetworkSnapshotModel
 }
 
+data class PublicIpInfo(
+    val ip: String,
+    val asn: String?,
+)
+
+interface PublicIpInfoResolver {
+    suspend fun resolve(): PublicIpInfo?
+}
+
+@Singleton
+class HttpPublicIpInfoResolver
+    @Inject
+    constructor() : PublicIpInfoResolver {
+        override suspend fun resolve(): PublicIpInfo? =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val connection =
+                        (URL("https://api.ipify.org?format=json").openConnection() as HttpURLConnection).apply {
+                            connectTimeout = 3_000
+                            readTimeout = 3_000
+                            requestMethod = "GET"
+                        }
+                    connection.inputStream.bufferedReader().use { reader ->
+                        val json = Json.decodeFromString(PublicIpResponse.serializer(), reader.readText())
+                        PublicIpInfo(ip = json.ip, asn = null)
+                    }
+                }.getOrNull()
+            }
+    }
+
 @Singleton
 class AndroidNetworkMetadataProvider
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
+        private val publicIpInfoResolver: PublicIpInfoResolver,
     ) : NetworkMetadataProvider {
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -36,7 +67,7 @@ class AndroidNetworkMetadataProvider
         val network = connectivityManager.activeNetwork
         val capabilities = connectivityManager.getNetworkCapabilities(network)
         val linkProperties = connectivityManager.getLinkProperties(network)
-        val publicIpInfo = fetchPublicIpInfo()
+        val publicIpInfo = publicIpInfoResolver.resolve()
 
         return NetworkSnapshotModel(
             transport = resolveTransport(capabilities),
@@ -96,28 +127,7 @@ class AndroidNetworkMetadataProvider
 
     private fun resolveLocalAddresses(linkProperties: LinkProperties?): List<String> =
         linkProperties?.linkAddresses?.map { it.address.hostAddress.orEmpty() }.orEmpty()
-
-    private suspend fun fetchPublicIpInfo(): PublicIpInfo? =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val connection =
-                    (URL("https://api.ipify.org?format=json").openConnection() as HttpURLConnection).apply {
-                        connectTimeout = 3_000
-                        readTimeout = 3_000
-                        requestMethod = "GET"
-                    }
-                connection.inputStream.bufferedReader().use { reader ->
-                    val json = Json.decodeFromString(PublicIpResponse.serializer(), reader.readText())
-                    PublicIpInfo(ip = json.ip, asn = null)
-                }
-            }.getOrNull()
-        }
 }
-
-private data class PublicIpInfo(
-    val ip: String,
-    val asn: String?,
-)
 
 @Serializable
 private data class PublicIpResponse(
@@ -132,4 +142,14 @@ abstract class NetworkMetadataProviderModule {
     abstract fun bindNetworkMetadataProvider(
         provider: AndroidNetworkMetadataProvider,
     ): NetworkMetadataProvider
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class PublicIpInfoResolverModule {
+    @Binds
+    @Singleton
+    abstract fun bindPublicIpInfoResolver(
+        resolver: HttpPublicIpInfoResolver,
+    ): PublicIpInfoResolver
 }

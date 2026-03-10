@@ -21,3 +21,8 @@ libc = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-service = "0.8"
+
+[dev-dependencies]
+ciadpi-config = { workspace = true }
+local-network-fixture = { workspace = true }
+rustls = { workspace = true }

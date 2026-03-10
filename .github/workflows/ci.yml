@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -12,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,6 +73,7 @@ jobs:
           retention-days: 7
 
   static-analysis:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -125,7 +131,28 @@ jobs:
             **/build/reports/lint-results*.html
           retention-days: 7
 
-  android-integration:
+  rust-network-e2e:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+          components: rustfmt, clippy
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Run repo-owned Rust network E2E
+        run: bash scripts/ci/run-rust-network-e2e.sh
+
+  android-network-e2e:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -156,7 +183,16 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Run connected Android integration tests
+      - name: Start local network fixture
+        run: |
+          mkdir -p "$RUNNER_TEMP/local-network-fixture"
+          scripts/ci/start-local-network-fixture.sh \
+            "$RUNNER_TEMP/local-network-fixture/fixture.log" \
+            "$RUNNER_TEMP/local-network-fixture/fixture-manifest.json" \
+            "$RUNNER_TEMP/local-network-fixture/fixture.pid"
+          cat "$RUNNER_TEMP/local-network-fixture/fixture-manifest.json"
+
+      - name: Run connected Android network E2E tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -166,22 +202,70 @@ jobs:
           emulator-options: -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
           script: |
             set -euo pipefail
-            ./gradlew :app:connectedDebugAndroidTest -Pripdpi.localNativeAbis=x86_64 || {
+            ./gradlew :app:connectedDebugAndroidTest \
+              -Pripdpi.localNativeAbis=x86_64 \
+              -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.e2e \
+              -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
+              -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090 || {
               adb logcat -d > android-logcat.txt
               exit 1
             }
+
+      - name: Capture fixture state
+        if: always()
+        run: |
+          curl -fsS http://127.0.0.1:46090/manifest > "$RUNNER_TEMP/local-network-fixture/fixture-manifest.json" || true
+          curl -fsS http://127.0.0.1:46090/events > "$RUNNER_TEMP/local-network-fixture/fixture-events.json" || true
 
       - name: Capture emulator logcat
         if: always()
         run: adb logcat -d > android-logcat.txt || true
 
-      - name: Upload Android integration artifacts
+      - name: Stop local network fixture
+        if: always()
+        run: scripts/ci/stop-local-network-fixture.sh "$RUNNER_TEMP/local-network-fixture/fixture.pid"
+
+      - name: Upload Android network E2E artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-integration-artifacts
+          name: android-network-e2e-artifacts
           path: |
             android-logcat.txt
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
+            ${{ runner.temp }}/local-network-fixture/fixture.log
+            ${{ runner.temp }}/local-network-fixture/fixture-manifest.json
+            ${{ runner.temp }}/local-network-fixture/fixture-events.json
           retention-days: 7
+
+  linux-tun-e2e:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+          components: rustfmt, clippy
+
+      - name: Install Linux TUN prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iproute2
+          sudo mkdir -p /dev/net
+          if [ ! -c /dev/net/tun ]; then
+            sudo mknod /dev/net/tun c 10 200
+          fi
+          sudo chmod 0666 /dev/net/tun
+
+      - name: Run Linux TUN E2E
+        run: |
+          sudo env \
+            "PATH=$HOME/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            "CARGO_HOME=$HOME/.cargo" \
+            "RUSTUP_HOME=$HOME/.rustup" \
+            "RIPDPI_RUN_TUN_E2E=1" \
+            cargo test --manifest-path native/rust/Cargo.toml -p hs5t-android --test linux_tun_e2e -- --ignored --nocapture

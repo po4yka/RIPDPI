@@ -55,6 +55,9 @@ class RipDpiVpnService : LifecycleVpnService() {
     @Inject
     lateinit var vpnTunnelSessionProvider: VpnTunnelSessionProvider
 
+    @Inject
+    lateinit var vpnAppExclusionPolicy: VpnAppExclusionPolicy
+
     private var ripDpiProxy: RipDpiProxyRuntime? = null
     private var tun2SocksBridge: Tun2SocksBridge? = null
     private var proxyJob: Job? = null
@@ -388,7 +391,9 @@ class RipDpiVpnService : LifecycleVpnService() {
             builder.setMetered(false)
         }
 
-        builder.addDisallowedApplication(applicationContext.packageName)
+        if (vpnAppExclusionPolicy.shouldExcludeOwnPackage()) {
+            builder.addDisallowedApplication(applicationContext.packageName)
+        }
 
         return builder
     }
