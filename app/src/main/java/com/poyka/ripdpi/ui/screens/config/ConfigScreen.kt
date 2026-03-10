@@ -14,10 +14,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigPreset
 import com.poyka.ripdpi.activities.ConfigPresetKind
@@ -46,7 +46,7 @@ fun ConfigRoute(
     onOpenModeEditor: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ConfigViewModel = viewModel(),
+    viewModel: ConfigViewModel = hiltViewModel(),
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
 

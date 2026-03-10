@@ -1,13 +1,14 @@
 package com.poyka.ripdpi.activities
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.services.AppStateManager
 import com.poyka.ripdpi.services.ServiceEvent
+import com.poyka.ripdpi.services.ServiceStateStore
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -58,9 +59,12 @@ internal fun classifyLogType(message: String): LogType {
     }
 }
 
-class LogsViewModel(
-    application: Application,
-) : AndroidViewModel(application) {
+@HiltViewModel
+class LogsViewModel
+    @Inject
+    constructor(
+        private val serviceStateStore: ServiceStateStore,
+    ) : ViewModel() {
     private val logBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
     private val activeFilters = MutableStateFlow(LogType.entries.toSet())
     private val autoScrollEnabled = MutableStateFlow(true)
@@ -122,7 +126,7 @@ class LogsViewModel(
     private fun observeStatusTransitions() {
         viewModelScope.launch {
             var previousStatus: Pair<AppStatus, Mode>? = null
-            AppStateManager.status.collect { currentStatus ->
+            serviceStateStore.status.collect { currentStatus ->
                 val lastStatus = previousStatus
                 previousStatus = currentStatus
                 if (lastStatus == null || lastStatus == currentStatus) {
@@ -150,7 +154,7 @@ class LogsViewModel(
 
     private fun observeFailures() {
         viewModelScope.launch {
-            AppStateManager.events.collect { event ->
+            serviceStateStore.events.collect { event ->
                 when (event) {
                     is ServiceEvent.Failed -> appendFailureLog(event.sender)
                 }

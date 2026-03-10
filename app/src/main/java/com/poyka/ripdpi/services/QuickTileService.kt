@@ -10,18 +10,31 @@ import androidx.core.service.quicksettings.PendingIntentActivityWrapper
 import androidx.core.service.quicksettings.TileServiceCompat
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.settingsStore
+import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceEvent
+import com.poyka.ripdpi.services.ServiceStateStore
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
+@AndroidEntryPoint
 class QuickTileService : TileService() {
+    @Inject
+    lateinit var appSettingsRepository: AppSettingsRepository
+
+    @Inject
+    lateinit var serviceController: ServiceController
+
+    @Inject
+    lateinit var serviceStateStore: ServiceStateStore
+
     private var scope: CoroutineScope? = null
 
     override fun onStartListening() {
@@ -30,11 +43,11 @@ class QuickTileService : TileService() {
         updateStatus()
 
         newScope.launch {
-            AppStateManager.status.collect { updateStatus() }
+            serviceStateStore.status.collect { updateStatus() }
         }
 
         newScope.launch {
-            AppStateManager.events.collect { event ->
+            serviceStateStore.events.collect { event ->
                 when (event) {
                     is ServiceEvent.Failed -> {
                         Toast
@@ -84,7 +97,7 @@ class QuickTileService : TileService() {
     }
 
     private fun updateStatus() {
-        val (status) = AppStateManager.status.value
+        val (status) = serviceStateStore.status.value
         setState(if (status == AppStatus.Halted) Tile.STATE_INACTIVE else Tile.STATE_ACTIVE)
     }
 
@@ -92,16 +105,12 @@ class QuickTileService : TileService() {
         setState(Tile.STATE_ACTIVE)
         setState(Tile.STATE_UNAVAILABLE)
 
-        val (status) = AppStateManager.status.value
+        val (status) = serviceStateStore.status.value
         when (status) {
             AppStatus.Halted -> {
                 scope?.launch {
-                    val mode =
-                        withContext(Dispatchers.IO) {
-                            val settings = settingsStore.data.first()
-                            val modeStr = settings.ripdpiMode.ifEmpty { "vpn" }
-                            Mode.fromString(modeStr)
-                        }
+                    val settings = appSettingsRepository.snapshot()
+                    val mode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
 
                     if (mode == Mode.VPN && VpnService.prepare(this@QuickTileService) != null) {
                         updateStatus()
@@ -109,12 +118,12 @@ class QuickTileService : TileService() {
                         return@launch
                     }
 
-                    ServiceManager.start(this@QuickTileService, mode)
+                    serviceController.start(mode)
                 }
             }
 
             AppStatus.Running -> {
-                ServiceManager.stop(this)
+                serviceController.stop()
             }
         }
     }

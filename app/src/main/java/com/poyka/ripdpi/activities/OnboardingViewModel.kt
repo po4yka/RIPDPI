@@ -1,9 +1,10 @@
 package com.poyka.ripdpi.activities
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.poyka.ripdpi.data.settingsStore
+import com.poyka.ripdpi.data.AppSettingsRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,9 +25,12 @@ sealed interface OnboardingEffect {
     data object OnboardingComplete : OnboardingEffect
 }
 
-class OnboardingViewModel(
-    application: Application,
-) : AndroidViewModel(application) {
+@HiltViewModel
+class OnboardingViewModel
+    @Inject
+    constructor(
+        private val appSettingsRepository: AppSettingsRepository,
+    ) : ViewModel() {
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
@@ -57,11 +61,8 @@ class OnboardingViewModel(
 
     fun finish() {
         viewModelScope.launch {
-            getApplication<Application>().settingsStore.updateData { settings ->
-                settings
-                    .toBuilder()
-                    .setOnboardingComplete(true)
-                    .build()
+            appSettingsRepository.update {
+                setOnboardingComplete(true)
             }
             _effects.send(OnboardingEffect.OnboardingComplete)
         }

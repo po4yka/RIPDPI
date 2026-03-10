@@ -3,6 +3,8 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -16,23 +18,36 @@ sealed class ServiceEvent {
     ) : ServiceEvent()
 }
 
-object AppStateManager {
-    private val _status = MutableStateFlow(AppStatus.Halted to Mode.VPN)
-    val status: StateFlow<Pair<AppStatus, Mode>> = _status.asStateFlow()
-
-    private val _events = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
-
-    /** Broadcast to all active collectors (MainActivity, QuickTileService). SharedFlow, not Channel. */
-    val events: SharedFlow<ServiceEvent> = _events.asSharedFlow()
+interface ServiceStateStore {
+    val status: StateFlow<Pair<AppStatus, Mode>>
+    val events: SharedFlow<ServiceEvent>
 
     fun setStatus(
         status: AppStatus,
         mode: Mode,
-    ) {
-        _status.value = status to mode
-    }
+    )
 
-    fun emitFailed(sender: Sender) {
-        _events.tryEmit(ServiceEvent.Failed(sender))
-    }
+    fun emitFailed(sender: Sender)
 }
+
+@Singleton
+class DefaultServiceStateStore
+    @Inject
+    constructor() : ServiceStateStore {
+        private val _status = MutableStateFlow(AppStatus.Halted to Mode.VPN)
+        override val status: StateFlow<Pair<AppStatus, Mode>> = _status.asStateFlow()
+
+        private val _events = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
+        override val events: SharedFlow<ServiceEvent> = _events.asSharedFlow()
+
+        override fun setStatus(
+            status: AppStatus,
+            mode: Mode,
+        ) {
+            _status.value = status to mode
+        }
+
+        override fun emitFailed(sender: Sender) {
+            _events.tryEmit(ServiceEvent.Failed(sender))
+        }
+    }

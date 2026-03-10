@@ -1,13 +1,15 @@
 package com.poyka.ripdpi.activities
 
-import android.app.Application
 import androidx.annotation.VisibleForTesting
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.settingsStore
+import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.proto.AppSettings
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -158,14 +160,18 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
     )
 }
 
-class SettingsViewModel(
-    application: Application,
-) : AndroidViewModel(application) {
+@HiltViewModel
+class SettingsViewModel
+    @Inject
+    constructor(
+        private val appSettingsRepository: AppSettingsRepository,
+        private val launcherIconController: LauncherIconController,
+    ) : ViewModel() {
     private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
     val effects: Flow<SettingsEffect> = _effects.receiveAsFlow()
 
     val uiState: StateFlow<SettingsUiState> =
-        application.settingsStore.data
+        appSettingsRepository.settings
             .map { it.toUiState() }
             .stateIn(
                 scope = viewModelScope,
@@ -216,14 +222,10 @@ class SettingsViewModel(
             }
 
         viewModelScope.launch {
-            getApplication<Application>().settingsStore.updateData { current ->
-                current
-                    .toBuilder()
-                    .setAppIconVariant(normalizedIconKey)
-                    .build()
+            appSettingsRepository.update {
+                setAppIconVariant(normalizedIconKey)
             }
-            LauncherIconManager.applySelection(
-                context = getApplication(),
+            launcherIconController.applySelection(
                 iconKey = normalizedIconKey,
                 iconStyle = iconStyle,
             )
@@ -240,14 +242,10 @@ class SettingsViewModel(
             }
 
         viewModelScope.launch {
-            getApplication<Application>().settingsStore.updateData { current ->
-                current
-                    .toBuilder()
-                    .setAppIconStyle(iconStyle)
-                    .build()
+            appSettingsRepository.update {
+                setAppIconStyle(iconStyle)
             }
-            LauncherIconManager.applySelection(
-                context = getApplication(),
+            launcherIconController.applySelection(
                 iconKey = uiState.value.appIconVariant,
                 iconStyle = iconStyle,
             )
@@ -275,9 +273,7 @@ class SettingsViewModel(
 
     fun resetSettings() {
         viewModelScope.launch {
-            getApplication<Application>().settingsStore.updateData {
-                AppSettingsSerializer.defaultValue
-            }
+            appSettingsRepository.replace(AppSettingsSerializer.defaultValue)
             _effects.send(SettingsEffect.SettingChanged(key = "settings", value = "reset"))
         }
     }
@@ -287,9 +283,7 @@ class SettingsViewModel(
         transform: AppSettings.Builder.() -> Unit,
     ) {
         viewModelScope.launch {
-            getApplication<Application>().settingsStore.updateData { current ->
-                current.toBuilder().apply(transform).build()
-            }
+            appSettingsRepository.update(transform)
             effect?.let { _effects.send(it) }
         }
     }

@@ -21,11 +21,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LogEntry
 import com.poyka.ripdpi.activities.LogType
@@ -50,7 +50,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 fun LogsRoute(
     onSaveLogs: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: LogsViewModel = viewModel(),
+    viewModel: LogsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 

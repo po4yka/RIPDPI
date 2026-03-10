@@ -1,0 +1,107 @@
+package com.poyka.ripdpi.activities
+
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.platform.LauncherIconController
+import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.TrafficStatsReader
+import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceEvent
+import com.poyka.ripdpi.services.ServiceStateStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+class FakeAppSettingsRepository(
+    initialSettings: AppSettings = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+) : AppSettingsRepository {
+    private val state = MutableStateFlow(initialSettings)
+
+    override val settings: Flow<AppSettings> = state
+
+    override suspend fun snapshot(): AppSettings = state.value
+
+    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+        state.value = state.value.toBuilder().apply(transform).build()
+    }
+
+    override suspend fun replace(settings: AppSettings) {
+        state.value = settings
+    }
+}
+
+class FakeServiceStateStore(
+    initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,
+) : ServiceStateStore {
+    private val statusState = MutableStateFlow(initialStatus)
+    private val eventFlow = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
+
+    override val status: StateFlow<Pair<AppStatus, Mode>> = statusState.asStateFlow()
+    override val events: SharedFlow<ServiceEvent> = eventFlow.asSharedFlow()
+
+    override fun setStatus(
+        status: AppStatus,
+        mode: Mode,
+    ) {
+        statusState.value = status to mode
+    }
+
+    override fun emitFailed(sender: Sender) {
+        eventFlow.tryEmit(ServiceEvent.Failed(sender))
+    }
+}
+
+class FakeServiceController : ServiceController {
+    val startedModes = mutableListOf<Mode>()
+    var stopCount = 0
+
+    override fun start(mode: Mode) {
+        startedModes += mode
+    }
+
+    override fun stop() {
+        stopCount += 1
+    }
+}
+
+class FakeLauncherIconController : LauncherIconController {
+    data class Selection(
+        val iconKey: String,
+        val iconStyle: String,
+    )
+
+    var lastSelection: Selection? = null
+
+    override fun applySelection(
+        iconKey: String,
+        iconStyle: String,
+    ) {
+        lastSelection = Selection(iconKey, iconStyle)
+    }
+}
+
+class FakeStringResolver : StringResolver {
+    override fun getString(
+        resId: Int,
+        vararg formatArgs: Any,
+    ): String = buildString {
+        append(resId)
+        if (formatArgs.isNotEmpty()) {
+            append(':')
+            append(formatArgs.joinToString(","))
+        }
+    }
+}
+
+class FakeTrafficStatsReader(
+    var transferredBytes: Long = 0L,
+) : TrafficStatsReader {
+    override fun currentTransferredBytes(): Long = transferredBytes
+}

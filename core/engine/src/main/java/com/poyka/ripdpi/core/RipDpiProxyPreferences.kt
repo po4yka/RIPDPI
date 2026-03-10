@@ -1,22 +1,18 @@
 package com.poyka.ripdpi.core
 
-import android.content.Context
-import com.poyka.ripdpi.data.settingsStore
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.shellSplit
-import kotlinx.coroutines.flow.first
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+
+private val NativeProxyJson =
+    Json {
+        classDiscriminator = "kind"
+    }
 
 sealed interface RipDpiProxyPreferences {
-    companion object {
-        suspend fun fromSettingsStore(context: Context): RipDpiProxyPreferences {
-            val settings = context.settingsStore.data.first()
-            return if (settings.enableCmdSettings) {
-                RipDpiProxyCmdPreferences(settings.cmdArgs)
-            } else {
-                RipDpiProxyUIPreferences(settings)
-            }
-        }
-    }
+    fun toNativeConfigJson(): String
 }
 
 class RipDpiProxyCmdPreferences(
@@ -31,6 +27,13 @@ class RipDpiProxyCmdPreferences(
             return arrayOf("ciadpi") + shellSplit(argsStr)
         }
     }
+
+    override fun toNativeConfigJson(): String =
+        NativeProxyJson.encodeToString(
+            NativeProxyConfig.CommandLine(
+                args = args.toList(),
+            ),
+        )
 }
 
 class RipDpiProxyUIPreferences(
@@ -142,6 +145,40 @@ class RipDpiProxyUIPreferences(
         ripdpiFakeOffset = settings.fakeOffset,
     )
 
+    override fun toNativeConfigJson(): String =
+        NativeProxyJson.encodeToString(
+            NativeProxyConfig.Ui(
+                ip = ip,
+                port = port,
+                maxConnections = maxConnections,
+                bufferSize = bufferSize,
+                defaultTtl = defaultTtl,
+                customTtl = customTtl,
+                noDomain = noDomain,
+                desyncHttp = desyncHttp,
+                desyncHttps = desyncHttps,
+                desyncUdp = desyncUdp,
+                desyncMethod = desyncMethod.wireName,
+                splitPosition = splitPosition,
+                splitAtHost = splitAtHost,
+                fakeTtl = fakeTtl,
+                fakeSni = fakeSni,
+                oobChar = oobChar.toInt() and 0xFF,
+                hostMixedCase = hostMixedCase,
+                domainMixedCase = domainMixedCase,
+                hostRemoveSpaces = hostRemoveSpaces,
+                tlsRecordSplit = tlsRecordSplit,
+                tlsRecordSplitPosition = tlsRecordSplitPosition,
+                tlsRecordSplitAtSni = tlsRecordSplitAtSni,
+                hostsMode = hostsMode.wireName,
+                hosts = hosts,
+                tcpFastOpen = tcpFastOpen,
+                udpFakeCount = udpFakeCount,
+                dropSack = dropSack,
+                fakeOffset = fakeOffset,
+            ),
+        )
+
     enum class DesyncMethod {
         None,
         Split,
@@ -163,6 +200,17 @@ class RipDpiProxyUIPreferences(
                     else -> throw IllegalArgumentException("Unknown desync method: $name")
                 }
         }
+
+        val wireName: String
+            get() =
+                when (this) {
+                    None -> "none"
+                    Split -> "split"
+                    Disorder -> "disorder"
+                    Fake -> "fake"
+                    OOB -> "oob"
+                    DISOOB -> "disoob"
+                }
     }
 
     enum class HostsMode {
@@ -180,5 +228,55 @@ class RipDpiProxyUIPreferences(
                     else -> throw IllegalArgumentException("Unknown hosts mode: $name")
                 }
         }
+
+        val wireName: String
+            get() =
+                when (this) {
+                    Disable -> "disable"
+                    Blacklist -> "blacklist"
+                    Whitelist -> "whitelist"
+                }
     }
+}
+
+@Serializable
+private sealed interface NativeProxyConfig {
+    @Serializable
+    @SerialName("command_line")
+    data class CommandLine(
+        val args: List<String>,
+    ) : NativeProxyConfig
+
+    @Serializable
+    @SerialName("ui")
+    data class Ui(
+        val ip: String,
+        val port: Int,
+        val maxConnections: Int,
+        val bufferSize: Int,
+        val defaultTtl: Int,
+        val customTtl: Boolean,
+        val noDomain: Boolean,
+        val desyncHttp: Boolean,
+        val desyncHttps: Boolean,
+        val desyncUdp: Boolean,
+        val desyncMethod: String,
+        val splitPosition: Int,
+        val splitAtHost: Boolean,
+        val fakeTtl: Int,
+        val fakeSni: String,
+        val oobChar: Int,
+        val hostMixedCase: Boolean,
+        val domainMixedCase: Boolean,
+        val hostRemoveSpaces: Boolean,
+        val tlsRecordSplit: Boolean,
+        val tlsRecordSplitPosition: Int,
+        val tlsRecordSplitAtSni: Boolean,
+        val hostsMode: String,
+        val hosts: String?,
+        val tcpFastOpen: Boolean,
+        val udpFakeCount: Int,
+        val dropSack: Boolean,
+        val fakeOffset: Int,
+    ) : NativeProxyConfig
 }

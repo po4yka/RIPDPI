@@ -1,6 +1,7 @@
 plugins {
     id("ripdpi.android.application")
     id("ripdpi.android.compose")
+    id("ripdpi.android.hilt")
 }
 
 android {
@@ -63,6 +64,7 @@ dependencies {
     // Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)
+    implementation(libs.androidx.hilt.navigation.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Modules

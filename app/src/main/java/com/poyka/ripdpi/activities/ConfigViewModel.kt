@@ -1,16 +1,17 @@
 package com.poyka.ripdpi.activities
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.settingsStore
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.checkNotLocalIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -163,9 +164,12 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         setDefaultTtl(draft.defaultTtl.toIntOrNull() ?: 0)
     }
 
-class ConfigViewModel(
-    application: Application,
-) : AndroidViewModel(application) {
+@HiltViewModel
+class ConfigViewModel
+    @Inject
+    constructor(
+        private val appSettingsRepository: AppSettingsRepository,
+    ) : ViewModel() {
     private val editorSession = MutableStateFlow(ConfigEditorSession())
 
     private val _effects = Channel<ConfigEffect>(Channel.BUFFERED)
@@ -173,7 +177,7 @@ class ConfigViewModel(
 
     val uiState: StateFlow<ConfigUiState> =
         combine(
-            application.settingsStore.data,
+            appSettingsRepository.settings,
             editorSession,
         ) { settings, session ->
             val currentDraft = settings.toConfigDraft()
@@ -208,11 +212,8 @@ class ConfigViewModel(
         }
 
         viewModelScope.launch {
-            getApplication<Application>().settingsStore.updateData { settings ->
-                settings
-                    .toBuilder()
-                    .setRipdpiMode(mode.preferenceValue)
-                    .build()
+            appSettingsRepository.update {
+                setRipdpiMode(mode.preferenceValue)
             }
         }
     }
@@ -225,11 +226,8 @@ class ConfigViewModel(
         }
 
         viewModelScope.launch {
-            getApplication<Application>().settingsStore.updateData { settings ->
-                settings
-                    .toBuilder()
-                    .applyConfigDraft(preset.draft)
-                    .build()
+            appSettingsRepository.update {
+                applyConfigDraft(preset.draft)
             }
             editorSession.value = ConfigEditorSession()
         }
@@ -264,11 +262,8 @@ class ConfigViewModel(
         }
 
         viewModelScope.launch {
-            getApplication<Application>().settingsStore.updateData { settings ->
-                settings
-                    .toBuilder()
-                    .applyConfigDraft(draft)
-                    .build()
+            appSettingsRepository.update {
+                applyConfigDraft(draft)
             }
             editorSession.value = ConfigEditorSession()
             _effects.send(ConfigEffect.SaveSuccess)
@@ -278,11 +273,8 @@ class ConfigViewModel(
     fun resetToDefaults() {
         viewModelScope.launch {
             val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
-            getApplication<Application>().settingsStore.updateData { settings ->
-                settings
-                    .toBuilder()
-                    .applyConfigDraft(defaultDraft)
-                    .build()
+            appSettingsRepository.update {
+                applyConfigDraft(defaultDraft)
             }
             editorSession.value = ConfigEditorSession()
         }

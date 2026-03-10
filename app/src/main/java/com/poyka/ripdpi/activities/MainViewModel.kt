@@ -1,24 +1,26 @@
 package com.poyka.ripdpi.activities
 
-import android.app.Application
 import android.content.Context
 import android.content.Intent
-import android.net.TrafficStats
 import android.net.VpnService
 import android.os.SystemClock
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.data.settingsStore
+import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.AppStateManager
+import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceEvent
-import com.poyka.ripdpi.services.ServiceManager
+import com.poyka.ripdpi.services.ServiceStateStore
 import com.poyka.ripdpi.ui.navigation.Route
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -104,13 +106,20 @@ internal fun resolveStartupDestination(settings: AppSettings): String =
         else -> Route.Home.route
     }
 
-class MainViewModel(
-    application: Application,
-) : AndroidViewModel(application) {
+@HiltViewModel
+class MainViewModel
+    @Inject
+    constructor(
+        appSettingsRepository: AppSettingsRepository,
+        private val serviceStateStore: ServiceStateStore,
+        private val serviceController: ServiceController,
+        private val stringResolver: StringResolver,
+        private val trafficStatsReader: TrafficStatsReader,
+    ) : ViewModel() {
     private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
     private var connectionMetricsJob: Job? = null
     private val settingsState: StateFlow<AppSettings> =
-        application.settingsStore.data.stateIn(
+        appSettingsRepository.settings.stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
             initialValue = AppSettingsSerializer.defaultValue,
@@ -136,7 +145,7 @@ class MainViewModel(
     val uiState: StateFlow<MainUiState> =
         combine(
             settingsState,
-            AppStateManager.status,
+            serviceStateStore.status,
             runtimeState,
         ) { settings, (status, activeMode), runtime ->
             MainUiState(
@@ -169,13 +178,13 @@ class MainViewModel(
             }
 
             ConnectionState.Connected -> {
-                stop(context)
+                stop()
             }
 
             ConnectionState.Disconnected, ConnectionState.Error -> {
                 when (uiState.value.appStatus) {
                     AppStatus.Halted -> start(context)
-                    AppStatus.Running -> stop(context)
+                    AppStatus.Running -> stop()
                 }
             }
         }
@@ -194,21 +203,18 @@ class MainViewModel(
         }
     }
 
-    fun onVpnPermissionResult(
-        context: Context,
-        granted: Boolean,
-    ) {
+    fun onVpnPermissionResult(granted: Boolean) {
         if (granted) {
             setConnectingState()
-            ServiceManager.start(context, Mode.VPN)
+            serviceController.start(Mode.VPN)
             return
         }
 
-        showError(getApplication<Application>().getString(R.string.vpn_permission_denied))
+        showError(stringResolver.getString(R.string.vpn_permission_denied))
     }
 
     fun onNotificationPermissionDenied() {
-        showError(getApplication<Application>().getString(R.string.permissions_notifications_denied))
+        showError(stringResolver.getString(R.string.permissions_notifications_denied))
     }
 
     fun requestVpnPermission(context: Context) {
@@ -228,7 +234,7 @@ class MainViewModel(
             _effects.trySend(MainEffect.RequestVpnPermission(intent))
         } else {
             setConnectingState()
-            ServiceManager.start(context, Mode.VPN)
+            serviceController.start(Mode.VPN)
         }
     }
 
@@ -242,23 +248,23 @@ class MainViewModel(
                 if (intent != null) {
                     _effects.trySend(MainEffect.RequestVpnPermission(intent))
                 } else {
-                    ServiceManager.start(context, Mode.VPN)
+                    serviceController.start(Mode.VPN)
                 }
             }
 
             Mode.Proxy -> {
-                ServiceManager.start(context, Mode.Proxy)
+                serviceController.start(Mode.Proxy)
             }
         }
     }
 
-    private fun stop(context: Context) {
-        ServiceManager.stop(context)
+    private fun stop() {
+        serviceController.stop()
     }
 
     private fun observeStatus() {
         viewModelScope.launch {
-            AppStateManager.status.collect { (status, _) ->
+            serviceStateStore.status.collect { (status, _) ->
                 when (status) {
                     AppStatus.Running -> onConnected()
                     AppStatus.Halted -> onHalted()
@@ -269,7 +275,7 @@ class MainViewModel(
 
     private fun observeServiceEvents() {
         viewModelScope.launch {
-            AppStateManager.events.collect { event ->
+            serviceStateStore.events.collect { event ->
                 when (event) {
                     is ServiceEvent.Failed -> onServiceFailed(event.sender)
                 }
@@ -315,9 +321,7 @@ class MainViewModel(
     }
 
     private fun onServiceFailed(sender: Sender) {
-        val message =
-            getApplication<Application>()
-                .getString(R.string.failed_to_start, sender.senderName)
+        val message = stringResolver.getString(R.string.failed_to_start, sender.senderName)
         showError(message)
     }
 
@@ -401,9 +405,6 @@ class MainViewModel(
     }
 
     private fun currentTransferredBytes(): Long {
-        val uid = getApplication<Application>().applicationInfo.uid
-        val txBytes = TrafficStats.getUidTxBytes(uid).takeIf { it >= 0 } ?: 0L
-        val rxBytes = TrafficStats.getUidRxBytes(uid).takeIf { it >= 0 } ?: 0L
-        return txBytes + rxBytes
+        return trafficStatsReader.currentTransferredBytes()
     }
 }

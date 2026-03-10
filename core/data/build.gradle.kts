@@ -1,5 +1,6 @@
 plugins {
     id("ripdpi.android.library")
+    id("ripdpi.android.hilt")
     id("ripdpi.android.protobuf")
     id("ripdpi.android.serialization")
 }
