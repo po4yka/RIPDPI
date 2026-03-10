@@ -90,7 +90,7 @@ class RipDpiXxxService : LifecycleService() {
 
 ## VPN-Specific Details
 
-- `startTun2Socks()`: Creates YAML config file, calls `TProxyService.TProxyStartService(configPath)`
+- `startTun2Socks()`: Builds `Tun2SocksConfig`, establishes the TUN fd, then calls `Tun2SocksTunnel.start(config, tunFd)`
 - VPN builder: address `10.10.10.10/32`, IPv6 `fd00::1/128`, excludes self from tunnel
 - `onRevoke()`: Called when user revokes VPN permission -- triggers stop
 

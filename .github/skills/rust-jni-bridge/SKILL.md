@@ -20,7 +20,7 @@ Two approaches for Rust-to-Kotlin bindings on Android: raw `jni` crate (manual, 
 | Kotlin code | Write manually (`external fun`) | Auto-generated bindings |
 | Crate | `jni = "0.22"` | `uniffi = "0.28"` |
 
-For RIPDPI's 4 JNI functions, raw `jni` crate is simpler. Consider UniFFI if the API surface grows significantly.
+For RIPDPI's small handle-based JNI surface, raw `jni` crate is simpler. Consider UniFFI only if the API grows well beyond the current proxy and tunnel session methods.
 
 ## Raw JNI Crate
 
@@ -34,12 +34,12 @@ use jni::sys::{jint, jstring};
 // Function name must match: Java_<package>_<Class>_<method>
 // Package: com.poyka.ripdpi.core, Class: RipDpiProxy
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStartProxy(
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStart(
     mut env: JNIEnv,
     _class: JClass,
-    fd: jint,
+    handle: jlong,
 ) -> jint {
-    match start_proxy(fd) {
+    match start_proxy(handle) {
         Ok(result) => result,
         Err(e) => {
             let _ = env.throw_new("java/io/IOException", e.to_string());
@@ -50,17 +50,16 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStartProxy(
 
 // String parameter handling
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreate(
     mut env: JNIEnv,
     _class: JClass,
-    ip: JString,
-    port: jint,
-) -> jint {
-    let ip: String = match env.get_string(&ip) {
+    config_json: JString,
+) -> jlong {
+    let config_json: String = match env.get_string(&config_json) {
         Ok(s) => s.into(),
-        Err(_) => return -1,
+        Err(_) => return 0,
     };
-    create_socket(&ip, port as u16).unwrap_or(-1)
+    create_session(&config_json).unwrap_or(0)
 }
 ```
 
@@ -71,8 +70,8 @@ class RipDpiProxy {
     companion object {
         init { System.loadLibrary("ripdpi") }
     }
-    external fun jniStartProxy(fd: Int): Int
-    external fun jniCreateSocket(ip: String, port: Int): Int
+    external fun jniCreate(configJson: String): Long
+    external fun jniStart(handle: Long): Int
 }
 ```
 
@@ -156,12 +155,12 @@ UniFFI generates Kotlin classes, enums, and error types automatically. No `exter
 
 ## RIPDPI-Specific: Existing C Functions to Replace
 
-| C function | Parameters | Returns | Notes |
+| Current function | Parameters | Returns | Notes |
 |------------|-----------|---------|-------|
-| `jniCreateSocketWithCommandLine` | `Array<String>` | `Int` (fd) | Parse CLI args |
-| `jniCreateSocket` | 28 typed params | `Int` (fd) | UI-configured mode |
-| `jniStartProxy` | `Int` (fd) | `Int` | Blocking event loop |
-| `jniStopProxy` | `Int` (fd) | `Int` | Graceful shutdown |
+| `jniCreate` | `String` (JSON) | `Long` (handle) | Creates a proxy or tunnel session |
+| `jniStart` | `Long` / `Long, Int` | `Int` or `Unit` | Proxy start blocks; tunnel start owns its worker thread |
+| `jniStop` | `Long` | `Unit` | Graceful shutdown |
+| `jniDestroy` | `Long` | `Unit` | Releases native session state |
 
 ## Common Mistakes
 

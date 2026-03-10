@@ -32,12 +32,13 @@ Android VPN/proxy app for path optimization using in-repository Rust native modu
 
 ## Native Code Rules
 
-- `libripdpi.so` is built from `native/rust/third_party/byedpi/crates/ciadpi-jni`
-- `libhev-socks5-tunnel.so` is built from `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-jni`
-- `scripts/native/build-rust-android.sh` builds both libraries into `core/engine/build/generated/jniLibs/`
+- `libripdpi.so` is built from `native/rust/crates/ripdpi-android`
+- `libhev-socks5-tunnel.so` is built from `native/rust/crates/hs5t-android`
+- `:core:engine:buildRustNativeLibs` builds both libraries from the `native/rust` workspace into `core/engine/build/generated/jniLibs/`
 - NDK version and ABI filters are in `gradle.properties` (single source of truth)
 - Never edit `.so` files directly -- they are built from source
 - Supported ABIs: armeabi-v7a, arm64-v8a, x86, x86_64
+- `ripdpi.localNativeAbis` is a local debug-only override. Do not use it in CI or release workflows.
 
 ## Code Conventions
 
@@ -61,7 +62,7 @@ Android VPN/proxy app for path optimization using in-repository Rust native modu
 ## Gotchas
 
 - `android.newDsl=false` in `gradle.properties` is a workaround for protobuf-gradle-plugin 0.9.6 incompatibility with AGP 9's new DSL. Do not remove until the plugin supports AGP 9 natively.
-- `:core:engine:buildRustNativeLibs` runs before `preBuild` and cross-compiles both native libraries for every configured ABI.
+- `:core:engine:buildRustNativeLibs` runs before `preBuild`, uses Cargo incremental outputs per ABI, and only copies changed `.so` files into Gradle-managed `jniLibs`.
 - Signing config for release builds uses environment variables (`SIGNING_STORE_FILE`, etc.) -- never commit keystores.
 
 ## CI/CD

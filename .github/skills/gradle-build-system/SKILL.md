@@ -71,7 +71,7 @@ All in `gradle.properties`:
 - **`android.newDsl=false`**: Workaround for protobuf-gradle-plugin 0.9.6 + AGP 9 incompatibility. Do not remove.
 - **build-logic is an included build** (`includeBuild("build-logic")` in settings). Changes to convention plugins require re-sync.
 - **Static analysis**: Run `./gradlew staticAnalysis` -- it aggregates detekt, ktlint, and Android lint.
-- **Native build order**: `:core:engine:buildRustNativeLibs` runs before `preBuild`. If native build fails, check NDK installation path, Rust target availability, and `scripts/native/build-rust-android.sh`.
+- **Native build order**: `:core:engine:buildRustNativeLibs` runs before `preBuild`. If native build fails, check NDK installation path, Rust target availability, and the `ripdpi.android.rust-native` convention plugin under `build-logic/convention/`.
 
 ## Common Mistakes
 

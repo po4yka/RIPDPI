@@ -49,6 +49,9 @@ jobs:
       - name: Verify packaged native ELFs
         run: python3 scripts/ci/verify_native_elfs.py
 
+      - name: Verify packaged native library sizes
+        run: python3 scripts/ci/verify_native_sizes.py
+
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest
 
