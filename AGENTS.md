@@ -8,7 +8,7 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 
 1. Requirements: JDK 17, Android SDK, Android NDK 29.0.14206865, stable Rust toolchain with Android targets
 2. Native build properties are defined in `gradle.properties` -- do not hardcode NDK version, ABI filters, or SDK levels elsewhere
-3. The Android build invokes `scripts/native/build-rust-android.sh` from `:core:engine`
+3. The Android build invokes the `ripdpi.android.rust-native` convention plugin from `:core:engine`, which builds the native workspace under `native/rust/`
 
 ## Build & Test
 
@@ -39,17 +39,18 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 
 ## Native Code
 
-Two native libraries are built from vendored Rust crates:
+Two native libraries are built from repo-owned Android adapter crates in the native workspace:
 
 | Library | Build system | Source | Output |
 |---------|-------------|--------|--------|
-| `libripdpi.so` | Cargo + Android NDK linker via `scripts/native/build-rust-android.sh` | `native/rust/third_party/byedpi/crates/ciadpi-jni/` | `core/engine/build/generated/jniLibs/` |
-| `libhev-socks5-tunnel.so` | Cargo + Android NDK linker via `scripts/native/build-rust-android.sh` | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-jni/` | `core/engine/build/generated/jniLibs/` |
+| `libripdpi.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-android/` | `core/engine/build/generated/jniLibs/` |
+| `libhev-socks5-tunnel.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/hs5t-android/` | `core/engine/build/generated/jniLibs/` |
 
 - Kotlin bridge for `libripdpi.so`: `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`
-- Kotlin bridge for `libhev-socks5-tunnel.so`: `core/engine/src/main/java/com/poyka/ripdpi/core/TProxyService.kt`
+- Kotlin bridge for `libhev-socks5-tunnel.so`: `core/engine/src/main/java/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`
 - Supported ABIs: armeabi-v7a, arm64-v8a, x86, x86_64
 - Never edit `.so` files -- they are compiled from source
+- Use `ripdpi.localNativeAbis=arm64-v8a` only for local debug-only native iteration. CI and release always build the full ABI set.
 
 ## Build Logic
 

@@ -2,11 +2,9 @@ use std::env;
 use std::path::PathBuf;
 
 use ciadpi_config::{parse_cli, ConfigError, ParseResult, StartupEnv, VERSION};
-
-mod platform;
-mod process;
-mod runtime;
-mod runtime_policy;
+#[cfg(target_os = "windows")]
+use ripdpi_runtime::platform;
+use ripdpi_runtime::{process, runtime};
 
 fn help_text() -> String {
     let mut text = String::new();

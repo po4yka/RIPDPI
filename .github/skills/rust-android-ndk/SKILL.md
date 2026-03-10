@@ -7,7 +7,7 @@ description: Use when building Rust code for Android, configuring cross-compilat
 
 ## Overview
 
-RIPDPI builds Rust libraries as Android `.so` files with plain `cargo build` plus the Android NDK linker toolchain. The project-standard entrypoint is `scripts/native/build-rust-android.sh`, which the `:core:engine` Gradle module invokes before `preBuild`.
+RIPDPI builds Rust libraries as Android `.so` files with plain `cargo build` plus the Android NDK linker toolchain. The project-standard entrypoint is `:core:engine:buildRustNativeLibs`, which is registered by the `ripdpi.android.rust-native` convention plugin and builds the `native/rust` workspace before `preBuild`.
 
 ## Toolchain Setup
 
@@ -37,32 +37,18 @@ RIPDPI supports all four ABIs with minSdk 27.
 ## Current Project Build
 
 ```bash
-bash scripts/native/build-rust-android.sh \
-    --sdk-dir "$ANDROID_SDK_ROOT" \
-    --ndk-version 29.0.14206865 \
-    --min-sdk 27 \
-    --abis "armeabi-v7a,arm64-v8a,x86,x86_64" \
-    --build-dir core/engine/build/intermediates/rust \
-    --output-dir core/engine/build/generated/jniLibs
+./gradlew :core:engine:buildRustNativeLibs
 ```
 
 This creates `generated/jniLibs/<abi>/libripdpi.so` and `generated/jniLibs/<abi>/libhev-socks5-tunnel.so`.
 
 ### Gradle Task Integration
 
-```kotlin
-tasks.register<Exec>("buildRustNativeLibs") {
-    group = "build"
-    description = "Builds Rust native libraries for all ABIs"
-    executable = "bash"
-    args(rootProject.file("scripts/native/build-rust-android.sh").invariantSeparatorsPath, ...)
-}
-tasks.named("preBuild") { dependsOn("buildRustNativeLibs") }
-```
+The task sets the target linker for each ABI explicitly and builds:
+- `native/rust` package `ripdpi-android`
+- `native/rust` package `hs5t-android`
 
-The script sets the target linker for each ABI explicitly and builds:
-- `native/rust/third_party/byedpi` crate `ciadpi-jni`
-- `native/rust/third_party/hev-socks5-tunnel` crate `hs5t-jni`
+Use `ripdpi.localNativeAbis=arm64-v8a` only for local debug iteration. CI and release builds must keep the full ABI set.
 
 ## Cargo.toml Setup
 
@@ -107,7 +93,7 @@ rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
 |---------|-----|
 | Missing `crate-type = ["cdylib"]` | Required for `.so` output; `rlib` is Rust-only |
 | Forgetting 16KB page alignment | Add `-Wl,-z,max-page-size=16384` rustflag per target |
-| Not pointing Gradle or the script at the Android SDK/NDK | Set `sdk.dir` or `ANDROID_SDK_ROOT` and install the configured NDK |
+| Not pointing Gradle at the Android SDK/NDK | Set `sdk.dir` or `ANDROID_SDK_ROOT` and install the configured NDK |
 | Building with debug profile | Use `--release` for APK; debug `.so` files are huge |
 | Missing `strip = true` in release profile | Without stripping, `.so` files include debug info (~10x larger) |
 | Wrong target triple | Use `armv7-linux-androideabi` (not `armv7a-`) for armeabi-v7a |

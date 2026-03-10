@@ -1,0 +1,54 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/android-support",
+    "crates/ripdpi-runtime",
+    "crates/ripdpi-android",
+    "crates/hs5t-android",
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "MIT"
+
+[workspace.dependencies]
+android-support = { path = "crates/android-support" }
+ripdpi-runtime = { path = "crates/ripdpi-runtime" }
+
+ciadpi-config = { path = "third_party/byedpi/crates/ciadpi-config" }
+ciadpi-desync = { path = "third_party/byedpi/crates/ciadpi-desync" }
+ciadpi-packets = { path = "third_party/byedpi/crates/ciadpi-packets" }
+ciadpi-session = { path = "third_party/byedpi/crates/ciadpi-session" }
+
+hs5t-config = { path = "third_party/hev-socks5-tunnel/crates/hs5t-config" }
+hs5t-core = { path = "third_party/hev-socks5-tunnel/crates/hs5t-core" }
+
+android_logger = "0.14"
+jni = "0.21"
+libc = "0.2"
+log = "0.4"
+mio = { version = "0.8", features = ["net", "os-poll"] }
+once_cell = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+socket2 = "0.5"
+anyhow = "1"
+lru = "0.12"
+nix = { version = "0.29", features = ["net", "ioctl", "fs"] }
+fast-socks5 = "0.9"
+proptest = "1"
+smoltcp = { version = "0.12", features = ["async", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util", "sync", "time"] }
+tokio-util = "0.7"
+tracing = "0.1"
+tracing-log = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }
+
+[profile.release]
+lto = "thin"
+panic = "abort"
+strip = "symbols"
+codegen-units = 1
