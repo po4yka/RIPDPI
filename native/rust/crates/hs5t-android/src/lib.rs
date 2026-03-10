@@ -721,6 +721,230 @@ impl BlankCheck for String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+
+    fn lossy_string(max_len: usize) -> impl Strategy<Value = String> {
+        vec(any::<u8>(), 0..max_len).prop_map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+    }
+
+    fn non_blank_string(max_len: usize) -> impl Strategy<Value = String> {
+        lossy_string(max_len).prop_filter("string must not be blank", |value| !value.trim().is_empty())
+    }
+
+    fn ipv4_address() -> impl Strategy<Value = String> {
+        (1u8..=223, any::<u8>(), any::<u8>(), 1u8..=254).prop_map(|(a, b, c, d)| format!("{a}.{b}.{c}.{d}"))
+    }
+
+    fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
+        // proptest implements Strategy for tuples up to 12 elements;
+        // nest into sub-tuples to stay within that limit.
+        (
+            (
+                lossy_string(24),
+                1u32..9001,
+                any::<bool>(),
+                prop::option::of(ipv4_address()),
+                prop::option::of(prop_oneof![Just("fd00::1".to_string()), Just("2001:db8::1".to_string())]),
+                lossy_string(32),
+                1u16..=u16::MAX,
+                prop::option::of(lossy_string(12)),
+                prop::option::of(ipv4_address()),
+                prop::option::of(any::<bool>()),
+                prop::option::of(lossy_string(16)),
+                prop::option::of(lossy_string(16)),
+            ),
+            (
+                prop::option::of(ipv4_address()),
+                prop::option::of(1u16..=u16::MAX),
+                prop::option::of(Just("172.16.0.0".to_string())),
+                prop::option::of(Just("255.240.0.0".to_string())),
+                prop::option::of(1u32..50_001),
+                1u32..262_145,
+                prop::option::of(1u32..262_145),
+                prop::option::of(1u32..262_145),
+                prop::option::of(1u32..1025),
+                prop::option::of(1u32..120_001),
+            ),
+            // connect_timeout, tcp/udp rw timeouts, log_level, limit_nofile
+            (
+                prop::option::of(1u32..120_001),
+                prop::option::of(1u32..120_001),
+                prop::option::of(1u32..120_001),
+                prop_oneof![
+                    Just("trace".to_string()),
+                    Just("debug".to_string()),
+                    Just("info".to_string()),
+                    Just("warn".to_string()),
+                    Just("error".to_string()),
+                ],
+                prop::option::of(128u32..65_536),
+            ),
+        )
+            .prop_map(
+                |(
+                    (
+                        tunnel_name,
+                        tunnel_mtu,
+                        multi_queue,
+                        tunnel_ipv4,
+                        tunnel_ipv6,
+                        socks5_address,
+                        socks5_port,
+                        socks5_udp,
+                        socks5_udp_address,
+                        socks5_pipeline,
+                        username,
+                        password,
+                    ),
+                    (
+                        mapdns_address,
+                        mapdns_port,
+                        mapdns_network,
+                        mapdns_netmask,
+                        mapdns_cache_size,
+                        task_stack_size,
+                        tcp_buffer_size,
+                        udp_recv_buffer_size,
+                        udp_copy_buffer_nums,
+                        max_session_count,
+                    ),
+                    (connect_timeout_ms, tcp_read_write_timeout_ms, udp_read_write_timeout_ms, log_level, limit_nofile),
+                )| TunnelConfigPayload {
+                    tunnel_name,
+                    tunnel_mtu,
+                    multi_queue,
+                    tunnel_ipv4,
+                    tunnel_ipv6,
+                    socks5_address,
+                    socks5_port,
+                    socks5_udp,
+                    socks5_udp_address,
+                    socks5_pipeline,
+                    username,
+                    password,
+                    mapdns_address,
+                    mapdns_port,
+                    mapdns_network,
+                    mapdns_netmask,
+                    mapdns_cache_size,
+                    task_stack_size,
+                    tcp_buffer_size,
+                    udp_recv_buffer_size,
+                    udp_copy_buffer_nums,
+                    max_session_count,
+                    connect_timeout_ms,
+                    tcp_read_write_timeout_ms,
+                    udp_read_write_timeout_ms,
+                    log_level,
+                    limit_nofile,
+                },
+            )
+    }
+
+    fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
+        (
+            (
+                non_blank_string(24),
+                1u32..9001,
+                any::<bool>(),
+                prop::option::of(ipv4_address()),
+                prop::option::of(prop_oneof![Just("fd00::1".to_string()), Just("2001:db8::1".to_string())]),
+                ipv4_address(),
+                1u16..=u16::MAX,
+                prop::option::of(non_blank_string(12)),
+                prop::option::of(ipv4_address()),
+                prop::option::of(any::<bool>()),
+                prop::option::of(non_blank_string(16)),
+                prop::option::of(non_blank_string(16)),
+            ),
+            (
+                prop::option::of(ipv4_address()),
+                prop::option::of(1u16..=u16::MAX),
+                prop::option::of(Just("172.16.0.0".to_string())),
+                prop::option::of(Just("255.240.0.0".to_string())),
+                prop::option::of(1u32..50_001),
+                1u32..262_145,
+                prop::option::of(1u32..262_145),
+                prop::option::of(1u32..262_145),
+                prop::option::of(1u32..1025),
+                prop::option::of(1u32..120_001),
+            ),
+            // connect_timeout, tcp/udp rw timeouts, log_level, limit_nofile
+            (
+                prop::option::of(1u32..120_001),
+                prop::option::of(1u32..120_001),
+                prop::option::of(1u32..120_001),
+                prop_oneof![
+                    Just("trace".to_string()),
+                    Just("debug".to_string()),
+                    Just("info".to_string()),
+                    Just("warn".to_string()),
+                    Just("error".to_string()),
+                ],
+                prop::option::of(128u32..65_536),
+            ),
+        )
+            .prop_map(
+                |(
+                    (
+                        tunnel_name,
+                        tunnel_mtu,
+                        multi_queue,
+                        tunnel_ipv4,
+                        tunnel_ipv6,
+                        socks5_address,
+                        socks5_port,
+                        socks5_udp,
+                        socks5_udp_address,
+                        socks5_pipeline,
+                        username,
+                        password,
+                    ),
+                    (
+                        mapdns_address,
+                        mapdns_port,
+                        mapdns_network,
+                        mapdns_netmask,
+                        mapdns_cache_size,
+                        task_stack_size,
+                        tcp_buffer_size,
+                        udp_recv_buffer_size,
+                        udp_copy_buffer_nums,
+                        max_session_count,
+                    ),
+                    (connect_timeout_ms, tcp_read_write_timeout_ms, udp_read_write_timeout_ms, log_level, limit_nofile),
+                )| TunnelConfigPayload {
+                    tunnel_name,
+                    tunnel_mtu,
+                    multi_queue,
+                    tunnel_ipv4,
+                    tunnel_ipv6,
+                    socks5_address,
+                    socks5_port,
+                    socks5_udp,
+                    socks5_udp_address,
+                    socks5_pipeline,
+                    username,
+                    password,
+                    mapdns_address,
+                    mapdns_port,
+                    mapdns_network,
+                    mapdns_netmask,
+                    mapdns_cache_size,
+                    task_stack_size,
+                    tcp_buffer_size,
+                    udp_recv_buffer_size,
+                    udp_copy_buffer_nums,
+                    max_session_count,
+                    connect_timeout_ms,
+                    tcp_read_write_timeout_ms,
+                    udp_read_write_timeout_ms,
+                    log_level,
+                    limit_nofile,
+                },
+            )
+    }
 
     fn sample_payload() -> TunnelConfigPayload {
         TunnelConfigPayload {
@@ -906,6 +1130,42 @@ mod tests {
             },
             "Unknown tunnel handle",
         );
+    }
+
+    proptest! {
+        #[test]
+        fn fuzz_tunnel_json_parser_never_panics(input in vec(any::<u8>(), 0..512)) {
+            let payload = String::from_utf8_lossy(&input).into_owned();
+            let _ = parse_tunnel_config_json(&payload);
+        }
+
+        #[test]
+        fn fuzz_tunnel_payload_mapping_never_panics(payload in tunnel_payload_strategy()) {
+            let _ = config_from_payload(payload);
+        }
+
+        #[test]
+        fn valid_tunnel_payloads_preserve_core_fields(payload in valid_tunnel_payload_strategy()) {
+            let expected_name = payload.tunnel_name.clone();
+            let expected_mtu = payload.tunnel_mtu;
+            let expected_multi_queue = payload.multi_queue;
+            let expected_address = payload.socks5_address.clone();
+            let expected_port = payload.socks5_port;
+            let expected_pipeline = payload.socks5_pipeline;
+            let expected_stack_size = payload.task_stack_size;
+            let expected_log_level = payload.log_level.clone();
+
+            let config = config_from_payload(payload).expect("valid tunnel payload");
+
+            assert_eq!(config.tunnel.name, expected_name);
+            assert_eq!(config.tunnel.mtu, expected_mtu);
+            assert_eq!(config.tunnel.multi_queue, expected_multi_queue);
+            assert_eq!(config.socks5.address, expected_address);
+            assert_eq!(config.socks5.port, expected_port);
+            assert_eq!(config.socks5.pipeline, expected_pipeline);
+            assert_eq!(config.misc.task_stack_size, expected_stack_size);
+            assert_eq!(config.misc.log_level, expected_log_level);
+        }
     }
 
     #[test]

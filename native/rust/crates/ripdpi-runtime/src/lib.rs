@@ -63,9 +63,7 @@ mod tests {
 
     impl CountingSink {
         fn new() -> Self {
-            Self {
-                accepted: AtomicUsize::new(0),
-            }
+            Self { accepted: AtomicUsize::new(0) }
         }
     }
 

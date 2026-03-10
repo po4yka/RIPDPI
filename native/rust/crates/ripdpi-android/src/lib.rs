@@ -985,25 +985,19 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::SocketAddr;
+
     use proptest::collection::vec;
     use proptest::prelude::*;
 
     fn lossy_string(max_len: usize) -> impl Strategy<Value = String> {
-        vec(any::<u8>(), 0..max_len)
-            .prop_map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+        vec(any::<u8>(), 0..max_len).prop_map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
     }
 
     fn proxy_ui_config_strategy() -> impl Strategy<Value = ProxyUiConfig> {
-        (
-            lossy_string(48),
-            -32i32..65_536i32,
-            -16i32..4_096i32,
-            -16i32..65_536i32,
-            -16i32..512i32,
-            any::<bool>(),
-            any::<bool>(),
-            any::<bool>(),
-            any::<bool>(),
+        let core = (lossy_string(48), -32i32..65_536i32, -16i32..4_096i32, -16i32..65_536i32, -16i32..512i32);
+        let toggles = (any::<bool>(), any::<bool>(), any::<bool>(), any::<bool>(), any::<bool>());
+        let desync = (
             prop_oneof![
                 Just("none".to_string()),
                 Just("split".to_string()),
@@ -1018,12 +1012,9 @@ mod tests {
             -16i32..512i32,
             lossy_string(64),
             any::<u8>(),
-            any::<bool>(),
-            any::<bool>(),
-            any::<bool>(),
-            any::<bool>(),
-            -64i32..64i32,
-            any::<bool>(),
+        );
+        let mutations = (any::<bool>(), any::<bool>(), any::<bool>(), any::<bool>(), -64i32..64i32, any::<bool>());
+        let hosts = (
             prop_oneof![
                 Just(HOSTS_DISABLE.to_string()),
                 Just(HOSTS_BLACKLIST.to_string()),
@@ -1035,67 +1026,53 @@ mod tests {
             -8i32..16i32,
             any::<bool>(),
             -64i32..64i32,
+        );
+
+        (core, toggles, desync, mutations, hosts).prop_map(
+            |(
+                (ip, port, max_connections, buffer_size, default_ttl),
+                (custom_ttl, no_domain, desync_http, desync_https, desync_udp),
+                (desync_method, split_position, split_at_host, fake_ttl, fake_sni, oob_char),
+                (
+                    host_mixed_case,
+                    domain_mixed_case,
+                    host_remove_spaces,
+                    tls_record_split,
+                    tls_record_split_position,
+                    tls_record_split_at_sni,
+                ),
+                (hosts_mode, hosts, tcp_fast_open, udp_fake_count, drop_sack, fake_offset),
+            )| ProxyUiConfig {
+                ip,
+                port,
+                max_connections,
+                buffer_size,
+                default_ttl,
+                custom_ttl,
+                no_domain,
+                desync_http,
+                desync_https,
+                desync_udp,
+                desync_method,
+                split_position,
+                split_at_host,
+                fake_ttl,
+                fake_sni,
+                oob_char,
+                host_mixed_case,
+                domain_mixed_case,
+                host_remove_spaces,
+                tls_record_split,
+                tls_record_split_position,
+                tls_record_split_at_sni,
+                hosts_mode,
+                hosts,
+                tcp_fast_open,
+                udp_fake_count,
+                drop_sack,
+                fake_offset,
+            },
         )
-            .prop_map(
-                |(
-                    ip,
-                    port,
-                    max_connections,
-                    buffer_size,
-                    default_ttl,
-                    no_domain,
-                    desync_http,
-                    desync_https,
-                    desync_udp,
-                    desync_method,
-                    split_position,
-                    split_at_host,
-                    fake_ttl,
-                    fake_sni,
-                    oob_char,
-                    host_mixed_case,
-                    domain_mixed_case,
-                    host_remove_spaces,
-                    tls_record_split,
-                    tls_record_split_position,
-                    tls_record_split_at_sni,
-                    hosts_mode,
-                    hosts,
-                    tcp_fast_open,
-                    udp_fake_count,
-                    drop_sack,
-                    fake_offset,
-                )| ProxyUiConfig {
-                    ip,
-                    port,
-                    max_connections,
-                    buffer_size,
-                    default_ttl,
-                    custom_ttl: default_ttl > 0,
-                    no_domain,
-                    desync_http,
-                    desync_https,
-                    desync_udp,
-                    desync_method,
-                    split_position,
-                    split_at_host,
-                    fake_ttl,
-                    fake_sni,
-                    oob_char,
-                    host_mixed_case,
-                    domain_mixed_case,
-                    host_remove_spaces,
-                    tls_record_split,
-                    tls_record_split_position,
-                    tls_record_split_at_sni,
-                    hosts_mode,
-                    hosts,
-                    tcp_fast_open,
-                    udp_fake_count,
-                    drop_sack,
-                    fake_offset,
-                },
-            )
     }
 
     #[test]
@@ -1251,9 +1228,7 @@ mod tests {
     #[test]
     fn proxy_telemetry_observer_updates_snapshot_and_drains_events() {
         let state = Arc::new(ProxyTelemetryState::new());
-        let observer = ProxyTelemetryObserver {
-            state: state.clone(),
-        };
+        let observer = ProxyTelemetryObserver { state: state.clone() };
         let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
         let target = SocketAddr::from(([203, 0, 113, 10], 443));
 
