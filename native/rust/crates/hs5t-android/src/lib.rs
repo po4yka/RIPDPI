@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
@@ -14,7 +16,7 @@ use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
 use jni::{JNIEnv, JavaVM};
 use once_cell::sync::{Lazy, OnceCell};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
 use tokio_util::sync::CancellationToken;
 
@@ -24,6 +26,7 @@ static SESSIONS: Lazy<HandleRegistry<TunnelSession>> = Lazy::new(HandleRegistry:
 struct TunnelSession {
     config: Arc<Config>,
     last_error: Arc<Mutex<Option<String>>>,
+    telemetry: Arc<TunnelTelemetryState>,
     state: Mutex<TunnelSessionState>,
 }
 
@@ -68,6 +71,163 @@ struct TunnelConfigPayload {
     limit_nofile: Option<u32>,
 }
 
+const MAX_TUNNEL_EVENTS: usize = 128;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeRuntimeEvent {
+    source: String,
+    level: String,
+    message: String,
+    created_at: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TunnelStatsSnapshot {
+    tx_packets: u64,
+    tx_bytes: u64,
+    rx_packets: u64,
+    rx_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeRuntimeSnapshot {
+    source: String,
+    state: String,
+    health: String,
+    active_sessions: u64,
+    total_sessions: u64,
+    total_errors: u64,
+    route_changes: u64,
+    last_route_group: Option<i32>,
+    listener_address: Option<String>,
+    upstream_address: Option<String>,
+    last_target: Option<String>,
+    last_host: Option<String>,
+    last_error: Option<String>,
+    tunnel_stats: TunnelStatsSnapshot,
+    native_events: Vec<NativeRuntimeEvent>,
+    captured_at: u64,
+}
+
+struct TunnelTelemetryState {
+    running: AtomicBool,
+    total_sessions: AtomicU64,
+    total_errors: AtomicU64,
+    upstream_address: Mutex<Option<String>>,
+    last_error: Mutex<Option<String>>,
+    events: Mutex<VecDeque<NativeRuntimeEvent>>,
+}
+
+impl TunnelTelemetryState {
+    fn new() -> Self {
+        Self {
+            running: AtomicBool::new(false),
+            total_sessions: AtomicU64::new(0),
+            total_errors: AtomicU64::new(0),
+            upstream_address: Mutex::new(None),
+            last_error: Mutex::new(None),
+            events: Mutex::new(VecDeque::with_capacity(MAX_TUNNEL_EVENTS)),
+        }
+    }
+
+    fn mark_started(&self, upstream: String) {
+        self.running.store(true, Ordering::Relaxed);
+        self.total_sessions.fetch_add(1, Ordering::Relaxed);
+        if let Ok(mut guard) = self.upstream_address.lock() {
+            *guard = Some(upstream.clone());
+        }
+        self.push_event(
+            "tunnel",
+            "info",
+            format!("tunnel started upstream={upstream}"),
+        );
+    }
+
+    fn mark_stop_requested(&self) {
+        self.push_event("tunnel", "info", "tunnel stop requested".to_string());
+    }
+
+    fn mark_stopped(&self) {
+        self.running.store(false, Ordering::Relaxed);
+        self.push_event("tunnel", "info", "tunnel stopped".to_string());
+    }
+
+    fn record_error(&self, error: String) {
+        self.total_errors.fetch_add(1, Ordering::Relaxed);
+        if let Ok(mut guard) = self.last_error.lock() {
+            *guard = Some(error.clone());
+        }
+        self.push_event("tunnel", "warn", format!("tunnel error: {error}"));
+    }
+
+    fn snapshot(&self, stats: (u64, u64, u64, u64)) -> NativeRuntimeSnapshot {
+        NativeRuntimeSnapshot {
+            source: "tunnel".to_string(),
+            state: if self.running.load(Ordering::Relaxed) {
+                "running".to_string()
+            } else {
+                "idle".to_string()
+            },
+            health: if self.running.load(Ordering::Relaxed) {
+                if self.total_errors.load(Ordering::Relaxed) == 0 {
+                    "healthy".to_string()
+                } else {
+                    "degraded".to_string()
+                }
+            } else {
+                "idle".to_string()
+            },
+            active_sessions: u64::from(self.running.load(Ordering::Relaxed)),
+            total_sessions: self.total_sessions.load(Ordering::Relaxed),
+            total_errors: self.total_errors.load(Ordering::Relaxed),
+            route_changes: 0,
+            last_route_group: None,
+            listener_address: None,
+            upstream_address: self
+                .upstream_address
+                .lock()
+                .ok()
+                .and_then(|guard| guard.clone()),
+            last_target: None,
+            last_host: None,
+            last_error: self.last_error.lock().ok().and_then(|guard| guard.clone()),
+            tunnel_stats: TunnelStatsSnapshot {
+                tx_packets: stats.0,
+                tx_bytes: stats.1,
+                rx_packets: stats.2,
+                rx_bytes: stats.3,
+            },
+            native_events: self.drain_events(),
+            captured_at: now_ms(),
+        }
+    }
+
+    fn drain_events(&self) -> Vec<NativeRuntimeEvent> {
+        if let Ok(mut guard) = self.events.lock() {
+            guard.drain(..).collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn push_event(&self, source: &str, level: &str, message: String) {
+        if let Ok(mut guard) = self.events.lock() {
+            if guard.len() >= MAX_TUNNEL_EVENTS {
+                guard.pop_front();
+            }
+            guard.push_back(NativeRuntimeEvent {
+                source: source.to_string(),
+                level: level.to_string(),
+                message,
+                created_at: now_ms(),
+            });
+        }
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
     init_android_logging("hs5t-native");
@@ -108,6 +268,17 @@ fn tunnel_stats_entry(mut env: JNIEnv, handle: jlong) -> jlongArray {
     }))
     .unwrap_or_else(|_| {
         throw_runtime_exception(&mut env, "Tunnel stats retrieval panicked");
+        std::ptr::null_mut()
+    })
+}
+
+fn tunnel_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jni::sys::jstring {
+    init_android_logging("hs5t-native");
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        telemetry_session(&mut env, handle)
+    }))
+    .unwrap_or_else(|_| {
+        throw_runtime_exception(&mut env, "Tunnel telemetry retrieval panicked");
         std::ptr::null_mut()
     })
 }
@@ -195,6 +366,24 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGet
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniGetTelemetry(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) -> jni::sys::jstring {
+    tunnel_telemetry_entry(env, handle)
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetTelemetry(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) -> jni::sys::jstring {
+    tunnel_telemetry_entry(env, handle)
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniDestroy(
     env: JNIEnv,
     _thiz: JObject,
@@ -238,6 +427,7 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
     SESSIONS.insert(TunnelSession {
         config,
         last_error: Arc::new(Mutex::new(None)),
+        telemetry: Arc::new(TunnelTelemetryState::new()),
         state: Mutex::new(TunnelSessionState::Ready),
     }) as jlong
 }
@@ -266,6 +456,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     let stats = Arc::new(Stats::new());
     let config = session.config.clone();
     let last_error = session.last_error.clone();
+    let telemetry = session.telemetry.clone();
 
     let mut state = session.state.lock().expect("tunnel session poisoned");
     if let Err(message) = ensure_tunnel_start_allowed(&state) {
@@ -277,6 +468,10 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     if let Ok(mut guard) = session.last_error.lock() {
         *guard = None;
     }
+    telemetry.mark_started(format!(
+        "{}:{}",
+        session.config.socks5.address, session.config.socks5.port
+    ));
 
     let worker_cancel = cancel.clone();
     let worker_stats = stats.clone();
@@ -297,14 +492,17 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
                 if let Ok(mut guard) = last_error.lock() {
                     *guard = Some(err.to_string());
                 }
+                telemetry.record_error(err.to_string());
             }
             Err(_) => {
                 log::error!("tunnel worker panicked");
                 if let Ok(mut guard) = last_error.lock() {
                     *guard = Some("Tunnel worker panicked".to_string());
                 }
+                telemetry.record_error("Tunnel worker panicked".to_string());
             }
         }
+        telemetry.mark_stopped();
     });
 
     state = session.state.lock().expect("tunnel session poisoned");
@@ -348,6 +546,7 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
     };
 
     running.0.cancel();
+    session.telemetry.mark_stop_requested();
     if running.1.join().is_err() {
         log::error!("tunnel worker panicked during shutdown");
     }
@@ -382,6 +581,30 @@ fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
             }
         }
         Err(_) => std::ptr::null_mut(),
+    }
+}
+
+fn telemetry_session(env: &mut JNIEnv, handle: jlong) -> jni::sys::jstring {
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
+            return std::ptr::null_mut();
+        }
+    };
+    let stats = {
+        let state = session.state.lock().expect("tunnel session poisoned");
+        stats_snapshot_for_state(&state)
+    };
+    match serde_json::to_string(&session.telemetry.snapshot(stats)) {
+        Ok(value) => env
+            .new_string(value)
+            .map(|value| value.into_raw())
+            .unwrap_or(std::ptr::null_mut()),
+        Err(err) => {
+            throw_runtime_exception(env, err.to_string());
+            std::ptr::null_mut()
+        }
     }
 }
 
@@ -546,6 +769,13 @@ fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<(), &'static 
     }
 }
 
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
 trait BlankCheck {
     fn is_blank(&self) -> bool;
 }
@@ -597,6 +827,26 @@ mod tests {
         let config = config_from_payload(sample_payload()).expect("config");
         assert_eq!(config.socks5.address, "127.0.0.1");
         assert_eq!(config.misc.task_stack_size, 81_920);
+    }
+
+    #[test]
+    fn rejects_blank_socks5_address() {
+        let mut payload = sample_payload();
+        payload.socks5_address = "   ".to_string();
+
+        let err = config_from_payload(payload).expect_err("blank address");
+
+        assert_eq!(err, "socks5Address must not be blank");
+    }
+
+    #[test]
+    fn rejects_blank_tunnel_name() {
+        let mut payload = sample_payload();
+        payload.tunnel_name = "   ".to_string();
+
+        let err = config_from_payload(payload).expect_err("blank tunnel name");
+
+        assert_eq!(err, "tunnelName must not be blank");
     }
 
     #[test]
@@ -664,10 +914,28 @@ mod tests {
     }
 
     #[test]
+    fn tunnel_state_rejects_destroy_when_running() {
+        let worker = std::thread::spawn(|| {});
+        let state = TunnelSessionState::Running {
+            cancel: Arc::new(CancellationToken::new()),
+            stats: Arc::new(Stats::new()),
+            worker,
+        };
+
+        let err = ensure_tunnel_destroyable(&state).expect_err("running destroy");
+
+        if let TunnelSessionState::Running { worker, .. } = state {
+            let _ = worker.join();
+        }
+        assert_eq!(err, "Cannot destroy a running tunnel session");
+    }
+
+    #[test]
     fn destroy_removes_ready_tunnel_session() {
         let handle = SESSIONS.insert(TunnelSession {
             config: Arc::new(config_from_payload(sample_payload()).expect("config")),
             last_error: Arc::new(Mutex::new(None)),
+            telemetry: Arc::new(TunnelTelemetryState::new()),
             state: Mutex::new(TunnelSessionState::Ready),
         }) as jlong;
 

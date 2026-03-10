@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.core.TunnelStats
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -23,6 +24,8 @@ data class ServiceTelemetrySnapshot(
     val mode: Mode? = null,
     val status: AppStatus = AppStatus.Halted,
     val tunnelStats: TunnelStats = TunnelStats(),
+    val proxyTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy"),
+    val tunnelTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel"),
     val updatedAt: Long = 0L,
 )
 

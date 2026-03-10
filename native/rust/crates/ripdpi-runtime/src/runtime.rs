@@ -14,6 +14,7 @@ use crate::runtime_policy::{
     extract_host, group_requires_payload, route_matches_payload, select_initial_group,
     select_next_group, ConnectionRoute, RouteAdvance, RuntimeCache,
 };
+use crate::{current_runtime_telemetry, RuntimeTelemetrySink};
 use ciadpi_config::{
     DesyncGroup, DesyncMode, RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR,
     DETECT_TORST,
@@ -38,6 +39,7 @@ struct RuntimeState {
     config: Arc<RuntimeConfig>,
     cache: Arc<Mutex<RuntimeCache>>,
     active_clients: Arc<AtomicUsize>,
+    telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
 }
 
 pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
@@ -59,6 +61,7 @@ pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> 
         config: Arc::new(config),
         cache: Arc::new(Mutex::new(cache)),
         active_clients: Arc::new(AtomicUsize::new(0)),
+        telemetry: current_runtime_telemetry(),
     };
     let _cleanup = RuntimeCleanup {
         config: state.config.clone(),
@@ -70,8 +73,18 @@ pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> 
     poll.registry()
         .register(&mut listener, LISTENER, Interest::READABLE)?;
     let mut events = Events::with_capacity(32);
+    if let Some(telemetry) = &state.telemetry {
+        telemetry.on_listener_started(
+            SocketAddr::new(
+                state.config.listen.listen_ip,
+                state.config.listen.listen_port,
+            ),
+            state.config.max_open as usize,
+            state.config.groups.len(),
+        );
+    }
 
-    loop {
+    let result = loop {
         if process::shutdown_requested() {
             break Ok(());
         }
@@ -93,10 +106,20 @@ pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> 
                             drop(client);
                             continue;
                         };
+                        if let Some(telemetry) = &state.telemetry {
+                            telemetry.on_client_accepted();
+                        }
                         thread::spawn(move || {
                             let _slot = _slot;
-                            if let Err(err) = handle_client(client, &state) {
+                            let result = handle_client(client, &state);
+                            if let Err(err) = &result {
                                 log::error!("ciadpi client error: {err}");
+                                if let Some(telemetry) = &state.telemetry {
+                                    telemetry.on_client_error(err);
+                                }
+                            }
+                            if let Some(telemetry) = &state.telemetry {
+                                telemetry.on_client_finished();
                             }
                         });
                     }
@@ -105,7 +128,11 @@ pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> 
                 }
             }
         }
+    };
+    if let Some(telemetry) = &state.telemetry {
+        telemetry.on_listener_stopped();
     }
+    result
 }
 
 struct RuntimeCleanup {
@@ -745,6 +772,9 @@ fn connect_target(
     host: Option<String>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
     let route = select_route(state, target, payload, allow_unknown_payload)?;
+    if let Some(telemetry) = &state.telemetry {
+        telemetry.on_route_selected(target, route.group_index, host.as_deref(), "initial");
+    }
     connect_target_with_route(target, state, route, payload, host)
 }
 
@@ -779,6 +809,15 @@ fn connect_target_with_route(
                 let Some(next) = next else {
                     return Err(err);
                 };
+                if let Some(telemetry) = &state.telemetry {
+                    telemetry.on_route_advanced(
+                        target,
+                        route.group_index,
+                        next.group_index,
+                        DETECT_CONNECT,
+                        host.as_deref(),
+                    );
+                }
                 route = next;
             }
         }
@@ -1146,6 +1185,15 @@ fn relay(
                     let Some(next) = next else {
                         return Err(err);
                     };
+                    if let Some(telemetry) = &state.telemetry {
+                        telemetry.on_route_advanced(
+                            target,
+                            route.group_index,
+                            next.group_index,
+                            DETECT_TORST,
+                            host.as_deref(),
+                        );
+                    }
                     route = next;
                     upstream = reconnect_target(
                         target,
@@ -1194,6 +1242,15 @@ fn relay(
                                 "auto trigger exhausted all candidate groups",
                             ));
                         };
+                        if let Some(telemetry) = &state.telemetry {
+                            telemetry.on_route_advanced(
+                                target,
+                                route.group_index,
+                                next.group_index,
+                                trigger_flag(trigger),
+                                host.as_deref(),
+                            );
+                        }
                         route = next;
                         upstream = reconnect_target(
                             target,
