@@ -128,8 +128,24 @@ class DefaultDiagnosticsManager
         )
 
         val bridge = networkDiagnosticsBridgeFactory.create().also { activeDiagnosticsBridge = it }
+        val requestForPath =
+            request.copy(
+                pathMode = pathMode,
+                proxyHost =
+                    if (pathMode == ScanPathMode.IN_PATH) {
+                        settings.proxyIp.ifEmpty { "127.0.0.1" }
+                    } else {
+                        null
+                    },
+                proxyPort =
+                    if (pathMode == ScanPathMode.IN_PATH) {
+                        settings.proxyPort.takeIf { it > 0 } ?: 1080
+                    } else {
+                        null
+                    },
+            )
         bridge.startScan(
-            requestJson = json.encodeToString(ScanRequest.serializer(), request.copy(pathMode = pathMode)),
+            requestJson = json.encodeToString(ScanRequest.serializer(), requestForPath),
             sessionId = sessionId,
         )
         _activeScanProgress.value =
@@ -338,6 +354,10 @@ class DefaultDiagnosticsManager
         bridge: NetworkDiagnosticsBridge,
     ) {
         while (true) {
+            persistNativeEvents(
+                sessionId = sessionId,
+                payload = bridge.pollPassiveEventsJson(),
+            )
             val progress =
                 bridge.pollProgressJson()
                     ?.let { json.decodeFromString(ScanProgress.serializer(), it) }
@@ -356,6 +376,10 @@ class DefaultDiagnosticsManager
                         payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkMetadataProvider.captureSnapshot()),
                         capturedAt = System.currentTimeMillis(),
                     ),
+                )
+                persistNativeEvents(
+                    sessionId = sessionId,
+                    payload = bridge.pollPassiveEventsJson(),
                 )
                 _activeScanProgress.value = null
                 break
@@ -393,6 +417,29 @@ class DefaultDiagnosticsManager
             },
         )
         bridgeEventsToHistory(report)
+    }
+
+    private suspend fun persistNativeEvents(
+        sessionId: String,
+        payload: String?,
+    ) {
+        val events =
+            payload
+                ?.takeIf { it.isNotBlank() && it != "[]" }
+                ?.let { json.decodeFromString(ListSerializer(NativeSessionEvent.serializer()), it) }
+                .orEmpty()
+        events.forEach { event ->
+            historyRepository.insertNativeSessionEvent(
+                NativeSessionEventEntity(
+                    id = UUID.randomUUID().toString(),
+                    sessionId = sessionId,
+                    source = event.source,
+                    level = event.level,
+                    message = event.message,
+                    createdAt = event.createdAt,
+                ),
+            )
+        }
     }
 
     private suspend fun bridgeEventsToHistory(report: ScanReport) {
