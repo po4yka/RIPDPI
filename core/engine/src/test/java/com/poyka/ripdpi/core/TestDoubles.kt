@@ -45,6 +45,7 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     var createFailure: Throwable? = null
     var startFailure: Throwable? = null
     var stopFailure: Throwable? = null
+    var telemetryFailure: Throwable? = null
     var startedSignal: CompletableDeferred<Long>? = null
     var startBlocker: CompletableDeferred<Unit>? = null
     var lastCreatePayload: String? = null
@@ -52,15 +53,22 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     var lastStoppedHandle: Long? = null
     var lastDestroyedHandle: Long? = null
     var telemetryJson: String? = null
+    val createdPayloads = mutableListOf<String>()
+    val startedHandles = mutableListOf<Long>()
+    val stoppedHandles = mutableListOf<Long>()
+    val destroyedHandles = mutableListOf<Long>()
+    val telemetryHandles = mutableListOf<Long>()
 
     override fun create(configJson: String): Long {
         createFailure?.let { throw it }
         lastCreatePayload = configJson
+        createdPayloads += configJson
         return createdHandle
     }
 
     override fun start(handle: Long): Int {
         lastStartedHandle = handle
+        startedHandles += handle
         startedSignal?.complete(handle)
         startBlocker?.let { blocker ->
             runBlocking { blocker.await() }
@@ -71,13 +79,19 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
 
     override fun stop(handle: Long) {
         lastStoppedHandle = handle
+        stoppedHandles += handle
         stopFailure?.let { throw it }
     }
 
-    override fun pollTelemetry(handle: Long): String? = telemetryJson
+    override fun pollTelemetry(handle: Long): String? {
+        telemetryHandles += handle
+        telemetryFailure?.let { throw it }
+        return telemetryJson
+    }
 
     override fun destroy(handle: Long) {
         lastDestroyedHandle = handle
+        destroyedHandles += handle
     }
 }
 
@@ -121,6 +135,7 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     var startFailure: Throwable? = null
     var stopFailure: Throwable? = null
     var statsFailure: Throwable? = null
+    var telemetryFailure: Throwable? = null
     var lastCreatePayload: String? = null
     var lastStartHandle: Long? = null
     var lastStartTunFd: Int? = null
@@ -128,10 +143,17 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     var lastDestroyedHandle: Long? = null
     var nativeStats: LongArray = longArrayOf()
     var telemetryJson: String? = null
+    val createdPayloads = mutableListOf<String>()
+    val startedHandles = mutableListOf<Long>()
+    val stoppedHandles = mutableListOf<Long>()
+    val destroyedHandles = mutableListOf<Long>()
+    val statsHandles = mutableListOf<Long>()
+    val telemetryHandles = mutableListOf<Long>()
 
     override fun create(configJson: String): Long {
         createFailure?.let { throw it }
         lastCreatePayload = configJson
+        createdPayloads += configJson
         return createdHandle
     }
 
@@ -141,22 +163,104 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     ) {
         lastStartHandle = handle
         lastStartTunFd = tunFd
+        startedHandles += handle
         startFailure?.let { throw it }
     }
 
     override fun stop(handle: Long) {
         lastStopHandle = handle
+        stoppedHandles += handle
         stopFailure?.let { throw it }
     }
 
     override fun getStats(handle: Long): LongArray {
+        statsHandles += handle
         statsFailure?.let { throw it }
         return nativeStats
     }
 
-    override fun getTelemetry(handle: Long): String? = telemetryJson
+    override fun getTelemetry(handle: Long): String? {
+        telemetryHandles += handle
+        telemetryFailure?.let { throw it }
+        return telemetryJson
+    }
 
     override fun destroy(handle: Long) {
         lastDestroyedHandle = handle
+        destroyedHandles += handle
+    }
+}
+
+class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
+    enum class ScanState {
+        READY,
+        SCANNING,
+    }
+
+    var createdHandle: Long = 1L
+    var createFailure: Throwable? = null
+    var startFailure: Throwable? = null
+    var pollProgressFailure: Throwable? = null
+    var takeReportFailure: Throwable? = null
+    var passiveEventsFailure: Throwable? = null
+    var progressJson: String? = null
+    var reportJson: String? = null
+    var passiveEventsJson: String? = "[]"
+    var state: ScanState = ScanState.READY
+    var lastStartedHandle: Long? = null
+    var lastStartedRequestJson: String? = null
+    var lastStartedSessionId: String? = null
+    val cancelledHandles = mutableListOf<Long>()
+    val destroyedHandles = mutableListOf<Long>()
+    val progressHandles = mutableListOf<Long>()
+    val reportHandles = mutableListOf<Long>()
+    val passiveEventHandles = mutableListOf<Long>()
+
+    override fun create(): Long {
+        createFailure?.let { throw it }
+        return createdHandle
+    }
+
+    override fun startScan(
+        handle: Long,
+        requestJson: String,
+        sessionId: String,
+    ) {
+        if (state == ScanState.SCANNING) {
+            throw IllegalStateException("diagnostics scan already running")
+        }
+        lastStartedHandle = handle
+        lastStartedRequestJson = requestJson
+        lastStartedSessionId = sessionId
+        startFailure?.let { throw it }
+        state = ScanState.SCANNING
+    }
+
+    override fun cancelScan(handle: Long) {
+        cancelledHandles += handle
+        state = ScanState.READY
+    }
+
+    override fun pollProgress(handle: Long): String? {
+        progressHandles += handle
+        pollProgressFailure?.let { throw it }
+        return progressJson
+    }
+
+    override fun takeReport(handle: Long): String? {
+        reportHandles += handle
+        takeReportFailure?.let { throw it }
+        return reportJson
+    }
+
+    override fun pollPassiveEvents(handle: Long): String? {
+        passiveEventHandles += handle
+        passiveEventsFailure?.let { throw it }
+        return passiveEventsJson
+    }
+
+    override fun destroy(handle: Long) {
+        destroyedHandles += handle
+        state = ScanState.READY
     }
 }

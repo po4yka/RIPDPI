@@ -260,6 +260,16 @@ class FixedProxyPreferencesResolver(
     override suspend fun resolve(): com.poyka.ripdpi.core.RipDpiProxyPreferences = preferences
 }
 
+class MutableProxyPreferencesResolver(
+    private var delegate: ProxyPreferencesResolver = FixedProxyPreferencesResolver(),
+) : ProxyPreferencesResolver {
+    override suspend fun resolve(): com.poyka.ripdpi.core.RipDpiProxyPreferences = delegate.resolve()
+
+    fun replaceWith(delegate: ProxyPreferencesResolver) {
+        this.delegate = delegate
+    }
+}
+
 object IntegrationTestOverrides {
     private val orderEvents = CopyOnWriteArrayList<String>()
 
@@ -276,6 +286,10 @@ object IntegrationTestOverrides {
     lateinit var proxyPreferencesResolver: ProxyPreferencesResolver
         private set
 
+    init {
+        reset()
+    }
+
     fun reset() {
         orderEvents.clear()
         appSettingsRepository = FakeAndroidAppSettingsRepository()
@@ -283,11 +297,14 @@ object IntegrationTestOverrides {
         proxyFactory = RecordingRipDpiProxyFactory(orderEvents)
         tun2SocksBridgeFactory = RecordingTun2SocksBridgeFactory(orderEvents)
         vpnTunnelSessionProvider = RecordingVpnTunnelSessionProvider(orderEvents)
-        proxyPreferencesResolver = FixedProxyPreferencesResolver()
+        proxyPreferencesResolver = MutableProxyPreferencesResolver()
     }
 
     fun overrideProxyPreferencesResolver(resolver: ProxyPreferencesResolver) {
-        proxyPreferencesResolver = resolver
+        (proxyPreferencesResolver as? MutableProxyPreferencesResolver)?.replaceWith(resolver)
+            ?: run {
+                proxyPreferencesResolver = MutableProxyPreferencesResolver(resolver)
+            }
     }
 
     fun orderSnapshot(): List<String> = orderEvents.toList()

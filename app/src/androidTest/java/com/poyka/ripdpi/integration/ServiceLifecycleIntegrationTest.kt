@@ -173,6 +173,23 @@ class ServiceLifecycleIntegrationTest {
     }
 
     @Test
+    fun proxyServiceDuplicateStartDoesNotLaunchSecondRuntime() {
+        runBlocking {
+            startService(RipDpiProxyService::class.java)
+            awaitStatus(AppStatus.Running, Mode.Proxy)
+
+            startService(RipDpiProxyService::class.java)
+            delay(200)
+
+            assertEquals(1, IntegrationTestOverrides.orderSnapshot().count { it == "proxy:start" })
+
+            stopService(RipDpiProxyService::class.java)
+            awaitStatus(AppStatus.Halted, Mode.Proxy)
+            assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
+        }
+    }
+
+    @Test
     fun vpnServiceStartsInExpectedOrderAndStopsTunnelBeforeProxy() {
         assumeVpnPrepared()
         runBlocking {
@@ -304,6 +321,26 @@ class ServiceLifecycleIntegrationTest {
                     listOf("tunnel:stop", "vpn:session-close", "proxy:stop"),
                 ),
             )
+        }
+    }
+
+    @Test
+    fun vpnServiceRepeatedStopDoesNotDuplicateTunnelOrProxyShutdown() {
+        assumeVpnPrepared()
+        runBlocking {
+            startService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Running, Mode.VPN)
+
+            stopService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Halted, Mode.VPN)
+
+            stopService(RipDpiVpnService::class.java)
+            delay(200)
+
+            assertEquals(1, IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.stopCount)
+            assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
+            assertEquals(1, IntegrationTestOverrides.orderSnapshot().count { it == "tunnel:stop" })
+            assertEquals(1, IntegrationTestOverrides.orderSnapshot().count { it == "proxy:stop" })
         }
     }
 
