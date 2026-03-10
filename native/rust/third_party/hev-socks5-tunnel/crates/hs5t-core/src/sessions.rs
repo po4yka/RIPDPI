@@ -29,10 +29,7 @@ pub struct ActiveSessions {
 
 impl ActiveSessions {
     pub fn new(max: usize) -> Self {
-        Self {
-            entries: Vec::new(),
-            max,
-        }
+        Self { entries: Vec::new(), max }
     }
 
     /// Insert a new session.
@@ -81,10 +78,7 @@ impl ActiveSessions {
 
     /// Get a mutable reference to a session entry by socket handle.
     pub fn get_mut(&mut self, handle: SocketHandle) -> Option<&mut SessionEntry> {
-        self.entries
-            .iter_mut()
-            .find(|(h, _)| *h == handle)
-            .map(|(_, e)| e)
+        self.entries.iter_mut().find(|(h, _)| *h == handle).map(|(_, e)| e)
     }
 
     /// Iterate over (SocketHandle, &mut SessionEntry) in insertion order.
@@ -101,10 +95,7 @@ mod tests {
 
     /// Create a minimal TcpSocket with small buffers for testing.
     fn make_tcp_socket() -> TcpSocket<'static> {
-        TcpSocket::new(
-            tcp::SocketBuffer::new(vec![0u8; 256]),
-            tcp::SocketBuffer::new(vec![0u8; 256]),
-        )
+        TcpSocket::new(tcp::SocketBuffer::new(vec![0u8; 256]), tcp::SocketBuffer::new(vec![0u8; 256]))
     }
 
     /// Build a dummy SessionEntry with a fresh duplex pair and cancel token.
@@ -113,11 +104,7 @@ mod tests {
         let child = parent.child_token();
         let (smoltcp_side, _session_side) = tokio::io::duplex(256);
         let handle: JoinHandle<io::Result<()>> = tokio::spawn(async { Ok(()) });
-        let entry = SessionEntry {
-            smoltcp_side,
-            cancel: child.clone(),
-            handle,
-        };
+        let entry = SessionEntry { smoltcp_side, cancel: child.clone(), handle };
         (entry, child)
     }
 
@@ -143,33 +130,17 @@ mod tests {
         sessions.insert(h3, e3);
 
         assert_eq!(sessions.len(), 3);
-        assert!(
-            !cancel1.is_cancelled(),
-            "cancel1 must not be cancelled before eviction"
-        );
+        assert!(!cancel1.is_cancelled(), "cancel1 must not be cancelled before eviction");
 
         // 4th insert evicts h1 (oldest).
         sessions.insert(h4, e4);
 
-        assert_eq!(
-            sessions.len(),
-            3,
-            "session count must remain at max=3 after eviction"
-        );
-        assert!(
-            cancel1.is_cancelled(),
-            "evicted session's cancel token must be cancelled"
-        );
-        assert!(
-            !sessions.contains(h1),
-            "h1 must not be present after eviction"
-        );
+        assert_eq!(sessions.len(), 3, "session count must remain at max=3 after eviction");
+        assert!(cancel1.is_cancelled(), "evicted session's cancel token must be cancelled");
+        assert!(!sessions.contains(h1), "h1 must not be present after eviction");
         assert!(sessions.contains(h2), "h2 must still be present");
         assert!(sessions.contains(h3), "h3 must still be present");
-        assert!(
-            sessions.contains(h4),
-            "h4 must be present as the new session"
-        );
+        assert!(sessions.contains(h4), "h4 must be present as the new session");
     }
 
     /// U-05: ActiveSessions::insert with max=0 — no eviction; 100 inserts all present.
@@ -184,10 +155,6 @@ mod tests {
             sessions.insert(h, entry);
         }
 
-        assert_eq!(
-            sessions.len(),
-            100,
-            "unlimited sessions must hold 100 entries"
-        );
+        assert_eq!(sessions.len(), 100, "unlimited sessions must hold 100 entries");
     }
 }

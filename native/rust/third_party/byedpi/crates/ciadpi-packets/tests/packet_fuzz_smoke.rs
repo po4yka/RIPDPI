@@ -9,21 +9,11 @@ fn corpus_paths() -> Vec<PathBuf> {
     let corpus_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus/packets");
     let mut paths = fs::read_dir(&corpus_dir)
         .expect("packet corpus directory should exist")
-        .map(|entry| {
-            entry
-                .expect("packet corpus entry should be readable")
-                .path()
-        })
-        .filter(|path| {
-            path.file_name()
-                .is_some_and(|name| !name.to_string_lossy().starts_with('.'))
-        })
+        .map(|entry| entry.expect("packet corpus entry should be readable").path())
+        .filter(|path| path.file_name().is_some_and(|name| !name.to_string_lossy().starts_with('.')))
         .collect::<Vec<_>>();
     paths.sort();
-    assert!(
-        !paths.is_empty(),
-        "packet corpus directory should contain at least one seed"
-    );
+    assert!(!paths.is_empty(), "packet corpus directory should contain at least one seed");
     paths
 }
 

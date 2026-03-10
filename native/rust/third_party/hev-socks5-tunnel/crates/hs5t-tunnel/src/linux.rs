@@ -85,10 +85,7 @@ impl LinuxTunnel {
         // ifreq with ifr_name set; SIOCGIFFLAGS reads the interface flags into ifru_flags.
         let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCGIFFLAGS, &mut ifr as *mut _) };
         if res < 0 {
-            return Err(TunnelError::Ioctl(format!(
-                "SIOCGIFFLAGS: {}",
-                std::io::Error::last_os_error()
-            )));
+            return Err(TunnelError::Ioctl(format!("SIOCGIFFLAGS: {}", std::io::Error::last_os_error())));
         }
 
         // Modify the flags in-place.
@@ -107,10 +104,7 @@ impl LinuxTunnel {
         // flag value; SIOCSIFFLAGS applies the flags to the named interface.
         let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFFLAGS, &ifr as *const _) };
         if res < 0 {
-            return Err(TunnelError::Ioctl(format!(
-                "SIOCSIFFLAGS: {}",
-                std::io::Error::last_os_error()
-            )));
+            return Err(TunnelError::Ioctl(format!("SIOCSIFFLAGS: {}", std::io::Error::last_os_error())));
         }
         Ok(())
     }
@@ -119,11 +113,7 @@ impl LinuxTunnel {
 impl TunnelDriver for LinuxTunnel {
     fn open(name: Option<&str>, multi_queue: bool) -> Result<Self, TunnelError> {
         // Open the TUN clone device.  std::fs::File handles O_CLOEXEC implicitly on Linux.
-        let file = std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/dev/net/tun")
-            .map_err(TunnelError::Io)?;
+        let file = std::fs::OpenOptions::new().read(true).write(true).open("/dev/net/tun").map_err(TunnelError::Io)?;
         let fd: OwnedFd = file.into();
 
         // Build ifreq for TUNSETIFF.
@@ -154,10 +144,7 @@ impl TunnelDriver for LinuxTunnel {
         // ifr_name, then writes the kernel-assigned interface name back into ifr_name.
         let res = unsafe { libc::ioctl(fd.as_raw_fd(), TUNSETIFF, &mut ifr as *mut _) };
         if res < 0 {
-            return Err(TunnelError::Ioctl(format!(
-                "TUNSETIFF: {}",
-                std::io::Error::last_os_error()
-            )));
+            return Err(TunnelError::Ioctl(format!("TUNSETIFF: {}", std::io::Error::last_os_error())));
         }
 
         // Copy the kernel-assigned interface name from ifreq.
@@ -168,10 +155,7 @@ impl TunnelDriver for LinuxTunnel {
             *dst = src as u8;
         }
 
-        Ok(LinuxTunnel {
-            fd,
-            name: iface_name,
-        })
+        Ok(LinuxTunnel { fd, name: iface_name })
     }
 
     fn fd(&self) -> RawFd {
@@ -180,11 +164,7 @@ impl TunnelDriver for LinuxTunnel {
 
     fn name(&self) -> &str {
         // Interface names are ASCII; the array is null-terminated within IFNAMSIZ bytes.
-        let nul = self
-            .name
-            .iter()
-            .position(|&b| b == 0)
-            .unwrap_or(libc::IFNAMSIZ);
+        let nul = self.name.iter().position(|&b| b == 0).unwrap_or(libc::IFNAMSIZ);
         std::str::from_utf8(&self.name[..nul]).unwrap_or("?")
     }
 
@@ -213,10 +193,7 @@ impl TunnelDriver for LinuxTunnel {
         // set; SIOCSIFMTU (0x8922) sets the interface MTU and requires CAP_NET_ADMIN.
         let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFMTU, &ifr as *const _) };
         if res < 0 {
-            return Err(TunnelError::Ioctl(format!(
-                "SIOCSIFMTU: {}",
-                std::io::Error::last_os_error()
-            )));
+            return Err(TunnelError::Ioctl(format!("SIOCSIFMTU: {}", std::io::Error::last_os_error())));
         }
         Ok(())
     }
@@ -245,10 +222,7 @@ impl TunnelDriver for LinuxTunnel {
         // in ifru_addr; SIOCSIFADDR (0x8916) assigns the IPv4 address to the interface.
         let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFADDR, &ifr as *const _) };
         if res < 0 {
-            return Err(TunnelError::Ioctl(format!(
-                "SIOCSIFADDR: {}",
-                std::io::Error::last_os_error()
-            )));
+            return Err(TunnelError::Ioctl(format!("SIOCSIFADDR: {}", std::io::Error::last_os_error())));
         }
 
         // --- SIOCSIFNETMASK: assign the prefix length as a netmask ---
@@ -258,11 +232,7 @@ impl TunnelDriver for LinuxTunnel {
 
         // Compute the netmask from prefix length.  Guard against the prefix=0 edge case
         // where shifting a 32-bit value by 32 would be undefined behaviour.
-        let mask: u32 = if prefix == 0 {
-            0
-        } else {
-            !0u32 << (32 - prefix)
-        };
+        let mask: u32 = if prefix == 0 { 0 } else { !0u32 << (32 - prefix) };
 
         // SAFETY: ifru_netmask is a separate sockaddr union variant from ifru_addr; casting
         // to *mut sockaddr_in is valid for the same reasons as above; EEXIST from
@@ -275,13 +245,7 @@ impl TunnelDriver for LinuxTunnel {
 
         // SAFETY: sock is a valid AF_INET/SOCK_DGRAM fd; &ifr_mask contains a valid netmask
         // sockaddr_in in ifru_netmask; SIOCSIFNETMASK (0x891c) sets the IPv4 netmask.
-        let res = unsafe {
-            libc::ioctl(
-                sock.as_raw_fd(),
-                libc::SIOCSIFNETMASK,
-                &ifr_mask as *const _,
-            )
-        };
+        let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFNETMASK, &ifr_mask as *const _) };
         if res < 0 {
             let err = std::io::Error::last_os_error();
             if err.raw_os_error() != Some(libc::EEXIST) {
@@ -301,9 +265,7 @@ impl TunnelDriver for LinuxTunnel {
         // index() calls if_nametoindex which is always safe (see that method's SAFETY comment).
         ifr6.ifr6_ifindex = self.index() as libc::c_int;
         // addr.octets() returns the IPv6 address bytes in network order — correct for s6_addr.
-        ifr6.ifr6_addr = libc::in6_addr {
-            s6_addr: addr.octets(),
-        };
+        ifr6.ifr6_addr = libc::in6_addr { s6_addr: addr.octets() };
 
         // SAFETY: sock is a valid AF_INET6/SOCK_DGRAM fd; &ifr6 is a valid In6Ifreq with
         // correct fields; SIOCSIFADDR on an AF_INET6 socket interprets the third argument as
@@ -342,24 +304,19 @@ mod tests {
     #[test]
     #[ignore = "requires CAP_NET_ADMIN; run: sudo cargo test -p hs5t-tunnel -- --include-ignored"]
     fn open_tun_fd_is_valid() {
-        let tun = LinuxTunnel::open(Some("tun-hs5t-t0"), false)
-            .expect("open should succeed with CAP_NET_ADMIN");
+        let tun = LinuxTunnel::open(Some("tun-hs5t-t0"), false).expect("open should succeed with CAP_NET_ADMIN");
         assert!(tun.fd() >= 0, "fd must be non-negative");
         assert!(tun.index() > 0, "interface index must be positive");
         let name = tun.name();
         assert!(!name.is_empty(), "interface name must not be empty");
-        assert!(
-            name.starts_with("tun"),
-            "TUN interface name should start with 'tun', got: {name}"
-        );
+        assert!(name.starts_with("tun"), "TUN interface name should start with 'tun', got: {name}");
     }
 
     /// set_mtu(1500) should succeed without error.
     #[test]
     #[ignore = "requires CAP_NET_ADMIN; run: sudo cargo test -p hs5t-tunnel -- --include-ignored"]
     fn set_mtu_succeeds() {
-        let tun = LinuxTunnel::open(Some("tun-hs5t-t1"), false)
-            .expect("open should succeed with CAP_NET_ADMIN");
+        let tun = LinuxTunnel::open(Some("tun-hs5t-t1"), false).expect("open should succeed with CAP_NET_ADMIN");
         tun.set_mtu(1500).expect("set_mtu(1500) must succeed");
     }
 
@@ -367,8 +324,7 @@ mod tests {
     #[test]
     #[ignore = "requires CAP_NET_ADMIN; run: sudo cargo test -p hs5t-tunnel -- --include-ignored"]
     fn set_ipv4_address_visible() {
-        let tun = LinuxTunnel::open(Some("tun-hs5t-t2"), false)
-            .expect("open should succeed with CAP_NET_ADMIN");
+        let tun = LinuxTunnel::open(Some("tun-hs5t-t2"), false).expect("open should succeed with CAP_NET_ADMIN");
         let addr: Ipv4Addr = "198.18.0.1".parse().unwrap();
         tun.set_ipv4(addr, 32).expect("set_ipv4 must succeed");
 
@@ -377,19 +333,14 @@ mod tests {
             .output()
             .expect("ip(8) must be available");
         let stdout = String::from_utf8_lossy(&out.stdout);
-        assert!(
-            stdout.contains("198.18.0.1"),
-            "expected 198.18.0.1 in `ip addr show {}`:\n{stdout}",
-            tun.name()
-        );
+        assert!(stdout.contains("198.18.0.1"), "expected 198.18.0.1 in `ip addr show {}`:\n{stdout}", tun.name());
     }
 
     /// set_up then set_down should toggle the link state visible via `ip link show`.
     #[test]
     #[ignore = "requires CAP_NET_ADMIN; run: sudo cargo test -p hs5t-tunnel -- --include-ignored"]
     fn set_up_down_toggles_link_state() {
-        let tun = LinuxTunnel::open(Some("tun-hs5t-t3"), false)
-            .expect("open should succeed with CAP_NET_ADMIN");
+        let tun = LinuxTunnel::open(Some("tun-hs5t-t3"), false).expect("open should succeed with CAP_NET_ADMIN");
 
         tun.set_up().expect("set_up must succeed");
         let out = std::process::Command::new("ip")
@@ -397,10 +348,7 @@ mod tests {
             .output()
             .expect("ip(8) must be available");
         let stdout = String::from_utf8_lossy(&out.stdout);
-        assert!(
-            !stdout.contains("state DOWN"),
-            "expected interface to be UP after set_up, got:\n{stdout}"
-        );
+        assert!(!stdout.contains("state DOWN"), "expected interface to be UP after set_up, got:\n{stdout}");
 
         tun.set_down().expect("set_down must succeed");
         let out = std::process::Command::new("ip")
@@ -408,18 +356,14 @@ mod tests {
             .output()
             .expect("ip(8) must be available");
         let stdout = String::from_utf8_lossy(&out.stdout);
-        assert!(
-            stdout.contains("state DOWN"),
-            "expected interface to be DOWN after set_down, got:\n{stdout}"
-        );
+        assert!(stdout.contains("state DOWN"), "expected interface to be DOWN after set_down, got:\n{stdout}");
     }
 
     /// After drop the fd must be closed: fcntl(F_GETFD) should return EBADF.
     #[test]
     #[ignore = "requires CAP_NET_ADMIN; run: sudo cargo test -p hs5t-tunnel -- --include-ignored"]
     fn drop_closes_fd() {
-        let tun = LinuxTunnel::open(Some("tun-hs5t-t4"), false)
-            .expect("open should succeed with CAP_NET_ADMIN");
+        let tun = LinuxTunnel::open(Some("tun-hs5t-t4"), false).expect("open should succeed with CAP_NET_ADMIN");
         let raw: RawFd = tun.fd();
         assert!(raw >= 0);
 
@@ -429,9 +373,6 @@ mod tests {
         // we call F_GETFD only to observe the EBADF error — no resource is allocated or
         // freed by this call on an invalid fd.
         let res = unsafe { libc::fcntl(raw, libc::F_GETFD) };
-        assert_eq!(
-            res, -1,
-            "fd {raw} should be closed (expected -1/EBADF after drop)"
-        );
+        assert_eq!(res, -1, "fd {raw} should be closed (expected -1/EBADF after drop)");
     }
 }

@@ -87,21 +87,12 @@ pub fn enable_tcp_fastopen_connect<T: AsRawFd>(socket: &T) -> io::Result<()> {
 
 pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
     if usize::from(key_len) > 80 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "md5 key length exceeds linux tcp_md5sig limit",
-        ));
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "md5 key length exceeds linux tcp_md5sig limit"));
     }
 
     let fd = stream.as_raw_fd();
     let addr = peer_addr(fd)?;
-    let md5 = TcpMd5Sig {
-        addr,
-        pad1: 0,
-        key_len,
-        pad2: 0,
-        key: [0; 80],
-    };
+    let md5 = TcpMd5Sig { addr, pad1: 0, key_len, pad2: 0, key: [0; 80] };
 
     // SAFETY: `md5` is a valid `tcp_md5sig`-compatible buffer and the file
     // descriptor refers to a live TCP socket owned by `stream`.
@@ -127,10 +118,7 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
     stream.set_write_timeout(Some(Duration::from_secs(1)))?;
 
     let payload = [b'1'];
-    let mut iov = libc::iovec {
-        iov_base: payload.as_ptr().cast_mut().cast(),
-        iov_len: payload.len(),
-    };
+    let mut iov = libc::iovec { iov_base: payload.as_ptr().cast_mut().cast(), iov_len: payload.len() };
     let mut control = [0u8; unsafe { libc::CMSG_SPACE(size_of::<libc::c_int>() as u32) } as usize];
     let mut msg: libc::msghdr = unsafe { zeroed() };
     msg.msg_iov = (&mut iov as *mut libc::iovec).cast();
@@ -151,10 +139,7 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
         (*cmsg).cmsg_level = libc::SOL_SOCKET;
         (*cmsg).cmsg_type = libc::SCM_RIGHTS;
         (*cmsg).cmsg_len = libc::CMSG_LEN(size_of::<libc::c_int>() as u32) as usize;
-        ptr::write(
-            libc::CMSG_DATA(cmsg).cast::<libc::c_int>(),
-            socket.as_raw_fd(),
-        );
+        ptr::write(libc::CMSG_DATA(cmsg).cast::<libc::c_int>(), socket.as_raw_fd());
         msg.msg_controllen = libc::CMSG_SPACE(size_of::<libc::c_int>() as u32) as usize;
         if libc::sendmsg(stream.as_raw_fd(), &msg, 0) < 0 {
             return Err(io::Error::last_os_error());
@@ -206,53 +191,15 @@ pub fn original_dst(stream: &TcpStream) -> io::Result<SocketAddr> {
 pub fn attach_drop_sack(stream: &TcpStream) -> io::Result<()> {
     let fd = stream.as_raw_fd();
     let mut code = [
-        libc::sock_filter {
-            code: 0x30,
-            jt: 0,
-            jf: 0,
-            k: 0x0000000c,
-        },
-        libc::sock_filter {
-            code: 0x74,
-            jt: 0,
-            jf: 0,
-            k: 0x00000004,
-        },
-        libc::sock_filter {
-            code: 0x35,
-            jt: 0,
-            jf: 3,
-            k: 0x0000000b,
-        },
-        libc::sock_filter {
-            code: 0x30,
-            jt: 0,
-            jf: 0,
-            k: 0x00000022,
-        },
-        libc::sock_filter {
-            code: 0x15,
-            jt: 0,
-            jf: 1,
-            k: 0x00000005,
-        },
-        libc::sock_filter {
-            code: 0x6,
-            jt: 0,
-            jf: 0,
-            k: 0x00000000,
-        },
-        libc::sock_filter {
-            code: 0x6,
-            jt: 0,
-            jf: 0,
-            k: 0x00040000,
-        },
+        libc::sock_filter { code: 0x30, jt: 0, jf: 0, k: 0x0000000c },
+        libc::sock_filter { code: 0x74, jt: 0, jf: 0, k: 0x00000004 },
+        libc::sock_filter { code: 0x35, jt: 0, jf: 3, k: 0x0000000b },
+        libc::sock_filter { code: 0x30, jt: 0, jf: 0, k: 0x00000022 },
+        libc::sock_filter { code: 0x15, jt: 0, jf: 1, k: 0x00000005 },
+        libc::sock_filter { code: 0x6, jt: 0, jf: 0, k: 0x00000000 },
+        libc::sock_filter { code: 0x6, jt: 0, jf: 0, k: 0x00040000 },
     ];
-    let prog = libc::sock_fprog {
-        len: code.len() as u16,
-        filter: code.as_mut_ptr(),
-    };
+    let prog = libc::sock_fprog { len: code.len() as u16, filter: code.as_mut_ptr() };
 
     // SAFETY: `prog` points to a live in-process BPF program definition and
     // `fd` is a valid TCP socket descriptor owned by `stream`.
@@ -324,22 +271,15 @@ pub fn send_fake_tcp(
             set_tcp_md5sig(stream, 5)?;
         }
 
-        let iov = libc::iovec {
-            iov_base: region.cast(),
-            iov_len: original_prefix.len(),
-        };
+        let iov = libc::iovec { iov_base: region.cast(), iov_len: original_prefix.len() };
         // SAFETY: `iov` references an anonymous writable mapping whose lifetime
         // extends until after the splice completes.
-        let queued =
-            unsafe { libc::vmsplice(pipe_fds[1], &iov, 1, libc::SPLICE_F_GIFT as libc::c_uint) };
+        let queued = unsafe { libc::vmsplice(pipe_fds[1], &iov, 1, libc::SPLICE_F_GIFT as libc::c_uint) };
         if queued < 0 {
             return Err(io::Error::last_os_error());
         }
         if queued as usize != original_prefix.len() {
-            return Err(io::Error::new(
-                io::ErrorKind::WriteZero,
-                "partial vmsplice during fake tcp send",
-            ));
+            return Err(io::Error::new(io::ErrorKind::WriteZero, "partial vmsplice during fake tcp send"));
         }
 
         let mut moved = 0usize;
@@ -347,23 +287,13 @@ pub fn send_fake_tcp(
             // SAFETY: both descriptors are live, the source is a pipe end, and
             // the destination is the connected TCP socket referenced by `fd`.
             let chunk = unsafe {
-                libc::splice(
-                    pipe_fds[0],
-                    ptr::null_mut(),
-                    fd,
-                    ptr::null_mut(),
-                    original_prefix.len() - moved,
-                    0,
-                )
+                libc::splice(pipe_fds[0], ptr::null_mut(), fd, ptr::null_mut(), original_prefix.len() - moved, 0)
             };
             if chunk < 0 {
                 return Err(io::Error::last_os_error());
             }
             if chunk == 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::WriteZero,
-                    "partial splice during fake tcp send",
-                ));
+                return Err(io::Error::new(io::ErrorKind::WriteZero, "partial splice during fake tcp send"));
             }
             moved += chunk as usize;
         }
@@ -401,11 +331,7 @@ pub fn send_fake_tcp(
     result
 }
 
-pub fn wait_tcp_stage(
-    stream: &TcpStream,
-    wait_send: bool,
-    await_interval: Duration,
-) -> io::Result<()> {
+pub fn wait_tcp_stage(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
     wait_tcp_stage_fd(stream.as_raw_fd(), wait_send, await_interval)
 }
 
@@ -414,13 +340,7 @@ fn peer_addr(fd: libc::c_int) -> io::Result<libc::sockaddr_storage> {
     // `len` bytes into it for the valid socket descriptor `fd`.
     let mut storage = unsafe { zeroed::<libc::sockaddr_storage>() };
     let mut len = size_of::<libc::sockaddr_storage>() as libc::socklen_t;
-    let rc = unsafe {
-        libc::getpeername(
-            fd,
-            (&mut storage as *mut libc::sockaddr_storage).cast(),
-            &mut len,
-        )
-    };
+    let rc = unsafe { libc::getpeername(fd, (&mut storage as *mut libc::sockaddr_storage).cast(), &mut len) };
     if rc == 0 {
         Ok(storage)
     } else {
@@ -432,25 +352,21 @@ fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Result<Socket
     match i32::from(storage.ss_family) {
         libc::AF_INET => {
             // SAFETY: family tag was checked to be AF_INET.
-            let sin =
-                unsafe { &*(storage as *const libc::sockaddr_storage).cast::<libc::sockaddr_in>() };
+            let sin = unsafe { &*(storage as *const libc::sockaddr_storage).cast::<libc::sockaddr_in>() };
             let ip = Ipv4Addr::from(u32::from_be(sin.sin_addr.s_addr));
             let port = u16::from_be(sin.sin_port);
             Ok(SocketAddr::new(IpAddr::V4(ip), port))
         }
         libc::AF_INET6 => {
             // SAFETY: family tag was checked to be AF_INET6.
-            let sin6 = unsafe {
-                &*(storage as *const libc::sockaddr_storage).cast::<libc::sockaddr_in6>()
-            };
+            let sin6 = unsafe { &*(storage as *const libc::sockaddr_storage).cast::<libc::sockaddr_in6>() };
             let ip = Ipv6Addr::from(sin6.sin6_addr.s6_addr);
             let port = u16::from_be(sin6.sin6_port);
             Ok(SocketAddr::new(IpAddr::V6(ip), port))
         }
-        _ => Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "unsupported socket family in original destination lookup",
-        )),
+        _ => {
+            Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported socket family in original destination lookup"))
+        }
     }
 }
 
@@ -470,13 +386,7 @@ fn tcp_has_notsent(fd: libc::c_int) -> io::Result<bool> {
     // SAFETY: `info` is writable storage for the Linux `tcp_info` prefix that
     // includes `tcpi_notsent_bytes`, and `fd` is a live TCP socket descriptor.
     let rc = unsafe {
-        libc::getsockopt(
-            fd,
-            libc::IPPROTO_TCP,
-            libc::TCP_INFO,
-            (&mut info as *mut LinuxTcpInfo).cast(),
-            &mut info_len,
-        )
+        libc::getsockopt(fd, libc::IPPROTO_TCP, libc::TCP_INFO, (&mut info as *mut LinuxTcpInfo).cast(), &mut info_len)
     };
     if rc != 0 {
         return Err(io::Error::last_os_error());
@@ -491,11 +401,7 @@ fn tcp_has_notsent(fd: libc::c_int) -> io::Result<bool> {
 }
 
 fn wait_tcp_stage_fd(fd: libc::c_int, wait_send: bool, await_interval: Duration) -> io::Result<()> {
-    let sleep_for = if await_interval.is_zero() {
-        Duration::from_millis(1)
-    } else {
-        await_interval
-    };
+    let sleep_for = if await_interval.is_zero() { Duration::from_millis(1) } else { await_interval };
     if wait_send {
         thread::sleep(sleep_for);
         if !tcp_has_notsent(fd)? {
@@ -511,10 +417,7 @@ fn wait_tcp_stage_fd(fd: libc::c_int, wait_send: bool, await_interval: Duration)
             if wait_send {
                 return Ok(());
             }
-            return Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                "timed out waiting for tcp send queue to drain",
-            ));
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "timed out waiting for tcp send queue to drain"));
         }
         thread::sleep(sleep_for);
         if !tcp_has_notsent(fd)? {
@@ -578,28 +481,20 @@ mod tests {
     #[test]
     fn storage_to_socket_addr_parses_ipv4_and_ipv6_sockaddrs() {
         let mut storage = unsafe { zeroed::<libc::sockaddr_storage>() };
-        let sin = unsafe {
-            &mut *(&mut storage as *mut libc::sockaddr_storage).cast::<libc::sockaddr_in>()
-        };
+        let sin = unsafe { &mut *(&mut storage as *mut libc::sockaddr_storage).cast::<libc::sockaddr_in>() };
         sin.sin_family = libc::AF_INET as libc::sa_family_t;
         sin.sin_port = 443u16.to_be();
-        sin.sin_addr = libc::in_addr {
-            s_addr: u32::from(Ipv4Addr::new(203, 0, 113, 8)).to_be(),
-        };
+        sin.sin_addr = libc::in_addr { s_addr: u32::from(Ipv4Addr::new(203, 0, 113, 8)).to_be() };
         assert_eq!(
             storage_to_socket_addr(&storage).expect("parse ipv4 sockaddr"),
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 8)), 443)
         );
 
         let mut storage6 = unsafe { zeroed::<libc::sockaddr_storage>() };
-        let sin6 = unsafe {
-            &mut *(&mut storage6 as *mut libc::sockaddr_storage).cast::<libc::sockaddr_in6>()
-        };
+        let sin6 = unsafe { &mut *(&mut storage6 as *mut libc::sockaddr_storage).cast::<libc::sockaddr_in6>() };
         sin6.sin6_family = libc::AF_INET6 as libc::sa_family_t;
         sin6.sin6_port = 8443u16.to_be();
-        sin6.sin6_addr = libc::in6_addr {
-            s6_addr: Ipv6Addr::LOCALHOST.octets(),
-        };
+        sin6.sin6_addr = libc::in6_addr { s6_addr: Ipv6Addr::LOCALHOST.octets() };
         assert_eq!(
             storage_to_socket_addr(&storage6).expect("parse ipv6 sockaddr"),
             SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 8443)

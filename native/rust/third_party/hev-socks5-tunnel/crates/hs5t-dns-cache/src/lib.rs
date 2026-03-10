@@ -37,10 +37,7 @@ impl DnsCache {
     /// `max`  – maximum number of cached entries; must satisfy `max <= !mask` and `max > 0`
     pub fn new(net: u32, mask: u32, max: usize) -> Self {
         debug_assert!(max > 0, "max must be non-zero");
-        debug_assert!(
-            (max as u64) <= ((!mask) as u64),
-            "max exceeds addressable range"
-        );
+        debug_assert!((max as u64) <= ((!mask) as u64), "max exceeds addressable range");
         let capacity = NonZeroUsize::new(max).expect("max must be > 0");
         Self {
             lru: LruCache::new(capacity),
@@ -373,11 +370,7 @@ mod tests {
 
         // Insert "d.com" → must evict "b.com" (new LRU front), reuse slot 1.
         let ip_d = cache.find("d.com");
-        assert_eq!(
-            ip_d,
-            Some(NET | 1),
-            "d.com must reuse slot 1 (b.com's slot)"
-        );
+        assert_eq!(ip_d, Some(NET | 1), "d.com must reuse slot 1 (b.com's slot)");
 
         // "a.com" and "c.com" must still be reachable.
         assert_eq!(cache.find("a.com"), Some(NET));
@@ -393,16 +386,10 @@ mod tests {
         let mut req = make_a_query("example.com");
         let mut res = vec![0u8; 512];
 
-        let rlen = cache
-            .handle(&mut req, &mut res)
-            .expect("handle must succeed");
+        let rlen = cache.handle(&mut req, &mut res).expect("handle must succeed");
 
         // Response must include at least one answer record (16 bytes) beyond the request.
-        assert!(
-            rlen > req.len(),
-            "response len {rlen} must exceed query len {}",
-            req.len()
-        );
+        assert!(rlen > req.len(), "response len {rlen} must exceed query len {}", req.len());
 
         // ANCOUNT (bytes [6..8]) must be 1.
         let ancount = u16::from_be_bytes([res[6], res[7]]);
@@ -416,56 +403,25 @@ mod tests {
 
         // Name pointer: 0xc0 <question_start_offset>
         assert_eq!(res[ans_off], 0xc0, "name compression pointer high byte");
-        assert_eq!(
-            res[ans_off + 1],
-            12,
-            "name pointer must reference offset 12"
-        );
+        assert_eq!(res[ans_off + 1], 12, "name pointer must reference offset 12");
         // TYPE = A (1)
-        assert_eq!(
-            u16::from_be_bytes([res[ans_off + 2], res[ans_off + 3]]),
-            1,
-            "answer TYPE must be A (1)"
-        );
+        assert_eq!(u16::from_be_bytes([res[ans_off + 2], res[ans_off + 3]]), 1, "answer TYPE must be A (1)");
         // CLASS = IN (1)
-        assert_eq!(
-            u16::from_be_bytes([res[ans_off + 4], res[ans_off + 5]]),
-            1,
-            "answer CLASS must be IN (1)"
-        );
+        assert_eq!(u16::from_be_bytes([res[ans_off + 4], res[ans_off + 5]]), 1, "answer CLASS must be IN (1)");
         // TTL = 1
         assert_eq!(
-            u32::from_be_bytes([
-                res[ans_off + 6],
-                res[ans_off + 7],
-                res[ans_off + 8],
-                res[ans_off + 9]
-            ]),
+            u32::from_be_bytes([res[ans_off + 6], res[ans_off + 7], res[ans_off + 8], res[ans_off + 9]]),
             1,
             "TTL must be 1"
         );
         // RDLENGTH = 4
-        assert_eq!(
-            u16::from_be_bytes([res[ans_off + 10], res[ans_off + 11]]),
-            4,
-            "RDLENGTH must be 4"
-        );
+        assert_eq!(u16::from_be_bytes([res[ans_off + 10], res[ans_off + 11]]), 4, "RDLENGTH must be 4");
         // RDATA = NET | 0 = 10.0.0.0
-        let ip = u32::from_be_bytes([
-            res[ans_off + 12],
-            res[ans_off + 13],
-            res[ans_off + 14],
-            res[ans_off + 15],
-        ]);
+        let ip = u32::from_be_bytes([res[ans_off + 12], res[ans_off + 13], res[ans_off + 14], res[ans_off + 15]]);
         assert_eq!(ip, NET, "RDATA must be NET | 0");
 
         // Total response length
-        assert_eq!(
-            rlen,
-            ans_off + 16,
-            "response length must be {}",
-            ans_off + 16
-        );
+        assert_eq!(rlen, ans_off + 16, "response length must be {}", ans_off + 16);
     }
 
     #[test]
@@ -474,20 +430,11 @@ mod tests {
         let mut req = make_multi_a_query(&["a.com", "b.com"]);
         let mut res = vec![0u8; req.len() + 16];
 
-        let rlen = cache
-            .handle(&mut req, &mut res)
-            .expect("handle must succeed when only one answer fits");
+        let rlen = cache.handle(&mut req, &mut res).expect("handle must succeed when only one answer fits");
 
         let ancount = u16::from_be_bytes([res[6], res[7]]);
-        assert_eq!(
-            ancount, 1,
-            "ANCOUNT must match the number of written answers"
-        );
-        assert_eq!(
-            rlen,
-            req.len() + 16,
-            "response length must reflect exactly one serialized answer"
-        );
+        assert_eq!(ancount, 1, "ANCOUNT must match the number of written answers");
+        assert_eq!(rlen, req.len() + 16, "response length must reflect exactly one serialized answer");
     }
 
     // -----------------------------------------------------------------------
@@ -503,10 +450,7 @@ mod tests {
         let mut res = [0u8; 128];
 
         let err = cache.handle(&mut req, &mut res).unwrap_err();
-        assert!(
-            matches!(err, DnsCacheError::TooManyQuestions),
-            "expected TooManyQuestions, got {err:?}"
-        );
+        assert!(matches!(err, DnsCacheError::TooManyQuestions), "expected TooManyQuestions, got {err:?}");
     }
 
     // -----------------------------------------------------------------------
@@ -521,18 +465,12 @@ mod tests {
         req[5] = 1; // QDCOUNT = 1
         let mut res = [0u8; 128];
         let err = cache.handle(&mut req, &mut res).unwrap_err();
-        assert!(
-            matches!(err, DnsCacheError::Truncated),
-            "expected Truncated for missing question data, got {err:?}"
-        );
+        assert!(matches!(err, DnsCacheError::Truncated), "expected Truncated for missing question data, got {err:?}");
 
         // A valid packet must succeed (proves the stub is wrong for positive cases).
         let mut req2 = make_a_query("ok.com");
         let mut res2 = vec![0u8; 512];
-        assert!(
-            cache.handle(&mut req2, &mut res2).is_ok(),
-            "valid A query must not return Err"
-        );
+        assert!(cache.handle(&mut req2, &mut res2).is_ok(), "valid A query must not return Err");
     }
 
     // -----------------------------------------------------------------------
@@ -577,25 +515,15 @@ mod tests {
         let mut req = make_a_query("flags.test");
         let mut res = vec![0u8; 512];
 
-        cache
-            .handle(&mut req, &mut res)
-            .expect("handle must succeed");
+        cache.handle(&mut req, &mut res).expect("handle must succeed");
 
         let flags = u16::from_be_bytes([res[2], res[3]]);
         // QR=1 (bit 15): response marker
         assert_eq!(flags & 0x8000, 0x8000, "QR bit must be set in response");
         // RD=1 (bit 8): preserved from query
-        assert_eq!(
-            flags & 0x0100,
-            0x0100,
-            "RD bit must be preserved from query"
-        );
+        assert_eq!(flags & 0x0100, 0x0100, "RD bit must be preserved from query");
         // RA=1 (bit 7): C code sets RA = (query_RD >> 1); since RD=1, RA=1
-        assert_eq!(
-            flags & 0x0080,
-            0x0080,
-            "RA bit must be set when query had RD=1"
-        );
+        assert_eq!(flags & 0x0080, 0x0080, "RA bit must be set when query had RD=1");
     }
 }
 
@@ -626,10 +554,7 @@ mod proptest_tests {
     fn arb_names(max_ops: usize, pool: usize) -> impl Strategy<Value = Vec<String>> {
         prop::collection::vec(arb_label(), 1usize..=pool).prop_flat_map(move |pool_names| {
             let pool_names = std::sync::Arc::new(pool_names);
-            prop::collection::vec(
-                (0usize..pool_names.len()).prop_map(move |i| pool_names[i].clone()),
-                1..=max_ops,
-            )
+            prop::collection::vec((0usize..pool_names.len()).prop_map(move |i| pool_names[i].clone()), 1..=max_ops)
         })
     }
 

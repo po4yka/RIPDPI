@@ -37,34 +37,21 @@ impl<T> Default for HandleRegistry<T> {
 
 impl<T> HandleRegistry<T> {
     pub fn new() -> Self {
-        Self {
-            next: AtomicU64::new(1),
-            inner: Mutex::new(HashMap::new()),
-        }
+        Self { next: AtomicU64::new(1), inner: Mutex::new(HashMap::new()) }
     }
 
     pub fn insert(&self, value: T) -> u64 {
         let handle = self.next.fetch_add(1, Ordering::Relaxed);
-        self.inner
-            .lock()
-            .expect("handle registry poisoned")
-            .insert(handle, Arc::new(value));
+        self.inner.lock().expect("handle registry poisoned").insert(handle, Arc::new(value));
         handle
     }
 
     pub fn get(&self, handle: u64) -> Option<Arc<T>> {
-        self.inner
-            .lock()
-            .expect("handle registry poisoned")
-            .get(&handle)
-            .cloned()
+        self.inner.lock().expect("handle registry poisoned").get(&handle).cloned()
     }
 
     pub fn remove(&self, handle: u64) -> Option<Arc<T>> {
-        self.inner
-            .lock()
-            .expect("handle registry poisoned")
-            .remove(&handle)
+        self.inner.lock().expect("handle registry poisoned").remove(&handle)
     }
 }
 
@@ -74,16 +61,12 @@ pub fn init_android_logging(tag: &'static str) {
         #[cfg(target_os = "android")]
         {
             android_logger::init_once(
-                android_logger::Config::default()
-                    .with_max_level(LevelFilter::Info)
-                    .with_tag(tag),
+                android_logger::Config::default().with_max_level(LevelFilter::Info).with_tag(tag),
             );
 
             let _ = LogTracer::init();
 
-            let _ = tracing_subscriber::registry()
-                .with(AndroidLogLayer)
-                .try_init();
+            let _ = tracing_subscriber::registry().with(AndroidLogLayer).try_init();
         }
 
         #[cfg(not(target_os = "android"))]
@@ -119,11 +102,7 @@ pub fn describe_exception(env: &mut JNIEnv) -> Option<String> {
 }
 
 fn throwable_to_string(env: &mut JNIEnv, throwable: JThrowable) -> Option<String> {
-    let text = env
-        .call_method(throwable, "toString", "()Ljava/lang/String;", &[])
-        .ok()?
-        .l()
-        .ok()?;
+    let text = env.call_method(throwable, "toString", "()Ljava/lang/String;", &[]).ok()?.l().ok()?;
     let text = jni::objects::JString::from(text);
     env.get_string(&text).ok().map(Into::into)
 }
@@ -140,11 +119,7 @@ where
         let mut visitor = MessageVisitor::default();
         event.record(&mut visitor);
         let metadata = event.metadata();
-        let message = if visitor.fields.is_empty() {
-            metadata.target().to_string()
-        } else {
-            visitor.fields
-        };
+        let message = if visitor.fields.is_empty() { metadata.target().to_string() } else { visitor.fields };
 
         match *metadata.level() {
             tracing::Level::ERROR => log::error!("{message}"),

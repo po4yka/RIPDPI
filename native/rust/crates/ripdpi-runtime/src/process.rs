@@ -31,9 +31,7 @@ impl ProcessGuard {
                 Some(path) => Some(PidFileGuard::create(Path::new(path))?),
                 None => None,
             };
-            Ok(Self {
-                _pid_file: pid_file,
-            })
+            Ok(Self { _pid_file: pid_file })
         }
 
         #[cfg(not(unix))]
@@ -102,20 +100,10 @@ struct PidFileGuard {
 #[cfg(unix)]
 impl PidFileGuard {
     fn create(path: &Path) -> io::Result<Self> {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(path)?;
+        let mut file = OpenOptions::new().read(true).write(true).create(true).truncate(false).open(path)?;
 
-        let mut lock = libc::flock {
-            l_type: libc::F_WRLCK as _,
-            l_whence: libc::SEEK_CUR as _,
-            l_start: 0,
-            l_len: 0,
-            l_pid: 0,
-        };
+        let mut lock =
+            libc::flock { l_type: libc::F_WRLCK as _, l_whence: libc::SEEK_CUR as _, l_start: 0, l_len: 0, l_pid: 0 };
         let rc = unsafe { libc::fcntl(file.as_raw_fd(), libc::F_SETLK, &mut lock) };
         if rc != 0 {
             return Err(io::Error::last_os_error());
@@ -125,10 +113,7 @@ impl PidFileGuard {
         write!(file, "{}", std::process::id())?;
         file.flush()?;
 
-        Ok(Self {
-            file,
-            path: path.to_path_buf(),
-        })
+        Ok(Self { file, path: path.to_path_buf() })
     }
 }
 
@@ -148,10 +133,7 @@ mod tests {
     use super::*;
 
     fn temp_pid_path() -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock before unix epoch")
-            .as_nanos();
+        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("system clock before unix epoch").as_nanos();
         std::env::temp_dir().join(format!("ciadpi-process-{stamp}.pid"))
     }
 
@@ -160,8 +142,7 @@ mod tests {
         request_shutdown();
         assert!(shutdown_requested());
 
-        let guard =
-            ProcessGuard::prepare(&RuntimeConfig::default()).expect("prepare process guard");
+        let guard = ProcessGuard::prepare(&RuntimeConfig::default()).expect("prepare process guard");
 
         assert!(!shutdown_requested());
         drop(guard);
@@ -171,10 +152,7 @@ mod tests {
     #[test]
     fn prepare_with_pid_file_writes_and_removes_pidfile() {
         let path = temp_pid_path();
-        let config = RuntimeConfig {
-            pid_file: Some(path.display().to_string()),
-            ..RuntimeConfig::default()
-        };
+        let config = RuntimeConfig { pid_file: Some(path.display().to_string()), ..RuntimeConfig::default() };
 
         {
             let guard = ProcessGuard::prepare(&config).expect("prepare process guard with pidfile");

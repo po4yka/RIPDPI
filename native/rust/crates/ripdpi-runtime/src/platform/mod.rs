@@ -21,8 +21,7 @@ pub type TcpStageWait = (bool, Duration);
 pub fn detect_default_ttl() -> io::Result<u8> {
     let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
     let ttl = socket.ttl()?;
-    u8::try_from(ttl)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket ttl exceeds u8"))
+    u8::try_from(ttl).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket ttl exceeds u8"))
 }
 
 #[cfg(target_os = "linux")]
@@ -125,15 +124,7 @@ pub fn send_fake_tcp(
     default_ttl: u8,
     wait: TcpStageWait,
 ) -> io::Result<()> {
-    linux::send_fake_tcp(
-        stream,
-        original_prefix,
-        fake_prefix,
-        ttl,
-        md5sig,
-        default_ttl,
-        wait,
-    )
+    linux::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, wait)
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -155,20 +146,12 @@ pub fn send_fake_tcp(
 }
 
 #[cfg(target_os = "linux")]
-pub fn wait_tcp_stage(
-    stream: &TcpStream,
-    wait_send: bool,
-    await_interval: Duration,
-) -> io::Result<()> {
+pub fn wait_tcp_stage(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
     linux::wait_tcp_stage(stream, wait_send, await_interval)
 }
 
 #[cfg(not(target_os = "linux"))]
-pub fn wait_tcp_stage(
-    stream: &TcpStream,
-    wait_send: bool,
-    await_interval: Duration,
-) -> io::Result<()> {
+pub fn wait_tcp_stage(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
     #[cfg(target_os = "windows")]
     {
         return windows::wait_tcp_stage(stream, wait_send, await_interval);
@@ -200,20 +183,10 @@ mod tests {
     #[test]
     fn public_facade_uses_stub_send_fake_tcp_contract() {
         let (client, mut server) = connected_pair();
-        server
-            .set_read_timeout(Some(Duration::from_secs(1)))
-            .expect("set read timeout");
+        server.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
 
-        send_fake_tcp(
-            &client,
-            b"original",
-            b"fake-prefix",
-            0,
-            false,
-            0,
-            (true, Duration::from_millis(1)),
-        )
-        .expect("send fake tcp through facade");
+        send_fake_tcp(&client, b"original", b"fake-prefix", 0, false, 0, (true, Duration::from_millis(1)))
+            .expect("send fake tcp through facade");
 
         let mut buf = [0u8; 11];
         server.read_exact(&mut buf).expect("read fake prefix");
@@ -225,15 +198,11 @@ mod tests {
         let (client, _server) = connected_pair();
 
         assert_eq!(
-            enable_tcp_fastopen_connect(&client)
-                .expect_err("tfo should be unsupported")
-                .kind(),
+            enable_tcp_fastopen_connect(&client).expect_err("tfo should be unsupported").kind(),
             io::ErrorKind::Unsupported
         );
         assert_eq!(
-            original_dst(&client)
-                .expect_err("original dst should be unsupported")
-                .kind(),
+            original_dst(&client).expect_err("original dst should be unsupported").kind(),
             io::ErrorKind::Unsupported
         );
         wait_tcp_stage(&client, true, Duration::from_millis(1)).expect("wait tcp stage no-op");

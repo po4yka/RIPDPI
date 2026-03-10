@@ -6,23 +6,10 @@ fn fake_md5sig_plan_restores_socket_state_after_fake_write() {
     let mut group = DesyncGroup::new(0);
     group.md5sig = true;
     group.fake_data = Some(b"GET /f HTTP/1.1\r\nHost: fake.example.test\r\n\r\n".to_vec());
-    group.parts.push(PartSpec {
-        mode: DesyncMode::Fake,
-        offset: OffsetExpr {
-            pos: 8,
-            flag: 0,
-            repeats: 1,
-            skip: 0,
-        },
-    });
+    group.parts.push(PartSpec { mode: DesyncMode::Fake, offset: OffsetExpr { pos: 8, flag: 0, repeats: 1, skip: 0 } });
 
-    let plan = plan_tcp(
-        &group,
-        b"GET / HTTP/1.1\r\nHost: www.wikipedia.org\r\n\r\n",
-        7,
-        64,
-    )
-    .expect("plan should succeed");
+    let plan =
+        plan_tcp(&group, b"GET / HTTP/1.1\r\nHost: www.wikipedia.org\r\n\r\n", 7, 64).expect("plan should succeed");
 
     assert_eq!(
         plan.actions,
@@ -41,23 +28,12 @@ fn fake_md5sig_plan_restores_socket_state_after_fake_write() {
 #[test]
 fn disorder_plan_waits_before_restoring_ttl() {
     let mut group = DesyncGroup::new(0);
-    group.parts.push(PartSpec {
-        mode: DesyncMode::Disorder,
-        offset: OffsetExpr {
-            pos: 8,
-            flag: 0,
-            repeats: 1,
-            skip: 0,
-        },
-    });
+    group
+        .parts
+        .push(PartSpec { mode: DesyncMode::Disorder, offset: OffsetExpr { pos: 8, flag: 0, repeats: 1, skip: 0 } });
 
-    let plan = plan_tcp(
-        &group,
-        b"GET / HTTP/1.1\r\nHost: www.wikipedia.org\r\n\r\n",
-        7,
-        64,
-    )
-    .expect("plan should succeed");
+    let plan =
+        plan_tcp(&group, b"GET / HTTP/1.1\r\nHost: www.wikipedia.org\r\n\r\n", 7, 64).expect("plan should succeed");
 
     assert_eq!(
         plan.actions,

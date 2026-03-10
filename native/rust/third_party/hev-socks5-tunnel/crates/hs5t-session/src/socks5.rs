@@ -74,10 +74,7 @@ where
             stream.read_exact(&mut buf).await?;
         }
         _ => {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "SOCKS5: unknown address type in CONNECT reply",
-            ));
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5: unknown address type in CONNECT reply"));
         }
     }
 
@@ -106,12 +103,8 @@ fn auth_method(auth: &Auth) -> u8 {
 }
 
 fn checked_auth_field_len(field: &str, label: &str) -> io::Result<u8> {
-    u8::try_from(field.len()).map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("SOCKS5: {label} must be at most 255 bytes"),
-        )
-    })
+    u8::try_from(field.len())
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, format!("SOCKS5: {label} must be at most 255 bytes")))
 }
 
 /// Perform SOCKS5 handshake (method negotiation + optional auth).
@@ -138,19 +131,13 @@ where
     }
 
     if resp[1] == 0xFF {
-        return Err(io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            "SOCKS5: no acceptable authentication method",
-        ));
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "SOCKS5: no acceptable authentication method"));
     }
 
     if resp[1] != method {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            format!(
-                "SOCKS5: server selected method {:#04x}, expected {:#04x}",
-                resp[1], method
-            ),
+            format!("SOCKS5: server selected method {:#04x}, expected {:#04x}", resp[1], method),
         ));
     }
 
@@ -172,10 +159,7 @@ where
         stream.read_exact(&mut auth_resp).await?;
 
         if auth_resp[1] != 0x00 {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "SOCKS5: authentication rejected",
-            ));
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "SOCKS5: authentication rejected"));
         }
     }
 
@@ -271,10 +255,7 @@ pub fn encode_udp_frame(dst: SocketAddr, payload: &[u8]) -> Vec<u8> {
 pub fn decode_udp_frame(frame: &[u8]) -> io::Result<(SocketAddr, &[u8])> {
     // Minimum: RSV(2) + FRAG(1) + ATYP(1) + IPv4(4) + PORT(2) = 10
     if frame.len() < 10 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "SOCKS5 UDP frame too short",
-        ));
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5 UDP frame too short"));
     }
     // frame[0..2] = RSV, frame[2] = FRAG (ignored), frame[3] = ATYP
     let (addr, data_start) = match frame[3] {
@@ -285,10 +266,7 @@ pub fn decode_udp_frame(frame: &[u8]) -> io::Result<(SocketAddr, &[u8])> {
         }
         0x04 => {
             if frame.len() < 22 {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "SOCKS5 UDP IPv6 frame too short",
-                ));
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5 UDP IPv6 frame too short"));
             }
             let mut raw = [0u8; 16];
             raw.copy_from_slice(&frame[4..20]);
@@ -296,12 +274,7 @@ pub fn decode_udp_frame(frame: &[u8]) -> io::Result<(SocketAddr, &[u8])> {
             let port = u16::from_be_bytes([frame[20], frame[21]]);
             (SocketAddr::new(IpAddr::V6(ip), port), 22)
         }
-        t => {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("SOCKS5 UDP: unknown ATYP={t}"),
-            ))
-        }
+        t => return Err(io::Error::new(io::ErrorKind::InvalidData, format!("SOCKS5 UDP: unknown ATYP={t}"))),
     };
     Ok((addr, &frame[data_start..]))
 }
@@ -343,30 +316,18 @@ mod tests {
 
     #[tokio::test]
     async fn noauth_handshake_rejects_unexpected_method_selection() {
-        let mut mock = Builder::new()
-            .write(&[0x05, 0x01, 0x00])
-            .read(&[0x05, 0x02])
-            .build();
+        let mut mock = Builder::new().write(&[0x05, 0x01, 0x00]).read(&[0x05, 0x02]).build();
 
         let result = handshake(&mut mock, &Auth::NoAuth).await;
-        assert!(
-            result.is_err(),
-            "expected error when server selects a method the client did not request"
-        );
+        assert!(result.is_err(), "expected error when server selects a method the client did not request");
     }
 
     #[tokio::test]
     async fn noauth_handshake_rejects_invalid_server_version() {
-        let mut mock = Builder::new()
-            .write(&[0x05, 0x01, 0x00])
-            .read(&[0x04, 0x00])
-            .build();
+        let mut mock = Builder::new().write(&[0x05, 0x01, 0x00]).read(&[0x04, 0x00]).build();
 
         let result = handshake(&mut mock, &Auth::NoAuth).await;
-        assert!(
-            result.is_err(),
-            "expected error when server responds with a non-SOCKS5 version"
-        );
+        assert!(result.is_err(), "expected error when server responds with a non-SOCKS5 version");
     }
 
     // -------------------------------------------------------------------------
@@ -401,10 +362,7 @@ mod tests {
             .read(&[0x01, 0x00])
             .build();
 
-        let auth = Auth::UserPass {
-            username: "alice".to_string(),
-            password: "s3cr3t".to_string(),
-        };
+        let auth = Auth::UserPass { username: "alice".to_string(), password: "s3cr3t".to_string() };
         handshake(&mut mock, &auth).await.unwrap();
     }
 
@@ -428,51 +386,27 @@ mod tests {
             .read(&[0x01, 0x01])
             .build();
 
-        let auth = Auth::UserPass {
-            username: "alice".to_string(),
-            password: "wrong".to_string(),
-        };
+        let auth = Auth::UserPass { username: "alice".to_string(), password: "wrong".to_string() };
         let result = handshake(&mut mock, &auth).await;
-        assert!(
-            result.is_err(),
-            "expected error when server rejects credentials"
-        );
+        assert!(result.is_err(), "expected error when server rejects credentials");
     }
 
     #[tokio::test]
     async fn userpass_handshake_rejects_server_selecting_noauth() {
-        let mut mock = Builder::new()
-            .write(&[0x05, 0x01, 0x02])
-            .read(&[0x05, 0x00])
-            .build();
+        let mut mock = Builder::new().write(&[0x05, 0x01, 0x02]).read(&[0x05, 0x00]).build();
 
-        let auth = Auth::UserPass {
-            username: "alice".to_string(),
-            password: "secret".to_string(),
-        };
+        let auth = Auth::UserPass { username: "alice".to_string(), password: "secret".to_string() };
         let result = handshake(&mut mock, &auth).await;
-        assert!(
-            result.is_err(),
-            "expected error when the server does not select username/password auth"
-        );
+        assert!(result.is_err(), "expected error when the server does not select username/password auth");
     }
 
     #[tokio::test]
     async fn userpass_handshake_rejects_oversized_username() {
-        let auth = Auth::UserPass {
-            username: "u".repeat(256),
-            password: "secret".to_string(),
-        };
-        let mut mock = Builder::new()
-            .write(&[0x05, 0x01, 0x02])
-            .read(&[0x05, 0x02])
-            .build();
+        let auth = Auth::UserPass { username: "u".repeat(256), password: "secret".to_string() };
+        let mut mock = Builder::new().write(&[0x05, 0x01, 0x02]).read(&[0x05, 0x02]).build();
 
         let result = handshake(&mut mock, &auth).await;
-        assert!(
-            result.is_err(),
-            "expected error when the username exceeds the SOCKS5 one-byte length field"
-        );
+        assert!(result.is_err(), "expected error when the username exceeds the SOCKS5 one-byte length field");
     }
 
     // -------------------------------------------------------------------------
@@ -495,15 +429,9 @@ mod tests {
         let [ph, pl] = port.to_be_bytes();
         let expected = [0x05u8, 0x01, 0x00, 0x01, 127, 0, 0, 1, ph, pl];
 
-        let mut mock = Builder::new()
-            .write(&expected)
-            .read(CONNECT_REPLY_IPV4)
-            .build();
+        let mut mock = Builder::new().write(&expected).read(CONNECT_REPLY_IPV4).build();
 
-        let addr = TargetAddr::Ip(SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::new(127, 0, 0, 1),
-            port,
-        )));
+        let addr = TargetAddr::Ip(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port)));
         connect(&mut mock, &addr).await.unwrap();
     }
 
@@ -523,10 +451,7 @@ mod tests {
         expected.push(ph);
         expected.push(pl);
 
-        let mut mock = Builder::new()
-            .write(&expected)
-            .read(CONNECT_REPLY_IPV4)
-            .build();
+        let mut mock = Builder::new().write(&expected).read(CONNECT_REPLY_IPV4).build();
 
         let addr = TargetAddr::Ip(SocketAddr::V6(SocketAddrV6::new(ip, port, 0, 0)));
         connect(&mut mock, &addr).await.unwrap();
@@ -547,10 +472,7 @@ mod tests {
         expected.push(ph);
         expected.push(pl);
 
-        let mut mock = Builder::new()
-            .write(&expected)
-            .read(CONNECT_REPLY_IPV4)
-            .build();
+        let mut mock = Builder::new().write(&expected).read(CONNECT_REPLY_IPV4).build();
 
         let addr = TargetAddr::Domain(domain.to_string(), port);
         connect(&mut mock, &addr).await.unwrap();
@@ -572,10 +494,7 @@ mod tests {
 
         let mut mock = Builder::new().write(&request).read(&reply).build();
 
-        let addr = TargetAddr::Ip(SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::new(10, 0, 0, 1),
-            port,
-        )));
+        let addr = TargetAddr::Ip(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(10, 0, 0, 1), port)));
         let result = connect(&mut mock, &addr).await;
         assert!(result.is_err(), "expected error for non-zero REP");
     }
@@ -591,10 +510,7 @@ mod tests {
         // Reply: VER=5, REP=0, RSV=0, ATYP=1, 127.0.0.1, port=1080
         let associate_reply = [0x05u8, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0x04, 0x38];
 
-        let mut mock = Builder::new()
-            .write(&associate_req)
-            .read(&associate_reply)
-            .build();
+        let mut mock = Builder::new().write(&associate_req).read(&associate_reply).build();
 
         let relay = associate(&mut mock).await.unwrap();
         assert_eq!(relay.ip().to_string(), "127.0.0.1");
@@ -609,10 +525,7 @@ mod tests {
         // REP=1 (general failure): only the 4-byte header, no BND.ADDR/PORT
         let associate_reply = [0x05u8, 0x01, 0x00, 0x01];
 
-        let mut mock = Builder::new()
-            .write(&associate_req)
-            .read(&associate_reply)
-            .build();
+        let mut mock = Builder::new().write(&associate_req).read(&associate_reply).build();
 
         assert!(associate(&mut mock).await.is_err());
     }

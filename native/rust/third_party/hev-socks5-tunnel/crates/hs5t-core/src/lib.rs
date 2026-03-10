@@ -33,10 +33,7 @@ mod tests {
         let mut received = Vec::new();
         session_side.read_to_end(&mut received).await.unwrap();
 
-        assert_eq!(
-            received, data,
-            "data written to smoltcp_side must arrive at session_side intact"
-        );
+        assert_eq!(received, data, "data written to smoltcp_side must arrive at session_side intact");
     }
 
     // ── U-07: Duplex bridge — session_side drop causes smoltcp_side EOF ────────
@@ -53,10 +50,7 @@ mod tests {
         let mut buf = [0u8; 64];
         let n = smoltcp_side.read(&mut buf).await.unwrap_or(0);
 
-        assert_eq!(
-            n, 0,
-            "drop of session_side must produce EOF (0 bytes) on smoltcp_side"
-        );
+        assert_eq!(n, 0, "drop of session_side must produce EOF (0 bytes) on smoltcp_side");
     }
 
     // ── U-09: Cancellation — parent cancel propagates to child token ───────────
@@ -68,10 +62,7 @@ mod tests {
         let parent = CancellationToken::new();
         let child = parent.child_token();
 
-        assert!(
-            !child.is_cancelled(),
-            "child must not be cancelled before parent cancel"
-        );
+        assert!(!child.is_cancelled(), "child must not be cancelled before parent cancel");
 
         // Spawn a task that waits for the child token.
         let child_clone = child.clone();
@@ -85,14 +76,8 @@ mod tests {
         // Task must complete within 100 ms.
         let result = tokio::time::timeout(Duration::from_millis(100), join).await;
 
-        assert!(
-            result.is_ok(),
-            "spawned task must observe child cancellation within 100 ms"
-        );
-        assert!(
-            child.is_cancelled(),
-            "child token must be marked as cancelled"
-        );
+        assert!(result.is_ok(), "spawned task must observe child cancellation within 100 ms");
+        assert!(child.is_cancelled(), "child token must be marked as cancelled");
     }
 
     // ── U-09b: child cancel does not affect parent ─────────────────────────────
@@ -106,10 +91,7 @@ mod tests {
         child.cancel();
 
         assert!(child.is_cancelled());
-        assert!(
-            !parent.is_cancelled(),
-            "cancelling child must not cancel parent"
-        );
+        assert!(!parent.is_cancelled(), "cancelling child must not cancel parent");
     }
 
     // ── Verify Stats is accessible from lib ───────────────────────────────────

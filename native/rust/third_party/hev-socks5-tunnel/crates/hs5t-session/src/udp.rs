@@ -30,11 +30,7 @@ pub struct UdpSession {
 
 impl UdpSession {
     pub fn new(proxy_addr: SocketAddr, auth: Auth) -> Self {
-        Self {
-            proxy_addr,
-            auth,
-            recv_timeout: DEFAULT_RECV_TIMEOUT,
-        }
+        Self { proxy_addr, auth, recv_timeout: DEFAULT_RECV_TIMEOUT }
     }
 
     /// Override the per-datagram receive timeout (default 10 s).
@@ -67,11 +63,8 @@ impl UdpSession {
         let relay_addr = associate(&mut ctrl).await?;
 
         // ── 4. Local UDP socket + send ────────────────────────────────────────
-        let bind_addr: SocketAddr = if relay_addr.is_ipv4() {
-            "0.0.0.0:0".parse().unwrap()
-        } else {
-            "[::]:0".parse().unwrap()
-        };
+        let bind_addr: SocketAddr =
+            if relay_addr.is_ipv4() { "0.0.0.0:0".parse().unwrap() } else { "[::]:0".parse().unwrap() };
         let udp = UdpSocket::bind(bind_addr).await?;
         udp.connect(relay_addr).await?;
 
@@ -156,21 +149,7 @@ mod tests {
 
             // Reply: VER=5, REP=0, RSV=0, ATYP=1, 127.0.0.1, relay_port
             let port_bytes = relay_port.to_be_bytes();
-            stream
-                .write_all(&[
-                    0x05,
-                    0x00,
-                    0x00,
-                    0x01,
-                    127,
-                    0,
-                    0,
-                    1,
-                    port_bytes[0],
-                    port_bytes[1],
-                ])
-                .await
-                .unwrap();
+            stream.write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, port_bytes[0], port_bytes[1]]).await.unwrap();
 
             // Keep TCP control connection alive while UDP flows.
             tokio::time::sleep(Duration::from_secs(2)).await;
@@ -188,14 +167,10 @@ mod tests {
     async fn relay_once_round_trip() {
         let (proxy_addr, echo_addr) = spawn_stub_proxy().await;
 
-        let session =
-            UdpSession::new(proxy_addr, Auth::NoAuth).with_recv_timeout(Duration::from_secs(3));
+        let session = UdpSession::new(proxy_addr, Auth::NoAuth).with_recv_timeout(Duration::from_secs(3));
 
         let cancel = CancellationToken::new();
-        let result = session
-            .relay_once(echo_addr, b"ping", cancel)
-            .await
-            .unwrap();
+        let result = session.relay_once(echo_addr, b"ping", cancel).await.unwrap();
 
         assert!(result.is_some(), "expected a response from echo server");
         let (payload, _from) = result.unwrap();
@@ -207,16 +182,12 @@ mod tests {
     async fn relay_once_cancel_returns_none() {
         let (proxy_addr, echo_addr) = spawn_stub_proxy().await;
 
-        let session =
-            UdpSession::new(proxy_addr, Auth::NoAuth).with_recv_timeout(Duration::from_secs(5));
+        let session = UdpSession::new(proxy_addr, Auth::NoAuth).with_recv_timeout(Duration::from_secs(5));
 
         let cancel = CancellationToken::new();
         cancel.cancel(); // cancel immediately
 
-        let result = session
-            .relay_once(echo_addr, b"ping", cancel)
-            .await
-            .unwrap();
+        let result = session.relay_once(echo_addr, b"ping", cancel).await.unwrap();
         assert!(result.is_none(), "cancelled relay must return None");
     }
 
@@ -245,32 +216,14 @@ mod tests {
             stream.write_all(&[0x05, 0x00]).await.unwrap();
             let _ = stream.read(&mut buf).await;
             let port_bytes = relay_port.to_be_bytes();
-            stream
-                .write_all(&[
-                    0x05,
-                    0x00,
-                    0x00,
-                    0x01,
-                    127,
-                    0,
-                    0,
-                    1,
-                    port_bytes[0],
-                    port_bytes[1],
-                ])
-                .await
-                .unwrap();
+            stream.write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, port_bytes[0], port_bytes[1]]).await.unwrap();
             tokio::time::sleep(Duration::from_secs(2)).await;
         });
 
         let dst: SocketAddr = "127.0.0.1:9999".parse().unwrap();
-        let session =
-            UdpSession::new(proxy_addr, Auth::NoAuth).with_recv_timeout(Duration::from_millis(100));
+        let session = UdpSession::new(proxy_addr, Auth::NoAuth).with_recv_timeout(Duration::from_millis(100));
 
-        let result = session
-            .relay_once(dst, b"ping", CancellationToken::new())
-            .await
-            .unwrap();
+        let result = session.relay_once(dst, b"ping", CancellationToken::new()).await.unwrap();
         assert!(result.is_none(), "timed-out relay must return None");
     }
 
@@ -279,9 +232,7 @@ mod tests {
     async fn relay_once_bad_proxy_returns_err() {
         let bad_proxy: SocketAddr = "127.0.0.1:1".parse().unwrap();
         let session = UdpSession::new(bad_proxy, Auth::NoAuth);
-        let result = session
-            .relay_once(bad_proxy, b"x", CancellationToken::new())
-            .await;
+        let result = session.relay_once(bad_proxy, b"x", CancellationToken::new()).await;
         assert!(result.is_err(), "unreachable proxy must yield Err");
     }
 }

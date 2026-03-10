@@ -1,13 +1,12 @@
 #![forbid(unsafe_code)]
 
 use ciadpi_config::{
-    DesyncGroup, DesyncMode, OffsetExpr, FM_ORIG, FM_RAND, OFFSET_END, OFFSET_HOST, OFFSET_MID,
-    OFFSET_RAND, OFFSET_SNI,
+    DesyncGroup, DesyncMode, OffsetExpr, FM_ORIG, FM_RAND, OFFSET_END, OFFSET_HOST, OFFSET_MID, OFFSET_RAND, OFFSET_SNI,
 };
 use ciadpi_packets::{
-    change_tls_sni_seeded_like_c, is_http, is_tls_client_hello, mod_http_like_c, parse_http,
-    parse_tls, part_tls_like_c, randomize_tls_seeded_like_c, OracleRng, DEFAULT_FAKE_HTTP,
-    DEFAULT_FAKE_TLS, DEFAULT_FAKE_UDP, IS_HTTP, IS_HTTPS,
+    change_tls_sni_seeded_like_c, is_http, is_tls_client_hello, mod_http_like_c, parse_http, parse_tls,
+    part_tls_like_c, randomize_tls_seeded_like_c, OracleRng, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, DEFAULT_FAKE_UDP,
+    IS_HTTP, IS_HTTPS,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -67,30 +66,17 @@ fn init_proto_info(buffer: &[u8], info: &mut ProtoInfo) {
     if let Some(host) = parse_tls(buffer) {
         info.kind = IS_HTTPS;
         info.host_len = host.len();
-        info.host_pos = buffer
-            .windows(host.len())
-            .position(|window| window == host)
-            .unwrap_or(0);
+        info.host_pos = buffer.windows(host.len()).position(|window| window == host).unwrap_or(0);
     } else if let Some(host) = parse_http(buffer) {
         if info.kind == 0 {
             info.kind = IS_HTTP;
         }
         info.host_len = host.host.len();
-        info.host_pos = buffer
-            .windows(host.host.len())
-            .position(|window| window == host.host)
-            .unwrap_or(0);
+        info.host_pos = buffer.windows(host.host.len()).position(|window| window == host.host).unwrap_or(0);
     }
 }
 
-fn gen_offset(
-    expr: OffsetExpr,
-    buffer: &[u8],
-    n: usize,
-    lp: i64,
-    info: &mut ProtoInfo,
-    rng: &mut OracleRng,
-) -> i64 {
+fn gen_offset(expr: OffsetExpr, buffer: &[u8], n: usize, lp: i64, info: &mut ProtoInfo, rng: &mut OracleRng) -> i64 {
     let mut pos = expr.pos;
     if expr.flag & (OFFSET_SNI | OFFSET_HOST) != 0 {
         init_proto_info(buffer, info);
@@ -116,11 +102,7 @@ fn gen_offset(
     pos
 }
 
-pub fn apply_tamper(
-    group: &DesyncGroup,
-    input: &[u8],
-    seed: u32,
-) -> Result<TamperResult, DesyncError> {
+pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<TamperResult, DesyncError> {
     let mut output = input.to_vec();
     let mut info = ProtoInfo::default();
     let mut rng = OracleRng::seeded(seed);
@@ -159,10 +141,7 @@ pub fn apply_tamper(
                 if pos < lp {
                     break;
                 }
-                let tail = part_tls_like_c(
-                    &output[lp as usize..],
-                    (pos - lp).try_into().map_err(|_| DesyncError)?,
-                );
+                let tail = part_tls_like_c(&output[lp as usize..], (pos - lp).try_into().map_err(|_| DesyncError)?);
                 if tail.rc <= 0 {
                     break;
                 }
@@ -177,17 +156,10 @@ pub fn apply_tamper(
         }
     }
 
-    Ok(TamperResult {
-        bytes: output,
-        proto: info,
-    })
+    Ok(TamperResult { bytes: output, proto: info })
 }
 
-pub fn build_fake_packet(
-    group: &DesyncGroup,
-    input: &[u8],
-    seed: u32,
-) -> Result<FakePacketPlan, DesyncError> {
+pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<FakePacketPlan, DesyncError> {
     let mut info = ProtoInfo::default();
     let mut rng = OracleRng::seeded(seed);
     let sni = if group.fake_sni_list.is_empty() {
@@ -220,8 +192,7 @@ pub fn build_fake_packet(
         output = input.to_vec();
         if let Some(sni) = sni {
             let target = normalize_fake_tls_size(group.fake_tls_size, input.len());
-            let mutation =
-                change_tls_sni_seeded_like_c(&output, sni, output.len().max(target), seed);
+            let mutation = change_tls_sni_seeded_like_c(&output, sni, output.len().max(target), seed);
             if mutation.rc == 0 {
                 output = mutation.bytes;
                 built_from_orig = true;
@@ -233,8 +204,7 @@ pub fn build_fake_packet(
 
     if !built_from_orig {
         if let Some(sni) = sni {
-            let mutation =
-                change_tls_sni_seeded_like_c(&output, sni, output.len().max(max_size), seed);
+            let mutation = change_tls_sni_seeded_like_c(&output, sni, output.len().max(max_size), seed);
             if mutation.rc == 0 {
                 output = mutation.bytes;
             }
@@ -245,21 +215,11 @@ pub fn build_fake_packet(
         output = randomize_tls_seeded_like_c(&output, seed).bytes;
     }
 
-    let fake_offset = group
-        .fake_offset
-        .map(|expr| gen_offset(expr, input, input.len(), 0, &mut info, &mut rng))
-        .unwrap_or(0);
-    let fake_offset = if fake_offset < 0 || fake_offset as usize > output.len() {
-        0
-    } else {
-        fake_offset as usize
-    };
+    let fake_offset =
+        group.fake_offset.map(|expr| gen_offset(expr, input, input.len(), 0, &mut info, &mut rng)).unwrap_or(0);
+    let fake_offset = if fake_offset < 0 || fake_offset as usize > output.len() { 0 } else { fake_offset as usize };
 
-    Ok(FakePacketPlan {
-        bytes: output,
-        fake_offset,
-        proto: info,
-    })
+    Ok(FakePacketPlan { bytes: output, fake_offset, proto: info })
 }
 
 fn normalize_fake_tls_size(value: i32, input_len: usize) -> usize {
@@ -272,12 +232,7 @@ fn normalize_fake_tls_size(value: i32, input_len: usize) -> usize {
     }
 }
 
-pub fn plan_tcp(
-    group: &DesyncGroup,
-    input: &[u8],
-    seed: u32,
-    default_ttl: u8,
-) -> Result<DesyncPlan, DesyncError> {
+pub fn plan_tcp(group: &DesyncGroup, input: &[u8], seed: u32, default_ttl: u8) -> Result<DesyncPlan, DesyncError> {
     let tampered = apply_tamper(group, input, seed)?;
     let mut info = tampered.proto;
     let mut rng = OracleRng::seeded(seed);
@@ -286,35 +241,23 @@ pub fn plan_tcp(
     let mut lp = 0i64;
 
     for part in &group.parts {
-        let mut pos = gen_offset(
-            part.offset,
-            &tampered.bytes,
-            tampered.bytes.len(),
-            lp,
-            &mut info,
-            &mut rng,
-        );
+        let mut pos = gen_offset(part.offset, &tampered.bytes, tampered.bytes.len(), lp, &mut info, &mut rng);
         if pos < 0 || pos < lp {
             return Err(DesyncError);
         }
         if pos > tampered.bytes.len() as i64 {
             pos = tampered.bytes.len() as i64;
         }
-        steps.push(PlannedStep {
-            mode: part.mode,
-            start: lp,
-            end: pos,
-        });
+        steps.push(PlannedStep { mode: part.mode, start: lp, end: pos });
         let chunk = tampered.bytes[lp as usize..pos as usize].to_vec();
         match part.mode {
             DesyncMode::Split | DesyncMode::None => {
                 actions.push(DesyncAction::Write(chunk));
                 actions.push(DesyncAction::AwaitWritable);
             }
-            DesyncMode::Oob => actions.push(DesyncAction::WriteUrgent {
-                prefix: chunk,
-                urgent_byte: group.oob_data.unwrap_or(b'a'),
-            }),
+            DesyncMode::Oob => {
+                actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.oob_data.unwrap_or(b'a') })
+            }
             DesyncMode::Disorder => {
                 actions.push(DesyncAction::SetTtl(1));
                 actions.push(DesyncAction::Write(chunk));
@@ -323,10 +266,7 @@ pub fn plan_tcp(
             }
             DesyncMode::Disoob => {
                 actions.push(DesyncAction::SetTtl(1));
-                actions.push(DesyncAction::WriteUrgent {
-                    prefix: chunk,
-                    urgent_byte: group.oob_data.unwrap_or(b'a'),
-                });
+                actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.oob_data.unwrap_or(b'a') });
                 actions.push(DesyncAction::AwaitWritable);
                 actions.push(DesyncAction::RestoreDefaultTtl);
             }
@@ -338,9 +278,7 @@ pub fn plan_tcp(
                 if group.md5sig {
                     actions.push(DesyncAction::SetMd5Sig { key_len: 5 });
                 }
-                actions.push(DesyncAction::Write(
-                    fake.bytes[fake.fake_offset..fake_end].to_vec(),
-                ));
+                actions.push(DesyncAction::Write(fake.bytes[fake.fake_offset..fake_end].to_vec()));
                 if group.md5sig {
                     actions.push(DesyncAction::SetMd5Sig { key_len: 0 });
                 }
@@ -360,12 +298,7 @@ pub fn plan_tcp(
         actions.push(DesyncAction::Write(tampered.bytes[lp as usize..].to_vec()));
     }
 
-    Ok(DesyncPlan {
-        tampered: tampered.bytes,
-        steps,
-        proto: info,
-        actions,
-    })
+    Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions })
 }
 
 pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8) -> Vec<DesyncAction> {
@@ -374,10 +307,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8) -> Vec<Des
         actions.push(DesyncAction::AttachDropSack);
     }
     if group.udp_fake_count > 0 {
-        let mut fake = group
-            .fake_data
-            .clone()
-            .unwrap_or_else(|| DEFAULT_FAKE_UDP.to_vec());
+        let mut fake = group.fake_data.clone().unwrap_or_else(|| DEFAULT_FAKE_UDP.to_vec());
         if let Some(offset) = group.fake_offset {
             if offset.pos >= 0 && (offset.pos as usize) < fake.len() {
                 fake = fake[offset.pos as usize..].to_vec();
@@ -407,34 +337,19 @@ mod tests {
     use ciadpi_config::PartSpec;
 
     fn split_expr(pos: i64) -> OffsetExpr {
-        OffsetExpr {
-            pos,
-            flag: 0,
-            repeats: 1,
-            skip: 0,
-        }
+        OffsetExpr { pos, flag: 0, repeats: 1, skip: 0 }
     }
 
     #[test]
     fn plan_tcp_split_emits_chunk_and_tail_actions() {
         let mut group = DesyncGroup::new(0);
-        group.parts.push(PartSpec {
-            mode: DesyncMode::Split,
-            offset: split_expr(5),
-        });
+        group.parts.push(PartSpec { mode: DesyncMode::Split, offset: split_expr(5) });
         let payload = b"hello world";
 
         let plan = plan_tcp(&group, payload, 7, 64).expect("plan split tcp");
 
         assert_eq!(plan.tampered, payload);
-        assert_eq!(
-            plan.steps,
-            vec![PlannedStep {
-                mode: DesyncMode::Split,
-                start: 0,
-                end: 5,
-            }]
-        );
+        assert_eq!(plan.steps, vec![PlannedStep { mode: DesyncMode::Split, start: 0, end: 5 }]);
         assert_eq!(
             plan.actions,
             vec![
@@ -450,10 +365,7 @@ mod tests {
         let mut group = DesyncGroup::new(0);
         group.ttl = Some(9);
         group.fake_data = Some(b"FAKEPAYLOAD".to_vec());
-        group.parts.push(PartSpec {
-            mode: DesyncMode::Fake,
-            offset: split_expr(4),
-        });
+        group.parts.push(PartSpec { mode: DesyncMode::Fake, offset: split_expr(4) });
         let payload = b"hello world";
 
         let plan = plan_tcp(&group, payload, 3, 32).expect("plan fake tcp");

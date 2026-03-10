@@ -53,6 +53,34 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }
 url = "2"
 webpki-roots = "0.26"
 
+[workspace.lints.clippy]
+# Correctness & suspicious (errors)
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+
+# Style & complexity (warnings)
+style = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+
+# Cherry-picked pedantic lints
+cloned_instead_of_copied = "warn"
+explicit_iter_loop = "warn"
+implicit_clone = "warn"
+inefficient_to_string = "warn"
+map_unwrap_or = "warn"
+redundant_closure_for_method_calls = "warn"
+semicolon_if_nothing_returned = "warn"
+uninlined_format_args = "warn"
+unnested_or_patterns = "warn"
+
+# JNI/FFI allowances
+missing_safety_doc = "allow"
+not_unsafe_ptr_arg_deref = "allow"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+
 [profile.release]
 lto = "thin"
 panic = "abort"

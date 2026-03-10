@@ -10,8 +10,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{
-    ClientConfig, ClientConnection, DigitallySignedStruct, Error as TlsError, RootCertStore,
-    SignatureScheme, StreamOwned,
+    ClientConfig, ClientConnection, DigitallySignedStruct, Error as TlsError, RootCertStore, SignatureScheme,
+    StreamOwned,
 };
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -145,6 +145,12 @@ pub struct MonitorSession {
     worker: Mutex<Option<JoinHandle<()>>>,
 }
 
+impl Default for MonitorSession {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MonitorSession {
     pub fn new() -> Self {
         Self {
@@ -155,19 +161,13 @@ impl MonitorSession {
     }
 
     pub fn start_scan(&self, session_id: String, request: ScanRequest) -> Result<(), String> {
-        let mut worker_guard = self
-            .worker
-            .lock()
-            .map_err(|_| "monitor worker poisoned".to_string())?;
+        let mut worker_guard = self.worker.lock().map_err(|_| "monitor worker poisoned".to_string())?;
         if worker_guard.is_some() {
             return Err("diagnostics scan already running".to_string());
         }
         self.cancel.store(false, Ordering::Relaxed);
         {
-            let mut shared = self
-                .shared
-                .lock()
-                .map_err(|_| "monitor shared state poisoned".to_string())?;
+            let mut shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
             shared.progress = None;
             shared.report = None;
             shared.passive_events.clear();
@@ -184,43 +184,22 @@ impl MonitorSession {
     }
 
     pub fn poll_progress_json(&self) -> Result<Option<String>, String> {
-        let shared = self
-            .shared
-            .lock()
-            .map_err(|_| "monitor shared state poisoned".to_string())?;
-        shared
-            .progress
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(|err| err.to_string())
+        let shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
+        shared.progress.as_ref().map(serde_json::to_string).transpose().map_err(|err| err.to_string())
     }
 
     pub fn take_report_json(&self) -> Result<Option<String>, String> {
         self.try_join_worker();
-        let shared = self
-            .shared
-            .lock()
-            .map_err(|_| "monitor shared state poisoned".to_string())?;
-        shared
-            .report
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(|err| err.to_string())
+        let shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
+        shared.report.as_ref().map(serde_json::to_string).transpose().map_err(|err| err.to_string())
     }
 
     pub fn poll_passive_events_json(&self) -> Result<Option<String>, String> {
         let events = {
-            let mut shared = self
-                .shared
-                .lock()
-                .map_err(|_| "monitor shared state poisoned".to_string())?;
+            let mut shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
             std::mem::take(&mut shared.passive_events)
         };
-        serde_json::to_string(&events)
-            .map(Some)
-            .map_err(|err| err.to_string())
+        serde_json::to_string(&events).map(Some).map_err(|err| err.to_string())
     }
 
     pub fn destroy(&self) {
@@ -302,7 +281,7 @@ struct FatHeaderObservation {
 #[derive(Debug)]
 enum ConnectionStream {
     Plain(TcpStream),
-    Tls(StreamOwned<ClientConnection, TcpStream>),
+    Tls(Box<StreamOwned<ClientConnection, TcpStream>>),
 }
 
 impl Read for ConnectionStream {
@@ -347,16 +326,9 @@ fn default_http_path() -> String {
     "/".to_string()
 }
 
-fn run_scan(
-    shared: Arc<Mutex<SharedState>>,
-    cancel: Arc<AtomicBool>,
-    session_id: String,
-    request: ScanRequest,
-) {
+fn run_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBool>, session_id: String, request: ScanRequest) {
     let started_at = now_ms();
-    let total_steps =
-        (request.dns_targets.len() + request.domain_targets.len() + request.tcp_targets.len())
-            .max(1);
+    let total_steps = (request.dns_targets.len() + request.domain_targets.len() + request.tcp_targets.len()).max(1);
     let transport = transport_for_request(&request);
     let mut completed_steps = 0usize;
     let mut results = Vec::new();
@@ -390,12 +362,7 @@ fn run_scan(
             return;
         }
         let probe = run_dns_probe(dns_target, &transport, &request.path_mode);
-        push_event(
-            &shared,
-            "dns_integrity",
-            event_level_for_outcome(&probe.outcome),
-            summarize_probe_event(&probe),
-        );
+        push_event(&shared, "dns_integrity", event_level_for_outcome(&probe.outcome), summarize_probe_event(&probe));
         results.push(probe);
         completed_steps += 1;
         set_progress(
@@ -444,12 +411,7 @@ fn run_scan(
             return;
         }
         let probe = run_tcp_probe(tcp_target, &request.whitelist_sni, &transport);
-        push_event(
-            &shared,
-            "tcp_fat_header",
-            event_level_for_outcome(&probe.outcome),
-            summarize_probe_event(&probe),
-        );
+        push_event(&shared, "tcp_fat_header", event_level_for_outcome(&probe.outcome), summarize_probe_event(&probe));
         results.push(probe);
         completed_steps += 1;
         set_progress(
@@ -465,10 +427,7 @@ fn run_scan(
         );
     }
 
-    let success_count = results
-        .iter()
-        .filter(|result| probe_is_success(&result.outcome))
-        .count();
+    let success_count = results.iter().filter(|result| probe_is_success(&result.outcome)).count();
     let summary = format!("{success_count}/{} probes succeeded", results.len());
     let report = ScanReport {
         session_id: session_id.clone(),
@@ -481,12 +440,7 @@ fn run_scan(
     };
 
     set_report(&shared, report);
-    push_event(
-        &shared,
-        "engine",
-        "info",
-        "Diagnostics finished".to_string(),
-    );
+    push_event(&shared, "engine", "info", "Diagnostics finished".to_string());
     set_progress(
         &shared,
         ScanProgress {
@@ -517,12 +471,7 @@ fn persist_cancelled_report(
         results,
     };
     set_report(&shared, report);
-    push_event(
-        &shared,
-        "engine",
-        "warn",
-        "Diagnostics cancelled".to_string(),
-    );
+    push_event(&shared, "engine", "warn", "Diagnostics cancelled".to_string());
     set_progress(
         &shared,
         ScanProgress {
@@ -537,32 +486,15 @@ fn persist_cancelled_report(
 }
 
 fn transport_for_request(request: &ScanRequest) -> TransportConfig {
-    match (
-        &request.path_mode,
-        request.proxy_host.as_ref(),
-        request.proxy_port,
-    ) {
-        (ScanPathMode::InPath, Some(host), Some(port)) => TransportConfig::Socks5 {
-            host: host.clone(),
-            port,
-        },
+    match (&request.path_mode, request.proxy_host.as_ref(), request.proxy_port) {
+        (ScanPathMode::InPath, Some(host), Some(port)) => TransportConfig::Socks5 { host: host.clone(), port },
         _ => TransportConfig::Direct,
     }
 }
 
-fn run_dns_probe(
-    target: &DnsTarget,
-    transport: &TransportConfig,
-    path_mode: &ScanPathMode,
-) -> ProbeResult {
-    let udp_server = target
-        .udp_server
-        .clone()
-        .unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());
-    let doh_url = target
-        .doh_url
-        .clone()
-        .unwrap_or_else(|| DEFAULT_DOH_URL.to_string());
+fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
+    let udp_server = target.udp_server.clone().unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());
+    let doh_url = target.doh_url.clone().unwrap_or_else(|| DEFAULT_DOH_URL.to_string());
     let udp_result = resolve_via_udp(&target.domain, &udp_server, transport);
     let doh_result = resolve_via_doh(&target.domain, &doh_url, transport);
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
@@ -592,22 +524,10 @@ fn run_dns_probe(
         target: target.domain.clone(),
         outcome,
         details: vec![
-            ProbeDetail {
-                key: "udpServer".to_string(),
-                value: udp_server,
-            },
-            ProbeDetail {
-                key: "udpAddresses".to_string(),
-                value: format_result_set(&udp_result),
-            },
-            ProbeDetail {
-                key: "dohUrl".to_string(),
-                value: doh_url,
-            },
-            ProbeDetail {
-                key: "dohAddresses".to_string(),
-                value: format_result_set(&doh_result),
-            },
+            ProbeDetail { key: "udpServer".to_string(), value: udp_server },
+            ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(&udp_result) },
+            ProbeDetail { key: "dohUrl".to_string(), value: doh_url },
+            ProbeDetail { key: "dohAddresses".to_string(), value: format_result_set(&doh_result) },
             ProbeDetail {
                 key: "expected".to_string(),
                 value: if expected.is_empty() {
@@ -670,89 +590,45 @@ fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> Probe
         target: target.host.clone(),
         outcome,
         details: vec![
-            ProbeDetail {
-                key: "resolved".to_string(),
-                value: format_socket_result(&resolved),
-            },
-            ProbeDetail {
-                key: "tlsStatus".to_string(),
-                value: preferred_tls.status.clone(),
-            },
+            ProbeDetail { key: "resolved".to_string(), value: format_socket_result(&resolved) },
+            ProbeDetail { key: "tlsStatus".to_string(), value: preferred_tls.status.clone() },
             ProbeDetail {
                 key: "tlsVersion".to_string(),
-                value: preferred_tls
-                    .version
-                    .clone()
-                    .unwrap_or_else(|| "unknown".to_string()),
+                value: preferred_tls.version.clone().unwrap_or_else(|| "unknown".to_string()),
             },
             ProbeDetail {
                 key: "tlsError".to_string(),
-                value: preferred_tls
-                    .error
-                    .clone()
-                    .unwrap_or_else(|| "none".to_string()),
+                value: preferred_tls.error.clone().unwrap_or_else(|| "none".to_string()),
             },
-            ProbeDetail {
-                key: "tlsSignal".to_string(),
-                value: tls_signal.to_string(),
-            },
-            ProbeDetail {
-                key: "tls13Status".to_string(),
-                value: tls13.status,
-            },
+            ProbeDetail { key: "tlsSignal".to_string(), value: tls_signal.to_string() },
+            ProbeDetail { key: "tls13Status".to_string(), value: tls13.status },
             ProbeDetail {
                 key: "tls13Version".to_string(),
                 value: tls13.version.unwrap_or_else(|| "unknown".to_string()),
             },
-            ProbeDetail {
-                key: "tls13Error".to_string(),
-                value: tls13.error.unwrap_or_else(|| "none".to_string()),
-            },
-            ProbeDetail {
-                key: "tls12Status".to_string(),
-                value: tls12.status,
-            },
+            ProbeDetail { key: "tls13Error".to_string(), value: tls13.error.unwrap_or_else(|| "none".to_string()) },
+            ProbeDetail { key: "tls12Status".to_string(), value: tls12.status },
             ProbeDetail {
                 key: "tls12Version".to_string(),
                 value: tls12.version.unwrap_or_else(|| "unknown".to_string()),
             },
-            ProbeDetail {
-                key: "tls12Error".to_string(),
-                value: tls12.error.unwrap_or_else(|| "none".to_string()),
-            },
-            ProbeDetail {
-                key: "httpStatus".to_string(),
-                value: http.status.clone(),
-            },
-            ProbeDetail {
-                key: "httpResponse".to_string(),
-                value: describe_http_observation(&http),
-            },
+            ProbeDetail { key: "tls12Error".to_string(), value: tls12.error.unwrap_or_else(|| "none".to_string()) },
+            ProbeDetail { key: "httpStatus".to_string(), value: http.status.clone() },
+            ProbeDetail { key: "httpResponse".to_string(), value: describe_http_observation(&http) },
         ],
     }
 }
 
-fn run_tcp_probe(
-    target: &TcpTarget,
-    whitelist_sni: &[String],
-    transport: &TransportConfig,
-) -> ProbeResult {
-    let base_host_header = target
-        .host_header
-        .clone()
-        .or_else(|| target.sni.clone())
-        .unwrap_or_else(|| target.provider.clone());
+fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transport: &TransportConfig) -> ProbeResult {
+    let base_host_header =
+        target.host_header.clone().or_else(|| target.sni.clone()).unwrap_or_else(|| target.provider.clone());
     let mut attempted_candidates = Vec::new();
 
     let initial_candidate = target.sni.clone().unwrap_or_default();
     let initial = run_fat_header_attempt(target, transport, &initial_candidate, &base_host_header);
     attempted_candidates.push(format!(
         "{}:{}",
-        if initial_candidate.is_empty() {
-            "<empty>"
-        } else {
-            initial_candidate.as_str()
-        },
+        if initial_candidate.is_empty() { "<empty>" } else { initial_candidate.as_str() },
         fat_status_label(&initial.status)
     ));
 
@@ -766,15 +642,9 @@ fn run_tcp_probe(
     if tried_whitelist_candidates {
         for candidate in whitelist_sni {
             let candidate_result = run_fat_header_attempt(target, transport, candidate, candidate);
-            attempted_candidates.push(format!(
-                "{}:{}",
-                candidate,
-                fat_status_label(&candidate_result.status)
-            ));
+            attempted_candidates.push(format!("{}:{}", candidate, fat_status_label(&candidate_result.status)));
             final_observation = candidate_result.clone();
-            if candidate_result.status == FatHeaderStatus::Success
-                || candidate_result.responses_seen > 0
-            {
+            if candidate_result.status == FatHeaderStatus::Success || candidate_result.responses_seen > 0 {
                 outcome = "whitelist_sni_ok".to_string();
                 winning_sni = Some(candidate.clone());
                 break;
@@ -790,14 +660,8 @@ fn run_tcp_probe(
         target: format!("{}:{} ({})", target.ip, target.port, target.provider),
         outcome,
         details: vec![
-            ProbeDetail {
-                key: "provider".to_string(),
-                value: target.provider.clone(),
-            },
-            ProbeDetail {
-                key: "attempts".to_string(),
-                value: attempted_candidates.join("|"),
-            },
+            ProbeDetail { key: "provider".to_string(), value: target.provider.clone() },
+            ProbeDetail { key: "attempts".to_string(), value: attempted_candidates.join("|") },
             ProbeDetail {
                 key: "selectedSni".to_string(),
                 value: winning_sni.unwrap_or_else(|| {
@@ -808,23 +672,12 @@ fn run_tcp_probe(
                     }
                 }),
             },
-            ProbeDetail {
-                key: "asn".to_string(),
-                value: target.asn.clone().unwrap_or_else(|| "unknown".to_string()),
-            },
-            ProbeDetail {
-                key: "bytesSent".to_string(),
-                value: final_observation.bytes_sent.to_string(),
-            },
-            ProbeDetail {
-                key: "responsesSeen".to_string(),
-                value: final_observation.responses_seen.to_string(),
-            },
+            ProbeDetail { key: "asn".to_string(), value: target.asn.clone().unwrap_or_else(|| "unknown".to_string()) },
+            ProbeDetail { key: "bytesSent".to_string(), value: final_observation.bytes_sent.to_string() },
+            ProbeDetail { key: "responsesSeen".to_string(), value: final_observation.responses_seen.to_string() },
             ProbeDetail {
                 key: "lastError".to_string(),
-                value: final_observation
-                    .error
-                    .unwrap_or_else(|| "none".to_string()),
+                value: final_observation.error.unwrap_or_else(|| "none".to_string()),
             },
         ],
     }
@@ -849,60 +702,29 @@ fn run_fat_header_attempt(
     };
 
     let uses_tls = target.port == 443;
-    let mut stream = match open_probe_stream(
-        &connect_target,
-        target.port,
-        transport,
-        Some(sni),
-        false,
-        TlsClientProfile::Auto,
-    ) {
-        Ok(stream) => stream,
-        Err(err) => {
-            let status = if uses_tls {
-                FatHeaderStatus::HandshakeFailed
-            } else {
-                FatHeaderStatus::ConnectFailed
-            };
-            return FatHeaderObservation {
-                status,
-                bytes_sent: 0,
-                responses_seen: 0,
-                error: Some(err),
-            };
-        }
-    };
+    let mut stream =
+        match open_probe_stream(&connect_target, target.port, transport, Some(sni), false, TlsClientProfile::Auto) {
+            Ok(stream) => stream,
+            Err(err) => {
+                let status = if uses_tls { FatHeaderStatus::HandshakeFailed } else { FatHeaderStatus::ConnectFailed };
+                return FatHeaderObservation { status, bytes_sent: 0, responses_seen: 0, error: Some(err) };
+            }
+        };
 
-    let requests = target
-        .fat_header_requests
-        .unwrap_or(FAT_HEADER_REQUESTS)
-        .max(1);
+    let requests = target.fat_header_requests.unwrap_or(FAT_HEADER_REQUESTS).max(1);
     let mut bytes_sent = 0usize;
     let mut responses_seen = 0usize;
-    let host_header = if host_header.is_empty() {
-        "localhost"
-    } else {
-        host_header
-    };
+    let host_header = if host_header.is_empty() { "localhost" } else { host_header };
 
     for index in 0..requests {
         let pad = "A".repeat(8 * 1024 + (index * 128));
-        let payload = format!(
-            "HEAD / HTTP/1.1\r\nHost: {host_header}\r\nConnection: keep-alive\r\nX-Pad: {pad}\r\n\r\n"
-        );
+        let payload =
+            format!("HEAD / HTTP/1.1\r\nHost: {host_header}\r\nConnection: keep-alive\r\nX-Pad: {pad}\r\n\r\n");
         bytes_sent += payload.len();
-        if let Err(err) = stream
-            .write_all(payload.as_bytes())
-            .and_then(|_| stream.flush())
-        {
+        if let Err(err) = stream.write_all(payload.as_bytes()).and_then(|_| stream.flush()) {
             let status = classify_fat_io_error(err.kind(), bytes_sent, responses_seen);
             stream.shutdown();
-            return FatHeaderObservation {
-                status,
-                bytes_sent,
-                responses_seen,
-                error: Some(err.to_string()),
-            };
+            return FatHeaderObservation { status, bytes_sent, responses_seen, error: Some(err.to_string()) };
         }
 
         match read_http_headers(&mut stream, MAX_HTTP_BYTES) {
@@ -912,23 +734,13 @@ fn run_fat_header_attempt(
             Err(err) => {
                 let status = classify_fat_error_message(&err, bytes_sent, responses_seen);
                 stream.shutdown();
-                return FatHeaderObservation {
-                    status,
-                    bytes_sent,
-                    responses_seen,
-                    error: Some(err),
-                };
+                return FatHeaderObservation { status, bytes_sent, responses_seen, error: Some(err) };
             }
         }
     }
 
     stream.shutdown();
-    FatHeaderObservation {
-        status: FatHeaderStatus::Success,
-        bytes_sent,
-        responses_seen,
-        error: None,
-    }
+    FatHeaderObservation { status: FatHeaderStatus::Success, bytes_sent, responses_seen, error: None }
 }
 
 fn classify_fat_header_outcome(status: &FatHeaderStatus) -> &'static str {
@@ -953,11 +765,7 @@ fn fat_status_label(status: &FatHeaderStatus) -> &'static str {
     }
 }
 
-fn classify_fat_io_error(
-    kind: ErrorKind,
-    bytes_sent: usize,
-    responses_seen: usize,
-) -> FatHeaderStatus {
+fn classify_fat_io_error(kind: ErrorKind, bytes_sent: usize, responses_seen: usize) -> FatHeaderStatus {
     match kind {
         ErrorKind::TimedOut | ErrorKind::WouldBlock => FatHeaderStatus::Timeout,
         ErrorKind::ConnectionReset
@@ -974,11 +782,7 @@ fn classify_fat_io_error(
     }
 }
 
-fn classify_fat_error_message(
-    message: &str,
-    bytes_sent: usize,
-    responses_seen: usize,
-) -> FatHeaderStatus {
+fn classify_fat_error_message(message: &str, bytes_sent: usize, responses_seen: usize) -> FatHeaderStatus {
     let lower = message.to_ascii_lowercase();
     if lower.contains("timed out") {
         FatHeaderStatus::Timeout
@@ -1000,12 +804,7 @@ fn classify_fat_error_message(
 fn probe_is_success(outcome: &str) -> bool {
     matches!(
         outcome,
-        "dns_match"
-            | "dns_expected_mismatch"
-            | "tls_ok"
-            | "http_ok"
-            | "tcp_fat_header_ok"
-            | "whitelist_sni_ok"
+        "dns_match" | "dns_expected_mismatch" | "tls_ok" | "http_ok" | "tcp_fat_header_ok" | "whitelist_sni_ok"
     )
 }
 
@@ -1016,10 +815,7 @@ fn describe_transport(transport: &TransportConfig) -> String {
     }
 }
 
-fn preferred_tls_observation<'a>(
-    tls13: &'a TlsObservation,
-    tls12: &'a TlsObservation,
-) -> &'a TlsObservation {
+fn preferred_tls_observation<'a>(tls13: &'a TlsObservation, tls12: &'a TlsObservation) -> &'a TlsObservation {
     if tls13.certificate_anomaly {
         tls13
     } else if tls12.certificate_anomaly {
@@ -1075,12 +871,7 @@ fn summarize_probe_event(probe: &ProbeResult) -> String {
 }
 
 fn probe_detail_value<'a>(probe: &'a ProbeResult, key: &str) -> &'a str {
-    probe
-        .details
-        .iter()
-        .find(|detail| detail.key == key)
-        .map(|detail| detail.value.as_str())
-        .unwrap_or("unknown")
+    probe.details.iter().find(|detail| detail.key == key).map_or("unknown", |detail| detail.value.as_str())
 }
 
 fn event_level_for_outcome(outcome: &str) -> &'static str {
@@ -1091,11 +882,7 @@ fn event_level_for_outcome(outcome: &str) -> &'static str {
     }
 }
 
-fn resolve_via_udp(
-    domain: &str,
-    server: &str,
-    transport: &TransportConfig,
-) -> Result<Vec<String>, String> {
+fn resolve_via_udp(domain: &str, server: &str, transport: &TransportConfig) -> Result<Vec<String>, String> {
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
     let packet = build_dns_query(domain, query_id)?;
     let response = match transport {
@@ -1108,11 +895,7 @@ fn resolve_via_udp(
     parse_dns_response(&response, query_id)
 }
 
-fn resolve_via_doh(
-    domain: &str,
-    doh_url: &str,
-    transport: &TransportConfig,
-) -> Result<Vec<String>, String> {
+fn resolve_via_doh(domain: &str, doh_url: &str, transport: &TransportConfig) -> Result<Vec<String>, String> {
     let url = Url::parse(doh_url).map_err(|err| err.to_string())?;
     let mut path = url.path().to_string();
     if path.is_empty() {
@@ -1127,23 +910,15 @@ fn resolve_via_doh(
     }
     path.push_str(&format!("name={domain}&type=A"));
     let secure = url.scheme() == "https";
-    let host = url
-        .host_str()
-        .ok_or_else(|| "DoH URL missing host".to_string())?
-        .to_string();
-    let port = url
-        .port_or_known_default()
-        .ok_or_else(|| "DoH URL missing port".to_string())?;
+    let host = url.host_str().ok_or_else(|| "DoH URL missing host".to_string())?.to_string();
+    let port = url.port_or_known_default().ok_or_else(|| "DoH URL missing port".to_string())?;
     let target = TargetAddress::Host(host.clone());
     let response = execute_http_request(&target, port, transport, &host, &path, secure)?;
-    let payload: DnsJsonResponse =
-        serde_json::from_slice(&response.body).map_err(|err| err.to_string())?;
+    let payload: DnsJsonResponse = serde_json::from_slice(&response.body).map_err(|err| err.to_string())?;
     let mut ips = Vec::new();
     for answer in payload.answers {
-        if answer.record_type == 1 {
-            if answer.data.parse::<IpAddr>().is_ok() {
-                ips.push(answer.data);
-            }
+        if answer.record_type == 1 && answer.data.parse::<IpAddr>().is_ok() {
+            ips.push(answer.data);
         }
     }
     if ips.is_empty() {
@@ -1161,16 +936,10 @@ fn try_http_request(
     secure: bool,
 ) -> HttpObservation {
     match execute_http_request(target, port, transport, host_header, path, secure) {
-        Ok(response) => HttpObservation {
-            status: classify_http_response(&response),
-            response: Some(response),
-            error: None,
-        },
-        Err(err) => HttpObservation {
-            status: "http_unreachable".to_string(),
-            response: None,
-            error: Some(err),
-        },
+        Ok(response) => {
+            HttpObservation { status: classify_http_response(&response), response: Some(response), error: None }
+        }
+        Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
     }
 }
 
@@ -1190,12 +959,8 @@ fn execute_http_request(
         secure,
         TlsClientProfile::Auto,
     )?;
-    let request = format!(
-        "GET {path} HTTP/1.1\r\nHost: {host_header}\r\nAccept: */*\r\nConnection: close\r\n\r\n"
-    );
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|err| err.to_string())?;
+    let request = format!("GET {path} HTTP/1.1\r\nHost: {host_header}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
+    stream.write_all(request.as_bytes()).map_err(|err| err.to_string())?;
     stream.flush().map_err(|err| err.to_string())?;
     let response = read_http_response(&mut stream, MAX_HTTP_BYTES)?;
     stream.shutdown();
@@ -1210,26 +975,14 @@ fn try_tls_handshake(
     verify_certificates: bool,
     profile: TlsClientProfile,
 ) -> TlsObservation {
-    match open_probe_stream(
-        target,
-        port,
-        transport,
-        Some(server_name),
-        verify_certificates,
-        profile,
-    ) {
+    match open_probe_stream(target, port, transport, Some(server_name), verify_certificates, profile) {
         Ok(mut stream) => {
             let version = match &mut stream {
                 ConnectionStream::Plain(_) => None,
                 ConnectionStream::Tls(stream) => tls_version_label(stream.conn.protocol_version()),
             };
             stream.shutdown();
-            TlsObservation {
-                status: "tls_ok".to_string(),
-                version,
-                error: None,
-                certificate_anomaly: false,
-            }
+            TlsObservation { status: "tls_ok".to_string(), version, error: None, certificate_anomaly: false }
         }
         Err(err) => {
             let certificate_anomaly = is_certificate_error(&err);
@@ -1256,32 +1009,18 @@ fn open_probe_stream(
     profile: TlsClientProfile,
 ) -> Result<ConnectionStream, String> {
     let socket = connect_transport(target, port, transport)?;
-    socket
-        .set_read_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
-    socket
-        .set_write_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
+    socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
 
     match tls_name {
-        Some(name)
-            if verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto) =>
-        {
+        Some(name) if verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto) => {
             let builder = match profile {
                 TlsClientProfile::Auto => ClientConfig::builder(),
-                TlsClientProfile::Tls12Only => {
-                    ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS12])
-                }
-                TlsClientProfile::Tls13Only => {
-                    ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
-                }
+                TlsClientProfile::Tls12Only => ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS12]),
+                TlsClientProfile::Tls13Only => ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13]),
             };
             let config = if verify_certificates {
-                Arc::new(
-                    builder
-                        .with_root_certificates(default_root_store())
-                        .with_no_client_auth(),
-                )
+                Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
             } else {
                 Arc::new(
                     builder
@@ -1291,32 +1030,21 @@ fn open_probe_stream(
                 )
             };
             let server_name = make_server_name(name, target)?;
-            let connection =
-                ClientConnection::new(config, server_name).map_err(|err| err.to_string())?;
+            let connection = ClientConnection::new(config, server_name).map_err(|err| err.to_string())?;
             let mut tls_stream = StreamOwned::new(connection, socket);
             while tls_stream.conn.is_handshaking() {
-                tls_stream
-                    .conn
-                    .complete_io(&mut tls_stream.sock)
-                    .map_err(|err| err.to_string())?;
+                tls_stream.conn.complete_io(&mut tls_stream.sock).map_err(|err| err.to_string())?;
             }
-            Ok(ConnectionStream::Tls(tls_stream))
+            Ok(ConnectionStream::Tls(Box::new(tls_stream)))
         }
         _ => Ok(ConnectionStream::Plain(socket)),
     }
 }
 
-fn connect_transport(
-    target: &TargetAddress,
-    port: u16,
-    transport: &TransportConfig,
-) -> Result<TcpStream, String> {
+fn connect_transport(target: &TargetAddress, port: u16, transport: &TransportConfig) -> Result<TcpStream, String> {
     match transport {
         TransportConfig::Direct => connect_direct(target, port),
-        TransportConfig::Socks5 {
-            host,
-            port: proxy_port,
-        } => {
+        TransportConfig::Socks5 { host, port: proxy_port } => {
             let proxy = connect_direct(&TargetAddress::Host(host.clone()), *proxy_port)?;
             negotiate_socks5(proxy, target, port)
         }
@@ -1325,15 +1053,9 @@ fn connect_transport(
 
 fn relay_udp_direct(server: &str, payload: &[u8]) -> Result<Vec<u8>, String> {
     let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).map_err(|err| err.to_string())?;
-    socket
-        .set_read_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
-    socket
-        .set_write_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
-    socket
-        .send_to(payload, server)
-        .map_err(|err| err.to_string())?;
+    socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    socket.send_to(payload, server).map_err(|err| err.to_string())?;
     let mut buf = [0u8; 2048];
     let (size, _) = socket.recv_from(&mut buf).map_err(|err| err.to_string())?;
     Ok(buf[..size].to_vec())
@@ -1346,12 +1068,8 @@ fn relay_udp_via_socks5(
     payload: &[u8],
 ) -> Result<Vec<u8>, String> {
     let mut control = connect_direct(&TargetAddress::Host(proxy_host.to_string()), proxy_port)?;
-    control
-        .set_read_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
-    control
-        .set_write_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
+    control.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    control.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     socks5_noauth_handshake(&mut control)?;
     let relay_addr = normalize_udp_relay_addr(socks5_udp_associate(&mut control)?, &control)?;
 
@@ -1361,10 +1079,8 @@ fn relay_udp_via_socks5(
         "[::]:0".parse().expect("valid IPv6 UDP bind")
     };
     let udp = UdpSocket::bind(bind_addr).map_err(|err| err.to_string())?;
-    udp.set_read_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
-    udp.set_write_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
+    udp.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    udp.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     udp.connect(relay_addr).map_err(|err| err.to_string())?;
     let frame = encode_socks5_udp_frame(destination, payload);
     udp.send(&frame).map_err(|err| err.to_string())?;
@@ -1376,13 +1092,9 @@ fn relay_udp_via_socks5(
 }
 
 fn socks5_noauth_handshake(stream: &mut TcpStream) -> Result<(), String> {
-    stream
-        .write_all(&[0x05, 0x01, 0x00])
-        .map_err(|err| err.to_string())?;
+    stream.write_all(&[0x05, 0x01, 0x00]).map_err(|err| err.to_string())?;
     let mut reply = [0u8; 2];
-    stream
-        .read_exact(&mut reply)
-        .map_err(|err| err.to_string())?;
+    stream.read_exact(&mut reply).map_err(|err| err.to_string())?;
     if reply != [0x05, 0x00] {
         return Err(format!("SOCKS5 auth failed: {reply:?}"));
     }
@@ -1393,9 +1105,7 @@ fn socks5_udp_associate(stream: &mut TcpStream) -> Result<SocketAddr, String> {
     let request = [0x05, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
     stream.write_all(&request).map_err(|err| err.to_string())?;
     let mut header = [0u8; 4];
-    stream
-        .read_exact(&mut header)
-        .map_err(|err| err.to_string())?;
+    stream.read_exact(&mut header).map_err(|err| err.to_string())?;
     if header[1] != 0x00 {
         return Err(format!("SOCKS5 UDP ASSOCIATE failed: {:x}", header[1]));
     }
@@ -1403,39 +1113,22 @@ fn socks5_udp_associate(stream: &mut TcpStream) -> Result<SocketAddr, String> {
         0x01 => {
             let mut addr = [0u8; 4];
             let mut port = [0u8; 2];
-            stream
-                .read_exact(&mut addr)
-                .map_err(|err| err.to_string())?;
-            stream
-                .read_exact(&mut port)
-                .map_err(|err| err.to_string())?;
-            Ok(SocketAddr::new(
-                IpAddr::V4(Ipv4Addr::from(addr)),
-                u16::from_be_bytes(port),
-            ))
+            stream.read_exact(&mut addr).map_err(|err| err.to_string())?;
+            stream.read_exact(&mut port).map_err(|err| err.to_string())?;
+            Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::from(addr)), u16::from_be_bytes(port)))
         }
         0x04 => {
             let mut addr = [0u8; 16];
             let mut port = [0u8; 2];
-            stream
-                .read_exact(&mut addr)
-                .map_err(|err| err.to_string())?;
-            stream
-                .read_exact(&mut port)
-                .map_err(|err| err.to_string())?;
-            Ok(SocketAddr::new(
-                IpAddr::V6(std::net::Ipv6Addr::from(addr)),
-                u16::from_be_bytes(port),
-            ))
+            stream.read_exact(&mut addr).map_err(|err| err.to_string())?;
+            stream.read_exact(&mut port).map_err(|err| err.to_string())?;
+            Ok(SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::from(addr)), u16::from_be_bytes(port)))
         }
         atyp => Err(format!("SOCKS5 UDP ASSOCIATE atyp unsupported: {atyp}")),
     }
 }
 
-fn normalize_udp_relay_addr(
-    relay_addr: SocketAddr,
-    control: &TcpStream,
-) -> Result<SocketAddr, String> {
+fn normalize_udp_relay_addr(relay_addr: SocketAddr, control: &TcpStream) -> Result<SocketAddr, String> {
     if relay_addr.ip().is_unspecified() {
         let peer = control.peer_addr().map_err(|err| err.to_string())?;
         Ok(SocketAddr::new(peer.ip(), relay_addr.port()))
@@ -1481,10 +1174,8 @@ fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u8>), String
             }
             let mut raw = [0u8; 16];
             raw.copy_from_slice(&frame[4..20]);
-            let address = SocketAddr::new(
-                IpAddr::V6(std::net::Ipv6Addr::from(raw)),
-                u16::from_be_bytes([frame[20], frame[21]]),
-            );
+            let address =
+                SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::from(raw)), u16::from_be_bytes([frame[20], frame[21]]));
             Ok((address, frame[22..].to_vec()))
         }
         atyp => Err(format!("SOCKS5 UDP atyp unsupported: {atyp}")),
@@ -1492,11 +1183,7 @@ fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u8>), String
 }
 
 fn resolve_first_socket_addr(value: &str) -> Result<SocketAddr, String> {
-    value
-        .to_socket_addrs()
-        .map_err(|err| err.to_string())?
-        .next()
-        .ok_or_else(|| "no_socket_addrs".to_string())
+    value.to_socket_addrs().map_err(|err| err.to_string())?.next().ok_or_else(|| "no_socket_addrs".to_string())
 }
 
 fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
@@ -1511,24 +1198,12 @@ fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, String
     Err(last_error.unwrap_or_else(|| "no_addresses".to_string()))
 }
 
-fn negotiate_socks5(
-    mut proxy: TcpStream,
-    target: &TargetAddress,
-    port: u16,
-) -> Result<TcpStream, String> {
-    proxy
-        .set_read_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
-    proxy
-        .set_write_timeout(Some(IO_TIMEOUT))
-        .map_err(|err| err.to_string())?;
-    proxy
-        .write_all(&[0x05, 0x01, 0x00])
-        .map_err(|err| err.to_string())?;
+fn negotiate_socks5(mut proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
+    proxy.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    proxy.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    proxy.write_all(&[0x05, 0x01, 0x00]).map_err(|err| err.to_string())?;
     let mut auth_reply = [0u8; 2];
-    proxy
-        .read_exact(&mut auth_reply)
-        .map_err(|err| err.to_string())?;
+    proxy.read_exact(&mut auth_reply).map_err(|err| err.to_string())?;
     if auth_reply != [0x05, 0x00] {
         return Err(format!("SOCKS5 auth failed: {auth_reply:?}"));
     }
@@ -1557,9 +1232,7 @@ fn negotiate_socks5(
     proxy.write_all(&request).map_err(|err| err.to_string())?;
 
     let mut reply = [0u8; 4];
-    proxy
-        .read_exact(&mut reply)
-        .map_err(|err| err.to_string())?;
+    proxy.read_exact(&mut reply).map_err(|err| err.to_string())?;
     if reply[1] != 0x00 {
         return Err(format!("SOCKS5 connect failed: {:x}", reply[1]));
     }
@@ -1586,20 +1259,15 @@ fn negotiate_socks5(
 fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<SocketAddr>, String> {
     match target {
         TargetAddress::Ip(ip) => Ok(vec![SocketAddr::new(*ip, port)]),
-        TargetAddress::Host(host) => (host.as_str(), port)
-            .to_socket_addrs()
-            .map(|iter| iter.collect())
-            .map_err(|err| err.to_string()),
+        TargetAddress::Host(host) => {
+            (host.as_str(), port).to_socket_addrs().map(std::iter::Iterator::collect).map_err(|err| err.to_string())
+        }
     }
 }
 
-fn read_http_response(
-    stream: &mut ConnectionStream,
-    max_bytes: usize,
-) -> Result<HttpResponse, String> {
+fn read_http_response(stream: &mut ConnectionStream, max_bytes: usize) -> Result<HttpResponse, String> {
     let buf = read_http_headers(stream, max_bytes)?;
-    let header_end =
-        find_headers_end(&buf).ok_or_else(|| "response_missing_headers".to_string())?;
+    let header_end = find_headers_end(&buf).ok_or_else(|| "response_missing_headers".to_string())?;
     let header_bytes = buf[..header_end].to_vec();
     let mut body = buf[header_end + 4..].to_vec();
     let content_length = parse_content_length(&header_bytes);
@@ -1663,9 +1331,7 @@ fn read_http_headers(stream: &mut ConnectionStream, max_bytes: usize) -> Result<
 fn parse_http_response(headers: &[u8], body: Vec<u8>) -> Result<HttpResponse, String> {
     let text = String::from_utf8_lossy(headers);
     let mut lines = text.split("\r\n");
-    let status_line = lines
-        .next()
-        .ok_or_else(|| "missing_status_line".to_string())?;
+    let status_line = lines.next().ok_or_else(|| "missing_status_line".to_string())?;
     let mut status_parts = status_line.splitn(3, ' ');
     let _http_version = status_parts.next();
     let status_code = status_parts
@@ -1683,12 +1349,7 @@ fn parse_http_response(headers: &[u8], body: Vec<u8>) -> Result<HttpResponse, St
             parsed_headers.insert(name.trim().to_ascii_lowercase(), value.trim().to_string());
         }
     }
-    Ok(HttpResponse {
-        status_code,
-        reason,
-        headers: parsed_headers,
-        body,
-    })
+    Ok(HttpResponse { status_code, reason, headers: parsed_headers, body })
 }
 
 fn classify_http_response(response: &HttpResponse) -> String {
@@ -1711,11 +1372,7 @@ fn describe_http_observation(observation: &HttpObservation) -> String {
             "{} {} {}",
             response.status_code,
             response.reason,
-            response
-                .headers
-                .get("server")
-                .cloned()
-                .unwrap_or_else(|| "server=unknown".to_string())
+            response.headers.get("server").cloned().unwrap_or_else(|| "server=unknown".to_string())
         ),
         (None, Some(error)) => error.clone(),
         (None, None) => "none".to_string(),
@@ -1728,15 +1385,7 @@ fn is_blockpage(observation: &HttpObservation) -> bool {
 
 fn body_has_blockpage_keywords(body: &[u8]) -> bool {
     let text = String::from_utf8_lossy(body).to_ascii_lowercase();
-    [
-        "blocked",
-        "access denied",
-        "forbidden",
-        "restriction",
-        "censorship",
-    ]
-    .iter()
-    .any(|needle| text.contains(needle))
+    ["blocked", "access denied", "forbidden", "restriction", "censorship"].iter().any(|needle| text.contains(needle))
 }
 
 fn make_server_name(name: &str, target: &TargetAddress) -> Result<ServerName<'static>, String> {
@@ -1747,9 +1396,7 @@ fn make_server_name(name: &str, target: &TargetAddress) -> Result<ServerName<'st
     }
     match target {
         TargetAddress::Ip(ip) => Ok(ServerName::IpAddress((*ip).into())),
-        TargetAddress::Host(host) => {
-            ServerName::try_from(host.clone()).map_err(|err| err.to_string())
-        }
+        TargetAddress::Host(host) => ServerName::try_from(host.clone()).map_err(|err| err.to_string()),
     }
 }
 
@@ -1829,13 +1476,7 @@ fn parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>, St
         }
         if record_type == 1 && data_len == 4 {
             answers.push(
-                Ipv4Addr::new(
-                    packet[offset],
-                    packet[offset + 1],
-                    packet[offset + 2],
-                    packet[offset + 3],
-                )
-                .to_string(),
+                Ipv4Addr::new(packet[offset], packet[offset + 1], packet[offset + 2], packet[offset + 3]).to_string(),
             );
         }
         offset += data_len;
@@ -1881,11 +1522,7 @@ fn format_result_set(result: &Result<Vec<String>, String>) -> String {
 
 fn format_socket_result(result: &Result<Vec<SocketAddr>, String>) -> String {
     match result {
-        Ok(values) => values
-            .iter()
-            .map(SocketAddr::to_string)
-            .collect::<Vec<_>>()
-            .join("|"),
+        Ok(values) => values.iter().map(SocketAddr::to_string).collect::<Vec<_>>().join("|"),
         Err(err) => format!("error:{err}"),
     }
 }
@@ -1937,10 +1574,7 @@ fn push_event(shared: &Arc<Mutex<SharedState>>, source: &str, level: &str, messa
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
 
 #[derive(Debug)]
@@ -2054,24 +1688,18 @@ mod tests {
 
         let result = run_dns_probe(
             &target,
-            &TransportConfig::Socks5 {
-                host: "127.0.0.1".to_string(),
-                port: proxy.port(),
-            },
+            &TransportConfig::Socks5 { host: "127.0.0.1".to_string(), port: proxy.port() },
             &ScanPathMode::InPath,
         );
 
-        println!("dns socks result: {:?}", result);
+        println!("dns socks result: {result:?}");
         assert_eq!(result.outcome, "dns_match");
         assert!(proxy.udp_associate_attempts() >= 1);
     }
 
     #[test]
     fn domain_probe_reports_tls_certificate_anomaly() {
-        let server = TlsHttpServer::start(
-            TlsMode::Single("localhost".to_string()),
-            FatServerMode::AlwaysOk,
-        );
+        let server = TlsHttpServer::start(TlsMode::Single("localhost".to_string()), FatServerMode::AlwaysOk);
         let target = DomainTarget {
             host: "localhost".to_string(),
             https_port: Some(server.port()),
@@ -2098,18 +1726,12 @@ mod tests {
             certificate_anomaly: false,
         };
 
-        assert_eq!(
-            classify_tls_signal(&tls13, &tls12),
-            "tls_version_split_low_confidence"
-        );
+        assert_eq!(classify_tls_signal(&tls13, &tls12), "tls_version_split_low_confidence");
     }
 
     #[test]
     fn try_tls_handshake_forces_tls_on_non_default_https_port() {
-        let server = TlsHttpServer::start(
-            TlsMode::Single("localhost".to_string()),
-            FatServerMode::AlwaysOk,
-        );
+        let server = TlsHttpServer::start(TlsMode::Single("localhost".to_string()), FatServerMode::AlwaysOk);
         let target = TargetAddress::Host("localhost".to_string());
 
         let tls = try_tls_handshake(
@@ -2127,10 +1749,7 @@ mod tests {
 
     #[test]
     fn domain_probe_reports_http_blockpage() {
-        let server = HttpTextServer::start_text(
-            "HTTP/1.1 403 Forbidden",
-            "Access denied by upstream filtering",
-        );
+        let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
         let target = DomainTarget {
             host: "127.0.0.1".to_string(),
             https_port: Some(9),
@@ -2162,8 +1781,7 @@ mod tests {
 
     #[test]
     fn tcp_probe_reports_whitelist_sni_success() {
-        let server =
-            PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
+        let server = PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
         let target = TcpTarget {
             id: "test".to_string(),
             provider: "tls-fat".to_string(),
@@ -2185,8 +1803,7 @@ mod tests {
 
     #[test]
     fn tcp_probe_reports_whitelist_sni_failure() {
-        let server =
-            PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
+        let server = PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
         let target = TcpTarget {
             id: "test".to_string(),
             provider: "tls-fat".to_string(),
@@ -2198,20 +1815,13 @@ mod tests {
             fat_header_requests: Some(8),
         };
 
-        let result = run_tcp_probe(
-            &target,
-            &["missing.example".to_string()],
-            &TransportConfig::Direct,
-        );
+        let result = run_tcp_probe(&target, &["missing.example".to_string()], &TransportConfig::Direct);
         assert_eq!(result.outcome, "whitelist_sni_failed");
     }
 
     #[test]
     fn monitor_session_drains_passive_events_with_probe_details() {
-        let server = HttpTextServer::start_text(
-            "HTTP/1.1 403 Forbidden",
-            "Access denied by upstream filtering",
-        );
+        let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
         let request = ScanRequest {
             profile_id: "default".to_string(),
             display_name: "Passive events".to_string(),
@@ -2229,35 +1839,18 @@ mod tests {
             whitelist_sni: vec![],
         };
         let session = MonitorSession::new();
-        session
-            .start_scan("session-1".to_string(), request)
-            .expect("start scan");
+        session.start_scan("session-1".to_string(), request).expect("start scan");
 
         let report = wait_for_report(&session);
-        assert_eq!(
-            report.outcome_for("domain_reachability"),
-            Some("http_blockpage")
-        );
+        assert_eq!(report.outcome_for("domain_reachability"), Some("http_blockpage"));
 
-        let first = session
-            .poll_passive_events_json()
-            .expect("poll passive events")
-            .expect("events json");
-        let events: Vec<NativeSessionEvent> =
-            serde_json::from_str(&first).expect("decode native events");
-        assert!(events
-            .iter()
-            .any(|event| event.message.contains("transport=DIRECT")));
-        assert!(events
-            .iter()
-            .any(|event| event.message.contains("http=http_blockpage")));
+        let first = session.poll_passive_events_json().expect("poll passive events").expect("events json");
+        let events: Vec<NativeSessionEvent> = serde_json::from_str(&first).expect("decode native events");
+        assert!(events.iter().any(|event| event.message.contains("transport=DIRECT")));
+        assert!(events.iter().any(|event| event.message.contains("http=http_blockpage")));
 
-        let second = session
-            .poll_passive_events_json()
-            .expect("poll passive events again")
-            .expect("events json");
-        let drained: Vec<NativeSessionEvent> =
-            serde_json::from_str(&second).expect("decode drained events");
+        let second = session.poll_passive_events_json().expect("poll passive events again").expect("events json");
+        let drained: Vec<NativeSessionEvent> = serde_json::from_str(&second).expect("decode drained events");
         assert!(drained.is_empty());
     }
 
@@ -2270,9 +1863,7 @@ mod tests {
     impl UdpDnsServer {
         fn start(answer_ip: &str) -> Self {
             let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind udp dns");
-            socket
-                .set_read_timeout(Some(Duration::from_millis(100)))
-                .expect("set udp timeout");
+            socket.set_read_timeout(Some(Duration::from_millis(100))).expect("set udp timeout");
             let addr = socket.local_addr().expect("udp local addr");
             let stop = Arc::new(AtomicBool::new(false));
             let stop_flag = stop.clone();
@@ -2286,20 +1877,12 @@ mod tests {
                                 let _ = socket.send_to(&response, peer);
                             }
                         }
-                        Err(err)
-                            if matches!(
-                                err.kind(),
-                                ErrorKind::WouldBlock | ErrorKind::TimedOut
-                            ) => {}
+                        Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
                         Err(_) => break,
                     }
                 }
             });
-            Self {
-                addr,
-                stop,
-                handle: Some(handle),
-            }
+            Self { addr, stop, handle: Some(handle) }
         }
 
         fn addr(&self) -> String {
@@ -2328,20 +1911,15 @@ mod tests {
     impl Socks5RelayServer {
         fn start() -> Self {
             let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind socks5 relay");
-            listener
-                .set_nonblocking(true)
-                .expect("set socks5 relay nonblocking");
+            listener.set_nonblocking(true).expect("set socks5 relay nonblocking");
             let addr = listener.local_addr().expect("socks5 relay addr");
             let stop = Arc::new(AtomicBool::new(false));
             let stop_flag = stop.clone();
             let udp_associate_attempts = Arc::new(AtomicUsize::new(0));
             let udp_attempts_ref = udp_associate_attempts.clone();
             let handle = thread::spawn(move || {
-                let udp_relay =
-                    UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind socks udp relay");
-                udp_relay
-                    .set_read_timeout(Some(Duration::from_millis(100)))
-                    .expect("set socks udp timeout");
+                let udp_relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind socks udp relay");
+                udp_relay.set_read_timeout(Some(Duration::from_millis(100))).expect("set socks udp timeout");
                 let udp_local = udp_relay.local_addr().expect("socks udp local addr");
                 let udp_socket = udp_relay.try_clone().expect("clone socks udp relay");
                 let udp_stop = stop_flag.clone();
@@ -2350,28 +1928,18 @@ mod tests {
                     while !udp_stop.load(Ordering::Relaxed) {
                         match udp_socket.recv_from(&mut frame) {
                             Ok((size, peer)) => {
-                                if let Ok((destination, payload)) =
-                                    decode_socks5_udp_frame(&frame[..size])
-                                {
-                                    let forward = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
-                                        .expect("bind udp forward");
-                                    forward
-                                        .set_read_timeout(Some(IO_TIMEOUT))
-                                        .expect("set udp forward timeout");
+                                if let Ok((destination, payload)) = decode_socks5_udp_frame(&frame[..size]) {
+                                    let forward = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind udp forward");
+                                    forward.set_read_timeout(Some(IO_TIMEOUT)).expect("set udp forward timeout");
                                     let _ = forward.send_to(&payload, destination);
                                     let mut response = [0u8; 2048];
                                     if let Ok((read, from)) = forward.recv_from(&mut response) {
-                                        let reply =
-                                            encode_socks5_udp_frame(from, &response[..read]);
+                                        let reply = encode_socks5_udp_frame(from, &response[..read]);
                                         let _ = udp_socket.send_to(&reply, peer);
                                     }
                                 }
                             }
-                            Err(err)
-                                if matches!(
-                                    err.kind(),
-                                    ErrorKind::WouldBlock | ErrorKind::TimedOut
-                                ) => {}
+                            Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
                             Err(_) => break,
                         }
                     }
@@ -2417,22 +1985,17 @@ mod tests {
                                         }
                                     }
                                     0x01 => {
-                                        let target = match read_socks_target(&mut stream, header[3])
-                                        {
+                                        let target = match read_socks_target(&mut stream, header[3]) {
                                             Ok(target) => target,
                                             Err(_) => return,
                                         };
-                                        let upstream = match TcpStream::connect_timeout(
-                                            &target,
-                                            CONNECT_TIMEOUT,
-                                        ) {
+                                        let upstream = match TcpStream::connect_timeout(&target, CONNECT_TIMEOUT) {
                                             Ok(stream) => stream,
                                             Err(_) => return,
                                         };
-                                        let reply_addr =
-                                            upstream.local_addr().unwrap_or_else(|_| {
-                                                SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)
-                                            });
+                                        let reply_addr = upstream
+                                            .local_addr()
+                                            .unwrap_or_else(|_| SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0));
                                         let _ = stream.write_all(&encode_socks_reply(reply_addr));
                                         relay_bidirectional(stream, upstream);
                                     }
@@ -2448,12 +2011,7 @@ mod tests {
                 }
             });
 
-            Self {
-                addr,
-                stop,
-                udp_associate_attempts,
-                handle: Some(handle),
-            }
+            Self { addr, stop, udp_associate_attempts, handle: Some(handle) }
         }
 
         fn port(&self) -> u16 {
@@ -2519,10 +2077,7 @@ mod tests {
                 let mut buf = vec![0u8; len[0] as usize + 2];
                 stream.read_exact(&mut buf)
             }
-            _ => Err(std::io::Error::new(
-                ErrorKind::InvalidData,
-                "unsupported atyp",
-            )),
+            _ => Err(std::io::Error::new(ErrorKind::InvalidData, "unsupported atyp")),
         }
     }
 
@@ -2533,10 +2088,7 @@ mod tests {
                 let mut port = [0u8; 2];
                 stream.read_exact(&mut addr)?;
                 stream.read_exact(&mut port)?;
-                Ok(SocketAddr::new(
-                    IpAddr::V4(Ipv4Addr::from(addr)),
-                    u16::from_be_bytes(port),
-                ))
+                Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::from(addr)), u16::from_be_bytes(port)))
             }
             0x03 => {
                 let mut len = [0u8; 1];
@@ -2549,24 +2101,16 @@ mod tests {
                 (domain.as_str(), u16::from_be_bytes(port))
                     .to_socket_addrs()?
                     .next()
-                    .ok_or_else(|| {
-                        std::io::Error::new(ErrorKind::AddrNotAvailable, "no target addr")
-                    })
+                    .ok_or_else(|| std::io::Error::new(ErrorKind::AddrNotAvailable, "no target addr"))
             }
             0x04 => {
                 let mut addr = [0u8; 16];
                 let mut port = [0u8; 2];
                 stream.read_exact(&mut addr)?;
                 stream.read_exact(&mut port)?;
-                Ok(SocketAddr::new(
-                    IpAddr::V6(std::net::Ipv6Addr::from(addr)),
-                    u16::from_be_bytes(port),
-                ))
+                Ok(SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::from(addr)), u16::from_be_bytes(port)))
             }
-            _ => Err(std::io::Error::new(
-                ErrorKind::InvalidData,
-                "unsupported atyp",
-            )),
+            _ => Err(std::io::Error::new(ErrorKind::InvalidData, "unsupported atyp")),
         }
     }
 
@@ -2593,11 +2137,8 @@ mod tests {
             let status_line = status_line.to_string();
             let body = body.to_string();
             Self::start(move |_request| {
-                format!(
-                    "{status_line}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                    body.len()
-                )
-                .into_bytes()
+                format!("{status_line}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
+                    .into_bytes()
             })
         }
 
@@ -2618,9 +2159,7 @@ mod tests {
             F: Fn(Vec<u8>) -> Vec<u8> + Send + Sync + 'static,
         {
             let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind http text");
-            listener
-                .set_nonblocking(true)
-                .expect("set http text nonblocking");
+            listener.set_nonblocking(true).expect("set http text nonblocking");
             let addr = listener.local_addr().expect("http text addr");
             let stop = Arc::new(AtomicBool::new(false));
             let stop_flag = stop.clone();
@@ -2644,11 +2183,7 @@ mod tests {
                     }
                 }
             });
-            Self {
-                addr,
-                stop,
-                handle: Some(handle),
-            }
+            Self { addr, stop, handle: Some(handle) }
         }
 
         fn port(&self) -> u16 {
@@ -2682,10 +2217,7 @@ mod tests {
 
     impl ScanReportExt for ScanReport {
         fn outcome_for(&self, probe_type: &str) -> Option<&str> {
-            self.results
-                .iter()
-                .find(|result| result.probe_type == probe_type)
-                .map(|result| result.outcome.as_str())
+            self.results.iter().find(|result| result.probe_type == probe_type).map(|result| result.outcome.as_str())
         }
     }
 
@@ -2710,9 +2242,7 @@ mod tests {
     impl TlsHttpServer {
         fn start(mode: TlsMode, fat_mode: FatServerMode) -> Self {
             let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind tls server");
-            listener
-                .set_nonblocking(true)
-                .expect("set tls server nonblocking");
+            listener.set_nonblocking(true).expect("set tls server nonblocking");
             let addr = listener.local_addr().expect("tls server addr");
             let stop = Arc::new(AtomicBool::new(false));
             let stop_flag = stop.clone();
@@ -2744,11 +2274,7 @@ mod tests {
                     }
                 }
             });
-            Self {
-                addr,
-                stop,
-                handle: Some(handle),
-            }
+            Self { addr, stop, handle: Some(handle) }
         }
 
         fn port(&self) -> u16 {
@@ -2775,9 +2301,7 @@ mod tests {
     impl PlainFatHeaderServer {
         fn start(mode: FatServerMode) -> Self {
             let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind plain fat");
-            listener
-                .set_nonblocking(true)
-                .expect("set plain fat nonblocking");
+            listener.set_nonblocking(true).expect("set plain fat nonblocking");
             let addr = listener.local_addr().expect("plain fat addr");
             let stop = Arc::new(AtomicBool::new(false));
             let stop_flag = stop.clone();
@@ -2797,11 +2321,7 @@ mod tests {
                     }
                 }
             });
-            Self {
-                addr,
-                stop,
-                handle: Some(handle),
-            }
+            Self { addr, stop, handle: Some(handle) }
         }
 
         fn port(&self) -> u16 {
@@ -2846,13 +2366,10 @@ mod tests {
                     return;
                 }
             }
-            if matches!(&fat_mode, FatServerMode::CutoffAtThreshold)
-                && total_read >= FAT_HEADER_THRESHOLD_BYTES
-            {
+            if matches!(&fat_mode, FatServerMode::CutoffAtThreshold) && total_read >= FAT_HEADER_THRESHOLD_BYTES {
                 return;
             }
-            let response =
-                b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
+            let response = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
             let _ = stream.write_all(response);
             let _ = stream.flush();
         }
