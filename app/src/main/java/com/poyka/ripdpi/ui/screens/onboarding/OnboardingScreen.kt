@@ -35,8 +35,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.OnboardingEffect
 import com.poyka.ripdpi.activities.OnboardingUiState
@@ -74,7 +74,7 @@ private val OnboardingPages =
 fun OnboardingRoute(
     onComplete: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: OnboardingViewModel = viewModel(),
+    viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 

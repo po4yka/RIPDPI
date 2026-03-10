@@ -30,6 +30,7 @@ import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -39,6 +40,7 @@ import logcat.asLog
 import logcat.logcat
 import java.io.IOException
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
     private val openHomeRequests = MutableStateFlow(false)
@@ -83,7 +85,7 @@ class MainActivity : ComponentActivity() {
 
     private val vpnRegister =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            viewModel.onVpnPermissionResult(this, it.resultCode == RESULT_OK)
+            viewModel.onVpnPermissionResult(it.resultCode == RESULT_OK)
         }
 
     private val notificationPermissionRegister =

@@ -9,7 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
@@ -169,7 +169,7 @@ fun RipDpiNavHost(
                     }
                 ModeEditorRoute(
                     onBack = { navController.popBackStack() },
-                    viewModel = viewModel(viewModelStoreOwner = configBackStackEntry),
+                    viewModel = hiltViewModel(configBackStackEntry),
                 )
             }
             composable(Route.VpnPermission.route) {
@@ -201,7 +201,7 @@ fun RipDpiNavHost(
                         remember(navController) {
                             navController.getBackStackEntry(SettingsGraphRoute)
                         }
-                    val settingsViewModel: SettingsViewModel = viewModel(viewModelStoreOwner = settingsGraphEntry)
+                    val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
                     SettingsRoute(
                         onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
                         onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings.route) },
@@ -215,7 +215,7 @@ fun RipDpiNavHost(
                         remember(navController) {
                             navController.getBackStackEntry(SettingsGraphRoute)
                         }
-                    val settingsViewModel: SettingsViewModel = viewModel(viewModelStoreOwner = settingsGraphEntry)
+                    val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
                     DnsSettingsRoute(
                         onBack = { navController.popBackStack() },
                         viewModel = settingsViewModel,
@@ -226,7 +226,7 @@ fun RipDpiNavHost(
                         remember(navController) {
                             navController.getBackStackEntry(SettingsGraphRoute)
                         }
-                    val settingsViewModel: SettingsViewModel = viewModel(viewModelStoreOwner = settingsGraphEntry)
+                    val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
                     AdvancedSettingsRoute(
                         onBack = { navController.popBackStack() },
                         viewModel = settingsViewModel,
@@ -237,7 +237,7 @@ fun RipDpiNavHost(
                         remember(navController) {
                             navController.getBackStackEntry(SettingsGraphRoute)
                         }
-                    val settingsViewModel: SettingsViewModel = viewModel(viewModelStoreOwner = settingsGraphEntry)
+                    val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
                     AppCustomizationRoute(
                         onBack = { navController.popBackStack() },
                         viewModel = settingsViewModel,

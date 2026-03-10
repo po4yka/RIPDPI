@@ -6,8 +6,9 @@ import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 import android.os.Build
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.RipDpiProxy
-import com.poyka.ripdpi.core.RipDpiProxyPreferences
+import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -15,6 +16,8 @@ import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStatus
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import kotlinx.coroutines.Dispatchers
@@ -27,8 +30,18 @@ import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
 
+@AndroidEntryPoint
 class RipDpiProxyService : LifecycleService() {
-    private var proxy = RipDpiProxy()
+    @Inject
+    lateinit var proxyPreferencesResolver: ProxyPreferencesResolver
+
+    @Inject
+    lateinit var ripDpiProxyFactory: RipDpiProxyFactory
+
+    @Inject
+    lateinit var serviceStateStore: ServiceStateStore
+
+    private var proxy: RipDpiProxy? = null
     private var proxyJob: Job? = null
     private val mutex = Mutex()
     private var stopping: Boolean = false
@@ -132,12 +145,13 @@ class RipDpiProxyService : LifecycleService() {
             throw IllegalStateException("Proxy fields not null")
         }
 
-        proxy = RipDpiProxy()
-        val preferences = getRipDpiPreferences()
+        val preferences = proxyPreferencesResolver.resolve()
+        val proxyInstance = ripDpiProxyFactory.create()
+        proxy = proxyInstance
 
         proxyJob =
             lifecycleScope.launch(Dispatchers.IO) {
-                val code = proxy.startProxy(preferences)
+                val code = proxyInstance.startProxy(preferences)
 
                 withContext(Dispatchers.Main) {
                     if (code != 0) {
@@ -160,14 +174,20 @@ class RipDpiProxyService : LifecycleService() {
             return
         }
 
-        proxy.stopProxy()
+        val proxyInstance = proxy
+        if (proxyInstance == null) {
+            logcat(LogPriority.WARN) { "Proxy instance missing during stop" }
+            proxyJob = null
+            return
+        }
+
+        proxyInstance.stopProxy()
         proxyJob?.join()
         proxyJob = null
+        proxy = null
 
         logcat(LogPriority.INFO) { "Proxy stopped" }
     }
-
-    private suspend fun getRipDpiPreferences(): RipDpiProxyPreferences = RipDpiProxyPreferences.fromSettingsStore(this)
 
     private fun updateStatus(newStatus: ServiceStatus) {
         logcat { "Proxy status changed from $status to $newStatus" }
@@ -184,13 +204,14 @@ class RipDpiProxyService : LifecycleService() {
                 ServiceStatus.Failed,
                 -> {
                     proxyJob = null
+                    proxy = null
                     AppStatus.Halted
                 }
             }
-        AppStateManager.setStatus(appStatus, Mode.Proxy)
+        serviceStateStore.setStatus(appStatus, Mode.Proxy)
 
         if (newStatus == ServiceStatus.Failed) {
-            AppStateManager.emitFailed(Sender.Proxy)
+            serviceStateStore.emitFailed(Sender.Proxy)
         }
     }
 

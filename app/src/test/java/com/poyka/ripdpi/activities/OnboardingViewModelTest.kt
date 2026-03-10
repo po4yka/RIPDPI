@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.app.Application
 import app.cash.turbine.test
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.test.runTest
@@ -12,7 +11,7 @@ class OnboardingViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private fun createViewModel() = OnboardingViewModel(Application())
+    private fun createViewModel() = OnboardingViewModel(FakeAppSettingsRepository())
 
     @Test
     fun `initial state has page zero and three total pages`() = runTest {
