@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.androidx.datastore)
 
     implementation(libs.logcat)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.bundles.unit.test)
     androidTestImplementation(libs.androidx.test.core.ktx)

@@ -213,6 +213,9 @@ class MainActivity : ComponentActivity() {
                                 saveDiagnosticsExport(filePath)
                             }
                         },
+                        onShareDiagnosticsSummary = { title, body ->
+                            shareDiagnosticsSummary(title = title, body = body)
+                        },
                         mainViewModel = viewModel,
                         openVpnPermissionRequested = openVpnPermissionRequested,
                         onOpenVpnPermissionHandled = {
@@ -279,6 +282,19 @@ class MainActivity : ComponentActivity() {
                 putExtra(Intent.EXTRA_TITLE, source.name)
             }
         diagnosticsExportRegister.launch(intent)
+    }
+
+    private fun shareDiagnosticsSummary(
+        title: String,
+        body: String,
+    ) {
+        val shareIntent =
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, title)
+                putExtra(Intent.EXTRA_TEXT, body)
+            }
+        startActivity(Intent.createChooser(shareIntent, title))
     }
 
     private fun requestStartAction(
