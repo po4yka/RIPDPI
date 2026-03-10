@@ -36,6 +36,8 @@ pub enum ScanPathMode {
 pub struct DomainTarget {
     pub host: String,
     #[serde(default)]
+    pub connect_ip: Option<String>,
+    #[serde(default)]
     pub https_port: Option<u16>,
     #[serde(default)]
     pub http_port: Option<u16>,
@@ -543,9 +545,10 @@ fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &Sc
 fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> ProbeResult {
     let https_port = target.https_port.unwrap_or(443);
     let http_port = target.http_port.unwrap_or(80);
-    let resolved = resolve_addresses(&TargetAddress::Host(target.host.clone()), https_port);
+    let connect_target = domain_connect_target(target);
+    let resolved = resolve_addresses(&connect_target, https_port);
     let tls13 = try_tls_handshake(
-        &TargetAddress::Host(target.host.clone()),
+        &connect_target,
         https_port,
         transport,
         &target.host,
@@ -553,7 +556,7 @@ fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> Probe
         TlsClientProfile::Tls13Only,
     );
     let tls12 = try_tls_handshake(
-        &TargetAddress::Host(target.host.clone()),
+        &connect_target,
         https_port,
         transport,
         &target.host,
@@ -561,7 +564,7 @@ fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> Probe
         TlsClientProfile::Tls12Only,
     );
     let http = try_http_request(
-        &TargetAddress::Host(target.host.clone()),
+        &connect_target,
         http_port,
         transport,
         &target.host,
@@ -617,6 +620,15 @@ fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> Probe
             ProbeDetail { key: "httpResponse".to_string(), value: describe_http_observation(&http) },
         ],
     }
+}
+
+fn domain_connect_target(target: &DomainTarget) -> TargetAddress {
+    target
+        .connect_ip
+        .as_ref()
+        .and_then(|ip| ip.parse::<IpAddr>().ok())
+        .map(TargetAddress::Ip)
+        .unwrap_or_else(|| TargetAddress::Host(target.host.clone()))
 }
 
 fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transport: &TransportConfig) -> ProbeResult {
@@ -1702,6 +1714,7 @@ mod tests {
         let server = TlsHttpServer::start(TlsMode::Single("localhost".to_string()), FatServerMode::AlwaysOk);
         let target = DomainTarget {
             host: "localhost".to_string(),
+            connect_ip: None,
             https_port: Some(server.port()),
             http_port: Some(9),
             http_path: "/".to_string(),
@@ -1752,6 +1765,7 @@ mod tests {
         let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
         let target = DomainTarget {
             host: "127.0.0.1".to_string(),
+            connect_ip: None,
             https_port: Some(9),
             http_port: Some(server.port()),
             http_path: "/".to_string(),
@@ -1830,6 +1844,7 @@ mod tests {
             proxy_port: None,
             domain_targets: vec![DomainTarget {
                 host: "127.0.0.1".to_string(),
+                connect_ip: None,
                 https_port: Some(9),
                 http_port: Some(server.port()),
                 http_path: "/".to_string(),
