@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.TunnelStats
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
@@ -18,9 +19,17 @@ sealed class ServiceEvent {
     ) : ServiceEvent()
 }
 
+data class ServiceTelemetrySnapshot(
+    val mode: Mode? = null,
+    val status: AppStatus = AppStatus.Halted,
+    val tunnelStats: TunnelStats = TunnelStats(),
+    val updatedAt: Long = 0L,
+)
+
 interface ServiceStateStore {
     val status: StateFlow<Pair<AppStatus, Mode>>
     val events: SharedFlow<ServiceEvent>
+    val telemetry: StateFlow<ServiceTelemetrySnapshot>
 
     fun setStatus(
         status: AppStatus,
@@ -28,6 +37,8 @@ interface ServiceStateStore {
     )
 
     fun emitFailed(sender: Sender)
+
+    fun updateTelemetry(snapshot: ServiceTelemetrySnapshot)
 }
 
 @Singleton
@@ -40,6 +51,9 @@ class DefaultServiceStateStore
         private val _events = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
         override val events: SharedFlow<ServiceEvent> = _events.asSharedFlow()
 
+        private val _telemetry = MutableStateFlow(ServiceTelemetrySnapshot())
+        override val telemetry: StateFlow<ServiceTelemetrySnapshot> = _telemetry.asStateFlow()
+
         override fun setStatus(
             status: AppStatus,
             mode: Mode,
@@ -49,5 +63,9 @@ class DefaultServiceStateStore
 
         override fun emitFailed(sender: Sender) {
             _events.tryEmit(ServiceEvent.Failed(sender))
+        }
+
+        override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
+            _telemetry.value = snapshot
         }
     }

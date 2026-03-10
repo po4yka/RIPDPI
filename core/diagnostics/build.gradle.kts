@@ -3,24 +3,22 @@ import com.android.build.api.dsl.LibraryExtension
 plugins {
     id("ripdpi.android.library")
     id("ripdpi.android.hilt")
-    id("ripdpi.android.protobuf")
     id("ripdpi.android.serialization")
-    alias(libs.plugins.ksp)
 }
 
 extensions.configure<LibraryExtension> {
-    namespace = "com.poyka.ripdpi.core.data"
+    namespace = "com.poyka.ripdpi.core.diagnostics"
 }
 
 dependencies {
-    api(libs.protobuf.javalite)
-    implementation(libs.androidx.datastore)
-    implementation(libs.bundles.room)
-    implementation(libs.androidx.appcompat)
+    implementation(project(":core:data"))
+    implementation(project(":core:engine"))
+    implementation(project(":core:service"))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.logcat)
-    ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.bundles.unit.test)
 }

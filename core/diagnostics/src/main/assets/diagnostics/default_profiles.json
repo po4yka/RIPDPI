@@ -1,0 +1,32 @@
+[
+  {
+    "id": "default",
+    "name": "Default diagnostics",
+    "version": 1,
+    "request": {
+      "profileId": "default",
+      "displayName": "Default diagnostics",
+      "pathMode": "RAW_PATH",
+      "domainTargets": [
+        { "host": "www.youtube.com" },
+        { "host": "discord.com" },
+        { "host": "proton.me" },
+        { "host": "meduza.io" }
+      ],
+      "dnsTargets": [
+        { "domain": "rutor.info" },
+        { "domain": "rezka.ag" },
+        { "domain": "shikimori.one" }
+      ],
+      "tcpTargets": [
+        { "id": "CF-01", "provider": "Cloudflare", "ip": "172.67.70.222", "port": 443, "asn": "13335" },
+        { "id": "AWS-01", "provider": "AWS", "ip": "16.15.219.241", "port": 443, "asn": "16509" }
+      ],
+      "whitelistSni": [
+        "vk.com",
+        "dzen.ru",
+        "2gis.com"
+      ]
+    }
+  }
+]

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.core.TunnelStats
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -11,6 +12,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
+import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,9 +44,11 @@ class FakeServiceStateStore(
 ) : ServiceStateStore {
     private val statusState = MutableStateFlow(initialStatus)
     private val eventFlow = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
+    private val telemetryState = MutableStateFlow(ServiceTelemetrySnapshot())
 
     override val status: StateFlow<Pair<AppStatus, Mode>> = statusState.asStateFlow()
     override val events: SharedFlow<ServiceEvent> = eventFlow.asSharedFlow()
+    override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState.asStateFlow()
 
     override fun setStatus(
         status: AppStatus,
@@ -55,6 +59,10 @@ class FakeServiceStateStore(
 
     override fun emitFailed(sender: Sender) {
         eventFlow.tryEmit(ServiceEvent.Failed(sender))
+    }
+
+    override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
+        telemetryState.value = snapshot
     }
 }
 

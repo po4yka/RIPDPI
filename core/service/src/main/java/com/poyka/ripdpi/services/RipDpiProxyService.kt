@@ -22,6 +22,7 @@ import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -43,6 +44,7 @@ class RipDpiProxyService : LifecycleService() {
 
     private var proxy: RipDpiProxy? = null
     private var proxyJob: Job? = null
+    private var telemetryJob: Job? = null
     private val mutex = Mutex()
     private var stopping: Boolean = false
 
@@ -99,6 +101,7 @@ class RipDpiProxyService : LifecycleService() {
                 startProxy()
             }
             updateStatus(ServiceStatus.Connected)
+            startTelemetryUpdates()
             startForeground()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start proxy\n${e.asLog()}" }
@@ -134,6 +137,8 @@ class RipDpiProxyService : LifecycleService() {
             }
         }
         updateStatus(ServiceStatus.Disconnected)
+        telemetryJob?.cancel()
+        telemetryJob = null
         stopSelf()
     }
 
@@ -209,10 +214,36 @@ class RipDpiProxyService : LifecycleService() {
                 }
             }
         serviceStateStore.setStatus(appStatus, Mode.Proxy)
+        serviceStateStore.updateTelemetry(
+            ServiceTelemetrySnapshot(
+                mode = Mode.Proxy,
+                status = appStatus,
+                tunnelStats = com.poyka.ripdpi.core.TunnelStats(),
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
 
         if (newStatus == ServiceStatus.Failed) {
             serviceStateStore.emitFailed(Sender.Proxy)
         }
+    }
+
+    private fun startTelemetryUpdates() {
+        telemetryJob?.cancel()
+        telemetryJob =
+            lifecycleScope.launch {
+                while (status == ServiceStatus.Connected) {
+                    serviceStateStore.updateTelemetry(
+                        ServiceTelemetrySnapshot(
+                            mode = Mode.Proxy,
+                            status = AppStatus.Running,
+                            tunnelStats = com.poyka.ripdpi.core.TunnelStats(),
+                            updatedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                    delay(1_000)
+                }
+            }
     }
 
     private fun createNotification(): Notification =
