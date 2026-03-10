@@ -49,4 +49,19 @@ class AppStateManagerTest {
                 assertEquals(Sender.Proxy, event.sender)
             }
         }
+
+    @Test
+    fun `updateTelemetry updates telemetry flow`() {
+        val serviceStateStore = DefaultServiceStateStore()
+        val snapshot =
+            ServiceTelemetrySnapshot(
+                mode = Mode.VPN,
+                status = AppStatus.Running,
+                updatedAt = 123L,
+            )
+
+        serviceStateStore.updateTelemetry(snapshot)
+
+        assertEquals(snapshot, serviceStateStore.telemetry.value)
+    }
 }

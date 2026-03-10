@@ -1,17 +1,71 @@
 package com.poyka.ripdpi.core
 
+import javax.inject.Inject
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-class Tun2SocksTunnel {
-    companion object {
-        init {
-            System.loadLibrary("hev-socks5-tunnel")
+interface Tun2SocksBindings {
+    fun create(configJson: String): Long
+
+    fun start(
+        handle: Long,
+        tunFd: Int,
+    )
+
+    fun stop(handle: Long)
+
+    fun getStats(handle: Long): LongArray
+
+    fun destroy(handle: Long)
+}
+
+class Tun2SocksNativeBindings
+    @Inject
+    constructor() : Tun2SocksBindings {
+        companion object {
+            init {
+                System.loadLibrary("hev-socks5-tunnel")
+            }
         }
+
+        override fun create(configJson: String): Long = jniCreate(configJson)
+
+        override fun start(
+            handle: Long,
+            tunFd: Int,
+        ) {
+            jniStart(handle, tunFd)
+        }
+
+        override fun stop(handle: Long) {
+            jniStop(handle)
+        }
+
+        override fun getStats(handle: Long): LongArray = jniGetStats(handle)
+
+        override fun destroy(handle: Long) {
+            jniDestroy(handle)
+        }
+
+        private external fun jniCreate(configJson: String): Long
+
+        private external fun jniStart(
+            handle: Long,
+            tunFd: Int,
+        )
+
+        private external fun jniStop(handle: Long)
+
+        private external fun jniGetStats(handle: Long): LongArray
+
+        private external fun jniDestroy(handle: Long)
     }
 
+class Tun2SocksTunnel(
+    private val nativeBindings: Tun2SocksBindings,
+) {
     private val mutex = Mutex()
     private var handle = 0L
 
@@ -24,16 +78,16 @@ class Tun2SocksTunnel {
                 throw IllegalStateException("Tunnel is already running")
             }
 
-            val createdHandle = jniCreate(Json.encodeToString(config))
+            val createdHandle = nativeBindings.create(Json.encodeToString(config))
             if (createdHandle == 0L) {
                 throw IllegalStateException("Native tunnel session was not created")
             }
 
             try {
-                jniStart(createdHandle, tunFd)
+                nativeBindings.start(createdHandle, tunFd)
                 handle = createdHandle
             } catch (e: Exception) {
-                jniDestroy(createdHandle)
+                nativeBindings.destroy(createdHandle)
                 throw e
             }
         }
@@ -46,10 +100,10 @@ class Tun2SocksTunnel {
             }
 
             try {
-                jniStop(handle)
+                nativeBindings.stop(handle)
             } finally {
                 try {
-                    jniDestroy(handle)
+                    nativeBindings.destroy(handle)
                 } finally {
                     handle = 0L
                 }
@@ -62,22 +116,9 @@ class Tun2SocksTunnel {
             if (handle == 0L) {
                 TunnelStats()
             } else {
-                TunnelStats.fromNative(jniGetStats(handle))
+                TunnelStats.fromNative(nativeBindings.getStats(handle))
             }
         }
-
-    private external fun jniCreate(configJson: String): Long
-
-    private external fun jniStart(
-        handle: Long,
-        tunFd: Int,
-    )
-
-    private external fun jniStop(handle: Long)
-
-    private external fun jniGetStats(handle: Long): LongArray
-
-    private external fun jniDestroy(handle: Long)
 }
 
 @Serializable

@@ -9,7 +9,7 @@ class RipDpiNavHostLogicTest {
     @Test
     fun `top level routes stay in figma bottom bar order`() {
         assertEquals(
-            listOf("home", "config", "logs", "settings"),
+            listOf("home", "config", "diagnostics", "settings"),
             topLevelRouteOrder,
         )
     }

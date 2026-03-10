@@ -9,7 +9,7 @@ internal val topLevelRouteOrder =
     listOf(
         "home",
         "config",
-        "logs",
+        "diagnostics",
         "settings",
     )
 
@@ -39,6 +39,12 @@ sealed class Route(
         route = "settings",
         titleRes = R.string.settings,
         icon = RipDpiIcons.Settings,
+    )
+
+    data object Diagnostics : Route(
+        route = "diagnostics",
+        titleRes = R.string.diagnostics,
+        icon = RipDpiIcons.Logs,
     )
 
     data object Logs : Route(
@@ -83,13 +89,14 @@ sealed class Route(
     )
 
     companion object {
-        val topLevel = listOf(Home, Config, Logs, Settings)
+        val topLevel = listOf(Home, Config, Diagnostics, Settings)
 
         val all =
             listOf(
                 Onboarding,
                 Home,
                 Config,
+                Diagnostics,
                 Logs,
                 Settings,
                 ModeEditor,

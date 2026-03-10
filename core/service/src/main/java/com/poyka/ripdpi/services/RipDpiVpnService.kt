@@ -26,6 +26,7 @@ import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -54,6 +55,7 @@ class RipDpiVpnService : LifecycleVpnService() {
     private var ripDpiProxy: RipDpiProxy? = null
     private var tun2SocksBridge: Tun2SocksBridge? = null
     private var proxyJob: Job? = null
+    private var telemetryJob: Job? = null
     private var tunFd: ParcelFileDescriptor? = null
     private val mutex = Mutex()
     private var stopping: Boolean = false
@@ -117,6 +119,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                 startTun2Socks()
             }
             updateStatus(ServiceStatus.Connected)
+            startTelemetryUpdates()
             startForeground()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start VPN\n${e.asLog()}" }
@@ -154,6 +157,8 @@ class RipDpiVpnService : LifecycleVpnService() {
         }
 
         updateStatus(ServiceStatus.Disconnected)
+        telemetryJob?.cancel()
+        telemetryJob = null
         stopSelf()
     }
 
@@ -286,10 +291,37 @@ class RipDpiVpnService : LifecycleVpnService() {
                 }
             }
         serviceStateStore.setStatus(appStatus, Mode.VPN)
+        serviceStateStore.updateTelemetry(
+            ServiceTelemetrySnapshot(
+                mode = Mode.VPN,
+                status = appStatus,
+                tunnelStats = com.poyka.ripdpi.core.TunnelStats(),
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
 
         if (newStatus == ServiceStatus.Failed) {
             serviceStateStore.emitFailed(Sender.VPN)
         }
+    }
+
+    private fun startTelemetryUpdates() {
+        telemetryJob?.cancel()
+        telemetryJob =
+            lifecycleScope.launch {
+                while (status == ServiceStatus.Connected) {
+                    val stats = runCatching { tun2SocksBridge?.stats() }.getOrNull() ?: com.poyka.ripdpi.core.TunnelStats()
+                    serviceStateStore.updateTelemetry(
+                        ServiceTelemetrySnapshot(
+                            mode = Mode.VPN,
+                            status = AppStatus.Running,
+                            tunnelStats = stats,
+                            updatedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                    delay(1_000)
+                }
+            }
     }
 
     private fun createNotification(): Notification =

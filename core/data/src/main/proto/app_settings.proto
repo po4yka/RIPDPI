@@ -61,4 +61,11 @@ message AppSettings {
   string backup_pin = 59;
   string app_icon_variant = 60; // "default" | "dark" | "black" | "raven"
   string app_icon_style = 61;   // "themed" | "plain"
+  bool diagnostics_monitor_enabled = 62;
+  int32 diagnostics_sample_interval_seconds = 63;
+  string diagnostics_default_scan_path_mode = 64; // "raw_path" | "in_path"
+  bool diagnostics_auto_resume_after_raw_scan = 65;
+  string diagnostics_active_profile_id = 66;
+  int32 diagnostics_history_retention_days = 67;
+  bool diagnostics_export_include_history = 68;
 }

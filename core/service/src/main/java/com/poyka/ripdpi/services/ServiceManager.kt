@@ -84,4 +84,10 @@ abstract class ServiceBindingsModule {
     abstract fun bindServiceController(
         serviceController: DefaultServiceController,
     ): ServiceController
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsRuntimeCoordinator(
+        coordinator: DefaultDiagnosticsRuntimeCoordinator,
+    ): DiagnosticsRuntimeCoordinator
 }
