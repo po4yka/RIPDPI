@@ -25,4 +25,6 @@ windows-service = "0.8"
 [dev-dependencies]
 ciadpi-config = { workspace = true }
 local-network-fixture = { workspace = true }
+native-soak-support = { workspace = true }
 rustls = { workspace = true }
+serde_json = { workspace = true }

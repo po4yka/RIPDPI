@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/android-support",
     "crates/local-network-fixture",
+    "crates/native-soak-support",
     "crates/ripdpi-monitor",
     "crates/ripdpi-runtime",
     "crates/ripdpi-android",
@@ -17,6 +18,7 @@ license = "MIT"
 [workspace.dependencies]
 android-support = { path = "crates/android-support" }
 local-network-fixture = { path = "crates/local-network-fixture" }
+native-soak-support = { path = "crates/native-soak-support" }
 ripdpi-monitor = { path = "crates/ripdpi-monitor" }
 ripdpi-runtime = { path = "crates/ripdpi-runtime" }
 
