@@ -1,10 +1,12 @@
+import com.android.build.api.dsl.ApplicationExtension
+
 plugins {
     id("ripdpi.android.application")
     id("ripdpi.android.compose")
     id("ripdpi.android.hilt")
 }
 
-android {
+extensions.configure<ApplicationExtension> {
     namespace = "com.poyka.ripdpi"
 
     defaultConfig {
@@ -64,7 +66,7 @@ dependencies {
     // Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)
-    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Modules

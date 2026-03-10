@@ -1,3 +1,5 @@
+import com.android.build.api.dsl.LibraryExtension
+
 plugins {
     id("ripdpi.android.library")
     id("ripdpi.android.hilt")
@@ -5,7 +7,7 @@ plugins {
     id("ripdpi.android.serialization")
 }
 
-android {
+extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.data"
 }
 

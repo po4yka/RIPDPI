@@ -23,7 +23,7 @@ interface LauncherIconController {
 class DefaultLauncherIconController
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : LauncherIconController {
         override fun applySelection(
             iconKey: String,
@@ -48,7 +48,7 @@ interface StringResolver {
 class AndroidStringResolver
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : StringResolver {
         override fun getString(
             @StringRes resId: Int,
@@ -64,7 +64,7 @@ interface TrafficStatsReader {
 class AndroidTrafficStatsReader
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : TrafficStatsReader {
         override fun currentTransferredBytes(): Long {
             val uid = context.applicationInfo.uid

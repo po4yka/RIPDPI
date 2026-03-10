@@ -206,18 +206,20 @@ private fun BottomSheetActionColumn(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        if (hasPrimaryAction) {
+        val primaryAction = onPrimaryAction
+        if (primaryActionLabel != null && primaryAction != null) {
             RipDpiButton(
-                text = primaryActionLabel.orEmpty(),
-                onClick = { onPrimaryAction?.invoke() },
+                text = primaryActionLabel,
+                onClick = primaryAction,
                 modifier = Modifier.fillMaxWidth(),
                 variant = primaryActionVariant,
             )
         }
-        if (hasSecondaryAction) {
+        val secondaryAction = onSecondaryAction
+        if (secondaryActionLabel != null && secondaryAction != null) {
             RipDpiButton(
-                text = secondaryActionLabel.orEmpty(),
-                onClick = { onSecondaryAction?.invoke() },
+                text = secondaryActionLabel,
+                onClick = secondaryAction,
                 modifier = Modifier.fillMaxWidth(),
                 variant = RipDpiButtonVariant.Outline,
             )

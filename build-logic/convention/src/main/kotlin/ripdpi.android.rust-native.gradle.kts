@@ -237,7 +237,7 @@ val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
 val rustNativeBuildDir = layout.buildDirectory.dir("intermediates/rust")
 
 extensions.configure<LibraryExtension> {
-    sourceSets["main"].jniLibs.srcDir(generatedJniLibsDir.get().asFile)
+    sourceSets["main"].jniLibs.directories.add(generatedJniLibsDir.get().asFile.absolutePath)
 }
 
 val buildRustNativeLibs =

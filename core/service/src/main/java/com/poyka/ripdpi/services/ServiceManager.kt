@@ -26,7 +26,7 @@ interface ServiceController {
 class DefaultServiceController
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
         private val serviceStateStore: ServiceStateStore,
     ) : ServiceController {
         override fun start(mode: Mode) {
