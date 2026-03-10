@@ -1,21 +1,32 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
 enum class AppStatus {
     Halted,
     Running,
 }
 
+@Serializable
 enum class Mode {
+    @SerialName("proxy")
     Proxy,
+
+    @SerialName("vpn")
     VPN,
     ;
 
+    val preferenceValue: String
+        get() =
+            when (this) {
+                Proxy -> "proxy"
+                VPN -> "vpn"
+            }
+
     companion object {
         fun fromString(name: String): Mode =
-            when (name) {
-                "proxy" -> Proxy
-                "vpn" -> VPN
-                else -> throw IllegalArgumentException("Invalid mode: $name")
-            }
+            entries.firstOrNull { it.preferenceValue == name }
+                ?: throw IllegalArgumentException("Invalid mode: $name")
     }
 }
