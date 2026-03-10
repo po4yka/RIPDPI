@@ -383,6 +383,113 @@ mod tests {
     }
 
     #[test]
+    fn plan_tcp_disorder_emits_ttl_write_await_restore() {
+        let mut group = DesyncGroup::new(0);
+        group.parts.push(PartSpec { mode: DesyncMode::Disorder, offset: split_expr(3) });
+        let payload = b"abcdef";
+
+        let plan = plan_tcp(&group, payload, 1, 0).expect("plan disorder tcp");
+
+        assert_eq!(
+            plan.actions,
+            vec![
+                DesyncAction::SetTtl(1),
+                DesyncAction::Write(b"abc".to_vec()),
+                DesyncAction::AwaitWritable,
+                DesyncAction::RestoreDefaultTtl,
+                DesyncAction::Write(b"def".to_vec()),
+            ]
+        );
+    }
+
+    #[test]
+    fn plan_tcp_oob_emits_write_urgent() {
+        let mut group = DesyncGroup::new(0);
+        group.oob_data = Some(b'Z');
+        group.parts.push(PartSpec { mode: DesyncMode::Oob, offset: split_expr(4) });
+        let payload = b"abcdefgh";
+
+        let plan = plan_tcp(&group, payload, 2, 0).expect("plan oob tcp");
+
+        assert_eq!(
+            plan.actions,
+            vec![
+                DesyncAction::WriteUrgent { prefix: b"abcd".to_vec(), urgent_byte: b'Z' },
+                DesyncAction::AwaitWritable,
+                DesyncAction::Write(b"efgh".to_vec()),
+            ]
+        );
+    }
+
+    #[test]
+    fn plan_tcp_disoob_combines_ttl_and_urgent() {
+        let mut group = DesyncGroup::new(0);
+        group.oob_data = Some(b'X');
+        group.parts.push(PartSpec { mode: DesyncMode::Disoob, offset: split_expr(2) });
+        let payload = b"abcdef";
+
+        let plan = plan_tcp(&group, payload, 0, 0).expect("plan disoob tcp");
+
+        assert_eq!(
+            plan.actions,
+            vec![
+                DesyncAction::SetTtl(1),
+                DesyncAction::WriteUrgent { prefix: b"ab".to_vec(), urgent_byte: b'X' },
+                DesyncAction::AwaitWritable,
+                DesyncAction::RestoreDefaultTtl,
+                DesyncAction::Write(b"cdef".to_vec()),
+            ]
+        );
+    }
+
+    #[test]
+    fn normalize_fake_tls_size_all_branches() {
+        // negative -> saturating_sub
+        assert_eq!(normalize_fake_tls_size(-5, 100), 95);
+        assert_eq!(normalize_fake_tls_size(-200, 100), 0);
+        // zero -> input_len
+        assert_eq!(normalize_fake_tls_size(0, 100), 100);
+        // positive > input -> input_len
+        assert_eq!(normalize_fake_tls_size(200, 100), 100);
+        // positive in range -> value
+        assert_eq!(normalize_fake_tls_size(50, 100), 50);
+    }
+
+    #[test]
+    fn plan_udp_no_fake_only_drop_sack() {
+        let mut group = DesyncGroup::new(0);
+        group.drop_sack = true;
+        group.udp_fake_count = 0;
+
+        let actions = plan_udp(&group, b"data", 0);
+
+        assert_eq!(
+            actions,
+            vec![DesyncAction::AttachDropSack, DesyncAction::Write(b"data".to_vec()), DesyncAction::DetachDropSack,]
+        );
+    }
+
+    #[test]
+    fn gen_offset_end_mid_rand_flags() {
+        let mut info = ProtoInfo::default();
+        let mut rng = OracleRng::seeded(42);
+        let buf = b"0123456789";
+
+        // OFFSET_END: pos += n
+        let expr_end = OffsetExpr { pos: -3, flag: OFFSET_END, repeats: 0, skip: 0 };
+        assert_eq!(gen_offset(expr_end, buf, buf.len(), 0, &mut info, &mut rng), 7);
+
+        // OFFSET_MID: pos += n/2
+        let expr_mid = OffsetExpr { pos: 0, flag: OFFSET_MID, repeats: 0, skip: 0 };
+        assert_eq!(gen_offset(expr_mid, buf, buf.len(), 0, &mut info, &mut rng), 5);
+
+        // OFFSET_RAND: pos in range [lp, n)
+        let expr_rand = OffsetExpr { pos: 0, flag: OFFSET_RAND, repeats: 0, skip: 0 };
+        let result = gen_offset(expr_rand, buf, buf.len(), 0, &mut info, &mut rng);
+        assert!(result >= 0 && result <= buf.len() as i64);
+    }
+
+    #[test]
     fn plan_udp_wraps_fake_burst_and_drop_sack_actions() {
         let mut group = DesyncGroup::new(0);
         group.drop_sack = true;
