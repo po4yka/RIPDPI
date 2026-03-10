@@ -9,6 +9,15 @@ The local SOCKS5 proxy is now implemented by the in-repo Rust module derived fro
 
 The built shared library is `libripdpi.so`.
 
+## Diagnostics and Telemetry Role
+
+The same shared library now also carries two additional responsibilities:
+
+- Active diagnostics scans through the linked `ripdpi-monitor` crate
+- Passive proxy runtime telemetry for the long-running SOCKS5 listener
+
+That means `libripdpi.so` is no longer only the proxy engine. It is also the diagnostics entry point used by the Diagnostics screen.
+
 ## App Call Chain
 
 ### Proxy mode
@@ -24,8 +33,10 @@ Relevant sources:
 - `core/service/src/main/java/com/poyka/ripdpi/services/RipDpiProxyService.kt`
 - `core/service/src/main/java/com/poyka/ripdpi/services/RipDpiVpnService.kt`
 - `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`
+- `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt`
 - `native/rust/crates/ripdpi-android/src/lib.rs`
 - `native/rust/crates/ripdpi-runtime/src/runtime.rs`
+- `native/rust/crates/ripdpi-monitor/src/lib.rs`
 
 ## Methods Actually Used
 
@@ -38,6 +49,10 @@ Relevant sources:
 | `runtime::run_proxy_with_listener` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Always after session start | Runs the Rust proxy loop on the listener owned by the native session. |
 | `process::request_shutdown` | `native/rust/crates/ripdpi-runtime/src/process.rs` | `jniStop(handle)` | Stop path | Signals the Rust runtime loop to exit. |
 | `platform::detect_default_ttl` | `native/rust/crates/ripdpi-runtime/src/platform/mod.rs` | `runtime::run_proxy_with_listener` | When custom TTL is not supplied | Detects the system default TTL before the proxy loop starts. |
+| `ripdpi_runtime::install_runtime_telemetry` | `native/rust/crates/ripdpi-runtime/src/lib.rs` | `jniStart(handle)` | Long-running proxy runtime only | Attaches a native observer that records listener lifecycle, accepted clients, route selection, route advances, and native errors. |
+| `ripdpi_runtime::clear_runtime_telemetry` | `native/rust/crates/ripdpi-runtime/src/lib.rs` | `jniStart(handle)` unwind | Long-running proxy runtime only | Removes the observer after the proxy loop exits. |
+| `MonitorSession::start_scan` | `native/rust/crates/ripdpi-monitor/src/lib.rs` | `NetworkDiagnostics.jniStartScan()` | Diagnostics screen | Starts an active diagnostics session with structured progress and reports. |
+| `MonitorSession::poll_progress_json` / `take_report_json` / `poll_passive_events_json` | `native/rust/crates/ripdpi-monitor/src/lib.rs` | `NetworkDiagnostics` JNI methods | Diagnostics screen | Returns scan progress, scan report, and scan-time native events. |
 
 ## UI Mode Compatibility
 
@@ -54,6 +69,39 @@ The wrapper also keeps the previous host-group arrangement used by the Android U
 - `HostsMode.Blacklist` puts the host filter on the main action group.
 
 That behavior matches the old JNI C wrapper, even though the naming comes from the Android settings model.
+
+## Implemented Diagnostic Mechanisms
+
+The diagnostics path linked into `libripdpi.so` currently implements:
+
+- `RAW_PATH` and `IN_PATH` scan transports
+- UDP DNS vs DoH comparison
+- HTTPS reachability checks with TLS 1.3 and TLS 1.2 split probing
+- HTTP block-page classification
+- TCP 16-20 KB cutoff detection with repeated fat-header `HEAD` requests
+- Whitelist SNI retry search
+
+Results are returned as typed outcomes and probe details rather than log-line parsing.
+
+## Passive Proxy Runtime Telemetry
+
+While the proxy service is running, `RipDpiProxy.pollTelemetry()` calls `jniPollTelemetry(handle)` and receives a structured snapshot with:
+
+- listener state and bind address
+- current active client count
+- cumulative session count
+- cumulative native error count
+- route change count
+- last selected desync group
+- last target and host observed by the route selector
+- a bounded drained event ring
+
+The drained event ring records:
+- listener start and stop
+- accepted client activity
+- client errors
+- initial route selection
+- route advances caused by reconnect triggers such as connect failure or first-response triggers
 
 ## Command-line Mode
 
