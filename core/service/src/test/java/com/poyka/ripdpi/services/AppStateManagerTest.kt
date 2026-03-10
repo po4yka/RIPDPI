@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.services
 
 import app.cash.turbine.test
+import com.poyka.ripdpi.core.NativeRuntimeEvent
+import com.poyka.ripdpi.core.NativeRuntimeSnapshot
+import com.poyka.ripdpi.core.TunnelStats
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
@@ -63,5 +66,53 @@ class AppStateManagerTest {
         serviceStateStore.updateTelemetry(snapshot)
 
         assertEquals(snapshot, serviceStateStore.telemetry.value)
+    }
+
+    @Test
+    fun `updateTelemetry preserves proxy and tunnel native payloads`() {
+        val serviceStateStore = DefaultServiceStateStore()
+        val snapshot =
+            ServiceTelemetrySnapshot(
+                mode = Mode.Proxy,
+                status = AppStatus.Running,
+                tunnelStats = TunnelStats(txPackets = 3, rxBytes = 9),
+                proxyTelemetry =
+                    NativeRuntimeSnapshot(
+                        source = "proxy",
+                        state = "running",
+                        nativeEvents =
+                            listOf(
+                                NativeRuntimeEvent(
+                                    source = "proxy",
+                                    level = "info",
+                                    message = "accepted",
+                                    createdAt = 10L,
+                                ),
+                            ),
+                    ),
+                tunnelTelemetry =
+                    NativeRuntimeSnapshot(
+                        source = "tunnel",
+                        state = "running",
+                        nativeEvents =
+                            listOf(
+                                NativeRuntimeEvent(
+                                    source = "tunnel",
+                                    level = "warn",
+                                    message = "slow upstream",
+                                    createdAt = 20L,
+                                ),
+                            ),
+                    ),
+                updatedAt = 123L,
+            )
+
+        serviceStateStore.updateTelemetry(snapshot)
+
+        val stored = serviceStateStore.telemetry.value
+        assertEquals(Mode.Proxy, stored.mode)
+        assertEquals(3L, stored.tunnelStats.txPackets)
+        assertEquals("accepted", stored.proxyTelemetry.nativeEvents.single().message)
+        assertEquals("slow upstream", stored.tunnelTelemetry.nativeEvents.single().message)
     }
 }

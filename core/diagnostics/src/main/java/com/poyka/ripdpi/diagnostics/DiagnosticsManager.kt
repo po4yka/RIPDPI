@@ -447,7 +447,7 @@ class DefaultDiagnosticsManager
         }
     }
 
-    private suspend fun persistServiceNativeEvents(serviceTelemetry: com.poyka.ripdpi.services.ServiceTelemetrySnapshot) {
+    internal suspend fun persistServiceNativeEvents(serviceTelemetry: com.poyka.ripdpi.services.ServiceTelemetrySnapshot) {
         (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
             .forEach { event ->
                 historyRepository.insertNativeSessionEvent(
