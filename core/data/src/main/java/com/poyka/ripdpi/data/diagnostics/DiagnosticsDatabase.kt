@@ -77,6 +77,16 @@ data class NetworkSnapshotEntity(
     val capturedAt: Long,
 )
 
+@Entity(tableName = "diagnostic_context_snapshots")
+@Serializable
+data class DiagnosticContextEntity(
+    @PrimaryKey val id: String,
+    val sessionId: String?,
+    val contextKind: String,
+    val payloadJson: String,
+    val capturedAt: Long,
+)
+
 @Entity(tableName = "telemetry_samples")
 @Serializable
 data class TelemetrySampleEntity(
@@ -155,6 +165,15 @@ interface DiagnosticsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertNetworkSnapshot(snapshot: NetworkSnapshotEntity)
 
+    @Query("SELECT * FROM diagnostic_context_snapshots ORDER BY capturedAt DESC LIMIT :limit")
+    fun observeContextSnapshots(limit: Int = 100): Flow<List<DiagnosticContextEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity)
+
+    @Query("DELETE FROM diagnostic_context_snapshots WHERE capturedAt < :threshold")
+    suspend fun deleteContextOlderThan(threshold: Long)
+
     @Query("SELECT * FROM telemetry_samples ORDER BY createdAt DESC LIMIT :limit")
     fun observeTelemetry(limit: Int = 200): Flow<List<TelemetrySampleEntity>>
 
@@ -187,11 +206,12 @@ interface DiagnosticsDao {
         ScanSessionEntity::class,
         ProbeResultEntity::class,
         NetworkSnapshotEntity::class,
+        DiagnosticContextEntity::class,
         TelemetrySampleEntity::class,
         NativeSessionEventEntity::class,
         ExportRecordEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -204,6 +224,8 @@ interface DiagnosticsHistoryRepository {
     fun observeRecentScanSessions(limit: Int = 50): Flow<List<ScanSessionEntity>>
 
     fun observeSnapshots(limit: Int = 100): Flow<List<NetworkSnapshotEntity>>
+
+    fun observeContexts(limit: Int = 100): Flow<List<DiagnosticContextEntity>>
 
     fun observeTelemetry(limit: Int = 200): Flow<List<TelemetrySampleEntity>>
 
@@ -232,6 +254,8 @@ interface DiagnosticsHistoryRepository {
 
     suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity)
 
+    suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity)
+
     suspend fun insertTelemetrySample(sample: TelemetrySampleEntity)
 
     suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
@@ -254,6 +278,9 @@ class RoomDiagnosticsHistoryRepository
 
     override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> =
         dao.observeSnapshots(limit)
+
+    override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> =
+        dao.observeContextSnapshots(limit)
 
     override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> =
         dao.observeTelemetry(limit)
@@ -301,6 +328,10 @@ class RoomDiagnosticsHistoryRepository
         dao.upsertNetworkSnapshot(snapshot)
     }
 
+    override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) {
+        dao.upsertContextSnapshot(snapshot)
+    }
+
     override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) {
         dao.insertTelemetrySample(sample)
     }
@@ -318,6 +349,7 @@ class RoomDiagnosticsHistoryRepository
             return
         }
         val threshold = System.currentTimeMillis() - retentionDays * 24L * 60L * 60L * 1000L
+        dao.deleteContextOlderThan(threshold)
         dao.deleteTelemetryOlderThan(threshold)
         dao.deleteNativeEventsOlderThan(threshold)
     }

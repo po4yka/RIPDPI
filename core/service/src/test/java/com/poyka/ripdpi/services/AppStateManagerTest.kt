@@ -115,4 +115,32 @@ class AppStateManagerTest {
         assertEquals("accepted", stored.proxyTelemetry.nativeEvents.single().message)
         assertEquals("slow upstream", stored.tunnelTelemetry.nativeEvents.single().message)
     }
+
+    @Test
+    fun `running transition records start time and increments restart count`() {
+        val serviceStateStore = DefaultServiceStateStore()
+
+        serviceStateStore.setStatus(AppStatus.Running, Mode.Proxy)
+        val firstStart = serviceStateStore.telemetry.value.serviceStartedAt
+        val firstRestartCount = serviceStateStore.telemetry.value.restartCount
+
+        serviceStateStore.setStatus(AppStatus.Halted, Mode.Proxy)
+        serviceStateStore.setStatus(AppStatus.Running, Mode.Proxy)
+        val secondStart = serviceStateStore.telemetry.value.serviceStartedAt
+
+        assertTrue(firstStart != null)
+        assertTrue(secondStart != null)
+        assertEquals(2, serviceStateStore.telemetry.value.restartCount)
+        assertEquals(1, firstRestartCount)
+    }
+
+    @Test
+    fun `emitFailed stores last failure metadata`() {
+        val serviceStateStore = DefaultServiceStateStore()
+
+        serviceStateStore.emitFailed(Sender.Proxy)
+
+        assertEquals(Sender.Proxy, serviceStateStore.telemetry.value.lastFailureSender)
+        assertTrue((serviceStateStore.telemetry.value.lastFailureAt ?: 0L) > 0L)
+    }
 }

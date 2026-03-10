@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -10,6 +11,7 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
@@ -77,6 +79,11 @@ data class DiagnosticsNetworkSnapshotUiModel(
     val fields: List<DiagnosticsFieldUiModel>,
 )
 
+data class DiagnosticsContextGroupUiModel(
+    val title: String,
+    val fields: List<DiagnosticsFieldUiModel>,
+)
+
 data class DiagnosticsProfileOptionUiModel(
     val id: String,
     val name: String,
@@ -139,6 +146,9 @@ data class DiagnosticsSessionDetailUiModel(
     val probeGroups: List<DiagnosticsProbeGroupUiModel>,
     val snapshots: List<DiagnosticsNetworkSnapshotUiModel>,
     val events: List<DiagnosticsEventUiModel>,
+    val contextGroups: List<DiagnosticsContextGroupUiModel>,
+    val hasSensitiveDetails: Boolean,
+    val sensitiveDetailsVisible: Boolean,
 )
 
 data class DiagnosticsOverviewUiModel(
@@ -148,6 +158,7 @@ data class DiagnosticsOverviewUiModel(
     val activeProfile: DiagnosticsProfileOptionUiModel? = null,
     val latestSnapshot: DiagnosticsNetworkSnapshotUiModel? = null,
     val latestSession: DiagnosticsSessionRowUiModel? = null,
+    val contextSummary: DiagnosticsContextGroupUiModel? = null,
     val metrics: List<DiagnosticsMetricUiModel> = emptyList(),
     val warnings: List<DiagnosticsEventUiModel> = emptyList(),
 )
@@ -168,6 +179,7 @@ data class DiagnosticsLiveUiModel(
     val metrics: List<DiagnosticsMetricUiModel> = emptyList(),
     val trends: List<DiagnosticsSparklineUiModel> = emptyList(),
     val snapshot: DiagnosticsNetworkSnapshotUiModel? = null,
+    val contextGroups: List<DiagnosticsContextGroupUiModel> = emptyList(),
     val passiveEvents: List<DiagnosticsEventUiModel> = emptyList(),
 )
 
@@ -261,6 +273,7 @@ class DiagnosticsViewModel
         private val eventSearch = MutableStateFlow("")
         private val eventAutoScroll = MutableStateFlow(true)
         private val selectedSessionDetail = MutableStateFlow<DiagnosticsSessionDetailUiModel?>(null)
+        private val sensitiveSessionDetailsVisible = MutableStateFlow(false)
         private val archiveActionState = MutableStateFlow(ArchiveActionState())
         private val _effects = Channel<DiagnosticsEffect>(Channel.BUFFERED)
         val effects: Flow<DiagnosticsEffect> = _effects.receiveAsFlow()
@@ -271,6 +284,7 @@ class DiagnosticsViewModel
                 diagnosticsManager.activeScanProgress,
                 diagnosticsManager.sessions,
                 diagnosticsManager.snapshots,
+                diagnosticsManager.contexts,
                 diagnosticsManager.telemetry,
                 diagnosticsManager.nativeEvents,
                 diagnosticsManager.exports,
@@ -286,6 +300,7 @@ class DiagnosticsViewModel
                 eventSearch,
                 eventAutoScroll,
                 selectedSessionDetail,
+                sensitiveSessionDetailsVisible,
                 archiveActionState,
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
@@ -293,28 +308,31 @@ class DiagnosticsViewModel
                 val progress = values[1] as ScanProgress?
                 val sessions = values[2] as List<ScanSessionEntity>
                 val snapshots = values[3] as List<NetworkSnapshotEntity>
-                val telemetry = values[4] as List<TelemetrySampleEntity>
-                val nativeEvents = values[5] as List<NativeSessionEventEntity>
-                val exports = values[6] as List<ExportRecordEntity>
-                val selectedSectionRequest = values[7] as DiagnosticsSection
-                val selectedProfileId = values[8] as String?
-                val selectedProbe = values[9] as DiagnosticsProbeResultUiModel?
-                val selectedEventId = values[10] as String?
-                val sessionPathMode = values[11] as String?
-                val sessionStatus = values[12] as String?
-                val sessionSearch = values[13] as String
-                val eventSource = values[14] as String?
-                val eventSeverity = values[15] as String?
-                val eventSearch = values[16] as String
-                val eventAutoScroll = values[17] as Boolean
-                val sessionDetail = values[18] as DiagnosticsSessionDetailUiModel?
-                val archiveActionState = values[19] as ArchiveActionState
+                val contexts = values[4] as List<DiagnosticContextEntity>
+                val telemetry = values[5] as List<TelemetrySampleEntity>
+                val nativeEvents = values[6] as List<NativeSessionEventEntity>
+                val exports = values[7] as List<ExportRecordEntity>
+                val selectedSectionRequest = values[8] as DiagnosticsSection
+                val selectedProfileId = values[9] as String?
+                val selectedProbe = values[10] as DiagnosticsProbeResultUiModel?
+                val selectedEventId = values[11] as String?
+                val sessionPathMode = values[12] as String?
+                val sessionStatus = values[13] as String?
+                val sessionSearch = values[14] as String
+                val eventSource = values[15] as String?
+                val eventSeverity = values[16] as String?
+                val eventSearch = values[17] as String
+                val eventAutoScroll = values[18] as Boolean
+                val sessionDetail = values[19] as DiagnosticsSessionDetailUiModel?
+                val sensitiveSessionDetailsVisible = values[20] as Boolean
+                val archiveActionState = values[21] as ArchiveActionState
 
                 buildUiState(
                     profiles = profiles,
                     progress = progress,
                     sessions = sessions,
                     snapshots = snapshots,
+                    contexts = contexts,
                     telemetry = telemetry,
                     nativeEvents = nativeEvents,
                     exports = exports,
@@ -330,6 +348,7 @@ class DiagnosticsViewModel
                     eventSearch = eventSearch,
                     eventAutoScroll = eventAutoScroll,
                     selectedSessionDetail = sessionDetail,
+                    sensitiveSessionDetailsVisible = sensitiveSessionDetailsVisible,
                     archiveActionState = archiveActionState,
                 )
             }.stateIn(
@@ -358,13 +377,15 @@ class DiagnosticsViewModel
         fun selectSession(sessionId: String) {
             viewModelScope.launch {
                 val detail = diagnosticsManager.loadSessionDetail(sessionId)
-                selectedSessionDetail.value = detail.toUiModel()
+                sensitiveSessionDetailsVisible.value = false
+                selectedSessionDetail.value = detail.toUiModel(showSensitiveDetails = false)
             }
         }
 
         fun dismissSessionDetail() {
             selectedSessionDetail.value = null
             selectedProbe.value = null
+            sensitiveSessionDetailsVisible.value = false
         }
 
         fun selectEvent(eventId: String) {
@@ -381,6 +402,16 @@ class DiagnosticsViewModel
 
         fun dismissProbeDetail() {
             selectedProbe.value = null
+        }
+
+        fun toggleSensitiveSessionDetails() {
+            val nextValue = !sensitiveSessionDetailsVisible.value
+            sensitiveSessionDetailsVisible.value = nextValue
+            val sessionId = selectedSessionDetail.value?.session?.id ?: return
+            viewModelScope.launch {
+                val detail = diagnosticsManager.loadSessionDetail(sessionId)
+                selectedSessionDetail.value = detail.toUiModel(showSensitiveDetails = nextValue)
+            }
         }
 
         fun setSessionPathModeFilter(pathMode: String?) {
@@ -488,6 +519,7 @@ class DiagnosticsViewModel
             progress: ScanProgress?,
             sessions: List<ScanSessionEntity>,
             snapshots: List<NetworkSnapshotEntity>,
+            contexts: List<DiagnosticContextEntity>,
             telemetry: List<TelemetrySampleEntity>,
             nativeEvents: List<NativeSessionEventEntity>,
             exports: List<ExportRecordEntity>,
@@ -503,12 +535,14 @@ class DiagnosticsViewModel
             eventSearch: String,
             eventAutoScroll: Boolean,
             selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
+            sensitiveSessionDetailsVisible: Boolean,
             archiveActionState: ArchiveActionState,
         ): DiagnosticsUiState {
             val activeProfile =
                 profiles.firstOrNull { it.id == selectedProfileId }
                     ?: profiles.firstOrNull()
-            val latestSnapshot = snapshots.firstOrNull()?.toUiModel()
+            val latestSnapshot = snapshots.firstOrNull()?.toUiModel(showSensitiveDetails = false)
+            val latestContext = (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.decodeContext()
             val eventModels = nativeEvents.map { it.toUiModel() }
             val sessionRows = sessions.map(::toSessionRowUiModel)
             val latestCompletedSession = sessions.firstOrNull { it.reportJson != null } ?: sessions.firstOrNull()
@@ -535,10 +569,18 @@ class DiagnosticsViewModel
                         event.matchesQuery(eventSearch)
                 }
             val selectedEvent = filteredEvents.firstOrNull { it.id == selectedEventId }
-            val sharePreview = buildSharePreview(latestCompletedSession, latestSnapshot, currentTelemetry, nativeEvents, latestReport)
+            val sharePreview = buildSharePreview(latestCompletedSession, latestSnapshot, latestContext, currentTelemetry, nativeEvents, latestReport)
             val liveMetrics = buildLiveMetrics(currentTelemetry, nativeEvents)
             val liveTrends = buildLiveTrends(telemetry)
-            val warnings = eventModels.filter { it.tone == DiagnosticsTone.Negative || it.tone == DiagnosticsTone.Warning }.take(3)
+            val warnings =
+                (buildContextWarnings(latestContext) + eventModels.filter { it.tone == DiagnosticsTone.Negative || it.tone == DiagnosticsTone.Warning })
+                    .take(3)
+            val overviewContext = latestContext?.toOverviewContextGroup()
+            val liveContextGroups = latestContext?.toLiveContextGroups() ?: emptyList()
+            val sessionDetailWithVisibility =
+                selectedSessionDetail?.copy(
+                    sensitiveDetailsVisible = sensitiveSessionDetailsVisible,
+                )
 
             return DiagnosticsUiState(
                 selectedSection = selectedSection,
@@ -550,6 +592,7 @@ class DiagnosticsViewModel
                         activeProfile = activeProfile?.toOptionUiModel(),
                         latestSnapshot = latestSnapshot,
                         latestSession = sessionRows.firstOrNull(),
+                        contextSummary = overviewContext,
                         metrics =
                             buildList {
                                 add(
@@ -609,6 +652,7 @@ class DiagnosticsViewModel
                         metrics = liveMetrics,
                         trends = liveTrends,
                         snapshot = latestSnapshot,
+                        contextGroups = liveContextGroups,
                         passiveEvents = eventModels.take(8),
                     ),
                 sessions =
@@ -649,7 +693,7 @@ class DiagnosticsViewModel
                         archiveStateTone = archiveActionState.tone,
                         isArchiveBusy = archiveActionState.isBusy,
                     ),
-                selectedSessionDetail = selectedSessionDetail,
+                selectedSessionDetail = sessionDetailWithVisibility,
                 selectedEvent = selectedEvent,
                 selectedProbe = selectedProbe,
             )
@@ -771,6 +815,7 @@ class DiagnosticsViewModel
         private fun buildSharePreview(
             latestSession: ScanSessionEntity?,
             latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
+            latestContext: DiagnosticContextModel?,
             telemetry: TelemetrySampleEntity?,
             nativeEvents: List<NativeSessionEventEntity>,
             latestReport: ScanReport?,
@@ -783,12 +828,16 @@ class DiagnosticsViewModel
                 buildString {
                     appendLine("Archive includes the focused diagnostics session in full.")
                     appendLine("It also adds recent live telemetry and global runtime events.")
-                    appendLine("Summary and manifest redact network identity fields, while raw report data stays intact.")
+                    appendLine("Summary and manifest redact support context and network identity fields, while raw report data stays intact.")
                     latestSession?.let {
                         appendLine("Session ${it.id.take(8)} · ${it.pathMode} · ${it.status}")
                     }
                     latestSnapshot?.let {
                         appendLine("Network ${it.subtitle}")
+                    }
+                    latestContext?.let {
+                        appendLine("Context ${it.service.activeMode.lowercase(Locale.US)} · ${it.device.manufacturer} ${it.device.model} · Android ${it.device.androidVersion}")
+                        appendLine("Permissions ${it.permissions.vpnPermissionState} VPN · ${it.permissions.notificationPermissionState} notifications")
                     }
                     telemetry?.let {
                         appendLine("Live ${it.connectionState.lowercase(Locale.US)} · ${it.networkType}")
@@ -807,6 +856,8 @@ class DiagnosticsViewModel
                     listOfNotNull(
                         latestSession?.pathMode?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("Path", it) },
                         telemetry?.networkType?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("Network", it) },
+                        latestContext?.service?.activeMode?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("Mode", it) },
+                        latestContext?.device?.appVersionName?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("App", it) },
                         telemetry?.txBytes?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("TX", formatBytes(it)) },
                         telemetry?.rxBytes?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("RX", formatBytes(it)) },
                     ),
@@ -819,7 +870,7 @@ class DiagnosticsViewModel
         private fun decodeProbeDetails(detailJson: String): List<ProbeDetail> =
             runCatching { json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson) }.getOrElse { emptyList() }
 
-        private fun NetworkSnapshotEntity.toUiModel(): DiagnosticsNetworkSnapshotUiModel? {
+        private fun NetworkSnapshotEntity.toUiModel(showSensitiveDetails: Boolean): DiagnosticsNetworkSnapshotUiModel? {
             val snapshot = runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payloadJson) }.getOrNull() ?: return null
             return DiagnosticsNetworkSnapshotUiModel(
                 title = snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
@@ -827,11 +878,11 @@ class DiagnosticsViewModel
                 fields =
                     listOf(
                         DiagnosticsFieldUiModel("Capabilities", snapshot.capabilities.joinToString().ifBlank { "Unknown" }),
-                        DiagnosticsFieldUiModel("DNS", snapshot.dnsServers.joinToString().ifBlank { "Unknown" }),
+                        DiagnosticsFieldUiModel("DNS", if (showSensitiveDetails) snapshot.dnsServers.joinToString().ifBlank { "Unknown" } else redactCollection(snapshot.dnsServers)),
                         DiagnosticsFieldUiModel("Private DNS", snapshot.privateDnsMode),
                         DiagnosticsFieldUiModel("MTU", snapshot.mtu?.toString() ?: "Unknown"),
-                        DiagnosticsFieldUiModel("Local", snapshot.localAddresses.joinToString().ifBlank { "Unknown" }),
-                        DiagnosticsFieldUiModel("Public IP", snapshot.publicIp ?: "Unknown"),
+                        DiagnosticsFieldUiModel("Local", if (showSensitiveDetails) snapshot.localAddresses.joinToString().ifBlank { "Unknown" } else redactCollection(snapshot.localAddresses)),
+                        DiagnosticsFieldUiModel("Public IP", if (showSensitiveDetails) snapshot.publicIp ?: "Unknown" else redactValue(snapshot.publicIp)),
                         DiagnosticsFieldUiModel("ASN", snapshot.publicAsn ?: "Unknown"),
                         DiagnosticsFieldUiModel("Validated", snapshot.networkValidated.toString()),
                         DiagnosticsFieldUiModel("Captive portal", snapshot.captivePortalDetected.toString()),
@@ -871,7 +922,7 @@ class DiagnosticsViewModel
             )
         }
 
-        private fun DiagnosticSessionDetail.toUiModel(): DiagnosticsSessionDetailUiModel {
+        private fun DiagnosticSessionDetail.toUiModel(showSensitiveDetails: Boolean): DiagnosticsSessionDetailUiModel {
             val probeGroups =
                 results
                     .mapIndexed { index, result -> result.toUiModel(index) }
@@ -885,8 +936,11 @@ class DiagnosticsViewModel
             return DiagnosticsSessionDetailUiModel(
                 session = toSessionRowUiModel(session),
                 probeGroups = probeGroups,
-                snapshots = snapshots.mapNotNull { it.toUiModel() },
+                snapshots = snapshots.mapNotNull { it.toUiModel(showSensitiveDetails = showSensitiveDetails) },
                 events = events.map { it.toUiModel() },
+                contextGroups = context?.toUiGroups(showSensitiveDetails = showSensitiveDetails).orEmpty(),
+                hasSensitiveDetails = true,
+                sensitiveDetailsVisible = showSensitiveDetails,
             )
         }
 
@@ -979,6 +1033,166 @@ class DiagnosticsViewModel
             }
             val normalized = query.lowercase(Locale.US)
             return listOf(source, severity, message).any { it.lowercase(Locale.US).contains(normalized) }
+        }
+
+        private fun DiagnosticContextEntity.decodeContext(): DiagnosticContextModel? =
+            runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payloadJson) }.getOrNull()
+
+        private fun DiagnosticContextEntity.toUiGroups(showSensitiveDetails: Boolean): List<DiagnosticsContextGroupUiModel> =
+            decodeContext()?.toUiGroups(showSensitiveDetails).orEmpty()
+
+        private fun DiagnosticContextModel.toOverviewContextGroup(): DiagnosticsContextGroupUiModel =
+            DiagnosticsContextGroupUiModel(
+                title = "Support context",
+                fields =
+                    listOf(
+                        DiagnosticsFieldUiModel("App", device.appVersionName),
+                        DiagnosticsFieldUiModel("Device", "${device.manufacturer} ${device.model}"),
+                        DiagnosticsFieldUiModel("Android", "${device.androidVersion} (API ${device.apiLevel})"),
+                        DiagnosticsFieldUiModel("Mode", service.activeMode),
+                        DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
+                        DiagnosticsFieldUiModel("Restrictions", listOf(permissions.dataSaverState, environment.powerSaveModeState).joinToString(" · ")),
+                    ),
+            )
+
+        private fun DiagnosticContextModel.toLiveContextGroups(): List<DiagnosticsContextGroupUiModel> =
+            listOf(
+                DiagnosticsContextGroupUiModel(
+                    title = "Service",
+                    fields =
+                        listOf(
+                            DiagnosticsFieldUiModel("Status", service.serviceStatus),
+                            DiagnosticsFieldUiModel("Mode", service.activeMode),
+                            DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
+                            DiagnosticsFieldUiModel("Uptime", service.sessionUptimeMs?.let(::formatDurationMs) ?: "Unknown"),
+                        ),
+                ),
+                DiagnosticsContextGroupUiModel(
+                    title = "Environment",
+                    fields =
+                        listOf(
+                            DiagnosticsFieldUiModel("Data saver", permissions.dataSaverState),
+                            DiagnosticsFieldUiModel("Power save", environment.powerSaveModeState),
+                            DiagnosticsFieldUiModel("Metered", environment.networkMeteredState),
+                            DiagnosticsFieldUiModel("Roaming", environment.roamingState),
+                        ),
+                ),
+            )
+
+        private fun buildContextWarnings(context: DiagnosticContextModel?): List<DiagnosticsEventUiModel> {
+            if (context == null) {
+                return emptyList()
+            }
+            val warnings = mutableListOf<DiagnosticsEventUiModel>()
+            if (context.permissions.vpnPermissionState == "disabled") {
+                warnings +=
+                    DiagnosticsEventUiModel(
+                        id = "context-vpn-permission",
+                        source = "Context",
+                        severity = "WARN",
+                        message = "VPN permission is not currently granted.",
+                        createdAtLabel = "now",
+                        tone = DiagnosticsTone.Warning,
+                    )
+            }
+            if (context.permissions.notificationPermissionState == "disabled") {
+                warnings +=
+                    DiagnosticsEventUiModel(
+                        id = "context-notification-permission",
+                        source = "Context",
+                        severity = "WARN",
+                        message = "Notification permission is disabled, so service issues may be harder to notice.",
+                        createdAtLabel = "now",
+                        tone = DiagnosticsTone.Warning,
+                    )
+            }
+            if (context.permissions.dataSaverState == "enabled" || context.environment.powerSaveModeState == "enabled") {
+                warnings +=
+                    DiagnosticsEventUiModel(
+                        id = "context-power-restriction",
+                        source = "Context",
+                        severity = "WARN",
+                        message = "Power or background restrictions may interfere with stable diagnostics.",
+                        createdAtLabel = "now",
+                        tone = DiagnosticsTone.Warning,
+                    )
+            }
+            return warnings
+        }
+
+        private fun DiagnosticContextModel.toUiGroups(showSensitiveDetails: Boolean): List<DiagnosticsContextGroupUiModel> =
+            listOf(
+                DiagnosticsContextGroupUiModel(
+                    title = "Service",
+                    fields =
+                        listOf(
+                            DiagnosticsFieldUiModel("Status", service.serviceStatus),
+                            DiagnosticsFieldUiModel("Configured mode", service.configuredMode),
+                            DiagnosticsFieldUiModel("Active mode", service.activeMode),
+                            DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
+                            DiagnosticsFieldUiModel("Config source", service.configSource),
+                            DiagnosticsFieldUiModel("Proxy", if (showSensitiveDetails) service.proxyEndpoint else redactValue(service.proxyEndpoint)),
+                            DiagnosticsFieldUiModel("Desync", service.desyncMethod),
+                            DiagnosticsFieldUiModel("Route group", service.routeGroup),
+                            DiagnosticsFieldUiModel("Restart count", service.restartCount.toString()),
+                            DiagnosticsFieldUiModel("Uptime", service.sessionUptimeMs?.let(::formatDurationMs) ?: "Unknown"),
+                            DiagnosticsFieldUiModel("Last native error", service.lastNativeErrorHeadline),
+                        ),
+                ),
+                DiagnosticsContextGroupUiModel(
+                    title = "Permissions",
+                    fields =
+                        listOf(
+                            DiagnosticsFieldUiModel("VPN permission", permissions.vpnPermissionState),
+                            DiagnosticsFieldUiModel("Notification permission", permissions.notificationPermissionState),
+                            DiagnosticsFieldUiModel("Battery optimization", permissions.batteryOptimizationState),
+                            DiagnosticsFieldUiModel("Data saver", permissions.dataSaverState),
+                        ),
+                ),
+                DiagnosticsContextGroupUiModel(
+                    title = "Device",
+                    fields =
+                        listOf(
+                            DiagnosticsFieldUiModel("App version", "${device.appVersionName} (${device.buildType})"),
+                            DiagnosticsFieldUiModel("Version code", device.appVersionCode.toString()),
+                            DiagnosticsFieldUiModel("Device", "${device.manufacturer} ${device.model}"),
+                            DiagnosticsFieldUiModel("Android", "${device.androidVersion} (API ${device.apiLevel})"),
+                            DiagnosticsFieldUiModel("ABI", device.primaryAbi),
+                            DiagnosticsFieldUiModel("Locale", device.locale),
+                            DiagnosticsFieldUiModel("Timezone", device.timezone),
+                        ),
+                ),
+                DiagnosticsContextGroupUiModel(
+                    title = "Environment",
+                    fields =
+                        listOf(
+                            DiagnosticsFieldUiModel("Battery saver", environment.batterySaverState),
+                            DiagnosticsFieldUiModel("Power save", environment.powerSaveModeState),
+                            DiagnosticsFieldUiModel("Network metered", environment.networkMeteredState),
+                            DiagnosticsFieldUiModel("Roaming", environment.roamingState),
+                        ),
+                ),
+            )
+
+        private fun redactValue(value: String?): String = value?.let { "redacted" } ?: "Unknown"
+
+        private fun redactCollection(values: List<String>): String =
+            if (values.isEmpty()) {
+                "Unknown"
+            } else {
+                "redacted(${values.size})"
+            }
+
+        private fun formatDurationMs(durationMs: Long): String {
+            val totalSeconds = (durationMs / 1_000L).coerceAtLeast(0L)
+            val hours = totalSeconds / 3_600L
+            val minutes = (totalSeconds % 3_600L) / 60L
+            val seconds = totalSeconds % 60L
+            return when {
+                hours > 0L -> String.format(Locale.US, "%dh %02dm", hours, minutes)
+                minutes > 0L -> String.format(Locale.US, "%dm %02ds", minutes, seconds)
+                else -> "${seconds}s"
+            }
         }
 
         private fun toggleValue(

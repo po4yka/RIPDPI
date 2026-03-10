@@ -42,7 +42,10 @@
     <string name="diagnostics_attention_section">Watch list</string>
     <string name="diagnostics_results_section">Latest probe results</string>
     <string name="diagnostics_trends_section">Recent trends</string>
+    <string name="diagnostics_context_section">Context</string>
     <string name="diagnostics_passive_events_section">Passive runtime events</string>
+    <string name="diagnostics_sensitive_show">Show sensitive details</string>
+    <string name="diagnostics_sensitive_hide">Hide sensitive details</string>
     <string name="diagnostics_search_label">Search</string>
     <string name="diagnostics_search_placeholder">Find session, path mode, or verdict</string>
     <string name="diagnostics_events_search_placeholder">Filter by source, severity, or message</string>

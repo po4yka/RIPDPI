@@ -44,6 +44,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsEffect
+import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
 import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
@@ -123,6 +124,7 @@ fun DiagnosticsRoute(
         onDismissEventDetail = viewModel::dismissEventDetail,
         onSelectProbe = viewModel::selectProbe,
         onDismissProbeDetail = viewModel::dismissProbeDetail,
+        onToggleSensitiveSessionDetails = viewModel::toggleSensitiveSessionDetails,
         onSessionPathFilter = viewModel::setSessionPathModeFilter,
         onSessionStatusFilter = viewModel::setSessionStatusFilter,
         onSessionSearch = viewModel::setSessionSearch,
@@ -153,6 +155,7 @@ fun DiagnosticsScreen(
     onDismissEventDetail: () -> Unit,
     onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
     onDismissProbeDetail: () -> Unit,
+    onToggleSensitiveSessionDetails: () -> Unit,
     onSessionPathFilter: (String?) -> Unit,
     onSessionStatusFilter: (String?) -> Unit,
     onSessionSearch: (String) -> Unit,
@@ -249,6 +252,22 @@ fun DiagnosticsScreen(
                 label = detail.session.status,
                 tone = statusTone(detail.session.tone),
             )
+            if (detail.hasSensitiveDetails) {
+                RipDpiButton(
+                    text =
+                        if (detail.sensitiveDetailsVisible) {
+                            stringResource(R.string.diagnostics_sensitive_hide)
+                        } else {
+                            stringResource(R.string.diagnostics_sensitive_show)
+                        },
+                    onClick = onToggleSensitiveSessionDetails,
+                    variant = RipDpiButtonVariant.Outline,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            detail.contextGroups.forEach { group ->
+                ContextGroupCard(group = group)
+            }
             detail.probeGroups.forEach { group ->
                 Text(
                     text = group.title,
@@ -377,6 +396,11 @@ private fun OverviewSection(
         uiState.overview.latestSnapshot?.let { snapshot ->
             item {
                 SnapshotCard(snapshot = snapshot)
+            }
+        }
+        uiState.overview.contextSummary?.let { contextSummary ->
+            item {
+                ContextGroupCard(group = contextSummary)
             }
         }
         uiState.overview.latestSession?.let { session ->
@@ -562,6 +586,16 @@ private fun LiveSection(uiState: DiagnosticsUiState) {
         }
         uiState.live.snapshot?.let { snapshot ->
             item { SnapshotCard(snapshot = snapshot) }
+        }
+        if (uiState.live.contextGroups.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    SettingsCategoryHeader(title = stringResource(R.string.diagnostics_context_section))
+                    uiState.live.contextGroups.forEach { group ->
+                        ContextGroupCard(group = group)
+                    }
+                }
+            }
         }
         if (uiState.live.passiveEvents.isNotEmpty()) {
             item {
@@ -866,6 +900,25 @@ private fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
                 value = field.value,
                 monospaceValue = field.value.length > 18,
                 showDivider = index != snapshot.fields.lastIndex,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
+    RipDpiCard {
+        Text(
+            text = group.title,
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        group.fields.forEachIndexed { index, field ->
+            SettingsRow(
+                title = field.label,
+                value = field.value,
+                monospaceValue = field.value.length > 18,
+                showDivider = index != group.fields.lastIndex,
             )
         }
     }
