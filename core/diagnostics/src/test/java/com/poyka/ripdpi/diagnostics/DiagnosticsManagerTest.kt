@@ -22,7 +22,10 @@ import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
 import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
+import java.io.File
+import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.zip.ZipFile
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,6 +38,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -159,6 +163,131 @@ class DiagnosticsManagerTest {
             assertEquals(setOf("proxy", "tunnel"), history.nativeEventsState.value.map { it.source }.toSet())
         }
 
+    @Test
+    fun `createArchive includes selected session and redacts human readable files`() =
+        runTest {
+            val cacheDir = Files.createTempDirectory("diagnostics-archive-selected").toFile()
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-selected",
+                                profileId = "default",
+                                pathMode = "IN_PATH",
+                                summary = "Blocked DNS",
+                            ),
+                        )
+                    replaceProbeResults(
+                        "session-selected",
+                        listOf(
+                            ProbeResultEntity(
+                                id = "probe-1",
+                                sessionId = "session-selected",
+                                probeType = "dns",
+                                target = "blocked.example",
+                                outcome = "substituted",
+                                detailJson = "[]",
+                                createdAt = 30L,
+                            ),
+                        ),
+                    )
+                    upsertSnapshot(
+                        snapshot(
+                            id = "snapshot-selected",
+                            sessionId = "session-selected",
+                        ),
+                    )
+                    upsertSnapshot(
+                        snapshot(
+                            id = "snapshot-passive",
+                            sessionId = null,
+                        ),
+                    )
+                    insertTelemetrySample(sample(id = "telemetry-1", publicIp = "198.51.100.8"))
+                    insertNativeSessionEvent(event(id = "event-selected", sessionId = "session-selected", source = "dns", level = "warn"))
+                    insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "warn"))
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(cacheDir),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val archive = manager.createArchive("session-selected")
+            val entries = unzipEntries(archive.absolutePath)
+
+            assertEquals("session-selected", archive.sessionId)
+            assertEquals(setOf("summary.txt", "report.json", "telemetry.csv", "manifest.json"), entries.keys)
+            assertTrue(entries.getValue("summary.txt").contains("selectedSession=session-selected"))
+            assertTrue(entries.getValue("summary.txt").contains("publicIp=redacted"))
+            assertTrue(entries.getValue("summary.txt").contains("dns=redacted(1)"))
+            assertFalse(entries.getValue("summary.txt").contains("198.51.100.8"))
+            assertFalse(entries.getValue("summary.txt").contains("192.0.2.10"))
+            assertFalse(entries.getValue("summary.txt").contains("AS64500"))
+            assertTrue(entries.getValue("report.json").contains("\"publicIp\": \"198.51.100.8\""))
+            assertTrue(entries.getValue("report.json").contains("1.1.1.1"))
+            assertTrue(entries.getValue("telemetry.csv").contains("198.51.100.8"))
+            assertTrue(entries.getValue("manifest.json").contains("\"includedSessionId\": \"session-selected\""))
+            assertTrue(entries.getValue("manifest.json").contains("\"privacyMode\": \"split_output\""))
+            assertTrue(entries.getValue("manifest.json").contains("\"publicIp\": \"redacted\""))
+            assertFalse(entries.getValue("manifest.json").contains("198.51.100.8"))
+            assertEquals("session-selected", history.exportsState.value.single().sessionId)
+        }
+
+    @Test
+    fun `createArchive falls back to latest completed session when target omitted`() =
+        runTest {
+            val cacheDir = Files.createTempDirectory("diagnostics-archive-latest").toFile()
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-latest",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "Latest completed",
+                            ),
+                            session(
+                                id = "session-running",
+                                profileId = "default",
+                                pathMode = "IN_PATH",
+                                summary = "Still running",
+                                status = "running",
+                                reportJson = null,
+                            ),
+                        )
+                    replaceProbeResults("session-latest", listOf(ProbeResultEntity("probe-1", "session-latest", "http", "example.org", "ok", "[]", 20L)))
+                    upsertSnapshot(snapshot(id = "snapshot-passive", sessionId = null))
+                    insertTelemetrySample(sample(id = "telemetry-1", publicIp = "198.51.100.8"))
+                    insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "info"))
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(cacheDir),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val archive = manager.createArchive(null)
+            val entries = unzipEntries(archive.absolutePath)
+
+            assertEquals("session-latest", archive.sessionId)
+            assertTrue(entries.getValue("manifest.json").contains("\"includedSessionId\": \"session-latest\""))
+            assertTrue(entries.getValue("report.json").contains("\"id\": \"session-latest\""))
+            assertEquals("session-latest", history.exportsState.value.single().sessionId)
+        }
+
     private suspend fun waitForCompletion(
         history: FakeDiagnosticsHistoryRepository,
         sessionId: String,
@@ -193,7 +322,11 @@ private class FakeAppSettingsRepository(
     }
 }
 
-private class TestContext : ContextWrapper(null)
+private class TestContext(
+    private val testCacheDir: File = Files.createTempDirectory("diagnostics-manager-test").toFile(),
+) : ContextWrapper(null) {
+    override fun getCacheDir(): File = testCacheDir
+}
 
 private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
     val profilesState = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
@@ -448,3 +581,107 @@ private fun defaultAppSettings(): AppSettings =
         .setDiagnosticsHistoryRetentionDays(14)
         .setDiagnosticsExportIncludeHistory(true)
         .build()
+
+private fun session(
+    id: String,
+    profileId: String,
+    pathMode: String,
+    summary: String,
+    status: String = "completed",
+    reportJson: String? =
+        Json.encodeToString(
+            ScanReport.serializer(),
+            ScanReport(
+                sessionId = id,
+                profileId = profileId,
+                pathMode = ScanPathMode.valueOf(pathMode),
+                startedAt = 10L,
+                finishedAt = 20L,
+                summary = summary,
+                results = emptyList(),
+            ),
+        ),
+): ScanSessionEntity =
+    ScanSessionEntity(
+        id = id,
+        profileId = profileId,
+        pathMode = pathMode,
+        serviceMode = "VPN",
+        status = status,
+        summary = summary,
+        reportJson = reportJson,
+        startedAt = 10L,
+        finishedAt = if (status == "completed") 20L else null,
+    )
+
+private fun snapshot(
+    id: String,
+    sessionId: String?,
+): NetworkSnapshotEntity =
+    NetworkSnapshotEntity(
+        id = id,
+        sessionId = sessionId,
+        snapshotKind = if (sessionId == null) "passive" else "post_scan",
+        payloadJson =
+            Json.encodeToString(
+                NetworkSnapshotModel.serializer(),
+                NetworkSnapshotModel(
+                    transport = "wifi",
+                    capabilities = listOf("validated"),
+                    dnsServers = listOf("1.1.1.1"),
+                    privateDnsMode = "system",
+                    mtu = 1500,
+                    localAddresses = listOf("192.0.2.10"),
+                    publicIp = "198.51.100.8",
+                    publicAsn = "AS64500",
+                    captivePortalDetected = false,
+                    networkValidated = true,
+                    capturedAt = 123L,
+                ),
+            ),
+        capturedAt = 123L,
+    )
+
+private fun sample(
+    id: String,
+    publicIp: String,
+): TelemetrySampleEntity =
+    TelemetrySampleEntity(
+        id = id,
+        sessionId = null,
+        activeMode = "VPN",
+        connectionState = "Running",
+        networkType = "wifi",
+        publicIp = publicIp,
+        txPackets = 12,
+        txBytes = 2048,
+        rxPackets = 18,
+        rxBytes = 4096,
+        createdAt = 321L,
+    )
+
+private fun event(
+    id: String,
+    sessionId: String?,
+    source: String,
+    level: String,
+): NativeSessionEventEntity =
+    NativeSessionEventEntity(
+        id = id,
+        sessionId = sessionId,
+        source = source,
+        level = level,
+        message = "$source-$level",
+        createdAt = 333L,
+    )
+
+private fun unzipEntries(absolutePath: String): Map<String, String> =
+    ZipFile(absolutePath).use { zip ->
+        buildMap {
+            val entries = zip.entries()
+            while (entries.hasMoreElements()) {
+                val entry = entries.nextElement()
+                put(entry.name, zip.getInputStream(entry).bufferedReader().use { it.readText() })
+            }
+        }
+    }

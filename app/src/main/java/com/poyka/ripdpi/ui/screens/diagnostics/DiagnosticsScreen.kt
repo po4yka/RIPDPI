@@ -76,7 +76,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DiagnosticsRoute(
-    onExport: (String?) -> Unit,
+    onShareArchive: (String, String) -> Unit,
+    onSaveArchive: (String, String) -> Unit,
     onShareSummary: (String, String) -> Unit,
     onSaveLogs: () -> Unit,
     modifier: Modifier = Modifier,
@@ -101,7 +102,8 @@ fun DiagnosticsRoute(
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                is DiagnosticsEffect.ExportBundleRequested -> onExport(effect.absolutePath)
+                is DiagnosticsEffect.SaveArchiveRequested -> onSaveArchive(effect.absolutePath, effect.fileName)
+                is DiagnosticsEffect.ShareArchiveRequested -> onShareArchive(effect.absolutePath, effect.fileName)
                 is DiagnosticsEffect.ShareSummaryRequested -> onShareSummary(effect.title, effect.body)
             }
         }
@@ -128,7 +130,8 @@ fun DiagnosticsRoute(
         onEventSearch = viewModel::setEventSearch,
         onEventAutoScroll = viewModel::setEventAutoScroll,
         onShareSummary = viewModel::shareSummary,
-        onExportBundle = viewModel::exportBundle,
+        onShareArchive = viewModel::shareArchive,
+        onSaveArchive = viewModel::saveArchive,
         onSaveLogs = onSaveLogs,
         modifier = modifier,
     )
@@ -157,7 +160,8 @@ fun DiagnosticsScreen(
     onEventSearch: (String) -> Unit,
     onEventAutoScroll: (Boolean) -> Unit,
     onShareSummary: (String?) -> Unit,
-    onExportBundle: (String?) -> Unit,
+    onShareArchive: (String?) -> Unit,
+    onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -226,7 +230,8 @@ fun DiagnosticsScreen(
                     ShareSection(
                         uiState = uiState,
                         onShareSummary = onShareSummary,
-                        onExportBundle = onExportBundle,
+                        onShareArchive = onShareArchive,
+                        onSaveArchive = onSaveArchive,
                         onSaveLogs = onSaveLogs,
                     )
             }
@@ -717,7 +722,8 @@ private fun EventsSection(
 private fun ShareSection(
     uiState: DiagnosticsUiState,
     onShareSummary: (String?) -> Unit,
-    onExportBundle: (String?) -> Unit,
+    onShareArchive: (String?) -> Unit,
+    onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -740,7 +746,35 @@ private fun ShareSection(
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
                 MetricsRow(metrics = uiState.share.metrics)
+                uiState.share.archiveStateMessage?.let { message ->
+                    StatusIndicator(
+                        label = message,
+                        tone = statusTone(uiState.share.archiveStateTone),
+                    )
+                }
             }
+        }
+        item {
+            ShareActionCard(
+                title = stringResource(R.string.diagnostics_share_archive_title),
+                body = stringResource(R.string.diagnostics_share_archive_body),
+                buttonLabel = stringResource(R.string.diagnostics_share_archive_action),
+                onClick = { onShareArchive(uiState.share.targetSessionId) },
+                iconTint = RipDpiThemeTokens.colors.foreground,
+                variant = RipDpiButtonVariant.Primary,
+                enabled = !uiState.share.isArchiveBusy,
+            )
+        }
+        item {
+            ShareActionCard(
+                title = stringResource(R.string.diagnostics_save_archive_title),
+                body = stringResource(R.string.diagnostics_save_archive_body, uiState.share.latestArchiveFileName ?: "latest archive"),
+                buttonLabel = stringResource(R.string.diagnostics_save_archive_action),
+                onClick = { onSaveArchive(uiState.share.targetSessionId) },
+                iconTint = RipDpiThemeTokens.colors.info,
+                variant = RipDpiButtonVariant.Outline,
+                enabled = !uiState.share.isArchiveBusy,
+            )
         }
         item {
             ShareActionCard(
@@ -749,15 +783,7 @@ private fun ShareSection(
                 buttonLabel = stringResource(R.string.diagnostics_share_summary_action),
                 onClick = { onShareSummary(uiState.share.targetSessionId) },
                 iconTint = RipDpiThemeTokens.colors.info,
-            )
-        }
-        item {
-            ShareActionCard(
-                title = stringResource(R.string.diagnostics_export_zip_title),
-                body = stringResource(R.string.diagnostics_export_zip_body, uiState.share.latestExportFileName ?: "latest export"),
-                buttonLabel = stringResource(R.string.diagnostics_action_export),
-                onClick = { onExportBundle(uiState.share.targetSessionId) },
-                iconTint = RipDpiThemeTokens.colors.foreground,
+                variant = RipDpiButtonVariant.Outline,
             )
         }
         item {
@@ -781,6 +807,7 @@ private fun ShareActionCard(
     onClick: () -> Unit,
     iconTint: androidx.compose.ui.graphics.Color,
     variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
+    enabled: Boolean = true,
 ) {
     RipDpiCard {
         Row(
@@ -814,6 +841,7 @@ private fun ShareActionCard(
             text = buttonLabel,
             onClick = onClick,
             variant = variant,
+            enabled = enabled,
             modifier = Modifier.fillMaxWidth(),
         )
     }
