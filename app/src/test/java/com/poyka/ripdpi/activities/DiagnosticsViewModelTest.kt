@@ -8,6 +8,13 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.BypassApproachDetail
+import com.poyka.ripdpi.diagnostics.BypassApproachId
+import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.BypassOutcomeBreakdown
+import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
+import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
@@ -238,6 +245,55 @@ class DiagnosticsViewModelTest {
             assertEquals(1, selected?.probeGroups?.first()?.items?.size)
             assertEquals("example.org", selected?.probeGroups?.first()?.items?.first()?.target)
             assertEquals("Service", selected?.contextGroups?.first()?.title)
+            collector.cancel()
+        }
+
+    @Test
+    fun `approaches section switches modes and loads detail`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-1",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "Validated success",
+                            ),
+                        )
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Profile,
+                                id = "default",
+                            ).copy(displayName = "Default", secondaryLabel = "Profile"),
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-1",
+                            ),
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            val beforeDetail = viewModel.uiState.value
+            assertEquals(DiagnosticsSection.Approaches, beforeDetail.selectedSection)
+            assertEquals(1, beforeDetail.approaches.rows.size)
+            assertEquals("VPN Split", beforeDetail.approaches.rows.first().title)
+
+            viewModel.selectApproach("strategy-1")
+            advanceUntilIdle()
+
+            val detail = viewModel.uiState.value.selectedApproachDetail
+            assertNotNull(detail)
+            assertEquals("VPN Split", detail?.approach?.title)
+            assertTrue(detail?.signature?.any { it.label == "Mode" } == true)
             collector.cancel()
         }
 
@@ -586,6 +642,7 @@ private class FakeDiagnosticsManager(
     val telemetryState = MutableStateFlow<List<TelemetrySampleEntity>>(emptyList())
     val nativeEventsState = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
+    val approachStatsState = MutableStateFlow<List<BypassApproachSummary>>(emptyList())
     var initializeCalls = 0
     var lastArchiveSessionId: String? = null
     var lastActiveProfileId: String? = null
@@ -593,6 +650,7 @@ private class FakeDiagnosticsManager(
     override val activeScanProgress: StateFlow<ScanProgress?> = _progressState.asStateFlow()
     override val profiles: Flow<List<DiagnosticProfileEntity>> = profilesState
     override val sessions: Flow<List<ScanSessionEntity>> = sessionsState
+    override val approachStats: Flow<List<BypassApproachSummary>> = approachStatsState
     override val snapshots: Flow<List<NetworkSnapshotEntity>> = snapshotsState
     override val contexts: Flow<List<DiagnosticContextEntity>> = contextsState
     override val telemetry: Flow<List<TelemetrySampleEntity>> = telemetryState
@@ -616,6 +674,34 @@ private class FakeDiagnosticsManager(
     override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
         requireNotNull(detail) { "Missing fake detail for $sessionId" }
 
+    override suspend fun loadApproachDetail(
+        kind: BypassApproachKind,
+        id: String,
+    ): BypassApproachDetail =
+        BypassApproachDetail(
+            summary =
+                approachStatsState.value.firstOrNull { it.approachId.kind == kind && it.approachId.value == id }
+                    ?: sampleApproachSummary(kind = kind, id = id),
+            strategySignature =
+                BypassStrategySignature(
+                    mode = "VPN",
+                    configSource = "ui",
+                    desyncMethod = "split",
+                    protocolToggles = listOf("HTTP", "HTTPS"),
+                    tlsRecordSplitEnabled = true,
+                    tlsRecordSplitAtSni = false,
+                    splitAtHost = false,
+                    splitPosition = 1,
+                    fakeSniMode = null,
+                    fakeOffsetEnabled = false,
+                    routeGroup = "3",
+                ),
+            recentValidatedSessions = sessionsState.value.take(2),
+            recentUsageSessions = emptyList(),
+            commonProbeFailures = listOf("dns_blocked (2)"),
+            recentFailureNotes = listOf("dns:example.org=blocked"),
+        )
+
     override suspend fun buildShareSummary(sessionId: String?): ShareSummary =
         ShareSummary(
             title = "RIPDPI summary",
@@ -637,3 +723,24 @@ private class FakeDiagnosticsManager(
         )
     }
 }
+
+private fun sampleApproachSummary(
+    kind: BypassApproachKind,
+    id: String,
+): BypassApproachSummary =
+    BypassApproachSummary(
+        approachId = BypassApproachId(kind = kind, value = id),
+        displayName = "VPN Split",
+        secondaryLabel = "Strategy",
+        verificationState = "validated",
+        validatedScanCount = 3,
+        validatedSuccessCount = 2,
+        validatedSuccessRate = 0.66f,
+        lastValidatedResult = "Latest report",
+        usageCount = 4,
+        totalRuntimeDurationMs = 30_000L,
+        recentRuntimeHealth = BypassRuntimeHealthSummary(totalErrors = 1, routeChanges = 2, restartCount = 1),
+        lastUsedAt = 42L,
+        topFailureOutcomes = listOf("dns_blocked (1)"),
+        outcomeBreakdown = listOf(BypassOutcomeBreakdown("dns", 2, 0, 1, "dns_blocked")),
+    )

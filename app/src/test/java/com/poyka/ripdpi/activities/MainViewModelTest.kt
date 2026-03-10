@@ -2,6 +2,12 @@ package com.poyka.ripdpi.activities
 
 import app.cash.turbine.test
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.diagnostics.BypassApproachId
+import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
+import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
+import com.poyka.ripdpi.diagnostics.stableId
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
@@ -353,6 +359,52 @@ class MainViewModelTest {
             collector.cancel()
         }
 
+    @Test
+    fun `home state exposes current approach summary`() =
+        runTest {
+            val settings =
+                AppSettings
+                    .newBuilder()
+                    .setOnboardingComplete(true)
+                    .setRipdpiMode("vpn")
+                    .build()
+            val strategyId = deriveBypassStrategySignature(settings = settings, routeGroup = null, modeOverride = Mode.VPN).stableId()
+            val diagnosticsManager =
+                FakeMainDiagnosticsManager().apply {
+                    approachStats.value =
+                        listOf(
+                            BypassApproachSummary(
+                                approachId = BypassApproachId(BypassApproachKind.Strategy, strategyId),
+                                displayName = "VPN Split",
+                                secondaryLabel = "Strategy",
+                                verificationState = "validated",
+                                validatedScanCount = 4,
+                                validatedSuccessCount = 3,
+                                validatedSuccessRate = 0.75f,
+                                lastValidatedResult = "All probes passed",
+                                usageCount = 5,
+                                totalRuntimeDurationMs = 300_000L,
+                                recentRuntimeHealth = BypassRuntimeHealthSummary(),
+                                lastUsedAt = 10L,
+                            ),
+                        )
+                }
+            val viewModel =
+                createViewModel(
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    diagnosticsManager = diagnosticsManager,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val summary = viewModel.uiState.value.approachSummary
+
+            assertEquals("VPN Split", summary?.title)
+            assertEquals("Validated", summary?.verification)
+            assertEquals("75%", summary?.successRate)
+            collector.cancel()
+        }
+
     private fun createViewModel(
         appSettingsRepository: FakeAppSettingsRepository =
             FakeAppSettingsRepository(
@@ -366,15 +418,74 @@ class MainViewModelTest {
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         serviceController: FakeServiceController = FakeServiceController(),
         permissionStatusProvider: FakePermissionStatusProvider = FakePermissionStatusProvider(),
+        diagnosticsManager: FakeMainDiagnosticsManager = FakeMainDiagnosticsManager(),
     ): MainViewModel =
         MainViewModel(
             appContext = RuntimeEnvironment.getApplication(),
             appSettingsRepository = appSettingsRepository,
             serviceStateStore = serviceStateStore,
             serviceController = serviceController,
+            diagnosticsManager = diagnosticsManager,
             stringResolver = FakeStringResolver(),
             trafficStatsReader = FakeTrafficStatsReader(),
             permissionStatusProvider = permissionStatusProvider,
             permissionCoordinator = PermissionCoordinator(),
         )
+}
+
+private class FakeMainDiagnosticsManager : com.poyka.ripdpi.diagnostics.DiagnosticsManager {
+    override val activeScanProgress = kotlinx.coroutines.flow.MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(null)
+    override val profiles = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>())
+    override val sessions = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>())
+    override val approachStats =
+        kotlinx.coroutines.flow.MutableStateFlow(
+            listOf(
+                BypassApproachSummary(
+                    approachId = BypassApproachId(BypassApproachKind.Strategy, "strategy-a"),
+                    displayName = "VPN Split",
+                    secondaryLabel = "Strategy",
+                    verificationState = "validated",
+                    validatedScanCount = 2,
+                    validatedSuccessCount = 2,
+                    validatedSuccessRate = 1f,
+                    lastValidatedResult = "All probes passed",
+                    usageCount = 3,
+                    totalRuntimeDurationMs = 120_000L,
+                    recentRuntimeHealth = BypassRuntimeHealthSummary(),
+                    lastUsedAt = 1L,
+                ),
+            ),
+        )
+    override val snapshots = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>())
+    override val contexts = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>())
+    override val telemetry = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>())
+    override val nativeEvents = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>())
+    override val exports = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>())
+
+    override suspend fun initialize() = Unit
+
+    override suspend fun startScan(pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode): String = "session"
+
+    override suspend fun cancelActiveScan() = Unit
+
+    override suspend fun setActiveProfile(profileId: String) = Unit
+
+    override suspend fun loadSessionDetail(sessionId: String): com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail {
+        error("unused")
+    }
+
+    override suspend fun loadApproachDetail(
+        kind: BypassApproachKind,
+        id: String,
+    ): com.poyka.ripdpi.diagnostics.BypassApproachDetail {
+        error("unused")
+    }
+
+    override suspend fun buildShareSummary(sessionId: String?): com.poyka.ripdpi.diagnostics.ShareSummary {
+        error("unused")
+    }
+
+    override suspend fun createArchive(sessionId: String?): com.poyka.ripdpi.diagnostics.DiagnosticsArchive {
+        error("unused")
+    }
 }
