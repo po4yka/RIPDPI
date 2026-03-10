@@ -64,7 +64,6 @@ All in `gradle.properties`:
 | `ripdpi.minSdk` | 27 |
 | `ripdpi.targetSdk` | 35 |
 | `ripdpi.nativeNdkVersion` | 29.0.14206865 |
-| `ripdpi.nativeCmakeVersion` | 3.22.1 |
 | `ripdpi.nativeAbis` | armeabi-v7a,arm64-v8a,x86,x86_64 |
 
 ## Gotchas
@@ -72,7 +71,7 @@ All in `gradle.properties`:
 - **`android.newDsl=false`**: Workaround for protobuf-gradle-plugin 0.9.6 + AGP 9 incompatibility. Do not remove.
 - **build-logic is an included build** (`includeBuild("build-logic")` in settings). Changes to convention plugins require re-sync.
 - **Static analysis**: Run `./gradlew staticAnalysis` -- it aggregates detekt, ktlint, and Android lint.
-- **Native build order**: `runNdkBuild` runs before `preBuild` in `:core:engine`. If native build fails, check NDK installation path.
+- **Native build order**: `:core:engine:buildRustNativeLibs` runs before `preBuild`. If native build fails, check NDK installation path, Rust target availability, and `scripts/native/build-rust-android.sh`.
 
 ## Common Mistakes
 

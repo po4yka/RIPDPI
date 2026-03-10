@@ -1,44 +1,47 @@
 ---
 name: native-jni-development
-description: Use when modifying C code in core/engine/src/main/cpp/, adding JNI functions, changing CMakeLists.txt, or debugging native crashes and JNI linkage errors
+description: Use when modifying Rust native crates, changing JNI exports, or debugging native crashes and JNI linkage errors
 ---
 
 # Native JNI Development
 
 ## Overview
 
-RIPDPI has two native C libraries built separately. Modifications require understanding the build pipeline, JNI naming conventions, and upstream fork constraints.
+RIPDPI has two native Rust libraries built through the Android module build. Modifications require understanding the Gradle build task, JNI naming conventions, and the app's existing Kotlin/native contracts.
 
 ## Native Libraries
 
 | Library | Build | Source | Notes |
 |---------|-------|--------|-------|
-| `libripdpi.so` | CMake | `core/engine/src/main/cpp/` | byedpi fork + JNI bridge |
-| `libhev-socks5-tunnel.so` | ndk-build | `core/engine/src/main/jni/hev-socks5-tunnel/` | Git submodule, do not modify |
+| `libripdpi.so` | Cargo + Android NDK linker | `native/rust/third_party/byedpi/crates/ciadpi-jni/` | Rust JNI shim over the vendored ByeDPI-derived crates |
+| `libhev-socks5-tunnel.so` | Cargo + Android NDK linker | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-jni/` | Rust JNI shim over the vendored tunnel crates |
 
 ## Build Pipeline
 
-CMake builds byedpi sources into `libripdpi.so` via AGP's `externalNativeBuild`. The `runNdkBuild` Gradle task builds hev-socks5-tunnel before `preBuild` and outputs to `build/generated/jniLibs/`.
+`:core:engine:buildRustNativeLibs` runs before `preBuild` and invokes `scripts/native/build-rust-android.sh`. That script builds both JNI crates for all configured ABIs and writes the packaged `.so` files to `core/engine/build/generated/jniLibs/`.
 
 ## JNI Bridge Pattern
 
-The bridge lives in `core/engine/src/main/cpp/native-lib.c`. Kotlin wrapper: `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`.
+The Kotlin wrappers live in `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt` and `core/engine/src/main/java/com/poyka/ripdpi/core/TProxyService.kt`. Their corresponding Rust exports live in the two `*-jni` crates.
 
 ### Existing JNI Functions
 
 ```
-Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocketWithCommandLine(JNIEnv*, jobject, jobjectArray args) -> jint
+Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocketWithCommandLine(JNIEnv*, jobject, jobjectArray) -> jint
 Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreateSocket(JNIEnv*, jobject, ..28 params..) -> jint
-Java_com_poyka_ripdpi_core_RipDpiProxy_jniStartProxy(JNIEnv*, jobject, jint fd) -> jint
-Java_com_poyka_ripdpi_core_RipDpiProxy_jniStopProxy(JNIEnv*, jobject, jint fd) -> jint
+Java_com_poyka_ripdpi_core_RipDpiProxy_jniStartProxy(JNIEnv*, jobject, jint) -> jint
+Java_com_poyka_ripdpi_core_RipDpiProxy_jniStopProxy(JNIEnv*, jobject, jint) -> jint
+Java_com_poyka_ripdpi_core_TProxyService_TProxyStartService(JNIEnv*, jobject, jstring, jint) -> void
+Java_com_poyka_ripdpi_core_TProxyService_TProxyStopService(JNIEnv*, jobject) -> void
+Java_com_poyka_ripdpi_core_TProxyService_TProxyGetStats(JNIEnv*, jobject) -> jlongArray
 ```
 
 ### Adding a New JNI Function
 
-1. Declare `external fun` in `RipDpiProxy.kt`
-2. Implement in `native-lib.c` with exact JNI name: `Java_com_poyka_ripdpi_core_RipDpiProxy_<name>`
-3. Use C99 standard, match existing style (params struct, error returns as -1)
-4. Kotlin side: wrap with `Mutex` if it touches shared `fd` state
+1. Declare `external fun` in the Kotlin wrapper under `core/engine/src/main/java/com/poyka/ripdpi/core/`
+2. Implement the exact JNI symbol in the relevant Rust `*-jni` crate with `#[unsafe(no_mangle)] pub extern "system" fn ...`
+3. Keep existing return semantics stable, including `-1` error returns or `Unit` return shape where already established
+4. If the function touches shared fd or worker-thread state, preserve the existing synchronization model on both the Kotlin and Rust sides
 
 ### Kotlin Wrapper Pattern
 
@@ -55,19 +58,18 @@ suspend fun startProxy(preferences: RipDpiProxyPreferences): Int = mutex.withLoc
 
 ## Rules
 
-- **byedpi is an upstream fork** -- minimize modifications to `core/engine/src/main/cpp/byedpi/`. Prefer changes in `native-lib.c` or `utils.c`.
-- **hev-socks5-tunnel is a git submodule** -- never modify files inside it. Update via `git submodule update`.
 - **Never edit `.so` files** -- they are built from source.
-- **NDK version, CMake version, ABI filters** are in `gradle.properties` (single source of truth). Do not hardcode in CMakeLists.txt or build.gradle.kts.
-- **C99 standard** with `-O2 -D_XOPEN_SOURCE=500`. Compiler warnings are errors for implicit functions, type mismatches, and missing returns.
-- **Page size flags**: `libripdpi.so` uses `-Wl,-z,max-page-size=16384` for 16KB page compatibility.
+- **NDK version and ABI filters** are in `gradle.properties` (single source of truth). Do not hardcode them in Gradle module files.
+- **Library names and JNI symbol names are compatibility boundaries**. Keep `libripdpi.so`, `libhev-socks5-tunnel.so`, and the existing exported function names stable unless Kotlin call sites change in the same patch.
+- **Do not let Rust panics cross JNI boundaries**. Return an error or throw a Java exception instead.
+- **Page size flags** are injected by `scripts/native/build-rust-android.sh` via `-Wl,-z,max-page-size=16384` for 16KB page compatibility.
 
 ## Common Mistakes
 
 | Mistake | Fix |
 |---------|-----|
 | JNI function name mismatch | Must match package: `Java_com_poyka_ripdpi_core_RipDpiProxy_<name>` |
-| Missing `#include` for JNI types | Include `<jni.h>` and byedpi headers via `byedpi/` prefix |
-| Modifying byedpi sources directly | Add wrapper logic in `native-lib.c` or `utils.c` instead |
+| Exporting with the wrong ABI | Use `extern "system"` and `#[unsafe(no_mangle)]` |
 | Forgetting Mutex on Kotlin side | All JNI calls touching fd must be wrapped in `mutex.withLock` |
+| Breaking the proxy lifecycle contract | `jniStartProxy(fd)` must stay blocking; `TProxyStartService(...)` must stay non-blocking |
 | Adding ABI filters in module build file | Use `gradle.properties` -- convention plugin reads it |

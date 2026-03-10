@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Android VPN/proxy app for DPI bypass using a local SOCKS5 proxy (byedpi) and VPN tunnel (hev-socks5-tunnel).
+Android VPN/proxy app for DPI bypass using in-repository Rust native modules for the local SOCKS5 proxy and VPN tunnel.
 
 ## Module Structure
 
@@ -10,13 +10,13 @@ Android VPN/proxy app for DPI bypass using a local SOCKS5 proxy (byedpi) and VPN
 |--------|---------|
 | `:app` | UI layer: Jetpack Compose + Material 3, navigation, ViewModels |
 | `:core:data` | Protobuf schema + DataStore for app settings persistence |
-| `:core:engine` | Native C proxy (byedpi) + VPN tunnel (hev-socks5-tunnel) + JNI bridge |
+| `:core:engine` | Rust native proxy + VPN tunnel + JNI bridge |
 | `:core:service` | Android VPN and proxy foreground services |
 
 ## Tech Stack
 
 - Kotlin, Jetpack Compose (BOM 2026.02.01), Material 3
-- Android NDK 29.0.14206865, CMake 3.22.1
+- Android NDK 29.0.14206865, stable Rust toolchain
 - Protobuf 4.34.0 (javalite) + DataStore
 - Gradle 9.4 with Kotlin DSL, AGP 9.1.0
 - JDK 17 (Temurin)
@@ -30,20 +30,12 @@ Android VPN/proxy app for DPI bypass using a local SOCKS5 proxy (byedpi) and VPN
 ./gradlew staticAnalysis         # detekt + ktlint + Android lint
 ```
 
-Clone with submodules:
-```bash
-git clone --recurse-submodules <repo-url>
-```
-
 ## Native Code Rules
 
-- **byedpi** lives in `core/engine/src/main/cpp/byedpi/` -- upstream fork, minimize modifications
-- **JNI bridge**: `core/engine/src/main/cpp/native-lib.c` (plus `utils.c`, `main.h`, `utils.h`)
-- **hev-socks5-tunnel** is a git submodule at `core/engine/src/main/jni/hev-socks5-tunnel/`
-- CMake builds `libripdpi.so` from byedpi sources
-- ndk-build builds `libhev-socks5-tunnel.so` from the submodule
-- Both output to `core/engine/build/generated/jniLibs/`
-- NDK version, CMake version, and ABI filters are in `gradle.properties` (single source of truth)
+- `libripdpi.so` is built from `native/rust/third_party/byedpi/crates/ciadpi-jni`
+- `libhev-socks5-tunnel.so` is built from `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-jni`
+- `scripts/native/build-rust-android.sh` builds both libraries into `core/engine/build/generated/jniLibs/`
+- NDK version and ABI filters are in `gradle.properties` (single source of truth)
 - Never edit `.so` files directly -- they are built from source
 - Supported ABIs: armeabi-v7a, arm64-v8a, x86, x86_64
 
@@ -69,7 +61,7 @@ git clone --recurse-submodules <repo-url>
 ## Gotchas
 
 - `android.newDsl=false` in `gradle.properties` is a workaround for protobuf-gradle-plugin 0.9.6 incompatibility with AGP 9's new DSL. Do not remove until the plugin supports AGP 9 natively.
-- The `runNdkBuild` task runs before `preBuild` in `:core:engine` -- it builds hev-socks5-tunnel via ndk-build separately from the CMake-based byedpi build.
+- `:core:engine:buildRustNativeLibs` runs before `preBuild` and cross-compiles both native libraries for every configured ABI.
 - Signing config for release builds uses environment variables (`SIGNING_STORE_FILE`, etc.) -- never commit keystores.
 
 ## CI/CD
