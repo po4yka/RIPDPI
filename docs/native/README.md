@@ -27,7 +27,6 @@ flowchart LR
 - `core/engine/build.gradle.kts` builds all native code in the `core:engine` module.
 - `scripts/native/build-rust-android.sh` cross-compiles the Rust native modules with Cargo plus the Android NDK linker toolchain.
 - The Android build targets these ABIs: `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`.
-- The repo no longer depends on `CMake`, `ndk-build`, or Git submodules for native code.
 
 ## Direct Native Modules
 
@@ -38,13 +37,6 @@ flowchart LR
 
 - `libripdpi.so` links against `libc.so` and `libdl.so`.
 - `libhev-socks5-tunnel.so` links against `libc.so`, `libdl.so`, and `libm.so`.
-
-## Removed From Android Build
-
-- Vendored C sources under `core/engine/src/main/cpp`
-- `ndk-build` integration under `core/engine/src/main/jni`
-- The `hev-socks5-tunnel` Git submodule
-- Legacy transitive C deps such as `yaml`, `lwip`, `hev-task-system`, and `wintun`
 
 ## Documents
 
