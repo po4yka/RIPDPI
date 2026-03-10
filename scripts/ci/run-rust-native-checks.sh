@@ -8,6 +8,8 @@ byedpi_manifest="$repo_root/native/rust/third_party/byedpi/Cargo.toml"
 
 cargo fmt --manifest-path "$workspace_manifest" --all --check
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
+cargo test --manifest-path "$workspace_manifest" -p hs5t-android
+cargo test --manifest-path "$workspace_manifest" -p ripdpi-android
 cargo test --manifest-path "$workspace_manifest" --workspace
 
 # The vendored byedpi host integration suite contains several slow and flaky

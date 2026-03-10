@@ -4,11 +4,10 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.os.ParcelFileDescriptor
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
-import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
@@ -52,11 +51,14 @@ class RipDpiVpnService : LifecycleVpnService() {
     @Inject
     lateinit var serviceStateStore: ServiceStateStore
 
-    private var ripDpiProxy: RipDpiProxy? = null
+    @Inject
+    lateinit var vpnTunnelSessionProvider: VpnTunnelSessionProvider
+
+    private var ripDpiProxy: RipDpiProxyRuntime? = null
     private var tun2SocksBridge: Tun2SocksBridge? = null
     private var proxyJob: Job? = null
     private var telemetryJob: Job? = null
-    private var tunFd: ParcelFileDescriptor? = null
+    private var tunSession: VpnTunnelSession? = null
     private val mutex = Mutex()
     private var stopping: Boolean = false
 
@@ -220,7 +222,7 @@ class RipDpiVpnService : LifecycleVpnService() {
     private suspend fun startTun2Socks() {
         logcat(LogPriority.INFO) { "Starting tun2socks" }
 
-        if (tunFd != null) {
+        if (tunSession != null) {
             throw IllegalStateException("VPN field not null")
         }
 
@@ -233,17 +235,15 @@ class RipDpiVpnService : LifecycleVpnService() {
                 socks5Port = port,
             )
 
-        val fd =
-            createBuilder(dns, ipv6).establish()
-                ?: throw IllegalStateException("VPN connection failed")
+        val session = vpnTunnelSessionProvider.establish(this, dns, ipv6)
 
         try {
             val tunnelBridge = tun2SocksBridgeFactory.create()
-            tunnelBridge.start(config, fd.fd)
+            tunnelBridge.start(config, session.tunFd)
             tun2SocksBridge = tunnelBridge
-            this.tunFd = fd
+            tunSession = session
         } catch (e: Exception) {
-            fd.close()
+            session.close()
             throw e
         }
 
@@ -253,8 +253,8 @@ class RipDpiVpnService : LifecycleVpnService() {
     private suspend fun stopTun2Socks() {
         logcat(LogPriority.INFO) { "Stopping tun2socks" }
 
-        val fd = tunFd
-        if (fd == null) {
+        val session = tunSession
+        if (session == null) {
             logcat(LogPriority.WARN) { "VPN not running" }
             return
         }
@@ -263,8 +263,8 @@ class RipDpiVpnService : LifecycleVpnService() {
             tun2SocksBridge?.stop()
         } finally {
             tun2SocksBridge = null
-            fd.close()
-            tunFd = null
+            session.close()
+            tunSession = null
         }
 
         logcat(LogPriority.INFO) { "Tun2socks stopped" }
@@ -287,6 +287,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                     proxyJob = null
                     ripDpiProxy = null
                     tun2SocksBridge = null
+                    tunSession = null
                     AppStatus.Halted
                 }
             }
@@ -333,7 +334,7 @@ class RipDpiVpnService : LifecycleVpnService() {
             RipDpiVpnService::class.java,
         )
 
-    private fun createBuilder(
+    internal fun createBuilder(
         dns: String,
         ipv6: Boolean,
     ): Builder {

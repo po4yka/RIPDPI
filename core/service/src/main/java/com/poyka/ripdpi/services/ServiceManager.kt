@@ -72,19 +72,27 @@ class DefaultServiceController
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class ServiceBindingsModule {
+abstract class ServiceStateStoreModule {
     @Binds
     @Singleton
     abstract fun bindServiceStateStore(
         serviceStateStore: DefaultServiceStateStore,
     ): ServiceStateStore
+}
 
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class ServiceControllerModule {
     @Binds
     @Singleton
     abstract fun bindServiceController(
         serviceController: DefaultServiceController,
     ): ServiceController
+}
 
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class DiagnosticsRuntimeCoordinatorModule {
     @Binds
     @Singleton
     abstract fun bindDiagnosticsRuntimeCoordinator(
