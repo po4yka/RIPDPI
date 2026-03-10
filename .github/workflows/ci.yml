@@ -103,6 +103,11 @@ jobs:
         with:
           manifest-path: native/rust/Cargo.toml
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
       - name: Run native Rust checks
         run: bash scripts/ci/run-rust-native-checks.sh
 
