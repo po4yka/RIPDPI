@@ -9,5 +9,7 @@ val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
 dependencies {
     add("implementation", libs.findLibrary("hilt-android").get())
+    add("androidTestImplementation", libs.findLibrary("hilt-android-testing").get())
     add("ksp", libs.findLibrary("hilt-compiler").get())
+    add("kspAndroidTest", libs.findLibrary("hilt-compiler").get())
 }

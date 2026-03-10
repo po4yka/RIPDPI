@@ -80,8 +80,10 @@ interface Tun2SocksBridgeFactory {
 @Singleton
 class DefaultTun2SocksBridgeFactory
     @Inject
-    constructor() : Tun2SocksBridgeFactory {
-        override fun create(): Tun2SocksBridge = NativeTun2SocksBridge()
+    constructor(
+        private val nativeBindings: Tun2SocksBindings,
+    ) : Tun2SocksBridgeFactory {
+        override fun create(): Tun2SocksBridge = NativeTun2SocksBridge(nativeBindings)
     }
 
 interface NetworkDiagnosticsBridgeFactory {

@@ -74,12 +74,7 @@ pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void)
     JNI_VERSION
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniCreate(
-    mut env: JNIEnv,
-    _thiz: JObject,
-    config_json: JString,
-) -> jlong {
+fn tunnel_create_entry(mut env: JNIEnv, config_json: JString) -> jlong {
     init_android_logging("hs5t-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         create_session(&mut env, config_json)
@@ -90,13 +85,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniCreate(
     })
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniStart(
-    mut env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-    tun_fd: jint,
-) {
+fn tunnel_start_entry(mut env: JNIEnv, handle: jlong, tun_fd: jint) {
     init_android_logging("hs5t-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         start_session(&mut env, handle, tun_fd)
@@ -104,12 +93,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniStart(
     .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session start panicked"));
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniStop(
-    mut env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) {
+fn tunnel_stop_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("hs5t-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         stop_session(&mut env, handle)
@@ -117,12 +101,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniStop(
     .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session stop panicked"));
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniGetStats(
-    mut env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) -> jlongArray {
+fn tunnel_stats_entry(mut env: JNIEnv, handle: jlong) -> jlongArray {
     init_android_logging("hs5t-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         stats_session(&mut env, handle)
@@ -133,17 +112,104 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniGetStats(
     })
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniDestroy(
-    mut env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) {
+fn tunnel_destroy_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("hs5t-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         destroy_session(&mut env, handle)
     }))
     .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session destroy panicked"));
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniCreate(
+    env: JNIEnv,
+    _thiz: JObject,
+    config_json: JString,
+) -> jlong {
+    tunnel_create_entry(env, config_json)
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniCreate(
+    env: JNIEnv,
+    _thiz: JObject,
+    config_json: JString,
+) -> jlong {
+    tunnel_create_entry(env, config_json)
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniStart(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+    tun_fd: jint,
+) {
+    tunnel_start_entry(env, handle, tun_fd);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStart(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+    tun_fd: jint,
+) {
+    tunnel_start_entry(env, handle, tun_fd);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniStop(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    tunnel_stop_entry(env, handle);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStop(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    tunnel_stop_entry(env, handle);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniGetStats(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) -> jlongArray {
+    tunnel_stats_entry(env, handle)
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetStats(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) -> jlongArray {
+    tunnel_stats_entry(env, handle)
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniDestroy(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    tunnel_destroy_entry(env, handle);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDestroy(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    tunnel_destroy_entry(env, handle);
 }
 
 fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
@@ -154,10 +220,10 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
             return 0;
         }
     };
-    let payload = match serde_json::from_str::<TunnelConfigPayload>(&json) {
+    let payload = match parse_tunnel_config_json(&json) {
         Ok(payload) => payload,
         Err(err) => {
-            throw_illegal_argument(env, format!("Invalid tunnel config JSON: {err}"));
+            throw_illegal_argument(env, err);
             return 0;
         }
     };
@@ -177,21 +243,17 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
 }
 
 fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
-    let handle = match to_handle(handle) {
-        Some(handle) => handle,
-        None => {
-            throw_illegal_argument(env, "Invalid tunnel handle");
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
             return;
         }
     };
-    if tun_fd < 0 {
-        throw_illegal_argument(env, "Invalid TUN file descriptor");
+    if let Err(message) = validate_tun_fd(tun_fd) {
+        throw_illegal_argument(env, message);
         return;
     }
-    let Some(session) = SESSIONS.get(handle) else {
-        throw_illegal_argument(env, "Unknown tunnel handle");
-        return;
-    };
     let runtime = match get_runtime() {
         Some(runtime) => runtime,
         None => {
@@ -206,8 +268,8 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     let last_error = session.last_error.clone();
 
     let mut state = session.state.lock().expect("tunnel session poisoned");
-    if matches!(*state, TunnelSessionState::Running { .. }) {
-        throw_illegal_state(env, "Tunnel session is already running");
+    if let Err(message) = ensure_tunnel_start_allowed(&state) {
+        throw_illegal_state(env, message);
         return;
     }
     drop(state);
@@ -266,30 +328,22 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
 }
 
 fn stop_session(env: &mut JNIEnv, handle: jlong) {
-    let handle = match to_handle(handle) {
-        Some(handle) => handle,
-        None => {
-            throw_illegal_argument(env, "Invalid tunnel handle");
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
             return;
         }
-    };
-    let Some(session) = SESSIONS.get(handle) else {
-        throw_illegal_argument(env, "Unknown tunnel handle");
-        return;
     };
 
     let running = {
         let mut state = session.state.lock().expect("tunnel session poisoned");
-        match std::mem::replace(&mut *state, TunnelSessionState::Ready) {
-            TunnelSessionState::Ready => {
-                throw_illegal_state(env, "Tunnel session is not running");
+        match take_running_tunnel(&mut state) {
+            Ok(running) => running,
+            Err(message) => {
+                throw_illegal_state(env, message);
                 return;
             }
-            TunnelSessionState::Running {
-                cancel,
-                stats: _,
-                worker,
-            } => (cancel, worker),
         }
     };
 
@@ -300,24 +354,17 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
 }
 
 fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
-    let handle = match to_handle(handle) {
-        Some(handle) => handle,
-        None => {
-            throw_illegal_argument(env, "Invalid tunnel handle");
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
             return std::ptr::null_mut();
         }
-    };
-    let Some(session) = SESSIONS.get(handle) else {
-        throw_illegal_argument(env, "Unknown tunnel handle");
-        return std::ptr::null_mut();
     };
 
     let snapshot = {
         let state = session.state.lock().expect("tunnel session poisoned");
-        match &*state {
-            TunnelSessionState::Ready => (0, 0, 0, 0),
-            TunnelSessionState::Running { stats, .. } => stats.snapshot(),
-        }
+        stats_snapshot_for_state(&state)
     };
 
     match env.new_long_array(4) {
@@ -339,24 +386,20 @@ fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
 }
 
 fn destroy_session(env: &mut JNIEnv, handle: jlong) {
-    let handle = match to_handle(handle) {
-        Some(handle) => handle,
-        None => {
-            throw_illegal_argument(env, "Invalid tunnel handle");
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
             return;
         }
     };
-    let Some(session) = SESSIONS.get(handle) else {
-        throw_illegal_argument(env, "Unknown tunnel handle");
-        return;
-    };
     let state = session.state.lock().expect("tunnel session poisoned");
-    if matches!(*state, TunnelSessionState::Running { .. }) {
-        throw_illegal_state(env, "Cannot destroy a running tunnel session");
+    if let Err(message) = ensure_tunnel_destroyable(&state) {
+        throw_illegal_state(env, message);
         return;
     }
     drop(state);
-    let _ = SESSIONS.remove(handle);
+    let _ = remove_tunnel_session(handle);
 }
 
 fn get_runtime() -> Option<&'static Runtime> {
@@ -440,8 +483,67 @@ fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config, String> {
     })
 }
 
+fn parse_tunnel_config_json(json: &str) -> Result<TunnelConfigPayload, String> {
+    serde_json::from_str::<TunnelConfigPayload>(json)
+        .map_err(|err| format!("Invalid tunnel config JSON: {err}"))
+}
+
 fn to_handle(value: jlong) -> Option<u64> {
     u64::try_from(value).ok().filter(|handle| *handle != 0)
+}
+
+fn lookup_tunnel_session(handle: jlong) -> Result<Arc<TunnelSession>, &'static str> {
+    let handle = to_handle(handle).ok_or("Invalid tunnel handle")?;
+    SESSIONS.get(handle).ok_or("Unknown tunnel handle")
+}
+
+fn remove_tunnel_session(handle: jlong) -> Result<Arc<TunnelSession>, &'static str> {
+    let handle = to_handle(handle).ok_or("Invalid tunnel handle")?;
+    SESSIONS.remove(handle).ok_or("Unknown tunnel handle")
+}
+
+fn validate_tun_fd(tun_fd: jint) -> Result<(), &'static str> {
+    if tun_fd < 0 {
+        Err("Invalid TUN file descriptor")
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_tunnel_start_allowed(state: &TunnelSessionState) -> Result<(), &'static str> {
+    if matches!(*state, TunnelSessionState::Running { .. }) {
+        Err("Tunnel session is already running")
+    } else {
+        Ok(())
+    }
+}
+
+fn take_running_tunnel(
+    state: &mut TunnelSessionState,
+) -> Result<(Arc<CancellationToken>, JoinHandle<()>), &'static str> {
+    match std::mem::replace(state, TunnelSessionState::Ready) {
+        TunnelSessionState::Ready => Err("Tunnel session is not running"),
+        TunnelSessionState::Running {
+            cancel,
+            stats: _,
+            worker,
+        } => Ok((cancel, worker)),
+    }
+}
+
+fn stats_snapshot_for_state(state: &TunnelSessionState) -> (u64, u64, u64, u64) {
+    match state {
+        TunnelSessionState::Ready => (0, 0, 0, 0),
+        TunnelSessionState::Running { stats, .. } => stats.snapshot(),
+    }
+}
+
+fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<(), &'static str> {
+    if matches!(*state, TunnelSessionState::Running { .. }) {
+        Err("Cannot destroy a running tunnel session")
+    } else {
+        Ok(())
+    }
 }
 
 trait BlankCheck {
@@ -498,9 +600,89 @@ mod tests {
     }
 
     #[test]
+    fn rejects_invalid_tunnel_json_payload() {
+        let err = parse_tunnel_config_json("{").expect_err("invalid json");
+
+        assert!(err.contains("Invalid tunnel config JSON"));
+    }
+
+    #[test]
     fn rejects_invalid_handle() {
         assert!(to_handle(0).is_none());
         assert!(to_handle(-1).is_none());
+    }
+
+    #[test]
+    fn rejects_unknown_tunnel_handle_lookup() {
+        let err = match lookup_tunnel_session(99) {
+            Ok(_) => panic!("expected unknown handle error"),
+            Err(err) => err,
+        };
+
+        assert_eq!(err, "Unknown tunnel handle");
+    }
+
+    #[test]
+    fn rejects_invalid_tun_fd() {
+        assert_eq!(
+            validate_tun_fd(-1).expect_err("invalid tun fd"),
+            "Invalid TUN file descriptor",
+        );
+    }
+
+    #[test]
+    fn tunnel_state_rejects_duplicate_start() {
+        let worker = std::thread::spawn(|| {});
+        let state = TunnelSessionState::Running {
+            cancel: Arc::new(CancellationToken::new()),
+            stats: Arc::new(Stats::new()),
+            worker,
+        };
+
+        let err = ensure_tunnel_start_allowed(&state).expect_err("duplicate start");
+
+        if let TunnelSessionState::Running { worker, .. } = state {
+            let _ = worker.join();
+        }
+        assert_eq!(err, "Tunnel session is already running");
+    }
+
+    #[test]
+    fn tunnel_state_rejects_stop_when_ready() {
+        let mut state = TunnelSessionState::Ready;
+        let err = take_running_tunnel(&mut state).expect_err("ready stop");
+
+        assert_eq!(err, "Tunnel session is not running");
+    }
+
+    #[test]
+    fn tunnel_stats_when_ready_are_zero() {
+        assert_eq!(
+            stats_snapshot_for_state(&TunnelSessionState::Ready),
+            (0, 0, 0, 0)
+        );
+    }
+
+    #[test]
+    fn destroy_removes_ready_tunnel_session() {
+        let handle = SESSIONS.insert(TunnelSession {
+            config: Arc::new(config_from_payload(sample_payload()).expect("config")),
+            last_error: Arc::new(Mutex::new(None)),
+            state: Mutex::new(TunnelSessionState::Ready),
+        }) as jlong;
+
+        let removed = remove_tunnel_session(handle).expect("removed session");
+        assert!(matches!(
+            *removed.state.lock().expect("state lock"),
+            TunnelSessionState::Ready,
+        ));
+        assert_eq!(
+            match lookup_tunnel_session(handle) {
+                Ok(_) => panic!("expected session removal"),
+                Err(err) => err,
+            },
+            "Unknown tunnel handle",
+        );
     }
 
     #[test]

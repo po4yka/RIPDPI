@@ -97,6 +97,8 @@ abstract class BuildRustNativeLibsTask
                 }
 
                 val targetEnv = target.replace('-', '_').uppercase()
+                val ccTargetKey = "CC_${target.replace('-', '_')}"
+                val arTargetKey = "AR_${target.replace('-', '_')}"
                 val abiCargoTargetDir = cargoTargetRoot.resolve(abi)
                 val abiOutputDir = outputRoot.resolve(abi)
                 abiOutputDir.mkdirs()
@@ -104,7 +106,9 @@ abstract class BuildRustNativeLibsTask
                 val cargoEnvironment =
                     mapOf(
                         "CC_$targetEnv" to linker.absolutePath,
+                        ccTargetKey to linker.absolutePath,
                         "AR_$targetEnv" to ar.absolutePath,
+                        arTargetKey to ar.absolutePath,
                         "CARGO_TARGET_${targetEnv}_LINKER" to linker.absolutePath,
                         "CARGO_TARGET_${targetEnv}_AR" to ar.absolutePath,
                         "CARGO_TARGET_DIR" to abiCargoTargetDir.absolutePath,
