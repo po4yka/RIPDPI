@@ -122,6 +122,60 @@ data class NetworkSnapshotModel(
     val capturedAt: Long,
 )
 
+@Serializable
+data class ServiceContextModel(
+    val serviceStatus: String,
+    val configuredMode: String,
+    val activeMode: String,
+    val selectedProfileId: String,
+    val selectedProfileName: String,
+    val configSource: String,
+    val proxyEndpoint: String,
+    val desyncMethod: String,
+    val routeGroup: String,
+    val sessionUptimeMs: Long?,
+    val lastNativeErrorHeadline: String,
+    val restartCount: Int,
+)
+
+@Serializable
+data class PermissionContextModel(
+    val vpnPermissionState: String,
+    val notificationPermissionState: String,
+    val batteryOptimizationState: String,
+    val dataSaverState: String,
+)
+
+@Serializable
+data class DeviceContextModel(
+    val appVersionName: String,
+    val appVersionCode: Long,
+    val buildType: String,
+    val androidVersion: String,
+    val apiLevel: Int,
+    val manufacturer: String,
+    val model: String,
+    val primaryAbi: String,
+    val locale: String,
+    val timezone: String,
+)
+
+@Serializable
+data class EnvironmentContextModel(
+    val batterySaverState: String,
+    val powerSaveModeState: String,
+    val networkMeteredState: String,
+    val roamingState: String,
+)
+
+@Serializable
+data class DiagnosticContextModel(
+    val service: ServiceContextModel,
+    val permissions: PermissionContextModel,
+    val device: DeviceContextModel,
+    val environment: EnvironmentContextModel,
+)
+
 data class DiagnosticsArchive(
     val fileName: String,
     val absolutePath: String,
@@ -142,6 +196,7 @@ data class DiagnosticSessionDetail(
     val results: List<com.poyka.ripdpi.data.diagnostics.ProbeResultEntity>,
     val snapshots: List<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>,
     val events: List<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>,
+    val context: com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity?,
 )
 
 data class ShareSummary(

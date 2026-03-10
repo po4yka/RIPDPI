@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -9,12 +10,17 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DeviceContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
+import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
+import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -91,6 +97,13 @@ class DiagnosticsViewModelTest {
                             createdAt = 20L,
                         ),
                     )
+                contextsState.value =
+                    listOf(
+                        context(
+                            id = "context-1",
+                            sessionId = null,
+                        ),
+                    )
                 nativeEventsState.value =
                     listOf(
                         NativeSessionEventEntity(
@@ -125,6 +138,7 @@ class DiagnosticsViewModelTest {
             assertEquals("Running", state.live.statusLabel)
             assertEquals(1, state.sessions.sessions.size)
             assertEquals("report.zip", state.share.latestArchiveFileName)
+            assertEquals("Support context", state.overview.contextSummary?.title)
             assertTrue(state.events.events.first().severity.contains("WARN"))
             collector.cancel()
         }
@@ -196,6 +210,7 @@ class DiagnosticsViewModelTest {
                             ),
                         ),
                     snapshots = listOf(snapshot(id = "snapshot-1", sessionId = "session-1")),
+                    context = context(id = "context-1", sessionId = "session-1"),
                     events =
                         listOf(
                             NativeSessionEventEntity(
@@ -220,6 +235,7 @@ class DiagnosticsViewModelTest {
             assertEquals("Session", selected?.session?.title)
             assertEquals(1, selected?.probeGroups?.first()?.items?.size)
             assertEquals("example.org", selected?.probeGroups?.first()?.items?.first()?.target)
+            assertEquals("Service", selected?.contextGroups?.first()?.title)
             collector.cancel()
         }
 
@@ -397,6 +413,64 @@ class DiagnosticsViewModelTest {
                 ),
             capturedAt = 10L,
         )
+
+    private fun context(
+        id: String,
+        sessionId: String?,
+    ): DiagnosticContextEntity =
+        DiagnosticContextEntity(
+            id = id,
+            sessionId = sessionId,
+            contextKind = if (sessionId == null) "passive" else "post_scan",
+            payloadJson =
+                json.encodeToString(
+                    DiagnosticContextModel(
+                        service =
+                            ServiceContextModel(
+                                serviceStatus = "Running",
+                                configuredMode = "VPN",
+                                activeMode = "VPN",
+                                selectedProfileId = "default",
+                                selectedProfileName = "Default",
+                                configSource = "ui",
+                                proxyEndpoint = "127.0.0.1:1080",
+                                desyncMethod = "split",
+                                routeGroup = "3",
+                                sessionUptimeMs = 20_000L,
+                                lastNativeErrorHeadline = "none",
+                                restartCount = 2,
+                            ),
+                        permissions =
+                            PermissionContextModel(
+                                vpnPermissionState = "enabled",
+                                notificationPermissionState = "enabled",
+                                batteryOptimizationState = "disabled",
+                                dataSaverState = "disabled",
+                            ),
+                        device =
+                            DeviceContextModel(
+                                appVersionName = "0.0.1",
+                                appVersionCode = 1L,
+                                buildType = "debug",
+                                androidVersion = "16",
+                                apiLevel = 36,
+                                manufacturer = "Google",
+                                model = "Pixel",
+                                primaryAbi = "arm64-v8a",
+                                locale = "en-US",
+                                timezone = "UTC",
+                            ),
+                        environment =
+                            EnvironmentContextModel(
+                                batterySaverState = "disabled",
+                                powerSaveModeState = "disabled",
+                                networkMeteredState = "disabled",
+                                roamingState = "disabled",
+                            ),
+                    ),
+                ),
+            capturedAt = 12L,
+        )
 }
 
 private class FakeDiagnosticsManager(
@@ -408,6 +482,7 @@ private class FakeDiagnosticsManager(
     val profilesState = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
     val sessionsState = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
     val snapshotsState = MutableStateFlow<List<NetworkSnapshotEntity>>(emptyList())
+    val contextsState = MutableStateFlow<List<DiagnosticContextEntity>>(emptyList())
     val telemetryState = MutableStateFlow<List<TelemetrySampleEntity>>(emptyList())
     val nativeEventsState = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
@@ -419,6 +494,7 @@ private class FakeDiagnosticsManager(
     override val profiles: Flow<List<DiagnosticProfileEntity>> = profilesState
     override val sessions: Flow<List<ScanSessionEntity>> = sessionsState
     override val snapshots: Flow<List<NetworkSnapshotEntity>> = snapshotsState
+    override val contexts: Flow<List<DiagnosticContextEntity>> = contextsState
     override val telemetry: Flow<List<TelemetrySampleEntity>> = telemetryState
     override val nativeEvents: Flow<List<NativeSessionEventEntity>> = nativeEventsState
     override val exports: Flow<List<ExportRecordEntity>> = exportsState

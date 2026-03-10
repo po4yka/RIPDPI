@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -46,6 +47,7 @@ interface DiagnosticsManager {
     val profiles: Flow<List<DiagnosticProfileEntity>>
     val sessions: Flow<List<ScanSessionEntity>>
     val snapshots: Flow<List<NetworkSnapshotEntity>>
+    val contexts: Flow<List<DiagnosticContextEntity>>
     val telemetry: Flow<List<TelemetrySampleEntity>>
     val nativeEvents: Flow<List<NativeSessionEventEntity>>
     val exports: Flow<List<ExportRecordEntity>>
@@ -73,6 +75,7 @@ class DefaultDiagnosticsManager
         private val appSettingsRepository: AppSettingsRepository,
         private val historyRepository: DiagnosticsHistoryRepository,
         private val networkMetadataProvider: NetworkMetadataProvider,
+        private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
         private val serviceStateStore: ServiceStateStore,
@@ -80,7 +83,7 @@ class DefaultDiagnosticsManager
     private companion object {
         private const val DiagnosticsArchiveDirectory = "diagnostics-archives"
         private const val DiagnosticsArchivePrefix = "ripdpi-diagnostics-"
-        private const val ArchiveSchemaVersion = 2
+        private const val ArchiveSchemaVersion = 3
         private const val ArchivePrivacyMode = "split_output"
         private const val ArchiveScopeHybrid = "hybrid"
         private const val MaxArchiveFiles = 5
@@ -97,6 +100,7 @@ class DefaultDiagnosticsManager
     override val profiles: Flow<List<DiagnosticProfileEntity>> = historyRepository.observeProfiles()
     override val sessions: Flow<List<ScanSessionEntity>> = historyRepository.observeRecentScanSessions()
     override val snapshots: Flow<List<NetworkSnapshotEntity>> = historyRepository.observeSnapshots()
+    override val contexts: Flow<List<DiagnosticContextEntity>> = historyRepository.observeContexts()
     override val telemetry: Flow<List<TelemetrySampleEntity>> = historyRepository.observeTelemetry()
     override val nativeEvents: Flow<List<NativeSessionEventEntity>> = historyRepository.observeNativeEvents()
     override val exports: Flow<List<ExportRecordEntity>> = historyRepository.observeExportRecords()
@@ -141,6 +145,15 @@ class DefaultDiagnosticsManager
                 sessionId = sessionId,
                 snapshotKind = "pre_scan",
                 payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkMetadataProvider.captureSnapshot()),
+                capturedAt = System.currentTimeMillis(),
+            ),
+        )
+        historyRepository.upsertContextSnapshot(
+            DiagnosticContextEntity(
+                id = UUID.randomUUID().toString(),
+                sessionId = sessionId,
+                contextKind = "pre_scan",
+                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), diagnosticsContextProvider.captureContext()),
                 capturedAt = System.currentTimeMillis(),
             ),
         )
@@ -213,6 +226,12 @@ class DefaultDiagnosticsManager
             val results = historyRepository.getProbeResults(sessionId)
             val snapshots =
                 historyRepository.observeSnapshots(limit = 200).first().filter { it.sessionId == sessionId }
+            val latestContext =
+                historyRepository
+                    .observeContexts(limit = 200)
+                    .first()
+                    .filter { it.sessionId == sessionId }
+                    .maxByOrNull { it.capturedAt }
             val events =
                 historyRepository.observeNativeEvents(limit = 500).first().filter { it.sessionId == sessionId }
             DiagnosticSessionDetail(
@@ -220,6 +239,7 @@ class DefaultDiagnosticsManager
                 results = results,
                 snapshots = snapshots,
                 events = events,
+                context = latestContext,
             )
         }
 
@@ -239,6 +259,16 @@ class DefaultDiagnosticsManager
             val latestSnapshotModel =
                 latestSnapshot?.payloadJson
                     ?.let { payload -> runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payload) }.getOrNull() }
+            val latestContext =
+                selectedSession
+                    ?.id
+                    ?.let { id ->
+                        historyRepository.observeContexts(limit = 200).first().firstOrNull { it.sessionId == id }
+                    }
+                    ?: historyRepository.observeContexts(limit = 1).first().firstOrNull()
+            val latestContextModel =
+                latestContext?.payloadJson
+                    ?.let { payload -> runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payload) }.getOrNull() }
             val latestTelemetry = historyRepository.observeTelemetry(limit = 1).first().firstOrNull()
             val latestWarnings =
                 historyRepository.observeNativeEvents(limit = 50).first().filter {
@@ -258,13 +288,26 @@ class DefaultDiagnosticsManager
                         appendLine("startedAt=${session.startedAt}")
                         appendLine("finishedAt=${session.finishedAt ?: "running"}")
                     }
-                    latestSnapshotModel?.let { snapshot ->
+                    latestSnapshotModel?.toRedactedSummary()?.let { snapshot ->
                         appendLine("transport=${snapshot.transport}")
-                        appendLine("publicIp=${snapshot.publicIp ?: "unknown"}")
-                        appendLine("publicAsn=${snapshot.publicAsn ?: "unknown"}")
-                        appendLine("dns=${snapshot.dnsServers.joinToString().ifBlank { "unknown" }}")
+                        appendLine("publicIp=${snapshot.publicIp}")
+                        appendLine("publicAsn=${snapshot.publicAsn}")
+                        appendLine("dns=${snapshot.dnsServers}")
                         appendLine("privateDns=${snapshot.privateDnsMode}")
                         appendLine("validated=${snapshot.networkValidated}")
+                    }
+                    latestContextModel?.toRedactedSummary()?.let { contextSummary ->
+                        appendLine("appVersion=${contextSummary.device.appVersionName}")
+                        appendLine("device=${contextSummary.device.deviceName}")
+                        appendLine("android=${contextSummary.device.androidVersion}")
+                        appendLine("serviceMode=${contextSummary.service.activeMode}")
+                        appendLine("profile=${contextSummary.service.selectedProfileName}")
+                        appendLine("configSource=${contextSummary.service.configSource}")
+                        appendLine("proxy=${contextSummary.service.proxyEndpoint}")
+                        appendLine("vpnPermission=${contextSummary.permissions.vpnPermissionState}")
+                        appendLine("notifications=${contextSummary.permissions.notificationPermissionState}")
+                        appendLine("batteryOptimization=${contextSummary.permissions.batteryOptimizationState}")
+                        appendLine("dataSaver=${contextSummary.permissions.dataSaverState}")
                     }
                     latestTelemetry?.let { telemetry ->
                         appendLine("networkType=${telemetry.networkType}")
@@ -293,6 +336,8 @@ class DefaultDiagnosticsManager
                     listOfNotNull(
                         selectedSession?.pathMode?.let { SummaryMetric(label = "Path", value = it) },
                         latestSnapshotModel?.transport?.let { SummaryMetric(label = "Transport", value = it) },
+                        latestContextModel?.service?.activeMode?.let { SummaryMetric(label = "Mode", value = it) },
+                        latestContextModel?.device?.appVersionName?.let { SummaryMetric(label = "App", value = it) },
                         latestTelemetry?.txBytes?.let { SummaryMetric(label = "TX", value = it.toString()) },
                         latestTelemetry?.rxBytes?.let { SummaryMetric(label = "RX", value = it.toString()) },
                     ),
@@ -310,6 +355,7 @@ class DefaultDiagnosticsManager
             val snapshots = historyRepository.observeSnapshots(limit = ArchiveSnapshotLimit).first()
             val telemetry = historyRepository.observeTelemetry(limit = ArchiveTelemetryLimit).first()
             val events = historyRepository.observeNativeEvents(limit = ArchiveGlobalEventLimit).first()
+            val contexts = historyRepository.observeContexts(limit = ArchiveSnapshotLimit).first()
             val primarySession =
                 sessionId
                     ?.let { historyRepository.getScanSession(it) }
@@ -317,8 +363,10 @@ class DefaultDiagnosticsManager
                     ?: sessions.firstOrNull()
             val primaryResults = primarySession?.id?.let { historyRepository.getProbeResults(it) }.orEmpty()
             val primarySnapshots = primarySession?.id?.let { id -> snapshots.filter { it.sessionId == id } }.orEmpty()
+            val primaryContexts = primarySession?.id?.let { id -> contexts.filter { it.sessionId == id } }.orEmpty()
             val primaryEvents = primarySession?.id?.let { id -> events.filter { it.sessionId == id } }.orEmpty()
             val latestPassiveSnapshot = snapshots.firstOrNull { it.sessionId == null }
+            val latestPassiveContext = contexts.firstOrNull { it.sessionId == null }
             val globalEvents =
                 events
                     .filter { it.sessionId == null || it.sessionId != primarySession?.id }
@@ -331,8 +379,10 @@ class DefaultDiagnosticsManager
                     session = primarySession,
                     results = primaryResults,
                     sessionSnapshots = primarySnapshots,
+                    sessionContexts = primaryContexts,
                     sessionEvents = primaryEvents,
                     latestPassiveSnapshot = latestPassiveSnapshot,
+                    latestPassiveContext = latestPassiveContext,
                     telemetry = telemetry.take(ArchiveTelemetryLimit),
                     globalEvents = globalEvents,
                 )
@@ -342,6 +392,19 @@ class DefaultDiagnosticsManager
                     ?.let { payloadJson ->
                         runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payloadJson) }.getOrNull()
                     }
+            val latestContextModel =
+                latestPassiveContext
+                    ?.payloadJson
+                    ?.let { payloadJson ->
+                        runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payloadJson) }.getOrNull()
+                    }
+            val sessionContextModel =
+                primaryContexts
+                    .maxByOrNull { it.capturedAt }
+                    ?.payloadJson
+                    ?.let { payloadJson ->
+                        runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payloadJson) }.getOrNull()
+                    }
             ZipOutputStream(target.outputStream().buffered()).use { zip ->
                 zip.putNextEntry(ZipEntry("summary.txt"))
                 val summary =
@@ -350,6 +413,7 @@ class DefaultDiagnosticsManager
                         session = primarySession,
                         results = primaryResults,
                         latestSnapshot = latestSnapshotModel,
+                        latestContext = sessionContextModel ?: latestContextModel,
                         telemetry = telemetry,
                         globalEvents = globalEvents,
                     )
@@ -397,10 +461,12 @@ class DefaultDiagnosticsManager
                             includedSessionId = primarySession?.id,
                             sessionResultCount = primaryResults.size,
                             sessionSnapshotCount = primarySnapshots.size,
+                            contextSnapshotCount = primaryContexts.size,
                             sessionEventCount = primaryEvents.size,
                             telemetrySampleCount = payload.telemetry.size,
                             globalEventCount = globalEvents.size,
                             networkSummary = latestSnapshotModel?.toRedactedSummary(),
+                            contextSummary = (sessionContextModel ?: latestContextModel)?.toRedactedSummary(),
                         ),
                     )
                 zip.write(manifest.toByteArray())
@@ -470,6 +536,15 @@ class DefaultDiagnosticsManager
                             capturedAt = snapshot.capturedAt,
                         ),
                     )
+                    historyRepository.upsertContextSnapshot(
+                        DiagnosticContextEntity(
+                            id = UUID.randomUUID().toString(),
+                            sessionId = null,
+                            contextKind = "passive",
+                            payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), diagnosticsContextProvider.captureContext()),
+                            capturedAt = snapshot.capturedAt,
+                        ),
+                    )
                     historyRepository.insertTelemetrySample(
                         TelemetrySampleEntity(
                             id = UUID.randomUUID().toString(),
@@ -529,6 +604,7 @@ class DefaultDiagnosticsManager
         session: ScanSessionEntity?,
         results: List<ProbeResultEntity>,
         latestSnapshot: NetworkSnapshotModel?,
+        latestContext: DiagnosticContextModel?,
         telemetry: List<TelemetrySampleEntity>,
         globalEvents: List<NativeSessionEventEntity>,
     ): String =
@@ -553,6 +629,25 @@ class DefaultDiagnosticsManager
                 appendLine("localAddresses=${summary.localAddresses}")
                 appendLine("validated=${summary.networkValidated}")
                 appendLine("captivePortal=${summary.captivePortalDetected}")
+            }
+            latestContext?.toRedactedSummary()?.let { contextSummary ->
+                appendLine("appVersion=${contextSummary.device.appVersionName}")
+                appendLine("device=${contextSummary.device.deviceName}")
+                appendLine("android=${contextSummary.device.androidVersion}")
+                appendLine("serviceMode=${contextSummary.service.activeMode}")
+                appendLine("serviceStatus=${contextSummary.service.serviceStatus}")
+                appendLine("profile=${contextSummary.service.selectedProfileName}")
+                appendLine("configSource=${contextSummary.service.configSource}")
+                appendLine("proxyEndpoint=${contextSummary.service.proxyEndpoint}")
+                appendLine("desyncMethod=${contextSummary.service.desyncMethod}")
+                appendLine("lastNativeError=${contextSummary.service.lastNativeErrorHeadline}")
+                appendLine("vpnPermission=${contextSummary.permissions.vpnPermissionState}")
+                appendLine("notifications=${contextSummary.permissions.notificationPermissionState}")
+                appendLine("batteryOptimization=${contextSummary.permissions.batteryOptimizationState}")
+                appendLine("dataSaver=${contextSummary.permissions.dataSaverState}")
+                appendLine("powerSave=${contextSummary.environment.powerSaveModeState}")
+                appendLine("networkMetered=${contextSummary.environment.networkMeteredState}")
+                appendLine("roaming=${contextSummary.environment.roamingState}")
             }
             telemetry.firstOrNull()?.let { sample ->
                 appendLine("networkType=${sample.networkType}")
@@ -600,6 +695,15 @@ class DefaultDiagnosticsManager
                         sessionId = sessionId,
                         snapshotKind = "post_scan",
                         payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkMetadataProvider.captureSnapshot()),
+                        capturedAt = System.currentTimeMillis(),
+                    ),
+                )
+                historyRepository.upsertContextSnapshot(
+                    DiagnosticContextEntity(
+                        id = UUID.randomUUID().toString(),
+                        sessionId = sessionId,
+                        contextKind = "post_scan",
+                        payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), diagnosticsContextProvider.captureContext()),
                         capturedAt = System.currentTimeMillis(),
                     ),
                 )
@@ -708,8 +812,10 @@ internal data class DiagnosticsArchivePayload(
     val session: ScanSessionEntity?,
     val results: List<ProbeResultEntity>,
     val sessionSnapshots: List<NetworkSnapshotEntity>,
+    val sessionContexts: List<DiagnosticContextEntity>,
     val sessionEvents: List<NativeSessionEventEntity>,
     val latestPassiveSnapshot: NetworkSnapshotEntity?,
+    val latestPassiveContext: DiagnosticContextEntity?,
     val telemetry: List<TelemetrySampleEntity>,
     val globalEvents: List<NativeSessionEventEntity>,
 )
@@ -724,10 +830,12 @@ internal data class DiagnosticsArchiveManifest(
     val includedSessionId: String?,
     val sessionResultCount: Int,
     val sessionSnapshotCount: Int,
+    val contextSnapshotCount: Int,
     val sessionEventCount: Int,
     val telemetrySampleCount: Int,
     val globalEventCount: Int,
     val networkSummary: RedactedNetworkSummary?,
+    val contextSummary: RedactedDiagnosticContextSummary?,
 )
 
 @Serializable
@@ -742,6 +850,53 @@ internal data class RedactedNetworkSummary(
     val captivePortalDetected: Boolean,
 )
 
+@Serializable
+internal data class RedactedServiceContextSummary(
+    val serviceStatus: String,
+    val activeMode: String,
+    val selectedProfileName: String,
+    val configSource: String,
+    val proxyEndpoint: String,
+    val desyncMethod: String,
+    val routeGroup: String,
+    val restartCount: Int,
+    val lastNativeErrorHeadline: String,
+)
+
+@Serializable
+internal data class RedactedPermissionContextSummary(
+    val vpnPermissionState: String,
+    val notificationPermissionState: String,
+    val batteryOptimizationState: String,
+    val dataSaverState: String,
+)
+
+@Serializable
+internal data class RedactedDeviceContextSummary(
+    val appVersionName: String,
+    val buildType: String,
+    val deviceName: String,
+    val androidVersion: String,
+    val locale: String,
+    val timezone: String,
+)
+
+@Serializable
+internal data class RedactedEnvironmentContextSummary(
+    val batterySaverState: String,
+    val powerSaveModeState: String,
+    val networkMeteredState: String,
+    val roamingState: String,
+)
+
+@Serializable
+internal data class RedactedDiagnosticContextSummary(
+    val service: RedactedServiceContextSummary,
+    val permissions: RedactedPermissionContextSummary,
+    val device: RedactedDeviceContextSummary,
+    val environment: RedactedEnvironmentContextSummary,
+)
+
 private fun NetworkSnapshotModel.toRedactedSummary(): RedactedNetworkSummary =
     RedactedNetworkSummary(
         transport = transport,
@@ -752,6 +907,45 @@ private fun NetworkSnapshotModel.toRedactedSummary(): RedactedNetworkSummary =
         localAddresses = if (localAddresses.isEmpty()) "unknown" else "redacted(${localAddresses.size})",
         networkValidated = networkValidated,
         captivePortalDetected = captivePortalDetected,
+    )
+
+private fun DiagnosticContextModel.toRedactedSummary(): RedactedDiagnosticContextSummary =
+    RedactedDiagnosticContextSummary(
+        service =
+            RedactedServiceContextSummary(
+                serviceStatus = service.serviceStatus,
+                activeMode = service.activeMode,
+                selectedProfileName = service.selectedProfileName,
+                configSource = service.configSource,
+                proxyEndpoint = if (service.proxyEndpoint == "unknown") "unknown" else "redacted",
+                desyncMethod = service.desyncMethod,
+                routeGroup = service.routeGroup,
+                restartCount = service.restartCount,
+                lastNativeErrorHeadline = service.lastNativeErrorHeadline,
+            ),
+        permissions =
+            RedactedPermissionContextSummary(
+                vpnPermissionState = permissions.vpnPermissionState,
+                notificationPermissionState = permissions.notificationPermissionState,
+                batteryOptimizationState = permissions.batteryOptimizationState,
+                dataSaverState = permissions.dataSaverState,
+            ),
+        device =
+            RedactedDeviceContextSummary(
+                appVersionName = device.appVersionName,
+                buildType = device.buildType,
+                deviceName = "${device.manufacturer} ${device.model}",
+                androidVersion = "${device.androidVersion} (API ${device.apiLevel})",
+                locale = device.locale,
+                timezone = device.timezone,
+            ),
+        environment =
+            RedactedEnvironmentContextSummary(
+                batterySaverState = environment.batterySaverState,
+                powerSaveModeState = environment.powerSaveModeState,
+                networkMeteredState = environment.networkMeteredState,
+                roamingState = environment.roamingState,
+            ),
     )
 
 @Module

@@ -26,6 +26,10 @@ data class ServiceTelemetrySnapshot(
     val tunnelStats: TunnelStats = TunnelStats(),
     val proxyTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy"),
     val tunnelTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel"),
+    val serviceStartedAt: Long? = null,
+    val restartCount: Int = 0,
+    val lastFailureSender: Sender? = null,
+    val lastFailureAt: Long? = null,
     val updatedAt: Long = 0L,
 )
 
@@ -61,14 +65,44 @@ class DefaultServiceStateStore
             status: AppStatus,
             mode: Mode,
         ) {
+            val previousStatus = _status.value.first
             _status.value = status to mode
+            val currentTelemetry = _telemetry.value
+            _telemetry.value =
+                currentTelemetry.copy(
+                    mode = mode,
+                    status = status,
+                    serviceStartedAt =
+                        when {
+                            status == AppStatus.Running && previousStatus != AppStatus.Running -> System.currentTimeMillis()
+                            status == AppStatus.Running -> currentTelemetry.serviceStartedAt
+                            else -> null
+                        },
+                    restartCount =
+                        when {
+                            status == AppStatus.Running && previousStatus != AppStatus.Running -> currentTelemetry.restartCount + 1
+                            else -> currentTelemetry.restartCount
+                        },
+                )
         }
 
         override fun emitFailed(sender: Sender) {
             _events.tryEmit(ServiceEvent.Failed(sender))
+            _telemetry.value =
+                _telemetry.value.copy(
+                    lastFailureSender = sender,
+                    lastFailureAt = System.currentTimeMillis(),
+                )
         }
 
         override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
-            _telemetry.value = snapshot
+            val currentTelemetry = _telemetry.value
+            _telemetry.value =
+                snapshot.copy(
+                    serviceStartedAt = snapshot.serviceStartedAt ?: currentTelemetry.serviceStartedAt,
+                    restartCount = maxOf(snapshot.restartCount, currentTelemetry.restartCount),
+                    lastFailureSender = snapshot.lastFailureSender ?: currentTelemetry.lastFailureSender,
+                    lastFailureAt = snapshot.lastFailureAt ?: currentTelemetry.lastFailureAt,
+                )
         }
     }
