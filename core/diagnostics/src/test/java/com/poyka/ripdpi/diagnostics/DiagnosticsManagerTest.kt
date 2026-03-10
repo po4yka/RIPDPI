@@ -4,10 +4,15 @@ import android.content.ContextWrapper
 import com.poyka.ripdpi.core.NativeRuntimeEvent
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
+import com.poyka.ripdpi.core.testing.FaultOutcome
+import com.poyka.ripdpi.core.testing.FaultQueue
+import com.poyka.ripdpi.core.testing.FaultSpec
+import com.poyka.ripdpi.core.testing.faultThrowable
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
@@ -26,6 +31,7 @@ import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipFile
@@ -38,6 +44,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
@@ -367,6 +374,334 @@ class DiagnosticsManagerTest {
             assertEquals("session-latest", history.exportsState.value.single().sessionId)
         }
 
+    @Test
+    fun `approachStats combine validated scan outcomes and runtime usage`() =
+        runTest {
+            val signature =
+                BypassStrategySignature(
+                    mode = "VPN",
+                    configSource = "ui",
+                    desyncMethod = "split",
+                    protocolToggles = listOf("HTTP", "HTTPS"),
+                    tlsRecordSplitEnabled = true,
+                    tlsRecordSplitAtSni = false,
+                    splitAtHost = false,
+                    splitPosition = 1,
+                    fakeSniMode = null,
+                    fakeOffsetEnabled = false,
+                    routeGroup = "3",
+                )
+            val strategyId = signature.stableId()
+            val strategyJson = Json.encodeToString(BypassStrategySignature.serializer(), signature)
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-ok",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "Validated success",
+                                reportJson =
+                                    Json.encodeToString(
+                                        ScanReport.serializer(),
+                                        ScanReport(
+                                            sessionId = "session-ok",
+                                            profileId = "default",
+                                            pathMode = ScanPathMode.RAW_PATH,
+                                            startedAt = 10L,
+                                            finishedAt = 20L,
+                                            summary = "Validated success",
+                                            results =
+                                                listOf(
+                                                    ProbeResult("dns", "example.org", "ok"),
+                                                    ProbeResult("tls", "example.org", "ok"),
+                                                ),
+                                        ),
+                                    ),
+                            ).copy(
+                                approachProfileId = "default",
+                                approachProfileName = "Default",
+                                strategyId = strategyId,
+                                strategyLabel = "VPN Split",
+                                strategyJson = strategyJson,
+                            ),
+                            session(
+                                id = "session-fail",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "Validated failure",
+                                reportJson =
+                                    Json.encodeToString(
+                                        ScanReport.serializer(),
+                                        ScanReport(
+                                            sessionId = "session-fail",
+                                            profileId = "default",
+                                            pathMode = ScanPathMode.RAW_PATH,
+                                            startedAt = 30L,
+                                            finishedAt = 40L,
+                                            summary = "Validated failure",
+                                            results =
+                                                listOf(
+                                                    ProbeResult("dns", "blocked.example", "dns_blocked"),
+                                                ),
+                                        ),
+                                    ),
+                            ).copy(
+                                approachProfileId = "default",
+                                approachProfileName = "Default",
+                                strategyId = strategyId,
+                                strategyLabel = "VPN Split",
+                                strategyJson = strategyJson,
+                            ),
+                        )
+                    usageSessionsState.value =
+                        listOf(
+                            BypassUsageSessionEntity(
+                                id = "usage-1",
+                                startedAt = 100L,
+                                finishedAt = 1_100L,
+                                serviceMode = "VPN",
+                                approachProfileId = "default",
+                                approachProfileName = "Default",
+                                strategyId = strategyId,
+                                strategyLabel = "VPN Split",
+                                strategyJson = strategyJson,
+                                networkType = "wifi",
+                                txBytes = 400L,
+                                rxBytes = 800L,
+                                totalErrors = 2L,
+                                routeChanges = 1L,
+                                restartCount = 1,
+                                endedReason = "stopped",
+                            ),
+                        )
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val stats = manager.approachStats.first()
+            val strategySummary =
+                stats.first { it.approachId.kind == BypassApproachKind.Strategy && it.approachId.value == strategyId }
+            val profileSummary =
+                stats.first { it.approachId.kind == BypassApproachKind.Profile && it.approachId.value == "default" }
+
+            assertEquals(2, strategySummary.validatedScanCount)
+            assertEquals(1, strategySummary.validatedSuccessCount)
+            assertEquals(0.5f, strategySummary.validatedSuccessRate)
+            assertEquals(1, strategySummary.usageCount)
+            assertEquals("validated", strategySummary.verificationState)
+            assertTrue(strategySummary.topFailureOutcomes.first().contains("dns_blocked"))
+            assertEquals(1, profileSummary.usageCount)
+        }
+
+    @Test
+    fun `approachStats marks runtime only approach as unverified`() =
+        runTest {
+            val signature =
+                BypassStrategySignature(
+                    mode = "Proxy",
+                    configSource = "ui",
+                    desyncMethod = "fake",
+                    protocolToggles = listOf("HTTP"),
+                    tlsRecordSplitEnabled = false,
+                    tlsRecordSplitAtSni = false,
+                    splitAtHost = false,
+                    splitPosition = null,
+                    fakeSniMode = "custom",
+                    fakeOffsetEnabled = true,
+                    routeGroup = null,
+                )
+            val strategyId = signature.stableId()
+            val strategyJson = Json.encodeToString(BypassStrategySignature.serializer(), signature)
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    usageSessionsState.value =
+                        listOf(
+                            BypassUsageSessionEntity(
+                                id = "usage-runtime",
+                                startedAt = 100L,
+                                finishedAt = 200L,
+                                serviceMode = "Proxy",
+                                approachProfileId = "default",
+                                approachProfileName = "Default",
+                                strategyId = strategyId,
+                                strategyLabel = "Proxy Fake",
+                                strategyJson = strategyJson,
+                                networkType = "cellular",
+                                txBytes = 100L,
+                                rxBytes = 120L,
+                                totalErrors = 0L,
+                                routeChanges = 0L,
+                                restartCount = 0,
+                                endedReason = "stopped",
+                            ),
+                        )
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val summary =
+                manager.approachStats.first().first {
+                    it.approachId.kind == BypassApproachKind.Strategy && it.approachId.value == strategyId
+                }
+
+            assertEquals("unverified", summary.verificationState)
+            assertEquals(null, summary.validatedSuccessRate)
+            assertEquals(1, summary.usageCount)
+        }
+
+    @Test
+    fun `bridge start failure marks session failed and destroys bridge`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.faults.enqueue(
+                        FaultSpec(
+                            target = DiagnosticsBridgeFaultTarget.START_SCAN,
+                            outcome = FaultOutcome.EXCEPTION,
+                            message = "bridge start failed",
+                        ),
+                    )
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val error = runCatching { manager.startScan(ScanPathMode.RAW_PATH) }.exceptionOrNull()
+
+            assertTrue(error is IOException)
+            assertEquals("failed", history.sessionsState.value.single().status)
+            assertEquals("bridge start failed", history.sessionsState.value.single().summary)
+            assertEquals(1, bridgeFactory.bridge.destroyCount)
+            assertEquals(null, manager.activeScanProgress.value)
+        }
+
+    @Test
+    fun `progress polling failure marks session failed and clears active progress`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                    bridge.enqueueProgressFailure(IOException("progress failed"))
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.IN_PATH)
+            waitForFailed(history, sessionId)
+
+            assertEquals("progress failed", history.getScanSession(sessionId)?.summary)
+            assertEquals(null, manager.activeScanProgress.value)
+            assertEquals(1, bridgeFactory.bridge.destroyCount)
+        }
+
+    @Test
+    fun `report retrieval failure marks session failed after completion signal`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                    bridge.enqueueProgress(
+                        json.encodeToString(
+                            ScanProgress.serializer(),
+                            ScanProgress(
+                                sessionId = "pending",
+                                phase = "complete",
+                                completedSteps = 1,
+                                totalSteps = 1,
+                                message = "done",
+                                isFinished = true,
+                            ),
+                        ),
+                    )
+                    bridge.enqueueReportFailure(IOException("report failed"))
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.IN_PATH)
+            waitForFailed(history, sessionId)
+
+            assertEquals("report failed", history.getScanSession(sessionId)?.summary)
+            assertTrue(history.getProbeResults(sessionId).isEmpty())
+        }
+
+    @Test
+    fun `malformed passive events payload marks session failed`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                    bridge.enqueuePassiveEvents("{bad-json")
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.IN_PATH)
+            waitForFailed(history, sessionId)
+
+            assertEquals("failed", history.getScanSession(sessionId)?.status)
+            assertTrue((history.getScanSession(sessionId)?.summary ?: "").isNotBlank())
+        }
+
     private suspend fun waitForCompletion(
         history: FakeDiagnosticsHistoryRepository,
         sessionId: String,
@@ -378,6 +713,19 @@ class DiagnosticsManagerTest {
                     history.snapshotsState.value.size < 2 ||
                     history.nativeEventsState.value.size < 2
                 ) {
+                    delay(25)
+                }
+            }
+        }
+    }
+
+    private suspend fun waitForFailed(
+        history: FakeDiagnosticsHistoryRepository,
+        sessionId: String,
+    ) {
+        kotlinx.coroutines.withContext(Dispatchers.Default.limitedParallelism(1)) {
+            withTimeout(2_000) {
+                while (history.getScanSession(sessionId)?.status != "failed") {
                     delay(25)
                 }
             }
@@ -417,6 +765,7 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
     val telemetryState = MutableStateFlow<List<TelemetrySampleEntity>>(emptyList())
     val nativeEventsState = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
+    val usageSessionsState = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
     private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
 
@@ -433,6 +782,8 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
     override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = nativeEventsState
 
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = exportsState
+
+    override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> = usageSessionsState
 
     override suspend fun getProfile(id: String): DiagnosticProfileEntity? = profilesState.value.find { it.id == id }
 
@@ -480,6 +831,10 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
 
     override suspend fun insertExportRecord(record: ExportRecordEntity) {
         exportsState.value = exportsState.value + record
+    }
+
+    override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) {
+        usageSessionsState.value = usageSessionsState.value.upsertById(session) { it.id }
     }
 
     override suspend fun trimOldData(retentionDays: Int) = Unit
@@ -606,12 +961,37 @@ private class FakeNetworkDiagnosticsBridgeFactory(
     override fun create(): NetworkDiagnosticsBridge = bridge
 }
 
+private enum class DiagnosticsBridgeFaultTarget {
+    START_SCAN,
+    CANCEL,
+    POLL_PROGRESS,
+    TAKE_REPORT,
+    PASSIVE_EVENTS,
+    DESTROY,
+}
+
+private sealed interface DiagnosticsBridgeStep {
+    data class Payload(
+        val value: String?,
+    ) : DiagnosticsBridgeStep
+
+    data class Failure(
+        val error: Throwable,
+    ) : DiagnosticsBridgeStep
+}
+
 private class FakeNetworkDiagnosticsBridge(
     private val json: Json,
 ) : NetworkDiagnosticsBridge {
     var startedRequestJson: String? = null
     private var startedSessionId: String? = null
+    var autoCompleteOnStart: Boolean = true
+    var destroyCount: Int = 0
+    val faults = FaultQueue<DiagnosticsBridgeFaultTarget>()
     private val passiveEventsPayloads = ArrayDeque<String>()
+    private val scriptedProgress = ArrayDeque<DiagnosticsBridgeStep>()
+    private val scriptedReports = ArrayDeque<DiagnosticsBridgeStep>()
+    private val scriptedPassiveEvents = ArrayDeque<DiagnosticsBridgeStep>()
     private var reportJson: String? = null
     private var progressJson: String? = null
 
@@ -619,67 +999,113 @@ private class FakeNetworkDiagnosticsBridge(
         requestJson: String,
         sessionId: String,
     ) {
+        faults.next(DiagnosticsBridgeFaultTarget.START_SCAN)?.throwOrIgnore()
         startedRequestJson = requestJson
         startedSessionId = sessionId
-        progressJson =
-            json.encodeToString(
-                ScanProgress.serializer(),
-                ScanProgress(
-                    sessionId = sessionId,
-                    phase = "complete",
-                    completedSteps = 1,
-                    totalSteps = 1,
-                    message = "done",
-                    isFinished = true,
-                ),
-            )
-        reportJson =
-            json.encodeToString(
-                ScanReport.serializer(),
-                ScanReport(
-                    sessionId = sessionId,
-                    profileId = "default",
-                    pathMode =
-                        json.decodeFromString(ScanRequest.serializer(), requestJson).pathMode,
-                    startedAt = 10L,
-                    finishedAt = 20L,
-                    summary = "Finished",
-                    results =
-                        listOf(
-                            ProbeResult(
-                                probeType = "dns",
-                                target = "blocked.example",
-                                outcome = "substituted",
+        if (autoCompleteOnStart) {
+            progressJson =
+                json.encodeToString(
+                    ScanProgress.serializer(),
+                    ScanProgress(
+                        sessionId = sessionId,
+                        phase = "complete",
+                        completedSteps = 1,
+                        totalSteps = 1,
+                        message = "done",
+                        isFinished = true,
+                    ),
+                )
+            reportJson =
+                json.encodeToString(
+                    ScanReport.serializer(),
+                    ScanReport(
+                        sessionId = sessionId,
+                        profileId = "default",
+                        pathMode =
+                            json.decodeFromString(ScanRequest.serializer(), requestJson).pathMode,
+                        startedAt = 10L,
+                        finishedAt = 20L,
+                        summary = "Finished",
+                        results =
+                            listOf(
+                                ProbeResult(
+                                    probeType = "dns",
+                                    target = "blocked.example",
+                                    outcome = "substituted",
+                                ),
                             ),
+                    ),
+                )
+            passiveEventsPayloads.clear()
+            passiveEventsPayloads.addLast(
+                json.encodeToString(
+                    listOf(
+                        NativeSessionEvent(
+                            source = "native",
+                            level = "info",
+                            message = "scan started",
+                            createdAt = 15L,
                         ),
-                ),
-            )
-        passiveEventsPayloads.clear()
-        passiveEventsPayloads.addLast(
-            json.encodeToString(
-                listOf(
-                    NativeSessionEvent(
-                        source = "native",
-                        level = "info",
-                        message = "scan started",
-                        createdAt = 15L,
                     ),
                 ),
-            ),
-        )
-        passiveEventsPayloads.addLast("[]")
+            )
+            passiveEventsPayloads.addLast("[]")
+        }
     }
 
-    override suspend fun cancelScan() = Unit
+    override suspend fun cancelScan() {
+        faults.next(DiagnosticsBridgeFaultTarget.CANCEL)?.throwOrIgnore()
+    }
 
-    override suspend fun pollProgressJson(): String? = progressJson
+    override suspend fun pollProgressJson(): String? {
+        faults.next(DiagnosticsBridgeFaultTarget.POLL_PROGRESS)?.throwOrIgnore()
+        return scriptedProgress.removeFirstOrNull().resolve(progressJson)
+    }
 
-    override suspend fun takeReportJson(): String? = reportJson.also { reportJson = null }
+    override suspend fun takeReportJson(): String? {
+        faults.next(DiagnosticsBridgeFaultTarget.TAKE_REPORT)?.throwOrIgnore()
+        return scriptedReports.removeFirstOrNull().resolve(reportJson).also {
+            if (scriptedReports.isEmpty()) {
+                reportJson = null
+            }
+        }
+    }
 
-    override suspend fun pollPassiveEventsJson(): String? = passiveEventsPayloads.removeFirstOrNull()
+    override suspend fun pollPassiveEventsJson(): String? {
+        faults.next(DiagnosticsBridgeFaultTarget.PASSIVE_EVENTS)?.throwOrIgnore()
+        val scripted = scriptedPassiveEvents.removeFirstOrNull()
+        val defaultValue = if (scripted == null) passiveEventsPayloads.removeFirstOrNull() else passiveEventsPayloads.firstOrNull()
+        return scripted.resolve(defaultValue)
+    }
 
     override suspend fun destroy() {
+        faults.next(DiagnosticsBridgeFaultTarget.DESTROY)?.throwOrIgnore()
+        destroyCount += 1
         startedSessionId = null
+    }
+
+    fun enqueueProgress(value: String?) {
+        scriptedProgress.addLast(DiagnosticsBridgeStep.Payload(value))
+    }
+
+    fun enqueueProgressFailure(error: Throwable) {
+        scriptedProgress.addLast(DiagnosticsBridgeStep.Failure(error))
+    }
+
+    fun enqueueReport(value: String?) {
+        scriptedReports.addLast(DiagnosticsBridgeStep.Payload(value))
+    }
+
+    fun enqueueReportFailure(error: Throwable) {
+        scriptedReports.addLast(DiagnosticsBridgeStep.Failure(error))
+    }
+
+    fun enqueuePassiveEvents(value: String?) {
+        scriptedPassiveEvents.addLast(DiagnosticsBridgeStep.Payload(value))
+    }
+
+    fun enqueuePassiveEventsFailure(error: Throwable) {
+        scriptedPassiveEvents.addLast(DiagnosticsBridgeStep.Failure(error))
     }
 }
 
@@ -689,6 +1115,23 @@ private class FakeDiagnosticsRuntimeCoordinator : DiagnosticsRuntimeCoordinator 
     override suspend fun runRawPathScan(block: suspend () -> Unit) {
         rawScanCount.incrementAndGet()
         block()
+    }
+}
+
+private fun DiagnosticsBridgeStep?.resolve(defaultValue: String?): String? =
+    when (this) {
+        null -> defaultValue
+        is DiagnosticsBridgeStep.Payload -> value
+        is DiagnosticsBridgeStep.Failure -> throw error
+    }
+
+private fun <T> FaultSpec<T>.throwOrIgnore() {
+    when (outcome) {
+        FaultOutcome.MALFORMED_PAYLOAD,
+        FaultOutcome.BLANK_PAYLOAD,
+        -> Unit
+
+        else -> throw faultThrowable(outcome, message)
     }
 }
 

@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -20,6 +21,7 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
+import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
@@ -59,6 +61,7 @@ fun RipDpiNavHost(
     snackbarHostState: SnackbarHostState? = null,
 ) {
     val navController = rememberNavController()
+    val diagnosticsInitialSection = remember { mutableStateOf<DiagnosticsSection?>(null) }
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStackEntry?.destination
     val layout = RipDpiThemeTokens.layout
@@ -155,6 +158,13 @@ fun RipDpiNavHost(
             composable(Route.Home.route) {
                 HomeRoute(
                     onStartConfiguredMode = onStartConfiguredMode,
+                    onOpenDiagnostics = {
+                        diagnosticsInitialSection.value = DiagnosticsSection.Approaches
+                        navController.navigate(Route.Diagnostics.route) {
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     viewModel = mainViewModel,
                 )
             }
@@ -171,6 +181,8 @@ fun RipDpiNavHost(
                     onSaveArchive = onSaveDiagnosticsArchive,
                     onShareSummary = onShareDiagnosticsSummary,
                     onSaveLogs = onSaveLogs,
+                    initialSection = diagnosticsInitialSection.value,
+                    onInitialSectionHandled = { diagnosticsInitialSection.value = null },
                     viewModel = diagnosticsViewModel,
                 )
             }

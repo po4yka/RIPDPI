@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
@@ -50,6 +51,9 @@ class DiagnosticsContextProviderTest {
 
                     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = MutableStateFlow(emptyList())
 
+                    override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> =
+                        MutableStateFlow(emptyList())
+
                     override suspend fun getProfile(id: String): DiagnosticProfileEntity? =
                         DiagnosticProfileEntity(
                             id = "default",
@@ -83,6 +87,8 @@ class DiagnosticsContextProviderTest {
                     override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) = Unit
 
                     override suspend fun insertExportRecord(record: ExportRecordEntity) = Unit
+
+                    override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) = Unit
 
                     override suspend fun trimOldData(retentionDays: Int) = Unit
                 }
