@@ -1,28 +1,24 @@
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/deploymentTargetDropDown.xml
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
 .DS_Store
-build/
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-/app/src/main/jniLibs
-/core/engine/src/main/jniLibs
 
-# Ralph loop
+# IDE state
+.idea/
+
+# Local machine configuration
+/local.properties
+
+# Build and tool caches
+.gradle/
+.kotlin/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+target/
+
+# Repo-local automation artifacts
 .ralph/
 ralph.yml
 hats.yml
 PROMPT.md
 specs/
-
-# Kotlin compiler/IDE cache
-.kotlin/
