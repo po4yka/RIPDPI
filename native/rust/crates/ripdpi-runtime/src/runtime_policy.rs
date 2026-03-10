@@ -455,6 +455,110 @@ mod tests {
     }
 
     #[test]
+    fn matches_l34_rejects_udp_proto() {
+        let mut group = DesyncGroup::new(0);
+        group.proto = IS_UDP;
+        assert!(!matches_l34(&group, sample_dest(443)));
+    }
+
+    #[test]
+    fn matches_l34_port_filter_boundaries() {
+        let mut group = DesyncGroup::new(0);
+        group.port_filter = Some((80, 443));
+        // At start boundary
+        assert!(matches_l34(&group, sample_dest(80)));
+        // At end boundary
+        assert!(matches_l34(&group, sample_dest(443)));
+        // Below start
+        assert!(!matches_l34(&group, sample_dest(79)));
+        // Above end
+        assert!(!matches_l34(&group, sample_dest(444)));
+    }
+
+    #[test]
+    fn matches_l34_ipv4_only_filter() {
+        let mut group = DesyncGroup::new(0);
+        group.proto = IS_IPV4;
+        // IPv4 destination matches
+        assert!(matches_l34(&group, sample_dest(443)));
+        // IPv6 destination does not
+        let ipv6_dest = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], 443));
+        assert!(!matches_l34(&group, ipv6_dest));
+    }
+
+    #[test]
+    fn payload_proto_known_values() {
+        let mut group = DesyncGroup::new(0);
+        // proto == 0 -> true (no filter)
+        assert!(payload_proto_known(&group));
+        // proto == IS_TCP -> true (L3/4 only)
+        group.proto = IS_TCP;
+        assert!(payload_proto_known(&group));
+        // proto == IS_HTTP -> false (L7 protocol requires payload)
+        group.proto = IS_HTTP;
+        assert!(!payload_proto_known(&group));
+    }
+
+    #[test]
+    fn cache_bits_with_prefix() {
+        let mut config = RuntimeConfig::default();
+        config.cache_prefix = 8;
+        // IPv4 with prefix=8 -> bits = 32 - 8 = 24
+        assert_eq!(cache_bits(&config, IpAddr::from([192, 168, 1, 1])), 24);
+        // prefix=0 -> bits=32
+        config.cache_prefix = 0;
+        assert_eq!(cache_bits(&config, IpAddr::from([192, 168, 1, 1])), 32);
+        // IPv6 always 128
+        assert_eq!(cache_bits(&config, IpAddr::from([0u16, 0, 0, 0, 0, 0, 0, 1])), 128);
+    }
+
+    #[test]
+    fn is_expired_ttl_boundary() {
+        let group = {
+            let mut g = DesyncGroup::new(0);
+            g.cache_ttl = 100;
+            g
+        };
+        let config = config_with_groups(vec![group]);
+        let record = CacheRecord {
+            entry: CacheEntry { addr: IpAddr::from([1, 2, 3, 4]), bits: 32, port: 443, time: 1000, host: None },
+            group_index: 0,
+            attempted_mask: 0,
+        };
+        // Exactly at TTL boundary: 1000 + 100 = 1100, now=1100 -> NOT expired (now > time+ttl is false)
+        assert!(!is_expired(&config, &record, 1100));
+        // Past TTL: now=1101 -> expired
+        assert!(is_expired(&config, &record, 1101));
+        // ttl=0 -> never expires
+        let mut config2 = config.clone();
+        config2.groups[0].cache_ttl = 0;
+        config2.cache_ttl = 0;
+        assert!(!is_expired(&config2, &record, 999_999));
+    }
+
+    #[test]
+    fn group_matches_no_payload_allow_unknown_false() {
+        let mut group = DesyncGroup::new(0);
+        // Empty hosts + known proto -> true
+        assert!(group_matches(&group, sample_dest(80), None, false));
+        // Non-empty hosts -> false (can't verify without payload)
+        group.filters.hosts.push("example.com".to_string());
+        assert!(!group_matches(&group, sample_dest(80), None, false));
+    }
+
+    #[test]
+    fn matches_payload_l7_proto_filtering() {
+        let mut group = DesyncGroup::new(0);
+        group.proto = IS_TCP | IS_HTTP;
+        let http_payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let tls_payload = ciadpi_packets::DEFAULT_FAKE_TLS;
+        // HTTP payload matches IS_HTTP
+        assert!(matches_payload(&group, http_payload));
+        // TLS payload does not match IS_HTTP
+        assert!(!matches_payload(&group, tls_payload));
+    }
+
+    #[test]
     fn route_matches_payload_checks_host_filters() {
         let mut group = DesyncGroup::new(0);
         group.filters.hosts.push("example.com".to_string());

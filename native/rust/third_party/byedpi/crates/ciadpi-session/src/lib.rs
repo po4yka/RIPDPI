@@ -402,6 +402,78 @@ mod tests {
     }
 
     #[test]
+    fn detect_response_trigger_tls_to_non_tls_is_ssl_err() {
+        let tls_hello = ciadpi_packets::DEFAULT_FAKE_TLS;
+        let non_tls = b"HTTP/1.1 200 OK\r\n\r\n";
+        assert_eq!(detect_response_trigger(tls_hello, non_tls), Some(TriggerEvent::SslErr));
+    }
+
+    #[test]
+    fn encode_socks4_reply_success_vs_failure() {
+        let success = encode_socks4_reply(true);
+        assert_eq!(success.as_bytes()[1], S4_OK);
+        let failure = encode_socks4_reply(false);
+        assert_eq!(failure.as_bytes()[1], S4_ER);
+    }
+
+    #[test]
+    fn encode_http_connect_reply_success_vs_failure() {
+        let success = encode_http_connect_reply(true);
+        assert!(success.as_bytes().windows(6).any(|w| w == b"200 OK"));
+        let failure = encode_http_connect_reply(false);
+        assert!(failure.as_bytes().windows(8).any(|w| w == b"503 Fail"));
+    }
+
+    #[test]
+    fn split_host_port_ipv6_bracket_stripping() {
+        assert_eq!(split_host_port("[::1]:443"), Some(("::1", 443)));
+    }
+
+    #[test]
+    fn split_host_port_missing_port() {
+        assert_eq!(split_host_port("example.com"), None);
+    }
+
+    #[test]
+    fn session_state_tls_flag_cleared_on_non_server_hello() {
+        let mut state = SessionState::default();
+        state.observe_outbound(ciadpi_packets::DEFAULT_FAKE_TLS);
+        assert!(state.saw_tls_client_hello);
+        // Inbound non-TLS clears the flag
+        state.observe_inbound(b"not tls at all");
+        assert!(!state.saw_tls_client_hello);
+    }
+
+    #[test]
+    fn parse_socks5_request_ipv6_address_type() {
+        let mut request = vec![S_VER5, S_CMD_CONN, 0, S_ATP_I6];
+        // ::1 as 16 bytes
+        let mut ipv6_bytes = [0u8; 16];
+        ipv6_bytes[15] = 1;
+        request.extend_from_slice(&ipv6_bytes);
+        request.extend_from_slice(&443u16.to_be_bytes());
+
+        let parsed = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver)
+            .expect("parse socks5 ipv6");
+
+        let expected_ip = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
+        assert_eq!(parsed, ClientRequest::Socks5Connect(TargetAddr { addr: SocketAddr::new(expected_ip, 443) }));
+    }
+
+    #[test]
+    fn parse_socks5_request_ipv6_rejected_when_disabled() {
+        let mut request = vec![S_VER5, S_CMD_CONN, 0, S_ATP_I6];
+        let ipv6_bytes = [0u8; 16];
+        request.extend_from_slice(&ipv6_bytes);
+        request.extend_from_slice(&443u16.to_be_bytes());
+
+        let config = SessionConfig { resolve: true, ipv6: false };
+        let result = parse_socks5_request(&request, SocketType::Stream, config, &resolver);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, S_ER_ATP);
+    }
+
+    #[test]
     fn session_state_tracks_rounds_and_resets_after_inbound() {
         let mut state = SessionState::default();
 

@@ -731,6 +731,110 @@ mod tests {
         assert!(output.contains("\r\nhOsT: ExAmPlE.CoM\r\n"));
     }
 
+    #[test]
+    fn read_u16_boundary_conditions() {
+        // Exact two-byte buffer at offset 0
+        assert_eq!(read_u16(&[0xAB, 0xCD], 0), Some(0xABCD));
+        // Single-byte buffer: offset + 1 >= len
+        assert_eq!(read_u16(&[0xAB], 0), None);
+        // Empty buffer
+        assert_eq!(read_u16(&[], 0), None);
+        // Offset at last byte
+        assert_eq!(read_u16(&[0x01, 0x02, 0x03], 2), None);
+    }
+
+    #[test]
+    fn write_u16_rejects_overflow() {
+        let mut buf = [0u8; 4];
+        assert!(write_u16(&mut buf, 0, 0xFFFF));
+        assert_eq!(buf[0], 0xFF);
+        assert_eq!(buf[1], 0xFF);
+        // value > u16::MAX
+        assert!(!write_u16(&mut buf, 0, 65536));
+    }
+
+    #[test]
+    fn is_http_range_boundaries() {
+        // CONNECT starts with 'C' (low bound)
+        let connect = b"CONNECT host:443 HTTP/1.1\r\nHost: host\r\n\r\n";
+        assert!(is_http(connect));
+        // TRACE starts with 'T' (high bound)
+        let trace = b"TRACE / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        assert!(is_http(trace));
+        // 'B' is below range
+        let below = b"BELOW / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        assert!(!is_http(below));
+        // 'U' is above range
+        let above = b"UPDATE / HTTP/1.1\r\nHost: e.com\r\n\r\n";
+        assert!(!is_http(above));
+    }
+
+    #[test]
+    fn get_http_code_range_boundaries() {
+        // Code 100 (low boundary)
+        assert_eq!(get_http_code(b"HTTP/1.1 100 Continue\r\n\r\n"), Some(100));
+        // Code 511 (high boundary)
+        assert_eq!(get_http_code(b"HTTP/1.1 511 Not Extended\r\n\r\n"), Some(511));
+        // Code 99 (below range)
+        assert_eq!(get_http_code(b"HTTP/1.1 099 Below\r\n\r\n"), None);
+        // Code 512 (above range)
+        assert_eq!(get_http_code(b"HTTP/1.1 512 Above\r\n\r\n"), None);
+    }
+
+    #[test]
+    fn oracle_rng_next_mod_zero_returns_zero() {
+        let mut rng = OracleRng::seeded(42);
+        assert_eq!(rng.next_mod(0), 0);
+    }
+
+    #[test]
+    fn copy_name_seeded_pattern_chars() {
+        let mut rng = OracleRng::seeded(0);
+        let mut out = [0u8; 5];
+
+        // '*' produces alphanumeric
+        copy_name_seeded(&mut out[..1], b"*", &mut rng);
+        assert!(out[0].is_ascii_alphanumeric());
+
+        // '?' produces lowercase letter
+        copy_name_seeded(&mut out[..1], b"?", &mut rng);
+        assert!(out[0].is_ascii_lowercase());
+
+        // '#' produces digit
+        copy_name_seeded(&mut out[..1], b"#", &mut rng);
+        assert!(out[0].is_ascii_digit());
+
+        // literal passes through
+        copy_name_seeded(&mut out[..1], b"X", &mut rng);
+        assert_eq!(out[0], b'X');
+    }
+
+    #[test]
+    fn is_http_redirect_same_suffix_not_redirect() {
+        let req = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
+        // Same 2-level suffix in location -> not a redirect
+        let same = b"HTTP/1.1 302 Found\r\nLocation: https://other.example.com/page\r\n\r\n";
+        assert!(!is_http_redirect(req, same));
+        // Different suffix -> redirect
+        let diff = b"HTTP/1.1 302 Found\r\nLocation: https://sub.other.net/page\r\n\r\n";
+        assert!(is_http_redirect(req, diff));
+    }
+
+    #[test]
+    fn parse_http_ipv6_host_bracket() {
+        let request = b"GET / HTTP/1.1\r\nHost: [::1]:8080\r\n\r\n";
+        let parsed = parse_http(request).expect("parse ipv6 host");
+        assert_eq!(parsed.host, b"::1");
+        assert_eq!(parsed.port, 8080);
+    }
+
+    #[test]
+    fn ascii_case_eq_different_lengths() {
+        assert!(!ascii_case_eq(b"abc", b"abcd"));
+        assert!(!ascii_case_eq(b"abcd", b"abc"));
+        assert!(ascii_case_eq(b"AbC", b"abc"));
+    }
+
     proptest! {
         #[test]
         fn parse_http_never_panics(data in proptest::collection::vec(any::<u8>(), 0..512)) {

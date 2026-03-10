@@ -1023,6 +1023,98 @@ mod tests {
     }
 
     #[test]
+    fn data_from_str_all_cform_branches() {
+        assert_eq!(data_from_str("\\r").unwrap(), vec![b'\r']);
+        assert_eq!(data_from_str("\\n").unwrap(), vec![b'\n']);
+        assert_eq!(data_from_str("\\t").unwrap(), vec![b'\t']);
+        assert_eq!(data_from_str("\\\\").unwrap(), vec![b'\\']);
+        assert_eq!(data_from_str("\\f").unwrap(), vec![0x0c]);
+        assert_eq!(data_from_str("\\b").unwrap(), vec![0x08]);
+        assert_eq!(data_from_str("\\v").unwrap(), vec![0x0b]);
+        assert_eq!(data_from_str("\\a").unwrap(), vec![0x07]);
+        // hex escape
+        assert_eq!(data_from_str("\\x41").unwrap(), vec![0x41]);
+        // octal escape
+        assert_eq!(data_from_str("\\101").unwrap(), vec![0x41]);
+    }
+
+    #[test]
+    fn data_from_str_trailing_backslash() {
+        // Trailing backslash is emitted as literal backslash
+        assert_eq!(data_from_str("abc\\").unwrap(), vec![97, 98, 99, b'\\']);
+    }
+
+    #[test]
+    fn common_suffix_match_dot_boundary() {
+        // "notexample.com" should NOT match rule "example.com"
+        assert!(!common_suffix_match("notexample.com", "example.com"));
+        // "sub.example.com" SHOULD match
+        assert!(common_suffix_match("sub.example.com", "example.com"));
+        // exact match
+        assert!(common_suffix_match("example.com", "example.com"));
+    }
+
+    #[test]
+    fn prefix_match_bytes_full_byte_boundary() {
+        // 24-bit prefix (rem == 0 early return)
+        assert!(prefix_match_bytes(&[192, 168, 1, 100], &[192, 168, 1, 200], 24));
+        assert!(!prefix_match_bytes(&[192, 168, 2, 100], &[192, 168, 1, 200], 24));
+    }
+
+    #[test]
+    fn seconds_to_millis_negative_rejected() {
+        assert!(seconds_to_millis("-1").is_err());
+    }
+
+    #[test]
+    fn parse_offset_expr_flag_combos() {
+        let se = parse_offset_expr("5+se").unwrap();
+        assert_eq!(se.flag, OFFSET_SNI | OFFSET_END);
+
+        let hm = parse_offset_expr("3+hm").unwrap();
+        assert_eq!(hm.flag, OFFSET_HOST | OFFSET_MID);
+
+        let nr = parse_offset_expr("0+nr").unwrap();
+        assert_eq!(nr.flag, OFFSET_RAND);
+
+        let ss = parse_offset_expr("1+ss").unwrap();
+        assert_eq!(ss.flag, OFFSET_SNI | OFFSET_START);
+    }
+
+    #[test]
+    fn parse_numeric_addr_ipv6_bracket_forms() {
+        let (ip, port) = parse_numeric_addr("[::1]:8080").unwrap();
+        assert_eq!(ip, IpAddr::from_str("::1").unwrap());
+        assert_eq!(port, Some(8080));
+
+        let (ip, port) = parse_numeric_addr("[::1]").unwrap();
+        assert_eq!(ip, IpAddr::from_str("::1").unwrap());
+        assert_eq!(port, None);
+
+        let (ip, port) = parse_numeric_addr("192.168.1.1:80").unwrap();
+        assert_eq!(ip, IpAddr::from_str("192.168.1.1").unwrap());
+        assert_eq!(port, Some(80));
+    }
+
+    #[test]
+    fn parse_hosts_spec_trims_whitespace() {
+        let hosts = parse_hosts_spec("  example.com  ").unwrap();
+        assert_eq!(hosts, vec!["example.com"]);
+    }
+
+    #[test]
+    fn lower_host_char_range_boundaries() {
+        // '-' is the low bound of the range
+        assert_eq!(lower_host_char('-'), Some('-'));
+        // '9' is the high bound
+        assert_eq!(lower_host_char('9'), Some('9'));
+        // Just below range: ','
+        assert_eq!(lower_host_char(','), None);
+        // Uppercase converted to lowercase
+        assert_eq!(lower_host_char('A'), Some('a'));
+    }
+
+    #[test]
     fn cache_entries_round_trip_through_text_format() {
         let entries = vec![
             CacheEntry {

@@ -1,0 +1,19 @@
+timeout_multiplier = 3.0
+minimum_test_timeout = 30
+
+# JNI/FFI wrappers and test fixtures -- no mutation value
+[[package]]
+name = "ripdpi-android"
+disable = true
+
+[[package]]
+name = "hs5t-android"
+disable = true
+
+[[package]]
+name = "android-support"
+disable = true
+
+[[package]]
+name = "local-network-fixture"
+disable = true

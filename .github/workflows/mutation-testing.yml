@@ -1,0 +1,55 @@
+name: Mutation Testing
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Weekly on Monday at 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Space-separated list of packages to test (empty = all enabled)"
+        required: false
+        default: ""
+      in_diff:
+        description: "Only mutate lines changed vs main (true/false)"
+        required: false
+        default: "false"
+
+concurrency:
+  group: mutation-testing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-mutants
+
+      - name: Run mutation testing
+        env:
+          MUTANTS_PACKAGES: ${{ github.event.inputs.packages || '' }}
+        run: |
+          extra_args=()
+          if [ "${{ github.event.inputs.in_diff || 'false' }}" = "true" ]; then
+            extra_args+=(--in-diff "git diff origin/main...HEAD")
+          fi
+          bash scripts/ci/run-rust-mutants.sh "${extra_args[@]}"
+
+      - name: Upload mutation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-output
+          path: target/mutants-output/
+          retention-days: 14
