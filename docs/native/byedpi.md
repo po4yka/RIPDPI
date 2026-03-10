@@ -2,7 +2,7 @@
 
 ## Role in RIPDPI
 
-`byedpi` is the native engine behind the local SOCKS5 proxy. RIPDPI uses it in two cases:
+The local SOCKS5 proxy is now implemented by the in-repo Rust module derived from `byedpi`.
 
 - Proxy mode: the app exposes the local SOCKS5 proxy directly.
 - VPN mode: the app starts the same local SOCKS5 proxy first, then routes TUN traffic through `hev-socks5-tunnel`.
@@ -13,92 +13,57 @@ The built shared library is `libripdpi.so`.
 
 ### Proxy mode
 
-`RipDpiProxyService.startProxy()` -> `RipDpiProxy.startProxy()` -> `jniCreateSocket*()` -> `jniStartProxy()` -> `byedpi`
+`RipDpiProxyService.startProxy()` -> `RipDpiProxy.startProxy()` -> `jniCreateSocket*()` -> `jniStartProxy()` -> `ciadpi-jni`
 
 ### VPN mode
 
-`RipDpiVpnService.startProxy()` -> `RipDpiProxy.startProxy()` -> `jniCreateSocket*()` -> `jniStartProxy()` -> `byedpi`
+`RipDpiVpnService.startProxy()` -> `RipDpiProxy.startProxy()` -> `jniCreateSocket*()` -> `jniStartProxy()` -> `ciadpi-jni`
 
 Relevant sources:
 
 - `core/service/src/main/java/com/poyka/ripdpi/services/RipDpiProxyService.kt`
 - `core/service/src/main/java/com/poyka/ripdpi/services/RipDpiVpnService.kt`
 - `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`
-- `core/engine/src/main/cpp/native-lib.c`
+- `native/rust/third_party/byedpi/crates/ciadpi-jni/src/lib.rs`
 
-## Methods Actually Used from byedpi
+## Methods Actually Used
 
 | Method | Defined in | Reached from | When it is used | Purpose |
 | --- | --- | --- | --- | --- |
-| `listen_socket` | `core/engine/src/main/cpp/byedpi/proxy.c` | `jniCreateSocketWithCommandLine`, `jniCreateSocket` | Always before start | Opens the local listening socket for the SOCKS5 proxy. |
-| `event_loop` | `core/engine/src/main/cpp/byedpi/proxy.c` | `jniStartProxy` | Always after socket creation | Runs the main proxy loop until stop or failure. |
-| `get_addr` | `core/engine/src/main/cpp/byedpi/main.c` | `jniCreateSocket`; command-line parsing path | UI mode and command-line mode | Parses IP addresses for listen and bind addresses. |
-| `get_default_ttl` | `core/engine/src/main/cpp/byedpi/main.c` | `jniCreateSocket`; command-line parsing path | When custom TTL is not supplied | Reads the system default TTL and stores it in `params`. |
-| `add` | `core/engine/src/main/cpp/byedpi/main.c` | `jniCreateSocket`; command-line parsing path | Whenever params arrays grow | Allocates and appends `desync_params`, `part`, and `tlsrec` entries. |
-| `data_from_str` | `core/engine/src/main/cpp/byedpi/main.c` | `jniCreateSocket` | UI mode host list and inline data setup | Converts inline escaped strings into byte buffers. |
-| `parse_hosts` | `core/engine/src/main/cpp/byedpi/main.c` | `jniCreateSocket`; command-line parsing path | Host blacklist or whitelist setup | Parses host lists into the internal memory pool structure. |
-| `change_tls_sni` | `core/engine/src/main/cpp/byedpi/packets.c` | `jniCreateSocket`; command-line parsing path | Fake TLS desync mode | Rewrites SNI inside the bundled fake TLS ClientHello. |
-| `mem_pool` | `core/engine/src/main/cpp/byedpi/mpool.c` | `jniCreateSocket`; command-line parsing path | After params are prepared | Creates the memory pool used by host matching and other cached data. |
-| `clear_params` | `core/engine/src/main/cpp/byedpi/main.c` | `reset_params` and error paths | Stop and cleanup paths | Frees allocated config state before restoring defaults. |
-| `ftob` | `core/engine/src/main/cpp/byedpi/main.c` | `parse_args` in `utils.c` | Command-line mode only | Reads file-backed fake data, IP options, or host lists. |
-| `parse_offset` | `core/engine/src/main/cpp/byedpi/main.c` | `parse_args` in `utils.c` | Command-line mode only | Parses split and TLS record offsets from CLI flags. |
+| `ciadpi_config::parse_cli` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreateSocketWithCommandLine` | Command-line mode only | Parses user-supplied ByeDPI-style arguments into a `RuntimeConfig`. |
+| `ciadpi_config::parse_hosts_spec` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreateSocket` | UI mode host list setup | Parses the app host list string into normalized host rules. |
+| `runtime::create_listener` | `native/rust/third_party/byedpi/crates/ciadpi-bin/src/runtime.rs` | `jniCreateSocketWithCommandLine`, `jniCreateSocket` | Always before start | Opens the local listening socket and returns the raw fd to Kotlin. |
+| `process::prepare_embedded` | `native/rust/third_party/byedpi/crates/ciadpi-bin/src/process.rs` | `jniStartProxy` | Always before the runtime loop | Resets the embedded shutdown flag without daemon or signal handler behavior. |
+| `runtime::run_proxy_with_listener` | `native/rust/third_party/byedpi/crates/ciadpi-bin/src/runtime.rs` | `jniStartProxy` | Always after socket creation | Runs the Rust proxy loop on the listener fd supplied by Kotlin. |
+| `process::request_shutdown` | `native/rust/third_party/byedpi/crates/ciadpi-bin/src/process.rs` | `jniStopProxy` | Stop path | Signals the Rust runtime loop to exit. |
+| `platform::detect_default_ttl` | `native/rust/third_party/byedpi/crates/ciadpi-bin/src/platform/mod.rs` | `runtime::run_proxy_with_listener` | When custom TTL is not supplied | Detects the system default TTL before the proxy loop starts. |
 
-## Wrapper-local Helpers
+## UI Mode Compatibility
 
-These are part of RIPDPI's JNI bridge, not upstream `byedpi` public API:
+The JNI wrapper intentionally preserves the old Android UI bridge contract instead of exposing the Rust CLI directly.
 
-- `parse_args` in `core/engine/src/main/cpp/utils.c`
-- `reset_params` in `core/engine/src/main/cpp/utils.c`
+- `jniCreateSocket(...)` still returns a raw listener fd before the proxy loop starts.
+- `jniStartProxy(fd)` is still blocking.
+- `jniStopProxy(fd)` still uses `shutdown(fd, SHUT_RDWR)` to wake the listener and then requests runtime shutdown.
 
-`parse_args` mirrors the upstream CLI parsing style and then uses `byedpi` globals and helper functions such as `get_addr`, `add`, `ftob`, `parse_hosts`, `parse_offset`, `get_default_ttl`, and `mem_pool`.
+The wrapper also keeps the previous host-group arrangement used by the Android UI bridge:
 
-## UI Mode vs Command-line Mode
+- `HostsMode.Whitelist` inserts a host-filter-only group before the main action group.
+- `HostsMode.Blacklist` puts the host filter on the main action group.
 
-### UI mode
+That behavior matches the old JNI C wrapper, even though the naming comes from the Android settings model.
 
-`RipDpiProxyUIPreferences` maps app settings directly into `jniCreateSocket(...)`.
+## Command-line Mode
 
-Typical dependency methods reached in this path:
+`RipDpiProxyCmdPreferences` still switches `RipDpiProxy` to `jniCreateSocketWithCommandLine(...)`.
 
-- `get_addr`
-- `get_default_ttl`
-- `add`
-- `data_from_str`
-- `parse_hosts`
-- `change_tls_sni`
-- `mem_pool`
-- `listen_socket`
-- `event_loop`
-- `clear_params`
-
-### Command-line mode
-
-`RipDpiProxyCmdPreferences` switches `RipDpiProxy` to `jniCreateSocketWithCommandLine(...)`.
-
-This path adds CLI-specific parsing work through `parse_args`, which can also reach:
-
-- `ftob`
-- `parse_offset`
-
-Command-line mode is enabled from `RipDpiProxyPreferences.fromSettingsStore()` when `settings.enableCmdSettings` is true.
+This path now goes through the Rust parser in `ciadpi_config::parse_cli`, so CLI flags are interpreted by the in-repo Rust module instead of the deleted `utils.c` parser.
 
 ## Stop Behavior
 
-Stopping the proxy does not call a dedicated upstream `byedpi` stop function. RIPDPI does this instead:
+Stopping the proxy now does two things in the JNI bridge:
 
-- Calls `shutdown(fd, SHUT_RDWR)` in the JNI wrapper.
-- Calls `reset_params()`, which delegates cleanup to `clear_params()`.
-- Lets `event_loop()` exit once the listening socket and active connections unwind.
+- Calls `process::request_shutdown()`
+- Calls `shutdown(fd, SHUT_RDWR)`
 
-## Internal byedpi Logic Not Called Directly by App
-
-The app never calls these methods directly, but they execute under `event_loop()` as part of normal proxy operation:
-
-- `on_accept`
-- `on_request`
-- `on_tunnel`
-- `on_desync`
-- `desync`
-- `desync_udp`
-
-Those are internal `byedpi` runtime details, not app-facing entrypoints.
+The listener fd is then closed when `runtime::run_proxy_with_listener()` unwinds and drops the reconstructed `TcpListener`.

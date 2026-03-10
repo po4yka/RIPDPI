@@ -1,0 +1,499 @@
+#![forbid(unsafe_code)]
+
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+
+use ciadpi_packets::{
+    is_http_redirect, is_tls_client_hello, is_tls_server_hello, tls_session_id_mismatch,
+};
+
+pub const S_AUTH_NONE: u8 = 0x00;
+pub const S_AUTH_BAD: u8 = 0xff;
+
+pub const S_ATP_I4: u8 = 0x01;
+pub const S_ATP_ID: u8 = 0x03;
+pub const S_ATP_I6: u8 = 0x04;
+
+pub const S_CMD_CONN: u8 = 0x01;
+pub const S_CMD_BIND: u8 = 0x02;
+pub const S_CMD_AUDP: u8 = 0x03;
+
+pub const S_ER_OK: u8 = 0x00;
+pub const S_ER_GEN: u8 = 0x01;
+pub const S_ER_DENY: u8 = 0x02;
+pub const S_ER_NET: u8 = 0x03;
+pub const S_ER_HOST: u8 = 0x04;
+pub const S_ER_CONN: u8 = 0x05;
+pub const S_ER_TTL: u8 = 0x06;
+pub const S_ER_CMD: u8 = 0x07;
+pub const S_ER_ATP: u8 = 0x08;
+
+pub const S4_OK: u8 = 0x5a;
+pub const S4_ER: u8 = 0x5b;
+
+pub const S_VER5: u8 = 0x05;
+pub const S_VER4: u8 = 0x04;
+
+pub const S_SIZE_MIN: usize = 8;
+pub const S_SIZE_I4: usize = 10;
+pub const S_SIZE_I6: usize = 22;
+pub const S_SIZE_ID: usize = 7;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SocketType {
+    Stream,
+    Datagram,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TargetAddr {
+    pub addr: SocketAddr,
+}
+
+impl TargetAddr {
+    pub fn family(&self) -> &'static str {
+        match self.addr {
+            SocketAddr::V4(_) => "ipv4",
+            SocketAddr::V6(_) => "ipv6",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClientRequest {
+    Socks4Connect(TargetAddr),
+    Socks5Connect(TargetAddr),
+    Socks5UdpAssociate(TargetAddr),
+    HttpConnect(TargetAddr),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProxyReply {
+    Socks4(Vec<u8>),
+    Socks5(Vec<u8>),
+    Http(Vec<u8>),
+}
+
+impl ProxyReply {
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Self::Socks4(bytes) | Self::Socks5(bytes) | Self::Http(bytes) => bytes,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionPhase {
+    Handshake,
+    Connected,
+    Closed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TriggerEvent {
+    Redirect,
+    SslErr,
+    Connect,
+    Torst,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionState {
+    pub phase: SessionPhase,
+    pub round_count: u32,
+    pub recv_count: usize,
+    pub sent_this_round: usize,
+    pub saw_tls_client_hello: bool,
+}
+
+impl Default for SessionState {
+    fn default() -> Self {
+        Self {
+            phase: SessionPhase::Handshake,
+            round_count: 0,
+            recv_count: 0,
+            sent_this_round: 0,
+            saw_tls_client_hello: false,
+        }
+    }
+}
+
+impl SessionState {
+    pub fn observe_outbound(&mut self, payload: &[u8]) {
+        if self.sent_this_round == 0 {
+            self.round_count += 1;
+        }
+        self.sent_this_round += payload.len();
+        if is_tls_client_hello(payload) {
+            self.saw_tls_client_hello = true;
+        }
+    }
+
+    pub fn observe_inbound(&mut self, payload: &[u8]) {
+        self.recv_count += payload.len();
+        self.sent_this_round = 0;
+        if self.saw_tls_client_hello
+            && (!is_tls_server_hello(payload) || tls_session_id_mismatch(payload, payload))
+        {
+            self.saw_tls_client_hello = false;
+        }
+    }
+}
+
+pub trait NameResolver {
+    fn resolve(&self, host: &str, socket_type: SocketType) -> Option<SocketAddr>;
+}
+
+impl<F> NameResolver for F
+where
+    F: Fn(&str, SocketType) -> Option<SocketAddr>,
+{
+    fn resolve(&self, host: &str, socket_type: SocketType) -> Option<SocketAddr> {
+        self(host, socket_type)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SessionConfig {
+    pub resolve: bool,
+    pub ipv6: bool,
+}
+
+impl Default for SessionConfig {
+    fn default() -> Self {
+        Self {
+            resolve: true,
+            ipv6: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionError {
+    pub code: u8,
+}
+
+impl SessionError {
+    fn socks5(code: u8) -> Self {
+        Self { code }
+    }
+
+    fn generic() -> Self {
+        Self { code: S_ER_GEN }
+    }
+}
+
+fn read_be_u16(data: &[u8], offset: usize) -> Option<u16> {
+    Some(u16::from_be_bytes([
+        *data.get(offset)?,
+        *data.get(offset + 1)?,
+    ]))
+}
+
+pub fn parse_socks4_request(
+    buffer: &[u8],
+    config: SessionConfig,
+    resolver: &dyn NameResolver,
+) -> Result<ClientRequest, SessionError> {
+    if buffer.len() < 9 {
+        return Err(SessionError::generic());
+    }
+    if buffer[1] != S_CMD_CONN {
+        return Err(SessionError::generic());
+    }
+    let port = read_be_u16(buffer, 2).ok_or_else(SessionError::generic)?;
+    let ip = Ipv4Addr::new(buffer[4], buffer[5], buffer[6], buffer[7]);
+
+    let target = if u32::from(ip) <= 255 {
+        if !config.resolve || *buffer.last().unwrap_or(&1) != 0 {
+            return Err(SessionError::generic());
+        }
+        let id_end = buffer[8..]
+            .iter()
+            .position(|&byte| byte == 0)
+            .map(|pos| pos + 8)
+            .ok_or_else(SessionError::generic)?;
+        let domain_start = id_end + 1;
+        if domain_start >= buffer.len() {
+            return Err(SessionError::generic());
+        }
+        let domain_end = buffer[domain_start..]
+            .iter()
+            .position(|&byte| byte == 0)
+            .map(|pos| pos + domain_start)
+            .ok_or_else(SessionError::generic)?;
+        let len = domain_end.saturating_sub(domain_start);
+        if !(3..=255).contains(&len) {
+            return Err(SessionError::generic());
+        }
+        let domain = std::str::from_utf8(&buffer[domain_start..domain_end])
+            .map_err(|_| SessionError::generic())?;
+        resolver
+            .resolve(domain, SocketType::Stream)
+            .map(|addr| TargetAddr {
+                addr: SocketAddr::new(addr.ip(), port),
+            })
+            .ok_or_else(SessionError::generic)?
+    } else {
+        TargetAddr {
+            addr: SocketAddr::new(IpAddr::V4(ip), port),
+        }
+    };
+    Ok(ClientRequest::Socks4Connect(target))
+}
+
+pub fn parse_socks5_request(
+    buffer: &[u8],
+    socket_type: SocketType,
+    config: SessionConfig,
+    resolver: &dyn NameResolver,
+) -> Result<ClientRequest, SessionError> {
+    if buffer.len() < S_SIZE_MIN {
+        return Err(SessionError::socks5(S_ER_GEN));
+    }
+    let atyp = buffer[3];
+    let (target, offset) = match atyp {
+        S_ATP_I4 => {
+            if buffer.len() < S_SIZE_I4 {
+                return Err(SessionError::socks5(S_ER_GEN));
+            }
+            let ip = Ipv4Addr::new(buffer[4], buffer[5], buffer[6], buffer[7]);
+            (
+                TargetAddr {
+                    addr: SocketAddr::new(IpAddr::V4(ip), 0),
+                },
+                S_SIZE_I4,
+            )
+        }
+        S_ATP_ID => {
+            let name_len = *buffer
+                .get(4)
+                .ok_or_else(|| SessionError::socks5(S_ER_GEN))? as usize;
+            let offset = name_len + S_SIZE_ID;
+            if buffer.len() < offset {
+                return Err(SessionError::socks5(S_ER_GEN));
+            }
+            if !config.resolve {
+                return Err(SessionError::socks5(S_ER_ATP));
+            }
+            if name_len < 3 {
+                return Err(SessionError::socks5(S_ER_HOST));
+            }
+            let domain = std::str::from_utf8(&buffer[5..5 + name_len])
+                .map_err(|_| SessionError::socks5(S_ER_HOST))?;
+            let resolved = resolver
+                .resolve(domain, socket_type)
+                .ok_or_else(|| SessionError::socks5(S_ER_HOST))?;
+            (
+                TargetAddr {
+                    addr: SocketAddr::new(resolved.ip(), 0),
+                },
+                offset,
+            )
+        }
+        S_ATP_I6 => {
+            if !config.ipv6 {
+                return Err(SessionError::socks5(S_ER_ATP));
+            }
+            if buffer.len() < S_SIZE_I6 {
+                return Err(SessionError::socks5(S_ER_GEN));
+            }
+            let mut raw = [0u8; 16];
+            raw.copy_from_slice(&buffer[4..20]);
+            (
+                TargetAddr {
+                    addr: SocketAddr::new(IpAddr::V6(Ipv6Addr::from(raw)), 0),
+                },
+                S_SIZE_I6,
+            )
+        }
+        _ => return Err(SessionError::socks5(S_ER_GEN)),
+    };
+    let port = read_be_u16(buffer, offset - 2).ok_or_else(|| SessionError::socks5(S_ER_GEN))?;
+    let target = TargetAddr {
+        addr: SocketAddr::new(target.addr.ip(), port),
+    };
+    match buffer[1] {
+        S_CMD_CONN => Ok(ClientRequest::Socks5Connect(target)),
+        S_CMD_AUDP if socket_type == SocketType::Datagram => {
+            Ok(ClientRequest::Socks5UdpAssociate(target))
+        }
+        S_CMD_AUDP => Ok(ClientRequest::Socks5UdpAssociate(target)),
+        _ => Err(SessionError::socks5(S_ER_CMD)),
+    }
+}
+
+pub fn parse_http_connect_request(
+    buffer: &[u8],
+    resolver: &dyn NameResolver,
+) -> Result<ClientRequest, SessionError> {
+    let text = std::str::from_utf8(buffer).map_err(|_| SessionError::generic())?;
+    let mut lines = text.lines();
+    let request_line = lines.next().ok_or_else(SessionError::generic)?;
+    if !request_line.starts_with("CONNECT ") {
+        return Err(SessionError::generic());
+    }
+    let host_header = text
+        .lines()
+        .find(|line| line.to_ascii_lowercase().starts_with("host:"))
+        .ok_or_else(SessionError::generic)?;
+    let host = host_header[5..].trim();
+    let (name, port) = split_host_port(host).ok_or_else(SessionError::generic)?;
+    let addr = resolver
+        .resolve(name, SocketType::Stream)
+        .map(|resolved| SocketAddr::new(resolved.ip(), port))
+        .ok_or_else(SessionError::generic)?;
+    Ok(ClientRequest::HttpConnect(TargetAddr { addr }))
+}
+
+fn split_host_port(value: &str) -> Option<(&str, u16)> {
+    let (host, port) = value.rsplit_once(':')?;
+    let port = port.parse::<u16>().ok()?;
+    Some((host.trim_matches(|ch| ch == '[' || ch == ']'), port))
+}
+
+pub fn encode_socks4_reply(success: bool) -> ProxyReply {
+    ProxyReply::Socks4(vec![
+        0,
+        if success { S4_OK } else { S4_ER },
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ])
+}
+
+pub fn encode_socks5_reply(code: u8, addr: SocketAddr) -> ProxyReply {
+    let mut out = vec![S_VER5, code, 0];
+    match addr {
+        SocketAddr::V4(addr) => {
+            out.push(S_ATP_I4);
+            out.extend_from_slice(&addr.ip().octets());
+            out.extend_from_slice(&addr.port().to_be_bytes());
+        }
+        SocketAddr::V6(addr) => {
+            out.push(S_ATP_I6);
+            out.extend_from_slice(&addr.ip().octets());
+            out.extend_from_slice(&addr.port().to_be_bytes());
+        }
+    }
+    ProxyReply::Socks5(out)
+}
+
+pub fn encode_http_connect_reply(success: bool) -> ProxyReply {
+    let body = if success {
+        b"HTTP/1.1 200 OK\r\n\r\n".to_vec()
+    } else {
+        b"HTTP/1.1 503 Fail\r\n\r\n".to_vec()
+    };
+    ProxyReply::Http(body)
+}
+
+pub fn detect_response_trigger(request: &[u8], response: &[u8]) -> Option<TriggerEvent> {
+    if is_http_redirect(request, response) {
+        return Some(TriggerEvent::Redirect);
+    }
+    if (is_tls_client_hello(request) && !is_tls_server_hello(response))
+        || tls_session_id_mismatch(request, response)
+    {
+        return Some(TriggerEvent::SslErr);
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn resolver(host: &str, socket_type: SocketType) -> Option<SocketAddr> {
+        match (host, socket_type) {
+            ("example.com", SocketType::Stream) => Some(SocketAddr::from(([198, 51, 100, 10], 0))),
+            ("example.net", SocketType::Datagram) => {
+                Some(SocketAddr::from(([198, 51, 100, 20], 0)))
+            }
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn parse_socks4_request_resolves_domain_targets() {
+        let mut request = vec![S_VER4, S_CMD_CONN, 0x01, 0xbb, 0, 0, 0, 1];
+        request.extend_from_slice(b"user");
+        request.push(0);
+        request.extend_from_slice(b"example.com");
+        request.push(0);
+
+        let parsed = parse_socks4_request(&request, SessionConfig::default(), &resolver)
+            .expect("parse socks4");
+
+        assert_eq!(
+            parsed,
+            ClientRequest::Socks4Connect(TargetAddr {
+                addr: SocketAddr::from(([198, 51, 100, 10], 443)),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_socks5_request_resolves_domains_for_datagram_mode() {
+        let mut request = vec![S_VER5, S_CMD_AUDP, 0, S_ATP_ID, 11];
+        request.extend_from_slice(b"example.net");
+        request.extend_from_slice(&8080u16.to_be_bytes());
+
+        let parsed = parse_socks5_request(
+            &request,
+            SocketType::Datagram,
+            SessionConfig::default(),
+            &resolver,
+        )
+        .expect("parse socks5");
+
+        assert_eq!(
+            parsed,
+            ClientRequest::Socks5UdpAssociate(TargetAddr {
+                addr: SocketAddr::from(([198, 51, 100, 20], 8080)),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_http_connect_request_uses_host_header() {
+        let request = b"CONNECT ignored HTTP/1.1\r\nHost: example.com:8443\r\n\r\n";
+        let parsed = parse_http_connect_request(request, &resolver).expect("parse connect");
+
+        assert_eq!(
+            parsed,
+            ClientRequest::HttpConnect(TargetAddr {
+                addr: SocketAddr::from(([198, 51, 100, 10], 8443)),
+            })
+        );
+    }
+
+    #[test]
+    fn encode_socks5_reply_encodes_address_and_port() {
+        let reply = encode_socks5_reply(S_ER_OK, SocketAddr::from(([127, 0, 0, 1], 1080)));
+
+        assert_eq!(
+            reply.as_bytes(),
+            &[S_VER5, S_ER_OK, 0, S_ATP_I4, 127, 0, 0, 1, 0x04, 0x38]
+        );
+    }
+
+    #[test]
+    fn session_state_tracks_rounds_and_resets_after_inbound() {
+        let mut state = SessionState::default();
+
+        state.observe_outbound(b"hello");
+        state.observe_outbound(b"world");
+        assert_eq!(state.round_count, 1);
+        assert_eq!(state.sent_this_round, 10);
+
+        state.observe_inbound(b"reply");
+        assert_eq!(state.recv_count, 5);
+        assert_eq!(state.sent_this_round, 0);
+
+        state.observe_outbound(b"next");
+        assert_eq!(state.round_count, 2);
+    }
+}

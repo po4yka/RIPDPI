@@ -1,0 +1,10 @@
+[package]
+name = "hs5t-ring-buffer"
+version = "0.1.0"
+edition = "2021"
+description = "Two-phase ring buffer for hev-socks5-tunnel"
+
+[dependencies]
+
+[dev-dependencies]
+proptest = "1"

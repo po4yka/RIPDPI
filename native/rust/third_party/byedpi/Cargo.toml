@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "crates/ciadpi-packets",
+    "crates/ciadpi-config",
+    "crates/ciadpi-session",
+    "crates/ciadpi-desync",
+    "crates/ciadpi-bin",
+    "crates/ciadpi-jni",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+version = "0.1.0"

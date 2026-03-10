@@ -1,0 +1,9 @@
+[package]
+name = "hs5t-tunnel"
+version = "0.1.0"
+edition = "2021"
+description = "Platform TUN driver trait and implementations"
+
+[dependencies]
+thiserror = { workspace = true }
+libc = { workspace = true }

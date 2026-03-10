@@ -4,7 +4,7 @@
 
 Приложение для Android, которое запускает локальный VPN-сервис для обхода DPI (Deep Packet Inspection) и цензуры.
 
-Локально запускает SOCKS5-прокси [ByeDPI](https://github.com/hufrea/byedpi) и перенаправляет весь трафик через него.
+Локально запускает SOCKS5-прокси на основе [ByeDPI](https://github.com/hufrea/byedpi) и перенаправляет весь трафик через него.
 
 ## Настройки
 
@@ -23,10 +23,10 @@
 
 ## Сборка
 
-Требования: JDK 8+, Android SDK, Android NDK, CMake 3.22.1+
+Требования: JDK 17+, Android SDK, Android NDK, Rust toolchain
 
 ```bash
-git clone --recurse-submodules
+git clone
 ./gradlew assembleRelease
 ```
 
@@ -55,9 +55,9 @@ APK: `app/build/outputs/apk/release/`
 | `KEY_ALIAS` | Алиас ключа подписи |
 | `KEY_PASSWORD` | Пароль ключа подписи |
 
-## Зависимости
+## Native-модули
 
-- [ByeDPI](https://github.com/hufrea/byedpi)
-- [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel)
+- Встроенный Rust-модуль на основе [ByeDPI](https://github.com/hufrea/byedpi)
+- Встроенный Rust-модуль на основе [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel)
 
 Подробности об интеграции native-библиотек и используемых методах: [docs/native/README.md](docs/native/README.md)

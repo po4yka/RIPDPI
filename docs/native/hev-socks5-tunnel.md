@@ -2,82 +2,70 @@
 
 ## Role in RIPDPI
 
-`hev-socks5-tunnel` is used only in VPN mode. It takes the Android TUN file descriptor, reads packets from it, and forwards traffic to the local SOCKS5 proxy started by `byedpi`.
+`hev-socks5-tunnel` is used only in VPN mode. It takes the Android TUN file descriptor, reads packets from it, and forwards traffic to the local SOCKS5 proxy started by `libripdpi.so`.
 
 The built shared library is `libhev-socks5-tunnel.so`.
 
 ## App Call Chain
 
-`RipDpiVpnService.startTun2Socks()` -> `TProxyService.TProxyStartService(configPath, tunFd)` -> JNI `native_start_service()` -> native worker thread -> `hev_socks5_tunnel_main(configPath, tunFd)`
+Start path:
+
+`RipDpiVpnService.startTun2Socks()` -> `TProxyService.TProxyStartService(configPath, tunFd)` -> `hs5t-jni` worker thread -> `hs5t_config::Config::from_file()` -> `hs5t_core::run_tunnel()`
 
 Stop path:
 
-`RipDpiVpnService.stopTun2Socks()` -> `TProxyService.TProxyStopService()` -> JNI `native_stop_service()` -> `hev_socks5_tunnel_quit()`
+`RipDpiVpnService.stopTun2Socks()` -> `TProxyService.TProxyStopService()` -> `CancellationToken::cancel()` -> worker thread join
 
-The relevant sources are:
+Relevant sources:
 
 - `core/service/src/main/java/com/poyka/ripdpi/services/RipDpiVpnService.kt`
 - `core/engine/src/main/java/com/poyka/ripdpi/core/TProxyService.kt`
-- `core/engine/src/main/jni/hev-socks5-tunnel/src/hev-jni.c`
-- `core/engine/src/main/jni/hev-socks5-tunnel/src/hev-main.c`
+- `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-jni/src/lib.rs`
 
-## Methods Actually Used from hev-socks5-tunnel
+## Methods Actually Used
 
 | Method | Defined in | Reached from | Current status | Purpose |
 | --- | --- | --- | --- | --- |
-| `hev_socks5_tunnel_main` | `core/engine/src/main/jni/hev-socks5-tunnel/src/hev-main.c` | `native_start_service` worker thread | Used | Starts the tunnel runtime from a YAML config file and a TUN fd. |
-| `hev_socks5_tunnel_quit` | `core/engine/src/main/jni/hev-socks5-tunnel/src/hev-main.c` | `native_stop_service` | Used | Stops the running tunnel. |
-| `hev_socks5_tunnel_stats` | `core/engine/src/main/jni/hev-socks5-tunnel/src/hev-socks5-tunnel.c` | `native_get_stats` | Exposed but currently unused by Kotlin call sites | Returns packet and byte counters. |
+| `hs5t_config::Config::from_file` | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-config/src/lib.rs` | `TProxyStartService` | Used | Parses the generated YAML config file. |
+| `hs5t_core::run_tunnel` | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-core/src/lib.rs` | `TProxyStartService` worker thread | Used | Runs the tunnel runtime from the config and Android TUN fd. |
+| `CancellationToken::cancel` | `tokio-util` | `TProxyStopService` | Used | Requests tunnel shutdown from another thread. |
+| `Stats::snapshot` | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-core/src/stats.rs` | `TProxyGetStats` | Exposed but currently unused by Kotlin call sites | Returns packet and byte counters. |
 
 ## JNI Surface Exposed to Kotlin
 
-`TProxyService.kt` exposes three native methods:
+`TProxyService.kt` still exposes the same three native methods:
 
 - `TProxyStartService`
 - `TProxyStopService`
 - `TProxyGetStats`
 
-Only the first two are currently called from Kotlin service code. I did not find any current call site for `TProxyGetStats()`.
+Compatibility details preserved by the Rust JNI shim:
 
-## What Happens Inside `hev_socks5_tunnel_main`
+- `TProxyStartService` still returns `Unit` immediately.
+- The Rust bridge owns the worker thread internally, just like the old JNI C layer.
+- `TProxyGetStats()` keeps the old array order: `[tx_pkt, tx_bytes, rx_pkt, rx_bytes]`.
 
-`hev_socks5_tunnel_main()` is the single runtime entrypoint the app actually uses, but it fans out into several internal and transitive native components:
+## Runtime Dependencies
 
-1. `hev_config_init_from_file(config_path)`
-2. `hev_config_get_misc_*()` accessors
-3. `hev_task_system_init()`
-4. `lwip_init()`
-5. `hev_socks5_tunnel_init(tun_fd)`
-6. `hev_socks5_tunnel_run()`
-7. Cleanup:
-   - `hev_socks5_tunnel_fini()`
-   - `hev_socks5_logger_fini()`
-   - `hev_logger_fini()`
-   - `hev_config_fini()`
-   - `hev_task_system_fini()`
+The old Android C tunnel stack is gone. The Rust tunnel runtime now builds from in-repo crates and links to:
 
-This means the app directly calls only `hev_socks5_tunnel_main()` and `hev_socks5_tunnel_quit()`, while the rest of the native tunnel stack is entered transitively from that main runtime function.
+- `libc.so`
+- `libdl.so`
+- `libm.so`
 
-## Transitive Native Dependencies Used Through `hev-socks5-tunnel`
+The Rust crate graph is centered on:
 
-### `yaml`
-
-Used for parsing the generated tunnel config file through `hev_config_init_from_file()`.
-
-### `lwip`
-
-Initialized through `lwip_init()` and used as the embedded network stack inside the tunnel runtime.
-
-### `hev-task-system`
-
-Initialized through `hev_task_system_init()` and used for coroutine-style scheduling inside the tunnel.
+- `hs5t-config`
+- `hs5t-core`
+- `hs5t-session`
+- `hs5t-tunnel`
+- `tokio`
+- `smoltcp`
+- `fast-socks5`
+- `serde_yaml`
 
 ## Android-specific Notes
 
-- RIPDPI always starts `hev-socks5-tunnel` with a config file path and an already established Android TUN fd.
-- The TUN fd is created in `RipDpiVpnService.createBuilder(...).establish()`.
-- The generated config points `hev-socks5-tunnel` to the local SOCKS5 proxy on `127.0.0.1:$port`, so this library depends on `byedpi` already running.
-
-## Not Used by the Android Build
-
-The vendored `wintun` support under `third-part/wintun` is Windows-only and is not part of the Android build path used by RIPDPI.
+- RIPDPI still starts the tunnel with a config file path and an already established Android TUN fd.
+- The generated config still points the tunnel to the local SOCKS5 proxy on `127.0.0.1:$port`.
+- `libhev-socks5-tunnel.so` therefore still depends on `libripdpi.so` already being active.

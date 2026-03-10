@@ -1,0 +1,18 @@
+[package]
+name = "hs5t-session"
+version = "0.1.0"
+edition = "2021"
+description = "Async TCP and UDP SOCKS5 session handlers"
+
+[dependencies]
+hs5t-ring-buffer = { path = "../hs5t-ring-buffer" }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+fast-socks5 = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }
+tokio-test = "0.4"
+proptest = { workspace = true }

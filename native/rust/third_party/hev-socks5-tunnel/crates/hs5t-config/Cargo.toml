@@ -1,0 +1,13 @@
+[package]
+name = "hs5t-config"
+version = "0.1.0"
+edition = "2021"
+description = "Configuration parser for hev-socks5-tunnel"
+
+[dependencies]
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = "1"

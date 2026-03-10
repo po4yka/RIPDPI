@@ -1,0 +1,9 @@
+[package]
+name = "hs5t-logger"
+version = "0.1.0"
+edition = "2021"
+description = "Logging + exec utilities for hev-socks5-tunnel"
+
+[dependencies]
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

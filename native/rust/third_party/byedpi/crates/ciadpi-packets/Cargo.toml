@@ -1,0 +1,9 @@
+[package]
+name = "ciadpi-packets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dev-dependencies]
+proptest = "1.6"
+serde_json = "1.0"

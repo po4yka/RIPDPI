@@ -1,0 +1,12 @@
+[package]
+name = "hs5t-dns-cache"
+version = "0.1.0"
+edition = "2021"
+description = "LRU DNS cache with SOCKS5 mapped DNS support"
+
+[dependencies]
+lru = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = "1"
