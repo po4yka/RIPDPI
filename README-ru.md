@@ -59,3 +59,5 @@ APK: `app/build/outputs/apk/release/`
 
 - [ByeDPI](https://github.com/hufrea/byedpi)
 - [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel)
+
+Подробности об интеграции native-библиотек и используемых методах: [docs/native/README.md](docs/native/README.md)
