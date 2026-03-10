@@ -29,6 +29,7 @@ Relevant sources:
 | `hs5t_core::run_tunnel` | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-core/src/lib.rs` | `jniStart(handle, tunFd)` worker thread | Used | Runs the tunnel runtime from the in-memory config and Android TUN fd. |
 | `CancellationToken::cancel` | `tokio-util` | `jniStop(handle)` | Used | Requests tunnel shutdown from another thread. |
 | `Stats::snapshot` | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-core/src/stats.rs` | `jniGetStats(handle)` | Used | Returns packet and byte counters. |
+| tunnel telemetry snapshot assembly | `native/rust/crates/hs5t-android/src/lib.rs` | `jniGetTelemetry(handle)` | Used | Returns tunnel lifecycle, counters, last error, and a bounded drained event ring. |
 
 ## JNI Surface Exposed to Kotlin
 
@@ -38,6 +39,7 @@ Relevant sources:
 - `jniStart(handle, tunFd)`
 - `jniStop(handle)`
 - `jniGetStats(handle)`
+- `jniGetTelemetry(handle)`
 - `jniDestroy(handle)`
 
 Compatibility details preserved by the Rust JNI shim:
@@ -45,6 +47,7 @@ Compatibility details preserved by the Rust JNI shim:
 - `jniStart(handle, tunFd)` still returns `Unit` immediately.
 - The Rust bridge owns the worker thread internally, just like the old JNI C layer.
 - `jniGetStats(handle)` keeps the array order `[tx_pkt, tx_bytes, rx_pkt, rx_bytes]`, and Kotlin maps it into `TunnelStats`.
+- `jniGetTelemetry(handle)` returns a JSON snapshot that Kotlin maps into `NativeRuntimeSnapshot`.
 
 ## Runtime Dependencies
 
@@ -70,3 +73,22 @@ The Rust crate graph is centered on:
 - RIPDPI now starts the tunnel with an in-memory JSON config payload and an already established Android TUN fd.
 - The config still points the tunnel to the local SOCKS5 proxy on `127.0.0.1:$port`.
 - `libhev-socks5-tunnel.so` therefore still depends on `libripdpi.so` already being active.
+- `RipDpiVpnService` polls tunnel telemetry while the VPN is running and merges it with proxy telemetry from `libripdpi.so`.
+
+## Passive Tunnel Runtime Telemetry
+
+While the VPN service is running, `Tun2SocksTunnel.telemetry()` calls `jniGetTelemetry(handle)` and receives:
+
+- tunnel state and health
+- cumulative session count
+- cumulative native error count
+- upstream SOCKS5 address
+- packet and byte counters mirrored from `Stats::snapshot`
+- last native error
+- a bounded drained event ring
+
+The drained event ring records:
+- tunnel start
+- explicit stop requests
+- clean tunnel stop
+- worker errors and worker panic fallback

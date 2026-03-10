@@ -6,8 +6,9 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 
 | Native module | Built artifact | Used in app | Main Kotlin bridge | Methods actually reached from app |
 | --- | --- | --- | --- | --- |
-| `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode and VPN mode | `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt` | `ciadpi_config::parse_cli`, `ciadpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_listener`, `process::prepare_embedded`, `process::request_shutdown`, `platform::detect_default_ttl` |
-| `native/rust/crates/hs5t-android` | `libhev-socks5-tunnel.so` | VPN mode only | `core/engine/src/main/java/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `hs5t_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot` |
+| `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ciadpi_config::parse_cli`, `ciadpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_listener`, `process::prepare_embedded`, `process::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling |
+| `native/rust/crates/hs5t-android` | `libhev-socks5-tunnel.so` | VPN mode only | `core/engine/src/main/java/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `hs5t_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
+| `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes, DoH comparison, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, diagnostics session state |
 
 ## Runtime Topology
 
@@ -20,7 +21,28 @@ flowchart LR
   E --> F["libhev-socks5-tunnel.so"]
   F --> G["Android TUN fd"]
   F --> D
+  H["Diagnostics screen"] --> I["NetworkDiagnostics.kt"]
+  I --> D
+  J["Passive monitor"] --> B
+  J --> E
 ```
+
+## Diagnostics and Telemetry
+
+Diagnostics in the Android app are split across three native paths:
+
+- `ripdpi-monitor` performs active scans and produces structured scan reports and scan-time passive events
+- `ripdpi-runtime` emits passive proxy runtime telemetry for the long-running local SOCKS5 proxy
+- `hs5t-android` exposes tunnel runtime telemetry for the long-running TUN-to-SOCKS bridge
+
+The service layer polls those native snapshots once per second while the service is running and stores only metadata:
+- listener and tunnel lifecycle changes
+- active and total session counters
+- route selection and route advances between desync groups
+- packet and byte counters
+- last native error plus a bounded event ring
+
+No packet payloads or packet captures are persisted.
 
 ## Build Integration
 
@@ -34,6 +56,7 @@ flowchart LR
 
 - `native/rust/crates/ripdpi-android`
 - `native/rust/crates/hs5t-android`
+- `native/rust/crates/ripdpi-monitor`
 - `native/rust/crates/ripdpi-runtime`
 - `native/rust/crates/android-support`
 
