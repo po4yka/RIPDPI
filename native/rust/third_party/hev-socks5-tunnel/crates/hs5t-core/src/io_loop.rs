@@ -62,10 +62,7 @@ impl std::task::Wake for NoopWaker {
 /// - `Some(Ok(n))` — n bytes read (n==0 means session_side EOF)
 /// - `None`        — no data available right now (would-block equivalent)
 /// - `Some(Err(e))`— read error
-fn try_read_duplex(
-    stream: &mut tokio::io::DuplexStream,
-    buf: &mut [u8],
-) -> Option<io::Result<usize>> {
+fn try_read_duplex(stream: &mut tokio::io::DuplexStream, buf: &mut [u8]) -> Option<io::Result<usize>> {
     let waker = Waker::from(Arc::new(NoopWaker));
     let mut cx = Context::from_waker(&waker);
     let mut rb = ReadBuf::new(buf);
@@ -145,10 +142,7 @@ fn endpoint_to_socketaddr(ep: smoltcp::wire::IpEndpoint) -> SocketAddr {
 /// Build `Auth` from config credentials.
 fn make_auth(config: &Config) -> Auth {
     match (&config.socks5.username, &config.socks5.password) {
-        (Some(u), Some(p)) => Auth::UserPass {
-            username: u.clone(),
-            password: p.clone(),
-        },
+        (Some(u), Some(p)) => Auth::UserPass { username: u.clone(), password: p.clone() },
         _ => Auth::NoAuth,
     }
 }
@@ -187,12 +181,8 @@ fn spawn_udp_session(
             Ok(Some((resp_payload, from))) => {
                 let raw = build_udp_response(from, src, &resp_payload);
                 if !raw.is_empty() {
-                    stats
-                        .rx_packets
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    stats
-                        .rx_bytes
-                        .fetch_add(raw.len() as u64, std::sync::atomic::Ordering::Relaxed);
+                    stats.rx_packets.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    stats.rx_bytes.fetch_add(raw.len() as u64, std::sync::atomic::Ordering::Relaxed);
                     let _ = udp_tx.send(raw).await;
                 }
             }
@@ -237,17 +227,8 @@ pub async fn io_loop_task(
 
     // Mapdns parameters (Decision B).
     let (mapdns_net, mapdns_mask, mapdns_port, mapdns_active) = if let Some(m) = &config.mapdns {
-        let net = m
-            .address
-            .parse::<Ipv4Addr>()
-            .map(u32::from)
-            .unwrap_or(0xC612_0000);
-        let mask = m
-            .netmask
-            .as_deref()
-            .and_then(|s| s.parse::<Ipv4Addr>().ok())
-            .map(u32::from)
-            .unwrap_or(0xFFFE_0000);
+        let net = m.address.parse::<Ipv4Addr>().map(u32::from).unwrap_or(0xC612_0000);
+        let mask = m.netmask.as_deref().and_then(|s| s.parse::<Ipv4Addr>().ok()).map(u32::from).unwrap_or(0xFFFE_0000);
         (net, mask, m.port, m.cache_size > 0)
     } else {
         (0, 0, 53, false)
@@ -270,10 +251,7 @@ pub async fn io_loop_task(
     // Handles to remove at end of Phase 4.
     let mut to_remove: Vec<SocketHandle> = Vec::new();
 
-    info!(
-        "io_loop started (proxy={}, max_sessions={})",
-        proxy_sockaddr, max_sessions
-    );
+    info!("io_loop started (proxy={}, max_sessions={})", proxy_sockaddr, max_sessions);
 
     loop {
         // ── Phase 1: drain TUN fd ─────────────────────────────────────────────
@@ -302,9 +280,7 @@ pub async fn io_loop_task(
                     // On-demand LISTEN socket creation for new TCP flows.
                     if is_tcp_syn(pkt) {
                         if let Some(dst_port) = tcp_dst_port(pkt) {
-                            if let std::collections::hash_map::Entry::Vacant(e) =
-                                pending_listens.entry(dst_port)
-                            {
+                            if let std::collections::hash_map::Entry::Vacant(e) = pending_listens.entry(dst_port) {
                                 let mut sock = TcpSocket::new(
                                     tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
                                     tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
@@ -329,10 +305,7 @@ pub async fn io_loop_task(
                         let mut res = vec![0u8; 512];
                         match cache.handle(&mut req, &mut res) {
                             Ok(n) => {
-                                let mapdns_addr = SocketAddr::new(
-                                    IpAddr::V4(Ipv4Addr::from(mapdns_net)),
-                                    mapdns_port,
-                                );
+                                let mapdns_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(mapdns_net)), mapdns_port);
                                 let resp_pkt = build_udp_response(mapdns_addr, src, &res[..n]);
                                 if !resp_pkt.is_empty() {
                                     // Best-effort write — silently ignore errors.
@@ -353,8 +326,7 @@ pub async fn io_loop_task(
 
                 IpClass::UdpDns { src, payload } => {
                     // mapdns_active is false: relay as regular UDP toward port 53.
-                    let dns_dst =
-                        SocketAddr::new(IpAddr::V4(Ipv4Addr::from(mapdns_net)), mapdns_port);
+                    let dns_dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(mapdns_net)), mapdns_port);
                     spawn_udp_session(
                         proxy_sockaddr,
                         auth.clone(),
@@ -398,10 +370,7 @@ pub async fn io_loop_task(
                                 new_sessions.push((handle, endpoint_to_socketaddr(remote)));
                             }
                             None => {
-                                error!(
-                                    "TCP socket {:?} active but remote_endpoint is None — skipped",
-                                    handle
-                                );
+                                error!("TCP socket {:?} active but remote_endpoint is None — skipped", handle);
                             }
                         }
                     }
@@ -411,11 +380,7 @@ pub async fn io_loop_task(
             // Spawn a TcpSession for each newly active socket (Decision C).
             for (handle, remote_addr) in new_sessions {
                 // Remove the LISTEN tracking entry for this port.
-                let port = socket_set
-                    .get_mut::<TcpSocket>(handle)
-                    .local_endpoint()
-                    .map(|e| e.port)
-                    .unwrap_or(0);
+                let port = socket_set.get_mut::<TcpSocket>(handle).local_endpoint().map(|e| e.port).unwrap_or(0);
                 pending_listens.remove(&port);
 
                 let target = TargetAddr::Ip(remote_addr);
@@ -425,16 +390,10 @@ pub async fn io_loop_task(
                 let child_cancel_clone = child_cancel.clone();
                 let jh = tokio::spawn(async move {
                     let mut session_side = session_side;
-                    session_inst
-                        .run(&mut session_side, child_cancel_clone)
-                        .await
+                    session_inst.run(&mut session_side, child_cancel_clone).await
                 });
 
-                let entry = SessionEntry {
-                    smoltcp_side,
-                    cancel: child_cancel,
-                    handle: jh,
-                };
+                let entry = SessionEntry { smoltcp_side, cancel: child_cancel, handle: jh };
                 sessions.insert(handle, entry);
                 info!("TCP session spawned: remote={}", remote_addr);
             }
@@ -475,10 +434,7 @@ pub async fn io_loop_task(
                     tcp.send_slice(&tmp2[..n]).ok();
                 }
                 Some(Err(e)) => {
-                    debug!(
-                        "smoltcp_side read error: {} — closing session {:?}",
-                        e, handle
-                    );
+                    debug!("smoltcp_side read error: {} — closing session {:?}", e, handle);
                     tcp.close();
                     to_remove.push(handle);
                 }
@@ -499,10 +455,7 @@ pub async fn io_loop_task(
             }
             if let Some(entry) = sessions.get_mut(handle) {
                 if let Err(e) = entry.smoltcp_side.write_all(&data).await {
-                    debug!(
-                        "smoltcp_side write error: {} — closing session {:?}",
-                        e, handle
-                    );
+                    debug!("smoltcp_side write error: {} — closing session {:?}", e, handle);
                     to_remove.push(handle);
                 }
             }
@@ -536,9 +489,7 @@ pub async fn io_loop_task(
                 }) {
                     Ok(()) => {
                         stats.rx_packets.fetch_add(1, Ordering::Relaxed);
-                        stats
-                            .rx_bytes
-                            .fetch_add(pkt.len() as u64, Ordering::Relaxed);
+                        stats.rx_bytes.fetch_add(pkt.len() as u64, Ordering::Relaxed);
                         break;
                     }
                     Err(e) if e.kind() == io::ErrorKind::WouldBlock => {

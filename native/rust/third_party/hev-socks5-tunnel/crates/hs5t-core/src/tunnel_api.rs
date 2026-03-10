@@ -66,11 +66,7 @@ pub async fn run_tunnel(
     // Accepted formats: "a.b.c.d" (assumes /24) or "a.b.c.d/prefix".
     if let Some(ref ipv4_str) = config.tunnel.ipv4 {
         let ip_part = ipv4_str.split('/').next().unwrap_or(ipv4_str.as_str());
-        let prefix: u8 = ipv4_str
-            .split('/')
-            .nth(1)
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(24);
+        let prefix: u8 = ipv4_str.split('/').nth(1).and_then(|s| s.parse().ok()).unwrap_or(24);
         if let Ok(ip) = ip_part.parse::<Ipv4Addr>() {
             let o = ip.octets();
             iface.update_ip_addrs(|addrs| {
@@ -82,8 +78,5 @@ pub async fn run_tunnel(
     let socket_set = SocketSet::new(vec![]);
     let sessions = ActiveSessions::new(config.misc.max_session_count as usize);
 
-    io_loop_task(
-        &tun_async, device, iface, socket_set, sessions, config, cancel, stats, None,
-    )
-    .await
+    io_loop_task(&tun_async, device, iface, socket_set, sessions, config, cancel, stats, None).await
 }

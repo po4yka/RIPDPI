@@ -176,10 +176,7 @@ mod tests {
         assert_eq!(t.name(), "");
         assert_eq!(t.index(), 0);
         assert!(matches!(t.set_mtu(1500), Err(TunnelError::NotSupported)));
-        assert!(matches!(
-            t.set_ipv4("198.18.0.1".parse().unwrap(), 32),
-            Err(TunnelError::NotSupported)
-        ));
+        assert!(matches!(t.set_ipv4("198.18.0.1".parse().unwrap(), 32), Err(TunnelError::NotSupported)));
         assert!(matches!(t.set_up(), Err(TunnelError::NotSupported)));
         assert!(matches!(t.set_down(), Err(TunnelError::NotSupported)));
     }

@@ -1,8 +1,8 @@
 use std::time::Instant;
 
 use ciadpi_packets::{
-    change_tls_sni_seeded_like_c, mod_http_like_c, parse_http, parse_tls, part_tls_like_c,
-    randomize_tls_seeded_like_c, MH_HMIX, MH_SPACE,
+    change_tls_sni_seeded_like_c, mod_http_like_c, parse_http, parse_tls, part_tls_like_c, randomize_tls_seeded_like_c,
+    MH_HMIX, MH_SPACE,
 };
 
 #[allow(dead_code)]
@@ -34,14 +34,9 @@ fn benchmark_smoke() {
         checksum += mod_http_like_c(&http, MH_HMIX | MH_SPACE).bytes.len();
         checksum += part_tls_like_c(&tls, 32).bytes.len();
         checksum += randomize_tls_seeded_like_c(&tls, 7).bytes.len();
-        checksum += change_tls_sni_seeded_like_c(&ech, b"docs.example.test", ech.len() + 64, 1)
-            .bytes
-            .len();
+        checksum += change_tls_sni_seeded_like_c(&ech, b"docs.example.test", ech.len() + 64, 1).bytes.len();
     }
 
-    eprintln!(
-        "packet benchmark smoke: {:?}, checksum={checksum}",
-        start.elapsed()
-    );
+    eprintln!("packet benchmark smoke: {:?}, checksum={checksum}", start.elapsed());
     assert!(checksum > 0);
 }

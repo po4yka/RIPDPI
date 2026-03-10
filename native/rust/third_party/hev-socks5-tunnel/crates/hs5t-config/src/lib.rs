@@ -36,12 +36,7 @@ impl Config {
             }
             _ => {}
         }
-        Ok(Config {
-            tunnel: raw.tunnel,
-            socks5: raw.socks5,
-            mapdns: raw.mapdns,
-            misc: raw.misc,
-        })
+        Ok(Config { tunnel: raw.tunnel, socks5: raw.socks5, mapdns: raw.mapdns, misc: raw.misc })
     }
 }
 
@@ -307,10 +302,7 @@ misc:
         let result = Config::from_str(NO_PORT);
         assert!(result.is_err(), "expected Err for missing socks5.port");
         let msg = result.unwrap_err().to_string();
-        assert!(
-            msg.contains("port") || msg.contains("socks5"),
-            "error should mention port or socks5, got: {msg}"
-        );
+        assert!(msg.contains("port") || msg.contains("socks5"), "error should mention port or socks5, got: {msg}");
     }
 
     /// Test 3: missing socks5.address → Err with descriptive message.
@@ -329,30 +321,21 @@ misc:
     #[test]
     fn test_username_without_password_is_err() {
         let result = Config::from_str(USER_NO_PASS);
-        assert!(
-            result.is_err(),
-            "expected Err when username is set but password is absent"
-        );
+        assert!(result.is_err(), "expected Err when username is set but password is absent");
     }
 
     /// Test 5: password present but username absent → Err.
     #[test]
     fn test_password_without_username_is_err() {
         let result = Config::from_str(PASS_NO_USER);
-        assert!(
-            result.is_err(),
-            "expected Err when password is set but username is absent"
-        );
+        assert!(result.is_err(), "expected Err when password is set but username is absent");
     }
 
     /// Test 6: all defaults applied when optional sections are absent.
     #[test]
     fn test_defaults_when_optional_sections_absent() {
         let cfg = Config::from_str(MINIMAL_VALID).expect("minimal YAML should parse");
-        assert!(
-            cfg.mapdns.is_none(),
-            "mapdns should be None when not in YAML"
-        );
+        assert!(cfg.mapdns.is_none(), "mapdns should be None when not in YAML");
         assert_eq!(cfg.misc.task_stack_size, 86016);
         assert_eq!(cfg.misc.tcp_buffer_size, 65536);
         assert_eq!(cfg.misc.udp_recv_buffer_size, 524288);

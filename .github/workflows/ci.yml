@@ -90,6 +90,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: native/rust/Cargo.toml
+
       - name: Run native Rust checks
         run: bash scripts/ci/run-rust-native-checks.sh
 

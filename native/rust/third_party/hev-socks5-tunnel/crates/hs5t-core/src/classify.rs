@@ -11,11 +11,7 @@ pub enum IpClass {
     /// UDP with dst matching the mapdns network:port — route to DnsCache.
     UdpDns { src: SocketAddr, payload: Vec<u8> },
     /// UDP not destined for mapdns — spawn a UdpSession.
-    Udp {
-        src: SocketAddr,
-        dst: SocketAddr,
-        payload: Vec<u8>,
-    },
+    Udp { src: SocketAddr, dst: SocketAddr, payload: Vec<u8> },
 }
 
 /// Classify a raw IPv4 packet.
@@ -25,12 +21,7 @@ pub enum IpClass {
 /// `mapdns_port` — DNS intercept port (typically 53).
 ///
 /// Returns `IpClass::TcpOrOther` for malformed packets so smoltcp can discard them.
-pub fn classify_ip_packet(
-    pkt: &[u8],
-    mapdns_net: u32,
-    mapdns_mask: u32,
-    mapdns_port: u16,
-) -> IpClass {
+pub fn classify_ip_packet(pkt: &[u8], mapdns_net: u32, mapdns_mask: u32, mapdns_port: u16) -> IpClass {
     // Minimum IPv4 header is 20 bytes.
     if pkt.len() < 20 {
         return IpClass::TcpOrOther;
@@ -69,11 +60,7 @@ pub fn classify_ip_packet(
     // UDP length includes the 8-byte header; payload follows.
     let payload_start = ihl + 8;
     let payload_end = (ihl + udp_length).min(pkt.len());
-    let payload = if payload_end > payload_start {
-        pkt[payload_start..payload_end].to_vec()
-    } else {
-        Vec::new()
-    };
+    let payload = if payload_end > payload_start { pkt[payload_start..payload_end].to_vec() } else { Vec::new() };
 
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(src_ip)), src_port);
     let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(dst_ip)), dst_port);
@@ -94,13 +81,7 @@ mod tests {
     const MAPDNS_MASK: u32 = 0xFFFE_0000; // /15
     const MAPDNS_PORT: u16 = 53;
 
-    fn ipv4_udp(
-        src_ip: [u8; 4],
-        dst_ip: [u8; 4],
-        src_port: u16,
-        dst_port: u16,
-        payload: &[u8],
-    ) -> Vec<u8> {
+    fn ipv4_udp(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
         let udp_len = 8 + payload.len();
         let total_len = 20 + udp_len;
         let mut pkt = vec![0u8; total_len];
@@ -144,10 +125,7 @@ mod tests {
         // 198.18.0.0:53 is in mapdns network
         let pkt = ipv4_udp([10, 0, 0, 1], [198, 18, 0, 0], 54321, 53, b"DNS query");
         let class = classify_ip_packet(&pkt, MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT);
-        assert!(
-            matches!(class, IpClass::UdpDns { .. }),
-            "UDP to mapdns:53 must be IpClass::UdpDns"
-        );
+        assert!(matches!(class, IpClass::UdpDns { .. }), "UDP to mapdns:53 must be IpClass::UdpDns");
         if let IpClass::UdpDns { src, payload } = class {
             assert_eq!(src.port(), 54321);
             assert_eq!(payload, b"DNS query");
@@ -159,10 +137,7 @@ mod tests {
     fn u03b_udp_to_external_dns_is_udp() {
         let pkt = ipv4_udp([10, 0, 0, 1], [8, 8, 8, 8], 12345, 53, b"query");
         let class = classify_ip_packet(&pkt, MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT);
-        assert!(
-            matches!(class, IpClass::Udp { .. }),
-            "UDP to non-mapdns:53 must be IpClass::Udp"
-        );
+        assert!(matches!(class, IpClass::Udp { .. }), "UDP to non-mapdns:53 must be IpClass::Udp");
         if let IpClass::Udp { src, dst, payload } = class {
             assert_eq!(src, "10.0.0.1:12345".parse().unwrap());
             assert_eq!(dst, "8.8.8.8:53".parse().unwrap());
@@ -175,10 +150,7 @@ mod tests {
     fn u03c_tcp_is_tcp_or_other() {
         let pkt = ipv4_tcp([10, 0, 0, 1], [1, 1, 1, 1], 12345, 80);
         let class = classify_ip_packet(&pkt, MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT);
-        assert!(
-            matches!(class, IpClass::TcpOrOther),
-            "TCP packet must be IpClass::TcpOrOther"
-        );
+        assert!(matches!(class, IpClass::TcpOrOther), "TCP packet must be IpClass::TcpOrOther");
     }
 
     /// U-03d: UDP in mapdns network but wrong port → IpClass::Udp
@@ -187,10 +159,7 @@ mod tests {
         // 198.18.0.0:80 — right network, wrong port
         let pkt = ipv4_udp([10, 0, 0, 1], [198, 18, 0, 0], 12345, 80, b"data");
         let class = classify_ip_packet(&pkt, MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT);
-        assert!(
-            matches!(class, IpClass::Udp { .. }),
-            "UDP to mapdns network but wrong port must be IpClass::Udp"
-        );
+        assert!(matches!(class, IpClass::Udp { .. }), "UDP to mapdns network but wrong port must be IpClass::Udp");
     }
 
     /// Malformed packets (too short) pass through as TcpOrOther.

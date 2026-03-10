@@ -6,29 +6,25 @@ use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use android_support::{
-    init_android_logging, throw_illegal_argument, throw_illegal_state, throw_io_exception,
-    throw_runtime_exception, HandleRegistry, JNI_VERSION,
+    init_android_logging, throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception,
+    HandleRegistry, JNI_VERSION,
 };
 use ciadpi_config::{
-    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, RuntimeConfig, StartupEnv, OFFSET_HOST,
-    OFFSET_SNI,
+    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, RuntimeConfig, StartupEnv, OFFSET_HOST, OFFSET_SNI,
 };
 use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE};
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jstring};
 use jni::{JNIEnv, JavaVM};
 use ripdpi_monitor::{MonitorSession, ScanRequest};
-use ripdpi_runtime::{
-    clear_runtime_telemetry, install_runtime_telemetry, process, runtime, RuntimeTelemetrySink,
-};
+use ripdpi_runtime::{clear_runtime_telemetry, install_runtime_telemetry, process, runtime, RuntimeTelemetrySink};
 use serde::{Deserialize, Serialize};
 
 const HOSTS_DISABLE: &str = "disable";
 const HOSTS_BLACKLIST: &str = "blacklist";
 const HOSTS_WHITELIST: &str = "whitelist";
 
-static SESSIONS: once_cell::sync::Lazy<HandleRegistry<ProxySession>> =
-    once_cell::sync::Lazy::new(HandleRegistry::new);
+static SESSIONS: once_cell::sync::Lazy<HandleRegistry<ProxySession>> = once_cell::sync::Lazy::new(HandleRegistry::new);
 static DIAGNOSTIC_SESSIONS: once_cell::sync::Lazy<HandleRegistry<MonitorSession>> =
     once_cell::sync::Lazy::new(HandleRegistry::new);
 
@@ -163,10 +159,7 @@ impl ProxyTelemetryState {
         self.push_event(
             "proxy",
             "info",
-            format!(
-                "listener started addr={} maxClients={} groups={}",
-                bind_addr, max_clients, group_count
-            ),
+            format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}"),
         );
     }
 
@@ -183,9 +176,7 @@ impl ProxyTelemetryState {
 
     fn on_client_finished(&self) {
         self.active_sessions
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
-                Some(value.saturating_sub(1))
-            })
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| Some(value.saturating_sub(1)))
             .ok();
     }
 
@@ -195,17 +186,8 @@ impl ProxyTelemetryState {
         self.push_event("proxy", "warn", format!("client error: {error}"));
     }
 
-    fn on_route_selected(
-        &self,
-        target: String,
-        group_index: usize,
-        host: Option<String>,
-        phase: &str,
-    ) {
-        self.last_route_group.store(
-            group_index.try_into().unwrap_or(i64::MAX),
-            Ordering::Relaxed,
-        );
+    fn on_route_selected(&self, target: String, group_index: usize, host: Option<String>, phase: &str) {
+        self.last_route_group.store(group_index.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
         self.replace_string(&self.last_target, Some(target.clone()));
         self.replace_string(&self.last_host, host.clone());
         self.push_event(
@@ -230,8 +212,7 @@ impl ProxyTelemetryState {
         host: Option<String>,
     ) {
         self.route_changes.fetch_add(1, Ordering::Relaxed);
-        self.last_route_group
-            .store(to_group.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
+        self.last_route_group.store(to_group.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
         self.replace_string(&self.last_target, Some(target.clone()));
         self.replace_string(&self.last_host, host.clone());
         self.push_event(
@@ -251,11 +232,7 @@ impl ProxyTelemetryState {
     fn snapshot(&self) -> NativeRuntimeSnapshot {
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
-            state: if self.running.load(Ordering::Relaxed) {
-                "running".to_string()
-            } else {
-                "idle".to_string()
-            },
+            state: if self.running.load(Ordering::Relaxed) { "running".to_string() } else { "idle".to_string() },
             health: if self.running.load(Ordering::Relaxed) {
                 if self.total_errors.load(Ordering::Relaxed) == 0 {
                     "healthy".to_string()
@@ -278,12 +255,7 @@ impl ProxyTelemetryState {
             last_target: self.clone_string(&self.last_target),
             last_host: self.clone_string(&self.last_host),
             last_error: self.clone_string(&self.last_error),
-            tunnel_stats: TunnelStatsSnapshot {
-                tx_packets: 0,
-                tx_bytes: 0,
-                rx_packets: 0,
-                rx_bytes: 0,
-            },
+            tunnel_stats: TunnelStatsSnapshot { tx_packets: 0, tx_bytes: 0, rx_packets: 0, rx_bytes: 0 },
             native_events: self.drain_events(),
             captured_at: now_ms(),
         }
@@ -327,14 +299,8 @@ struct ProxyTelemetryObserver {
 }
 
 impl RuntimeTelemetrySink for ProxyTelemetryObserver {
-    fn on_listener_started(
-        &self,
-        bind_addr: std::net::SocketAddr,
-        max_clients: usize,
-        group_count: usize,
-    ) {
-        self.state
-            .mark_running(bind_addr.to_string(), max_clients, group_count);
+    fn on_listener_started(&self, bind_addr: std::net::SocketAddr, max_clients: usize, group_count: usize) {
+        self.state.mark_running(bind_addr.to_string(), max_clients, group_count);
     }
 
     fn on_listener_stopped(&self) {
@@ -360,12 +326,7 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         host: Option<&str>,
         phase: &'static str,
     ) {
-        self.state.on_route_selected(
-            target.to_string(),
-            group_index,
-            host.map(ToOwned::to_owned),
-            phase,
-        );
+        self.state.on_route_selected(target.to_string(), group_index, host.map(ToOwned::to_owned), phase);
     }
 
     fn on_route_advanced(
@@ -376,13 +337,7 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         trigger: u32,
         host: Option<&str>,
     ) {
-        self.state.on_route_advanced(
-            target.to_string(),
-            from_group,
-            to_group,
-            trigger,
-            host.map(ToOwned::to_owned),
-        );
+        self.state.on_route_advanced(target.to_string(), from_group, to_group, trigger, host.map(ToOwned::to_owned));
     }
 }
 
@@ -394,21 +349,17 @@ pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void)
 
 fn proxy_create_entry(mut env: JNIEnv, config_json: JString) -> jlong {
     init_android_logging("ripdpi-native");
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        create_session(&mut env, config_json)
-    }))
-    .unwrap_or_else(|_| {
-        throw_runtime_exception(&mut env, "Proxy session creation panicked");
-        0
-    })
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| create_session(&mut env, config_json))).unwrap_or_else(
+        |_| {
+            throw_runtime_exception(&mut env, "Proxy session creation panicked");
+            0
+        },
+    )
 }
 
 fn proxy_start_entry(mut env: JNIEnv, handle: jlong) -> jint {
     init_android_logging("ripdpi-native");
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        start_session(&mut env, handle)
-    }))
-    .unwrap_or_else(|_| {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| start_session(&mut env, handle))).unwrap_or_else(|_| {
         throw_runtime_exception(&mut env, "Proxy session start panicked");
         libc::EINVAL
     })
@@ -416,29 +367,24 @@ fn proxy_start_entry(mut env: JNIEnv, handle: jlong) -> jint {
 
 fn proxy_stop_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("ripdpi-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        stop_session(&mut env, handle)
-    }))
-    .map_err(|_| throw_runtime_exception(&mut env, "Proxy session stop panicked"));
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stop_session(&mut env, handle)))
+        .map_err(|_| throw_runtime_exception(&mut env, "Proxy session stop panicked"));
 }
 
 fn proxy_poll_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        poll_proxy_telemetry(&mut env, handle)
-    }))
-    .unwrap_or_else(|_| {
-        throw_runtime_exception(&mut env, "Proxy telemetry polling panicked");
-        std::ptr::null_mut()
-    })
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| poll_proxy_telemetry(&mut env, handle))).unwrap_or_else(
+        |_| {
+            throw_runtime_exception(&mut env, "Proxy telemetry polling panicked");
+            std::ptr::null_mut()
+        },
+    )
 }
 
 fn proxy_destroy_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("ripdpi-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        destroy_session(&mut env, handle)
-    }))
-    .map_err(|_| throw_runtime_exception(&mut env, "Proxy session destroy panicked"));
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle)))
+        .map_err(|_| throw_runtime_exception(&mut env, "Proxy session destroy panicked"));
 }
 
 #[unsafe(no_mangle)]
@@ -478,11 +424,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniS
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStop(
-    env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) {
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStop(env: JNIEnv, _thiz: JObject, handle: jlong) {
     proxy_stop_entry(env, handle);
 }
 
@@ -514,11 +456,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniP
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniDestroy(
-    env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) {
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniDestroy(env: JNIEnv, _thiz: JObject, handle: jlong) {
     proxy_destroy_entry(env, handle);
 }
 
@@ -556,7 +494,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniStartSca
 ) {
     init_android_logging("ripdpi-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        start_diagnostics_scan(&mut env, handle, request_json, session_id)
+        start_diagnostics_scan(&mut env, handle, request_json, session_id);
     }))
     .map_err(|_| throw_runtime_exception(&mut env, "Diagnostics scan start panicked"));
 }
@@ -583,7 +521,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniPollProg
 ) -> jstring {
     init_android_logging("ripdpi-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        poll_diagnostics_string(&mut env, handle, |session| session.poll_progress_json())
+        poll_diagnostics_string(&mut env, handle, ripdpi_monitor::MonitorSession::poll_progress_json)
     }))
     .unwrap_or_else(|_| {
         throw_runtime_exception(&mut env, "Diagnostics progress polling panicked");
@@ -599,7 +537,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniTakeRepo
 ) -> jstring {
     init_android_logging("ripdpi-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        poll_diagnostics_string(&mut env, handle, |session| session.take_report_json())
+        poll_diagnostics_string(&mut env, handle, ripdpi_monitor::MonitorSession::take_report_json)
     }))
     .unwrap_or_else(|_| {
         throw_runtime_exception(&mut env, "Diagnostics report polling panicked");
@@ -615,9 +553,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniPollPass
 ) -> jstring {
     init_android_logging("ripdpi-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        poll_diagnostics_string(&mut env, handle, |session| {
-            session.poll_passive_events_json()
-        })
+        poll_diagnostics_string(&mut env, handle, ripdpi_monitor::MonitorSession::poll_passive_events_json)
     }))
     .unwrap_or_else(|_| {
         throw_runtime_exception(&mut env, "Diagnostics passive polling panicked");
@@ -632,10 +568,8 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniDestroy(
     handle: jlong,
 ) {
     init_android_logging("ripdpi-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        destroy_diagnostics_session(&mut env, handle)
-    }))
-    .map_err(|_| throw_runtime_exception(&mut env, "Diagnostics session destroy panicked"));
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_diagnostics_session(&mut env, handle)))
+        .map_err(|_| throw_runtime_exception(&mut env, "Diagnostics session destroy panicked"));
 }
 
 fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
@@ -702,12 +636,8 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
         }
     }
 
-    session
-        .telemetry
-        .replace_string(&session.telemetry.last_error, None);
-    install_runtime_telemetry(Arc::new(ProxyTelemetryObserver {
-        state: session.telemetry.clone(),
-    }));
+    session.telemetry.replace_string(&session.telemetry.last_error, None);
+    install_runtime_telemetry(Arc::new(ProxyTelemetryObserver { state: session.telemetry.clone() }));
     process::prepare_embedded();
     let result = runtime::run_proxy_with_listener(config, listener);
     clear_runtime_telemetry();
@@ -747,17 +677,9 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
     process::request_shutdown();
     let rc = unsafe { libc::shutdown(listener_fd, libc::SHUT_RDWR) };
     if rc != 0 {
-        throw_io_exception(
-            env,
-            format!(
-                "Failed to stop proxy listener: {}",
-                std::io::Error::last_os_error()
-            ),
-        );
+        throw_io_exception(env, format!("Failed to stop proxy listener: {}", std::io::Error::last_os_error()));
     }
-    session
-        .telemetry
-        .push_event("proxy", "info", "stop requested".to_string());
+    session.telemetry.push_event("proxy", "info", "stop requested".to_string());
 }
 
 fn destroy_session(env: &mut JNIEnv, handle: jlong) {
@@ -802,8 +724,7 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
     let listen_ip = IpAddr::from_str(&payload.ip).map_err(|_| "Invalid proxy IP".to_string())?;
     let mut config = RuntimeConfig::default();
     config.listen.listen_ip = listen_ip;
-    config.listen.listen_port =
-        u16::try_from(payload.port).map_err(|_| "Invalid proxy port".to_string())?;
+    config.listen.listen_port = u16::try_from(payload.port).map_err(|_| "Invalid proxy port".to_string())?;
     if config.listen.listen_port == 0 {
         return Err("Invalid proxy port".to_string());
     }
@@ -811,8 +732,7 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
         return Err("maxConnections must be positive".to_string());
     }
     config.max_open = payload.max_connections;
-    config.buffer_size =
-        usize::try_from(payload.buffer_size).map_err(|_| "Invalid bufferSize".to_string())?;
+    config.buffer_size = usize::try_from(payload.buffer_size).map_err(|_| "Invalid bufferSize".to_string())?;
     if config.buffer_size == 0 {
         return Err("bufferSize must be positive".to_string());
     }
@@ -822,8 +742,7 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
     config.resolve = !payload.no_domain;
     config.tfo = payload.tcp_fast_open;
     if payload.custom_ttl {
-        let ttl =
-            u8::try_from(payload.default_ttl).map_err(|_| "Invalid defaultTtl".to_string())?;
+        let ttl = u8::try_from(payload.default_ttl).map_err(|_| "Invalid defaultTtl".to_string())?;
         if ttl == 0 {
             return Err("defaultTtl must be positive when customTtl is enabled".to_string());
         }
@@ -848,8 +767,7 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
     }
 
     if payload.fake_ttl > 0 {
-        group.ttl =
-            Some(u8::try_from(payload.fake_ttl).map_err(|_| "Invalid fakeTtl".to_string())?);
+        group.ttl = Some(u8::try_from(payload.fake_ttl).map_err(|_| "Invalid fakeTtl".to_string())?);
     }
     group.udp_fake_count = payload.udp_fake_count;
     group.drop_sack = payload.drop_sack;
@@ -860,47 +778,27 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
         | (u32::from(payload.domain_mixed_case) * MH_DMIX)
         | (u32::from(payload.host_remove_spaces) * MH_SPACE);
 
-    let offset_flag = if group.proto != 0 || payload.desync_https {
-        OFFSET_SNI
-    } else {
-        OFFSET_HOST
-    };
+    let offset_flag = if group.proto != 0 || payload.desync_https { OFFSET_SNI } else { OFFSET_HOST };
     let part_offset = OffsetExpr {
         pos: i64::from(payload.split_position),
-        flag: if payload.split_at_host {
-            offset_flag
-        } else {
-            0
-        },
+        flag: if payload.split_at_host { offset_flag } else { 0 },
         repeats: 0,
         skip: 0,
     };
     let desync_mode = parse_desync_mode(&payload.desync_method)?;
-    group.parts.push(PartSpec {
-        mode: desync_mode,
-        offset: part_offset,
-    });
+    group.parts.push(PartSpec { mode: desync_mode, offset: part_offset });
 
     if payload.tls_record_split {
         group.tls_records.push(OffsetExpr {
             pos: i64::from(payload.tls_record_split_position),
-            flag: if payload.tls_record_split_at_sni {
-                offset_flag
-            } else {
-                0
-            },
+            flag: if payload.tls_record_split_at_sni { offset_flag } else { 0 },
             repeats: 0,
             skip: 0,
         });
     }
 
     if desync_mode == DesyncMode::Fake {
-        group.fake_offset = Some(OffsetExpr {
-            pos: i64::from(payload.fake_offset),
-            flag: 0,
-            repeats: 0,
-            skip: 0,
-        });
+        group.fake_offset = Some(OffsetExpr { pos: i64::from(payload.fake_offset), flag: 0, repeats: 0, skip: 0 });
         group.fake_sni_list.push(payload.fake_sni);
     }
 
@@ -940,8 +838,7 @@ fn parse_hosts(hosts: Option<&str>) -> Result<Vec<String>, String> {
 }
 
 fn parse_proxy_config_json(json: &str) -> Result<ProxyConfigPayload, String> {
-    serde_json::from_str::<ProxyConfigPayload>(json)
-        .map_err(|err| format!("Invalid proxy config JSON: {err}"))
+    serde_json::from_str::<ProxyConfigPayload>(json).map_err(|err| format!("Invalid proxy config JSON: {err}"))
 }
 
 fn diagnostics_session(env: &mut JNIEnv, handle: jlong) -> Option<std::sync::Arc<MonitorSession>> {
@@ -959,12 +856,7 @@ fn diagnostics_session(env: &mut JNIEnv, handle: jlong) -> Option<std::sync::Arc
     Some(session)
 }
 
-fn start_diagnostics_scan(
-    env: &mut JNIEnv,
-    handle: jlong,
-    request_json: JString,
-    session_id: JString,
-) {
+fn start_diagnostics_scan(env: &mut JNIEnv, handle: jlong, request_json: JString, session_id: JString) {
     let Some(session) = diagnostics_session(env, handle) else {
         return;
     };
@@ -1002,10 +894,7 @@ where
         return std::ptr::null_mut();
     };
     match op(&session) {
-        Ok(Some(value)) => env
-            .new_string(value)
-            .map(|value| value.into_raw())
-            .unwrap_or(std::ptr::null_mut()),
+        Ok(Some(value)) => env.new_string(value).map(jni::objects::JString::into_raw).unwrap_or(std::ptr::null_mut()),
         Ok(None) => std::ptr::null_mut(),
         Err(err) => {
             throw_runtime_exception(env, err);
@@ -1047,10 +936,7 @@ fn poll_proxy_telemetry(env: &mut JNIEnv, handle: jlong) -> jstring {
         }
     };
     match serde_json::to_string(&session.telemetry.snapshot()) {
-        Ok(value) => env
-            .new_string(value)
-            .map(|value| value.into_raw())
-            .unwrap_or(std::ptr::null_mut()),
+        Ok(value) => env.new_string(value).map(jni::objects::JString::into_raw).unwrap_or(std::ptr::null_mut()),
         Err(err) => {
             throw_runtime_exception(env, err.to_string());
             std::ptr::null_mut()
@@ -1063,10 +949,7 @@ fn remove_proxy_session(handle: jlong) -> Result<std::sync::Arc<ProxySession>, &
     SESSIONS.remove(handle).ok_or("Unknown proxy handle")
 }
 
-fn try_mark_proxy_running(
-    state: &mut ProxySessionState,
-    listener_fd: i32,
-) -> Result<(), &'static str> {
+fn try_mark_proxy_running(state: &mut ProxySessionState, listener_fd: i32) -> Result<(), &'static str> {
     match *state {
         ProxySessionState::Idle => {
             *state = ProxySessionState::Running { listener_fd };
@@ -1096,15 +979,124 @@ fn positive_os_error(err: &std::io::Error, fallback: i32) -> i32 {
 }
 
 fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+
+    fn lossy_string(max_len: usize) -> impl Strategy<Value = String> {
+        vec(any::<u8>(), 0..max_len)
+            .prop_map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+    }
+
+    fn proxy_ui_config_strategy() -> impl Strategy<Value = ProxyUiConfig> {
+        (
+            lossy_string(48),
+            -32i32..65_536i32,
+            -16i32..4_096i32,
+            -16i32..65_536i32,
+            -16i32..512i32,
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            prop_oneof![
+                Just("none".to_string()),
+                Just("split".to_string()),
+                Just("disorder".to_string()),
+                Just("fake".to_string()),
+                Just("oob".to_string()),
+                Just("disoob".to_string()),
+                lossy_string(16),
+            ],
+            -64i32..64i32,
+            any::<bool>(),
+            -16i32..512i32,
+            lossy_string(64),
+            any::<u8>(),
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            -64i32..64i32,
+            any::<bool>(),
+            prop_oneof![
+                Just(HOSTS_DISABLE.to_string()),
+                Just(HOSTS_BLACKLIST.to_string()),
+                Just(HOSTS_WHITELIST.to_string()),
+                lossy_string(16),
+            ],
+            proptest::option::of(lossy_string(64)),
+            any::<bool>(),
+            -8i32..16i32,
+            any::<bool>(),
+            -64i32..64i32,
+        )
+            .prop_map(
+                |(
+                    ip,
+                    port,
+                    max_connections,
+                    buffer_size,
+                    default_ttl,
+                    no_domain,
+                    desync_http,
+                    desync_https,
+                    desync_udp,
+                    desync_method,
+                    split_position,
+                    split_at_host,
+                    fake_ttl,
+                    fake_sni,
+                    oob_char,
+                    host_mixed_case,
+                    domain_mixed_case,
+                    host_remove_spaces,
+                    tls_record_split,
+                    tls_record_split_position,
+                    tls_record_split_at_sni,
+                    hosts_mode,
+                    hosts,
+                    tcp_fast_open,
+                    udp_fake_count,
+                    drop_sack,
+                    fake_offset,
+                )| ProxyUiConfig {
+                    ip,
+                    port,
+                    max_connections,
+                    buffer_size,
+                    default_ttl,
+                    custom_ttl: default_ttl > 0,
+                    no_domain,
+                    desync_http,
+                    desync_https,
+                    desync_udp,
+                    desync_method,
+                    split_position,
+                    split_at_host,
+                    fake_ttl,
+                    fake_sni,
+                    oob_char,
+                    host_mixed_case,
+                    domain_mixed_case,
+                    host_remove_spaces,
+                    tls_record_split,
+                    tls_record_split_position,
+                    tls_record_split_at_sni,
+                    hosts_mode,
+                    hosts,
+                    tcp_fast_open,
+                    udp_fake_count,
+                    drop_sack,
+                    fake_offset,
+                },
+            )
+    }
 
     #[test]
     fn parses_ui_config_payload() {
@@ -1159,18 +1151,14 @@ mod tests {
         })
         .expect("command-line config");
 
-        assert_eq!(
-            config.listen.listen_ip,
-            IpAddr::from_str("127.0.0.1").unwrap()
-        );
+        assert_eq!(config.listen.listen_ip, IpAddr::from_str("127.0.0.1").unwrap());
         assert_eq!(config.listen.listen_port, 2080);
     }
 
     #[test]
     fn rejects_non_runnable_command_line_payloads() {
-        let err =
-            runtime_config_from_command_line(vec!["ciadpi".to_string(), "--help".to_string()])
-                .expect_err("help payload should not run");
+        let err = runtime_config_from_command_line(vec!["ciadpi".to_string(), "--help".to_string()])
+            .expect_err("help payload should not run");
 
         assert!(err.contains("runnable config"));
     }
@@ -1254,10 +1242,51 @@ mod tests {
 
     #[test]
     fn proxy_state_rejects_destroy_when_running() {
-        let err = ensure_proxy_destroyable(&ProxySessionState::Running { listener_fd: 9 })
-            .expect_err("running destroy");
+        let err =
+            ensure_proxy_destroyable(&ProxySessionState::Running { listener_fd: 9 }).expect_err("running destroy");
 
         assert_eq!(err, "Cannot destroy a running proxy session");
+    }
+
+    #[test]
+    fn proxy_telemetry_observer_updates_snapshot_and_drains_events() {
+        let state = Arc::new(ProxyTelemetryState::new());
+        let observer = ProxyTelemetryObserver {
+            state: state.clone(),
+        };
+        let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
+        let target = SocketAddr::from(([203, 0, 113, 10], 443));
+
+        observer.on_listener_started(listener, 256, 3);
+        observer.on_client_accepted();
+        observer.on_route_selected(target, 1, Some("example.org"), "connect");
+        observer.on_route_advanced(target, 1, 2, 7, Some("example.org"));
+        observer.on_client_error(&std::io::Error::other("boom"));
+        observer.on_client_finished();
+
+        let first = state.snapshot();
+        assert_eq!(first.state, "running");
+        assert_eq!(first.health, "degraded");
+        assert_eq!(first.active_sessions, 0);
+        assert_eq!(first.total_sessions, 1);
+        assert_eq!(first.total_errors, 1);
+        assert_eq!(first.route_changes, 1);
+        assert_eq!(first.last_route_group, Some(2));
+        assert_eq!(first.listener_address.as_deref(), Some("127.0.0.1:1080"));
+        assert_eq!(first.last_target.as_deref(), Some("203.0.113.10:443"));
+        assert_eq!(first.last_host.as_deref(), Some("example.org"));
+        assert_eq!(first.last_error.as_deref(), Some("boom"));
+        assert_eq!(first.native_events.len(), 4);
+
+        let second = state.snapshot();
+        assert!(second.native_events.is_empty());
+        assert_eq!(second.total_sessions, 1);
+
+        observer.on_listener_stopped();
+        let stopped = state.snapshot();
+        assert_eq!(stopped.state, "idle");
+        assert_eq!(stopped.active_sessions, 0);
+        assert_eq!(stopped.native_events.len(), 1);
     }
 
     #[test]
@@ -1269,10 +1298,7 @@ mod tests {
         }) as jlong;
 
         let removed = remove_proxy_session(handle).expect("removed session");
-        assert!(matches!(
-            *removed.state.lock().expect("state lock"),
-            ProxySessionState::Idle,
-        ));
+        assert!(matches!(*removed.state.lock().expect("state lock"), ProxySessionState::Idle,));
         assert_eq!(
             match lookup_proxy_session(handle) {
                 Ok(_) => panic!("expected session removal"),
@@ -1280,5 +1306,101 @@ mod tests {
             },
             "Unknown proxy handle",
         );
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn fuzz_proxy_json_parser_never_panics(input in lossy_string(512)) {
+            let _ = parse_proxy_config_json(&input);
+        }
+
+        #[test]
+        fn fuzz_command_line_parser_never_panics(args in vec(lossy_string(32), 0..12)) {
+            let _ = runtime_config_from_command_line(args);
+        }
+
+        #[test]
+        fn fuzz_ui_payload_mapping_never_panics(payload in proxy_ui_config_strategy()) {
+            let _ = runtime_config_from_ui(payload);
+        }
+
+        #[test]
+        fn valid_ui_payloads_preserve_core_fields(
+            ip in prop_oneof![
+                Just("127.0.0.1".to_string()),
+                Just("0.0.0.0".to_string()),
+                Just("::1".to_string()),
+            ],
+            port in 1i32..65_536i32,
+            max_connections in 1i32..4_096i32,
+            buffer_size in 1i32..65_536i32,
+            split_position in -64i32..64i32,
+            split_at_host in any::<bool>(),
+            tls_record_split in any::<bool>(),
+            tls_record_split_position in -64i32..64i32,
+            tls_record_split_at_sni in any::<bool>(),
+            tcp_fast_open in any::<bool>(),
+            drop_sack in any::<bool>(),
+            fake_offset in -64i32..64i32,
+            udp_fake_count in 0i32..8i32,
+            desync_method in prop_oneof![
+                Just("none".to_string()),
+                Just("split".to_string()),
+                Just("disorder".to_string()),
+                Just("fake".to_string()),
+                Just("oob".to_string()),
+                Just("disoob".to_string()),
+            ],
+            hosts_mode in prop_oneof![
+                Just(HOSTS_DISABLE.to_string()),
+                Just(HOSTS_BLACKLIST.to_string()),
+                Just(HOSTS_WHITELIST.to_string()),
+            ],
+        ) {
+            let hosts = match hosts_mode.as_str() {
+                HOSTS_DISABLE => None,
+                _ => Some("example.org".to_string()),
+            };
+
+            let config = runtime_config_from_ui(ProxyUiConfig {
+                ip: ip.clone(),
+                port,
+                max_connections,
+                buffer_size,
+                default_ttl: 64,
+                custom_ttl: true,
+                no_domain: false,
+                desync_http: true,
+                desync_https: true,
+                desync_udp: false,
+                desync_method,
+                split_position,
+                split_at_host,
+                fake_ttl: 8,
+                fake_sni: "www.iana.org".to_string(),
+                oob_char: b'a',
+                host_mixed_case: false,
+                domain_mixed_case: false,
+                host_remove_spaces: false,
+                tls_record_split,
+                tls_record_split_position,
+                tls_record_split_at_sni,
+                hosts_mode,
+                hosts,
+                tcp_fast_open,
+                udp_fake_count,
+                drop_sack,
+                fake_offset,
+            }).expect("valid payload");
+
+            prop_assert_eq!(config.listen.listen_ip, IpAddr::from_str(&ip).expect("valid ip"));
+            prop_assert_eq!(config.listen.listen_port, u16::try_from(port).expect("valid port"));
+            prop_assert_eq!(config.max_open, max_connections);
+            prop_assert_eq!(config.buffer_size, usize::try_from(buffer_size).expect("valid buffer size"));
+            prop_assert_eq!(config.tfo, tcp_fast_open);
+            prop_assert!(!config.groups.is_empty());
+        }
     }
 }

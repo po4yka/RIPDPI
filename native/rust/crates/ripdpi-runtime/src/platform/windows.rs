@@ -26,25 +26,15 @@ static SERVICE_EXIT_CODE: AtomicI32 = AtomicI32::new(1);
 
 define_windows_service!(ffi_service_main, service_main);
 
-pub fn maybe_run_as_service(
-    args: &[String],
-    runner: fn(Vec<String>) -> i32,
-) -> io::Result<Option<i32>> {
+pub fn maybe_run_as_service(args: &[String], runner: fn(Vec<String>) -> i32) -> io::Result<Option<i32>> {
     if SERVICE_ARGS.set(args.to_vec()).is_err() || SERVICE_RUNNER.set(runner).is_err() {
-        return Err(io::Error::new(
-            io::ErrorKind::AlreadyExists,
-            "windows service dispatcher already initialized",
-        ));
+        return Err(io::Error::new(io::ErrorKind::AlreadyExists, "windows service dispatcher already initialized"));
     }
     SERVICE_EXIT_CODE.store(1, Ordering::Relaxed);
 
     match service_dispatcher::start(SERVICE_NAME, ffi_service_main) {
         Ok(()) => Ok(Some(SERVICE_EXIT_CODE.load(Ordering::Relaxed))),
-        Err(err)
-            if service_dispatch_error(&err) == Some(ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) =>
-        {
-            Ok(None)
-        }
+        Err(err) if service_dispatch_error(&err) == Some(ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) => Ok(None),
         Err(err) => Err(io::Error::other(err.to_string())),
     }
 }
@@ -56,9 +46,7 @@ pub fn service_main(_arguments: Vec<OsString>) {
 fn run_service() -> i32 {
     let _ = set_service_working_directory();
 
-    let event_handler = move |control_event| -> ServiceControlHandlerResult {
-        service_control_handler(control_event)
-    };
+    let event_handler = move |control_event| -> ServiceControlHandlerResult { service_control_handler(control_event) };
 
     let Ok(status_handle) = service_control_handler::register(SERVICE_NAME, event_handler) else {
         return 1;
@@ -139,10 +127,7 @@ fn service_dispatch_error(err: &windows_service::Error) -> Option<i32> {
 }
 
 pub fn enable_tcp_fastopen_connect() -> io::Result<()> {
-    Err(io::Error::new(
-        io::ErrorKind::Unsupported,
-        "tcp fast open connect is linux-only",
-    ))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "tcp fast open connect is linux-only"))
 }
 
 pub fn set_tcp_md5sig(_stream: &TcpStream, _key_len: u16) -> io::Result<()> {
@@ -154,10 +139,7 @@ pub fn protect_socket<T>(_socket: &T, _path: &str) -> io::Result<()> {
 }
 
 pub fn original_dst(_stream: &TcpStream) -> io::Result<SocketAddr> {
-    Err(io::Error::new(
-        io::ErrorKind::Unsupported,
-        "transparent proxy mode is linux-only",
-    ))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "transparent proxy mode is linux-only"))
 }
 
 pub fn attach_drop_sack(_stream: &TcpStream) -> io::Result<()> {
@@ -168,28 +150,11 @@ pub fn detach_drop_sack(_stream: &TcpStream) -> io::Result<()> {
     Ok(())
 }
 
-pub fn send_fake_tcp(
-    stream: &TcpStream,
-    fake_prefix: &[u8],
-    ttl: u8,
-    md5sig: bool,
-    default_ttl: u8,
-) -> io::Result<()> {
-    super::fallback::send_fake_tcp_best_effort(
-        stream,
-        fake_prefix,
-        ttl,
-        md5sig,
-        default_ttl,
-        set_tcp_md5sig,
-    )
+pub fn send_fake_tcp(stream: &TcpStream, fake_prefix: &[u8], ttl: u8, md5sig: bool, default_ttl: u8) -> io::Result<()> {
+    super::fallback::send_fake_tcp_best_effort(stream, fake_prefix, ttl, md5sig, default_ttl, set_tcp_md5sig)
 }
 
-pub fn wait_tcp_stage(
-    _stream: &TcpStream,
-    _wait_send: bool,
-    _await_interval: Duration,
-) -> io::Result<()> {
+pub fn wait_tcp_stage(_stream: &TcpStream, _wait_send: bool, _await_interval: Duration) -> io::Result<()> {
     Ok(())
 }
 
@@ -218,55 +183,35 @@ mod tests {
         let status = running_status();
         assert_eq!(status.service_type, SERVICE_TYPE);
         assert_eq!(status.current_state, ServiceState::Running);
-        assert!(status
-            .controls_accepted
-            .contains(ServiceControlAccept::STOP));
-        assert!(status
-            .controls_accepted
-            .contains(ServiceControlAccept::SHUTDOWN));
+        assert!(status.controls_accepted.contains(ServiceControlAccept::STOP));
+        assert!(status.controls_accepted.contains(ServiceControlAccept::SHUTDOWN));
     }
 
     #[test]
     fn stop_and_shutdown_controls_request_shutdown() {
         process::reset_shutdown_for_test();
-        assert!(matches!(
-            service_control_handler(ServiceControl::Stop),
-            ServiceControlHandlerResult::NoError
-        ));
+        assert!(matches!(service_control_handler(ServiceControl::Stop), ServiceControlHandlerResult::NoError));
         assert!(process::shutdown_requested());
 
         process::reset_shutdown_for_test();
-        assert!(matches!(
-            service_control_handler(ServiceControl::Shutdown),
-            ServiceControlHandlerResult::NoError
-        ));
+        assert!(matches!(service_control_handler(ServiceControl::Shutdown), ServiceControlHandlerResult::NoError));
         assert!(process::shutdown_requested());
     }
 
     #[test]
     fn interrogate_control_keeps_service_running() {
         process::reset_shutdown_for_test();
-        assert!(matches!(
-            service_control_handler(ServiceControl::Interrogate),
-            ServiceControlHandlerResult::NoError
-        ));
+        assert!(matches!(service_control_handler(ServiceControl::Interrogate), ServiceControlHandlerResult::NoError));
         assert!(!process::shutdown_requested());
     }
 
     #[test]
     fn saved_process_args_are_reused_for_service_runner() {
-        let expected = vec![
-            "--ip".to_string(),
-            "127.0.0.1".to_string(),
-            "--fake".to_string(),
-        ];
+        let expected = vec!["--ip".to_string(), "127.0.0.1".to_string(), "--fake".to_string()];
         *CAPTURED_ARGS.lock().expect("capture args mutex poisoned") = None;
 
         let exit_code = run_with_saved_args(capture_runner, &expected);
-        let captured = CAPTURED_ARGS
-            .lock()
-            .expect("capture args mutex poisoned")
-            .clone();
+        let captured = CAPTURED_ARGS.lock().expect("capture args mutex poisoned").clone();
 
         assert_eq!(exit_code, 23);
         assert_eq!(captured.as_deref(), Some(expected.as_slice()));
@@ -274,21 +219,14 @@ mod tests {
 
     #[test]
     fn service_working_directory_uses_executable_parent() {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time before unix epoch")
-            .as_nanos();
-        let root = env::temp_dir().join(format!(
-            "ciadpi-service-test-{}-{unique}",
-            std_process::id()
-        ));
+        let unique = SystemTime::now().duration_since(UNIX_EPOCH).expect("system time before unix epoch").as_nanos();
+        let root = env::temp_dir().join(format!("ciadpi-service-test-{}-{unique}", std_process::id()));
         let bin_dir = root.join("bin");
         fs::create_dir_all(&bin_dir).expect("create temporary bin dir");
         let exe = bin_dir.join("ciadpi.exe");
 
         let original_dir = env::current_dir().expect("read current dir");
-        set_service_working_directory_for_executable(&exe)
-            .expect("set working directory from executable");
+        set_service_working_directory_for_executable(&exe).expect("set working directory from executable");
         let current_dir = env::current_dir().expect("read updated current dir");
         env::set_current_dir(&original_dir).expect("restore current dir");
         fs::remove_dir_all(&root).expect("remove temporary test dir");

@@ -1,14 +1,11 @@
 use ciadpi_packets::{
-    change_tls_sni_seeded_like_c, is_http, is_http_redirect, is_tls_client_hello,
-    is_tls_server_hello, mod_http_like_c, parse_http, parse_tls, part_tls_like_c,
-    randomize_tls_seeded_like_c, tls_session_id_mismatch, MH_HMIX, MH_SPACE,
+    change_tls_sni_seeded_like_c, is_http, is_http_redirect, is_tls_client_hello, is_tls_server_hello, mod_http_like_c,
+    parse_http, parse_tls, part_tls_like_c, randomize_tls_seeded_like_c, tls_session_id_mismatch, MH_HMIX, MH_SPACE,
 };
 
 mod packet_test_support;
 
-use packet_test_support::{
-    exercise_packets_input, read_corpus, EXPECTED_HOST, GROWN_HOST, SHRUNK_HOST,
-};
+use packet_test_support::{exercise_packets_input, read_corpus, EXPECTED_HOST, GROWN_HOST, SHRUNK_HOST};
 
 #[test]
 fn http_request_regression_matches_c_lane() {
@@ -53,8 +50,7 @@ fn tls_request_regression_matches_c_lane() {
     let randomized = randomize_tls_seeded_like_c(&data, 1);
     assert_eq!(randomized.rc, 0);
 
-    let reparsed =
-        parse_tls(&randomized.bytes).expect("parse_tls should accept the randomized payload");
+    let reparsed = parse_tls(&randomized.bytes).expect("parse_tls should accept the randomized payload");
     assert_eq!(reparsed, EXPECTED_HOST);
 }
 
@@ -74,8 +70,7 @@ fn tls_sni_change_with_ech_expand_matches_c_lane() {
 
     assert_eq!(mutated.rc, 0);
 
-    let reparsed =
-        parse_tls(&mutated.bytes).expect("parse_tls should accept the grown ECH payload");
+    let reparsed = parse_tls(&mutated.bytes).expect("parse_tls should accept the grown ECH payload");
     assert_eq!(reparsed, GROWN_HOST);
 }
 
@@ -86,7 +81,6 @@ fn tls_sni_change_with_ech_shrink_matches_c_lane() {
 
     assert_eq!(mutated.rc, 0);
 
-    let reparsed =
-        parse_tls(&mutated.bytes).expect("parse_tls should accept the shrunken ECH payload");
+    let reparsed = parse_tls(&mutated.bytes).expect("parse_tls should accept the shrunken ECH payload");
     assert_eq!(reparsed, SHRUNK_HOST);
 }

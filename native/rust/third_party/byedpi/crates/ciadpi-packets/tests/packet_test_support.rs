@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
 use ciadpi_packets::{
-    change_tls_sni_seeded_like_c, is_http, is_http_redirect, is_tls_client_hello,
-    is_tls_server_hello, mod_http_like_c, parse_http, parse_tls, part_tls_like_c,
-    randomize_tls_seeded_like_c, tls_session_id_mismatch, OracleRng, MH_HMIX, MH_SPACE,
+    change_tls_sni_seeded_like_c, is_http, is_http_redirect, is_tls_client_hello, is_tls_server_hello, mod_http_like_c,
+    parse_http, parse_tls, part_tls_like_c, randomize_tls_seeded_like_c, tls_session_id_mismatch, OracleRng, MH_HMIX,
+    MH_SPACE,
 };
 
 #[allow(dead_code)]
@@ -28,19 +28,10 @@ pub fn read_corpus(name: &str) -> Vec<u8> {
 pub fn corpus_cases() -> [(&'static str, Vec<u8>); 5] {
     [
         ("http_request.bin", read_corpus("http_request.bin")),
-        (
-            "http_redirect_response.bin",
-            read_corpus("http_redirect_response.bin"),
-        ),
+        ("http_redirect_response.bin", read_corpus("http_redirect_response.bin")),
         ("tls_client_hello.bin", read_corpus("tls_client_hello.bin")),
-        (
-            "tls_client_hello_ech.bin",
-            read_corpus("tls_client_hello_ech.bin"),
-        ),
-        (
-            "tls_server_hello_like.bin",
-            read_corpus("tls_server_hello_like.bin"),
-        ),
+        ("tls_client_hello_ech.bin", read_corpus("tls_client_hello_ech.bin")),
+        ("tls_server_hello_like.bin", read_corpus("tls_server_hello_like.bin")),
     ]
 }
 
