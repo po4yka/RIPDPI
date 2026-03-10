@@ -13,7 +13,6 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
-import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.Binds
@@ -69,7 +68,6 @@ class DefaultDiagnosticsManager
         private val historyRepository: DiagnosticsHistoryRepository,
         private val networkMetadataProvider: NetworkMetadataProvider,
         private val networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
-        private val trafficStatsReader: TrafficStatsReader,
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
         private val serviceStateStore: ServiceStateStore,
     ) : DiagnosticsManager {
@@ -304,7 +302,8 @@ class DefaultDiagnosticsManager
                 val settings = appSettingsRepository.snapshot()
                 if (settings.diagnosticsMonitorEnabled && serviceStateStore.status.value.first.name == "Running") {
                     val snapshot = networkMetadataProvider.captureSnapshot()
-                    val tunnelStats = serviceStateStore.telemetry.value.tunnelStats
+                    val serviceTelemetry = serviceStateStore.telemetry.value
+                    val tunnelStats = serviceTelemetry.tunnelStats
                     historyRepository.upsertSnapshot(
                         NetworkSnapshotEntity(
                             id = UUID.randomUUID().toString(),
@@ -329,16 +328,7 @@ class DefaultDiagnosticsManager
                             createdAt = snapshot.capturedAt,
                         ),
                     )
-                    historyRepository.insertNativeSessionEvent(
-                        NativeSessionEventEntity(
-                            id = UUID.randomUUID().toString(),
-                            sessionId = null,
-                            source = "diagnostics-monitor",
-                            level = "info",
-                            message = "trafficBytes=${trafficStatsReader.currentTransferredBytes()}",
-                            createdAt = snapshot.capturedAt,
-                        ),
-                    )
+                    persistServiceNativeEvents(serviceTelemetry)
                     historyRepository.trimOldData(settings.diagnosticsHistoryRetentionDays)
                 }
                 delay(settingsDelaySeconds(settings = appSettingsRepository.snapshot()) * 1_000L)
@@ -455,6 +445,22 @@ class DefaultDiagnosticsManager
                 ),
             )
         }
+    }
+
+    private suspend fun persistServiceNativeEvents(serviceTelemetry: com.poyka.ripdpi.services.ServiceTelemetrySnapshot) {
+        (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
+            .forEach { event ->
+                historyRepository.insertNativeSessionEvent(
+                    NativeSessionEventEntity(
+                        id = UUID.randomUUID().toString(),
+                        sessionId = null,
+                        source = event.source,
+                        level = event.level,
+                        message = event.message,
+                        createdAt = event.createdAt,
+                    ),
+                )
+            }
     }
 }
 

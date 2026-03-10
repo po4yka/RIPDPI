@@ -5,11 +5,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 
 interface RipDpiProxyRuntime {
     suspend fun startProxy(preferences: RipDpiProxyPreferences): Int
 
     suspend fun stopProxy()
+
+    suspend fun pollTelemetry(): NativeRuntimeSnapshot
 }
 
 interface RipDpiProxyBindings {
@@ -18,6 +21,8 @@ interface RipDpiProxyBindings {
     fun start(handle: Long): Int
 
     fun stop(handle: Long)
+
+    fun pollTelemetry(handle: Long): String?
 
     fun destroy(handle: Long)
 }
@@ -39,6 +44,8 @@ class RipDpiProxyNativeBindings
             jniStop(handle)
         }
 
+        override fun pollTelemetry(handle: Long): String? = jniPollTelemetry(handle)
+
         override fun destroy(handle: Long) {
             jniDestroy(handle)
         }
@@ -49,12 +56,15 @@ class RipDpiProxyNativeBindings
 
         private external fun jniStop(handle: Long)
 
+        private external fun jniPollTelemetry(handle: Long): String?
+
         private external fun jniDestroy(handle: Long)
     }
 
 class RipDpiProxy(
     private val nativeBindings: RipDpiProxyBindings,
 ) : RipDpiProxyRuntime {
+    private val json = Json { ignoreUnknownKeys = true }
     private val mutex = Mutex()
     private var handle = 0L
 
@@ -96,5 +106,20 @@ class RipDpiProxy(
 
             nativeBindings.stop(handle)
         }
+    }
+
+    override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
+        val currentHandle =
+            mutex.withLock {
+                handle
+            }
+        if (currentHandle == 0L) {
+            return NativeRuntimeSnapshot.idle(source = "proxy")
+        }
+        val payload = withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(currentHandle) }
+        return payload
+            ?.takeIf { it.isNotBlank() }
+            ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+            ?: NativeRuntimeSnapshot.idle(source = "proxy")
     }
 }

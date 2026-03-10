@@ -50,6 +50,8 @@ interface Tun2SocksBridge {
     suspend fun stop()
 
     suspend fun stats(): TunnelStats
+
+    suspend fun telemetry(): NativeRuntimeSnapshot
 }
 
 class NativeTun2SocksBridge
@@ -71,6 +73,8 @@ class NativeTun2SocksBridge
         }
 
         override suspend fun stats(): TunnelStats = tunnel.stats()
+
+        override suspend fun telemetry(): NativeRuntimeSnapshot = tunnel.telemetry()
     }
 
 interface Tun2SocksBridgeFactory {

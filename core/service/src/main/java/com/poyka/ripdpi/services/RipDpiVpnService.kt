@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.lifecycle.lifecycleScope
+import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
@@ -115,6 +116,7 @@ class RipDpiVpnService : LifecycleVpnService() {
             return
         }
 
+        startForeground()
         try {
             mutex.withLock {
                 startProxy()
@@ -122,7 +124,6 @@ class RipDpiVpnService : LifecycleVpnService() {
             }
             updateStatus(ServiceStatus.Connected)
             startTelemetryUpdates()
-            startForeground()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start VPN\n${e.asLog()}" }
             updateStatus(ServiceStatus.Failed)
@@ -184,10 +185,12 @@ class RipDpiVpnService : LifecycleVpnService() {
                     if (code != 0) {
                         logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
                         updateStatus(ServiceStatus.Failed)
+                        if (!stopping) {
+                            stop()
+                        }
                     } else {
                         if (!stopping) {
                             stop()
-                            updateStatus(ServiceStatus.Disconnected)
                         }
                     }
                 }
@@ -281,8 +284,12 @@ class RipDpiVpnService : LifecycleVpnService() {
                     AppStatus.Running
                 }
 
-                ServiceStatus.Disconnected,
                 ServiceStatus.Failed,
+                -> {
+                    AppStatus.Halted
+                }
+
+                ServiceStatus.Disconnected,
                 -> {
                     proxyJob = null
                     ripDpiProxy = null
@@ -297,6 +304,8 @@ class RipDpiVpnService : LifecycleVpnService() {
                 mode = Mode.VPN,
                 status = appStatus,
                 tunnelStats = com.poyka.ripdpi.core.TunnelStats(),
+                proxyTelemetry = NativeRuntimeSnapshot.idle(source = "proxy"),
+                tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -311,13 +320,25 @@ class RipDpiVpnService : LifecycleVpnService() {
         telemetryJob =
             lifecycleScope.launch {
                 while (status == ServiceStatus.Connected) {
-                    val stats = runCatching { tun2SocksBridge?.stats() }.getOrNull() ?: com.poyka.ripdpi.core.TunnelStats()
+                    val proxyTelemetry =
+                        runCatching { ripDpiProxy?.pollTelemetry() }.getOrNull()
+                            ?: NativeRuntimeSnapshot.idle(source = "proxy")
+                    val tunnelTelemetry =
+                        runCatching { tun2SocksBridge?.telemetry() }.getOrNull()
+                            ?: NativeRuntimeSnapshot.idle(source = "tunnel")
                     serviceStateStore.updateTelemetry(
                         ServiceTelemetrySnapshot(
                             mode = Mode.VPN,
                             status = AppStatus.Running,
-                            tunnelStats = stats,
-                            updatedAt = System.currentTimeMillis(),
+                            tunnelStats = tunnelTelemetry.tunnelStats,
+                            proxyTelemetry = proxyTelemetry,
+                            tunnelTelemetry = tunnelTelemetry,
+                            updatedAt =
+                                maxOf(
+                                    System.currentTimeMillis(),
+                                    proxyTelemetry.capturedAt,
+                                    tunnelTelemetry.capturedAt,
+                                ),
                         ),
                     )
                     delay(1_000)
