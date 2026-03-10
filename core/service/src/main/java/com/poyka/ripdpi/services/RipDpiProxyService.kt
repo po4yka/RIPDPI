@@ -7,8 +7,8 @@ import android.os.Build
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
-import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -42,7 +42,7 @@ class RipDpiProxyService : LifecycleService() {
     @Inject
     lateinit var serviceStateStore: ServiceStateStore
 
-    private var proxy: RipDpiProxy? = null
+    private var proxy: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
     private var telemetryJob: Job? = null
     private val mutex = Mutex()

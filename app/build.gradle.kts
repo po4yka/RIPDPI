@@ -14,7 +14,7 @@ extensions.configure<ApplicationExtension> {
         versionCode = 1
         versionName = "0.0.1"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.poyka.ripdpi.HiltTestRunner"
     }
 
     signingConfigs {
@@ -81,6 +81,9 @@ dependencies {
     implementation(libs.logcat)
 
     testImplementation(libs.bundles.unit.test)
+    androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.test.espresso.core)
 }

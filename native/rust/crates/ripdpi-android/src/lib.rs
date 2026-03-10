@@ -84,12 +84,7 @@ pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void)
     JNI_VERSION
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreate(
-    mut env: JNIEnv,
-    _thiz: JObject,
-    config_json: JString,
-) -> jlong {
+fn proxy_create_entry(mut env: JNIEnv, config_json: JString) -> jlong {
     init_android_logging("ripdpi-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         create_session(&mut env, config_json)
@@ -100,12 +95,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreate(
     })
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStart(
-    mut env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) -> jint {
+fn proxy_start_entry(mut env: JNIEnv, handle: jlong) -> jint {
     init_android_logging("ripdpi-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         start_session(&mut env, handle)
@@ -116,12 +106,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStart(
     })
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStop(
-    mut env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) {
+fn proxy_stop_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("ripdpi-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         stop_session(&mut env, handle)
@@ -129,17 +114,84 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStop(
     .map_err(|_| throw_runtime_exception(&mut env, "Proxy session stop panicked"));
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniDestroy(
-    mut env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) {
+fn proxy_destroy_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("ripdpi-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         destroy_session(&mut env, handle)
     }))
     .map_err(|_| throw_runtime_exception(&mut env, "Proxy session destroy panicked"));
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreate(
+    env: JNIEnv,
+    _thiz: JObject,
+    config_json: JString,
+) -> jlong {
+    proxy_create_entry(env, config_json)
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate(
+    env: JNIEnv,
+    _thiz: JObject,
+    config_json: JString,
+) -> jlong {
+    proxy_create_entry(env, config_json)
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStart(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) -> jint {
+    proxy_start_entry(env, handle)
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) -> jint {
+    proxy_start_entry(env, handle)
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStop(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    proxy_stop_entry(env, handle);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    proxy_stop_entry(env, handle);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniDestroy(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    proxy_destroy_entry(env, handle);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    proxy_destroy_entry(env, handle);
 }
 
 #[unsafe(no_mangle)]
@@ -226,7 +278,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniPollPass
 ) -> jstring {
     init_android_logging("ripdpi-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        poll_diagnostics_string(&mut env, handle, |session| session.poll_passive_events_json())
+        poll_diagnostics_string(&mut env, handle, |session| {
+            session.poll_passive_events_json()
+        })
     }))
     .unwrap_or_else(|_| {
         throw_runtime_exception(&mut env, "Diagnostics passive polling panicked");
@@ -256,10 +310,10 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
         }
     };
 
-    let payload = match serde_json::from_str::<ProxyConfigPayload>(&json) {
+    let payload = match parse_proxy_config_json(&json) {
         Ok(payload) => payload,
         Err(err) => {
-            throw_illegal_argument(env, format!("Invalid proxy config JSON: {err}"));
+            throw_illegal_argument(env, err);
             return 0;
         }
     };
@@ -284,16 +338,12 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
 }
 
 fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
-    let handle = match to_handle(handle) {
-        Some(handle) => handle,
-        None => {
-            throw_illegal_argument(env, "Invalid proxy handle");
+    let session = match lookup_proxy_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
             return libc::EINVAL;
         }
-    };
-    let Some(session) = SESSIONS.get(handle) else {
-        throw_illegal_argument(env, "Unknown proxy handle");
-        return libc::EINVAL;
     };
 
     let config = session.config.clone();
@@ -308,14 +358,9 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
 
     {
         let mut state = session.state.lock().expect("proxy session poisoned");
-        match *state {
-            ProxySessionState::Idle => {
-                *state = ProxySessionState::Running { listener_fd };
-            }
-            ProxySessionState::Running { .. } => {
-                throw_illegal_state(env, "Proxy session is already running");
-                return libc::EINVAL;
-            }
+        if let Err(message) = try_mark_proxy_running(&mut state, listener_fd) {
+            throw_illegal_state(env, message);
+            return libc::EINVAL;
         }
     }
 
@@ -332,26 +377,22 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
 }
 
 fn stop_session(env: &mut JNIEnv, handle: jlong) {
-    let handle = match to_handle(handle) {
-        Some(handle) => handle,
-        None => {
-            throw_illegal_argument(env, "Invalid proxy handle");
+    let session = match lookup_proxy_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
             return;
         }
-    };
-    let Some(session) = SESSIONS.get(handle) else {
-        throw_illegal_argument(env, "Unknown proxy handle");
-        return;
     };
 
     let listener_fd = {
         let state = session.state.lock().expect("proxy session poisoned");
-        match *state {
-            ProxySessionState::Idle => {
-                throw_illegal_state(env, "Proxy session is not running");
+        match listener_fd_for_proxy_stop(&state) {
+            Ok(listener_fd) => listener_fd,
+            Err(message) => {
+                throw_illegal_state(env, message);
                 return;
             }
-            ProxySessionState::Running { listener_fd } => listener_fd,
         }
     };
 
@@ -369,24 +410,20 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
 }
 
 fn destroy_session(env: &mut JNIEnv, handle: jlong) {
-    let handle = match to_handle(handle) {
-        Some(handle) => handle,
-        None => {
-            throw_illegal_argument(env, "Invalid proxy handle");
+    let session = match lookup_proxy_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
             return;
         }
     };
-    let Some(session) = SESSIONS.get(handle) else {
-        throw_illegal_argument(env, "Unknown proxy handle");
-        return;
-    };
     let state = session.state.lock().expect("proxy session poisoned");
-    if matches!(*state, ProxySessionState::Running { .. }) {
-        throw_illegal_state(env, "Cannot destroy a running proxy session");
+    if let Err(message) = ensure_proxy_destroyable(&state) {
+        throw_illegal_state(env, message);
         return;
     }
     drop(state);
-    let _ = SESSIONS.remove(handle);
+    let _ = remove_proxy_session(handle);
 }
 
 fn runtime_config_from_payload(payload: ProxyConfigPayload) -> Result<RuntimeConfig, String> {
@@ -551,6 +588,11 @@ fn parse_hosts(hosts: Option<&str>) -> Result<Vec<String>, String> {
     ciadpi_config::parse_hosts_spec(hosts).map_err(|_| "Invalid hosts list".to_string())
 }
 
+fn parse_proxy_config_json(json: &str) -> Result<ProxyConfigPayload, String> {
+    serde_json::from_str::<ProxyConfigPayload>(json)
+        .map_err(|err| format!("Invalid proxy config JSON: {err}"))
+}
+
 fn diagnostics_session(env: &mut JNIEnv, handle: jlong) -> Option<std::sync::Arc<MonitorSession>> {
     let handle = match to_handle(handle) {
         Some(handle) => handle,
@@ -601,11 +643,7 @@ fn start_diagnostics_scan(
     }
 }
 
-fn poll_diagnostics_string<F>(
-    env: &mut JNIEnv,
-    handle: jlong,
-    op: F,
-) -> jstring
+fn poll_diagnostics_string<F>(env: &mut JNIEnv, handle: jlong, op: F) -> jstring
 where
     F: FnOnce(&MonitorSession) -> Result<Option<String>, String>,
 {
@@ -642,6 +680,44 @@ fn destroy_diagnostics_session(env: &mut JNIEnv, handle: jlong) {
 
 fn to_handle(value: jlong) -> Option<u64> {
     u64::try_from(value).ok().filter(|handle| *handle != 0)
+}
+
+fn lookup_proxy_session(handle: jlong) -> Result<std::sync::Arc<ProxySession>, &'static str> {
+    let handle = to_handle(handle).ok_or("Invalid proxy handle")?;
+    SESSIONS.get(handle).ok_or("Unknown proxy handle")
+}
+
+fn remove_proxy_session(handle: jlong) -> Result<std::sync::Arc<ProxySession>, &'static str> {
+    let handle = to_handle(handle).ok_or("Invalid proxy handle")?;
+    SESSIONS.remove(handle).ok_or("Unknown proxy handle")
+}
+
+fn try_mark_proxy_running(
+    state: &mut ProxySessionState,
+    listener_fd: i32,
+) -> Result<(), &'static str> {
+    match *state {
+        ProxySessionState::Idle => {
+            *state = ProxySessionState::Running { listener_fd };
+            Ok(())
+        }
+        ProxySessionState::Running { .. } => Err("Proxy session is already running"),
+    }
+}
+
+fn listener_fd_for_proxy_stop(state: &ProxySessionState) -> Result<i32, &'static str> {
+    match *state {
+        ProxySessionState::Idle => Err("Proxy session is not running"),
+        ProxySessionState::Running { listener_fd } => Ok(listener_fd),
+    }
+}
+
+fn ensure_proxy_destroyable(state: &ProxySessionState) -> Result<(), &'static str> {
+    if matches!(*state, ProxySessionState::Running { .. }) {
+        Err("Cannot destroy a running proxy session")
+    } else {
+        Ok(())
+    }
 }
 
 fn positive_os_error(err: &std::io::Error, fallback: i32) -> i32 {
@@ -691,8 +767,85 @@ mod tests {
     }
 
     #[test]
+    fn parses_command_line_payloads_for_runtime_config() {
+        let config = runtime_config_from_payload(ProxyConfigPayload::CommandLine {
+            args: vec![
+                "ciadpi".to_string(),
+                "--ip".to_string(),
+                "127.0.0.1".to_string(),
+                "--port".to_string(),
+                "2080".to_string(),
+                "--split".to_string(),
+                "1+s".to_string(),
+            ],
+        })
+        .expect("command-line config");
+
+        assert_eq!(
+            config.listen.listen_ip,
+            IpAddr::from_str("127.0.0.1").unwrap()
+        );
+        assert_eq!(config.listen.listen_port, 2080);
+    }
+
+    #[test]
+    fn rejects_invalid_proxy_json_payload() {
+        let err = parse_proxy_config_json("{").expect_err("invalid json");
+
+        assert!(err.contains("Invalid proxy config JSON"));
+    }
+
+    #[test]
     fn rejects_invalid_handle() {
         assert!(to_handle(0).is_none());
         assert!(to_handle(-1).is_none());
+    }
+
+    #[test]
+    fn rejects_unknown_proxy_handle_lookup() {
+        let err = match lookup_proxy_session(99) {
+            Ok(_) => panic!("expected unknown handle error"),
+            Err(err) => err,
+        };
+
+        assert_eq!(err, "Unknown proxy handle");
+    }
+
+    #[test]
+    fn proxy_state_rejects_duplicate_start() {
+        let mut state = ProxySessionState::Idle;
+
+        try_mark_proxy_running(&mut state, 7).expect("first start");
+        let err = try_mark_proxy_running(&mut state, 8).expect_err("duplicate start");
+
+        assert_eq!(err, "Proxy session is already running");
+    }
+
+    #[test]
+    fn proxy_state_rejects_stop_when_idle() {
+        let err = listener_fd_for_proxy_stop(&ProxySessionState::Idle).expect_err("idle stop");
+
+        assert_eq!(err, "Proxy session is not running");
+    }
+
+    #[test]
+    fn destroy_removes_idle_proxy_session() {
+        let handle = SESSIONS.insert(ProxySession {
+            config: RuntimeConfig::default(),
+            state: Mutex::new(ProxySessionState::Idle),
+        }) as jlong;
+
+        let removed = remove_proxy_session(handle).expect("removed session");
+        assert!(matches!(
+            *removed.state.lock().expect("state lock"),
+            ProxySessionState::Idle,
+        ));
+        assert_eq!(
+            match lookup_proxy_session(handle) {
+                Ok(_) => panic!("expected session removal"),
+                Err(err) => err,
+            },
+            "Unknown proxy handle",
+        );
     }
 }
