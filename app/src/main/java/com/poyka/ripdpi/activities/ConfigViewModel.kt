@@ -150,7 +150,7 @@ internal fun validateConfigDraft(draft: ConfigDraft): Map<String, String> =
 private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSettings.Builder =
     apply {
         val defaults = AppSettingsSerializer.defaultValue
-        setRipdpiMode(draft.mode.toPreferenceValue())
+        setRipdpiMode(draft.mode.preferenceValue)
         setDnsIp(draft.dnsIp.ifBlank { defaults.dnsIp })
         setEnableCmdSettings(draft.useCommandLineSettings)
         setCmdArgs(draft.commandLineArgs)
@@ -161,12 +161,6 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         setDesyncMethod(draft.desyncMethod.ifBlank { defaults.desyncMethod })
         setCustomTtl(draft.defaultTtl.isNotBlank())
         setDefaultTtl(draft.defaultTtl.toIntOrNull() ?: 0)
-    }
-
-private fun Mode.toPreferenceValue(): String =
-    when (this) {
-        Mode.Proxy -> "proxy"
-        Mode.VPN -> "vpn"
     }
 
 class ConfigViewModel(
@@ -217,7 +211,7 @@ class ConfigViewModel(
             getApplication<Application>().settingsStore.updateData { settings ->
                 settings
                     .toBuilder()
-                    .setRipdpiMode(mode.toPreferenceValue())
+                    .setRipdpiMode(mode.preferenceValue)
                     .build()
             }
         }
