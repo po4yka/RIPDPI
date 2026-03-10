@@ -12,20 +12,25 @@ cargo fmt --manifest-path "$workspace_manifest" --all --check
 echo "==> clippy"
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 
+NEXTEST_PROFILE="${CI:+ci}"
+NEXTEST_ARGS=(${NEXTEST_PROFILE:+--profile "$NEXTEST_PROFILE"})
+
 echo "==> tests (workspace)"
-cargo test --manifest-path "$workspace_manifest" -p hs5t-android
-cargo test --manifest-path "$workspace_manifest" -p ripdpi-android
-cargo test --manifest-path "$workspace_manifest" --workspace
+cargo nextest run --manifest-path "$workspace_manifest" -p hs5t-android "${NEXTEST_ARGS[@]}"
+cargo nextest run --manifest-path "$workspace_manifest" -p ripdpi-android "${NEXTEST_ARGS[@]}"
+cargo nextest run --manifest-path "$workspace_manifest" --workspace "${NEXTEST_ARGS[@]}"
 
 # The vendored byedpi host integration suite contains several slow and flaky
 # end-to-end cases that do not exercise the Android JNI migration path
 # directly. Keep focused smoke coverage here instead of running the full host
 # integration binary.
 echo "==> tests (byedpi)"
-cargo test --manifest-path "$byedpi_manifest" -p ciadpi-bin --bin ciadpi
-cargo test --manifest-path "$byedpi_manifest" -p ciadpi-bin --test cli
-cargo test --manifest-path "$byedpi_manifest" -p ciadpi-bin --test runtime_integration socks5_echo_round_trip
-cargo test --manifest-path "$byedpi_manifest" -p ciadpi-bin --test runtime_integration no_domain_rejects_domain_requests
-cargo test --manifest-path "$byedpi_manifest" -p ciadpi-bin --test runtime_integration external_socks_chain_round_trip
-cargo test --manifest-path "$byedpi_manifest" -p ciadpi-packets benchmark_smoke -- --ignored --nocapture
-cargo test --manifest-path "$workspace_manifest" -p hs5t-android startup_latency_smoke -- --ignored --nocapture
+cargo nextest run --manifest-path "$byedpi_manifest" -p ciadpi-bin --bin ciadpi "${NEXTEST_ARGS[@]}"
+cargo nextest run --manifest-path "$byedpi_manifest" -p ciadpi-bin --test cli "${NEXTEST_ARGS[@]}"
+cargo nextest run --manifest-path "$byedpi_manifest" -p ciadpi-bin --test runtime_integration -E 'test(socks5_echo_round_trip)' "${NEXTEST_ARGS[@]}"
+cargo nextest run --manifest-path "$byedpi_manifest" -p ciadpi-bin --test runtime_integration -E 'test(no_domain_rejects_domain_requests)' "${NEXTEST_ARGS[@]}"
+cargo nextest run --manifest-path "$byedpi_manifest" -p ciadpi-bin --test runtime_integration -E 'test(external_socks_chain_round_trip)' "${NEXTEST_ARGS[@]}"
+
+echo "==> tests (ignored / smoke)"
+cargo nextest run --manifest-path "$byedpi_manifest" -p ciadpi-packets -E 'test(benchmark_smoke)' --run-ignored ignored-only --no-capture "${NEXTEST_ARGS[@]}"
+cargo nextest run --manifest-path "$workspace_manifest" -p hs5t-android -E 'test(startup_latency_smoke)' --run-ignored ignored-only --no-capture "${NEXTEST_ARGS[@]}"
