@@ -26,6 +26,7 @@ tracing = { workspace = true }
 [dev-dependencies]
 libc = { workspace = true }
 local-network-fixture = { workspace = true }
+native-soak-support = { workspace = true }
 proptest = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
