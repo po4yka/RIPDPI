@@ -159,6 +159,33 @@ class NativeBridgeWrappersTest {
         }
 
     @Test
+    fun proxyWrapperReturnsIdleTelemetryWhenNativePayloadIsBlank() =
+        runTest {
+            val blocker = CompletableDeferred<Unit>()
+            val startedSignal = CompletableDeferred<Long>()
+            val bindings =
+                FakeRipDpiProxyBindings().apply {
+                    this.startedSignal = startedSignal
+                    startBlocker = blocker
+                    telemetryJson = "   "
+                }
+            val proxy = RipDpiProxy(bindings)
+
+            val start =
+                async {
+                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1081))
+                }
+            assertEquals(1L, startedSignal.await())
+
+            val telemetry = proxy.pollTelemetry()
+
+            assertEquals("idle", telemetry.state)
+            assertTrue(telemetry.nativeEvents.isEmpty())
+            blocker.complete(Unit)
+            assertEquals(0, start.await())
+        }
+
+    @Test
     fun tunnelWrapperUsesBindingsAndMapsStats() =
         runTest {
             val bindings =
@@ -286,6 +313,23 @@ class NativeBridgeWrappersTest {
             assertEquals(7L, telemetry.tunnelStats.txPackets)
             assertEquals(99L, telemetry.tunnelStats.rxBytes)
             assertEquals(1, telemetry.nativeEvents.size)
+            tunnel.stop()
+        }
+
+    @Test
+    fun tunnelWrapperReturnsIdleTelemetryWhenNativePayloadIsBlank() =
+        runTest {
+            val bindings =
+                FakeTun2SocksBindings().apply {
+                    telemetryJson = ""
+                }
+            val tunnel = Tun2SocksTunnel(bindings)
+
+            tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 22)
+            val telemetry = tunnel.telemetry()
+
+            assertEquals("idle", telemetry.state)
+            assertTrue(telemetry.nativeEvents.isEmpty())
             tunnel.stop()
         }
 }
