@@ -18,11 +18,7 @@ pub struct TunDevice {
 
 impl TunDevice {
     pub fn new(mtu: usize) -> Self {
-        Self {
-            rx_queue: VecDeque::new(),
-            tx_queue: VecDeque::new(),
-            mtu,
-        }
+        Self { rx_queue: VecDeque::new(), tx_queue: VecDeque::new(), mtu }
     }
 }
 
@@ -124,14 +120,7 @@ pub fn build_tcp_syn(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: 
 /// Build an IPv4/TCP ACK packet given the SYN-ACK's seq number.
 ///
 /// `ack_seq` is the `seq_number` from the SYN-ACK (we ack seq+1).
-pub fn build_tcp_ack(
-    src_ip: [u8; 4],
-    dst_ip: [u8; 4],
-    src_port: u16,
-    dst_port: u16,
-    seq: u32,
-    ack: u32,
-) -> Vec<u8> {
+pub fn build_tcp_ack(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: u16, seq: u32, ack: u32) -> Vec<u8> {
     let mut pkt = vec![0u8; 40];
     pkt[0] = 0x45;
     pkt[2] = 0;
@@ -172,19 +161,14 @@ mod tests {
         let config = IfaceConfig::new(HardwareAddress::Ip);
         let mut iface = Interface::new(config, device, Instant::now());
         iface.update_ip_addrs(|addrs| {
-            addrs
-                .push(IpCidr::new(IpAddress::v4(127, 0, 0, 1), 8))
-                .unwrap();
+            addrs.push(IpCidr::new(IpAddress::v4(127, 0, 0, 1), 8)).unwrap();
         });
         iface.set_any_ip(true);
         iface
     }
 
     fn make_tcp_socket() -> TcpSocket<'static> {
-        TcpSocket::new(
-            tcp::SocketBuffer::new(vec![0u8; 65536]),
-            tcp::SocketBuffer::new(vec![0u8; 65536]),
-        )
+        TcpSocket::new(tcp::SocketBuffer::new(vec![0u8; 65536]), tcp::SocketBuffer::new(vec![0u8; 65536]))
     }
 
     /// U-01: Inject a raw IPv4/TCP SYN packet into rx_queue, call iface.poll(),
@@ -207,10 +191,7 @@ mod tests {
         iface.poll(Instant::now(), &mut device, &mut socket_set);
 
         // smoltcp must have produced a SYN-ACK response
-        assert!(
-            !device.tx_queue.is_empty(),
-            "smoltcp must produce a SYN-ACK packet in tx_queue"
-        );
+        assert!(!device.tx_queue.is_empty(), "smoltcp must produce a SYN-ACK packet in tx_queue");
     }
 
     /// U-02: After completing 3WHS, smoltcp transmits data → appears in tx_queue.
@@ -239,10 +220,7 @@ mod tests {
         iface.poll(Instant::now(), &mut device, &mut socket_set);
 
         // Step 2: SYN-ACK from smoltcp
-        let syn_ack = device
-            .tx_queue
-            .pop_front()
-            .expect("smoltcp must send SYN-ACK");
+        let syn_ack = device.tx_queue.pop_front().expect("smoltcp must send SYN-ACK");
         let (server_seq, _client_ack) = tcp_seq_ack(&syn_ack);
 
         // Step 3: ACK from client (acks server_seq + 1)
@@ -261,9 +239,6 @@ mod tests {
         // Step 5: Poll to flush the data into tx_queue
         iface.poll(Instant::now(), &mut device, &mut socket_set);
 
-        assert!(
-            !device.tx_queue.is_empty(),
-            "smoltcp must produce a data segment in tx_queue after send_slice"
-        );
+        assert!(!device.tx_queue.is_empty(), "smoltcp must produce a data segment in tx_queue after send_slice");
     }
 }

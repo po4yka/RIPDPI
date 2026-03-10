@@ -17,11 +17,7 @@ pub struct TcpSession {
 
 impl TcpSession {
     pub fn new(proxy_addr: SocketAddr, auth: Auth, target: TargetAddr) -> Self {
-        Self {
-            proxy_addr,
-            auth,
-            target,
-        }
+        Self { proxy_addr, auth, target }
     }
 
     /// Run the session to completion.
@@ -110,10 +106,7 @@ mod tests {
 
         assert_eq!(fwd, SIZE as u64, "forward byte count must equal 1 MiB");
         assert_eq!(bwd, 0, "no backward bytes expected");
-        assert_eq!(
-            received, payload,
-            "forward data must arrive at proxy intact"
-        );
+        assert_eq!(received, payload, "forward data must arrive at proxy intact");
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -145,10 +138,7 @@ mod tests {
 
         assert_eq!(fwd, 0, "no forward bytes expected");
         assert_eq!(bwd, SIZE as u64, "backward byte count must equal 1 MiB");
-        assert_eq!(
-            received, payload,
-            "backward data must arrive at local intact"
-        );
+        assert_eq!(received, payload, "backward data must arrive at local intact");
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -177,15 +167,8 @@ mod tests {
         let mut received = vec![];
         test_local.read_to_end(&mut received).await.unwrap();
 
-        assert_eq!(
-            bwd,
-            data.len() as u64,
-            "all backward bytes must be counted on proxy EOF"
-        );
-        assert_eq!(
-            received, data,
-            "proxy EOF must not drop in-flight data before delivering to local"
-        );
+        assert_eq!(bwd, data.len() as u64, "all backward bytes must be counted on proxy EOF");
+        assert_eq!(received, data, "proxy EOF must not drop in-flight data before delivering to local");
     }
 
     /// When the local side closes its write side (EOF), all in-flight data must
@@ -210,14 +193,7 @@ mod tests {
         let mut received = vec![];
         test_proxy.read_to_end(&mut received).await.unwrap();
 
-        assert_eq!(
-            fwd,
-            data.len() as u64,
-            "all forward bytes must be counted on local EOF"
-        );
-        assert_eq!(
-            received, data,
-            "local EOF must not drop in-flight data before delivering to proxy"
-        );
+        assert_eq!(fwd, data.len() as u64, "all forward bytes must be counted on local EOF");
+        assert_eq!(received, data, "local EOF must not drop in-flight data before delivering to proxy");
     }
 }

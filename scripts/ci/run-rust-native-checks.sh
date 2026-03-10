@@ -6,8 +6,13 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
 workspace_manifest="$repo_root/native/rust/Cargo.toml"
 byedpi_manifest="$repo_root/native/rust/third_party/byedpi/Cargo.toml"
 
+echo "==> rustfmt"
 cargo fmt --manifest-path "$workspace_manifest" --all --check
+
+echo "==> clippy"
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
+
+echo "==> tests (workspace)"
 cargo test --manifest-path "$workspace_manifest" -p hs5t-android
 cargo test --manifest-path "$workspace_manifest" -p ripdpi-android
 cargo test --manifest-path "$workspace_manifest" --workspace
@@ -16,6 +21,7 @@ cargo test --manifest-path "$workspace_manifest" --workspace
 # end-to-end cases that do not exercise the Android JNI migration path
 # directly. Keep focused smoke coverage here instead of running the full host
 # integration binary.
+echo "==> tests (byedpi)"
 cargo test --manifest-path "$byedpi_manifest" -p ciadpi-bin --bin ciadpi
 cargo test --manifest-path "$byedpi_manifest" -p ciadpi-bin --test cli
 cargo test --manifest-path "$byedpi_manifest" -p ciadpi-bin --test runtime_integration socks5_echo_round_trip

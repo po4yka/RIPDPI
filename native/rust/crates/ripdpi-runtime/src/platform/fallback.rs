@@ -53,19 +53,14 @@ mod tests {
     }
 
     fn record_md5sig_call(_stream: &TcpStream, key_len: u16) -> io::Result<()> {
-        MD5_CALLS
-            .lock()
-            .expect("md5 calls mutex poisoned")
-            .push(key_len);
+        MD5_CALLS.lock().expect("md5 calls mutex poisoned").push(key_len);
         Ok(())
     }
 
     #[test]
     fn send_fake_tcp_best_effort_writes_fake_prefix() {
         let (client, mut server) = connected_pair();
-        server
-            .set_read_timeout(Some(Duration::from_secs(1)))
-            .expect("set read timeout");
+        server.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
 
         send_fake_tcp_best_effort(&client, b"fallback-fake", 8, false, 32, record_md5sig_call)
             .expect("send fake prefix");
@@ -78,20 +73,14 @@ mod tests {
     #[test]
     fn send_fake_tcp_best_effort_toggles_md5sig_around_write() {
         let (client, mut server) = connected_pair();
-        server
-            .set_read_timeout(Some(Duration::from_secs(1)))
-            .expect("set read timeout");
+        server.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
         MD5_CALLS.lock().expect("md5 calls mutex poisoned").clear();
 
-        send_fake_tcp_best_effort(&client, b"x", 0, true, 0, record_md5sig_call)
-            .expect("send fake prefix with md5");
+        send_fake_tcp_best_effort(&client, b"x", 0, true, 0, record_md5sig_call).expect("send fake prefix with md5");
 
         let mut byte = [0u8; 1];
         server.read_exact(&mut byte).expect("read fake byte");
         assert_eq!(byte, [b'x']);
-        assert_eq!(
-            *MD5_CALLS.lock().expect("md5 calls mutex poisoned"),
-            vec![5, 0]
-        );
+        assert_eq!(*MD5_CALLS.lock().expect("md5 calls mutex poisoned"), vec![5, 0]);
     }
 }

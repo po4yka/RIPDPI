@@ -4,12 +4,10 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ciadpi_config::{
-    dump_cache_entries, load_cache_entries_from_path, prefix_match_bytes, CacheEntry, DesyncGroup,
-    RuntimeConfig, AUTO_NOPOST, AUTO_SORT, DETECT_RECONN,
+    dump_cache_entries, load_cache_entries_from_path, prefix_match_bytes, CacheEntry, DesyncGroup, RuntimeConfig,
+    AUTO_NOPOST, AUTO_SORT, DETECT_RECONN,
 };
-use ciadpi_packets::{
-    is_http, is_tls_client_hello, parse_http, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP,
-};
+use ciadpi_packets::{is_http, is_tls_client_hello, parse_http, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP};
 
 #[derive(Debug, Clone)]
 pub struct ConnectionRoute {
@@ -57,45 +55,25 @@ impl RuntimeCache {
                 continue;
             }
             if let Ok(entries) = load_cache_entries_from_path(Path::new(path)) {
-                records.extend(entries.into_iter().map(|entry| CacheRecord {
-                    entry,
-                    group_index,
-                    attempted_mask: 0,
-                }));
+                records.extend(entries.into_iter().map(|entry| CacheRecord { entry, group_index, attempted_mask: 0 }));
             }
         }
         let groups = config
             .groups
             .iter()
-            .map(|group| GroupPolicy {
-                detect: group.detect,
-                fail_count: group.fail_count,
-                pri: group.pri,
-            })
+            .map(|group| GroupPolicy { detect: group.detect, fail_count: group.fail_count, pri: group.pri })
             .collect();
         let order = (0..config.groups.len()).collect();
-        Self {
-            records,
-            groups,
-            order,
-        }
+        Self { records, groups, order }
     }
 
-    pub fn lookup_and_prune(
-        &mut self,
-        config: &RuntimeConfig,
-        dest: SocketAddr,
-    ) -> Option<ConnectionRoute> {
+    pub fn lookup_and_prune(&mut self, config: &RuntimeConfig, dest: SocketAddr) -> Option<ConnectionRoute> {
         let now = now_unix();
-        self.records
-            .retain(|record| !is_expired(config, record, now));
+        self.records.retain(|record| !is_expired(config, record, now));
         self.records
             .iter()
             .find(|record| cache_matches(&record.entry, dest))
-            .map(|record| ConnectionRoute {
-                group_index: record.group_index,
-                attempted_mask: record.attempted_mask,
-            })
+            .map(|record| ConnectionRoute { group_index: record.group_index, attempted_mask: record.attempted_mask })
     }
 
     pub fn store(
@@ -113,28 +91,19 @@ impl RuntimeCache {
             time: now_unix(),
             host,
         };
-        if let Some(existing) = self
-            .records
-            .iter_mut()
-            .find(|record| cache_matches(&record.entry, dest))
-        {
+        if let Some(existing) = self.records.iter_mut().find(|record| cache_matches(&record.entry, dest)) {
             existing.entry = entry;
             existing.group_index = group_index;
             existing.attempted_mask = attempted_mask;
         } else {
-            self.records.push(CacheRecord {
-                entry,
-                group_index,
-                attempted_mask,
-            });
+            self.records.push(CacheRecord { entry, group_index, attempted_mask });
         }
         self.persist_group(config, group_index)
     }
 
     pub fn clear(&mut self, config: &RuntimeConfig, dest: SocketAddr) -> io::Result<()> {
         let before = self.records.len();
-        self.records
-            .retain(|record| !cache_matches(&record.entry, dest));
+        self.records.retain(|record| !cache_matches(&record.entry, dest));
         if self.records.len() == before {
             return Ok(());
         }
@@ -160,11 +129,7 @@ impl RuntimeCache {
         std::fs::write(path, dump_cache_entries(&entries))
     }
 
-    pub fn dump_stdout_groups<W: Write>(
-        &self,
-        config: &RuntimeConfig,
-        mut writer: W,
-    ) -> io::Result<()> {
+    pub fn dump_stdout_groups<W: Write>(&self, config: &RuntimeConfig, mut writer: W) -> io::Result<()> {
         for (group_index, group) in config.groups.iter().enumerate() {
             if group.cache_file.as_deref() != Some("-") {
                 continue;
@@ -181,9 +146,7 @@ impl RuntimeCache {
     }
 
     pub fn supports_trigger(&self, trigger: u32) -> bool {
-        self.groups
-            .iter()
-            .any(|group| group.detect != 0 && (group.detect & trigger) != 0)
+        self.groups.iter().any(|group| group.detect != 0 && (group.detect & trigger) != 0)
     }
 
     pub fn advance_route(
@@ -212,16 +175,8 @@ impl RuntimeCache {
 
         if (config.auto_level & AUTO_SORT) != 0 {
             if let Some(ref next_route) = next {
-                let current_pri = self
-                    .groups
-                    .get(route.group_index)
-                    .map(|group| group.pri)
-                    .unwrap_or_default();
-                let next_pri = self
-                    .groups
-                    .get(next_route.group_index)
-                    .map(|group| group.pri)
-                    .unwrap_or_default();
+                let current_pri = self.groups.get(route.group_index).map(|group| group.pri).unwrap_or_default();
+                let next_pri = self.groups.get(next_route.group_index).map(|group| group.pri).unwrap_or_default();
                 if current_pri > next_pri {
                     self.swap_groups(route.group_index, next_route.group_index);
                 }
@@ -233,13 +188,7 @@ impl RuntimeCache {
 
         match next {
             Some(next_route) => {
-                self.store(
-                    config,
-                    request.dest,
-                    next_route.group_index,
-                    next_route.attempted_mask,
-                    request.host,
-                )?;
+                self.store(config, request.dest, next_route.group_index, next_route.attempted_mask, request.host)?;
                 Ok(Some(next_route))
             }
             None => {
@@ -250,10 +199,7 @@ impl RuntimeCache {
     }
 
     fn detect_for(&self, config: &RuntimeConfig, group_index: usize) -> u32 {
-        self.groups
-            .get(group_index)
-            .map(|group| group.detect)
-            .unwrap_or_else(|| config.groups[group_index].detect)
+        self.groups.get(group_index).map_or_else(|| config.groups[group_index].detect, |group| group.detect)
     }
 
     fn ordered_indices(&self) -> &[usize] {
@@ -306,10 +252,7 @@ pub fn select_initial_group(
             continue;
         }
         if group_matches(group, dest, payload, allow_unknown_payload) {
-            return Some(ConnectionRoute {
-                group_index: idx,
-                attempted_mask,
-            });
+            return Some(ConnectionRoute { group_index: idx, attempted_mask });
         }
         attempted_mask |= group.bit;
     }
@@ -341,10 +284,7 @@ pub fn select_next_group(
             continue;
         }
         if group_matches(group, dest, payload, false) {
-            return Some(ConnectionRoute {
-                group_index: idx,
-                attempted_mask,
-            });
+            return Some(ConnectionRoute { group_index: idx, attempted_mask });
         }
         attempted_mask |= group.bit;
     }
@@ -361,24 +301,11 @@ pub fn group_requires_payload(group: &DesyncGroup) -> bool {
     !group.filters.hosts.is_empty() || group.proto != 0
 }
 
-pub fn route_matches_payload(
-    config: &RuntimeConfig,
-    group_index: usize,
-    dest: SocketAddr,
-    payload: &[u8],
-) -> bool {
-    config
-        .groups
-        .get(group_index)
-        .is_some_and(|group| group_matches(group, dest, Some(payload), false))
+pub fn route_matches_payload(config: &RuntimeConfig, group_index: usize, dest: SocketAddr, payload: &[u8]) -> bool {
+    config.groups.get(group_index).is_some_and(|group| group_matches(group, dest, Some(payload), false))
 }
 
-fn group_matches(
-    group: &DesyncGroup,
-    dest: SocketAddr,
-    payload: Option<&[u8]>,
-    allow_unknown_payload: bool,
-) -> bool {
+fn group_matches(group: &DesyncGroup, dest: SocketAddr, payload: Option<&[u8]>, allow_unknown_payload: bool) -> bool {
     if !matches_l34(group, dest) {
         return false;
     }
@@ -431,9 +358,7 @@ fn matches_payload(group: &DesyncGroup, payload: &[u8]) -> bool {
     if group.filters.hosts.is_empty() {
         return true;
     }
-    extract_host(payload)
-        .as_deref()
-        .is_some_and(|host| group.filters.hosts_match(host))
+    extract_host(payload).as_deref().is_some_and(|host| group.filters.hosts_match(host))
 }
 
 fn cache_matches(entry: &CacheEntry, dest: SocketAddr) -> bool {
@@ -441,12 +366,8 @@ fn cache_matches(entry: &CacheEntry, dest: SocketAddr) -> bool {
         return false;
     }
     match (entry.addr, dest.ip()) {
-        (IpAddr::V4(lhs), IpAddr::V4(rhs)) => {
-            prefix_match_bytes(&lhs.octets(), &rhs.octets(), entry.bits as u8)
-        }
-        (IpAddr::V6(lhs), IpAddr::V6(rhs)) => {
-            prefix_match_bytes(&lhs.octets(), &rhs.octets(), entry.bits as u8)
-        }
+        (IpAddr::V4(lhs), IpAddr::V4(rhs)) => prefix_match_bytes(&lhs.octets(), &rhs.octets(), entry.bits as u8),
+        (IpAddr::V6(lhs), IpAddr::V6(rhs)) => prefix_match_bytes(&lhs.octets(), &rhs.octets(), entry.bits as u8),
         _ => false,
     }
 }
@@ -455,11 +376,7 @@ fn is_expired(config: &RuntimeConfig, record: &CacheRecord, now: i64) -> bool {
     let Some(group) = config.groups.get(record.group_index) else {
         return true;
     };
-    let ttl = if group.cache_ttl != 0 {
-        group.cache_ttl
-    } else {
-        config.cache_ttl
-    };
+    let ttl = if group.cache_ttl != 0 { group.cache_ttl } else { config.cache_ttl };
     ttl != 0 && now > record.entry.time + ttl
 }
 
@@ -472,10 +389,7 @@ fn cache_bits(config: &RuntimeConfig, ip: IpAddr) -> u16 {
 }
 
 fn now_unix() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as i64
 }
 
 #[cfg(test)]
@@ -487,10 +401,7 @@ mod tests {
     }
 
     fn config_with_groups(groups: Vec<DesyncGroup>) -> RuntimeConfig {
-        RuntimeConfig {
-            groups,
-            ..RuntimeConfig::default()
-        }
+        RuntimeConfig { groups, ..RuntimeConfig::default() }
     }
 
     #[test]
@@ -501,21 +412,11 @@ mod tests {
         let config = config_with_groups(vec![group]);
         let mut cache = RuntimeCache {
             records: vec![CacheRecord {
-                entry: CacheEntry {
-                    addr: dest.ip(),
-                    bits: 32,
-                    port: dest.port(),
-                    time: now_unix() - 5,
-                    host: None,
-                },
+                entry: CacheEntry { addr: dest.ip(), bits: 32, port: dest.port(), time: now_unix() - 5, host: None },
                 group_index: 0,
                 attempted_mask: 0,
             }],
-            groups: vec![GroupPolicy {
-                detect: 0,
-                fail_count: 0,
-                pri: 0,
-            }],
+            groups: vec![GroupPolicy { detect: 0, fail_count: 0, pri: 0 }],
             order: vec![0],
         };
 
@@ -531,8 +432,7 @@ mod tests {
         let config = config_with_groups(vec![first, second]);
         let mut cache = RuntimeCache::load(&config);
 
-        let route = select_initial_group(&config, &mut cache, sample_dest(80), None, true)
-            .expect("fallback route");
+        let route = select_initial_group(&config, &mut cache, sample_dest(80), None, true).expect("fallback route");
 
         assert_eq!(route.group_index, 1);
         assert_eq!(route.attempted_mask, 0);
@@ -545,21 +445,10 @@ mod tests {
         second.detect = DETECT_RECONN;
         let config = config_with_groups(vec![first, second]);
         let cache = RuntimeCache::load(&config);
-        let route = ConnectionRoute {
-            group_index: 0,
-            attempted_mask: 0,
-        };
+        let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
 
-        let next = select_next_group(
-            &config,
-            &cache,
-            &route,
-            sample_dest(443),
-            None,
-            DETECT_RECONN,
-            true,
-        )
-        .expect("next route");
+        let next = select_next_group(&config, &cache, &route, sample_dest(443), None, DETECT_RECONN, true)
+            .expect("next route");
 
         assert_eq!(next.group_index, 1);
         assert_eq!(next.attempted_mask, config.groups[0].bit);
@@ -574,11 +463,6 @@ mod tests {
         let non_matching = b"GET / HTTP/1.1\r\nHost: other.example\r\n\r\n";
 
         assert!(route_matches_payload(&config, 0, sample_dest(80), matching));
-        assert!(!route_matches_payload(
-            &config,
-            0,
-            sample_dest(80),
-            non_matching,
-        ));
+        assert!(!route_matches_payload(&config, 0, sample_dest(80), non_matching,));
     }
 }

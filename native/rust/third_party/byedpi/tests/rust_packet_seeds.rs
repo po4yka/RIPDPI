@@ -1,8 +1,5 @@
 fn decode_hex(input: &str) -> Vec<u8> {
-    let filtered: String = input
-        .chars()
-        .filter(|ch| !ch.is_ascii_whitespace())
-        .collect();
+    let filtered: String = input.chars().filter(|ch| !ch.is_ascii_whitespace()).collect();
     assert_eq!(filtered.len() % 2, 0, "hex payload must have even length");
 
     filtered
@@ -57,14 +54,9 @@ pub fn http_request() -> Vec<u8> {
 }
 
 pub fn http_redirect_response() -> Vec<u8> {
-    concat!(
-        "HTTP/1.1 302 Found\r\n",
-        "Location: https://example.net/wiki\r\n",
-        "Content-Length: 0\r\n",
-        "\r\n"
-    )
-    .as_bytes()
-    .to_vec()
+    concat!("HTTP/1.1 302 Found\r\n", "Location: https://example.net/wiki\r\n", "Content-Length: 0\r\n", "\r\n")
+        .as_bytes()
+        .to_vec()
 }
 
 pub fn tls_client_hello() -> Vec<u8> {
@@ -112,8 +104,8 @@ pub fn tls_client_hello_ech() -> Vec<u8> {
     write_u16(&mut data, ext_block, ext_block_len);
     write_u16(&mut data, 3, record_len);
 
-    let handshake_len = (((data[6] as u32) << 16) | ((data[7] as u32) << 8) | data[8] as u32)
-        + ech_extension.len() as u32;
+    let handshake_len =
+        (((data[6] as u32) << 16) | ((data[7] as u32) << 8) | data[8] as u32) + ech_extension.len() as u32;
     assert!(handshake_len <= 0x00ff_ffff, "handshake length overflow");
     write_u24(&mut data, 6, handshake_len);
 

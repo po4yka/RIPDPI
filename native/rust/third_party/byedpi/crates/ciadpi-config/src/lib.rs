@@ -197,11 +197,7 @@ impl Default for RuntimeConfig {
             listen: ListenConfig {
                 listen_ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                 listen_port: 1080,
-                bind_ip: if ipv6 {
-                    IpAddr::V6(Ipv6Addr::UNSPECIFIED)
-                } else {
-                    IpAddr::V4(Ipv4Addr::UNSPECIFIED)
-                },
+                bind_ip: if ipv6 { IpAddr::V6(Ipv6Addr::UNSPECIFIED) } else { IpAddr::V4(Ipv4Addr::UNSPECIFIED) },
             },
             resolve: true,
             ipv6,
@@ -235,10 +231,7 @@ impl Default for RuntimeConfig {
 
 impl RuntimeConfig {
     pub fn actionable_group(&self) -> usize {
-        self.groups
-            .iter()
-            .position(DesyncGroup::is_actionable)
-            .unwrap_or(0)
+        self.groups.iter().position(DesyncGroup::is_actionable).unwrap_or(0)
     }
 }
 
@@ -283,10 +276,7 @@ pub struct ConfigError {
 
 impl ConfigError {
     fn invalid(option: impl Into<String>, value: Option<impl Into<String>>) -> Self {
-        Self {
-            option: option.into(),
-            value: value.map(Into::into),
-        }
+        Self { option: option.into(), value: value.map(Into::into) }
     }
 }
 
@@ -339,9 +329,7 @@ pub fn parse_hosts_spec(spec: &str) -> Result<Vec<String>, ConfigError> {
 fn parse_ip_token(token: &str) -> Result<Cidr, ConfigError> {
     let (addr_str, bits) = match token.split_once('/') {
         Some((addr, bits_str)) => {
-            let bits = bits_str
-                .parse::<u16>()
-                .map_err(|_| ConfigError::invalid("--ipset", Some(token)))?;
+            let bits = bits_str.parse::<u16>().map_err(|_| ConfigError::invalid("--ipset", Some(token)))?;
             if bits == 0 {
                 return Err(ConfigError::invalid("--ipset", Some(token)));
             }
@@ -349,21 +337,13 @@ fn parse_ip_token(token: &str) -> Result<Cidr, ConfigError> {
         }
         None => (token, 0),
     };
-    let addr =
-        IpAddr::from_str(addr_str).map_err(|_| ConfigError::invalid("--ipset", Some(token)))?;
+    let addr = IpAddr::from_str(addr_str).map_err(|_| ConfigError::invalid("--ipset", Some(token)))?;
     let max_bits = match addr {
         IpAddr::V4(_) => 32,
         IpAddr::V6(_) => 128,
     };
-    let bits = if bits == 0 || bits > max_bits {
-        max_bits
-    } else {
-        bits
-    };
-    Ok(Cidr {
-        addr,
-        bits: bits as u8,
-    })
+    let bits = if bits == 0 || bits > max_bits { max_bits } else { bits };
+    Ok(Cidr { addr, bits: bits as u8 })
 }
 
 pub fn parse_ipset_spec(spec: &str) -> Result<Vec<Cidr>, ConfigError> {
@@ -421,8 +401,7 @@ pub fn data_from_str(spec: &str) -> Result<Vec<u8>, ConfigError> {
             }
         }
         let mut oct_end = idx;
-        while oct_end < bytes.len() && oct_end < idx + 3 && (b'0'..=b'7').contains(&bytes[oct_end])
-        {
+        while oct_end < bytes.len() && oct_end < idx + 3 && (b'0'..=b'7').contains(&bytes[oct_end]) {
             oct_end += 1;
         }
         if oct_end > idx {
@@ -454,17 +433,11 @@ pub fn file_or_inline_bytes(spec: &str) -> Result<Vec<u8>, ConfigError> {
 
 fn parse_numeric_addr(spec: &str) -> Result<(IpAddr, Option<u16>), ConfigError> {
     let (host, port) = if let Some(rest) = spec.strip_prefix('[') {
-        let end = rest
-            .find(']')
-            .ok_or_else(|| ConfigError::invalid("address", Some(spec)))?;
+        let end = rest.find(']').ok_or_else(|| ConfigError::invalid("address", Some(spec)))?;
         let host = &rest[..end];
         let suffix = &rest[end + 1..];
         let port = if let Some(port_str) = suffix.strip_prefix(':') {
-            Some(
-                port_str
-                    .parse::<u16>()
-                    .map_err(|_| ConfigError::invalid("address", Some(spec)))?,
-            )
+            Some(port_str.parse::<u16>().map_err(|_| ConfigError::invalid("address", Some(spec)))?)
         } else if suffix.is_empty() {
             None
         } else {
@@ -475,12 +448,8 @@ fn parse_numeric_addr(spec: &str) -> Result<(IpAddr, Option<u16>), ConfigError> 
         let colon_count = spec.bytes().filter(|&byte| byte == b':').count();
         if colon_count == 1 {
             match spec.rsplit_once(':') {
-                Some((host, port_str))
-                    if !port_str.is_empty() && port_str.as_bytes()[0].is_ascii_digit() =>
-                {
-                    let port = port_str
-                        .parse::<u16>()
-                        .map_err(|_| ConfigError::invalid("address", Some(spec)))?;
+                Some((host, port_str)) if !port_str.is_empty() && port_str.as_bytes()[0].is_ascii_digit() => {
+                    let port = port_str.parse::<u16>().map_err(|_| ConfigError::invalid("address", Some(spec)))?;
                     (host, Some(port))
                 }
                 _ => (spec, None),
@@ -522,9 +491,7 @@ pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
         .map_err(|_| ConfigError::invalid("offset", Some(spec)))?;
     let repeats = match parts.next() {
         Some(value) => {
-            let parsed = value
-                .parse::<i32>()
-                .map_err(|_| ConfigError::invalid("offset", Some(spec)))?;
+            let parsed = value.parse::<i32>().map_err(|_| ConfigError::invalid("offset", Some(spec)))?;
             if parsed <= 0 {
                 return Err(ConfigError::invalid("offset", Some(spec)));
             }
@@ -533,38 +500,23 @@ pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
         None => 0,
     };
     let skip = match parts.next() {
-        Some(value) => value
-            .parse::<i32>()
-            .map_err(|_| ConfigError::invalid("offset", Some(spec)))?,
+        Some(value) => value.parse::<i32>().map_err(|_| ConfigError::invalid("offset", Some(spec)))?,
         None => 0,
     };
-    Ok(OffsetExpr {
-        pos,
-        flag,
-        repeats,
-        skip,
-    })
+    Ok(OffsetExpr { pos, flag, repeats, skip })
 }
 
 fn parse_timeout(spec: &str, config: &mut RuntimeConfig) -> Result<(), ConfigError> {
     let mut parts = spec.split(':');
-    config.timeout_ms = seconds_to_millis(
-        parts
-            .next()
-            .ok_or_else(|| ConfigError::invalid("--timeout", Some(spec)))?,
-    )?;
+    config.timeout_ms = seconds_to_millis(parts.next().ok_or_else(|| ConfigError::invalid("--timeout", Some(spec)))?)?;
     if let Some(value) = parts.next() {
         config.partial_timeout_ms = seconds_to_millis(value)?;
     }
     if let Some(value) = parts.next() {
-        config.timeout_count_limit = value
-            .parse::<i32>()
-            .map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
+        config.timeout_count_limit = value.parse::<i32>().map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
     }
     if let Some(value) = parts.next() {
-        config.timeout_bytes_limit = value
-            .parse::<i32>()
-            .map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
+        config.timeout_bytes_limit = value.parse::<i32>().map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
     }
     if parts.next().is_some() {
         return Err(ConfigError::invalid("--timeout", Some(spec)));
@@ -573,9 +525,7 @@ fn parse_timeout(spec: &str, config: &mut RuntimeConfig) -> Result<(), ConfigErr
 }
 
 fn seconds_to_millis(spec: &str) -> Result<u32, ConfigError> {
-    let seconds = spec
-        .parse::<f32>()
-        .map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
+    let seconds = spec.parse::<f32>().map_err(|_| ConfigError::invalid("--timeout", Some(spec)))?;
     if seconds < 0.0 {
         return Err(ConfigError::invalid("--timeout", Some(spec)));
     }
@@ -583,21 +533,12 @@ fn seconds_to_millis(spec: &str) -> Result<u32, ConfigError> {
 }
 
 fn split_plugin_options(spec: &str) -> Vec<String> {
-    spec.split(' ')
-        .filter(|token| !token.is_empty())
-        .map(ToOwned::to_owned)
-        .collect()
+    spec.split(' ').filter(|token| !token.is_empty()).map(ToOwned::to_owned).collect()
 }
 
-fn next_value<'a>(
-    args: &'a [String],
-    idx: &mut usize,
-    option: &str,
-) -> Result<&'a str, ConfigError> {
+fn next_value<'a>(args: &'a [String], idx: &mut usize, option: &str) -> Result<&'a str, ConfigError> {
     *idx += 1;
-    args.get(*idx)
-        .map(String::as_str)
-        .ok_or_else(|| ConfigError::invalid(option, Option::<String>::None))
+    args.get(*idx).map(String::as_str).ok_or_else(|| ConfigError::invalid(option, Option::<String>::None))
 }
 
 fn add_group(groups: &mut Vec<DesyncGroup>) -> Result<&mut DesyncGroup, ConfigError> {
@@ -623,11 +564,8 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
         }
     }
 
-    let effective_args = if let Some(options) = &startup.ss_plugin_options {
-        split_plugin_options(options)
-    } else {
-        args.to_vec()
-    };
+    let effective_args =
+        if let Some(options) = &startup.ss_plugin_options { split_plugin_options(options) } else { args.to_vec() };
 
     let mut all_limited = true;
     let mut current_group_index = 0usize;
@@ -637,10 +575,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
         let arg = &effective_args[idx];
         macro_rules! group {
             () => {
-                config
-                    .groups
-                    .get_mut(current_group_index)
-                    .expect("current group exists")
+                config.groups.get_mut(current_group_index).expect("current group exists")
             };
         }
 
@@ -671,9 +606,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-p" | "--port" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let port = value
-                    .parse::<u16>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let port = value.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if port == 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -686,9 +619,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-b" | "--buf-size" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let size = value
-                    .parse::<usize>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let size = value.parse::<usize>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if size == 0 || size >= (i32::MAX as usize) / 4 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -696,9 +627,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-c" | "--max-conn" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let count = value
-                    .parse::<i32>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let count = value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if count <= 0 || count >= (0xffff / 2) {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -706,9 +635,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-x" | "--debug" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let level = value
-                    .parse::<i32>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let level = value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if level < 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -757,12 +684,9 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                         Some(b'c') => group!().detect |= DETECT_CONNECT,
                         Some(b'n') => {}
                         Some(b'p') => {
-                            let (_, pri) = token
-                                .split_once('=')
-                                .ok_or_else(|| ConfigError::invalid("--auto", Some(token)))?;
-                            let pri = pri
-                                .parse::<f32>()
-                                .map_err(|_| ConfigError::invalid("--auto", Some(token)))?;
+                            let (_, pri) =
+                                token.split_once('=').ok_or_else(|| ConfigError::invalid("--auto", Some(token)))?;
+                            let pri = pri.parse::<f32>().map_err(|_| ConfigError::invalid("--auto", Some(token)))?;
                             if let Some(prev) = config.groups.get_mut(current_group_index - 1) {
                                 prev.pri = pri as i32;
                             }
@@ -776,9 +700,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-u" | "--cache-ttl" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let ttl = value
-                    .parse::<i64>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let ttl = value.parse::<i64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if ttl <= 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -789,9 +711,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "--cache-merge" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let merge = value
-                    .parse::<u8>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let merge = value.parse::<u8>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if merge > 32 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -825,8 +745,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let text = String::from_utf8_lossy(&data);
                 group!().filters.ipset.extend(parse_ipset_spec(&text)?);
             }
-            "-s" | "--split" | "-d" | "--disorder" | "-o" | "--oob" | "-q" | "--disoob" | "-f"
-            | "--fake" => {
+            "-s" | "--split" | "-d" | "--disorder" | "-o" | "--oob" | "-q" | "--disoob" | "-f" | "--fake" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let offset = parse_offset_expr(value)?;
                 let mode = match arg.as_str() {
@@ -840,9 +759,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-t" | "--ttl" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let ttl = value
-                    .parse::<u16>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let ttl = value.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if ttl == 0 || ttl > 255 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -861,13 +778,10 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                         Some('m') => {
                             let (_, val) = token
                                 .split_once('=')
-                                .or_else(|| {
-                                    token.strip_prefix("msize=").map(|rest| ("msize", rest))
-                                })
+                                .or_else(|| token.strip_prefix("msize=").map(|rest| ("msize", rest)))
                                 .ok_or_else(|| ConfigError::invalid(arg, Some(value)))?;
-                            group!().fake_tls_size = val
-                                .parse::<i32>()
-                                .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                            group!().fake_tls_size =
+                                val.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                         }
                         _ => return Err(ConfigError::invalid(arg, Some(value))),
                     }
@@ -909,9 +823,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-m" | "--tlsminor" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let tlsminor = value
-                    .parse::<u16>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let tlsminor = value.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if tlsminor == 0 || tlsminor > 255 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -919,9 +831,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-a" | "--udp-fake" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().udp_fake_count = value
-                    .parse::<i32>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                group!().udp_fake_count = value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if group!().udp_fake_count < 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -932,12 +842,8 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     Some((start, end)) => (start, end),
                     None => (value, value),
                 };
-                let start = start
-                    .parse::<u16>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-                let end = end
-                    .parse::<u16>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let start = start.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let end = end.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if start == 0 || end == 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -949,12 +855,8 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     Some((start, end)) => (start, end),
                     None => (value, value),
                 };
-                let start = start
-                    .parse::<i32>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-                let end = end
-                    .parse::<i32>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let start = start.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let end = end.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if start <= 0 || end <= 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -962,9 +864,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-g" | "--def-ttl" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let ttl = value
-                    .parse::<u16>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                let ttl = value.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 if ttl == 0 || ttl > 255 {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
@@ -973,17 +873,13 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-W" | "--await-int" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                config.await_interval = value
-                    .parse::<i32>()
-                    .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                config.await_interval = value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
             }
             "-C" | "--to-socks5" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let (ip, port) = parse_numeric_addr(value)?;
                 let port = port.ok_or_else(|| ConfigError::invalid(arg, Some(value)))?;
-                group!().ext_socks = Some(UpstreamSocksConfig {
-                    addr: SocketAddr::new(ip, port),
-                });
+                group!().ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::new(ip, port) });
                 config.delay_conn = true;
             }
             "-P" | "--protect-path" => {
@@ -1011,17 +907,12 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
 }
 
 fn common_suffix_match(host: &str, rule: &str) -> bool {
-    host == rule
-        || host
-            .strip_suffix(rule)
-            .is_some_and(|prefix| prefix.ends_with('.'))
+    host == rule || host.strip_suffix(rule).is_some_and(|prefix| prefix.ends_with('.'))
 }
 
 impl FilterSet {
     pub fn hosts_match(&self, host: &str) -> bool {
-        self.hosts
-            .iter()
-            .any(|rule| common_suffix_match(host, rule))
+        self.hosts.iter().any(|rule| common_suffix_match(host, rule))
     }
 
     pub fn ipset_match(&self, ip: IpAddr) -> bool {
@@ -1032,12 +923,8 @@ impl FilterSet {
 impl Cidr {
     pub fn matches(&self, ip: IpAddr) -> bool {
         match (self.addr, ip) {
-            (IpAddr::V4(lhs), IpAddr::V4(rhs)) => {
-                prefix_match_bytes(&lhs.octets(), &rhs.octets(), self.bits)
-            }
-            (IpAddr::V6(lhs), IpAddr::V6(rhs)) => {
-                prefix_match_bytes(&lhs.octets(), &rhs.octets(), self.bits)
-            }
+            (IpAddr::V4(lhs), IpAddr::V4(rhs)) => prefix_match_bytes(&lhs.octets(), &rhs.octets(), self.bits),
+            (IpAddr::V6(lhs), IpAddr::V6(rhs)) => prefix_match_bytes(&lhs.octets(), &rhs.octets(), self.bits),
             _ => false,
         }
     }
@@ -1080,19 +967,15 @@ pub fn load_cache_entries(text: &str) -> Vec<CacheEntry> {
             bits,
             port,
             time,
-            host: if parts[5] == "-" {
-                None
-            } else {
-                Some(parts[5].to_owned())
-            },
+            host: if parts[5] == "-" { None } else { Some(parts[5].to_owned()) },
         });
     }
     out
 }
 
 pub fn load_cache_entries_from_path(path: &Path) -> Result<Vec<CacheEntry>, ConfigError> {
-    let text = fs::read_to_string(path)
-        .map_err(|_| ConfigError::invalid("cache-file", Some(path.display().to_string())))?;
+    let text =
+        fs::read_to_string(path).map_err(|_| ConfigError::invalid("cache-file", Some(path.display().to_string())))?;
     Ok(load_cache_entries(&text))
 }
 
@@ -1100,10 +983,7 @@ pub fn dump_cache_entries(entries: &[CacheEntry]) -> String {
     let mut out = String::new();
     for entry in entries {
         let host = entry.host.as_deref().unwrap_or("-");
-        out.push_str(&format!(
-            "0 {} {} {} {} {}\n",
-            entry.addr, entry.bits, entry.port, entry.time, host
-        ));
+        out.push_str(&format!("0 {} {} {} {} {}\n", entry.addr, entry.bits, entry.port, entry.time, host));
     }
     out
 }
@@ -1130,14 +1010,8 @@ mod tests {
         assert_eq!(
             entries,
             vec![
-                Cidr {
-                    addr: IpAddr::from_str("192.0.2.1").expect("ipv4 addr"),
-                    bits: 32,
-                },
-                Cidr {
-                    addr: IpAddr::from_str("2001:db8::1").expect("ipv6 addr"),
-                    bits: 128,
-                },
+                Cidr { addr: IpAddr::from_str("192.0.2.1").expect("ipv4 addr"), bits: 32 },
+                Cidr { addr: IpAddr::from_str("2001:db8::1").expect("ipv6 addr"), bits: 128 },
             ]
         );
     }

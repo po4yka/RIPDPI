@@ -13,10 +13,8 @@ mod rust_packet_seeds;
 fn fixtures() -> &'static Value {
     static FIXTURES: OnceLock<Value> = OnceLock::new();
     FIXTURES.get_or_init(|| {
-        serde_json::from_str(include_str!(
-            "../../../tests/corpus/rust-fixtures/desync_oracle.json"
-        ))
-        .expect("desync fixtures")
+        serde_json::from_str(include_str!("../../../tests/corpus/rust-fixtures/desync_oracle.json"))
+            .expect("desync fixtures")
     })
 }
 
@@ -51,18 +49,9 @@ fn mod_http_and_split_plan_matches_fixture() {
     let (config, idx) = parse_group(&["--mod-http", "rh", "--split", "8"]);
     let plan = plan_tcp(&config.groups[idx], &payload, 7, config.default_ttl).expect("plan");
 
-    assert_eq!(
-        hex(&plan.tampered),
-        expected["tampered_hex"].as_str().unwrap()
-    );
-    assert_eq!(
-        plan.steps[0].mode as u64,
-        expected["step_mode"].as_u64().unwrap()
-    );
-    assert_eq!(
-        plan.steps[0].end as i64,
-        expected["step_end"].as_i64().unwrap()
-    );
+    assert_eq!(hex(&plan.tampered), expected["tampered_hex"].as_str().unwrap());
+    assert_eq!(plan.steps[0].mode as u64, expected["step_mode"].as_u64().unwrap());
+    assert_eq!(plan.steps[0].end as i64, expected["step_end"].as_i64().unwrap());
 }
 
 #[test]
@@ -72,14 +61,8 @@ fn tls_record_split_plan_matches_fixture() {
     let (config, idx) = parse_group(&["--tlsrec", "32"]);
     let plan = plan_tcp(&config.groups[idx], &payload, 7, config.default_ttl).expect("plan");
 
-    assert_eq!(
-        plan.tampered.len() as u64,
-        expected["tampered_len"].as_u64().unwrap()
-    );
-    assert_eq!(
-        hex(&plan.tampered),
-        expected["tampered_hex"].as_str().unwrap()
-    );
+    assert_eq!(plan.tampered.len() as u64, expected["tampered_len"].as_u64().unwrap());
+    assert_eq!(hex(&plan.tampered), expected["tampered_hex"].as_str().unwrap());
     assert_eq!(plan.proto.kind, 0);
 }
 
@@ -90,10 +73,7 @@ fn tlsminor_plan_matches_fixture() {
     let (config, idx) = parse_group(&["--tlsminor", "5"]);
     let plan = plan_tcp(&config.groups[idx], &payload, 7, config.default_ttl).expect("plan");
 
-    assert_eq!(
-        hex(&plan.tampered),
-        expected["tampered_hex"].as_str().unwrap()
-    );
+    assert_eq!(hex(&plan.tampered), expected["tampered_hex"].as_str().unwrap());
 }
 
 #[test]
@@ -101,34 +81,17 @@ fn host_offset_plans_match_fixture() {
     let http_expected = fixture("http_host_offset_plan");
     let http_payload = rust_packet_seeds::http_request();
     let (http_config, http_idx) = parse_group(&["--split", "0+h"]);
-    let http_plan = plan_tcp(
-        &http_config.groups[http_idx],
-        &http_payload,
-        7,
-        http_config.default_ttl,
-    )
-    .expect("http plan");
+    let http_plan =
+        plan_tcp(&http_config.groups[http_idx], &http_payload, 7, http_config.default_ttl).expect("http plan");
 
-    assert_eq!(
-        http_plan.steps[0].end as i64,
-        http_expected["step_end"].as_i64().unwrap()
-    );
+    assert_eq!(http_plan.steps[0].end as i64, http_expected["step_end"].as_i64().unwrap());
 
     let tls_expected = fixture("tls_host_offset_plan");
     let tls_payload = rust_packet_seeds::tls_client_hello();
     let (tls_config, tls_idx) = parse_group(&["--split", "0+s"]);
-    let tls_plan = plan_tcp(
-        &tls_config.groups[tls_idx],
-        &tls_payload,
-        7,
-        tls_config.default_ttl,
-    )
-    .expect("tls plan");
+    let tls_plan = plan_tcp(&tls_config.groups[tls_idx], &tls_payload, 7, tls_config.default_ttl).expect("tls plan");
 
-    assert_eq!(
-        tls_plan.steps[0].end as i64,
-        tls_expected["step_end"].as_i64().unwrap()
-    );
+    assert_eq!(tls_plan.steps[0].end as i64, tls_expected["step_end"].as_i64().unwrap());
 }
 
 #[test]
@@ -141,13 +104,9 @@ fn desync_modes_map_to_distinct_plans() {
         ("-f", DesyncMode::Fake),
     ] {
         let (config, idx) = parse_group(&[flag, "8"]);
-        let plan = plan_tcp(
-            &config.groups[idx],
-            b"GET / HTTP/1.1\r\nHost: www.wikipedia.org\r\n\r\n",
-            7,
-            config.default_ttl,
-        )
-        .expect("plan");
+        let plan =
+            plan_tcp(&config.groups[idx], b"GET / HTTP/1.1\r\nHost: www.wikipedia.org\r\n\r\n", 7, config.default_ttl)
+                .expect("plan");
 
         assert_eq!(plan.steps[0].mode, expected_mode, "{flag}");
         assert_eq!(plan.steps[0].end, 8, "{flag}");
@@ -159,21 +118,11 @@ fn desync_modes_map_to_distinct_plans() {
 fn fake_packet_can_rewrite_tls_sni() {
     let expected = fixture("fake_packet_tls_sni");
     let payload = rust_packet_seeds::tls_client_hello();
-    let (config, idx) = parse_group(&[
-        "-f",
-        "-1",
-        "--fake-sni",
-        "docs.example.test",
-        "--fake-tls-mod",
-        "orig",
-    ]);
+    let (config, idx) = parse_group(&["-f", "-1", "--fake-sni", "docs.example.test", "--fake-tls-mod", "orig"]);
     let fake = build_fake_packet(&config.groups[idx], &payload, 7).expect("fake plan");
 
     assert_eq!(hex(&fake.bytes), expected["fake_hex"].as_str().unwrap());
-    assert_eq!(
-        fake.fake_offset as u64,
-        expected["fake_offset"].as_u64().unwrap()
-    );
+    assert_eq!(fake.fake_offset as u64, expected["fake_offset"].as_u64().unwrap());
 }
 
 #[test]
@@ -192,20 +141,13 @@ fn fake_packet_can_use_custom_http_payload() {
     let fake = build_fake_packet(&config.groups[idx], &payload, 7).expect("fake plan");
 
     assert_eq!(hex(&fake.bytes), expected["fake_hex"].as_str().unwrap());
-    assert_eq!(
-        fake.fake_offset as u64,
-        expected["fake_offset"].as_u64().unwrap()
-    );
+    assert_eq!(fake.fake_offset as u64, expected["fake_offset"].as_u64().unwrap());
 }
 
 #[test]
 fn udp_fake_actions_are_deterministic() {
     let (config, idx) = parse_group(&["--udp-fake", "2"]);
-    let actions = plan_udp(
-        &config.groups[idx],
-        b"udp proxy payload",
-        config.default_ttl,
-    );
+    let actions = plan_udp(&config.groups[idx], b"udp proxy payload", config.default_ttl);
     assert_eq!(
         actions,
         vec![

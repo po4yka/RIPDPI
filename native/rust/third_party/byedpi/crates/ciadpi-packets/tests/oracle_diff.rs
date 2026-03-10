@@ -1,9 +1,8 @@
 use std::sync::OnceLock;
 
 use ciadpi_packets::{
-    change_tls_sni_seeded_like_c, is_http_redirect, mod_http_like_c, parse_http, parse_tls,
-    part_tls_like_c, randomize_tls_seeded_like_c, tls_session_id_mismatch, MH_DMIX, MH_HMIX,
-    MH_SPACE,
+    change_tls_sni_seeded_like_c, is_http_redirect, mod_http_like_c, parse_http, parse_tls, part_tls_like_c,
+    randomize_tls_seeded_like_c, tls_session_id_mismatch, MH_DMIX, MH_HMIX, MH_SPACE,
 };
 use serde_json::Value;
 
@@ -14,10 +13,8 @@ mod rust_packet_seeds;
 fn fixtures() -> &'static Value {
     static FIXTURES: OnceLock<Value> = OnceLock::new();
     FIXTURES.get_or_init(|| {
-        serde_json::from_str(include_str!(
-            "../../../tests/corpus/rust-fixtures/packets_oracle.json"
-        ))
-        .expect("packet fixtures")
+        serde_json::from_str(include_str!("../../../tests/corpus/rust-fixtures/packets_oracle.json"))
+            .expect("packet fixtures")
     })
 }
 
@@ -61,30 +58,21 @@ fn parse_tls_matches_fixture() {
     let data = read_corpus("tls_client_hello.bin");
     let parsed = parse_tls(&data).expect("rust parse_tls");
 
-    assert_eq!(
-        parsed,
-        fixture("parse_tls")["host"].as_str().unwrap().as_bytes()
-    );
+    assert_eq!(parsed, fixture("parse_tls")["host"].as_str().unwrap().as_bytes());
 }
 
 #[test]
 fn http_redirect_matches_fixture() {
     let req = read_corpus("http_request.bin");
     let resp = read_corpus("http_redirect_response.bin");
-    assert_eq!(
-        is_http_redirect(&req, &resp),
-        fixture("http_redirect")["ok"].as_bool().unwrap()
-    );
+    assert_eq!(is_http_redirect(&req, &resp), fixture("http_redirect")["ok"].as_bool().unwrap());
 }
 
 #[test]
 fn tls_session_id_mismatch_matches_fixture() {
     let req = read_corpus("tls_client_hello.bin");
     let resp = read_corpus("tls_server_hello_like.bin");
-    assert_eq!(
-        tls_session_id_mismatch(&req, &resp),
-        fixture("tls_session_id_mismatch")["ok"].as_bool().unwrap()
-    );
+    assert_eq!(tls_session_id_mismatch(&req, &resp), fixture("tls_session_id_mismatch")["ok"].as_bool().unwrap());
 }
 
 #[test]
