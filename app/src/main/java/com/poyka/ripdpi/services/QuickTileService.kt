@@ -1,11 +1,15 @@
 package com.poyka.ripdpi.services
 
+import android.Manifest
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.net.VpnService
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.core.service.quicksettings.PendingIntentActivityWrapper
 import androidx.core.service.quicksettings.TileServiceCompat
 import com.poyka.ripdpi.R
@@ -74,7 +78,11 @@ class QuickTileService : TileService() {
             PendingIntentActivityWrapper(
                 this,
                 0,
-                MainActivity.createLaunchIntent(this, openHome = true),
+                MainActivity.createLaunchIntent(
+                    this,
+                    openHome = true,
+                    requestStartConfiguredMode = true,
+                ),
                 PendingIntent.FLAG_UPDATE_CURRENT,
                 false,
             ),
@@ -112,7 +120,7 @@ class QuickTileService : TileService() {
                     val settings = appSettingsRepository.snapshot()
                     val mode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
 
-                    if (mode == Mode.VPN && VpnService.prepare(this@QuickTileService) != null) {
+                    if (needsPermissionResolution(mode)) {
                         updateStatus()
                         launchActivity()
                         return@launch
@@ -127,4 +135,14 @@ class QuickTileService : TileService() {
             }
         }
     }
+
+    private fun needsPermissionResolution(mode: Mode): Boolean =
+        needsNotificationsPermission() || (mode == Mode.VPN && VpnService.prepare(this) != null)
+
+    private fun needsNotificationsPermission(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
 }

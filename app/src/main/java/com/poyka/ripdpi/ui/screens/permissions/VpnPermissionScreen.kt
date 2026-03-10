@@ -37,6 +37,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -93,7 +94,14 @@ fun VpnPermissionScreen(
         topActionText = stringResource(R.string.permissions_vpn_not_now),
         onTopAction = onDismiss,
         banner = {
-            if (uiState.connectionState == ConnectionState.Error && uiState.errorMessage != null) {
+            val permissionIssue = uiState.permissionSummary.issue
+            if (permissionIssue?.kind == PermissionKind.VpnConsent) {
+                WarningBanner(
+                    title = permissionIssue.title,
+                    message = permissionIssue.message,
+                    tone = WarningBannerTone.Error,
+                )
+            } else if (uiState.connectionState == ConnectionState.Error && uiState.errorMessage != null) {
                 WarningBanner(
                     title = stringResource(R.string.permissions_vpn_error_title),
                     message = uiState.errorMessage,

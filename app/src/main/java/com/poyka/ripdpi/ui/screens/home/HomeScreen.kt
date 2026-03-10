@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.home
 
-import android.net.VpnService
 import android.text.format.Formatter
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -41,10 +40,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
-import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -63,27 +63,19 @@ import kotlin.time.Duration.Companion.ZERO
 @Composable
 fun HomeRoute(
     modifier: Modifier = Modifier,
-    onOpenVpnPermission: () -> Unit,
     onStartConfiguredMode: () -> Unit,
     viewModel: MainViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
     HomeScreen(
         uiState = uiState,
         modifier = modifier,
         onToggleConnection = {
-            if (shouldOpenVpnPermission(
-                    uiState = uiState,
-                    vpnPermissionRequired = VpnService.prepare(context) != null,
-                )
-            ) {
-                onOpenVpnPermission()
-            } else if (shouldStartConnection(uiState)) {
+            if (shouldStartConnection(uiState)) {
                 onStartConfiguredMode()
             } else {
-                viewModel.toggleService(context)
+                viewModel.onPrimaryConnectionAction()
             }
         },
     )
@@ -126,6 +118,31 @@ fun HomeScreen(
                     title = stringResource(R.string.home_status_error_title),
                     message = uiState.errorMessage,
                     tone = WarningBannerTone.Error,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            uiState.permissionSummary.issue?.let { issue ->
+                WarningBanner(
+                    title = issue.title,
+                    message =
+                        when (issue.recovery) {
+                            PermissionRecovery.OpenSettings,
+                            PermissionRecovery.OpenBatteryOptimizationSettings,
+                            -> stringResource(R.string.home_permission_issue_with_settings, issue.message)
+
+                            PermissionRecovery.OpenVpnPermissionScreen,
+                            PermissionRecovery.RetryPrompt,
+                            -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
+                        },
+                    tone = WarningBannerTone.Restricted,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } ?: uiState.permissionSummary.recommendedIssue?.let { warning ->
+                WarningBanner(
+                    title = warning.title,
+                    message = warning.message,
+                    tone = WarningBannerTone.Warning,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -194,15 +211,6 @@ private fun HomeStatusCard(
         )
     }
 }
-
-internal fun shouldOpenVpnPermission(
-    uiState: MainUiState,
-    vpnPermissionRequired: Boolean,
-): Boolean =
-    vpnPermissionRequired &&
-        uiState.configuredMode == Mode.VPN &&
-        uiState.connectionState != ConnectionState.Connected &&
-        uiState.connectionState != ConnectionState.Connecting
 
 internal fun shouldStartConnection(uiState: MainUiState): Boolean =
     when (uiState.connectionState) {
