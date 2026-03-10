@@ -42,7 +42,8 @@ fun RipDpiNavHost(
     modifier: Modifier = Modifier,
     startDestination: String = Route.Home.route,
     onSaveLogs: () -> Unit = {},
-    onExportDiagnostics: (String?) -> Unit = {},
+    onSaveDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
+    onShareDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
     onShareDiagnosticsSummary: (String, String) -> Unit = { _, _ -> },
     mainViewModel: MainViewModel,
     openVpnPermissionRequested: Boolean = false,
@@ -163,7 +164,8 @@ fun RipDpiNavHost(
             composable(Route.Diagnostics.route) {
                 val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
                 DiagnosticsRoute(
-                    onExport = onExportDiagnostics,
+                    onShareArchive = onShareDiagnosticsArchive,
+                    onSaveArchive = onSaveDiagnosticsArchive,
                     onShareSummary = onShareDiagnosticsSummary,
                     onSaveLogs = onSaveLogs,
                     viewModel = diagnosticsViewModel,

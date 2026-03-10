@@ -7,9 +7,9 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
-import com.poyka.ripdpi.diagnostics.ExportBundle
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -31,6 +31,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -123,7 +124,7 @@ class DiagnosticsViewModelTest {
             assertEquals("Default", state.overview.activeProfile?.name)
             assertEquals("Running", state.live.statusLabel)
             assertEquals(1, state.sessions.sessions.size)
-            assertEquals("report.zip", state.share.latestExportFileName)
+            assertEquals("report.zip", state.share.latestArchiveFileName)
             assertTrue(state.events.events.first().severity.contains("WARN"))
             collector.cancel()
         }
@@ -223,7 +224,7 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
-    fun `share summary emits effect and export uses selected target session`() =
+    fun `share summary emits effect and archive actions use selected target session`() =
         runTest {
             val manager = FakeDiagnosticsManager().apply {
                 sessionsState.value =
@@ -248,13 +249,21 @@ class DiagnosticsViewModelTest {
             assertEquals("RIPDPI summary", effect.title)
             assertTrue(effect.body.contains("session-1"))
 
-            val exportEffect = async { viewModel.effects.first() }
-            viewModel.exportBundle("session-1")
+            val shareArchiveEffect = async { viewModel.effects.first() }
+            viewModel.shareArchive("session-1")
             advanceUntilIdle()
 
-            val export = exportEffect.await() as DiagnosticsEffect.ExportBundleRequested
-            assertEquals("session-1", manager.lastExportSessionId)
-            assertEquals("/tmp/export-session-1.zip", export.absolutePath)
+            val shareArchive = shareArchiveEffect.await() as DiagnosticsEffect.ShareArchiveRequested
+            assertEquals("session-1", manager.lastArchiveSessionId)
+            assertEquals("/tmp/archive-session-1.zip", shareArchive.absolutePath)
+
+            val saveArchiveEffect = async { viewModel.effects.first() }
+            viewModel.saveArchive("session-1")
+            advanceUntilIdle()
+
+            val saveArchive = saveArchiveEffect.await() as DiagnosticsEffect.SaveArchiveRequested
+            assertEquals("session-1", manager.lastArchiveSessionId)
+            assertEquals("/tmp/archive-session-1.zip", saveArchive.absolutePath)
             collector.cancel()
         }
 
@@ -291,6 +300,37 @@ class DiagnosticsViewModelTest {
 
             assertEquals(1, viewModel.uiState.value.events.events.size)
             assertEquals("Proxy", viewModel.uiState.value.events.events.first().source)
+            collector.cancel()
+        }
+
+    @Test
+    fun `archive failure updates share state`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager(
+                    archiveFailure = IllegalStateException("boom"),
+                ).apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-1",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "Selected",
+                            ),
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.shareArchive("session-1")
+            advanceUntilIdle()
+
+            val shareState = viewModel.uiState.value.share
+            assertEquals("Failed to generate archive", shareState.archiveStateMessage)
+            assertEquals(DiagnosticsTone.Negative, shareState.archiveStateTone)
+            assertFalse(shareState.isArchiveBusy)
             collector.cancel()
         }
 
@@ -361,6 +401,7 @@ class DiagnosticsViewModelTest {
 
 private class FakeDiagnosticsManager(
     private val detail: DiagnosticSessionDetail? = null,
+    private val archiveFailure: Throwable? = null,
 ) : DiagnosticsManager {
     private val _progressState = MutableStateFlow<ScanProgress?>(null)
     val progressState: MutableStateFlow<ScanProgress?> = _progressState
@@ -371,7 +412,7 @@ private class FakeDiagnosticsManager(
     val nativeEventsState = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
     var initializeCalls = 0
-    var lastExportSessionId: String? = null
+    var lastArchiveSessionId: String? = null
     var lastActiveProfileId: String? = null
 
     override val activeScanProgress: StateFlow<ScanProgress?> = _progressState.asStateFlow()
@@ -406,11 +447,17 @@ private class FakeDiagnosticsManager(
             compactMetrics = listOf(SummaryMetric("Path", "RAW_PATH")),
         )
 
-    override suspend fun exportBundle(sessionId: String?): ExportBundle {
-        lastExportSessionId = sessionId
-        return ExportBundle(
-            fileName = "export.zip",
-            absolutePath = "/tmp/export-${sessionId ?: "all"}.zip",
+    override suspend fun createArchive(sessionId: String?): DiagnosticsArchive {
+        archiveFailure?.let { throw it }
+        lastArchiveSessionId = sessionId
+        return DiagnosticsArchive(
+            fileName = "archive.zip",
+            absolutePath = "/tmp/archive-${sessionId ?: "all"}.zip",
+            sessionId = sessionId,
+            createdAt = 42L,
+            scope = "hybrid",
+            schemaVersion = 2,
+            privacyMode = "split_output",
         )
     }
 }

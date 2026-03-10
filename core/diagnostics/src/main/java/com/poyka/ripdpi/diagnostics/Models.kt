@@ -11,11 +11,18 @@ enum class ScanPathMode {
 @Serializable
 data class DomainTarget(
     val host: String,
+    val connectIp: String? = null,
+    val httpsPort: Int? = null,
+    val httpPort: Int? = null,
+    val httpPath: String = "/",
 )
 
 @Serializable
 data class DnsTarget(
     val domain: String,
+    val udpServer: String? = null,
+    val dohUrl: String? = null,
+    val expectedIps: List<String> = emptyList(),
 )
 
 @Serializable
@@ -26,6 +33,8 @@ data class TcpTarget(
     val port: Int = 443,
     val sni: String? = null,
     val asn: String? = null,
+    val hostHeader: String? = null,
+    val fatHeaderRequests: Int? = null,
 )
 
 @Serializable
@@ -113,9 +122,14 @@ data class NetworkSnapshotModel(
     val capturedAt: Long,
 )
 
-data class ExportBundle(
+data class DiagnosticsArchive(
     val fileName: String,
     val absolutePath: String,
+    val sessionId: String?,
+    val createdAt: Long,
+    val scope: String,
+    val schemaVersion: Int,
+    val privacyMode: String,
 )
 
 data class SummaryMetric(
