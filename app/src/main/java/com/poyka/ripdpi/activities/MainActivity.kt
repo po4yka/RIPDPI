@@ -19,9 +19,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
@@ -46,7 +48,7 @@ class MainActivity : ComponentActivity() {
     private val openHomeRequests = MutableStateFlow(false)
     private val openVpnPermissionRequests = MutableStateFlow(false)
     private var pendingNotificationAction: PendingStartAction? = null
-    private var pendingDiagnosticsExport: PendingDiagnosticsExport? = null
+    private var pendingDiagnosticsArchive: PendingDiagnosticsArchive? = null
 
     companion object {
         private const val EXTRA_OPEN_HOME = "com.poyka.ripdpi.extra.OPEN_HOME"
@@ -84,7 +86,7 @@ class MainActivity : ComponentActivity() {
         RequestVpnPermission,
     }
 
-    private data class PendingDiagnosticsExport(
+    private data class PendingDiagnosticsArchive(
         val filePath: String,
         val fileName: String,
     )
@@ -140,13 +142,13 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-    private val diagnosticsExportRegister =
+    private val diagnosticsArchiveRegister =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            val export = pendingDiagnosticsExport ?: return@registerForActivityResult
-            pendingDiagnosticsExport = null
+            val archive = pendingDiagnosticsArchive ?: return@registerForActivityResult
+            pendingDiagnosticsArchive = null
             lifecycleScope.launch(Dispatchers.IO) {
                 val uri = it.data?.data ?: return@launch
-                val source = java.io.File(export.filePath)
+                val source = java.io.File(archive.filePath)
                 contentResolver.openOutputStream(uri)?.use { stream ->
                     source.inputStream().use { input -> input.copyTo(stream) }
                 }
@@ -208,10 +210,11 @@ class MainActivity : ComponentActivity() {
                     RipDpiNavHost(
                         startDestination = initialStartDestination,
                         onSaveLogs = { saveLogs() },
-                        onExportDiagnostics = { filePath ->
-                            if (filePath != null) {
-                                saveDiagnosticsExport(filePath)
-                            }
+                        onSaveDiagnosticsArchive = { filePath, fileName ->
+                            saveDiagnosticsArchive(filePath = filePath, fileName = fileName)
+                        },
+                        onShareDiagnosticsArchive = { filePath, fileName ->
+                            shareDiagnosticsArchive(filePath = filePath, fileName = fileName)
                         },
                         onShareDiagnosticsSummary = { title, body ->
                             shareDiagnosticsSummary(title = title, body = body)
@@ -268,32 +271,43 @@ class MainActivity : ComponentActivity() {
         logsRegister.launch(intent)
     }
 
-    private fun saveDiagnosticsExport(filePath: String) {
-        val source = java.io.File(filePath)
-        pendingDiagnosticsExport =
-            PendingDiagnosticsExport(
+    private fun saveDiagnosticsArchive(
+        filePath: String,
+        fileName: String,
+    ) {
+        pendingDiagnosticsArchive =
+            PendingDiagnosticsArchive(
                 filePath = filePath,
-                fileName = source.name,
+                fileName = fileName,
             )
         val intent =
             Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = "application/zip"
-                putExtra(Intent.EXTRA_TITLE, source.name)
+                putExtra(Intent.EXTRA_TITLE, fileName)
             }
-        diagnosticsExportRegister.launch(intent)
+        diagnosticsArchiveRegister.launch(intent)
+    }
+
+    private fun shareDiagnosticsArchive(
+        filePath: String,
+        fileName: String,
+    ) {
+        val archiveUri =
+            FileProvider.getUriForFile(
+                this,
+                "${BuildConfig.APPLICATION_ID}.diagnostics.fileprovider",
+                java.io.File(filePath),
+            )
+        val shareIntent = DiagnosticsShareIntents.createArchiveShareIntent(archiveUri = archiveUri, fileName = fileName)
+        startActivity(Intent.createChooser(shareIntent, getString(R.string.diagnostics_share_archive_chooser)))
     }
 
     private fun shareDiagnosticsSummary(
         title: String,
         body: String,
     ) {
-        val shareIntent =
-            Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, title)
-                putExtra(Intent.EXTRA_TEXT, body)
-            }
+        val shareIntent = DiagnosticsShareIntents.createSummaryShareIntent(title = title, body = body)
         startActivity(Intent.createChooser(shareIntent, title))
     }
 

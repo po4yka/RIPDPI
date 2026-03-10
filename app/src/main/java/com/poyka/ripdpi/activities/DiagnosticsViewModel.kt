@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
@@ -204,7 +205,10 @@ data class DiagnosticsShareUiModel(
     val previewTitle: String = "RIPDPI diagnostics",
     val previewBody: String = "Select a session or use the latest diagnostics state.",
     val metrics: List<DiagnosticsMetricUiModel> = emptyList(),
-    val latestExportFileName: String? = null,
+    val latestArchiveFileName: String? = null,
+    val archiveStateMessage: String? = null,
+    val archiveStateTone: DiagnosticsTone = DiagnosticsTone.Neutral,
+    val isArchiveBusy: Boolean = false,
 )
 
 data class DiagnosticsUiState(
@@ -226,8 +230,14 @@ sealed interface DiagnosticsEffect {
         val body: String,
     ) : DiagnosticsEffect
 
-    data class ExportBundleRequested(
+    data class ShareArchiveRequested(
         val absolutePath: String,
+        val fileName: String,
+    ) : DiagnosticsEffect
+
+    data class SaveArchiveRequested(
+        val absolutePath: String,
+        val fileName: String,
     ) : DiagnosticsEffect
 }
 
@@ -251,6 +261,7 @@ class DiagnosticsViewModel
         private val eventSearch = MutableStateFlow("")
         private val eventAutoScroll = MutableStateFlow(true)
         private val selectedSessionDetail = MutableStateFlow<DiagnosticsSessionDetailUiModel?>(null)
+        private val archiveActionState = MutableStateFlow(ArchiveActionState())
         private val _effects = Channel<DiagnosticsEffect>(Channel.BUFFERED)
         val effects: Flow<DiagnosticsEffect> = _effects.receiveAsFlow()
 
@@ -275,6 +286,7 @@ class DiagnosticsViewModel
                 eventSearch,
                 eventAutoScroll,
                 selectedSessionDetail,
+                archiveActionState,
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
                 val profiles = values[0] as List<DiagnosticProfileEntity>
@@ -296,6 +308,7 @@ class DiagnosticsViewModel
                 val eventSearch = values[16] as String
                 val eventAutoScroll = values[17] as Boolean
                 val sessionDetail = values[18] as DiagnosticsSessionDetailUiModel?
+                val archiveActionState = values[19] as ArchiveActionState
 
                 buildUiState(
                     profiles = profiles,
@@ -317,6 +330,7 @@ class DiagnosticsViewModel
                     eventSearch = eventSearch,
                     eventAutoScroll = eventAutoScroll,
                     selectedSessionDetail = sessionDetail,
+                    archiveActionState = archiveActionState,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -431,14 +445,41 @@ class DiagnosticsViewModel
             }
         }
 
-        fun exportBundle(sessionId: String? = null) {
+        fun shareArchive(sessionId: String? = null) {
             viewModelScope.launch {
-                val export = diagnosticsManager.exportBundle(sessionId ?: uiState.value.share.targetSessionId)
-                _effects.send(
-                    DiagnosticsEffect.ExportBundleRequested(
-                        absolutePath = export.absolutePath,
-                    ),
-                )
+                runArchiveAction(
+                    busyMessage = "Generating archive for sharing",
+                    successMessage = "Archive ready to share",
+                    failureMessage = "Failed to generate archive",
+                ) { targetSessionId ->
+                    val archive = diagnosticsManager.createArchive(targetSessionId)
+                    _effects.send(
+                        DiagnosticsEffect.ShareArchiveRequested(
+                            absolutePath = archive.absolutePath,
+                            fileName = archive.fileName,
+                        ),
+                    )
+                    archive
+                }
+            }
+        }
+
+        fun saveArchive(sessionId: String? = null) {
+            viewModelScope.launch {
+                runArchiveAction(
+                    busyMessage = "Preparing archive for saving",
+                    successMessage = "Archive saved to export flow",
+                    failureMessage = "Failed to prepare archive",
+                ) { targetSessionId ->
+                    val archive = diagnosticsManager.createArchive(targetSessionId)
+                    _effects.send(
+                        DiagnosticsEffect.SaveArchiveRequested(
+                            absolutePath = archive.absolutePath,
+                            fileName = archive.fileName,
+                        ),
+                    )
+                    archive
+                }
             }
         }
 
@@ -462,6 +503,7 @@ class DiagnosticsViewModel
             eventSearch: String,
             eventAutoScroll: Boolean,
             selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
+            archiveActionState: ArchiveActionState,
         ): DiagnosticsUiState {
             val activeProfile =
                 profiles.firstOrNull { it.id == selectedProfileId }
@@ -602,7 +644,10 @@ class DiagnosticsViewModel
                         previewTitle = sharePreview.title,
                         previewBody = sharePreview.body,
                         metrics = sharePreview.compactMetrics.map { DiagnosticsMetricUiModel(it.label, it.value) },
-                        latestExportFileName = exports.firstOrNull()?.fileName,
+                        latestArchiveFileName = archiveActionState.latestArchiveFileName ?: exports.firstOrNull()?.fileName,
+                        archiveStateMessage = archiveActionState.message,
+                        archiveStateTone = archiveActionState.tone,
+                        isArchiveBusy = archiveActionState.isBusy,
                     ),
                 selectedSessionDetail = selectedSessionDetail,
                 selectedEvent = selectedEvent,
@@ -736,7 +781,9 @@ class DiagnosticsViewModel
                 }
             val body =
                 buildString {
-                    appendLine("Latest diagnostics summary")
+                    appendLine("Archive includes the focused diagnostics session in full.")
+                    appendLine("It also adds recent live telemetry and global runtime events.")
+                    appendLine("Summary and manifest redact network identity fields, while raw report data stays intact.")
                     latestSession?.let {
                         appendLine("Session ${it.id.take(8)} · ${it.pathMode} · ${it.status}")
                     }
@@ -938,4 +985,45 @@ class DiagnosticsViewModel
             current: String?,
             next: String?,
         ): String? = if (current == next) null else next
+
+        private suspend fun runArchiveAction(
+            busyMessage: String,
+            successMessage: String,
+            failureMessage: String,
+            action: suspend (String?) -> DiagnosticsArchive,
+        ) {
+            val targetSessionId = uiState.value.share.targetSessionId
+            archiveActionState.value =
+                ArchiveActionState(
+                    message = busyMessage,
+                    tone = DiagnosticsTone.Info,
+                    isBusy = true,
+                    latestArchiveFileName = archiveActionState.value.latestArchiveFileName,
+                )
+            runCatching { action(targetSessionId) }
+                .onSuccess { archive ->
+                    archiveActionState.value =
+                        ArchiveActionState(
+                            message = successMessage,
+                            tone = DiagnosticsTone.Positive,
+                            isBusy = false,
+                            latestArchiveFileName = archive.fileName,
+                        )
+                }.onFailure {
+                    archiveActionState.value =
+                        ArchiveActionState(
+                            message = failureMessage,
+                            tone = DiagnosticsTone.Negative,
+                            isBusy = false,
+                            latestArchiveFileName = archiveActionState.value.latestArchiveFileName,
+                        )
+                }
+        }
     }
+
+private data class ArchiveActionState(
+    val message: String? = null,
+    val tone: DiagnosticsTone = DiagnosticsTone.Neutral,
+    val isBusy: Boolean = false,
+    val latestArchiveFileName: String? = null,
+)

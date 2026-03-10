@@ -50,6 +50,13 @@
     <string name="diagnostics_share_summary_title">Share readable summary</string>
     <string name="diagnostics_share_summary_body">Build a concise incident brief from the latest or selected diagnostics session and send it through the Android share sheet.</string>
     <string name="diagnostics_share_summary_action">Share summary</string>
+    <string name="diagnostics_share_archive_title">Share diagnostics archive</string>
+    <string name="diagnostics_share_archive_body">Build a ZIP with the focused session, recent live telemetry, and global runtime events, then send it directly through the Android share sheet.</string>
+    <string name="diagnostics_share_archive_action">Share archive</string>
+    <string name="diagnostics_share_archive_chooser">Share diagnostics archive</string>
+    <string name="diagnostics_save_archive_title">Save diagnostics archive</string>
+    <string name="diagnostics_save_archive_body">Save %1$s locally. The archive keeps raw machine-readable report data but redacts network identity fields in summary and manifest files.</string>
+    <string name="diagnostics_save_archive_action">Save archive</string>
     <string name="diagnostics_export_zip_title">Export full ZIP bundle</string>
     <string name="diagnostics_export_zip_body">Create the complete archive for %1$s with structured report JSON, summary text, and telemetry CSV.</string>
     <string name="diagnostics_save_logs_title">Save local logs</string>

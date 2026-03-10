@@ -62,7 +62,7 @@ interface DiagnosticsManager {
 
     suspend fun buildShareSummary(sessionId: String?): ShareSummary
 
-    suspend fun exportBundle(sessionId: String?): ExportBundle
+    suspend fun createArchive(sessionId: String?): DiagnosticsArchive
 }
 
 @Singleton
@@ -77,6 +77,19 @@ class DefaultDiagnosticsManager
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
         private val serviceStateStore: ServiceStateStore,
     ) : DiagnosticsManager {
+    private companion object {
+        private const val DiagnosticsArchiveDirectory = "diagnostics-archives"
+        private const val DiagnosticsArchivePrefix = "ripdpi-diagnostics-"
+        private const val ArchiveSchemaVersion = 2
+        private const val ArchivePrivacyMode = "split_output"
+        private const val ArchiveScopeHybrid = "hybrid"
+        private const val MaxArchiveFiles = 5
+        private const val MaxArchiveAgeMs = 3L * 24L * 60L * 60L * 1000L
+        private const val ArchiveTelemetryLimit = 120
+        private const val ArchiveGlobalEventLimit = 80
+        private const val ArchiveSnapshotLimit = 250
+    }
+
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _activeScanProgress = MutableStateFlow<ScanProgress?>(null)
@@ -97,6 +110,7 @@ class DefaultDiagnosticsManager
             return
         }
         initialized = true
+        cleanupArchiveCache()
         importBundledProfiles()
         startPassiveMonitor()
     }
@@ -285,44 +299,65 @@ class DefaultDiagnosticsManager
             )
         }
 
-    override suspend fun exportBundle(sessionId: String?): ExportBundle =
+    override suspend fun createArchive(sessionId: String?): DiagnosticsArchive =
         withContext(Dispatchers.IO) {
+            cleanupArchiveCache()
+            val archiveDirectory = ensureArchiveDirectory()
             val timestamp = System.currentTimeMillis()
-            val fileName = "ripdpi-diagnostics-$timestamp.zip"
-            val target = File(context.cacheDir, fileName)
+            val fileName = "$DiagnosticsArchivePrefix$timestamp.zip"
+            val target = File(archiveDirectory, fileName)
             val sessions = historyRepository.observeRecentScanSessions(limit = 50).first()
-            val snapshots = historyRepository.observeSnapshots(limit = 200).first()
-            val telemetry = historyRepository.observeTelemetry(limit = 500).first()
-            val events = historyRepository.observeNativeEvents(limit = 500).first()
-            val selectedSession = sessionId?.let { historyRepository.getScanSession(it) }
-            val selectedResults = sessionId?.let { historyRepository.getProbeResults(it) }.orEmpty()
+            val snapshots = historyRepository.observeSnapshots(limit = ArchiveSnapshotLimit).first()
+            val telemetry = historyRepository.observeTelemetry(limit = ArchiveTelemetryLimit).first()
+            val events = historyRepository.observeNativeEvents(limit = ArchiveGlobalEventLimit).first()
+            val primarySession =
+                sessionId
+                    ?.let { historyRepository.getScanSession(it) }
+                    ?: sessions.firstOrNull { it.reportJson != null }
+                    ?: sessions.firstOrNull()
+            val primaryResults = primarySession?.id?.let { historyRepository.getProbeResults(it) }.orEmpty()
+            val primarySnapshots = primarySession?.id?.let { id -> snapshots.filter { it.sessionId == id } }.orEmpty()
+            val primaryEvents = primarySession?.id?.let { id -> events.filter { it.sessionId == id } }.orEmpty()
+            val latestPassiveSnapshot = snapshots.firstOrNull { it.sessionId == null }
+            val globalEvents =
+                events
+                    .filter { it.sessionId == null || it.sessionId != primarySession?.id }
+                    .take(ArchiveGlobalEventLimit)
+            val payload =
+                DiagnosticsArchivePayload(
+                    schemaVersion = ArchiveSchemaVersion,
+                    scope = ArchiveScopeHybrid,
+                    privacyMode = ArchivePrivacyMode,
+                    session = primarySession,
+                    results = primaryResults,
+                    sessionSnapshots = primarySnapshots,
+                    sessionEvents = primaryEvents,
+                    latestPassiveSnapshot = latestPassiveSnapshot,
+                    telemetry = telemetry.take(ArchiveTelemetryLimit),
+                    globalEvents = globalEvents,
+                )
+            val latestSnapshotModel =
+                latestPassiveSnapshot
+                    ?.payloadJson
+                    ?.let { payloadJson ->
+                        runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payloadJson) }.getOrNull()
+                    }
             ZipOutputStream(target.outputStream().buffered()).use { zip ->
                 zip.putNextEntry(ZipEntry("summary.txt"))
                 val summary =
-                    buildString {
-                        appendLine("RIPDPI diagnostics export")
-                        appendLine("generatedAt=$timestamp")
-                        appendLine("selectedSession=${selectedSession?.id ?: "all"}")
-                        appendLine("sessions=${sessions.size}")
-                        appendLine("snapshots=${snapshots.size}")
-                        appendLine("telemetry=${telemetry.size}")
-                        appendLine("events=${events.size}")
-                    }
+                    buildArchiveSummary(
+                        createdAt = timestamp,
+                        session = primarySession,
+                        results = primaryResults,
+                        latestSnapshot = latestSnapshotModel,
+                        telemetry = telemetry,
+                        globalEvents = globalEvents,
+                    )
                 zip.write(summary.toByteArray())
                 zip.closeEntry()
 
                 zip.putNextEntry(ZipEntry("report.json"))
-                val reportJson =
-                    json.encodeToString(
-                        ExportPayload.serializer(),
-                        ExportPayload(
-                            session = selectedSession,
-                            results = selectedResults,
-                            snapshots = snapshots,
-                            telemetry = telemetry,
-                            events = events,
-                        ),
-                    )
+                val reportJson = json.encodeToString(DiagnosticsArchivePayload.serializer(), payload)
                 zip.write(reportJson.toByteArray())
                 zip.closeEntry()
 
@@ -330,7 +365,7 @@ class DefaultDiagnosticsManager
                 val csv =
                     buildString {
                         appendLine("createdAt,activeMode,connectionState,networkType,publicIp,txPackets,txBytes,rxPackets,rxBytes")
-                        telemetry.forEach { sample ->
+                        payload.telemetry.forEach { sample ->
                             appendLine(
                                 listOf(
                                     sample.createdAt,
@@ -352,11 +387,20 @@ class DefaultDiagnosticsManager
                 zip.putNextEntry(ZipEntry("manifest.json"))
                 val manifest =
                     json.encodeToString(
-                        ExportManifest.serializer(),
-                        ExportManifest(
+                        DiagnosticsArchiveManifest.serializer(),
+                        DiagnosticsArchiveManifest(
                             fileName = fileName,
                             createdAt = timestamp,
-                            includedSessionId = selectedSession?.id,
+                            schemaVersion = ArchiveSchemaVersion,
+                            privacyMode = ArchivePrivacyMode,
+                            scope = ArchiveScopeHybrid,
+                            includedSessionId = primarySession?.id,
+                            sessionResultCount = primaryResults.size,
+                            sessionSnapshotCount = primarySnapshots.size,
+                            sessionEventCount = primaryEvents.size,
+                            telemetrySampleCount = payload.telemetry.size,
+                            globalEventCount = globalEvents.size,
+                            networkSummary = latestSnapshotModel?.toRedactedSummary(),
                         ),
                     )
                 zip.write(manifest.toByteArray())
@@ -365,13 +409,21 @@ class DefaultDiagnosticsManager
             historyRepository.insertExportRecord(
                 ExportRecordEntity(
                     id = UUID.randomUUID().toString(),
-                    sessionId = sessionId,
+                    sessionId = primarySession?.id,
                     uri = target.absolutePath,
                     fileName = fileName,
                     createdAt = timestamp,
                 ),
             )
-            ExportBundle(fileName = fileName, absolutePath = target.absolutePath)
+            DiagnosticsArchive(
+                fileName = fileName,
+                absolutePath = target.absolutePath,
+                sessionId = primarySession?.id,
+                createdAt = timestamp,
+                scope = ArchiveScopeHybrid,
+                schemaVersion = ArchiveSchemaVersion,
+                privacyMode = ArchivePrivacyMode,
+            )
         }
 
     private suspend fun importBundledProfiles() {
@@ -443,6 +495,85 @@ class DefaultDiagnosticsManager
 
     private fun settingsDelaySeconds(settings: com.poyka.ripdpi.proto.AppSettings): Int =
         settings.diagnosticsSampleIntervalSeconds.coerceIn(5, 300)
+
+    private fun ensureArchiveDirectory(): File =
+        File(context.cacheDir, DiagnosticsArchiveDirectory).apply {
+            mkdirs()
+        }
+
+    private fun cleanupArchiveCache() {
+        val archiveDirectory = ensureArchiveDirectory()
+        val now = System.currentTimeMillis()
+        val archiveFiles =
+            archiveDirectory
+                .listFiles()
+                .orEmpty()
+                .filter { it.isFile && it.name.startsWith(DiagnosticsArchivePrefix) && it.extension == "zip" }
+                .sortedByDescending { it.lastModified() }
+
+        archiveFiles
+            .filter { now - it.lastModified() > MaxArchiveAgeMs }
+            .forEach { it.delete() }
+
+        archiveDirectory
+            .listFiles()
+            .orEmpty()
+            .filter { it.isFile && it.name.startsWith(DiagnosticsArchivePrefix) && it.extension == "zip" }
+            .sortedByDescending { it.lastModified() }
+            .drop(MaxArchiveFiles)
+            .forEach { it.delete() }
+    }
+
+    private fun buildArchiveSummary(
+        createdAt: Long,
+        session: ScanSessionEntity?,
+        results: List<ProbeResultEntity>,
+        latestSnapshot: NetworkSnapshotModel?,
+        telemetry: List<TelemetrySampleEntity>,
+        globalEvents: List<NativeSessionEventEntity>,
+    ): String =
+        buildString {
+            appendLine("RIPDPI diagnostics archive")
+            appendLine("generatedAt=$createdAt")
+            appendLine("scope=$ArchiveScopeHybrid")
+            appendLine("privacyMode=$ArchivePrivacyMode")
+            appendLine("selectedSession=${session?.id ?: "latest-live"}")
+            session?.let {
+                appendLine("pathMode=${it.pathMode}")
+                appendLine("serviceMode=${it.serviceMode ?: "unknown"}")
+                appendLine("status=${it.status}")
+                appendLine("summary=${it.summary}")
+            }
+            latestSnapshot?.toRedactedSummary()?.let { summary ->
+                appendLine("transport=${summary.transport}")
+                appendLine("dns=${summary.dnsServers}")
+                appendLine("privateDns=${summary.privateDnsMode}")
+                appendLine("publicIp=${summary.publicIp}")
+                appendLine("publicAsn=${summary.publicAsn}")
+                appendLine("localAddresses=${summary.localAddresses}")
+                appendLine("validated=${summary.networkValidated}")
+                appendLine("captivePortal=${summary.captivePortalDetected}")
+            }
+            telemetry.firstOrNull()?.let { sample ->
+                appendLine("networkType=${sample.networkType}")
+                appendLine("txBytes=${sample.txBytes}")
+                appendLine("rxBytes=${sample.rxBytes}")
+            }
+            appendLine("resultCount=${results.size}")
+            results.take(5).forEach { result ->
+                appendLine("${result.probeType}:${result.target}=${result.outcome}")
+            }
+            if (globalEvents.isNotEmpty()) {
+                appendLine("recentWarnings=")
+                globalEvents
+                    .filter {
+                        it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
+                    }.take(3)
+                    .forEach { warning ->
+                        appendLine("- ${warning.source}: ${warning.message}")
+                    }
+            }
+        }.trim()
 
     private suspend fun pollScanResult(
         sessionId: String,
@@ -570,20 +701,58 @@ class DefaultDiagnosticsManager
 }
 
 @Serializable
-private data class ExportPayload(
+internal data class DiagnosticsArchivePayload(
+    val schemaVersion: Int,
+    val scope: String,
+    val privacyMode: String,
     val session: ScanSessionEntity?,
     val results: List<ProbeResultEntity>,
-    val snapshots: List<NetworkSnapshotEntity>,
+    val sessionSnapshots: List<NetworkSnapshotEntity>,
+    val sessionEvents: List<NativeSessionEventEntity>,
+    val latestPassiveSnapshot: NetworkSnapshotEntity?,
     val telemetry: List<TelemetrySampleEntity>,
-    val events: List<NativeSessionEventEntity>,
+    val globalEvents: List<NativeSessionEventEntity>,
 )
 
 @Serializable
-private data class ExportManifest(
+internal data class DiagnosticsArchiveManifest(
     val fileName: String,
     val createdAt: Long,
+    val schemaVersion: Int,
+    val privacyMode: String,
+    val scope: String,
     val includedSessionId: String?,
+    val sessionResultCount: Int,
+    val sessionSnapshotCount: Int,
+    val sessionEventCount: Int,
+    val telemetrySampleCount: Int,
+    val globalEventCount: Int,
+    val networkSummary: RedactedNetworkSummary?,
 )
+
+@Serializable
+internal data class RedactedNetworkSummary(
+    val transport: String,
+    val dnsServers: String,
+    val privateDnsMode: String,
+    val publicIp: String,
+    val publicAsn: String,
+    val localAddresses: String,
+    val networkValidated: Boolean,
+    val captivePortalDetected: Boolean,
+)
+
+private fun NetworkSnapshotModel.toRedactedSummary(): RedactedNetworkSummary =
+    RedactedNetworkSummary(
+        transport = transport,
+        dnsServers = if (dnsServers.isEmpty()) "unknown" else "redacted(${dnsServers.size})",
+        privateDnsMode = privateDnsMode,
+        publicIp = publicIp?.let { "redacted" } ?: "unknown",
+        publicAsn = publicAsn?.let { "redacted" } ?: "unknown",
+        localAddresses = if (localAddresses.isEmpty()) "unknown" else "redacted(${localAddresses.size})",
+        networkValidated = networkValidated,
+        captivePortalDetected = captivePortalDetected,
+    )
 
 @Module
 @InstallIn(SingletonComponent::class)
