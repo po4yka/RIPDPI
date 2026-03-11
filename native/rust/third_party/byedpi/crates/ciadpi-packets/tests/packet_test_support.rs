@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
 use ciadpi_packets::{
-    change_tls_sni_seeded_like_c, is_http, is_http_redirect, is_tls_client_hello, is_tls_server_hello, mod_http_like_c,
-    parse_http, parse_tls, part_tls_like_c, randomize_tls_seeded_like_c, tls_session_id_mismatch, OracleRng, MH_HMIX,
-    MH_SPACE,
+    change_tls_sni_seeded_like_c, is_http, is_http_redirect, is_quic_initial, is_tls_client_hello, is_tls_server_hello,
+    mod_http_like_c, parse_http, parse_quic_initial, parse_tls, part_tls_like_c, randomize_tls_seeded_like_c,
+    tls_session_id_mismatch, OracleRng, MH_HMIX, MH_SPACE,
 };
 
 #[allow(dead_code)]
@@ -21,17 +21,21 @@ pub fn read_corpus(name: &str) -> Vec<u8> {
         "tls_client_hello.bin" => rust_packet_seeds::tls_client_hello(),
         "tls_client_hello_ech.bin" => rust_packet_seeds::tls_client_hello_ech(),
         "tls_server_hello_like.bin" => rust_packet_seeds::tls_server_hello_like(),
+        "quic_initial_v1.bin" => rust_packet_seeds::quic_initial_v1(),
+        "quic_initial_v2.bin" => rust_packet_seeds::quic_initial_v2(),
         other => panic!("unexpected corpus file: {other}"),
     }
 }
 
-pub fn corpus_cases() -> [(&'static str, Vec<u8>); 5] {
+pub fn corpus_cases() -> [(&'static str, Vec<u8>); 7] {
     [
         ("http_request.bin", read_corpus("http_request.bin")),
         ("http_redirect_response.bin", read_corpus("http_redirect_response.bin")),
         ("tls_client_hello.bin", read_corpus("tls_client_hello.bin")),
         ("tls_client_hello_ech.bin", read_corpus("tls_client_hello_ech.bin")),
         ("tls_server_hello_like.bin", read_corpus("tls_server_hello_like.bin")),
+        ("quic_initial_v1.bin", read_corpus("quic_initial_v1.bin")),
+        ("quic_initial_v2.bin", read_corpus("quic_initial_v2.bin")),
     ]
 }
 
@@ -41,8 +45,10 @@ pub fn exercise_packets_input(data: &[u8]) {
     let _ = is_http(data);
     let _ = is_tls_client_hello(data);
     let _ = is_tls_server_hello(data);
+    let _ = is_quic_initial(data);
     let _ = parse_http(data);
     let _ = parse_tls(data);
+    let _ = parse_quic_initial(data);
 
     if split < data.len() {
         let _ = is_http_redirect(&data[..split], &data[split..]);
