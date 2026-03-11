@@ -3,14 +3,14 @@ package com.poyka.ripdpi.ui.screens.logs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -20,11 +20,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LogEntry
@@ -43,6 +44,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -85,54 +87,66 @@ internal fun LogsScreen(
         }
     }
 
-    Column(
+    RipDpiScreenScaffold(
         modifier =
             modifier
                 .fillMaxSize()
                 .background(colors.background),
-    ) {
-        RipDpiTopAppBar(title = stringResource(R.string.logs))
-
-        Column(
+        topBar = {
+            RipDpiTopAppBar(title = stringResource(R.string.logs))
+        },
+    ) { innerPadding ->
+        Box(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(horizontal = layout.horizontalPadding),
-            verticalArrangement = Arrangement.spacedBy(spacing.md),
+                    .background(colors.background)
+                    .padding(innerPadding),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            Spacer(modifier = Modifier.height(spacing.sm))
-
-            LogsOverviewCard(
-                uiState = uiState,
-                onSaveLogs = onSaveLogs,
-                onClearLogs = onClearLogs,
-            )
-
-            LogsFiltersSection(
-                uiState = uiState,
-                onToggleFilter = onToggleFilter,
-                onAutoScrollChanged = onAutoScrollChanged,
-            )
-
-            SettingsCategoryHeader(title = stringResource(R.string.logs_stream_section))
-
-            if (filteredLogs.isEmpty()) {
-                LogsEmptyStateCard(
-                    hasBufferedLogs = uiState.logs.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth(),
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .widthIn(max = layout.contentMaxWidth)
+                        .padding(
+                            start = layout.horizontalPadding,
+                            top = spacing.sm,
+                            end = layout.horizontalPadding,
+                            bottom = spacing.sm,
+                        ),
+                verticalArrangement = Arrangement.spacedBy(spacing.md),
+            ) {
+                LogsOverviewCard(
+                    uiState = uiState,
+                    onSaveLogs = onSaveLogs,
+                    onClearLogs = onClearLogs,
                 )
-            } else {
-                LogsStreamCard(
-                    entries = filteredLogs,
-                    listState = listState,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
+
+                LogsFiltersSection(
+                    uiState = uiState,
+                    onToggleFilter = onToggleFilter,
+                    onAutoScrollChanged = onAutoScrollChanged,
                 )
+
+                SettingsCategoryHeader(title = stringResource(R.string.logs_stream_section))
+
+                if (filteredLogs.isEmpty()) {
+                    LogsEmptyStateCard(
+                        hasBufferedLogs = uiState.logs.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    LogsStreamCard(
+                        entries = filteredLogs,
+                        listState = listState,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                    )
+                }
             }
-
-            Spacer(modifier = Modifier.height(spacing.sm))
         }
     }
 }

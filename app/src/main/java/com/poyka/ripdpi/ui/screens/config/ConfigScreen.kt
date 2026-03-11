@@ -4,19 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigPreset
@@ -35,8 +30,9 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
-import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -86,146 +82,130 @@ fun ConfigScreen(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
     val selectedPreset = uiState.presets.firstOrNull { it.isSelected } ?: uiState.presets.last()
     val desyncSummary =
         uiState.draft.desyncMethod.takeIf { it.isNotBlank() }
             ?: stringResource(R.string.config_desync_disorder)
 
-    Column(
+    RipDpiContentScreenScaffold(
         modifier =
             modifier
                 .fillMaxSize()
                 .background(colors.background),
+        title = stringResource(R.string.config),
+        contentWidth = RipDpiScaffoldWidth.Content,
     ) {
-        RipDpiTopAppBar(
-            title = stringResource(R.string.config),
-        )
+        if (uiState.draft.useCommandLineSettings) {
+            WarningBanner(
+                title = stringResource(R.string.config_cli_banner_title),
+                message = stringResource(R.string.config_cli_banner_body),
+                tone = WarningBannerTone.Restricted,
+            )
+        }
 
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = layout.horizontalPadding),
-            verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
-        ) {
-            Spacer(modifier = Modifier.height(spacing.sm))
+        RipDpiCard {
+            Text(
+                text = stringResource(R.string.config_overview_title),
+                style = type.sectionTitle,
+                color = colors.mutedForeground,
+            )
+            Text(
+                text = stringResource(titleResForPreset(selectedPreset.kind)),
+                style = type.screenTitle,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(descriptionResForPreset(selectedPreset.kind)),
+                style = type.body,
+                color = colors.mutedForeground,
+            )
 
-            if (uiState.draft.useCommandLineSettings) {
-                WarningBanner(
-                    title = stringResource(R.string.config_cli_banner_title),
-                    message = stringResource(R.string.config_cli_banner_body),
-                    tone = WarningBannerTone.Restricted,
-                )
+            ConfigModeChips(
+                selectedMode = uiState.activeMode,
+                onModeSelected = onModeSelected,
+            )
+
+            RipDpiButton(
+                text = stringResource(R.string.config_edit_current),
+                onClick = onEditCurrent,
+                variant =
+                    if (selectedPreset.kind == ConfigPresetKind.Custom) {
+                        RipDpiButtonVariant.Primary
+                    } else {
+                        RipDpiButtonVariant.Outline
+                    },
+                trailingIcon = RipDpiIcons.ChevronRight,
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+            SettingsCategoryHeader(title = stringResource(R.string.config_presets_section))
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                uiState.presets.forEach { preset ->
+                    PresetCard(
+                        title = stringResource(titleResForPreset(preset.kind)),
+                        description = stringResource(descriptionResForPreset(preset.kind)),
+                        badgeText =
+                            if (preset.isSelected) {
+                                stringResource(R.string.config_badge_active)
+                            } else {
+                                null
+                            },
+                        selected = preset.isSelected,
+                        onClick = { onPresetSelected(preset) },
+                    )
+                }
             }
+        }
 
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+            SettingsCategoryHeader(title = stringResource(R.string.config_summary_section))
             RipDpiCard {
-                Text(
-                    text = stringResource(R.string.config_overview_title),
-                    style = type.sectionTitle,
-                    color = colors.mutedForeground,
+                SettingsRow(
+                    title = stringResource(R.string.mode_setting),
+                    value = stringResource(modeLabelRes(uiState.draft.mode)),
+                    showDivider = true,
                 )
-                Text(
-                    text = stringResource(titleResForPreset(selectedPreset.kind)),
-                    style = type.screenTitle,
-                    color = colors.foreground,
+                SettingsRow(
+                    title = stringResource(R.string.dbs_ip_setting),
+                    subtitle =
+                        stringResource(
+                            if (uiState.draft.mode == Mode.VPN) {
+                                R.string.config_dns_summary_enabled
+                            } else {
+                                R.string.config_dns_summary_disabled
+                            },
+                        ),
+                    value = uiState.draft.dnsIp,
+                    onClick = onOpenDnsSettings,
+                    monospaceValue = true,
+                    showDivider = true,
                 )
-                Text(
-                    text = stringResource(descriptionResForPreset(selectedPreset.kind)),
-                    style = type.body,
-                    color = colors.mutedForeground,
+                SettingsRow(
+                    title = stringResource(R.string.bye_dpi_proxy_ip_setting),
+                    value =
+                        stringResource(
+                            R.string.proxy_address,
+                            uiState.draft.proxyIp,
+                            uiState.draft.proxyPort,
+                        ),
+                    monospaceValue = true,
+                    showDivider = true,
                 )
-
-                ConfigModeChips(
-                    selectedMode = uiState.activeMode,
-                    onModeSelected = onModeSelected,
+                SettingsRow(
+                    title = stringResource(R.string.ripdpi_desync_method_setting),
+                    value = desyncSummary,
+                    showDivider = uiState.draft.defaultTtl.isNotBlank(),
                 )
-
-                RipDpiButton(
-                    text = stringResource(R.string.config_edit_current),
-                    onClick = onEditCurrent,
-                    variant =
-                        if (selectedPreset.kind == ConfigPresetKind.Custom) {
-                            RipDpiButtonVariant.Primary
-                        } else {
-                            RipDpiButtonVariant.Outline
-                        },
-                    trailingIcon = RipDpiIcons.ChevronRight,
-                )
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                SettingsCategoryHeader(title = stringResource(R.string.config_presets_section))
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                    uiState.presets.forEach { preset ->
-                        PresetCard(
-                            title = stringResource(titleResForPreset(preset.kind)),
-                            description = stringResource(descriptionResForPreset(preset.kind)),
-                            badgeText =
-                                if (preset.isSelected) {
-                                    stringResource(R.string.config_badge_active)
-                                } else {
-                                    null
-                                },
-                            selected = preset.isSelected,
-                            onClick = { onPresetSelected(preset) },
-                        )
-                    }
+                if (uiState.draft.defaultTtl.isNotBlank()) {
+                    SettingsRow(
+                        title = stringResource(R.string.ripdpi_default_ttl_setting),
+                        value = uiState.draft.defaultTtl,
+                        monospaceValue = true,
+                    )
                 }
             }
-
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                SettingsCategoryHeader(title = stringResource(R.string.config_summary_section))
-                RipDpiCard {
-                    SettingsRow(
-                        title = stringResource(R.string.mode_setting),
-                        value = stringResource(modeLabelRes(uiState.draft.mode)),
-                        showDivider = true,
-                    )
-                    SettingsRow(
-                        title = stringResource(R.string.dbs_ip_setting),
-                        subtitle =
-                            stringResource(
-                                if (uiState.draft.mode == Mode.VPN) {
-                                    R.string.config_dns_summary_enabled
-                                } else {
-                                    R.string.config_dns_summary_disabled
-                                },
-                            ),
-                        value = uiState.draft.dnsIp,
-                        onClick = onOpenDnsSettings,
-                        monospaceValue = true,
-                        showDivider = true,
-                    )
-                    SettingsRow(
-                        title = stringResource(R.string.bye_dpi_proxy_ip_setting),
-                        value =
-                            stringResource(
-                                R.string.proxy_address,
-                                uiState.draft.proxyIp,
-                                uiState.draft.proxyPort,
-                            ),
-                        monospaceValue = true,
-                        showDivider = true,
-                    )
-                    SettingsRow(
-                        title = stringResource(R.string.ripdpi_desync_method_setting),
-                        value = desyncSummary,
-                        showDivider = uiState.draft.defaultTtl.isNotBlank(),
-                    )
-                    if (uiState.draft.defaultTtl.isNotBlank()) {
-                        SettingsRow(
-                            title = stringResource(R.string.ripdpi_default_ttl_setting),
-                            value = uiState.draft.defaultTtl,
-                            monospaceValue = true,
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(spacing.xxl))
         }
     }
 }

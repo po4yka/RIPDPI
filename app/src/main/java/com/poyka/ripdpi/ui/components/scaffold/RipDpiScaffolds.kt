@@ -35,6 +35,7 @@ enum class RipDpiScaffoldWidth {
 fun RipDpiScreenScaffold(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit = {},
+    snackbarHost: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
@@ -44,6 +45,7 @@ fun RipDpiScreenScaffold(
         modifier = modifier,
         containerColor = colors.background,
         topBar = topBar,
+        snackbarHost = snackbarHost,
         bottomBar = bottomBar,
         content = content,
     )
