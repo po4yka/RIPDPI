@@ -52,6 +52,18 @@ No packet payloads or packet captures are persisted.
 - The Android build targets these ABIs: `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`.
 - `ripdpi.localNativeAbis` can narrow the ABI set for local debug builds only.
 
+## Test Coverage
+
+Native integration is covered at several layers:
+
+- Rust crate tests for config parsing, lifecycle, state machines, fault injection, and telemetry/logging goldens
+- JVM tests for Kotlin wrappers, diagnostics orchestration, service state aggregation, and structured golden contracts
+- Android instrumentation tests for JNI/service integration and local-network E2E against the real packaged `.so` files
+- Linux-only privileged tests for real TUN E2E and TUN soak
+- nightly/manual soak suites for proxy runtime, diagnostics runtime, and TUN runtime longevity
+
+Testing commands and CI mapping are documented in [../testing.md](../testing.md).
+
 ## Golden Contracts
 
 Structured telemetry and diagnostics-event payloads are treated as compatibility contracts.
@@ -71,6 +83,12 @@ Structured telemetry and diagnostics-event payloads are treated as compatibility
 - `native/rust/crates/ripdpi-runtime`
 - `native/rust/crates/android-support`
 
+## Native Test Support Crates
+
+- `native/rust/crates/golden-test-support`
+- `native/rust/crates/local-network-fixture`
+- `native/rust/crates/native-soak-support`
+
 ## Runtime ELF Dependencies
 
 - `libripdpi.so` links against `libc.so`, `libdl.so`, and `liblog.so`.
@@ -80,3 +98,4 @@ Structured telemetry and diagnostics-event payloads are treated as compatibility
 
 - [byedpi usage](byedpi.md)
 - [hev-socks5-tunnel usage](hev-socks5-tunnel.md)
+- [testing coverage](../testing.md)
