@@ -129,7 +129,7 @@ class RipDpiVpnService : LifecycleVpnService() {
             startTelemetryUpdates()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start VPN\n${e.asLog()}" }
-            val reason = classifyFailureReason(e)
+            val reason = classifyFailureReason(e, isTunnelContext = true)
             updateStatus(ServiceStatus.Failed, reason)
             stop()
         }
@@ -366,19 +366,6 @@ class RipDpiVpnService : LifecycleVpnService() {
                 }
             }
     }
-
-    private fun classifyFailureReason(e: Exception): FailureReason =
-        when (e) {
-            is java.io.IOException -> FailureReason.NativeError(e.message ?: "I/O error")
-            is IllegalStateException -> {
-                if (e.message?.contains("VPN") == true || e.message?.contains("tunnel") == true) {
-                    FailureReason.TunnelEstablishmentFailed
-                } else {
-                    FailureReason.NativeError(e.message ?: "Native error")
-                }
-            }
-            else -> FailureReason.Unexpected(e)
-        }
 
     private fun createNotification(): Notification =
         createConnectionNotification(
