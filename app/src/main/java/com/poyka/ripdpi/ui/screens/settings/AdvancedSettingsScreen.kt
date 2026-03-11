@@ -46,13 +46,15 @@ import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
+import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -832,6 +834,13 @@ private fun AdvancedSettingsScreen(
                         enabled = visualEditorEnabled,
                         showDivider = uiState.hostAutolearnEnabled,
                     )
+                    HostAutolearnStatusCard(
+                        uiState = uiState,
+                        modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+                    )
+                    if (uiState.hostAutolearnEnabled) {
+                        HorizontalDivider(color = colors.divider)
+                    }
                     if (uiState.hostAutolearnEnabled) {
                         AdvancedTextSetting(
                             title = stringResource(R.string.host_autolearn_penalty_ttl_title),
@@ -880,10 +889,16 @@ private fun AdvancedSettingsScreen(
                         RipDpiButton(
                             text = stringResource(R.string.host_autolearn_forget_action),
                             onClick = onForgetLearnedHosts,
-                            variant = RipDpiButtonVariant.Secondary,
+                            enabled = uiState.canForgetLearnedHosts,
+                            variant = RipDpiButtonVariant.Outline,
                             trailingIcon = RipDpiIcons.Close,
                         )
                     }
+                    Text(
+                        text = hostAutolearnResetHint(uiState),
+                        style = RipDpiThemeTokens.type.caption,
+                        color = colors.mutedForeground,
+                    )
                 }
             }
         }
@@ -1191,6 +1206,183 @@ private fun AdvancedTextSetting(
 private val SettingsUiState.defaultTtlValue: String
     get() = if (customTtl) defaultTtl.toString() else ""
 
+private data class HostAutolearnStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
+@Composable
+private fun HostAutolearnStatusCard(
+    uiState: SettingsUiState,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val status = rememberHostAutolearnStatus(uiState)
+    val runtimeSummary =
+        if (uiState.isServiceRunning && (uiState.hostAutolearnRuntimeEnabled || uiState.hostAutolearnLearnedHostCount > 0)) {
+            stringResource(
+                R.string.host_autolearn_runtime_summary,
+                uiState.hostAutolearnLearnedHostCount,
+                uiState.hostAutolearnPenalizedHostCount,
+            )
+        } else {
+            null
+        }
+    val limitsSummary =
+        if (uiState.enableCmdSettings) {
+            null
+        } else {
+            stringResource(
+                R.string.host_autolearn_limits_summary,
+                uiState.hostAutolearnPenaltyTtlHours,
+                uiState.hostAutolearnMaxHosts,
+            )
+        }
+    val lastUpdate = hostAutolearnLastUpdate(uiState)
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Tonal,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        limitsSummary?.let {
+            Text(
+                text = it,
+                style = type.caption,
+                color = colors.mutedForeground,
+            )
+        }
+        if (runtimeSummary != null) {
+            Text(
+                text = runtimeSummary,
+                style = type.caption,
+                color = colors.foreground,
+            )
+        } else if (uiState.hostAutolearnStorePresent && !uiState.enableCmdSettings) {
+            Text(
+                text = stringResource(R.string.host_autolearn_store_present_summary),
+                style = type.caption,
+                color = colors.foreground,
+            )
+        }
+        lastUpdate?.let {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text(
+                    text = stringResource(R.string.host_autolearn_last_update_label),
+                    style = type.sectionTitle,
+                    color = colors.mutedForeground,
+                )
+                Text(
+                    text = it,
+                    style = type.secondaryBody,
+                    color = colors.foreground,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberHostAutolearnStatus(uiState: SettingsUiState): HostAutolearnStatusContent =
+    when {
+        uiState.enableCmdSettings && uiState.isServiceRunning && uiState.hostAutolearnRuntimeEnabled ->
+            HostAutolearnStatusContent(
+                label = stringResource(R.string.host_autolearn_live_status_title),
+                body = stringResource(R.string.host_autolearn_cli_live_status_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        uiState.enableCmdSettings ->
+            HostAutolearnStatusContent(
+                label = stringResource(R.string.host_autolearn_cli_status_title),
+                body = stringResource(R.string.host_autolearn_cli_status_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.isServiceRunning && uiState.hostAutolearnEnabled && uiState.hostAutolearnRuntimeEnabled ->
+            HostAutolearnStatusContent(
+                label = stringResource(R.string.host_autolearn_live_status_title),
+                body = stringResource(R.string.host_autolearn_live_status_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        uiState.isServiceRunning && uiState.hostAutolearnEnabled ->
+            HostAutolearnStatusContent(
+                label = stringResource(R.string.host_autolearn_pending_enable_title),
+                body = stringResource(R.string.host_autolearn_pending_enable_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.isServiceRunning && uiState.hostAutolearnRuntimeEnabled ->
+            HostAutolearnStatusContent(
+                label = stringResource(R.string.host_autolearn_pending_disable_title),
+                body = stringResource(R.string.host_autolearn_pending_disable_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.hostAutolearnEnabled ->
+            HostAutolearnStatusContent(
+                label = stringResource(R.string.host_autolearn_ready_title),
+                body = stringResource(R.string.host_autolearn_ready_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        uiState.hostAutolearnStorePresent ->
+            HostAutolearnStatusContent(
+                label = stringResource(R.string.host_autolearn_store_title),
+                body = stringResource(R.string.host_autolearn_store_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        else ->
+            HostAutolearnStatusContent(
+                label = stringResource(R.string.host_autolearn_off_title),
+                body = stringResource(R.string.host_autolearn_off_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+    }
+
+@Composable
+private fun hostAutolearnResetHint(uiState: SettingsUiState): String =
+    when {
+        uiState.enableCmdSettings -> stringResource(R.string.host_autolearn_reset_hint_cli)
+        !uiState.hostAutolearnStorePresent && (uiState.hostAutolearnEnabled || uiState.hostAutolearnRuntimeEnabled) ->
+            stringResource(R.string.host_autolearn_reset_hint_waiting)
+
+        !uiState.hostAutolearnStorePresent -> stringResource(R.string.host_autolearn_reset_hint_empty)
+        uiState.isServiceRunning -> stringResource(R.string.host_autolearn_reset_hint_running)
+        else -> stringResource(R.string.host_autolearn_reset_hint_ready)
+    }
+
+@Composable
+private fun hostAutolearnLastUpdate(uiState: SettingsUiState): String? {
+    val action =
+        when (uiState.hostAutolearnLastAction) {
+            "host_promoted" -> stringResource(R.string.host_autolearn_action_host_promoted)
+            "group_penalized" -> stringResource(R.string.host_autolearn_action_group_penalized)
+            "store_reset" -> stringResource(R.string.host_autolearn_action_store_reset)
+            else -> null
+        } ?: return null
+
+    val host = uiState.hostAutolearnLastHost?.takeIf { it.isNotBlank() }
+    val group =
+        uiState.hostAutolearnLastGroup?.let {
+            stringResource(R.string.host_autolearn_route_group, it)
+        }
+    return listOfNotNull(action, host, group).joinToString(" · ")
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun AdvancedSettingsScreenPreview() {
@@ -1220,6 +1412,15 @@ private fun AdvancedSettingsScreenPreview() {
                     tlsrecEnabled = false,
                     udpFakeCount = 0,
                     hostsMode = "disable",
+                    hostAutolearnEnabled = true,
+                    hostAutolearnRuntimeEnabled = true,
+                    hostAutolearnStorePresent = true,
+                    hostAutolearnLearnedHostCount = 18,
+                    hostAutolearnPenalizedHostCount = 2,
+                    hostAutolearnLastHost = "video.example.org",
+                    hostAutolearnLastGroup = 2,
+                    hostAutolearnLastAction = "host_promoted",
+                    serviceStatus = com.poyka.ripdpi.data.AppStatus.Running,
                 ),
             notice = null,
             onBack = {},
@@ -1260,6 +1461,7 @@ private fun AdvancedSettingsScreenDarkPreview() {
                     udpFakeCount = 1,
                     hostsMode = "blacklist",
                     hostsBlacklist = "example.com\ncdn.example.net",
+                    hostAutolearnStorePresent = true,
                     hostMixedCase = true,
                     domainMixedCase = true,
                     hostRemoveSpaces = false,

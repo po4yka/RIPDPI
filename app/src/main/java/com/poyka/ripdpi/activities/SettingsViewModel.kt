@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
@@ -33,6 +34,7 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsRecTcpChainStep
 import com.poyka.ripdpi.core.clearHostAutolearnStore
+import com.poyka.ripdpi.core.hasHostAutolearnStore
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceStateStore
@@ -41,11 +43,13 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 sealed interface SettingsEffect {
@@ -111,6 +115,13 @@ data class SettingsUiState(
     val hostAutolearnEnabled: Boolean = false,
     val hostAutolearnPenaltyTtlHours: Int = DefaultHostAutolearnPenaltyTtlHours,
     val hostAutolearnMaxHosts: Int = DefaultHostAutolearnMaxHosts,
+    val hostAutolearnRuntimeEnabled: Boolean = false,
+    val hostAutolearnStorePresent: Boolean = false,
+    val hostAutolearnLearnedHostCount: Int = 0,
+    val hostAutolearnPenalizedHostCount: Int = 0,
+    val hostAutolearnLastHost: String? = null,
+    val hostAutolearnLastGroup: Int? = null,
+    val hostAutolearnLastAction: String? = null,
     val hostMixedCase: Boolean = false,
     val domainMixedCase: Boolean = false,
     val hostRemoveSpaces: Boolean = false,
@@ -118,6 +129,7 @@ data class SettingsUiState(
     val webrtcProtectionEnabled: Boolean = false,
     val biometricEnabled: Boolean = false,
     val backupPin: String = "",
+    val serviceStatus: AppStatus = AppStatus.Halted,
     val isVpn: Boolean = true,
     val selectedMode: Mode = Mode.VPN,
     val useCmdSettings: Boolean = false,
@@ -132,10 +144,21 @@ data class SettingsUiState(
 ) {
     val hasBackupPin: Boolean
         get() = backupPin.isNotBlank()
+
+    val isServiceRunning: Boolean
+        get() = serviceStatus == AppStatus.Running
+
+    val canForgetLearnedHosts: Boolean
+        get() = !enableCmdSettings && hostAutolearnStorePresent
 }
 
 @VisibleForTesting
-internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState {
+internal fun AppSettings.toUiState(
+    isHydrated: Boolean = true,
+    serviceStatus: AppStatus = AppStatus.Halted,
+    proxyTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy"),
+    hostAutolearnStorePresent: Boolean = false,
+): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
     val tcpChainSteps = effectiveTcpChainSteps()
     val udpChainSteps = effectiveUdpChainSteps()
@@ -200,6 +223,13 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
         hostAutolearnEnabled = hostAutolearnEnabled,
         hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
         hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
+        hostAutolearnRuntimeEnabled = proxyTelemetry.autolearnEnabled,
+        hostAutolearnStorePresent = hostAutolearnStorePresent,
+        hostAutolearnLearnedHostCount = proxyTelemetry.learnedHostCount,
+        hostAutolearnPenalizedHostCount = proxyTelemetry.penalizedHostCount,
+        hostAutolearnLastHost = proxyTelemetry.lastAutolearnHost,
+        hostAutolearnLastGroup = proxyTelemetry.lastAutolearnGroup,
+        hostAutolearnLastAction = proxyTelemetry.lastAutolearnAction,
         hostMixedCase = hostMixedCase,
         domainMixedCase = domainMixedCase,
         hostRemoveSpaces = hostRemoveSpaces,
@@ -207,6 +237,7 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
         webrtcProtectionEnabled = webrtcProtectionEnabled,
         biometricEnabled = biometricEnabled,
         backupPin = backupPin,
+        serviceStatus = serviceStatus,
         isVpn = isVpn,
         selectedMode = if (isVpn) Mode.VPN else Mode.Proxy,
         useCmdSettings = useCmdSettings,
@@ -231,15 +262,31 @@ class SettingsViewModel
         private val serviceStateStore: ServiceStateStore,
     ) : ViewModel() {
     private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
+    private val hostAutolearnStoreRefresh = MutableStateFlow(0)
     val effects: Flow<SettingsEffect> = _effects.receiveAsFlow()
 
     val uiState: StateFlow<SettingsUiState> =
-        appSettingsRepository.settings
-            .map { it.toUiState() }
+        combine(
+            appSettingsRepository.settings,
+            serviceStateStore.telemetry,
+            hostAutolearnStoreRefresh,
+        ) { settings, telemetry, _ ->
+            settings.toUiState(
+                serviceStatus = telemetry.status,
+                proxyTelemetry = telemetry.proxyTelemetry,
+                hostAutolearnStorePresent = hasHostAutolearnStore(appContext),
+            )
+        }
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = AppSettingsSerializer.defaultValue.toUiState(isHydrated = false),
+                initialValue =
+                    AppSettingsSerializer.defaultValue.toUiState(
+                        isHydrated = false,
+                        serviceStatus = serviceStateStore.telemetry.value.status,
+                        proxyTelemetry = serviceStateStore.telemetry.value.proxyTelemetry,
+                        hostAutolearnStorePresent = hasHostAutolearnStore(appContext),
+                    ),
             )
 
     fun update(transform: AppSettings.Builder.() -> Unit) {
@@ -344,6 +391,7 @@ class SettingsViewModel
     fun forgetLearnedHosts() {
         viewModelScope.launch {
             val cleared = clearHostAutolearnStore(appContext)
+            hostAutolearnStoreRefresh.update { it + 1 }
             val effect =
                 when {
                     !cleared ->

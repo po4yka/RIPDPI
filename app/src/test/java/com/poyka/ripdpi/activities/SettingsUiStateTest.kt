@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
@@ -203,5 +205,46 @@ class SettingsUiStateTest {
         assertTrue(state.hostAutolearnEnabled)
         assertEquals(DefaultHostAutolearnPenaltyTtlHours, state.hostAutolearnPenaltyTtlHours)
         assertEquals(DefaultHostAutolearnMaxHosts, state.hostAutolearnMaxHosts)
+    }
+
+    @Test
+    fun `host autolearn runtime state is reflected in ui state`() {
+        val state =
+            defaults.toUiState(
+                serviceStatus = AppStatus.Running,
+                proxyTelemetry =
+                    NativeRuntimeSnapshot(
+                        source = "proxy",
+                        autolearnEnabled = true,
+                        learnedHostCount = 7,
+                        penalizedHostCount = 2,
+                        lastAutolearnHost = "example.org",
+                        lastAutolearnGroup = 3,
+                        lastAutolearnAction = "host_promoted",
+                    ),
+                hostAutolearnStorePresent = true,
+            )
+
+        assertTrue(state.isServiceRunning)
+        assertTrue(state.hostAutolearnRuntimeEnabled)
+        assertTrue(state.hostAutolearnStorePresent)
+        assertEquals(7, state.hostAutolearnLearnedHostCount)
+        assertEquals(2, state.hostAutolearnPenalizedHostCount)
+        assertEquals("example.org", state.hostAutolearnLastHost)
+        assertEquals(3, state.hostAutolearnLastGroup)
+        assertEquals("host_promoted", state.hostAutolearnLastAction)
+    }
+
+    @Test
+    fun `forget learned hosts action is unavailable in command line mode`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setEnableCmdSettings(true)
+                .build()
+
+        val state = settings.toUiState(hostAutolearnStorePresent = true)
+
+        assertFalse(state.canForgetLearnedHosts)
     }
 }

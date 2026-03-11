@@ -148,6 +148,11 @@ class DiagnosticsViewModelTest {
             assertEquals(1, state.sessions.sessions.size)
             assertEquals("report.zip", state.share.latestArchiveFileName)
             assertEquals("Support context", state.overview.contextSummary?.title)
+            assertTrue(
+                state.overview.contextSummary
+                    ?.fields
+                    ?.any { it.label == "Host learning" && it.value.contains("Active") } == true,
+            )
             assertTrue(state.events.events.first().severity.contains("WARN"))
             collector.cancel()
         }
