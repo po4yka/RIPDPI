@@ -24,6 +24,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setFakeTtl(8)
             .setFakeSni("www.iana.org")
             .setFakeOffsetMarker(DefaultFakeOffsetMarker)
+            .setFakeTlsSniMode(FakeTlsSniModeFixed)
             .setOobData("a")
             .setDesyncHttp(true)
             .setDesyncHttps(true)

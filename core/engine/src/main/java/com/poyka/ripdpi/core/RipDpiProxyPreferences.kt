@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -20,6 +21,7 @@ import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.proto.AppSettings
@@ -73,6 +75,12 @@ class RipDpiProxyUIPreferences(
     tcpChainSteps: List<TcpChainStepModel>? = null,
     fakeTtl: Int? = null,
     fakeSni: String? = null,
+    fakeTlsUseOriginal: Boolean? = null,
+    fakeTlsRandomize: Boolean? = null,
+    fakeTlsDupSessionId: Boolean? = null,
+    fakeTlsPadEncap: Boolean? = null,
+    fakeTlsSize: Int? = null,
+    fakeTlsSniMode: String? = null,
     oobChar: String? = null,
     hostMixedCase: Boolean? = null,
     domainMixedCase: Boolean? = null,
@@ -116,6 +124,12 @@ class RipDpiProxyUIPreferences(
             )
     val fakeTtl: Int = fakeTtl ?: 8
     val fakeSni: String = fakeSni ?: "www.iana.org"
+    val fakeTlsUseOriginal: Boolean = fakeTlsUseOriginal ?: false
+    val fakeTlsRandomize: Boolean = fakeTlsRandomize ?: false
+    val fakeTlsDupSessionId: Boolean = fakeTlsDupSessionId ?: false
+    val fakeTlsPadEncap: Boolean = fakeTlsPadEncap ?: false
+    val fakeTlsSize: Int = fakeTlsSize ?: 0
+    val fakeTlsSniMode: String = normalizeFakeTlsSniMode(fakeTlsSniMode.orEmpty())
     val oobChar: Byte = (oobChar ?: "a")[0].code.toByte()
     val hostMixedCase: Boolean = hostMixedCase ?: false
     val domainMixedCase: Boolean = domainMixedCase ?: false
@@ -174,6 +188,12 @@ class RipDpiProxyUIPreferences(
         tcpChainSteps = settings.effectiveTcpChainSteps(),
         fakeTtl = settings.fakeTtl.takeIf { it > 0 },
         fakeSni = settings.fakeSni.ifEmpty { null },
+        fakeTlsUseOriginal = settings.fakeTlsUseOriginal,
+        fakeTlsRandomize = settings.fakeTlsRandomize,
+        fakeTlsDupSessionId = settings.fakeTlsDupSessionId,
+        fakeTlsPadEncap = settings.fakeTlsPadEncap,
+        fakeTlsSize = settings.fakeTlsSize,
+        fakeTlsSniMode = settings.effectiveFakeTlsSniMode(),
         oobChar = settings.oobData.ifEmpty { null },
         hostMixedCase = settings.hostMixedCase,
         domainMixedCase = settings.domainMixedCase,
@@ -224,6 +244,12 @@ class RipDpiProxyUIPreferences(
                 },
                 fakeTtl = fakeTtl,
                 fakeSni = fakeSni,
+                fakeTlsUseOriginal = fakeTlsUseOriginal,
+                fakeTlsRandomize = fakeTlsRandomize,
+                fakeTlsDupSessionId = fakeTlsDupSessionId,
+                fakeTlsPadEncap = fakeTlsPadEncap,
+                fakeTlsSize = fakeTlsSize,
+                fakeTlsSniMode = fakeTlsSniMode,
                 oobChar = oobChar.toInt() and 0xFF,
                 hostMixedCase = hostMixedCase,
                 domainMixedCase = domainMixedCase,
@@ -347,6 +373,12 @@ private sealed interface NativeProxyConfig {
         val tcpChainSteps: List<NativeTcpChainStep>,
         val fakeTtl: Int,
         val fakeSni: String,
+        val fakeTlsUseOriginal: Boolean,
+        val fakeTlsRandomize: Boolean,
+        val fakeTlsDupSessionId: Boolean,
+        val fakeTlsPadEncap: Boolean,
+        val fakeTlsSize: Int,
+        val fakeTlsSniMode: String,
         val oobChar: Int,
         val hostMixedCase: Boolean,
         val domainMixedCase: Boolean,

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -36,6 +37,12 @@ class RipDpiProxyPreferencesTest {
                 hostsMode = RipDpiProxyUIPreferences.HostsMode.Blacklist,
                 hosts = "example.com",
                 fakeSni = "www.example.com",
+                fakeTlsUseOriginal = true,
+                fakeTlsRandomize = true,
+                fakeTlsDupSessionId = true,
+                fakeTlsPadEncap = true,
+                fakeTlsSize = 192,
+                fakeTlsSniMode = FakeTlsSniModeRandomized,
                 hostAutolearnEnabled = true,
                 hostAutolearnPenaltyTtlHours = 12,
                 hostAutolearnMaxHosts = 1024,
@@ -50,6 +57,12 @@ class RipDpiProxyPreferencesTest {
         assertEquals("blacklist", payload.string("hostsMode"))
         assertEquals("example.com", payload.string("hosts"))
         assertEquals("www.example.com", payload.string("fakeSni"))
+        assertEquals("true", payload.string("fakeTlsUseOriginal"))
+        assertEquals("true", payload.string("fakeTlsRandomize"))
+        assertEquals("true", payload.string("fakeTlsDupSessionId"))
+        assertEquals("true", payload.string("fakeTlsPadEncap"))
+        assertEquals(192, payload.int("fakeTlsSize"))
+        assertEquals(FakeTlsSniModeRandomized, payload.string("fakeTlsSniMode"))
         assertEquals("1", payload.string("splitMarker"))
         assertEquals("disorder", payload.array("tcpChainSteps")[0].jsonObject.string("kind"))
         assertEquals("1", payload.array("tcpChainSteps")[0].jsonObject.string("marker"))

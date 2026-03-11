@@ -89,4 +89,10 @@ message AppSettings {
   bool host_autolearn_enabled = 77;
   int32 host_autolearn_penalty_ttl_hours = 78;
   int32 host_autolearn_max_hosts = 79;
+  bool fake_tls_use_original = 80;
+  bool fake_tls_randomize = 81;
+  bool fake_tls_dup_session_id = 82;
+  bool fake_tls_pad_encap = 83;
+  int32 fake_tls_size = 84;
+  string fake_tls_sni_mode = 85; // "fixed" | "randomized"
 }

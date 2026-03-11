@@ -11,7 +11,8 @@ use android_support::{
 };
 use ciadpi_config::{
     DesyncGroup, DesyncMode, OffsetExpr, PartSpec, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep,
-    TcpChainStepKind, UdpChainStep, UdpChainStepKind, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    TcpChainStepKind, UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
     HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
 use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE};
@@ -25,6 +26,8 @@ use serde::{Deserialize, Serialize};
 const HOSTS_DISABLE: &str = "disable";
 const HOSTS_BLACKLIST: &str = "blacklist";
 const HOSTS_WHITELIST: &str = "whitelist";
+const FAKE_TLS_SNI_MODE_FIXED: &str = "fixed";
+const FAKE_TLS_SNI_MODE_RANDOMIZED: &str = "randomized";
 
 static SESSIONS: once_cell::sync::Lazy<HandleRegistry<ProxySession>> = once_cell::sync::Lazy::new(HandleRegistry::new);
 static DIAGNOSTIC_SESSIONS: once_cell::sync::Lazy<HandleRegistry<MonitorSession>> =
@@ -128,6 +131,18 @@ struct ProxyUiConfig {
     split_at_host: bool,
     fake_ttl: i32,
     fake_sni: String,
+    #[serde(default)]
+    fake_tls_use_original: bool,
+    #[serde(default)]
+    fake_tls_randomize: bool,
+    #[serde(default)]
+    fake_tls_dup_session_id: bool,
+    #[serde(default)]
+    fake_tls_pad_encap: bool,
+    #[serde(default)]
+    fake_tls_size: i32,
+    #[serde(default = "default_fake_tls_sni_mode")]
+    fake_tls_sni_mode: String,
     oob_char: u8,
     host_mixed_case: bool,
     domain_mixed_case: bool,
@@ -171,12 +186,23 @@ fn default_true() -> bool {
     true
 }
 
+fn default_fake_tls_sni_mode() -> String {
+    FAKE_TLS_SNI_MODE_FIXED.to_string()
+}
+
 fn default_host_autolearn_penalty_ttl_secs() -> i64 {
     HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS
 }
 
 fn default_host_autolearn_max_hosts() -> usize {
     HOST_AUTOLEARN_DEFAULT_MAX_HOSTS
+}
+
+fn normalize_fake_tls_sni_mode(value: &str) -> &'static str {
+    match value.trim().to_ascii_lowercase().as_str() {
+        FAKE_TLS_SNI_MODE_RANDOMIZED => FAKE_TLS_SNI_MODE_RANDOMIZED,
+        _ => FAKE_TLS_SNI_MODE_FIXED,
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1101,12 +1127,30 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniPr
         .any(|step| matches!(step.kind, TcpChainStepKind::Oob | TcpChainStepKind::Disoob));
 
     if has_fake_step {
+        let fake_tls_sni_mode = normalize_fake_tls_sni_mode(&payload.fake_tls_sni_mode);
         group.fake_offset = Some(parse_offset_expr_field(
             payload.fake_offset_marker.as_deref(),
             || payload.fake_offset.to_string(),
             "fakeOffsetMarker",
         )?);
-        group.fake_sni_list.push(payload.fake_sni);
+        if payload.fake_tls_use_original {
+            group.fake_mod |= FM_ORIG;
+        }
+        if payload.fake_tls_randomize {
+            group.fake_mod |= FM_RAND;
+        }
+        if payload.fake_tls_dup_session_id {
+            group.fake_mod |= FM_DUPSID;
+        }
+        if payload.fake_tls_pad_encap {
+            group.fake_mod |= FM_PADENCAP;
+        }
+        if fake_tls_sni_mode == FAKE_TLS_SNI_MODE_RANDOMIZED {
+            group.fake_mod |= FM_RNDSNI;
+        } else {
+            group.fake_sni_list.push(payload.fake_sni);
+        }
+        group.fake_tls_size = payload.fake_tls_size;
     }
 
     if has_oob_step {
@@ -1491,6 +1535,12 @@ mod tests {
                 split_at_host,
                 fake_ttl,
                 fake_sni,
+                fake_tls_use_original: false,
+                fake_tls_randomize: false,
+                fake_tls_dup_session_id: false,
+                fake_tls_pad_encap: false,
+                fake_tls_size: 0,
+                fake_tls_sni_mode: default_fake_tls_sni_mode(),
                 oob_char,
                 host_mixed_case,
                 domain_mixed_case,
@@ -1531,13 +1581,19 @@ mod tests {
             desync_http: true,
             desync_https: true,
             desync_udp: false,
-            desync_method: "disorder".to_string(),
+            desync_method: "fake".to_string(),
             split_marker: Some("host+1".to_string()),
             tcp_chain_steps: Vec::new(),
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
             fake_sni: "www.iana.org".to_string(),
+            fake_tls_use_original: true,
+            fake_tls_randomize: true,
+            fake_tls_dup_session_id: true,
+            fake_tls_pad_encap: true,
+            fake_tls_size: 192,
+            fake_tls_sni_mode: FAKE_TLS_SNI_MODE_RANDOMIZED.to_string(),
             oob_char: b'a',
             host_mixed_case: false,
             domain_mixed_case: false,
@@ -1569,6 +1625,9 @@ mod tests {
         assert_eq!(config.quic_initial_mode, QuicInitialMode::Route);
         assert!(!config.quic_support_v1);
         assert!(config.quic_support_v2);
+        assert_eq!(config.groups[0].fake_mod, FM_ORIG | FM_RAND | FM_DUPSID | FM_PADENCAP | FM_RNDSNI);
+        assert_eq!(config.groups[0].fake_tls_size, 192);
+        assert!(config.groups[0].fake_sni_list.is_empty());
         assert!(config.host_autolearn_enabled);
         assert_eq!(config.host_autolearn_penalty_ttl_secs, 3_600);
         assert_eq!(config.host_autolearn_max_hosts, 128);
@@ -1622,6 +1681,12 @@ mod tests {
             split_at_host: false,
             fake_ttl: 8,
             fake_sni: "www.iana.org".to_string(),
+            fake_tls_use_original: false,
+            fake_tls_randomize: false,
+            fake_tls_dup_session_id: false,
+            fake_tls_pad_encap: false,
+            fake_tls_size: 0,
+            fake_tls_sni_mode: default_fake_tls_sni_mode(),
             oob_char: b'a',
             host_mixed_case: false,
             domain_mixed_case: false,
@@ -1721,6 +1786,12 @@ mod tests {
             split_at_host: false,
             fake_ttl: 8,
             fake_sni: "www.iana.org".to_string(),
+            fake_tls_use_original: false,
+            fake_tls_randomize: false,
+            fake_tls_dup_session_id: false,
+            fake_tls_pad_encap: false,
+            fake_tls_size: 0,
+            fake_tls_sni_mode: default_fake_tls_sni_mode(),
             oob_char: b'a',
             host_mixed_case: false,
             domain_mixed_case: false,
@@ -1777,6 +1848,12 @@ mod tests {
             split_at_host: false,
             fake_ttl: 8,
             fake_sni: "www.iana.org".to_string(),
+            fake_tls_use_original: false,
+            fake_tls_randomize: false,
+            fake_tls_dup_session_id: false,
+            fake_tls_pad_encap: false,
+            fake_tls_size: 0,
+            fake_tls_sni_mode: default_fake_tls_sni_mode(),
             oob_char: b'a',
             host_mixed_case: false,
             domain_mixed_case: false,
@@ -2183,6 +2260,12 @@ mod tests {
                 split_at_host,
                 fake_ttl: 8,
                 fake_sni: "www.iana.org".to_string(),
+                fake_tls_use_original: false,
+                fake_tls_randomize: false,
+                fake_tls_dup_session_id: false,
+                fake_tls_pad_encap: false,
+                fake_tls_size: 0,
+                fake_tls_sni_mode: default_fake_tls_sni_mode(),
                 oob_char: b'a',
                 host_mixed_case: false,
                 domain_mixed_case: false,

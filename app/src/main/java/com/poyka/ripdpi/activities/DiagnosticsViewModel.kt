@@ -1212,6 +1212,18 @@ class DiagnosticsViewModel
                             signature.splitMarker?.let {
                                 add(DiagnosticsFieldUiModel("Split marker", it))
                             }
+                            signature.fakeTlsBaseMode?.let {
+                                add(DiagnosticsFieldUiModel("Fake TLS base", it))
+                            }
+                            signature.fakeSniMode?.let {
+                                add(DiagnosticsFieldUiModel("Fake TLS SNI", it))
+                            }
+                            if (signature.fakeTlsMods.isNotEmpty()) {
+                                add(DiagnosticsFieldUiModel("Fake TLS mods", signature.fakeTlsMods.joinToString(",")))
+                            }
+                            signature.fakeTlsSize?.let {
+                                add(DiagnosticsFieldUiModel("Fake TLS size", it.toString()))
+                            }
                             signature.fakeOffsetMarker?.let {
                                 add(DiagnosticsFieldUiModel("Fake offset marker", it))
                             }

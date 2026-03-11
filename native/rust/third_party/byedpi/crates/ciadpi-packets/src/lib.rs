@@ -1037,73 +1037,44 @@ pub fn tune_tls_padding_size_like_c(input: &[u8], target_size: usize) -> PacketM
         return PacketMutation { rc: -1, bytes: input.to_vec() };
     };
     let mut output = input.to_vec();
+    let original_len = output.len();
     let pad_offs = find_tls_ext_offset(0x0015, &output, ext_len_start);
 
-    match target_size.cmp(&output.len()) {
+    match target_size.cmp(&original_len) {
         std::cmp::Ordering::Equal => PacketMutation { rc: 0, bytes: output },
         std::cmp::Ordering::Greater => {
-            let grow = target_size - output.len();
-            let pad_offs = if let Some(pad_offs) = pad_offs {
-                let Some(pad_len) = read_u16(&output, pad_offs + 2) else {
-                    return PacketMutation { rc: -1, bytes: input.to_vec() };
-                };
-                if pad_offs + 4 + pad_len != output.len() {
-                    return PacketMutation { rc: -1, bytes: input.to_vec() };
+            output.resize(target_size, 0);
+            let grow = target_size - original_len;
+            if let Some(pad_offs) = pad_offs {
+                if pad_offs + 4 <= output.len() {
+                    if let Some(pad_len) = read_u16(input, pad_offs + 2) {
+                        let _ = write_u16(&mut output, pad_offs + 2, pad_len.saturating_add(grow));
+                    }
                 }
-                pad_offs
-            } else {
-                if grow < 4 {
-                    return PacketMutation { rc: -1, bytes: input.to_vec() };
-                }
-                let pad_offs = output.len();
-                output.resize(target_size, 0);
+            } else if grow >= 4 {
+                let pad_offs = original_len;
                 let _ = write_u16(&mut output, pad_offs, 0x0015);
                 let _ = write_u16(&mut output, pad_offs + 2, grow - 4);
-                if !adjust_tls_lengths(&mut output, ext_len_start, grow as isize) {
-                    return PacketMutation { rc: -1, bytes: input.to_vec() };
-                }
-                return PacketMutation { rc: 0, bytes: output };
-            };
-            let Some(pad_len) = read_u16(&output, pad_offs + 2) else {
-                return PacketMutation { rc: -1, bytes: input.to_vec() };
-            };
-            output.resize(target_size, 0);
-            if !write_u16(&mut output, pad_offs + 2, pad_len + grow)
-                || !adjust_tls_lengths(&mut output, ext_len_start, grow as isize)
-            {
+            }
+            if !adjust_tls_lengths(&mut output, ext_len_start, grow as isize) {
                 return PacketMutation { rc: -1, bytes: input.to_vec() };
             }
             PacketMutation { rc: 0, bytes: output }
         }
         std::cmp::Ordering::Less => {
-            let Some(pad_offs) = pad_offs else {
-                return PacketMutation { rc: -1, bytes: input.to_vec() };
-            };
-            let Some(pad_len) = read_u16(&output, pad_offs + 2) else {
-                return PacketMutation { rc: -1, bytes: input.to_vec() };
-            };
-            if pad_offs + 4 + pad_len != output.len() {
+            let shrink = original_len - target_size;
+            output.truncate(target_size);
+            if let Some(pad_offs) = pad_offs {
+                if pad_offs + 4 <= output.len() {
+                    if let Some(pad_len) = read_u16(input, pad_offs + 2) {
+                        let _ = write_u16(&mut output, pad_offs + 2, pad_len.saturating_sub(shrink));
+                    }
+                }
+            }
+            if !adjust_tls_lengths(&mut output, ext_len_start, -(shrink as isize)) {
                 return PacketMutation { rc: -1, bytes: input.to_vec() };
             }
-            let shrink = output.len() - target_size;
-            let ext_total = pad_len + 4;
-            if shrink <= pad_len {
-                output.truncate(target_size);
-                if !write_u16(&mut output, pad_offs + 2, pad_len - shrink)
-                    || !adjust_tls_lengths(&mut output, ext_len_start, -(shrink as isize))
-                {
-                    return PacketMutation { rc: -1, bytes: input.to_vec() };
-                }
-                PacketMutation { rc: 0, bytes: output }
-            } else if shrink == ext_total {
-                output.truncate(target_size);
-                if !adjust_tls_lengths(&mut output, ext_len_start, -(shrink as isize)) {
-                    return PacketMutation { rc: -1, bytes: input.to_vec() };
-                }
-                PacketMutation { rc: 0, bytes: output }
-            } else {
-                PacketMutation { rc: -1, bytes: input.to_vec() }
-            }
+            PacketMutation { rc: 0, bytes: output }
         }
     }
 }
@@ -1114,12 +1085,6 @@ pub fn padencap_tls_like_c(input: &[u8], payload_len: usize) -> PacketMutation {
     };
     let mut output = input.to_vec();
     let pad_len_offs = if let Some(pad_offs) = find_tls_ext_offset(0x0015, &output, ext_len_start) {
-        let Some(pad_len) = read_u16(&output, pad_offs + 2) else {
-            return PacketMutation { rc: -1, bytes: input.to_vec() };
-        };
-        if pad_offs + 4 + pad_len != output.len() {
-            return PacketMutation { rc: -1, bytes: input.to_vec() };
-        }
         pad_offs + 2
     } else {
         let pad_offs = output.len();
@@ -1329,7 +1294,8 @@ mod tests {
     fn duplicate_tls_session_id_uses_original_when_compatible() {
         let source = DEFAULT_FAKE_TLS.to_vec();
         let mut fake = DEFAULT_FAKE_TLS.to_vec();
-        fake[44..44 + fake[43] as usize].fill(b'Z');
+        let sid_len = fake[43] as usize;
+        fake[44..44 + sid_len].fill(b'Z');
 
         let mutation = duplicate_tls_session_id_like_c(&fake, &source);
 

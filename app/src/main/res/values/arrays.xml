@@ -58,4 +58,22 @@
         <item name="route">route</item>
         <item name="route_and_cache">route_and_cache</item>
     </array>
+
+    <array name="fake_tls_base_modes">
+        <item name="default">Default fake ClientHello</item>
+        <item name="original">Original ClientHello</item>
+    </array>
+    <array name="fake_tls_base_modes_entries">
+        <item name="default">default</item>
+        <item name="original">original</item>
+    </array>
+
+    <array name="fake_tls_sni_modes">
+        <item name="fixed">Fixed</item>
+        <item name="randomized">Randomized</item>
+    </array>
+    <array name="fake_tls_sni_modes_entries">
+        <item name="fixed">fixed</item>
+        <item name="randomized">randomized</item>
+    </array>
 </resources>

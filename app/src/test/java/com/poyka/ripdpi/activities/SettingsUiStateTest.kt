@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
+import com.poyka.ripdpi.data.FakeTlsSniModeFixed
+import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -26,6 +28,10 @@ class SettingsUiStateTest {
         assertTrue(state.desyncEnabled)
         assertFalse(state.isFake)
         assertFalse(state.isOob)
+        assertEquals(FakeTlsSniModeFixed, state.fakeTlsSniMode)
+        assertEquals(0, state.fakeTlsSize)
+        assertFalse(state.fakeTlsControlsRelevant)
+        assertFalse(state.hasCustomFakeTlsProfile)
         assertTrue(state.desyncHttpEnabled)
         assertTrue(state.desyncHttpsEnabled)
         assertFalse(state.desyncUdpEnabled)
@@ -233,6 +239,33 @@ class SettingsUiStateTest {
         assertEquals("example.org", state.hostAutolearnLastHost)
         assertEquals(3, state.hostAutolearnLastGroup)
         assertEquals("host_promoted", state.hostAutolearnLastAction)
+    }
+
+    @Test
+    fun `fake tls profile is exposed in ui state`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncMethod("fake")
+                .setFakeTlsUseOriginal(true)
+                .setFakeTlsRandomize(true)
+                .setFakeTlsDupSessionId(true)
+                .setFakeTlsPadEncap(true)
+                .setFakeTlsSize(-24)
+                .setFakeTlsSniMode(FakeTlsSniModeRandomized)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.isFake)
+        assertTrue(state.fakeTlsControlsRelevant)
+        assertTrue(state.hasCustomFakeTlsProfile)
+        assertEquals(FakeTlsSniModeRandomized, state.fakeTlsSniMode)
+        assertEquals(-24, state.fakeTlsSize)
+        assertTrue(state.fakeTlsUseOriginal)
+        assertTrue(state.fakeTlsRandomize)
+        assertTrue(state.fakeTlsDupSessionId)
+        assertTrue(state.fakeTlsPadEncap)
     }
 
     @Test
