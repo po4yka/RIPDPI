@@ -168,6 +168,21 @@ data class SettingsUiState(
     val fakeTlsControlsRelevant: Boolean
         get() = desyncHttpsEnabled && isFake
 
+    val hostFakeSteps: List<TcpChainStepModel>
+        get() = tcpChainSteps.filter { it.kind == TcpChainStepKind.HostFake }
+
+    val hostFakeStepCount: Int
+        get() = hostFakeSteps.size
+
+    val primaryHostFakeStep: TcpChainStepModel?
+        get() = hostFakeSteps.firstOrNull()
+
+    val hostFakeControlsRelevant: Boolean
+        get() = desyncHttpEnabled || desyncHttpsEnabled
+
+    val showHostFakeProfile: Boolean
+        get() = enableCmdSettings || hasHostFake || hostFakeControlsRelevant
+
     val hasCustomFakeTlsProfile: Boolean
         get() =
             fakeTlsUseOriginal ||
