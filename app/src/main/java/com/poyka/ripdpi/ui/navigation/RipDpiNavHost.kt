@@ -1,5 +1,13 @@
 package com.poyka.ripdpi.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -19,9 +27,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
-import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
+import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
@@ -65,6 +73,7 @@ fun RipDpiNavHost(
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStackEntry?.destination
     val layout = RipDpiThemeTokens.layout
+    val motion = RipDpiThemeTokens.motion
     val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(launchHomeRequested, currentDestination?.route) {
@@ -143,6 +152,75 @@ fun RipDpiNavHost(
             navController = navController,
             startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
+            enterTransition = {
+                if (!motion.animationsEnabled) {
+                    EnterTransition.None
+                } else {
+                    fadeIn(
+                        animationSpec = tween(
+                            durationMillis = motion.duration(motion.routeDurationMillis),
+                            easing = FastOutSlowInEasing,
+                        ),
+                    ) +
+                        scaleIn(
+                            initialScale = 0.985f,
+                            animationSpec = tween(
+                                durationMillis = motion.duration(motion.routeDurationMillis),
+                                easing = FastOutSlowInEasing,
+                            ),
+                        )
+                }
+            },
+            exitTransition = {
+                if (!motion.animationsEnabled) {
+                    ExitTransition.None
+                } else {
+                    fadeOut(
+                        animationSpec = tween(
+                            durationMillis = motion.duration(motion.quickDurationMillis),
+                            easing = FastOutSlowInEasing,
+                        ),
+                    )
+                }
+            },
+            popEnterTransition = {
+                if (!motion.animationsEnabled) {
+                    EnterTransition.None
+                } else {
+                    fadeIn(
+                        animationSpec = tween(
+                            durationMillis = motion.duration(motion.routeDurationMillis),
+                            easing = FastOutSlowInEasing,
+                        ),
+                    ) +
+                        scaleIn(
+                            initialScale = 0.992f,
+                            animationSpec = tween(
+                                durationMillis = motion.duration(motion.routeDurationMillis),
+                                easing = FastOutSlowInEasing,
+                            ),
+                        )
+                }
+            },
+            popExitTransition = {
+                if (!motion.animationsEnabled) {
+                    ExitTransition.None
+                } else {
+                    fadeOut(
+                        animationSpec = tween(
+                            durationMillis = motion.duration(motion.quickDurationMillis),
+                            easing = FastOutSlowInEasing,
+                        ),
+                    ) +
+                        scaleOut(
+                            targetScale = 0.992f,
+                            animationSpec = tween(
+                                durationMillis = motion.duration(motion.quickDurationMillis),
+                                easing = FastOutSlowInEasing,
+                            ),
+                        )
+                }
+            },
         ) {
             composable(Route.Onboarding.route) {
                 OnboardingRoute(

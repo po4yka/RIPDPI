@@ -122,16 +122,18 @@ fun OnboardingScreen(
 
     LaunchedEffect(uiState.currentPage) {
         val targetPage = uiState.currentPage.coerceIn(0, OnboardingPages.lastIndex)
-        if (targetPage != pagerState.currentPage) {
+        if (targetPage != pagerState.settledPage) {
             pagerState.animateScrollToPage(targetPage)
         }
     }
 
-    LaunchedEffect(pagerState.currentPage) {
-        if (pagerState.currentPage != uiState.currentPage) {
-            onPageChanged(pagerState.currentPage)
+    LaunchedEffect(pagerState.settledPage) {
+        if (pagerState.settledPage != uiState.currentPage) {
+            onPageChanged(pagerState.settledPage)
         }
     }
+
+    val settledPage = pagerState.settledPage.coerceIn(0, OnboardingPages.lastIndex)
 
     RipDpiIntroScaffold(
         modifier =
@@ -166,12 +168,12 @@ fun OnboardingScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 RipDpiPageIndicators(
-                    currentPage = pagerState.currentPage,
+                    currentPage = settledPage,
                     pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size),
                 )
                 Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
                 RipDpiButton(
-                    text = stringResource(OnboardingPages[pagerState.currentPage].buttonLabelRes),
+                    text = stringResource(OnboardingPages[settledPage].buttonLabelRes),
                     onClick = onContinue,
                     modifier =
                         Modifier
