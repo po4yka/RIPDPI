@@ -33,6 +33,7 @@ import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.FailureReason
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
@@ -537,7 +538,7 @@ class MainViewModel
             viewModelScope.launch {
                 serviceStateStore.events.collect { event ->
                     when (event) {
-                        is ServiceEvent.Failed -> onServiceFailed(event.sender)
+                        is ServiceEvent.Failed -> onServiceFailed(event.sender, event.reason)
                     }
                 }
             }
@@ -580,8 +581,13 @@ class MainViewModel
             }
         }
 
-        private fun onServiceFailed(sender: Sender) {
-            val message = stringResolver.getString(R.string.failed_to_start, sender.senderName)
+        private fun onServiceFailed(sender: Sender, reason: FailureReason) {
+            val detail = when (reason) {
+                is FailureReason.NativeError -> reason.message
+                is FailureReason.TunnelEstablishmentFailed -> "Tunnel establishment failed"
+                is FailureReason.Unexpected -> reason.cause.message ?: "Unexpected error"
+            }
+            val message = stringResolver.getString(R.string.failed_to_start, sender.senderName) + ": $detail"
             showError(message)
         }
 

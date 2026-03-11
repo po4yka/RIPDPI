@@ -39,6 +39,7 @@ enum JniProxyError {
     InvalidArgument(String),
 
     #[error("{0}")]
+    #[allow(dead_code)]
     IllegalState(&'static str),
 
     #[error("I/O failure: {0}")]
@@ -65,7 +66,7 @@ impl JniProxyError {
 fn extract_panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
     payload
         .downcast_ref::<String>()
-        .map(|s| s.as_str())
+        .map(String::as_str)
         .or_else(|| payload.downcast_ref::<&str>().copied())
         .unwrap_or("unknown panic")
         .to_string()
@@ -1036,7 +1037,8 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniPr
     }
 
     if payload.fake_ttl > 0 {
-        group.ttl = Some(u8::try_from(payload.fake_ttl).map_err(|_| "Invalid fakeTtl".to_string())?);
+        group.ttl =
+            Some(u8::try_from(payload.fake_ttl).map_err(|_| JniProxyError::InvalidConfig("Invalid fakeTtl".to_string()))?);
     }
     group.drop_sack = payload.drop_sack;
     group.proto = (u32::from(payload.desync_http) * IS_HTTP)
@@ -1081,7 +1083,7 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniPr
     if !payload.udp_chain_steps.is_empty() {
         for step in &payload.udp_chain_steps {
             if step.count < 0 {
-                return Err("udpChainSteps count must be non-negative".to_string());
+                return Err(JniProxyError::InvalidConfig("udpChainSteps count must be non-negative".to_string()));
             }
             group.udp_chain.push(UdpChainStep { kind: parse_udp_chain_step_kind(&step.kind)?, count: step.count });
         }
@@ -1124,13 +1126,15 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniPr
         config.ipv6 = false;
     }
     if config.host_autolearn_enabled && config.host_autolearn_store_path.is_none() {
-        return Err("hostAutolearnStorePath is required when hostAutolearnEnabled is true".to_string());
+        return Err(JniProxyError::InvalidConfig(
+            "hostAutolearnStorePath is required when hostAutolearnEnabled is true".to_string(),
+        ));
     }
 
     Ok(config)
 }
 
-fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, String> {
+fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, JniProxyError> {
     match value {
         "split" => Ok(TcpChainStepKind::Split),
         "disorder" => Ok(TcpChainStepKind::Disorder),
@@ -1138,27 +1142,27 @@ fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, String> {
         "oob" => Ok(TcpChainStepKind::Oob),
         "disoob" => Ok(TcpChainStepKind::Disoob),
         "tlsrec" => Ok(TcpChainStepKind::TlsRec),
-        _ => Err(format!("Unknown tcpChainSteps kind: {value}")),
+        _ => Err(JniProxyError::InvalidConfig(format!("Unknown tcpChainSteps kind: {value}"))),
     }
 }
 
-fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, String> {
+fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, JniProxyError> {
     match value {
         "fake_burst" => Ok(UdpChainStepKind::FakeBurst),
-        _ => Err(format!("Unknown udpChainSteps kind: {value}")),
+        _ => Err(JniProxyError::InvalidConfig(format!("Unknown udpChainSteps kind: {value}"))),
     }
 }
 
-fn parse_quic_initial_mode(value: &str) -> Result<QuicInitialMode, String> {
+fn parse_quic_initial_mode(value: &str) -> Result<QuicInitialMode, JniProxyError> {
     match value.trim().to_lowercase().as_str() {
         "disabled" => Ok(QuicInitialMode::Disabled),
         "route" => Ok(QuicInitialMode::Route),
         "route_and_cache" => Ok(QuicInitialMode::RouteAndCache),
-        _ => Err(format!("Unknown quicInitialMode: {value}")),
+        _ => Err(JniProxyError::InvalidConfig(format!("Unknown quicInitialMode: {value}"))),
     }
 }
 
-fn parse_desync_mode(value: &str) -> Result<DesyncMode, String> {
+fn parse_desync_mode(value: &str) -> Result<DesyncMode, JniProxyError> {
     match value {
         "none" => Ok(DesyncMode::None),
         "split" => Ok(DesyncMode::Split),
@@ -1166,21 +1170,22 @@ fn parse_desync_mode(value: &str) -> Result<DesyncMode, String> {
         "fake" => Ok(DesyncMode::Fake),
         "oob" => Ok(DesyncMode::Oob),
         "disoob" => Ok(DesyncMode::Disoob),
-        _ => Err("Unknown desyncMethod".to_string()),
+        _ => Err(JniProxyError::InvalidConfig("Unknown desyncMethod".to_string())),
     }
 }
 
-fn parse_hosts(hosts: Option<&str>) -> Result<Vec<String>, String> {
+fn parse_hosts(hosts: Option<&str>) -> Result<Vec<String>, JniProxyError> {
     let hosts = hosts.unwrap_or_default();
-    ciadpi_config::parse_hosts_spec(hosts).map_err(|_| "Invalid hosts list".to_string())
+    ciadpi_config::parse_hosts_spec(hosts).map_err(|_| JniProxyError::InvalidConfig("Invalid hosts list".to_string()))
 }
 
-fn parse_offset_expr_field<F>(marker: Option<&str>, legacy: F, field_name: &str) -> Result<OffsetExpr, String>
+fn parse_offset_expr_field<F>(marker: Option<&str>, legacy: F, field_name: &str) -> Result<OffsetExpr, JniProxyError>
 where
     F: FnOnce() -> String,
 {
     let spec = marker.map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned).unwrap_or_else(legacy);
-    ciadpi_config::parse_offset_expr(&spec).map_err(|_| format!("Invalid {field_name}"))
+    ciadpi_config::parse_offset_expr(&spec)
+        .map_err(|_| JniProxyError::InvalidConfig(format!("Invalid {field_name}")))
 }
 
 fn legacy_marker_expression(position: i32, use_host_marker: bool) -> String {
@@ -1199,8 +1204,9 @@ fn marker_expression(base: &str, delta: i32) -> String {
     }
 }
 
-fn parse_proxy_config_json(json: &str) -> Result<ProxyConfigPayload, String> {
-    serde_json::from_str::<ProxyConfigPayload>(json).map_err(|err| format!("Invalid proxy config JSON: {err}"))
+fn parse_proxy_config_json(json: &str) -> Result<ProxyConfigPayload, JniProxyError> {
+    serde_json::from_str::<ProxyConfigPayload>(json)
+        .map_err(|err| JniProxyError::InvalidConfig(format!("Invalid proxy config JSON: {err}")))
 }
 
 fn diagnostics_session(env: &mut JNIEnv, handle: jlong) -> Option<std::sync::Arc<MonitorSession>> {
@@ -1284,31 +1290,37 @@ fn to_handle(value: jlong) -> Option<u64> {
     u64::try_from(value).ok().filter(|handle| *handle != 0)
 }
 
-fn lookup_proxy_session(handle: jlong) -> Result<std::sync::Arc<ProxySession>, &'static str> {
-    let handle = to_handle(handle).ok_or("Invalid proxy handle")?;
-    SESSIONS.get(handle).ok_or("Unknown proxy handle")
+fn lookup_proxy_session(handle: jlong) -> Result<std::sync::Arc<ProxySession>, JniProxyError> {
+    let handle =
+        to_handle(handle).ok_or_else(|| JniProxyError::InvalidArgument("Invalid proxy handle".to_string()))?;
+    SESSIONS
+        .get(handle)
+        .ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))
 }
 
 fn poll_proxy_telemetry(env: &mut JNIEnv, handle: jlong) -> jstring {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
-        Err(message) => {
-            throw_illegal_argument(env, message);
+        Err(err) => {
+            err.throw(env);
             return std::ptr::null_mut();
         }
     };
     match serde_json::to_string(&session.telemetry.snapshot()) {
         Ok(value) => env.new_string(value).map(jni::objects::JString::into_raw).unwrap_or(std::ptr::null_mut()),
         Err(err) => {
-            throw_runtime_exception(env, err.to_string());
+            JniProxyError::Serialization(err).throw(env);
             std::ptr::null_mut()
         }
     }
 }
 
-fn remove_proxy_session(handle: jlong) -> Result<std::sync::Arc<ProxySession>, &'static str> {
-    let handle = to_handle(handle).ok_or("Invalid proxy handle")?;
-    SESSIONS.remove(handle).ok_or("Unknown proxy handle")
+fn remove_proxy_session(handle: jlong) -> Result<std::sync::Arc<ProxySession>, JniProxyError> {
+    let handle =
+        to_handle(handle).ok_or_else(|| JniProxyError::InvalidArgument("Invalid proxy handle".to_string()))?;
+    SESSIONS
+        .remove(handle)
+        .ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))
 }
 
 fn try_mark_proxy_running(state: &mut ProxySessionState, listener_fd: i32) -> Result<(), &'static str> {
@@ -1587,7 +1599,7 @@ mod tests {
         let err = runtime_config_from_command_line(vec!["ciadpi".to_string(), "--help".to_string()])
             .expect_err("help payload should not run");
 
-        assert!(err.contains("runnable config"));
+        assert!(err.to_string().contains("runnable config"));
     }
 
     #[test]
@@ -1636,7 +1648,7 @@ mod tests {
         }))
         .expect_err("port zero should be rejected");
 
-        assert_eq!(err, "Invalid proxy port");
+        assert!(err.to_string().contains("Invalid proxy port"));
     }
 
     #[test]
@@ -1735,14 +1747,14 @@ mod tests {
         }))
         .expect_err("unknown quic mode should be rejected");
 
-        assert!(err.contains("Unknown quicInitialMode"));
+        assert!(err.to_string().contains("Unknown quicInitialMode"));
     }
 
     #[test]
     fn rejects_invalid_proxy_json_payload() {
         let err = parse_proxy_config_json("{").expect_err("invalid json");
 
-        assert!(err.contains("Invalid proxy config JSON"));
+        assert!(err.to_string().contains("Invalid proxy config JSON"));
     }
 
     #[test]
@@ -1791,7 +1803,7 @@ mod tests {
         }))
         .expect_err("missing autolearn path should be rejected");
 
-        assert_eq!(err, "hostAutolearnStorePath is required when hostAutolearnEnabled is true");
+        assert!(err.to_string().contains("hostAutolearnStorePath is required when hostAutolearnEnabled is true"));
     }
 
     #[test]
@@ -1830,7 +1842,7 @@ mod tests {
             Err(err) => err,
         };
 
-        assert_eq!(err, "Unknown proxy handle");
+        assert_eq!(err.to_string(), "Unknown proxy handle");
     }
 
     #[test]
@@ -1948,7 +1960,7 @@ mod tests {
         assert_eq!(
             match lookup_proxy_session(handle) {
                 Ok(_) => panic!("expected session removal"),
-                Err(err) => err,
+                Err(err) => err.to_string(),
             },
             "Unknown proxy handle",
         );
@@ -2030,8 +2042,8 @@ mod tests {
             handle
         }
 
-        fn start(&mut self) -> Result<i32, &'static str> {
-            let session = lookup_proxy_session(self.tracked_handle())?;
+        fn start(&mut self) -> Result<i32, String> {
+            let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
             let listener_fd = self.next_listener_fd;
             let mut state = session.state.lock().expect("proxy state lock");
             try_mark_proxy_running(&mut state, listener_fd)?;
@@ -2039,22 +2051,22 @@ mod tests {
             Ok(listener_fd)
         }
 
-        fn stop(&mut self) -> Result<i32, &'static str> {
-            let session = lookup_proxy_session(self.tracked_handle())?;
+        fn stop(&mut self) -> Result<i32, String> {
+            let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
             let mut state = session.state.lock().expect("proxy state lock");
             let listener_fd = listener_fd_for_proxy_stop(&state)?;
             *state = ProxySessionState::Idle;
             Ok(listener_fd)
         }
 
-        fn destroy(&mut self) -> Result<(), &'static str> {
-            let session = lookup_proxy_session(self.tracked_handle())?;
+        fn destroy(&mut self) -> Result<(), String> {
+            let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
             let state = session.state.lock().expect("proxy state lock");
             ensure_proxy_destroyable(&state)?;
             drop(state);
             let handle = self.active_handle.take().unwrap_or_else(|| self.tracked_handle());
             self.stale_handle = Some(handle);
-            let _ = remove_proxy_session(handle)?;
+            let _ = remove_proxy_session(handle).map_err(|e| e.to_string())?;
             Ok(())
         }
 
@@ -2077,11 +2089,11 @@ mod tests {
         }
     }
 
-    fn proxy_absent_error(handle: jlong) -> &'static str {
+    fn proxy_absent_error(handle: jlong) -> String {
         if to_handle(handle).is_some() {
-            "Unknown proxy handle"
+            "Unknown proxy handle".to_string()
         } else {
-            "Invalid proxy handle"
+            "Invalid proxy handle".to_string()
         }
     }
 
@@ -2277,7 +2289,7 @@ mod tests {
                         if to_handle(harness.tracked_handle()).is_some() {
                             let err = match lookup_proxy_session(harness.tracked_handle()) {
                                 Ok(_) => panic!("absent session must be removed"),
-                                Err(err) => err,
+                                Err(err) => err.to_string(),
                             };
                             prop_assert_eq!(err, "Unknown proxy handle");
                         }
