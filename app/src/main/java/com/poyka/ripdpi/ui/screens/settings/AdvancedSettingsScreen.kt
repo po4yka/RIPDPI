@@ -592,6 +592,7 @@ private fun AdvancedSettingsScreen(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val visualEditorEnabled = !uiState.enableCmdSettings
+    val showHostFakeSection = uiState.showHostFakeProfile
     val showFakeTlsSection =
         uiState.desyncHttpsEnabled ||
             uiState.isFake ||
@@ -801,8 +802,17 @@ private fun AdvancedSettingsScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
                         setting = AdvancedTextSetting.ChainDsl,
                         onConfirm = onTextConfirmed,
-                        showDivider = uiState.usesFakeTransport || uiState.isOob,
+                        showDivider = showHostFakeSection || uiState.usesFakeTransport || uiState.isOob,
                     )
+                    if (showHostFakeSection) {
+                        HostFakeProfileCard(
+                            uiState = uiState,
+                            modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+                        )
+                        if (uiState.usesFakeTransport || showFakeTlsSection || uiState.isOob) {
+                            HorizontalDivider(color = colors.divider)
+                        }
+                    }
                     if (uiState.usesFakeTransport) {
                         AdvancedTextSetting(
                             title = stringResource(R.string.ripdpi_fake_ttl_setting),
@@ -818,7 +828,7 @@ private fun AdvancedSettingsScreen(
                                 ),
                             setting = AdvancedTextSetting.FakeTtl,
                             onConfirm = onTextConfirmed,
-                            showDivider = uiState.isFake,
+                            showDivider = uiState.isFake || showFakeTlsSection || uiState.isOob,
                         )
                         if (uiState.isFake) {
                             AdvancedTextSetting(
@@ -1444,23 +1454,23 @@ private fun FakeTlsProfileCard(
             color = colors.foreground,
         )
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            FakeTlsSummaryLine(
+            ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_fake_tls_summary_label_base),
                 value = baseSummary,
             )
-            FakeTlsSummaryLine(
+            ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_fake_tls_summary_label_sni),
                 value = sniSummary,
             )
-            FakeTlsSummaryLine(
+            ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_fake_tls_summary_label_mutations),
                 value = mutationSummary,
             )
-            FakeTlsSummaryLine(
+            ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_fake_tls_summary_label_size),
                 value = sizeSummary,
             )
-            FakeTlsSummaryLine(
+            ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_fake_tls_summary_label_scope),
                 value = scopeSummary,
             )
@@ -1487,7 +1497,7 @@ private fun FakeTlsProfileCard(
 }
 
 @Composable
-private fun FakeTlsSummaryLine(
+private fun ProfileSummaryLine(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
@@ -1512,6 +1522,147 @@ private fun FakeTlsSummaryLine(
         )
     }
 }
+
+private data class HostFakeStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
+@Composable
+private fun HostFakeProfileCard(
+    uiState: SettingsUiState,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val status = rememberHostFakeStatus(uiState)
+    val primaryStep = uiState.primaryHostFakeStep
+    val profileSummary =
+        when (uiState.hostFakeStepCount) {
+            0 -> stringResource(R.string.ripdpi_hostfake_summary_profile_none)
+            1 -> stringResource(R.string.ripdpi_hostfake_summary_profile_single)
+            else -> stringResource(R.string.ripdpi_hostfake_summary_profile_multiple, uiState.hostFakeStepCount)
+        }
+    val scopeSummary =
+        when {
+            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled ->
+                stringResource(R.string.ripdpi_hostfake_summary_scope_http_https)
+            uiState.desyncHttpEnabled -> stringResource(R.string.ripdpi_hostfake_summary_scope_http)
+            uiState.desyncHttpsEnabled -> stringResource(R.string.ripdpi_hostfake_summary_scope_https)
+            else -> stringResource(R.string.ripdpi_hostfake_summary_scope_none)
+        }
+    val templateSummary =
+        primaryStep
+            ?.fakeHostTemplate
+            ?.takeIf { it.isNotBlank() }
+            ?: stringResource(R.string.ripdpi_hostfake_summary_template_random)
+    val midhostSummary =
+        primaryStep
+            ?.midhostMarker
+            ?.takeIf { it.isNotBlank() }
+            ?.let { stringResource(R.string.ripdpi_hostfake_summary_midhost_marker, it) }
+            ?: stringResource(R.string.ripdpi_hostfake_summary_midhost_whole)
+    val endMarkerSummary =
+        primaryStep
+            ?.marker
+            ?.takeIf { it.isNotBlank() }
+            ?: stringResource(R.string.ripdpi_hostfake_summary_end_marker_none)
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Tonal,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_hostfake_summary_label_profile),
+                value = profileSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_hostfake_summary_label_scope),
+                value = scopeSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_hostfake_summary_label_template),
+                value = templateSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_hostfake_summary_label_midhost),
+                value = midhostSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_hostfake_summary_label_end_marker),
+                value = endMarkerSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_hostfake_summary_label_transport),
+                value = stringResource(R.string.ripdpi_hostfake_summary_transport, uiState.fakeTtl),
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_hostfake_summary_label_http_example),
+                value = stringResource(R.string.ripdpi_hostfake_example_http),
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_hostfake_summary_label_tls_example),
+                value = stringResource(R.string.ripdpi_hostfake_example_tls),
+            )
+        }
+        Text(
+            text = stringResource(R.string.ripdpi_hostfake_scope_note),
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+    }
+}
+
+@Composable
+private fun rememberHostFakeStatus(uiState: SettingsUiState): HostFakeStatusContent =
+    when {
+        uiState.enableCmdSettings ->
+            HostFakeStatusContent(
+                label = stringResource(R.string.ripdpi_hostfake_cli_title),
+                body = stringResource(R.string.ripdpi_hostfake_cli_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        !uiState.hostFakeControlsRelevant ->
+            HostFakeStatusContent(
+                label = stringResource(R.string.ripdpi_hostfake_protocols_off_title),
+                body = stringResource(R.string.ripdpi_hostfake_protocols_off_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        uiState.hasHostFake && uiState.isServiceRunning ->
+            HostFakeStatusContent(
+                label = stringResource(R.string.ripdpi_hostfake_restart_title),
+                body = stringResource(R.string.ripdpi_hostfake_restart_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.hasHostFake ->
+            HostFakeStatusContent(
+                label = stringResource(R.string.ripdpi_hostfake_ready_title),
+                body = stringResource(R.string.ripdpi_hostfake_ready_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        else ->
+            HostFakeStatusContent(
+                label = stringResource(R.string.ripdpi_hostfake_available_title),
+                body = stringResource(R.string.ripdpi_hostfake_available_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+    }
 
 @Composable
 private fun rememberFakeTlsStatus(uiState: SettingsUiState): FakeTlsStatusContent =

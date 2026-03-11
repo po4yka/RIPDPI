@@ -31,6 +31,9 @@ class SettingsUiStateTest {
         assertFalse(state.isFake)
         assertFalse(state.usesFakeTransport)
         assertFalse(state.hasHostFake)
+        assertEquals(0, state.hostFakeStepCount)
+        assertTrue(state.hostFakeControlsRelevant)
+        assertTrue(state.showHostFakeProfile)
         assertFalse(state.isOob)
         assertEquals(FakeTlsSniModeFixed, state.fakeTlsSniMode)
         assertEquals(0, state.fakeTlsSize)
@@ -100,8 +103,28 @@ class SettingsUiStateTest {
         assertFalse(state.isFake)
         assertTrue(state.usesFakeTransport)
         assertTrue(state.hasHostFake)
+        assertEquals(1, state.hostFakeStepCount)
+        assertEquals("endhost+8", state.primaryHostFakeStep?.marker)
+        assertEquals("midsld", state.primaryHostFakeStep?.midhostMarker)
+        assertEquals("googlevideo.com", state.primaryHostFakeStep?.fakeHostTemplate)
         assertFalse(state.fakeTlsControlsRelevant)
         assertEquals("tcp: hostfake(endhost+8 midhost=midsld host=googlevideo.com)", state.chainSummary)
+    }
+
+    @Test
+    fun `hostfake guidance hides when no relevant protocols are enabled`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.hostFakeControlsRelevant)
+        assertFalse(state.showHostFakeProfile)
     }
 
     @Test
