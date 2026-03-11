@@ -1,4 +1,4 @@
-use ciadpi_config::{DesyncGroup, DesyncMode, OffsetBase, OffsetExpr, TcpChainStep, TcpChainStepKind};
+use ciadpi_config::{DesyncGroup, OffsetBase, OffsetExpr, TcpChainStep, TcpChainStepKind};
 use ciadpi_desync::{build_fake_packet, plan_tcp, PlannedStep};
 use ciadpi_packets::{http_marker_info, second_level_domain_span, tls_marker_info, DEFAULT_FAKE_TLS};
 
@@ -11,8 +11,8 @@ fn plan_tcp_http_chain_resolves_host_and_endsld_markers() {
 
     let mut group = DesyncGroup::new(0);
     group.tcp_chain = vec![
-        TcpChainStep { kind: TcpChainStepKind::Split, offset: OffsetExpr::marker(OffsetBase::Host, 0) },
-        TcpChainStep { kind: TcpChainStepKind::Split, offset: OffsetExpr::marker(OffsetBase::EndSld, 0) },
+        TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0)),
+        TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::EndSld, 0)),
     ];
 
     let plan = plan_tcp(&group, payload, 7, 64).expect("plan http marker chain");
@@ -20,9 +20,9 @@ fn plan_tcp_http_chain_resolves_host_and_endsld_markers() {
     assert_eq!(
         plan.steps,
         vec![
-            PlannedStep { mode: DesyncMode::Split, start: 0, end: markers.host_start as i64 },
+            PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 },
             PlannedStep {
-                mode: DesyncMode::Split,
+                kind: TcpChainStepKind::Split,
                 start: markers.host_start as i64,
                 end: (markers.host_start + sld_end) as i64,
             },
@@ -36,8 +36,8 @@ fn plan_tcp_tls_chain_resolves_sniext_and_tls_endhost_markers() {
 
     let mut group = DesyncGroup::new(0);
     group.tcp_chain = vec![
-        TcpChainStep { kind: TcpChainStepKind::Split, offset: OffsetExpr::marker(OffsetBase::SniExt, 0) },
-        TcpChainStep { kind: TcpChainStepKind::Split, offset: OffsetExpr::tls_marker(OffsetBase::EndHost, 0) },
+        TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::SniExt, 0)),
+        TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::tls_marker(OffsetBase::EndHost, 0)),
     ];
 
     let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64).expect("plan tls marker chain");
@@ -45,8 +45,8 @@ fn plan_tcp_tls_chain_resolves_sniext_and_tls_endhost_markers() {
     assert_eq!(
         plan.steps,
         vec![
-            PlannedStep { mode: DesyncMode::Split, start: 0, end: markers.sni_ext_start as i64 },
-            PlannedStep { mode: DesyncMode::Split, start: markers.sni_ext_start as i64, end: markers.host_end as i64 },
+            PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.sni_ext_start as i64 },
+            PlannedStep { kind: TcpChainStepKind::Split, start: markers.sni_ext_start as i64, end: markers.host_end as i64 },
         ]
     );
 }

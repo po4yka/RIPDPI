@@ -144,6 +144,8 @@ data class SettingsUiState(
     val useCmdSettings: Boolean = false,
     val desyncEnabled: Boolean = true,
     val isFake: Boolean = false,
+    val usesFakeTransport: Boolean = false,
+    val hasHostFake: Boolean = false,
     val isOob: Boolean = false,
     val desyncHttpEnabled: Boolean = true,
     val desyncHttpsEnabled: Boolean = true,
@@ -195,6 +197,8 @@ internal fun AppSettings.toUiState(
     val useCmdSettings = enableCmdSettings
     val desyncEnabled = primaryTcpStep != null
     val isFake = tcpChainSteps.any { it.kind == TcpChainStepKind.Fake }
+    val usesFakeTransport = tcpChainSteps.any { it.kind == TcpChainStepKind.Fake || it.kind == TcpChainStepKind.HostFake }
+    val hasHostFake = tcpChainSteps.any { it.kind == TcpChainStepKind.HostFake }
     val isOob = tcpChainSteps.any { it.kind == TcpChainStepKind.Oob || it.kind == TcpChainStepKind.Disoob }
 
     val desyncAllUnchecked = !desyncHttp && !desyncHttps && !desyncUdp
@@ -274,6 +278,8 @@ internal fun AppSettings.toUiState(
         useCmdSettings = useCmdSettings,
         desyncEnabled = desyncEnabled,
         isFake = isFake,
+        usesFakeTransport = usesFakeTransport,
+        hasHostFake = hasHostFake,
         isOob = isOob,
         desyncHttpEnabled = desyncHttpEnabled,
         desyncHttpsEnabled = desyncHttpsEnabled,

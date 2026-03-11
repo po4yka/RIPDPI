@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.AppSettings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -75,5 +76,79 @@ class StrategyChainsTest {
         assertEquals("extlen", settings.tlsrecMarker)
         assertEquals(4, settings.udpFakeCount)
         assertEquals("tcp: tlsrec(extlen) -> split(host+2) | udp: fake_burst(4)", settings.effectiveChainSummary())
+    }
+
+    @Test
+    fun `hostfake dsl round trip preserves midhost and template`() {
+        val dsl =
+            """
+            [tcp]
+            hostfake endhost+8 midhost=midsld host=googlevideo.com
+            split midsld
+            """.trimIndent()
+
+        val parsed = parseStrategyChainDsl(dsl).getOrThrow()
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(
+                    kind = TcpChainStepKind.HostFake,
+                    marker = "endhost+8",
+                    midhostMarker = "midsld",
+                    fakeHostTemplate = "googlevideo.com",
+                ),
+                TcpChainStepModel(TcpChainStepKind.Split, "midsld"),
+            ),
+            parsed.tcpSteps,
+        )
+        assertEquals(dsl, formatStrategyChainDsl(parsed.tcpSteps, parsed.udpSteps))
+        assertEquals(
+            "tcp: hostfake(endhost+8 midhost=midsld host=googlevideo.com) -> split(midsld)",
+            formatChainSummary(parsed.tcpSteps, parsed.udpSteps),
+        )
+    }
+
+    @Test
+    fun `hostfake strategy chains project legacy fake compatibility while preserving proto fields`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setStrategyChains(
+                    tcpSteps =
+                        listOf(
+                            TcpChainStepModel(
+                                kind = TcpChainStepKind.HostFake,
+                                marker = "endhost+4",
+                                midhostMarker = "midsld",
+                                fakeHostTemplate = "googlevideo.com",
+                            ),
+                        ),
+                    udpSteps = emptyList(),
+                ).build()
+
+        assertEquals("fake", settings.desyncMethod)
+        assertEquals("endhost+4", settings.splitMarker)
+        assertEquals(1, settings.tcpChainStepsCount)
+        assertEquals("midsld", settings.tcpChainStepsList[0].midhostMarker)
+        assertEquals("googlevideo.com", settings.tcpChainStepsList[0].fakeHostTemplate)
+        assertEquals(
+            listOf(
+                TcpChainStepModel(
+                    kind = TcpChainStepKind.HostFake,
+                    marker = "endhost+4",
+                    midhostMarker = "midsld",
+                    fakeHostTemplate = "googlevideo.com",
+                ),
+            ),
+            settings.effectiveTcpChainSteps(),
+        )
+    }
+
+    @Test
+    fun `hostfake parser rejects invalid template`() {
+        val result = parseStrategyChainDsl("[tcp]\nhostfake endhost host=127.0.0.1")
+
+        assertTrue(result.isFailure)
+        assertFalse(result.exceptionOrNull()?.message.isNullOrBlank())
     }
 }

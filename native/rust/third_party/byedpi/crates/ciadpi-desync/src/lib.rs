@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use ciadpi_config::{
-    DesyncGroup, DesyncMode, OffsetBase, OffsetExpr, OffsetProto, TcpChainStep, TcpChainStepKind, UdpChainStepKind,
+    DesyncGroup, OffsetBase, OffsetExpr, OffsetProto, TcpChainStep, TcpChainStepKind, UdpChainStepKind,
     FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ciadpi_packets::{
@@ -20,9 +20,16 @@ pub struct ProtoInfo {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlannedStep {
-    pub mode: DesyncMode,
+    pub kind: TcpChainStepKind,
     pub start: i64,
     pub end: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HostFakeSpan {
+    pub host_start: usize,
+    pub host_end: usize,
+    pub midhost: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,6 +102,131 @@ fn resolve_host_range<'a>(
                 Some((http.host_start, http.host_end, &buffer[http.host_start..http.host_end]))
             }
         }
+    }
+}
+
+pub fn resolve_hostfake_span(
+    step: &TcpChainStep,
+    buffer: &[u8],
+    step_start: usize,
+    step_end: usize,
+    seed: u32,
+) -> Option<HostFakeSpan> {
+    let mut info = ProtoInfo::default();
+    let (host_start, host_end, _) = resolve_host_range(buffer, &mut info, OffsetProto::Any)?;
+    if host_start < step_start || host_end > step_end || host_start >= host_end {
+        return None;
+    }
+
+    let midhost = step.midhost_offset.and_then(|expr| {
+        let mut rng = OracleRng::seeded(seed);
+        let value = gen_offset(expr, buffer, buffer.len(), 0, &mut info, &mut rng)?;
+        let mid = usize::try_from(value).ok()?;
+        ((host_start + 1)..host_end).contains(&mid).then_some(mid)
+    });
+
+    Some(HostFakeSpan { host_start, host_end, midhost })
+}
+
+fn fill_random_lower(byte: &mut u8, rng: &mut OracleRng) {
+    *byte = b'a' + (rng.next_u8() % 26);
+}
+
+fn fill_random_alnum(byte: &mut u8, rng: &mut OracleRng) {
+    let roll = rng.next_mod(36);
+    *byte = if roll < 10 { b'0' + roll as u8 } else { b'a' + (roll as u8 - 10) };
+}
+
+fn fill_random_host_like(output: &mut [u8], rng: &mut OracleRng) {
+    const RANDOM_TLDS: [&[u8; 3]; 8] = [b"com", b"net", b"org", b"edu", b"gov", b"mil", b"int", b"biz"];
+    if output.is_empty() {
+        return;
+    }
+    fill_random_lower(&mut output[0], rng);
+    if output.len() >= 7 {
+        let len = output.len();
+        for byte in &mut output[1..len - 4] {
+            fill_random_alnum(byte, rng);
+        }
+        output[len - 4] = b'.';
+        output[len - 3..].copy_from_slice(RANDOM_TLDS[rng.next_mod(RANDOM_TLDS.len())]);
+    } else {
+        for byte in &mut output[1..] {
+            fill_random_alnum(byte, rng);
+        }
+    }
+}
+
+fn looks_like_ip_literal(value: &str) -> bool {
+    value.parse::<std::net::IpAddr>().is_ok()
+}
+
+fn normalize_fake_host_template(value: &str) -> Option<String> {
+    let trimmed = value.trim().trim_end_matches('.').to_ascii_lowercase();
+    if trimmed.is_empty() || trimmed.contains(':') || looks_like_ip_literal(&trimmed) {
+        return None;
+    }
+    if trimmed.starts_with('.') || trimmed.ends_with('.') || trimmed.contains("..") {
+        return None;
+    }
+    if trimmed
+        .bytes()
+        .any(|byte| !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'.'))
+    {
+        return None;
+    }
+    if trimmed.split('.').any(|label| label.is_empty() || label.starts_with('-') || label.ends_with('-')) {
+        return None;
+    }
+    Some(trimmed)
+}
+
+pub fn build_hostfake_bytes(real_host: &[u8], template: Option<&str>, seed: u32) -> Vec<u8> {
+    let mut rng = OracleRng::seeded(seed);
+    let mut output = vec![0; real_host.len()];
+    fill_random_host_like(&mut output, &mut rng);
+
+    let Some(template) = template.and_then(normalize_fake_host_template) else {
+        return output;
+    };
+    let suffix = template.as_bytes();
+    if suffix.len() >= output.len() {
+        let output_len = output.len();
+        output.copy_from_slice(&suffix[suffix.len() - output_len..]);
+        return output;
+    }
+
+    let anchor = output.len() - suffix.len();
+    output[anchor..].copy_from_slice(suffix);
+    if anchor > 1 {
+        output[anchor - 1] = b'.';
+        fill_random_lower(&mut output[0], &mut rng);
+        for byte in &mut output[1..anchor - 1] {
+            fill_random_alnum(byte, &mut rng);
+        }
+    }
+    output
+}
+
+fn push_split_actions(actions: &mut Vec<DesyncAction>, bytes: Vec<u8>) {
+    actions.push(DesyncAction::Write(bytes));
+    actions.push(DesyncAction::AwaitWritable);
+}
+
+fn push_fake_actions(actions: &mut Vec<DesyncAction>, original: &[u8], fake: Vec<u8>, group: &DesyncGroup, default_ttl: u8) {
+    actions.push(DesyncAction::SetTtl(group.ttl.unwrap_or(8)));
+    if group.md5sig {
+        actions.push(DesyncAction::SetMd5Sig { key_len: 5 });
+    }
+    if !original.is_empty() {
+        actions.push(DesyncAction::Write(fake));
+    }
+    if group.md5sig {
+        actions.push(DesyncAction::SetMd5Sig { key_len: 0 });
+    }
+    actions.push(DesyncAction::RestoreDefaultTtl);
+    if default_ttl != 0 {
+        actions.push(DesyncAction::SetTtl(default_ttl));
     }
 }
 
@@ -339,7 +471,6 @@ pub fn plan_tcp(group: &DesyncGroup, input: &[u8], seed: u32, default_ttl: u8) -
     let mut lp = 0i64;
 
     for step in send_steps {
-        let mode = step.kind.as_mode().ok_or(DesyncError)?;
         let Some(mut pos) = gen_offset(step.offset, &tampered.bytes, tampered.bytes.len(), lp, &mut info, &mut rng)
         else {
             return Err(DesyncError);
@@ -350,47 +481,77 @@ pub fn plan_tcp(group: &DesyncGroup, input: &[u8], seed: u32, default_ttl: u8) -
         if pos > tampered.bytes.len() as i64 {
             pos = tampered.bytes.len() as i64;
         }
-        steps.push(PlannedStep { mode, start: lp, end: pos });
         let chunk = tampered.bytes[lp as usize..pos as usize].to_vec();
-        match mode {
-            DesyncMode::Split | DesyncMode::None => {
-                actions.push(DesyncAction::Write(chunk));
-                actions.push(DesyncAction::AwaitWritable);
+        let mut planned_kind = step.kind;
+
+        match step.kind {
+            TcpChainStepKind::Split => {
+                push_split_actions(&mut actions, chunk);
             }
-            DesyncMode::Oob => {
+            TcpChainStepKind::Oob => {
                 actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.oob_data.unwrap_or(b'a') })
             }
-            DesyncMode::Disorder => {
+            TcpChainStepKind::Disorder => {
                 actions.push(DesyncAction::SetTtl(1));
                 actions.push(DesyncAction::Write(chunk));
                 actions.push(DesyncAction::AwaitWritable);
                 actions.push(DesyncAction::RestoreDefaultTtl);
             }
-            DesyncMode::Disoob => {
+            TcpChainStepKind::Disoob => {
                 actions.push(DesyncAction::SetTtl(1));
                 actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.oob_data.unwrap_or(b'a') });
                 actions.push(DesyncAction::AwaitWritable);
                 actions.push(DesyncAction::RestoreDefaultTtl);
             }
-            DesyncMode::Fake => {
+            TcpChainStepKind::Fake => {
                 let fake = build_fake_packet(group, &tampered.bytes, seed)?;
                 let span = (pos - lp) as usize;
                 let fake_end = fake.fake_offset.saturating_add(span).min(fake.bytes.len());
-                actions.push(DesyncAction::SetTtl(group.ttl.unwrap_or(8)));
-                if group.md5sig {
-                    actions.push(DesyncAction::SetMd5Sig { key_len: 5 });
+                push_fake_actions(
+                    &mut actions,
+                    &tampered.bytes[lp as usize..pos as usize],
+                    fake.bytes[fake.fake_offset..fake_end].to_vec(),
+                    group,
+                    default_ttl,
+                );
+            }
+            TcpChainStepKind::HostFake => {
+                let Some(span) = resolve_hostfake_span(&step, &tampered.bytes, lp as usize, pos as usize, seed) else {
+                    planned_kind = TcpChainStepKind::Split;
+                    push_split_actions(&mut actions, chunk);
+                    steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
+                    if matches!(planned_kind, TcpChainStepKind::Oob) {
+                        actions.push(DesyncAction::AwaitWritable);
+                    }
+                    lp = pos;
+                    continue;
+                };
+
+                if (lp as usize) < span.host_start {
+                    push_split_actions(&mut actions, tampered.bytes[lp as usize..span.host_start].to_vec());
                 }
-                actions.push(DesyncAction::Write(fake.bytes[fake.fake_offset..fake_end].to_vec()));
-                if group.md5sig {
-                    actions.push(DesyncAction::SetMd5Sig { key_len: 0 });
+
+                let real_host = &tampered.bytes[span.host_start..span.host_end];
+                let fake_host = build_hostfake_bytes(real_host, step.fake_host_template.as_deref(), seed);
+                push_fake_actions(&mut actions, real_host, fake_host.clone(), group, default_ttl);
+
+                if let Some(midhost) = span.midhost {
+                    push_split_actions(&mut actions, tampered.bytes[span.host_start..midhost].to_vec());
+                    push_split_actions(&mut actions, tampered.bytes[midhost..span.host_end].to_vec());
+                } else {
+                    push_split_actions(&mut actions, real_host.to_vec());
                 }
-                actions.push(DesyncAction::RestoreDefaultTtl);
-                if default_ttl != 0 {
-                    actions.push(DesyncAction::SetTtl(default_ttl));
+
+                push_fake_actions(&mut actions, real_host, fake_host, group, default_ttl);
+
+                if span.host_end < pos as usize {
+                    push_split_actions(&mut actions, tampered.bytes[span.host_end..pos as usize].to_vec());
                 }
             }
+            TcpChainStepKind::TlsRec => return Err(DesyncError),
         }
-        if matches!(mode, DesyncMode::Oob) {
+        steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
+        if matches!(planned_kind, TcpChainStepKind::Oob) {
             actions.push(DesyncAction::AwaitWritable);
         }
         lp = pos;
@@ -443,7 +604,7 @@ fn split_tcp_chain(chain: &[TcpChainStep]) -> Result<(Vec<OffsetExpr>, Vec<TcpCh
             TcpChainStepKind::TlsRec => tls_records.push(step.offset),
             _ => {
                 saw_send_step = true;
-                send_steps.push(*step);
+                send_steps.push(step.clone());
             }
         }
     }
@@ -466,7 +627,7 @@ fn udp_fake_payload(group: &DesyncGroup) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ciadpi_config::{OffsetBase, PartSpec, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind};
+    use ciadpi_config::{DesyncMode, OffsetBase, PartSpec, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind};
 
     fn split_expr(pos: i64) -> OffsetExpr {
         OffsetExpr::absolute(pos).with_repeat_skip(1, 0)
@@ -481,7 +642,7 @@ mod tests {
         let plan = plan_tcp(&group, payload, 7, 64).expect("plan split tcp");
 
         assert_eq!(plan.tampered, payload);
-        assert_eq!(plan.steps, vec![PlannedStep { mode: DesyncMode::Split, start: 0, end: 5 }]);
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5 }]);
         assert_eq!(
             plan.actions,
             vec![
@@ -580,9 +741,9 @@ mod tests {
         group.fake_data = Some(b"FAKEPAYLOAD".to_vec());
         group.tlsminor = Some(1);
         group.tcp_chain = vec![
-            TcpChainStep { kind: TcpChainStepKind::TlsRec, offset: OffsetExpr::marker(OffsetBase::ExtLen, 0) },
-            TcpChainStep { kind: TcpChainStepKind::Fake, offset: split_expr(4) },
-            TcpChainStep { kind: TcpChainStepKind::Split, offset: split_expr(7) },
+            TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
+            TcpChainStep::new(TcpChainStepKind::Fake, split_expr(4)),
+            TcpChainStep::new(TcpChainStepKind::Split, split_expr(7)),
         ];
 
         let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 9, 32).expect("plan chained tcp");
@@ -590,8 +751,8 @@ mod tests {
         assert_eq!(
             plan.steps,
             vec![
-                PlannedStep { mode: DesyncMode::Fake, start: 0, end: 4 },
-                PlannedStep { mode: DesyncMode::Split, start: 4, end: 7 },
+                PlannedStep { kind: TcpChainStepKind::Fake, start: 0, end: 4 },
+                PlannedStep { kind: TcpChainStepKind::Split, start: 4, end: 7 },
             ]
         );
         assert_eq!(plan.tampered[2], 1);
@@ -602,8 +763,8 @@ mod tests {
     fn plan_tcp_rejects_tlsrec_after_send_step() {
         let mut group = DesyncGroup::new(0);
         group.tcp_chain = vec![
-            TcpChainStep { kind: TcpChainStepKind::Split, offset: split_expr(2) },
-            TcpChainStep { kind: TcpChainStepKind::TlsRec, offset: OffsetExpr::marker(OffsetBase::ExtLen, 0) },
+            TcpChainStep::new(TcpChainStepKind::Split, split_expr(2)),
+            TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
         ];
 
         assert!(plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64).is_err());
@@ -735,6 +896,79 @@ mod tests {
         assert_eq!(
             gen_offset(OffsetExpr::marker(OffsetBase::ExtLen, 0), tls, tls.len(), 0, &mut tls_info, &mut tls_rng),
             Some(tls_markers.ext_len_start as i64)
+        );
+    }
+
+    #[test]
+    fn build_hostfake_bytes_preserves_length_and_template_suffix() {
+        let fake = build_hostfake_bytes(b"video.example.com", Some("googlevideo.com"), 17);
+
+        assert_eq!(fake.len(), b"video.example.com".len());
+        assert!(fake.iter().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')));
+        assert!(std::str::from_utf8(&fake).unwrap().ends_with("video.com"));
+    }
+
+    #[test]
+    fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
+        let payload = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
+        let markers = http_marker_info(payload).expect("http markers");
+        let mut group = DesyncGroup::new(0);
+        group.ttl = Some(9);
+        group.tcp_chain = vec![TcpChainStep {
+            kind: TcpChainStepKind::HostFake,
+            offset: OffsetExpr::marker(OffsetBase::PayloadEnd, 0),
+            midhost_offset: Some(OffsetExpr::marker(OffsetBase::MidSld, 0)),
+            fake_host_template: Some("googlevideo.com".to_string()),
+        }];
+
+        let plan = plan_tcp(&group, payload, 23, 32).expect("plan hostfake");
+
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: payload.len() as i64 }]);
+        assert_eq!(
+            plan.actions,
+            vec![
+                DesyncAction::Write(payload[..markers.host_start].to_vec()),
+                DesyncAction::AwaitWritable,
+                DesyncAction::SetTtl(9),
+                DesyncAction::Write(build_hostfake_bytes(&payload[markers.host_start..markers.host_end], Some("googlevideo.com"), 23)),
+                DesyncAction::RestoreDefaultTtl,
+                DesyncAction::SetTtl(32),
+                DesyncAction::Write(payload[markers.host_start..markers.host_start + 7].to_vec()),
+                DesyncAction::AwaitWritable,
+                DesyncAction::Write(payload[markers.host_start + 7..markers.host_end].to_vec()),
+                DesyncAction::AwaitWritable,
+                DesyncAction::SetTtl(9),
+                DesyncAction::Write(build_hostfake_bytes(&payload[markers.host_start..markers.host_end], Some("googlevideo.com"), 23)),
+                DesyncAction::RestoreDefaultTtl,
+                DesyncAction::SetTtl(32),
+                DesyncAction::Write(payload[markers.host_end..].to_vec()),
+                DesyncAction::AwaitWritable,
+            ]
+        );
+    }
+
+    #[test]
+    fn hostfake_degrades_to_split_when_step_ends_before_endhost() {
+        let payload = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
+        let markers = http_marker_info(payload).expect("http markers");
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![TcpChainStep {
+            kind: TcpChainStepKind::HostFake,
+            offset: OffsetExpr::marker(OffsetBase::Host, 0),
+            midhost_offset: None,
+            fake_host_template: None,
+        }];
+
+        let plan = plan_tcp(&group, payload, 9, 32).expect("plan degraded hostfake");
+
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 }]);
+        assert_eq!(
+            plan.actions,
+            vec![
+                DesyncAction::Write(payload[..markers.host_start].to_vec()),
+                DesyncAction::AwaitWritable,
+                DesyncAction::Write(payload[markers.host_start..].to_vec()),
+            ]
         );
     }
 

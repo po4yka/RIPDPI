@@ -68,6 +68,15 @@ class AppSettingsJsonTest {
                 .setHostAutolearnEnabled(true)
                 .setHostAutolearnPenaltyTtlHours(12)
                 .setHostAutolearnMaxHosts(2048)
+                .addTcpChainSteps(
+                    com.poyka.ripdpi.proto.StrategyTcpStep
+                        .newBuilder()
+                        .setKind("hostfake")
+                        .setMarker("endhost+8")
+                        .setMidhostMarker("midsld")
+                        .setFakeHostTemplate("googlevideo.com")
+                        .build(),
+                )
                 .build()
 
         val decoded = appSettingsFromJson(settings.toJson())
