@@ -2,6 +2,9 @@ package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,15 +18,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -40,23 +48,62 @@ fun <T> RipDpiDropdown(
     onValueSelected: (T) -> Unit,
     modifier: Modifier = Modifier,
     label: String? = null,
+    placeholder: String? = null,
     helperText: String? = null,
+    errorText: String? = null,
     enabled: Boolean = true,
+    readOnly: Boolean = false,
+    density: RipDpiControlDensity = RipDpiControlDensity.Default,
+    interactionSource: MutableInteractionSource? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val type = RipDpiThemeTokens.type
     val (expanded, setExpanded) = remember { mutableStateOf(false) }
+    val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
+    val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
+    val isInteractive = enabled && !readOnly
     val selectedLabel = options.firstOrNull { it.value == selectedValue }?.label.orEmpty()
-    val borderWidth = if (expanded && enabled) 2.dp else 1.dp
-    val borderColor = if (expanded && enabled) colors.foreground else MaterialTheme.colorScheme.outlineVariant
+    val borderWidth =
+        when {
+            errorText != null -> 2.dp
+            (expanded || isFocused) && isInteractive -> 2.dp
+            else -> 1.dp
+        }
+    val borderColor =
+        when {
+            errorText != null -> colors.destructive
+            (expanded || isFocused) && isInteractive -> colors.foreground
+            else -> MaterialTheme.colorScheme.outlineVariant
+        }
+    val supportingText = errorText ?: helperText
+    val supportingColor = if (errorText != null) colors.destructive else colors.mutedForeground
+    val labelColor = if (errorText != null) colors.destructive else colors.mutedForeground
+    val horizontalPadding =
+        when (density) {
+            RipDpiControlDensity.Default -> {
+                if (borderWidth > 1.dp) {
+                    components.fieldFocusedHorizontalPadding
+                } else {
+                    components.fieldHorizontalPadding
+                }
+            }
+
+            RipDpiControlDensity.Compact -> {
+                if (borderWidth > 1.dp) {
+                    components.fieldFocusedHorizontalPadding - 4.dp
+                } else {
+                    components.fieldHorizontalPadding - 4.dp
+                }
+            }
+        }
 
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         label?.let {
-            Text(text = it, style = type.smallLabel, color = colors.mutedForeground)
+            Text(text = it, style = type.smallLabel, color = labelColor)
         }
         Box {
             Row(
@@ -66,23 +113,22 @@ fun <T> RipDpiDropdown(
                         .height(components.controlHeight)
                         .background(colors.inputBackground, RipDpiThemeTokens.shapes.xl)
                         .border(borderWidth, borderColor, RipDpiThemeTokens.shapes.xl)
-                        .ripDpiClickable(enabled = enabled, role = androidx.compose.ui.semantics.Role.Button) {
-                            setExpanded(true)
-                        }
-                        .padding(
-                            horizontal =
-                                if (borderWidth > 1.dp) {
-                                    components.fieldFocusedHorizontalPadding
-                                } else {
-                                    components.fieldHorizontalPadding
-                                },
-                        )
+                        .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
+                        .semantics {
+                            label?.let { contentDescription = it }
+                            errorText?.let { error(it) }
+                        }.ripDpiClickable(
+                            enabled = isInteractive,
+                            role = androidx.compose.ui.semantics.Role.Button,
+                            interactionSource = resolvedInteractionSource,
+                        ) { setExpanded(true) }
+                        .padding(horizontal = horizontalPadding)
                         .alpha(if (enabled) 1f else 0.38f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = selectedLabel,
+                    text = selectedLabel.ifEmpty { placeholder.orEmpty() },
                     modifier = Modifier.weight(1f),
                     style = RipDpiThemeTokens.type.monoValue,
                     color = if (selectedLabel.isEmpty()) colors.mutedForeground else colors.foreground,
@@ -113,18 +159,20 @@ fun <T> RipDpiDropdown(
                             )
                         },
                         onClick = {
-                            onValueSelected(option.value)
-                            setExpanded(false)
+                            if (isInteractive) {
+                                onValueSelected(option.value)
+                                setExpanded(false)
+                            }
                         },
                     )
                 }
             }
         }
-        helperText?.let {
+        supportingText?.let {
             Text(
                 text = it,
                 style = type.caption,
-                color = colors.mutedForeground,
+                color = supportingColor,
                 modifier = Modifier.alpha(if (enabled) 1f else 0.38f),
             )
         }

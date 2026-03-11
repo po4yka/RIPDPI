@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -49,21 +50,27 @@ fun BottomNavBar(
             color = colors.border,
             thickness = RipDpiStroke.Hairline,
         )
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(layout.bottomBarHeight)
-                    .padding(horizontal = components.chipVerticalPadding + components.switchThumbPadding),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
         ) {
-            Route.topLevel.forEach { destination ->
-                BottomNavItem(
-                    destination = destination,
-                    selected = currentRoute == destination.route,
-                    onClick = { onNavigate(destination) },
-                )
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding)
+                        .height(layout.bottomBarHeight)
+                        .padding(horizontal = components.chipVerticalPadding + components.switchThumbPadding),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Route.topLevel.forEach { destination ->
+                    BottomNavItem(
+                        destination = destination,
+                        selected = currentRoute == destination.route,
+                        onClick = { onNavigate(destination) },
+                    )
+                }
             }
         }
     }

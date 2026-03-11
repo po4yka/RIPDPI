@@ -26,7 +26,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
-import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
+import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -37,6 +38,7 @@ fun RipDpiChip(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     enabled: Boolean = true,
+    density: RipDpiControlDensity = RipDpiControlDensity.Default,
     leadingIcon: ImageVector? = if (selected) RipDpiIcons.Check else null,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -44,6 +46,16 @@ fun RipDpiChip(
     val scheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val horizontalPadding =
+        when (density) {
+            RipDpiControlDensity.Default -> components.chipHorizontalPadding
+            RipDpiControlDensity.Compact -> components.chipHorizontalPadding - 4.dp
+        }
+    val verticalPadding =
+        when (density) {
+            RipDpiControlDensity.Default -> components.chipVerticalPadding
+            RipDpiControlDensity.Compact -> components.chipVerticalPadding - 2.dp
+        }
     val container =
         when {
             selected -> colors.foreground
@@ -69,17 +81,16 @@ fun RipDpiChip(
                 .background(container, RipDpiThemeTokens.shapes.lg)
                 .border(1.dp, borderColor, RipDpiThemeTokens.shapes.lg)
                 .focusable(enabled = enabled, interactionSource = interactionSource)
-                .ripDpiClickable(
+                .ripDpiSelectable(
+                    selected = selected,
                     enabled = enabled,
                     role = Role.Checkbox,
                     interactionSource = interactionSource,
                     onClick = onClick,
-                )
-                .padding(
-                    horizontal = components.chipHorizontalPadding,
-                    vertical = components.chipVerticalPadding,
-                )
-                .alpha(if (enabled) 1f else 0.38f),
+                ).padding(
+                    horizontal = horizontalPadding,
+                    vertical = verticalPadding,
+                ).alpha(if (enabled) 1f else 0.38f),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

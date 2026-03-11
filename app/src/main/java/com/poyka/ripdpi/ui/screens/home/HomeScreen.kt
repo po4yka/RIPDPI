@@ -19,9 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,14 +45,16 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
-import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiDashboardScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 import java.util.Locale
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
@@ -94,58 +94,82 @@ fun HomeScreen(
     val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
 
-    Column(
+    RipDpiDashboardScaffold(
         modifier =
             modifier
                 .fillMaxSize()
                 .background(colors.background),
+        topBar = { HomeTopBar(title = stringResource(R.string.app_name)) },
     ) {
-        HomeTopBar(title = stringResource(R.string.app_name))
+        if (uiState.connectionState == ConnectionState.Error && uiState.errorMessage != null) {
+            WarningBanner(
+                title = stringResource(R.string.home_status_error_title),
+                message = uiState.errorMessage,
+                tone = WarningBannerTone.Error,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = layout.horizontalPadding),
-            verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
-        ) {
-            Spacer(modifier = Modifier.height(spacing.sm))
+        uiState.permissionSummary.issue?.let { issue ->
+            WarningBanner(
+                title = issue.title,
+                message =
+                    when (issue.recovery) {
+                        PermissionRecovery.OpenSettings,
+                        PermissionRecovery.OpenBatteryOptimizationSettings,
+                        -> stringResource(R.string.home_permission_issue_with_settings, issue.message)
 
-            if (uiState.connectionState == ConnectionState.Error && uiState.errorMessage != null) {
-                WarningBanner(
-                    title = stringResource(R.string.home_status_error_title),
-                    message = uiState.errorMessage,
-                    tone = WarningBannerTone.Error,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                        PermissionRecovery.OpenVpnPermissionScreen,
+                        PermissionRecovery.RetryPrompt,
+                        -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
+                    },
+                tone = WarningBannerTone.Restricted,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } ?: uiState.permissionSummary.recommendedIssue?.let { warning ->
+            WarningBanner(
+                title = warning.title,
+                message = warning.message,
+                tone = WarningBannerTone.Warning,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        if (layout.widthClass == RipDpiWidthClass.Expanded) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(layout.groupGap),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1.08f),
+                    verticalArrangement = Arrangement.spacedBy(layout.groupGap),
+                ) {
+                    HomeStatusCard(
+                        uiState = uiState,
+                        onToggleConnection = onToggleConnection,
+                    )
+
+                    uiState.approachSummary?.let { summary ->
+                        HomeApproachCard(
+                            summary = summary,
+                            onOpenDiagnostics = onOpenDiagnostics,
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(0.92f),
+                    verticalArrangement = Arrangement.spacedBy(spacing.md),
+                ) {
+                    Text(
+                        text = stringResource(R.string.home_overview_title),
+                        style = type.sectionTitle,
+                        color = colors.mutedForeground,
+                    )
+                    HomeStatsGrid(uiState = uiState)
+                }
             }
-
-            uiState.permissionSummary.issue?.let { issue ->
-                WarningBanner(
-                    title = issue.title,
-                    message =
-                        when (issue.recovery) {
-                            PermissionRecovery.OpenSettings,
-                            PermissionRecovery.OpenBatteryOptimizationSettings,
-                            -> stringResource(R.string.home_permission_issue_with_settings, issue.message)
-
-                            PermissionRecovery.OpenVpnPermissionScreen,
-                            PermissionRecovery.RetryPrompt,
-                            -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
-                        },
-                    tone = WarningBannerTone.Restricted,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } ?: uiState.permissionSummary.recommendedIssue?.let { warning ->
-                WarningBanner(
-                    title = warning.title,
-                    message = warning.message,
-                    tone = WarningBannerTone.Warning,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
+        } else {
             HomeStatusCard(
                 uiState = uiState,
                 onToggleConnection = onToggleConnection,
@@ -166,8 +190,6 @@ fun HomeScreen(
                 )
                 HomeStatsGrid(uiState = uiState)
             }
-
-            Spacer(modifier = Modifier.height(spacing.xxl))
         }
     }
 }
@@ -226,6 +248,8 @@ private fun HomeStatusCard(
     RipDpiCard(
         variant =
             if (uiState.connectionState == ConnectionState.Connected) {
+                RipDpiCardVariant.Status
+            } else if (uiState.connectionState == ConnectionState.Connecting) {
                 RipDpiCardVariant.Elevated
             } else {
                 RipDpiCardVariant.Outlined
@@ -281,7 +305,7 @@ private fun HomeConnectionButton(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val scheme = MaterialTheme.colorScheme
-    val homeChrome = DefaultHomeChromeMetrics
+    val homeChrome = rememberHomeChromeMetrics()
     val infiniteTransition = rememberInfiniteTransition()
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 0.96f,

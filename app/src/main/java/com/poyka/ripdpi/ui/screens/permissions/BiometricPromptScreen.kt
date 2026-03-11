@@ -28,7 +28,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
-import com.poyka.ripdpi.ui.components.intro.DefaultRipDpiIntroScaffoldMetrics
+import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -100,7 +100,7 @@ fun BiometricPromptScreen(
 ) {
     val hasBackupPin = uiState.backupPin.isNotBlank()
     val isPinStage = stage == BiometricPromptStage.Pin && hasBackupPin
-    val introLayout = DefaultRipDpiIntroScaffoldMetrics
+    val introLayout = rememberRipDpiIntroScaffoldMetrics()
 
     AuthPromptScaffold(
         title =

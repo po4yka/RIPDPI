@@ -5,6 +5,18 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+enum class RipDpiWidthClass {
+    Compact,
+    Medium,
+    Expanded,
+}
+
+enum class RipDpiContentGrouping {
+    SingleColumn,
+    CenteredColumn,
+    SplitColumns,
+}
+
 @Immutable
 data class RipDpiSpacing(
     val xs: Dp = 4.dp,
@@ -20,11 +32,16 @@ data class RipDpiSpacing(
 
 @Immutable
 data class RipDpiLayout(
+    val widthClass: RipDpiWidthClass = RipDpiWidthClass.Compact,
+    val contentGrouping: RipDpiContentGrouping = RipDpiContentGrouping.SingleColumn,
     val horizontalPadding: Dp = 20.dp,
+    val contentMaxWidth: Dp = 560.dp,
+    val formMaxWidth: Dp = 520.dp,
     val dialogMaxWidth: Dp = 560.dp,
     val snackbarMaxWidth: Dp = 560.dp,
     val cardPadding: Dp = 16.dp,
     val sectionGap: Dp = 20.dp,
+    val groupGap: Dp = 16.dp,
     val appBarMinHeight: Dp = 56.dp,
     val bottomBarHeight: Dp = 64.dp,
 )
@@ -72,8 +89,69 @@ object RipDpiStroke {
 }
 
 val DefaultRipDpiSpacing = RipDpiSpacing()
-val DefaultRipDpiLayout = RipDpiLayout()
+val DefaultRipDpiLayout = ripDpiLayoutForWidth(screenWidthDp = 360)
 val DefaultRipDpiComponentMetrics = RipDpiComponentMetrics()
+
+fun ripDpiWidthClassForWidth(screenWidthDp: Int): RipDpiWidthClass =
+    when {
+        screenWidthDp >= 840 -> RipDpiWidthClass.Expanded
+        screenWidthDp >= 600 -> RipDpiWidthClass.Medium
+        else -> RipDpiWidthClass.Compact
+    }
+
+fun ripDpiLayoutForWidth(screenWidthDp: Int): RipDpiLayout =
+    when (ripDpiWidthClassForWidth(screenWidthDp = screenWidthDp)) {
+        RipDpiWidthClass.Compact -> {
+            RipDpiLayout(
+                widthClass = RipDpiWidthClass.Compact,
+                contentGrouping = RipDpiContentGrouping.SingleColumn,
+                horizontalPadding = 20.dp,
+                contentMaxWidth = 560.dp,
+                formMaxWidth = 520.dp,
+                dialogMaxWidth = 560.dp,
+                snackbarMaxWidth = 560.dp,
+                cardPadding = 16.dp,
+                sectionGap = 20.dp,
+                groupGap = 16.dp,
+                appBarMinHeight = 56.dp,
+                bottomBarHeight = 64.dp,
+            )
+        }
+
+        RipDpiWidthClass.Medium -> {
+            RipDpiLayout(
+                widthClass = RipDpiWidthClass.Medium,
+                contentGrouping = RipDpiContentGrouping.CenteredColumn,
+                horizontalPadding = 28.dp,
+                contentMaxWidth = 720.dp,
+                formMaxWidth = 600.dp,
+                dialogMaxWidth = 640.dp,
+                snackbarMaxWidth = 640.dp,
+                cardPadding = 18.dp,
+                sectionGap = 24.dp,
+                groupGap = 20.dp,
+                appBarMinHeight = 60.dp,
+                bottomBarHeight = 72.dp,
+            )
+        }
+
+        RipDpiWidthClass.Expanded -> {
+            RipDpiLayout(
+                widthClass = RipDpiWidthClass.Expanded,
+                contentGrouping = RipDpiContentGrouping.SplitColumns,
+                horizontalPadding = 32.dp,
+                contentMaxWidth = 960.dp,
+                formMaxWidth = 680.dp,
+                dialogMaxWidth = 720.dp,
+                snackbarMaxWidth = 720.dp,
+                cardPadding = 20.dp,
+                sectionGap = 28.dp,
+                groupGap = 24.dp,
+                appBarMinHeight = 64.dp,
+                bottomBarHeight = 72.dp,
+            )
+        }
+    }
 
 internal val LocalRipDpiSpacing = staticCompositionLocalOf { DefaultRipDpiSpacing }
 internal val LocalRipDpiLayout = staticCompositionLocalOf { DefaultRipDpiLayout }
