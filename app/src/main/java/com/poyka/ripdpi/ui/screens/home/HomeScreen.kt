@@ -1,12 +1,20 @@
 package com.poyka.ripdpi.ui.screens.home
 
 import android.text.format.Formatter
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -303,25 +311,44 @@ private fun HomeConnectionButton(
     onClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val motion = RipDpiThemeTokens.motion
     val type = RipDpiThemeTokens.type
     val scheme = MaterialTheme.colorScheme
     val homeChrome = rememberHomeChromeMetrics()
-    val buttonScale =
-        if (state == ConnectionState.Connecting) {
+    val pulseScale =
+        if (state == ConnectionState.Connecting && motion.allowsInfiniteMotion) {
             val infiniteTransition = rememberInfiniteTransition()
-            val pulseScale by infiniteTransition.animateFloat(
+            val animatedPulseScale by infiniteTransition.animateFloat(
                 initialValue = 0.96f,
                 targetValue = 1.04f,
                 animationSpec =
                     infiniteRepeatable(
-                        animation = tween(durationMillis = 1_100, easing = LinearEasing),
+                        animation =
+                            tween(
+                                durationMillis = motion.duration(1_100),
+                                easing = LinearEasing,
+                            ),
                         repeatMode = RepeatMode.Reverse,
                     ),
             )
-            pulseScale
+            animatedPulseScale
         } else {
             1f
         }
+    val stateScale by animateFloatAsState(
+        targetValue =
+            when (state) {
+                ConnectionState.Connected -> motion.selectionScale
+                ConnectionState.Error -> motion.pressScale
+
+                ConnectionState.Connecting,
+                ConnectionState.Disconnected,
+                -> 1f
+            },
+        animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
+        label = "homeConnectionStateScale",
+    )
+    val buttonScale = pulseScale * stateScale
 
     val containerColor =
         when (state) {
@@ -367,6 +394,26 @@ private fun HomeConnectionButton(
             ConnectionState.Disconnected -> RipDpiIcons.Offline
             ConnectionState.Error -> RipDpiIcons.Warning
         }
+    val animatedContainerColor by animateColorAsState(
+        targetValue = containerColor,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "homeConnectionContainer",
+    )
+    val animatedContentColor by animateColorAsState(
+        targetValue = contentColor,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "homeConnectionContent",
+    )
+    val animatedHaloColor by animateColorAsState(
+        targetValue = haloColor,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "homeConnectionHalo",
+    )
+    val animatedBorderColor by animateColorAsState(
+        targetValue = borderColor,
+        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        label = "homeConnectionBorder",
+    )
 
     Box(
         modifier = Modifier.fillMaxWidth(),
@@ -377,15 +424,15 @@ private fun HomeConnectionButton(
                 Modifier
                     .size(homeChrome.connectionHaloSize)
                     .scale(buttonScale)
-                    .background(haloColor, CircleShape),
+                    .background(animatedHaloColor, CircleShape),
         )
         Column(
             modifier =
                 Modifier
                     .size(homeChrome.connectionButtonSize)
                     .scale(buttonScale)
-                    .background(containerColor, CircleShape)
-                    .border(width = 1.dp, color = borderColor, shape = CircleShape)
+                    .background(animatedContainerColor, CircleShape)
+                    .border(width = 1.dp, color = animatedBorderColor, shape = CircleShape)
                     .ripDpiClickable(
                         enabled = state != ConnectionState.Connecting,
                         role = androidx.compose.ui.semantics.Role.Button,
@@ -397,26 +444,66 @@ private fun HomeConnectionButton(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(homeChrome.connectionIconSize),
-            )
+            AnimatedContent(
+                targetState = icon,
+                transitionSpec = {
+                    (
+                        fadeIn(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        ) + scaleIn(initialScale = 0.88f)
+                    ) togetherWith (
+                        fadeOut(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        ) + scaleOut(targetScale = 0.88f)
+                    )
+                },
+                label = "homeConnectionIcon",
+            ) { currentIcon ->
+                Icon(
+                    imageVector = currentIcon,
+                    contentDescription = null,
+                    tint = animatedContentColor,
+                    modifier = Modifier.size(homeChrome.connectionIconSize),
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = label,
-                style = type.bodyEmphasis,
-                color = contentColor,
-                textAlign = TextAlign.Center,
-            )
+            AnimatedContent(
+                targetState = label,
+                transitionSpec = {
+                    fadeIn(
+                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                    ) togetherWith fadeOut(
+                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    )
+                },
+                label = "homeConnectionLabel",
+            ) { currentLabel ->
+                Text(
+                    text = currentLabel,
+                    style = type.bodyEmphasis,
+                    color = animatedContentColor,
+                    textAlign = TextAlign.Center,
+                )
+            }
             Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = modeLabel,
-                style = type.monoSmall,
-                color = contentColor.copy(alpha = 0.72f),
-                textAlign = TextAlign.Center,
-            )
+            AnimatedContent(
+                targetState = modeLabel,
+                transitionSpec = {
+                    fadeIn(
+                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    ) togetherWith fadeOut(
+                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    )
+                },
+                label = "homeConnectionModeLabel",
+            ) { currentModeLabel ->
+                Text(
+                    text = currentModeLabel,
+                    style = type.monoSmall,
+                    color = animatedContentColor.copy(alpha = 0.72f),
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }

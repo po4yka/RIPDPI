@@ -19,7 +19,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -80,10 +82,24 @@ internal fun LogsScreen(
     val layout = RipDpiThemeTokens.layout
     val filteredLogs = uiState.filteredLogs
     val listState = rememberLazyListState()
+    val isAtLiveEdge by remember(listState) {
+        derivedStateOf {
+            val lastVisibleItemIndex =
+                listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index
+                    ?: return@derivedStateOf true
+            lastVisibleItemIndex >= (listState.layoutInfo.totalItemsCount - 2).coerceAtLeast(0)
+        }
+    }
 
-    LaunchedEffect(uiState.isAutoScroll, filteredLogs.size, uiState.activeFilters) {
-        if (uiState.isAutoScroll && filteredLogs.isNotEmpty()) {
-            listState.scrollToItem(filteredLogs.lastIndex)
+    LaunchedEffect(uiState.isAutoScroll, uiState.latestLog?.id) {
+        val latestLog = uiState.latestLog ?: return@LaunchedEffect
+        if (
+            uiState.isAutoScroll &&
+            latestLog.type in uiState.activeFilters &&
+            filteredLogs.isNotEmpty() &&
+            isAtLiveEdge
+        ) {
+            listState.animateScrollToItem(filteredLogs.lastIndex)
         }
     }
 

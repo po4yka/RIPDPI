@@ -1,5 +1,14 @@
 package com.poyka.ripdpi.ui.components.inputs
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -19,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,6 +53,7 @@ fun RipDpiChip(
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
+    val motion = RipDpiThemeTokens.motion
     val scheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -74,12 +85,44 @@ fun RipDpiChip(
             enabled -> colors.foreground
             else -> colors.mutedForeground
         }
+    val animatedContainer by animateColorAsState(
+        targetValue = container,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "chipContainer",
+    )
+    val animatedBorderColor by animateColorAsState(
+        targetValue = borderColor,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "chipBorder",
+    )
+    val animatedContentColor by animateColorAsState(
+        targetValue = contentColor,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "chipContent",
+    )
+    val scale by animateFloatAsState(
+        targetValue =
+            when {
+                isPressed && enabled -> motion.pressScale
+                selected -> motion.selectionScale
+                else -> 1f
+            },
+        animationSpec = tween(
+            durationMillis = motion.duration(motion.quickDurationMillis),
+            easing = FastOutSlowInEasing,
+        ),
+        label = "chipScale",
+    )
 
     Row(
         modifier =
             modifier
-                .background(container, RipDpiThemeTokens.shapes.lg)
-                .border(1.dp, borderColor, RipDpiThemeTokens.shapes.lg)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .background(animatedContainer, RipDpiThemeTokens.shapes.lg)
+                .border(1.dp, animatedBorderColor, RipDpiThemeTokens.shapes.lg)
                 .focusable(enabled = enabled, interactionSource = interactionSource)
                 .ripDpiSelectable(
                     selected = selected,
@@ -87,25 +130,33 @@ fun RipDpiChip(
                     role = Role.Checkbox,
                     interactionSource = interactionSource,
                     onClick = onClick,
-                ).padding(
+                )
+                .padding(
                     horizontal = horizontalPadding,
                     vertical = verticalPadding,
-                ).alpha(if (enabled) 1f else 0.38f),
+                )
+                .alpha(if (enabled) 1f else 0.38f),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        leadingIcon?.let {
-            Icon(
-                imageVector = it,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(14.dp),
-            )
+        AnimatedVisibility(
+            visible = leadingIcon != null,
+            enter = fadeIn() + scaleIn(initialScale = 0.8f),
+            exit = fadeOut() + scaleOut(targetScale = 0.8f),
+        ) {
+            leadingIcon?.let {
+                Icon(
+                    imageVector = it,
+                    contentDescription = null,
+                    tint = animatedContentColor,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
         }
         Text(
             text = text,
             style = if (selected) RipDpiThemeTokens.type.bodyEmphasis else RipDpiThemeTokens.type.secondaryBody,
-            color = contentColor,
+            color = animatedContentColor,
         )
     }
 }

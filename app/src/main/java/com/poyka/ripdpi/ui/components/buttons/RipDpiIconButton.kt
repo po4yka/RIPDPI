@@ -1,5 +1,15 @@
 package com.poyka.ripdpi.ui.components.buttons
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -7,7 +17,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
@@ -19,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -54,6 +64,7 @@ fun RipDpiIconButton(
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
+    val motion = RipDpiThemeTokens.motion
     val scheme = MaterialTheme.colorScheme
     val shape = RipDpiThemeTokens.shapes.xl
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
@@ -92,13 +103,36 @@ fun RipDpiIconButton(
             style == RipDpiIconButtonStyle.Outline -> colors.border
             else -> Color.Transparent
         }
+    val animatedBackground by animateColorAsState(
+        targetValue = background,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "iconButtonBackground",
+    )
+    val animatedIconTint by animateColorAsState(
+        targetValue = iconTint,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "iconButtonTint",
+    )
+    val animatedBorderColor by animateColorAsState(
+        targetValue = borderColor,
+        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        label = "iconButtonBorder",
+    )
+    val pressedScale by animateFloatAsState(
+        targetValue = if (isPressed && isInteractive) motion.pressScale else 1f,
+        animationSpec = tween(
+            durationMillis = motion.duration(motion.quickDurationMillis),
+            easing = FastOutSlowInEasing,
+        ),
+        label = "iconButtonScale",
+    )
 
     Row(
         modifier =
             modifier
                 .size(components.iconButtonSize)
                 .clip(shape)
-                .background(background, shape)
+                .background(animatedBackground, shape)
                 .border(
                     if (isFocused) {
                         2.dp
@@ -107,31 +141,52 @@ fun RipDpiIconButton(
                     } else {
                         0.dp
                     },
-                    borderColor,
+                    animatedBorderColor,
                     shape,
-                ).focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
+                )
+                .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
                 .ripDpiClickable(
                     enabled = isInteractive,
                     role = Role.Button,
                     interactionSource = resolvedInteractionSource,
                     onClick = onClick,
-                ),
+                )
+                .graphicsLayer {
+                    scaleX = pressedScale
+                    scaleY = pressedScale
+                },
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(iconSize),
-                color = iconTint,
-                strokeWidth = 2.dp,
-            )
-        } else {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = iconTint,
-                modifier = Modifier.size(iconSize),
-            )
+        AnimatedContent(
+            targetState = loading,
+            transitionSpec = {
+                (
+                    fadeIn(
+                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    ) + scaleIn(initialScale = 0.92f)
+                ) togetherWith (
+                    fadeOut(
+                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    ) + scaleOut(targetScale = 0.92f)
+                )
+            },
+            label = "iconButtonContent",
+        ) { isLoading ->
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(iconSize),
+                    color = animatedIconTint,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    tint = animatedIconTint,
+                    modifier = Modifier.size(iconSize),
+                )
+            }
         }
     }
 }

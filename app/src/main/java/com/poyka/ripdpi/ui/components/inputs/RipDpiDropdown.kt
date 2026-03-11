@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.ui.components.inputs
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -58,6 +62,7 @@ fun <T> RipDpiDropdown(
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
+    val motion = RipDpiThemeTokens.motion
     val type = RipDpiThemeTokens.type
     val (expanded, setExpanded) = remember { mutableStateOf(false) }
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
@@ -79,10 +84,25 @@ fun <T> RipDpiDropdown(
     val supportingText = errorText ?: helperText
     val supportingColor = if (errorText != null) colors.destructive else colors.mutedForeground
     val labelColor = if (errorText != null) colors.destructive else colors.mutedForeground
+    val animatedBorderWidth by animateDpAsState(
+        targetValue = borderWidth,
+        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        label = "dropdownBorderWidth",
+    )
+    val animatedBorderColor by animateColorAsState(
+        targetValue = borderColor,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "dropdownBorderColor",
+    )
+    val animatedChevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 270f else 90f,
+        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        label = "dropdownChevronRotation",
+    )
     val horizontalPadding =
         when (density) {
             RipDpiControlDensity.Default -> {
-                if (borderWidth > 1.dp) {
+                if (animatedBorderWidth > 1.dp) {
                     components.fieldFocusedHorizontalPadding
                 } else {
                     components.fieldHorizontalPadding
@@ -90,7 +110,7 @@ fun <T> RipDpiDropdown(
             }
 
             RipDpiControlDensity.Compact -> {
-                if (borderWidth > 1.dp) {
+                if (animatedBorderWidth > 1.dp) {
                     components.fieldFocusedHorizontalPadding - 4.dp
                 } else {
                     components.fieldHorizontalPadding - 4.dp
@@ -112,7 +132,7 @@ fun <T> RipDpiDropdown(
                         .fillMaxWidth()
                         .height(components.controlHeight)
                         .background(colors.inputBackground, RipDpiThemeTokens.shapes.xl)
-                        .border(borderWidth, borderColor, RipDpiThemeTokens.shapes.xl)
+                        .border(animatedBorderWidth, animatedBorderColor, RipDpiThemeTokens.shapes.xl)
                         .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
                         .semantics {
                             label?.let { contentDescription = it }
@@ -137,7 +157,7 @@ fun <T> RipDpiDropdown(
                     imageVector = RipDpiIcons.ChevronRight,
                     contentDescription = null,
                     tint = colors.mutedForeground,
-                    modifier = Modifier.graphicsLayer { rotationZ = 90f },
+                    modifier = Modifier.graphicsLayer { rotationZ = animatedChevronRotation },
                 )
             }
 
