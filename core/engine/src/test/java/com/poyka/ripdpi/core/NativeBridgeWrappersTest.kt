@@ -50,7 +50,7 @@ class NativeBridgeWrappersTest {
                     proxy.startProxy(RipDpiProxyUIPreferences(port = 1083))
                 }.exceptionOrNull()
 
-            assertTrue(error is IllegalStateException)
+            assertTrue(error is NativeError.AlreadyRunning)
 
             blocker.complete(Unit)
             assertEquals(0, firstStart.await())
@@ -85,7 +85,7 @@ class NativeBridgeWrappersTest {
                     proxy.stopProxy()
                 }.exceptionOrNull()
 
-            assertTrue(error is IllegalStateException)
+            assertTrue(error is NativeError.NotRunning)
         }
 
     @Test
@@ -103,7 +103,7 @@ class NativeBridgeWrappersTest {
                     proxy.startProxy(RipDpiProxyUIPreferences(port = 1085))
                 }.exceptionOrNull()
 
-            assertTrue(error is IllegalStateException)
+            assertTrue(error is NativeError.SessionCreationFailed)
         }
 
     @Test
@@ -251,7 +251,7 @@ class NativeBridgeWrappersTest {
                     tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 88)
                 }.exceptionOrNull()
 
-            assertTrue(error is IllegalStateException)
+            assertTrue(error is NativeError.SessionCreationFailed)
         }
 
     @Test
@@ -264,7 +264,7 @@ class NativeBridgeWrappersTest {
                     tunnel.stop()
                 }.exceptionOrNull()
 
-            assertTrue(error is IllegalStateException)
+            assertTrue(error is NativeError.NotRunning)
         }
 
     @Test
