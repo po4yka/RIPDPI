@@ -818,7 +818,8 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
     }
     config.resolve = !payload.no_domain;
     config.tfo = payload.tcp_fast_open;
-    config.quic_initial_mode = parse_quic_initial_mode(payload.quic_initial_mode.as_deref().unwrap_or("route_and_cache"))?;
+    config.quic_initial_mode =
+        parse_quic_initial_mode(payload.quic_initial_mode.as_deref().unwrap_or("route_and_cache"))?;
     config.quic_support_v1 = payload.quic_support_v1;
     config.quic_support_v2 = payload.quic_support_v2;
     if payload.custom_ttl {
@@ -894,10 +895,7 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
             if step.count < 0 {
                 return Err("udpChainSteps count must be non-negative".to_string());
             }
-            group.udp_chain.push(UdpChainStep {
-                kind: parse_udp_chain_step_kind(&step.kind)?,
-                count: step.count,
-            });
+            group.udp_chain.push(UdpChainStep { kind: parse_udp_chain_step_kind(&step.kind)?, count: step.count });
         }
     } else {
         group.udp_fake_count = payload.udp_fake_count;
@@ -906,10 +904,7 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
         }
     }
 
-    let has_fake_step = group
-        .effective_tcp_chain()
-        .iter()
-        .any(|step| matches!(step.kind, TcpChainStepKind::Fake));
+    let has_fake_step = group.effective_tcp_chain().iter().any(|step| matches!(step.kind, TcpChainStepKind::Fake));
     let has_oob_step = group
         .effective_tcp_chain()
         .iter()
@@ -993,11 +988,7 @@ fn parse_offset_expr_field<F>(marker: Option<&str>, legacy: F, field_name: &str)
 where
     F: FnOnce() -> String,
 {
-    let spec = marker
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(legacy);
+    let spec = marker.map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned).unwrap_or_else(legacy);
     ciadpi_config::parse_offset_expr(&spec).map_err(|_| format!("Invalid {field_name}"))
 }
 
@@ -1432,6 +1423,101 @@ mod tests {
         .expect_err("port zero should be rejected");
 
         assert_eq!(err, "Invalid proxy port");
+    }
+
+    #[test]
+    fn ui_payload_defaults_quic_settings_when_omitted() {
+        let payload = parse_proxy_config_json(
+            &serde_json::json!({
+                "kind": "ui",
+                "ip": "127.0.0.1",
+                "port": 1080,
+                "maxConnections": 512,
+                "bufferSize": 16384,
+                "defaultTtl": 0,
+                "customTtl": false,
+                "noDomain": false,
+                "desyncHttp": true,
+                "desyncHttps": true,
+                "desyncUdp": false,
+                "desyncMethod": "disorder",
+                "splitMarker": "host+1",
+                "tcpChainSteps": [],
+                "splitPosition": 1,
+                "splitAtHost": false,
+                "fakeTtl": 8,
+                "fakeSni": "www.iana.org",
+                "oobChar": 97,
+                "hostMixedCase": false,
+                "domainMixedCase": false,
+                "hostRemoveSpaces": false,
+                "tlsRecordSplit": false,
+                "tlsRecordSplitMarker": null,
+                "tlsRecordSplitPosition": 0,
+                "tlsRecordSplitAtSni": false,
+                "hostsMode": "disable",
+                "hosts": null,
+                "tcpFastOpen": false,
+                "udpFakeCount": 0,
+                "udpChainSteps": [],
+                "dropSack": false,
+                "fakeOffsetMarker": null,
+                "fakeOffset": 0
+            })
+            .to_string(),
+        )
+        .expect("parse ui payload");
+
+        let config = runtime_config_from_payload(payload).expect("ui config");
+
+        assert_eq!(config.quic_initial_mode, QuicInitialMode::RouteAndCache);
+        assert!(config.quic_support_v1);
+        assert!(config.quic_support_v2);
+    }
+
+    #[test]
+    fn rejects_unknown_quic_initial_mode_in_ui_payload() {
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ProxyUiConfig {
+            ip: "127.0.0.1".to_string(),
+            port: 1080,
+            max_connections: 512,
+            buffer_size: 16384,
+            default_ttl: 0,
+            custom_ttl: false,
+            no_domain: false,
+            desync_http: true,
+            desync_https: true,
+            desync_udp: false,
+            desync_method: "disorder".to_string(),
+            split_marker: None,
+            tcp_chain_steps: Vec::new(),
+            split_position: 1,
+            split_at_host: false,
+            fake_ttl: 8,
+            fake_sni: "www.iana.org".to_string(),
+            oob_char: b'a',
+            host_mixed_case: false,
+            domain_mixed_case: false,
+            host_remove_spaces: false,
+            tls_record_split: false,
+            tls_record_split_marker: None,
+            tls_record_split_position: 0,
+            tls_record_split_at_sni: false,
+            hosts_mode: HOSTS_DISABLE.to_string(),
+            hosts: None,
+            tcp_fast_open: false,
+            udp_fake_count: 0,
+            udp_chain_steps: Vec::new(),
+            drop_sack: false,
+            fake_offset_marker: None,
+            fake_offset: 0,
+            quic_initial_mode: Some("bogus".to_string()),
+            quic_support_v1: true,
+            quic_support_v2: true,
+        }))
+        .expect_err("unknown quic mode should be rejected");
+
+        assert!(err.contains("Unknown quicInitialMode"));
     }
 
     #[test]
