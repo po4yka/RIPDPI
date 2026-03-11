@@ -1841,12 +1841,7 @@ mod tests {
     }
 
     fn test_offset() -> OffsetExpr {
-        OffsetExpr {
-            pos: 0,
-            flag: 0,
-            repeats: 0,
-            skip: 0,
-        }
+        OffsetExpr::absolute(0)
     }
 
     #[test]

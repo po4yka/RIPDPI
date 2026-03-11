@@ -41,6 +41,22 @@ pub struct HttpHost<'a> {
     pub port: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HttpMarkerInfo {
+    pub method_start: usize,
+    pub host_start: usize,
+    pub host_end: usize,
+    pub port: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TlsMarkerInfo {
+    pub ext_len_start: usize,
+    pub sni_ext_start: usize,
+    pub host_start: usize,
+    pub host_end: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PacketMutation {
     pub rc: isize,
@@ -76,6 +92,7 @@ impl OracleRng {
 
 #[derive(Debug, Clone, Copy)]
 struct HttpParts {
+    method_start: usize,
     header_name_start: usize,
     host_start: usize,
     host_end: usize,
@@ -118,21 +135,26 @@ fn find_tls_ext_offset(kind: u16, data: &[u8], mut skip: usize) -> Option<usize>
     None
 }
 
+fn find_tls_ext_len_offset_in_handshake(data: &[u8]) -> Option<usize> {
+    let mut offset = 1 + 3 + 2 + 32;
+    let sid_len = *data.get(offset)? as usize;
+    offset += 1 + sid_len;
+    let cipher_len = read_u16(data, offset)?;
+    offset += 2 + cipher_len;
+    let compression_len = *data.get(offset)? as usize;
+    offset += 1 + compression_len;
+    if offset + 1 >= data.len() {
+        return None;
+    }
+    Some(offset)
+}
+
+fn find_tls_ext_len_offset(data: &[u8]) -> Option<usize> {
+    Some(find_tls_ext_len_offset_in_handshake(data.get(5..)?)? + 5)
+}
+
 fn find_ext_block(data: &[u8]) -> Option<usize> {
-    if data.len() < 44 {
-        return None;
-    }
-    let sid_len = data[43] as usize;
-    if data.len() < 44 + sid_len + 2 {
-        return None;
-    }
-    let cip_len = read_u16(data, 44 + sid_len)?;
-    let skip = 44 + sid_len + 2 + cip_len + 2;
-    if skip > data.len() {
-        None
-    } else {
-        Some(skip)
-    }
+    find_tls_ext_len_offset(data)
 }
 
 fn ascii_case_eq(a: &[u8], b: &[u8]) -> bool {
@@ -150,10 +172,24 @@ fn parse_u16_ascii(data: &[u8]) -> Option<u16> {
     std::str::from_utf8(data).ok()?.parse().ok()
 }
 
-fn parse_http_parts(buffer: &[u8]) -> Option<HttpParts> {
-    if !is_http(buffer) {
+fn http_method_start(buffer: &[u8]) -> Option<usize> {
+    if buffer.len() < 16 {
         return None;
     }
+    let mut start = 0usize;
+    for _ in 0..2 {
+        match buffer.get(start) {
+            Some(b'\r' | b'\n') => start += 1,
+            _ => break,
+        }
+    }
+    const METHODS: &[&[u8]] =
+        &[b"HEAD ", b"GET ", b"POST ", b"PUT ", b"DELETE ", b"OPTIONS ", b"CONNECT ", b"TRACE ", b"PATCH "];
+    METHODS.iter().any(|method| buffer[start..].starts_with(method)).then_some(start)
+}
+
+fn parse_http_parts(buffer: &[u8]) -> Option<HttpParts> {
+    let method_start = http_method_start(buffer)?;
     let marker = strncase_find(buffer, b"\nHost:")?;
     let header_name_start = marker + 1;
     let mut host_start = marker + 6;
@@ -192,7 +228,56 @@ fn parse_http_parts(buffer: &[u8]) -> Option<HttpParts> {
         return None;
     }
 
-    Some(HttpParts { header_name_start, host_start, host_end, port })
+    Some(HttpParts { method_start, header_name_start, host_start, host_end, port })
+}
+
+pub fn second_level_domain_span(host: &[u8]) -> Option<(usize, usize)> {
+    if host.is_empty() {
+        return None;
+    }
+    let mut end = host.len();
+    for _ in 1..2 {
+        while end > 0 && host[end - 1] != b'.' {
+            end -= 1;
+        }
+        if end == 0 {
+            return None;
+        }
+        end -= 1;
+    }
+    let mut start = end;
+    while start > 0 && host[start - 1] != b'.' {
+        start -= 1;
+    }
+    Some((start, end))
+}
+
+pub fn http_marker_info(buffer: &[u8]) -> Option<HttpMarkerInfo> {
+    let parts = parse_http_parts(buffer)?;
+    Some(HttpMarkerInfo {
+        method_start: parts.method_start,
+        host_start: parts.host_start,
+        host_end: parts.host_end,
+        port: parts.port,
+    })
+}
+
+pub fn tls_marker_info(buffer: &[u8]) -> Option<TlsMarkerInfo> {
+    if !is_tls_client_hello(buffer) {
+        return None;
+    }
+    let ext_len_start = find_tls_ext_len_offset(buffer)?;
+    let sni_ext_offset = find_tls_ext_offset(0x0000, buffer, ext_len_start)?;
+    if sni_ext_offset + 12 >= buffer.len() {
+        return None;
+    }
+    let host_len = read_u16(buffer, sni_ext_offset + 7)?;
+    let host_start = sni_ext_offset + 9;
+    let host_end = host_start + host_len;
+    if host_end > buffer.len() {
+        return None;
+    }
+    Some(TlsMarkerInfo { ext_len_start, sni_ext_start: sni_ext_offset + 4, host_start, host_end })
 }
 
 fn get_http_code(data: &[u8]) -> Option<u16> {
@@ -375,37 +460,17 @@ pub fn is_tls_server_hello(buffer: &[u8]) -> bool {
 }
 
 pub fn parse_tls(buffer: &[u8]) -> Option<&[u8]> {
-    if !is_tls_client_hello(buffer) {
-        return None;
-    }
-    let skip = find_ext_block(buffer)?;
-    let sni_offs = find_tls_ext_offset(0x0000, buffer, skip)?;
-    if sni_offs + 12 >= buffer.len() {
-        return None;
-    }
-    let len = read_u16(buffer, sni_offs + 7)?;
-    if sni_offs + 9 + len > buffer.len() {
-        return None;
-    }
-    Some(&buffer[sni_offs + 9..sni_offs + 9 + len])
+    let markers = tls_marker_info(buffer)?;
+    Some(&buffer[markers.host_start..markers.host_end])
 }
 
 pub fn is_http(buffer: &[u8]) -> bool {
-    if buffer.len() < 16 {
-        return false;
-    }
-    let first = buffer[0];
-    if !(b'C'..=b'T').contains(&first) {
-        return false;
-    }
-    const METHODS: &[&[u8]] =
-        &[b"HEAD", b"GET", b"POST", b"PUT", b"DELETE", b"OPTIONS", b"CONNECT", b"TRACE", b"PATCH"];
-    METHODS.iter().any(|method| buffer.starts_with(method))
+    http_method_start(buffer).is_some()
 }
 
 pub fn parse_http(buffer: &[u8]) -> Option<HttpHost<'_>> {
-    let parts = parse_http_parts(buffer)?;
-    Some(HttpHost { host: &buffer[parts.host_start..parts.host_end], port: parts.port })
+    let markers = http_marker_info(buffer)?;
+    Some(HttpHost { host: &buffer[markers.host_start..markers.host_end], port: markers.port })
 }
 
 pub fn is_http_redirect(req: &[u8], resp: &[u8]) -> bool {
@@ -712,6 +777,50 @@ mod tests {
     }
 
     #[test]
+    fn http_marker_info_tracks_method_host_and_port() {
+        let request = b"\r\nGET / HTTP/1.1\r\nHost: example.com:8080\r\n\r\n";
+        let markers = http_marker_info(request).expect("parse http markers");
+
+        assert_eq!(markers.method_start, 2);
+        assert_eq!(&request[markers.host_start..markers.host_end], b"example.com");
+        assert_eq!(markers.port, 8080);
+    }
+
+    #[test]
+    fn http_marker_info_handles_ipv6_host_literals() {
+        let request = b"GET / HTTP/1.1\r\nHost: [::1]:8080\r\n\r\n";
+        let markers = http_marker_info(request).expect("parse ipv6 http markers");
+
+        assert_eq!(&request[markers.host_start..markers.host_end], b"::1");
+        assert_eq!(markers.port, 8080);
+    }
+
+    #[test]
+    fn second_level_domain_span_matches_structural_labels() {
+        assert_eq!(second_level_domain_span(b"sub.example.com"), Some((4, 11)));
+        assert_eq!(second_level_domain_span(b"example.com"), Some((0, 7)));
+        assert_eq!(second_level_domain_span(b"localhost"), None);
+    }
+
+    #[test]
+    fn tls_marker_info_tracks_sni_and_extensions_offsets() {
+        let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("parse tls markers");
+
+        assert_eq!(&DEFAULT_FAKE_TLS[markers.host_start..markers.host_end], b"www.wikipedia.org");
+        assert_eq!(markers.host_start, markers.sni_ext_start + 5);
+        assert!(markers.ext_len_start < markers.sni_ext_start);
+    }
+
+    #[test]
+    fn tls_marker_info_rejects_truncated_sni_payload() {
+        let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("original tls markers");
+        let mut truncated = DEFAULT_FAKE_TLS.to_vec();
+        truncated.truncate(markers.host_start + 4);
+
+        assert!(tls_marker_info(&truncated).is_none());
+    }
+
+    #[test]
     fn http_redirect_detection_uses_host_suffix() {
         let request = b"GET / HTTP/1.1\r\nHost: api.example.com\r\n\r\n";
         let redirect = b"HTTP/1.1 302 Found\r\nLocation: https://login.other.net/path\r\n\r\n";
@@ -758,6 +867,8 @@ mod tests {
         // CONNECT starts with 'C' (low bound)
         let connect = b"CONNECT host:443 HTTP/1.1\r\nHost: host\r\n\r\n";
         assert!(is_http(connect));
+        let shifted = b"\nGET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        assert!(is_http(shifted));
         // TRACE starts with 'T' (high bound)
         let trace = b"TRACE / HTTP/1.1\r\nHost: example.com\r\n\r\n";
         assert!(is_http(trace));

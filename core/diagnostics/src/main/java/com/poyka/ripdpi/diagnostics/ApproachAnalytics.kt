@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
+import com.poyka.ripdpi.data.effectiveSplitMarker
+import com.poyka.ripdpi.data.effectiveTlsRecordMarker
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -27,11 +31,10 @@ data class BypassStrategySignature(
     val desyncMethod: String,
     val protocolToggles: List<String>,
     val tlsRecordSplitEnabled: Boolean,
-    val tlsRecordSplitAtSni: Boolean,
-    val splitAtHost: Boolean,
-    val splitPosition: Int?,
+    val tlsRecordMarker: String?,
+    val splitMarker: String?,
     val fakeSniMode: String?,
-    val fakeOffsetEnabled: Boolean,
+    val fakeOffsetMarker: String?,
     val routeGroup: String?,
 )
 
@@ -108,11 +111,13 @@ fun deriveBypassStrategySignature(
         desyncMethod = desyncMethod,
         protocolToggles = protocols,
         tlsRecordSplitEnabled = settings.tlsrecEnabled,
-        tlsRecordSplitAtSni = settings.tlsrecAtSni,
-        splitAtHost = settings.splitAtHost,
-        splitPosition = settings.splitPosition.takeIf { it > 0 },
+        tlsRecordMarker = settings.effectiveTlsRecordMarker().takeIf { settings.tlsrecEnabled },
+        splitMarker = settings.effectiveSplitMarker().takeIf { desyncMethod != "none" },
         fakeSniMode = fakeSniMode,
-        fakeOffsetEnabled = settings.fakeOffset > 0,
+        fakeOffsetMarker =
+            settings
+                .effectiveFakeOffsetMarker()
+                .takeUnless { it == DefaultFakeOffsetMarker },
         routeGroup = routeGroup?.takeUnless { it.isBlank() || it == "unknown" },
     )
 }

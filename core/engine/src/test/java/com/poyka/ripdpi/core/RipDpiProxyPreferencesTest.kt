@@ -45,6 +45,7 @@ class RipDpiProxyPreferencesTest {
         assertEquals("blacklist", payload.string("hostsMode"))
         assertEquals("example.com", payload.string("hosts"))
         assertEquals("www.example.com", payload.string("fakeSni"))
+        assertEquals("1", payload.string("splitMarker"))
     }
 
     @Test

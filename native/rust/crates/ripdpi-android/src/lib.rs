@@ -9,9 +9,7 @@ use android_support::{
     init_android_logging, throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception,
     HandleRegistry, JNI_VERSION,
 };
-use ciadpi_config::{
-    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, RuntimeConfig, StartupEnv, OFFSET_HOST, OFFSET_SNI,
-};
+use ciadpi_config::{DesyncGroup, DesyncMode, OffsetExpr, PartSpec, RuntimeConfig, StartupEnv};
 use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE};
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jstring};
@@ -60,7 +58,11 @@ struct ProxyUiConfig {
     desync_https: bool,
     desync_udp: bool,
     desync_method: String,
+    #[serde(default)]
+    split_marker: Option<String>,
+    #[serde(default)]
     split_position: i32,
+    #[serde(default)]
     split_at_host: bool,
     fake_ttl: i32,
     fake_sni: String,
@@ -69,13 +71,19 @@ struct ProxyUiConfig {
     domain_mixed_case: bool,
     host_remove_spaces: bool,
     tls_record_split: bool,
+    #[serde(default)]
+    tls_record_split_marker: Option<String>,
+    #[serde(default)]
     tls_record_split_position: i32,
+    #[serde(default)]
     tls_record_split_at_sni: bool,
     hosts_mode: String,
     hosts: Option<String>,
     tcp_fast_open: bool,
     udp_fake_count: i32,
     drop_sack: bool,
+    #[serde(default)]
+    fake_offset_marker: Option<String>,
     fake_offset: i32,
 }
 
@@ -408,11 +416,13 @@ macro_rules! export_diagnostics_jni {
 
 fn diagnostics_create_entry(mut env: JNIEnv) -> jlong {
     init_android_logging("ripdpi-native");
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| DIAGNOSTIC_SESSIONS.insert(MonitorSession::new()) as jlong))
-        .unwrap_or_else(|_| {
-            throw_runtime_exception(&mut env, "Diagnostics session creation panicked");
-            0
-        })
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        DIAGNOSTIC_SESSIONS.insert(MonitorSession::new()) as jlong
+    }))
+    .unwrap_or_else(|_| {
+        throw_runtime_exception(&mut env, "Diagnostics session creation panicked");
+        0
+    })
 }
 
 fn diagnostics_start_scan_entry(mut env: JNIEnv, handle: jlong, request_json: JString, session_id: JString) {
@@ -457,11 +467,7 @@ fn diagnostics_take_report_entry(mut env: JNIEnv, handle: jlong) -> jstring {
 fn diagnostics_poll_passive_events_entry(mut env: JNIEnv, handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        poll_diagnostics_string(
-            &mut env,
-            handle,
-            ripdpi_monitor::MonitorSession::poll_passive_events_json,
-        )
+        poll_diagnostics_string(&mut env, handle, ripdpi_monitor::MonitorSession::poll_passive_events_json)
     }))
     .unwrap_or_else(|_| {
         throw_runtime_exception(&mut env, "Diagnostics passive polling panicked");
@@ -818,27 +824,29 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
         | (u32::from(payload.domain_mixed_case) * MH_DMIX)
         | (u32::from(payload.host_remove_spaces) * MH_SPACE);
 
-    let offset_flag = if group.proto != 0 || payload.desync_https { OFFSET_SNI } else { OFFSET_HOST };
-    let part_offset = OffsetExpr {
-        pos: i64::from(payload.split_position),
-        flag: if payload.split_at_host { offset_flag } else { 0 },
-        repeats: 0,
-        skip: 0,
-    };
+    let part_offset = parse_offset_expr_field(
+        payload.split_marker.as_deref(),
+        || legacy_marker_expression(payload.split_position, payload.split_at_host),
+        "splitMarker",
+    )?;
     let desync_mode = parse_desync_mode(&payload.desync_method)?;
     group.parts.push(PartSpec { mode: desync_mode, offset: part_offset });
 
     if payload.tls_record_split {
-        group.tls_records.push(OffsetExpr {
-            pos: i64::from(payload.tls_record_split_position),
-            flag: if payload.tls_record_split_at_sni { offset_flag } else { 0 },
-            repeats: 0,
-            skip: 0,
-        });
+        let expr = parse_offset_expr_field(
+            payload.tls_record_split_marker.as_deref(),
+            || legacy_marker_expression(payload.tls_record_split_position, payload.tls_record_split_at_sni),
+            "tlsRecordSplitMarker",
+        )?;
+        group.tls_records.push(expr);
     }
 
     if desync_mode == DesyncMode::Fake {
-        group.fake_offset = Some(OffsetExpr { pos: i64::from(payload.fake_offset), flag: 0, repeats: 0, skip: 0 });
+        group.fake_offset = Some(parse_offset_expr_field(
+            payload.fake_offset_marker.as_deref(),
+            || payload.fake_offset.to_string(),
+            "fakeOffsetMarker",
+        )?);
         group.fake_sni_list.push(payload.fake_sni);
     }
 
@@ -875,6 +883,34 @@ fn parse_desync_mode(value: &str) -> Result<DesyncMode, String> {
 fn parse_hosts(hosts: Option<&str>) -> Result<Vec<String>, String> {
     let hosts = hosts.unwrap_or_default();
     ciadpi_config::parse_hosts_spec(hosts).map_err(|_| "Invalid hosts list".to_string())
+}
+
+fn parse_offset_expr_field<F>(marker: Option<&str>, legacy: F, field_name: &str) -> Result<OffsetExpr, String>
+where
+    F: FnOnce() -> String,
+{
+    let spec = marker
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(legacy);
+    ciadpi_config::parse_offset_expr(&spec).map_err(|_| format!("Invalid {field_name}"))
+}
+
+fn legacy_marker_expression(position: i32, use_host_marker: bool) -> String {
+    if use_host_marker {
+        marker_expression("host", position)
+    } else {
+        position.to_string()
+    }
+}
+
+fn marker_expression(base: &str, delta: i32) -> String {
+    match delta.cmp(&0) {
+        std::cmp::Ordering::Equal => base.to_string(),
+        std::cmp::Ordering::Greater => format!("{base}+{delta}"),
+        std::cmp::Ordering::Less => format!("{base}{delta}"),
+    }
 }
 
 fn parse_proxy_config_json(json: &str) -> Result<ProxyConfigPayload, String> {
@@ -1074,13 +1110,22 @@ mod tests {
                 Just("disoob".to_string()),
                 lossy_string(16),
             ],
+            proptest::option::of(lossy_string(24)),
             -64i32..64i32,
             any::<bool>(),
             -16i32..512i32,
             lossy_string(64),
             any::<u8>(),
         );
-        let mutations = (any::<bool>(), any::<bool>(), any::<bool>(), any::<bool>(), -64i32..64i32, any::<bool>());
+        let mutations = (
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            proptest::option::of(lossy_string(24)),
+            -64i32..64i32,
+            any::<bool>(),
+        );
         let hosts = (
             prop_oneof![
                 Just(HOSTS_DISABLE.to_string()),
@@ -1092,6 +1137,7 @@ mod tests {
             any::<bool>(),
             -8i32..16i32,
             any::<bool>(),
+            proptest::option::of(lossy_string(24)),
             -64i32..64i32,
         );
 
@@ -1099,16 +1145,17 @@ mod tests {
             |(
                 (ip, port, max_connections, buffer_size, default_ttl),
                 (custom_ttl, no_domain, desync_http, desync_https, desync_udp),
-                (desync_method, split_position, split_at_host, fake_ttl, fake_sni, oob_char),
+                (desync_method, split_marker, split_position, split_at_host, fake_ttl, fake_sni, oob_char),
                 (
                     host_mixed_case,
                     domain_mixed_case,
                     host_remove_spaces,
                     tls_record_split,
+                    tls_record_split_marker,
                     tls_record_split_position,
                     tls_record_split_at_sni,
                 ),
-                (hosts_mode, hosts, tcp_fast_open, udp_fake_count, drop_sack, fake_offset),
+                (hosts_mode, hosts, tcp_fast_open, udp_fake_count, drop_sack, fake_offset_marker, fake_offset),
             )| ProxyUiConfig {
                 ip,
                 port,
@@ -1121,6 +1168,7 @@ mod tests {
                 desync_https,
                 desync_udp,
                 desync_method,
+                split_marker,
                 split_position,
                 split_at_host,
                 fake_ttl,
@@ -1130,6 +1178,7 @@ mod tests {
                 domain_mixed_case,
                 host_remove_spaces,
                 tls_record_split,
+                tls_record_split_marker,
                 tls_record_split_position,
                 tls_record_split_at_sni,
                 hosts_mode,
@@ -1137,6 +1186,7 @@ mod tests {
                 tcp_fast_open,
                 udp_fake_count,
                 drop_sack,
+                fake_offset_marker,
                 fake_offset,
             },
         )
@@ -1156,6 +1206,7 @@ mod tests {
             desync_https: true,
             desync_udp: false,
             desync_method: "disorder".to_string(),
+            split_marker: Some("host+1".to_string()),
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
@@ -1165,6 +1216,7 @@ mod tests {
             domain_mixed_case: false,
             host_remove_spaces: false,
             tls_record_split: false,
+            tls_record_split_marker: None,
             tls_record_split_position: 0,
             tls_record_split_at_sni: false,
             hosts_mode: HOSTS_DISABLE.to_string(),
@@ -1172,6 +1224,7 @@ mod tests {
             tcp_fast_open: false,
             udp_fake_count: 0,
             drop_sack: false,
+            fake_offset_marker: None,
             fake_offset: 0,
         });
 
@@ -1221,6 +1274,7 @@ mod tests {
             desync_https: true,
             desync_udp: false,
             desync_method: "disorder".to_string(),
+            split_marker: None,
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
@@ -1230,6 +1284,7 @@ mod tests {
             domain_mixed_case: false,
             host_remove_spaces: false,
             tls_record_split: false,
+            tls_record_split_marker: None,
             tls_record_split_position: 0,
             tls_record_split_at_sni: false,
             hosts_mode: HOSTS_DISABLE.to_string(),
@@ -1237,6 +1292,7 @@ mod tests {
             tcp_fast_open: false,
             udp_fake_count: 0,
             drop_sack: false,
+            fake_offset_marker: None,
             fake_offset: 0,
         }))
         .expect_err("port zero should be rejected");
@@ -1612,6 +1668,7 @@ mod tests {
                 desync_https: true,
                 desync_udp: false,
                 desync_method,
+                split_marker: None,
                 split_position,
                 split_at_host,
                 fake_ttl: 8,
@@ -1621,6 +1678,7 @@ mod tests {
                 domain_mixed_case: false,
                 host_remove_spaces: false,
                 tls_record_split,
+                tls_record_split_marker: None,
                 tls_record_split_position,
                 tls_record_split_at_sni,
                 hosts_mode,
@@ -1628,6 +1686,7 @@ mod tests {
                 tcp_fast_open,
                 udp_fake_count,
                 drop_sack,
+                fake_offset_marker: None,
                 fake_offset,
             }).expect("valid payload");
 

@@ -126,6 +126,9 @@
     <string name="config_buffer_helper">Socket buffer size in bytes.</string>
     <string name="config_desync_helper">Strategy passed through to the RIPDPI engine.</string>
     <string name="config_default_ttl_helper">Leave empty to use the engine default.</string>
+    <string name="config_split_marker_helper">Accepts offsets like 1, host, method+2, midsld-1, or 1+s.</string>
+    <string name="config_fake_offset_marker_helper">Accepts numeric or semantic offsets like 0, host+1, endhost-2, or 1+se.</string>
+    <string name="config_tls_record_marker_helper">Accepts offsets like 0, host, sniext, extlen, or 1+s.</string>
     <string name="config_command_line_caption">Prefer raw RIPDPI flags over the visual editor.</string>
     <string name="config_command_line_helper">Applied when command line settings are enabled.</string>
     <string name="config_cli_banner_title">Command line overrides enabled</string>
@@ -137,6 +140,10 @@
     <string name="config_error_invalid_proxy_ip">Enter a valid proxy listen address.</string>
     <string name="config_error_invalid_port">Enter a valid TCP port.</string>
     <string name="config_error_out_of_range">Value is outside the allowed range.</string>
+    <string name="config_error_invalid_marker">Enter a valid marker expression.</string>
+    <string name="config_placeholder_split_marker">host</string>
+    <string name="config_placeholder_fake_offset_marker">0</string>
+    <string name="config_placeholder_tls_record_marker">sniext+4</string>
     <string name="config_desync_none">none</string>
     <string name="config_desync_disorder">disorder</string>
     <string name="config_desync_fake">fake</string>
@@ -223,14 +230,14 @@
     <string name="ripdpi_default_ttl_setting">Default TTL</string>
     <string name="ripdpi_no_domain_setting">No domain</string>
     <string name="ripdpi_desync_method_setting">Desync method</string>
-    <string name="ripdpi_split_position_setting">Split position</string>
+    <string name="ripdpi_split_position_setting">Split marker</string>
     <string name="ripdpi_split_at_host_setting">Split at host</string>
     <string name="ripdpi_fake_ttl_setting">TTL of fake packets</string>
     <string name="ripdpi_host_mixed_case_setting">Host mixed case</string>
     <string name="ripdpi_domain_mixed_case_setting">Domain mixed case</string>
     <string name="ripdpi_host_remove_spaces_setting">Host remove spaces</string>
     <string name="ripdpi_tlsrec_enabled_setting">Split TLS record</string>
-    <string name="ripdpi_tlsrec_position_setting">TLS record split position</string>
+    <string name="ripdpi_tlsrec_position_setting">TLS record marker</string>
     <string name="ripdpi_tlsrec_at_sni_setting">Split TLS record at SNI</string>
     <string name="version">Version</string>
     <string name="source_code_link">Source code</string>
@@ -256,7 +263,7 @@
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="ripdpi_udp_fake_count">UDP fake count</string>
     <string name="ipv6_setting">IPv6</string>
-    <string name="ripdpi_fake_offset_setting">Fake offset</string>
+    <string name="ripdpi_fake_offset_setting">Fake offset marker</string>
     <string name="ripdpi_drop_sack_setting">Drop SACK</string>
     <string name="desync_udp_category">UDP</string>
     <string name="desync_http_category">HTTP</string>
