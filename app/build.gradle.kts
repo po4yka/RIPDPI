@@ -4,6 +4,7 @@ plugins {
     id("ripdpi.android.application")
     id("ripdpi.android.compose")
     id("ripdpi.android.hilt")
+    id("ripdpi.android.roborazzi")
 }
 
 extensions.configure<ApplicationExtension> {
