@@ -189,7 +189,7 @@ private class FakeCoordinatorStateStore(
         statusState.value = status to mode
     }
 
-    override fun emitFailed(sender: com.poyka.ripdpi.data.Sender) = Unit
+    override fun emitFailed(sender: com.poyka.ripdpi.data.Sender, reason: FailureReason) = Unit
 
     override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
         telemetryState.value = snapshot
