@@ -73,6 +73,9 @@ pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> 
             state.config.groups.len(),
         );
     }
+    if let Ok(mut cache) = state.cache.lock() {
+        flush_autolearn_updates(&state, &mut cache);
+    }
 
     let result = loop {
         if process::shutdown_requested() {
@@ -499,7 +502,7 @@ fn maybe_delay_connect(
     if !state.config.delay_conn {
         return Ok(DelayConnect::Immediate);
     }
-    let route = select_route(state, target, None, true)?;
+    let route = select_route(state, target, None, None, true)?;
     let group = state
         .config
         .groups
@@ -518,7 +521,18 @@ fn maybe_delay_connect(
         route
     } else {
         let cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-        select_next_group(&state.config, &cache, &route, target, Some(&payload), TransportProtocol::Tcp, 0, true)
+        let host = extract_host(&state.config, &payload);
+        select_next_group(
+            &state.config,
+            &cache,
+            &route,
+            target,
+            Some(&payload),
+            host.as_deref(),
+            TransportProtocol::Tcp,
+            0,
+            true,
+        )
             .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
     };
 
@@ -612,20 +626,22 @@ fn select_route(
     state: &RuntimeState,
     target: SocketAddr,
     payload: Option<&[u8]>,
+    host: Option<&str>,
     allow_unknown_payload: bool,
 ) -> io::Result<ConnectionRoute> {
-    select_route_for_transport(state, target, payload, allow_unknown_payload, TransportProtocol::Tcp)
+    select_route_for_transport(state, target, payload, host, allow_unknown_payload, TransportProtocol::Tcp)
 }
 
 fn select_route_for_transport(
     state: &RuntimeState,
     target: SocketAddr,
     payload: Option<&[u8]>,
+    host: Option<&str>,
     allow_unknown_payload: bool,
     transport: TransportProtocol,
 ) -> io::Result<ConnectionRoute> {
     let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-    select_initial_group(&state.config, &mut cache, target, payload, allow_unknown_payload, transport)
+    select_initial_group(&state.config, &mut cache, target, payload, host, allow_unknown_payload, transport)
         .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))
 }
 
@@ -636,7 +652,7 @@ fn connect_target(
     allow_unknown_payload: bool,
     host: Option<String>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let route = select_route(state, target, payload, allow_unknown_payload)?;
+    let route = select_route(state, target, payload, host.as_deref(), allow_unknown_payload)?;
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_route_selected(target, route.group_index, host.as_deref(), "initial");
     }
@@ -656,7 +672,7 @@ fn connect_target_with_route(
             Err(err) => {
                 let next = {
                     let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-                    cache.advance_route(
+                    let next = cache.advance_route(
                         &state.config,
                         &route,
                         RouteAdvance {
@@ -667,7 +683,9 @@ fn connect_target_with_route(
                             can_reconnect: true,
                             host: host.clone(),
                         },
-                    )?
+                    )?;
+                    flush_autolearn_updates(state, &mut cache);
+                    next
                 };
                 let Some(next) = next else {
                     return Err(err);
@@ -685,6 +703,30 @@ fn connect_target_with_route(
             }
         }
     }
+}
+
+fn flush_autolearn_updates(state: &RuntimeState, cache: &mut RuntimeCache) {
+    let Some(telemetry) = &state.telemetry else {
+        let _ = cache.drain_autolearn_events();
+        return;
+    };
+    let (enabled, learned_host_count, penalized_host_count) = cache.autolearn_state(&state.config);
+    telemetry.on_host_autolearn_state(enabled, learned_host_count, penalized_host_count);
+    for event in cache.drain_autolearn_events() {
+        telemetry.on_host_autolearn_event(event.action, event.host.as_deref(), event.group_index);
+    }
+}
+
+fn note_route_success(
+    state: &RuntimeState,
+    target: SocketAddr,
+    route: &ConnectionRoute,
+    host: Option<&str>,
+) -> io::Result<()> {
+    let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
+    cache.note_route_success(&state.config, target, route, host)?;
+    flush_autolearn_updates(state, &mut cache);
+    Ok(())
 }
 
 fn connect_target_via_group(target: SocketAddr, state: &RuntimeState, group_index: usize) -> io::Result<TcpStream> {
@@ -817,6 +859,7 @@ fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running: Arc<Atomic
                         &state,
                         target,
                         Some(payload),
+                        host.as_deref(),
                         false,
                         TransportProtocol::Udp,
                     ) {
@@ -990,6 +1033,8 @@ fn relay(
     seed_request: Option<Vec<u8>>,
 ) -> io::Result<()> {
     let mut session_state = SessionState::default();
+    let mut success_recorded = false;
+    let mut success_host = seed_request.as_ref().and_then(|payload| extract_host(&state.config, payload));
 
     if seed_request.is_some() || needs_first_exchange(state)? {
         let request_timeout = client.read_timeout()?;
@@ -1001,6 +1046,7 @@ fn relay(
         if let Some(first_request) = first_request {
             let original_request = first_request;
             let host = extract_host(&state.config, &original_request);
+            success_host = host.clone();
 
             loop {
                 session_state = SessionState::default();
@@ -1012,7 +1058,7 @@ fn relay(
                     }
                     let next = {
                         let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-                        cache.advance_route(
+                        let next = cache.advance_route(
                             &state.config,
                             &route,
                             RouteAdvance {
@@ -1023,7 +1069,9 @@ fn relay(
                                 can_reconnect: true,
                                 host: host.clone(),
                             },
-                        )?
+                        )?;
+                        flush_autolearn_updates(state, &mut cache);
+                        next
                     };
                     let Some(next) = next else {
                         return Err(err);
@@ -1051,13 +1099,17 @@ fn relay(
                     FirstResponse::Forward(bytes) => {
                         session_state.observe_inbound(&bytes);
                         client.write_all(&bytes)?;
+                        if session_state.recv_count > 0 {
+                            note_route_success(state, target, &route, host.as_deref())?;
+                            success_recorded = true;
+                        }
                         break;
                     }
                     FirstResponse::NoData => break,
                     FirstResponse::Trigger(trigger) => {
                         let next = {
                             let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-                            cache.advance_route(
+                            let next = cache.advance_route(
                                 &state.config,
                                 &route,
                                 RouteAdvance {
@@ -1068,7 +1120,9 @@ fn relay(
                                     can_reconnect: true,
                                     host: host.clone(),
                                 },
-                            )?
+                            )?;
+                            flush_autolearn_updates(state, &mut cache);
+                            next
                         };
                         let Some(next) = next else {
                             return Err(io::Error::new(
@@ -1094,7 +1148,11 @@ fn relay(
         }
     }
 
-    relay_streams(client, upstream, state, route.group_index, session_state)
+    let final_state = relay_streams(client, upstream, state, route.group_index, session_state)?;
+    if !success_recorded && final_state.recv_count > 0 {
+        note_route_success(state, target, &route, success_host.as_deref())?;
+    }
+    Ok(())
 }
 
 fn relay_streams(
@@ -1103,7 +1161,7 @@ fn relay_streams(
     state: &RuntimeState,
     group_index: usize,
     session_seed: SessionState,
-) -> io::Result<()> {
+) -> io::Result<SessionState> {
     client.set_read_timeout(None)?;
     client.set_write_timeout(None)?;
     upstream.set_read_timeout(None)?;
@@ -1137,13 +1195,17 @@ fn relay_streams(
 
     up_result?;
     down_result?;
-    Ok(())
+    session_state
+        .lock()
+        .map_err(|_| io::Error::other("session mutex poisoned"))
+        .map(|state| state.clone())
 }
 
 fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
     Ok(runtime_supports_trigger(state, DETECT_HTTP_LOCAT)?
         || runtime_supports_trigger(state, DETECT_TLS_ERR)?
-        || runtime_supports_trigger(state, DETECT_TORST)?)
+        || runtime_supports_trigger(state, DETECT_TORST)?
+        || state.config.host_autolearn_enabled)
 }
 
 fn read_optional_first_request(

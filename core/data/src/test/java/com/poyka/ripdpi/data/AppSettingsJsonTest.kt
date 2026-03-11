@@ -59,6 +59,9 @@ class AppSettingsJsonTest {
                 .setQuicInitialMode("route")
                 .setQuicSupportV1(true)
                 .setQuicSupportV2(false)
+                .setHostAutolearnEnabled(true)
+                .setHostAutolearnPenaltyTtlHours(12)
+                .setHostAutolearnMaxHosts(2048)
                 .build()
 
         val decoded = appSettingsFromJson(settings.toJson())

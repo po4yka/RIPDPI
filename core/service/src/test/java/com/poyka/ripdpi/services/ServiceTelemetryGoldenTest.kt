@@ -138,6 +138,12 @@ class ServiceTelemetryGoldenTest {
             lastRouteGroup = 1,
             listenerAddress = "127.0.0.1:<port>",
             lastTarget = "203.0.113.10:443",
+            autolearnEnabled = true,
+            learnedHostCount = 4,
+            penalizedHostCount = 1,
+            lastAutolearnHost = "example.org",
+            lastAutolearnGroup = 1,
+            lastAutolearnAction = "host_promoted",
             nativeEvents =
                 listOf(
                     NativeRuntimeEvent(

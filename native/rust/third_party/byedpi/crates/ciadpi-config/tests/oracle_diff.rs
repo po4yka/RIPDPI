@@ -3,8 +3,9 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use ciadpi_config::{
-    dump_cache_entries, load_cache_entries, parse_cli, parse_hosts_spec, parse_ipset_spec, FilterSet, OffsetExpr,
-    ParseResult, StartupEnv,
+    dump_cache_entries, load_cache_entries, parse_cli, parse_hosts_spec, parse_ipset_spec, FilterSet,
+    OffsetExpr, ParseResult, StartupEnv, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
 use serde_json::Value;
 #[cfg(target_os = "linux")]
@@ -240,4 +241,35 @@ fn invalid_value_matches_fixture_failure() {
     let rust = parse_cli(&["--ttl".to_owned(), "999".to_owned()], &StartupEnv::default());
     assert!(!expected["ok"].as_bool().unwrap());
     assert!(rust.is_err());
+}
+
+#[test]
+fn parse_args_with_host_autolearn_flags_sets_runtime_fields() {
+    let config = parse_runtime(
+        &[
+            "--host-autolearn",
+            "--host-autolearn-penalty-ttl",
+            "900",
+            "--host-autolearn-max-hosts",
+            "42",
+            "--host-autolearn-file",
+            "/tmp/ripdpi-hosts.json",
+        ],
+        StartupEnv::default(),
+    );
+
+    assert!(config.host_autolearn_enabled);
+    assert_eq!(config.host_autolearn_penalty_ttl_secs, 900);
+    assert_eq!(config.host_autolearn_max_hosts, 42);
+    assert_eq!(config.host_autolearn_store_path.as_deref(), Some("/tmp/ripdpi-hosts.json"));
+}
+
+#[test]
+fn parse_args_host_autolearn_defaults_store_file_when_enabled() {
+    let config = parse_runtime(&["--host-autolearn"], StartupEnv::default());
+
+    assert!(config.host_autolearn_enabled);
+    assert_eq!(config.host_autolearn_penalty_ttl_secs, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS);
+    assert_eq!(config.host_autolearn_max_hosts, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS);
+    assert_eq!(config.host_autolearn_store_path.as_deref(), Some("host-autolearn-v1.json"));
 }

@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
+import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
@@ -16,6 +18,8 @@ import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveTlsRecordMarker
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
+import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
+import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.proto.AppSettings
@@ -85,6 +89,10 @@ class RipDpiProxyUIPreferences(
     quicInitialMode: String? = null,
     quicSupportV1: Boolean? = null,
     quicSupportV2: Boolean? = null,
+    hostAutolearnEnabled: Boolean? = null,
+    hostAutolearnPenaltyTtlHours: Int? = null,
+    hostAutolearnMaxHosts: Int? = null,
+    hostAutolearnStorePath: String? = null,
 ) : RipDpiProxyPreferences {
     val ip: String = ip ?: "127.0.0.1"
     val port: Int = port ?: 1080
@@ -134,9 +142,21 @@ class RipDpiProxyUIPreferences(
     val quicInitialMode: String = normalizeQuicInitialMode(quicInitialMode.orEmpty().ifBlank { QuicInitialModeRouteAndCache })
     val quicSupportV1: Boolean = quicSupportV1 ?: true
     val quicSupportV2: Boolean = quicSupportV2 ?: true
+    val hostAutolearnEnabled: Boolean = hostAutolearnEnabled ?: false
+    val hostAutolearnPenaltyTtlHours: Int =
+        normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours ?: DefaultHostAutolearnPenaltyTtlHours)
+    val hostAutolearnMaxHosts: Int =
+        normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts ?: DefaultHostAutolearnMaxHosts)
+    val hostAutolearnStorePath: String? =
+        hostAutolearnStorePath
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() && this.hostAutolearnEnabled }
     val chainSummary: String = formatChainSummary(this.tcpChainSteps, this.udpChainSteps)
 
-    constructor(settings: AppSettings) : this(
+    constructor(
+        settings: AppSettings,
+        hostAutolearnStorePath: String? = null,
+    ) : this(
         ip = settings.proxyIp.ifEmpty { null },
         port = settings.proxyPort.takeIf { it > 0 },
         maxConnections = settings.maxConnections.takeIf { it > 0 },
@@ -178,6 +198,10 @@ class RipDpiProxyUIPreferences(
         quicInitialMode = settings.effectiveQuicInitialMode(),
         quicSupportV1 = settings.effectiveQuicSupportV1(),
         quicSupportV2 = settings.effectiveQuicSupportV2(),
+        hostAutolearnEnabled = settings.hostAutolearnEnabled,
+        hostAutolearnPenaltyTtlHours = settings.hostAutolearnPenaltyTtlHours,
+        hostAutolearnMaxHosts = settings.hostAutolearnMaxHosts,
+        hostAutolearnStorePath = hostAutolearnStorePath,
     )
 
     override fun toNativeConfigJson(): String =
@@ -218,6 +242,10 @@ class RipDpiProxyUIPreferences(
                 quicInitialMode = quicInitialMode,
                 quicSupportV1 = quicSupportV1,
                 quicSupportV2 = quicSupportV2,
+                hostAutolearnEnabled = hostAutolearnEnabled,
+                hostAutolearnPenaltyTtlSecs = hostAutolearnPenaltyTtlHours * 60 * 60,
+                hostAutolearnMaxHosts = hostAutolearnMaxHosts,
+                hostAutolearnStorePath = hostAutolearnStorePath,
             ),
         )
 
@@ -335,6 +363,10 @@ private sealed interface NativeProxyConfig {
         val quicInitialMode: String,
         val quicSupportV1: Boolean,
         val quicSupportV2: Boolean,
+        val hostAutolearnEnabled: Boolean,
+        val hostAutolearnPenaltyTtlSecs: Int,
+        val hostAutolearnMaxHosts: Int,
+        val hostAutolearnStorePath: String?,
     ) : NativeProxyConfig
 }
 

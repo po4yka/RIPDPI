@@ -22,6 +22,9 @@ pub const AUTO_SORT: u32 = 4;
 
 pub const FM_RAND: u32 = 1;
 pub const FM_ORIG: u32 = 2;
+pub const HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS: i64 = 6 * 60 * 60;
+pub const HOST_AUTOLEARN_DEFAULT_MAX_HOSTS: usize = 512;
+pub const HOST_AUTOLEARN_DEFAULT_STORE_FILE: &str = "host-autolearn-v1.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DesyncMode {
@@ -355,6 +358,10 @@ pub struct RuntimeConfig {
     pub quic_initial_mode: QuicInitialMode,
     pub quic_support_v1: bool,
     pub quic_support_v2: bool,
+    pub host_autolearn_enabled: bool,
+    pub host_autolearn_penalty_ttl_secs: i64,
+    pub host_autolearn_max_hosts: usize,
+    pub host_autolearn_store_path: Option<String>,
     pub groups: Vec<DesyncGroup>,
 }
 
@@ -403,6 +410,10 @@ impl Default for RuntimeConfig {
             quic_initial_mode: QuicInitialMode::RouteAndCache,
             quic_support_v1: true,
             quic_support_v2: true,
+            host_autolearn_enabled: false,
+            host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+            host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+            host_autolearn_store_path: None,
             groups: vec![DesyncGroup::new(0)],
         }
     }
@@ -958,6 +969,35 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 }
                 config.cache_prefix = 32 - merge;
             }
+            "--host-autolearn" => {
+                config.host_autolearn_enabled = true;
+            }
+            "--host-autolearn-penalty-ttl" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                let ttl = value.parse::<i64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                if ttl <= 0 {
+                    return Err(ConfigError::invalid(arg, Some(value)));
+                }
+                config.host_autolearn_enabled = true;
+                config.host_autolearn_penalty_ttl_secs = ttl;
+            }
+            "--host-autolearn-max-hosts" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                let max_hosts = value.parse::<usize>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                if max_hosts == 0 {
+                    return Err(ConfigError::invalid(arg, Some(value)));
+                }
+                config.host_autolearn_enabled = true;
+                config.host_autolearn_max_hosts = max_hosts;
+            }
+            "--host-autolearn-file" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                if value.trim().is_empty() {
+                    return Err(ConfigError::invalid(arg, Some(value)));
+                }
+                config.host_autolearn_enabled = true;
+                config.host_autolearn_store_path = Some(value.to_owned());
+            }
             "-T" | "--timeout" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 parse_timeout(value, &mut config)?;
@@ -1150,6 +1190,9 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
     }
     if !matches!(config.listen.bind_ip, IpAddr::V6(_)) {
         config.ipv6 = false;
+    }
+    if config.host_autolearn_enabled && config.host_autolearn_store_path.is_none() {
+        config.host_autolearn_store_path = Some(HOST_AUTOLEARN_DEFAULT_STORE_FILE.to_owned());
     }
 
     Ok(ParseResult::Run(config))

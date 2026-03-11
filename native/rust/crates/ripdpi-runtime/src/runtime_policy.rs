@@ -1,3 +1,5 @@
+use std::collections::{BTreeMap, VecDeque};
+use std::fs;
 use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
@@ -10,6 +12,8 @@ use ciadpi_config::{
 use ciadpi_packets::{
     is_http, is_tls_client_hello, parse_http, parse_quic_initial, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP,
 };
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone)]
 pub struct ConnectionRoute {
@@ -29,6 +33,36 @@ struct CacheRecord {
     entry: CacheEntry,
     group_index: usize,
     attempted_mask: u64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+struct LearnedGroupStats {
+    success_count: u32,
+    failure_count: u32,
+    penalty_until_ms: u64,
+    last_success_at_ms: u64,
+    last_failure_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+struct LearnedHostRecord {
+    preferred_groups: Vec<usize>,
+    group_stats: BTreeMap<usize, LearnedGroupStats>,
+    updated_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+struct LearnedHostStore {
+    version: u32,
+    fingerprint: String,
+    hosts: BTreeMap<String, LearnedHostRecord>,
+}
+
+#[derive(Debug, Clone)]
+pub struct HostAutolearnEvent {
+    pub action: &'static str,
+    pub host: Option<String>,
+    pub group_index: Option<usize>,
 }
 
 pub struct RouteAdvance<'a> {
@@ -64,11 +98,15 @@ pub struct RuntimeCache {
     records: Vec<CacheRecord>,
     groups: Vec<GroupPolicy>,
     order: Vec<usize>,
+    learned_hosts: BTreeMap<String, LearnedHostRecord>,
+    autolearn_events: VecDeque<HostAutolearnEvent>,
 }
 
 impl RuntimeCache {
     pub fn load(config: &RuntimeConfig) -> Self {
         let mut records = Vec::new();
+        let mut learned_hosts = BTreeMap::new();
+        let mut autolearn_events = VecDeque::new();
         for (group_index, group) in config.groups.iter().enumerate() {
             let Some(path) = group.cache_file.as_deref() else {
                 continue;
@@ -86,7 +124,18 @@ impl RuntimeCache {
             .map(|group| GroupPolicy { detect: group.detect, fail_count: group.fail_count, pri: group.pri })
             .collect();
         let order = (0..config.groups.len()).collect();
-        Self { records, groups, order }
+        if config.host_autolearn_enabled {
+            match load_learned_host_store(config) {
+                Ok(hosts) => learned_hosts = hosts,
+                Err(LoadLearnedHostStoreError::Invalidated) => autolearn_events.push_back(HostAutolearnEvent {
+                    action: "store_reset",
+                    host: None,
+                    group_index: None,
+                }),
+                Err(LoadLearnedHostStoreError::Io) => {}
+            }
+        }
+        Self { records, groups, order, learned_hosts, autolearn_events }
     }
 
     pub fn lookup_and_prune(&mut self, config: &RuntimeConfig, dest: SocketAddr) -> Option<ConnectionRoute> {
@@ -185,12 +234,17 @@ impl RuntimeCache {
             group.fail_count += 1;
         }
 
+        if let Some(host) = request.host.as_deref() {
+            self.note_host_failure(config, host, route.group_index)?;
+        }
+
         let next = select_next_group(
             config,
             self,
             route,
             request.dest,
             request.payload,
+            request.host.as_deref(),
             request.transport,
             request.trigger,
             request.can_reconnect,
@@ -225,6 +279,170 @@ impl RuntimeCache {
         self.groups.get(group_index).map_or_else(|| config.groups[group_index].detect, |group| group.detect)
     }
 
+    fn select_host_route(
+        &self,
+        config: &RuntimeConfig,
+        host: &str,
+        dest: SocketAddr,
+        payload: Option<&[u8]>,
+        allow_unknown_payload: bool,
+        transport: TransportProtocol,
+    ) -> Option<ConnectionRoute> {
+        let record = self.learned_hosts.get(host)?;
+        if let Some(route) =
+            self.preferred_host_candidate(config, record, dest, payload, allow_unknown_payload, transport, 0, true, false)
+        {
+            return Some(route);
+        }
+        let mut attempted_mask = record.preferred_groups.iter().fold(0u64, |mask, &index| {
+            mask | config.groups.get(index).map_or(0, |group| group.bit)
+        });
+
+        for &idx in self.ordered_indices() {
+            let group = config.groups.get(idx)?;
+            if attempted_mask & group.bit != 0 || self.detect_for(config, idx) != 0 {
+                continue;
+            }
+            if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
+                return Some(ConnectionRoute { group_index: idx, attempted_mask });
+            }
+            attempted_mask |= group.bit;
+        }
+
+        self.preferred_host_candidate(config, record, dest, payload, allow_unknown_payload, transport, attempted_mask, true, true)
+    }
+
+    fn select_host_route_after(
+        &self,
+        config: &RuntimeConfig,
+        route: &ConnectionRoute,
+        host: &str,
+        dest: SocketAddr,
+        payload: Option<&[u8]>,
+        transport: TransportProtocol,
+        trigger: u32,
+        can_reconnect: bool,
+    ) -> Option<ConnectionRoute> {
+        let record = self.learned_hosts.get(host)?;
+        let mut attempted_mask = route.attempted_mask | config.groups[route.group_index].bit;
+        if let Some(route) = self.preferred_host_candidate(
+            config,
+            record,
+            dest,
+            payload,
+            false,
+            transport,
+            attempted_mask,
+            can_reconnect,
+            false,
+        ) {
+            return Some(route);
+        }
+        attempted_mask |= record.preferred_groups.iter().fold(0u64, |mask, &index| {
+            mask | config.groups.get(index).map_or(0, |group| group.bit)
+        });
+
+        for &idx in self.ordered_indices() {
+            let group = config.groups.get(idx)?;
+            let detect = self.detect_for(config, idx);
+            if attempted_mask & group.bit != 0 {
+                continue;
+            }
+            if detect != 0 && (detect & trigger) == 0 {
+                attempted_mask |= group.bit;
+                continue;
+            }
+            if (detect & DETECT_RECONN) != 0 && !can_reconnect {
+                attempted_mask |= group.bit;
+                continue;
+            }
+            if group_matches(config, group, dest, payload, false, transport) {
+                return Some(ConnectionRoute { group_index: idx, attempted_mask });
+            }
+            attempted_mask |= group.bit;
+        }
+
+        self.preferred_host_candidate(
+            config,
+            record,
+            dest,
+            payload,
+            false,
+            transport,
+            attempted_mask,
+            can_reconnect,
+            true,
+        )
+    }
+
+    fn preferred_host_candidate(
+        &self,
+        config: &RuntimeConfig,
+        record: &LearnedHostRecord,
+        dest: SocketAddr,
+        payload: Option<&[u8]>,
+        allow_unknown_payload: bool,
+        transport: TransportProtocol,
+        attempted_mask: u64,
+        can_reconnect: bool,
+        penalized: bool,
+    ) -> Option<ConnectionRoute> {
+        let now_ms = now_millis();
+        let mut next_mask = attempted_mask;
+        for &idx in &record.preferred_groups {
+            let group = config.groups.get(idx)?;
+            if next_mask & group.bit != 0 {
+                continue;
+            }
+            if (self.detect_for(config, idx) & DETECT_RECONN) != 0 && !can_reconnect {
+                next_mask |= group.bit;
+                continue;
+            }
+            let is_penalized = record
+                .group_stats
+                .get(&idx)
+                .is_some_and(|stats| stats.penalty_until_ms > now_ms);
+            if is_penalized != penalized {
+                next_mask |= group.bit;
+                continue;
+            }
+            if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
+                return Some(ConnectionRoute { group_index: idx, attempted_mask: next_mask });
+            }
+            next_mask |= group.bit;
+        }
+        None
+    }
+
+    pub fn note_route_success(
+        &mut self,
+        config: &RuntimeConfig,
+        dest: SocketAddr,
+        route: &ConnectionRoute,
+        host: Option<&str>,
+    ) -> io::Result<()> {
+        let normalized_host = host.and_then(normalize_learned_host);
+        self.store(config, dest, route.group_index, route.attempted_mask, normalized_host.clone())?;
+        if let Some(host) = normalized_host {
+            self.note_host_success(config, &host, route.group_index)?;
+        }
+        Ok(())
+    }
+
+    pub fn drain_autolearn_events(&mut self) -> Vec<HostAutolearnEvent> {
+        self.autolearn_events.drain(..).collect()
+    }
+
+    pub fn autolearn_state(&self, config: &RuntimeConfig) -> (bool, usize, usize) {
+        let now_ms = now_millis();
+        let penalized = self
+            .learned_hosts
+            .values()
+            .filter(|record| host_has_active_penalty(record, now_ms))
+            .count();
+        (config.host_autolearn_enabled, self.learned_hosts.len(), penalized)
+    }
+
     fn ordered_indices(&self) -> &[usize] {
         &self.order
     }
@@ -252,6 +470,88 @@ impl RuntimeCache {
             }
         }
     }
+
+    fn note_host_failure(&mut self, config: &RuntimeConfig, host: &str, group_index: usize) -> io::Result<()> {
+        if !config.host_autolearn_enabled {
+            return Ok(());
+        }
+        let Some(host) = normalize_learned_host(host) else {
+            return Ok(());
+        };
+        let now_ms = now_millis();
+        let record = self.learned_hosts.entry(host.clone()).or_default();
+        let stats = record.group_stats.entry(group_index).or_default();
+        stats.failure_count = stats.failure_count.saturating_add(1);
+        stats.last_failure_at_ms = now_ms;
+        stats.penalty_until_ms =
+            now_ms.saturating_add(config.host_autolearn_penalty_ttl_secs.max(1) as u64 * 1_000);
+        record.updated_at_ms = now_ms;
+        ensure_host_order(record, group_index);
+        self.enforce_autolearn_limit(config, now_ms);
+        self.persist_host_store(config)?;
+        self.autolearn_events.push_back(HostAutolearnEvent {
+            action: "group_penalized",
+            host: Some(host),
+            group_index: Some(group_index),
+        });
+        Ok(())
+    }
+
+    fn note_host_success(&mut self, config: &RuntimeConfig, host: &str, group_index: usize) -> io::Result<()> {
+        if !config.host_autolearn_enabled {
+            return Ok(());
+        }
+        let now_ms = now_millis();
+        let record = self.learned_hosts.entry(host.to_owned()).or_default();
+        let stats = record.group_stats.entry(group_index).or_default();
+        stats.success_count = stats.success_count.saturating_add(1);
+        stats.last_success_at_ms = now_ms;
+        stats.penalty_until_ms = 0;
+        record.updated_at_ms = now_ms;
+        promote_group(record, group_index);
+        self.enforce_autolearn_limit(config, now_ms);
+        self.persist_host_store(config)?;
+        self.autolearn_events.push_back(HostAutolearnEvent {
+            action: "host_promoted",
+            host: Some(host.to_owned()),
+            group_index: Some(group_index),
+        });
+        Ok(())
+    }
+
+    fn enforce_autolearn_limit(&mut self, config: &RuntimeConfig, now_ms: u64) {
+        let max_hosts = config.host_autolearn_max_hosts.max(1);
+        while self.learned_hosts.len() > max_hosts {
+            let Some((host, _)) = self
+                .learned_hosts
+                .iter()
+                .filter(|(_, record)| !host_has_active_penalty(record, now_ms))
+                .min_by_key(|(_, record)| record.updated_at_ms)
+                .or_else(|| self.learned_hosts.iter().min_by_key(|(_, record)| record.updated_at_ms))
+                .map(|(host, record)| (host.clone(), record.clone()))
+            else {
+                break;
+            };
+            self.learned_hosts.remove(&host);
+        }
+    }
+
+    fn persist_host_store(&self, config: &RuntimeConfig) -> io::Result<()> {
+        if !config.host_autolearn_enabled {
+            return Ok(());
+        }
+        let Some(path) = config.host_autolearn_store_path.as_deref() else {
+            return Ok(());
+        };
+        let store = LearnedHostStore {
+            version: 1,
+            fingerprint: config_fingerprint(config),
+            hosts: self.learned_hosts.clone(),
+        };
+        let payload = serde_json::to_vec_pretty(&store)
+            .map_err(|err| io::Error::other(format!("failed to serialize host autolearn store: {err}")))?;
+        atomic_write(Path::new(path), &payload)
+    }
 }
 
 pub fn select_initial_group(
@@ -259,10 +559,18 @@ pub fn select_initial_group(
     cache: &mut RuntimeCache,
     dest: SocketAddr,
     payload: Option<&[u8]>,
+    host: Option<&str>,
     allow_unknown_payload: bool,
     transport: TransportProtocol,
 ) -> Option<ConnectionRoute> {
-    if let Some(route) = cache.lookup_and_prune(config, dest) {
+    if let Some(normalized_host) =
+        host.filter(|_| transport == TransportProtocol::Tcp).and_then(normalize_learned_host)
+    {
+        if let Some(route) = cache.select_host_route(config, &normalized_host, dest, payload, allow_unknown_payload, transport)
+        {
+            return Some(route);
+        }
+    } else if let Some(route) = cache.lookup_and_prune(config, dest) {
         let group = config.groups.get(route.group_index)?;
         if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
             return Some(route);
@@ -289,10 +597,27 @@ pub fn select_next_group(
     route: &ConnectionRoute,
     dest: SocketAddr,
     payload: Option<&[u8]>,
+    host: Option<&str>,
     transport: TransportProtocol,
     trigger: u32,
     can_reconnect: bool,
 ) -> Option<ConnectionRoute> {
+    if let Some(normalized_host) =
+        host.filter(|_| transport == TransportProtocol::Tcp).and_then(normalize_learned_host)
+    {
+        if let Some(next) = cache.select_host_route_after(
+            config,
+            route,
+            &normalized_host,
+            dest,
+            payload,
+            transport,
+            trigger,
+            can_reconnect,
+        ) {
+            return Some(next);
+        }
+    }
     let mut attempted_mask = route.attempted_mask | config.groups[route.group_index].bit;
     for &idx in cache.ordered_indices() {
         let group = config.groups.get(idx)?;
@@ -422,6 +747,91 @@ fn extract_quic_host(config: &RuntimeConfig, payload: &[u8]) -> Option<Extracted
     allowed.then(|| ExtractedHost { host: String::from_utf8_lossy(info.host()).into_owned(), source: HostSource::Quic })
 }
 
+enum LoadLearnedHostStoreError {
+    Invalidated,
+    Io,
+}
+
+fn load_learned_host_store(config: &RuntimeConfig) -> Result<BTreeMap<String, LearnedHostRecord>, LoadLearnedHostStoreError> {
+    let Some(path) = config.host_autolearn_store_path.as_deref() else {
+        return Ok(BTreeMap::new());
+    };
+    let path = Path::new(path);
+    if !path.exists() {
+        return Ok(BTreeMap::new());
+    }
+    let payload = fs::read(path).map_err(|_| LoadLearnedHostStoreError::Io)?;
+    let store = serde_json::from_slice::<LearnedHostStore>(&payload).map_err(|_| LoadLearnedHostStoreError::Invalidated)?;
+    if store.version != 1 || store.fingerprint != config_fingerprint(config) {
+        return Err(LoadLearnedHostStoreError::Invalidated);
+    }
+    Ok(store
+        .hosts
+        .into_iter()
+        .filter_map(|(host, mut record)| {
+            let Some(normalized_host) = normalize_learned_host(&host) else {
+                return None;
+            };
+            record.preferred_groups.retain(|group_index| *group_index < config.groups.len());
+            record.group_stats.retain(|group_index, _| *group_index < config.groups.len());
+            (!record.preferred_groups.is_empty() || !record.group_stats.is_empty()).then_some((normalized_host, record))
+        })
+        .collect())
+}
+
+fn ensure_host_order(record: &mut LearnedHostRecord, group_index: usize) {
+    if !record.preferred_groups.contains(&group_index) {
+        record.preferred_groups.push(group_index);
+    }
+}
+
+fn promote_group(record: &mut LearnedHostRecord, group_index: usize) {
+    record.preferred_groups.retain(|current| *current != group_index);
+    record.preferred_groups.insert(0, group_index);
+}
+
+fn host_has_active_penalty(record: &LearnedHostRecord, now_ms: u64) -> bool {
+    record.group_stats.values().any(|stats| stats.penalty_until_ms > now_ms)
+}
+
+fn normalize_learned_host(host: &str) -> Option<String> {
+    let trimmed = host.trim().trim_end_matches('.');
+    if trimmed.is_empty() {
+        return None;
+    }
+    let normalized = trimmed.to_ascii_lowercase();
+    if normalized.parse::<IpAddr>().is_ok() {
+        return None;
+    }
+    Some(normalized)
+}
+
+fn config_fingerprint(config: &RuntimeConfig) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(format!("{:?}", config.groups).as_bytes());
+    hasher.update(format!("|{}", config.groups.len()).as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+fn atomic_write(path: &Path, payload: &[u8]) -> io::Result<()> {
+    let Some(parent) = path.parent() else {
+        return fs::write(path, payload);
+    };
+    fs::create_dir_all(parent)?;
+    let tmp_name = format!(
+        ".{}.tmp-{}-{}",
+        path.file_name().and_then(|name| name.to_str()).unwrap_or("autolearn"),
+        std::process::id(),
+        now_millis()
+    );
+    let tmp_path = parent.join(tmp_name);
+    fs::write(&tmp_path, payload)?;
+    if path.exists() {
+        let _ = fs::remove_file(path);
+    }
+    fs::rename(tmp_path, path)
+}
+
 fn cache_matches(entry: &CacheEntry, dest: SocketAddr) -> bool {
     if entry.port != dest.port() {
         return false;
@@ -453,6 +863,10 @@ fn now_unix() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as i64
 }
 
+fn now_millis() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -470,6 +884,18 @@ mod tests {
         RuntimeConfig { groups, ..RuntimeConfig::default() }
     }
 
+    fn autolearn_config(group_count: usize, max_hosts: usize) -> RuntimeConfig {
+        let groups = (0..group_count).map(DesyncGroup::new).collect();
+        let mut config = config_with_groups(groups);
+        config.host_autolearn_enabled = true;
+        config.host_autolearn_penalty_ttl_secs = 3_600;
+        config.host_autolearn_max_hosts = max_hosts;
+        let mut path = std::env::temp_dir();
+        path.push(format!("ripdpi-host-autolearn-{}-{group_count}-{max_hosts}.json", now_millis()));
+        config.host_autolearn_store_path = Some(path.to_string_lossy().into_owned());
+        config
+    }
+
     #[test]
     fn lookup_prunes_expired_records() {
         let dest = sample_dest(443);
@@ -484,6 +910,8 @@ mod tests {
             }],
             groups: vec![GroupPolicy { detect: 0, fail_count: 0, pri: 0 }],
             order: vec![0],
+            learned_hosts: std::collections::BTreeMap::new(),
+            autolearn_events: std::collections::VecDeque::new(),
         };
 
         assert!(cache.lookup_and_prune(&config, dest).is_none());
@@ -498,7 +926,7 @@ mod tests {
         let config = config_with_groups(vec![first, second]);
         let mut cache = RuntimeCache::load(&config);
 
-        let route = select_initial_group(&config, &mut cache, sample_dest(80), None, true, TransportProtocol::Tcp)
+        let route = select_initial_group(&config, &mut cache, sample_dest(80), None, None, true, TransportProtocol::Tcp)
             .expect("fallback route");
 
         assert_eq!(route.group_index, 1);
@@ -519,6 +947,7 @@ mod tests {
             &cache,
             &route,
             sample_dest(443),
+            None,
             None,
             TransportProtocol::Tcp,
             DETECT_RECONN,
@@ -701,5 +1130,144 @@ mod tests {
         cache.dump_stdout_groups(&config, &mut dumped).expect("dump cache entries");
         let dumped = String::from_utf8(dumped).expect("cache dump utf8");
         assert!(dumped.contains("docs.example.test"));
+    }
+
+    #[test]
+    fn host_preference_outranks_destination_cache() {
+        let config = autolearn_config(2, 32);
+        let dest = sample_dest(443);
+        let mut cache = RuntimeCache::load(&config);
+
+        cache.store(&config, dest, 0, 0, None).expect("store destination cache");
+        cache
+            .note_route_success(
+                &config,
+                dest,
+                &ConnectionRoute { group_index: 1, attempted_mask: 0 },
+                Some("Example.org"),
+            )
+            .expect("learn host route");
+
+        let route = select_initial_group(&config, &mut cache, dest, None, Some("example.org"), true, TransportProtocol::Tcp)
+            .expect("host-aware route");
+
+        assert_eq!(route.group_index, 1);
+    }
+
+    #[test]
+    fn successful_fallback_promotes_final_group_for_host() {
+        let config = autolearn_config(3, 32);
+        let dest = sample_dest(443);
+        let mut cache = RuntimeCache::load(&config);
+
+        cache
+            .note_route_success(
+                &config,
+                dest,
+                &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+                Some("example.org"),
+            )
+            .expect("learn first group");
+        cache
+            .note_route_success(
+                &config,
+                dest,
+                &ConnectionRoute { group_index: 2, attempted_mask: config.groups[0].bit },
+                Some("example.org"),
+            )
+            .expect("promote fallback winner");
+
+        let learned = cache.learned_hosts.get("example.org").expect("learned host");
+        assert_eq!(learned.preferred_groups.first().copied(), Some(2));
+    }
+
+    #[test]
+    fn penalties_suppress_group_until_ttl_expiry() {
+        let config = autolearn_config(2, 32);
+        let dest = sample_dest(443);
+        let mut cache = RuntimeCache::load(&config);
+
+        cache
+            .note_route_success(
+                &config,
+                dest,
+                &ConnectionRoute { group_index: 1, attempted_mask: 0 },
+                Some("example.org"),
+            )
+            .expect("learn preferred group");
+        cache.note_host_failure(&config, "example.org", 1).expect("penalize preferred group");
+
+        let penalized_route =
+            select_initial_group(&config, &mut cache, dest, None, Some("example.org"), true, TransportProtocol::Tcp)
+                .expect("fallback while penalized");
+        assert_eq!(penalized_route.group_index, 0);
+
+        cache
+            .learned_hosts
+            .get_mut("example.org")
+            .and_then(|record| record.group_stats.get_mut(&1))
+            .expect("penalized stats")
+            .penalty_until_ms = now_millis().saturating_sub(1);
+
+        let recovered_route =
+            select_initial_group(&config, &mut cache, dest, None, Some("example.org"), true, TransportProtocol::Tcp)
+                .expect("preferred route after penalty expiry");
+        assert_eq!(recovered_route.group_index, 1);
+    }
+
+    #[test]
+    fn fingerprint_mismatch_invalidates_learned_state() {
+        let mut config = autolearn_config(1, 32);
+        let dest = sample_dest(443);
+        {
+            let mut cache = RuntimeCache::load(&config);
+            cache
+                .note_route_success(
+                    &config,
+                    dest,
+                    &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+                    Some("example.org"),
+                )
+                .expect("persist learned host");
+        }
+
+        config.groups.push(DesyncGroup::new(1));
+        let mut cache = RuntimeCache::load(&config);
+
+        assert!(cache.learned_hosts.is_empty());
+        let events = cache.drain_autolearn_events();
+        assert!(events.iter().any(|event| event.action == "store_reset"));
+    }
+
+    #[test]
+    fn max_host_eviction_removes_oldest_records() {
+        let config = autolearn_config(1, 1);
+        let dest = sample_dest(443);
+        let mut cache = RuntimeCache::load(&config);
+
+        cache
+            .note_route_success(
+                &config,
+                dest,
+                &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+                Some("first.example"),
+            )
+            .expect("learn first host");
+        cache
+            .learned_hosts
+            .get_mut("first.example")
+            .expect("first host")
+            .updated_at_ms = 1;
+        cache
+            .note_route_success(
+                &config,
+                dest,
+                &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+                Some("second.example"),
+            )
+            .expect("learn second host");
+
+        assert!(!cache.learned_hosts.contains_key("first.example"));
+        assert!(cache.learned_hosts.contains_key("second.example"));
     }
 }

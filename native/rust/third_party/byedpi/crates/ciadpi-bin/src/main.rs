@@ -43,6 +43,10 @@ fn help_text() -> String {
     text.push_str("    -y, --cache-file <path|-> Dump cache to file or stdout\n");
     text.push_str("    -u, --cache-ttl <sec>     Lifetime of cached desync params for IP\n");
     text.push_str("        --cache-merge <bits>  Merge cache entries by IPv4 prefix bits\n");
+    text.push_str("        --host-autolearn      Learn preferred TCP routes per HTTP Host / TLS SNI\n");
+    text.push_str("        --host-autolearn-penalty-ttl <sec> Penalty window for failed learned routes\n");
+    text.push_str("        --host-autolearn-max-hosts <count> Maximum remembered hosts in the learned store\n");
+    text.push_str("        --host-autolearn-file <path> Path to the persisted learned-host store\n");
     text.push_str("    -K, --proto <t,h,u,i>     Protocol whitelist: tls,http,udp,ipv4\n");
     text.push_str("    -H, --hosts <file|:str>   Hosts whitelist, filename or :string\n");
     text.push_str("    -j, --ipset <file|:str>   IP whitelist\n");
@@ -105,6 +109,10 @@ fn canonical_option(option: &str) -> &str {
         "--debug" | "-x" => "-x",
         "--cache-file" | "-y" => "-y",
         "--cache-ttl" | "-u" => "-u",
+        "--host-autolearn" => "--host-autolearn",
+        "--host-autolearn-penalty-ttl" => "--host-autolearn-penalty-ttl",
+        "--host-autolearn-max-hosts" => "--host-autolearn-max-hosts",
+        "--host-autolearn-file" => "--host-autolearn-file",
         "--timeout" | "-T" => "-T",
         "--proto" | "-K" => "-K",
         "--hosts" | "-H" => "-H",

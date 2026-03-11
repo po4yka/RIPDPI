@@ -28,6 +28,10 @@ pub trait RuntimeTelemetrySink: Send + Sync {
         trigger: u32,
         host: Option<&str>,
     );
+
+    fn on_host_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize);
+
+    fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group_index: Option<usize>);
 }
 
 static TELEMETRY_SINK: OnceLock<Mutex<Option<Arc<dyn RuntimeTelemetrySink>>>> = OnceLock::new();
@@ -98,6 +102,10 @@ mod tests {
             _host: Option<&str>,
         ) {
         }
+
+        fn on_host_autolearn_state(&self, _enabled: bool, _learned_host_count: usize, _penalized_host_count: usize) {}
+
+        fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
     }
 
     #[test]
