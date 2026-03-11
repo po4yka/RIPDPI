@@ -92,3 +92,14 @@ The drained event ring records:
 - explicit stop requests
 - clean tunnel stop
 - worker errors and worker panic fallback
+
+## Current Test Coverage
+
+The tunnel stack is currently covered by:
+
+- Rust unit, property-based, state-machine, fault-injection, and telemetry-golden tests in `hs5t-android`
+- Android instrumentation integration tests for tunnel lifecycle and JNI error paths
+- local-network Android E2E that exercises VPN mode against the shared fixture stack
+- Linux-only privileged real-TUN E2E and TUN soak runs
+
+See [../testing.md](../testing.md) for commands, CI lanes, and soak profiles.
