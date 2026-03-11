@@ -37,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -50,6 +51,7 @@ fun RipDpiChip(
     enabled: Boolean = true,
     density: RipDpiControlDensity = RipDpiControlDensity.Default,
     leadingIcon: ImageVector? = if (selected) RipDpiIcons.Check else null,
+    hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Selection,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
@@ -129,6 +131,7 @@ fun RipDpiChip(
                     enabled = enabled,
                     role = Role.Checkbox,
                     interactionSource = interactionSource,
+                    hapticFeedback = hapticFeedback,
                     onClick = onClick,
                 )
                 .padding(

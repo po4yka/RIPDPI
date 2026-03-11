@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components
 
+import android.os.Build
 import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.foundation.LocalIndication
@@ -8,6 +9,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -20,6 +22,10 @@ enum class RipDpiHapticFeedback {
     Action,
     Selection,
     Toggle,
+    Confirm,
+    Success,
+    Error,
+    Acknowledge,
 }
 
 private fun View.performRipDpiHapticFeedback(feedback: RipDpiHapticFeedback) {
@@ -29,8 +35,43 @@ private fun View.performRipDpiHapticFeedback(feedback: RipDpiHapticFeedback) {
             RipDpiHapticFeedback.Action -> HapticFeedbackConstants.VIRTUAL_KEY
             RipDpiHapticFeedback.Selection -> HapticFeedbackConstants.CLOCK_TICK
             RipDpiHapticFeedback.Toggle -> HapticFeedbackConstants.KEYBOARD_TAP
+            RipDpiHapticFeedback.Confirm,
+            RipDpiHapticFeedback.Success,
+            ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    HapticFeedbackConstants.CONFIRM
+                } else {
+                    HapticFeedbackConstants.VIRTUAL_KEY
+                }
+
+            RipDpiHapticFeedback.Error ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    HapticFeedbackConstants.REJECT
+                } else {
+                    HapticFeedbackConstants.LONG_PRESS
+                }
+
+            RipDpiHapticFeedback.Acknowledge ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    HapticFeedbackConstants.CONTEXT_CLICK
+                } else {
+                    HapticFeedbackConstants.VIRTUAL_KEY
+                }
         }
     performHapticFeedback(platformFeedback)
+}
+
+@Composable
+fun rememberRipDpiHapticPerformer(): (RipDpiHapticFeedback) -> Unit {
+    val motion = RipDpiThemeTokens.motion
+    val view = LocalView.current
+    return remember(view, motion.hapticsEnabled) {
+        { feedback: RipDpiHapticFeedback ->
+            if (motion.hapticsEnabled) {
+                view.performRipDpiHapticFeedback(feedback)
+            }
+        }
+    }
 }
 
 fun Modifier.ripDpiClickable(

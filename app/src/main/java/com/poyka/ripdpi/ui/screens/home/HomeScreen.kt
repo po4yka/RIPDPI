@@ -56,9 +56,11 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiDashboardScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -321,6 +323,7 @@ private fun HomeConnectionButton(
     val density = LocalDensity.current
     val interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val performHaptic = rememberRipDpiHapticPerformer()
     val pressScale by animateFloatAsState(
         targetValue =
             if (isPressed && state != ConnectionState.Connecting) {
@@ -445,6 +448,7 @@ private fun HomeConnectionButton(
             }
 
             ConnectionState.Connected -> {
+                performHaptic(RipDpiHapticFeedback.Success)
                 coroutineScope {
                     launch {
                         buttonScale.snapTo(1.08f)
@@ -474,6 +478,7 @@ private fun HomeConnectionButton(
             }
 
             ConnectionState.Error -> {
+                performHaptic(RipDpiHapticFeedback.Error)
                 coroutineScope {
                     launch {
                         buttonScale.snapTo(0.95f)
@@ -520,6 +525,9 @@ private fun HomeConnectionButton(
             }
 
             ConnectionState.Disconnected -> {
+                if (priorState == ConnectionState.Connected || priorState == ConnectionState.Connecting) {
+                    performHaptic(RipDpiHapticFeedback.Toggle)
+                }
                 coroutineScope {
                     launch {
                         buttonScale.animateTo(
@@ -574,6 +582,14 @@ private fun HomeConnectionButton(
                         enabled = state != ConnectionState.Connecting,
                         role = androidx.compose.ui.semantics.Role.Button,
                         interactionSource = interactionSource,
+                        hapticFeedback =
+                            when (state) {
+                                ConnectionState.Connected -> RipDpiHapticFeedback.Toggle
+                                ConnectionState.Connecting -> RipDpiHapticFeedback.None
+                                ConnectionState.Disconnected,
+                                ConnectionState.Error,
+                                -> RipDpiHapticFeedback.Action
+                            },
                         onClick = onClick,
                     ).padding(
                         horizontal = homeChrome.connectionHorizontalPadding,

@@ -18,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -38,12 +40,14 @@ import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiIntroScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -61,12 +65,17 @@ fun VpnPermissionRoute(
     viewModel: MainViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    LaunchedEffect(uiState.connectionState) {
-        if (
-            uiState.connectionState == ConnectionState.Connecting ||
+    val performHaptic = rememberRipDpiHapticPerformer()
+    val isPermissionGranted =
+        uiState.connectionState == ConnectionState.Connecting ||
             uiState.connectionState == ConnectionState.Connected
-        ) {
+    val previousGranted = remember { mutableStateOf(isPermissionGranted) }
+
+    LaunchedEffect(isPermissionGranted) {
+        val wasGranted = previousGranted.value
+        previousGranted.value = isPermissionGranted
+        if (isPermissionGranted && !wasGranted) {
+            performHaptic(RipDpiHapticFeedback.Success)
             onGranted()
         }
     }
@@ -127,6 +136,7 @@ fun VpnPermissionScreen(
                     },
                 onClick = onContinue,
                 enabled = uiState.connectionState != ConnectionState.Connecting,
+                hapticFeedback = RipDpiHapticFeedback.Confirm,
                 modifier =
                     Modifier
                         .fillMaxWidth()
