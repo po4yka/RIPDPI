@@ -1,0 +1,12 @@
+{
+  "action": "synchronize",
+  "pull_request": {
+    "head": {
+      "ref": "feature/test"
+    },
+    "base": {
+      "ref": "main"
+    },
+    "labels": []
+  }
+}
