@@ -26,6 +26,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -234,12 +235,14 @@ private fun DialogActionRow(
                     onClick = { onConfirm?.invoke() },
                     modifier = Modifier.fillMaxWidth(),
                     variant = primaryVariant,
+                    hapticFeedback = confirmActionHapticFeedback(tone),
                 )
                 RipDpiButton(
                     text = dismissLabel,
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth(),
                     variant = RipDpiButtonVariant.Outline,
+                    hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),
                 )
             } else {
                 RipDpiButton(
@@ -247,6 +250,7 @@ private fun DialogActionRow(
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth(),
                     variant = primaryVariant,
+                    hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),
                 )
             }
         }
@@ -262,12 +266,14 @@ private fun DialogActionRow(
                     onClick = onDismiss,
                     variant = RipDpiButtonVariant.Outline,
                     density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
+                    hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),
                 )
                 RipDpiButton(
                     text = confirmLabel.orEmpty(),
                     onClick = { onConfirm?.invoke() },
                     variant = primaryVariant,
                     density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
+                    hapticFeedback = confirmActionHapticFeedback(tone),
                 )
             } else {
                 RipDpiButton(
@@ -275,11 +281,30 @@ private fun DialogActionRow(
                     onClick = onDismiss,
                     variant = primaryVariant,
                     density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
+                    hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),
                 )
             }
         }
     }
 }
+
+private fun dismissActionHapticFeedback(
+    tone: RipDpiDialogTone,
+    hasConfirmAction: Boolean,
+): RipDpiHapticFeedback =
+    when {
+        tone == RipDpiDialogTone.Info -> RipDpiHapticFeedback.Acknowledge
+        tone == RipDpiDialogTone.Destructive && !hasConfirmAction -> RipDpiHapticFeedback.Acknowledge
+        else -> RipDpiHapticFeedback.Action
+    }
+
+private fun confirmActionHapticFeedback(tone: RipDpiDialogTone): RipDpiHapticFeedback =
+    when (tone) {
+        RipDpiDialogTone.Destructive -> RipDpiHapticFeedback.Confirm
+        RipDpiDialogTone.Info,
+        RipDpiDialogTone.Default,
+        -> RipDpiHapticFeedback.Action
+    }
 
 private fun defaultDialogIcon(tone: RipDpiDialogTone): ImageVector? =
     when (tone) {

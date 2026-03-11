@@ -30,6 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -104,6 +105,7 @@ fun RipDpiSnackbar(
                     modifier =
                         Modifier.ripDpiClickable(
                             role = Role.Button,
+                            hapticFeedback = snackbarActionHapticFeedback(tone),
                             onClick = onAction,
                         ),
                 )
@@ -167,6 +169,18 @@ internal data class RipDpiSnackbarVisuals(
 
 internal fun SnackbarVisuals.ripDpiToneOrDefault(): RipDpiSnackbarTone =
     (this as? RipDpiSnackbarVisuals)?.tone ?: RipDpiSnackbarTone.Default
+
+private fun snackbarActionHapticFeedback(tone: RipDpiSnackbarTone): RipDpiHapticFeedback =
+    when (tone) {
+        RipDpiSnackbarTone.Error,
+        RipDpiSnackbarTone.Warning,
+        RipDpiSnackbarTone.Restricted,
+        -> RipDpiHapticFeedback.Acknowledge
+
+        RipDpiSnackbarTone.Default,
+        RipDpiSnackbarTone.Info,
+        -> RipDpiHapticFeedback.Action
+    }
 
 @Immutable
 private data class RipDpiSnackbarPalette(
