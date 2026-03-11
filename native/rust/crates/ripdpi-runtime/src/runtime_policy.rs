@@ -8,8 +8,7 @@ use ciadpi_config::{
     RuntimeConfig, AUTO_NOPOST, AUTO_SORT, DETECT_RECONN,
 };
 use ciadpi_packets::{
-    is_http, is_tls_client_hello, parse_http, parse_quic_initial, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP,
-    IS_UDP,
+    is_http, is_tls_client_hello, parse_http, parse_quic_initial, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP,
 };
 
 #[derive(Debug, Clone)]
@@ -321,10 +320,8 @@ pub fn extract_host_info(config: &RuntimeConfig, payload: &[u8]) -> Option<Extra
     parse_http(payload)
         .map(|host| ExtractedHost { host: String::from_utf8_lossy(host.host).into_owned(), source: HostSource::Http })
         .or_else(|| {
-            parse_tls(payload).map(|host| ExtractedHost {
-                host: String::from_utf8_lossy(host).into_owned(),
-                source: HostSource::Tls,
-            })
+            parse_tls(payload)
+                .map(|host| ExtractedHost { host: String::from_utf8_lossy(host).into_owned(), source: HostSource::Tls })
         })
         .or_else(|| extract_quic_host(config, payload))
 }
@@ -414,17 +411,15 @@ fn matches_payload(config: &RuntimeConfig, group: &DesyncGroup, payload: &[u8]) 
 }
 
 fn extract_quic_host(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
-    if matches!(config.quic_initial_mode, QuicInitialMode::Disabled) || (!config.quic_support_v1 && !config.quic_support_v2)
+    if matches!(config.quic_initial_mode, QuicInitialMode::Disabled)
+        || (!config.quic_support_v1 && !config.quic_support_v2)
     {
         return None;
     }
     let info = parse_quic_initial(payload)?;
-    let allowed =
-        (info.version == 0x0000_0001 && config.quic_support_v1) || (info.version == 0x6b33_43cf && config.quic_support_v2);
-    allowed.then(|| ExtractedHost {
-        host: String::from_utf8_lossy(info.host()).into_owned(),
-        source: HostSource::Quic,
-    })
+    let allowed = (info.version == 0x0000_0001 && config.quic_support_v1)
+        || (info.version == 0x6b33_43cf && config.quic_support_v2);
+    allowed.then(|| ExtractedHost { host: String::from_utf8_lossy(info.host()).into_owned(), source: HostSource::Quic })
 }
 
 fn cache_matches(entry: &CacheEntry, dest: SocketAddr) -> bool {
@@ -519,9 +514,17 @@ mod tests {
         let cache = RuntimeCache::load(&config);
         let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
 
-        let next =
-            select_next_group(&config, &cache, &route, sample_dest(443), None, TransportProtocol::Tcp, DETECT_RECONN, true)
-                .expect("next route");
+        let next = select_next_group(
+            &config,
+            &cache,
+            &route,
+            sample_dest(443),
+            None,
+            TransportProtocol::Tcp,
+            DETECT_RECONN,
+            true,
+        )
+        .expect("next route");
 
         assert_eq!(next.group_index, 1);
         assert_eq!(next.attempted_mask, config.groups[0].bit);
@@ -680,5 +683,23 @@ mod tests {
         config.quic_support_v2 = false;
 
         assert_eq!(extract_host(&config, &packet), None);
+    }
+
+    #[test]
+    fn runtime_cache_store_preserves_cached_hostnames() {
+        let dest = sample_dest(443);
+        let mut group = DesyncGroup::new(0);
+        group.cache_file = Some("-".to_string());
+        let config = config_with_groups(vec![group]);
+        let mut cache = RuntimeCache::load(&config);
+
+        cache.store(&config, dest, 0, 0, Some("docs.example.test".to_string())).expect("store cached host");
+
+        assert_eq!(cache.records[0].entry.host.as_deref(), Some("docs.example.test"));
+
+        let mut dumped = Vec::new();
+        cache.dump_stdout_groups(&config, &mut dumped).expect("dump cache entries");
+        let dumped = String::from_utf8(dumped).expect("cache dump utf8");
+        assert!(dumped.contains("docs.example.test"));
     }
 }

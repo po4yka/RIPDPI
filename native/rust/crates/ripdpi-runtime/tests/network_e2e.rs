@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use ciadpi_config::{parse_cli, DesyncGroup, ParseResult, RuntimeConfig, StartupEnv};
+use ciadpi_config::{parse_cli, DesyncGroup, ParseResult, QuicInitialMode, RuntimeConfig, StartupEnv};
 use ciadpi_packets::IS_UDP;
 use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
@@ -73,7 +73,8 @@ fn socks5_udp_quic_initial_routes_by_hostname_and_records_host_telemetry() {
     let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let telemetry = Arc::new(RecordingTelemetry::default());
-    let proxy = start_proxy(quic_udp_host_filter_config(), Some(telemetry.clone()));
+    let proxy =
+        start_proxy(quic_udp_host_filter_config(QuicInitialMode::RouteAndCache, true, true), Some(telemetry.clone()));
     let (_control, relay) = socks_udp_associate(proxy.port);
     let udp = udp_proxy_client();
 
@@ -95,6 +96,53 @@ fn socks5_udp_quic_initial_routes_by_hostname_and_records_host_telemetry() {
         route.target.port() == fixture.manifest().udp_echo_port
             && route.group_index == 1
             && route.host.as_deref() == Some("other.example.test")
+    }));
+}
+
+#[test]
+fn socks5_udp_quic_initial_disabled_falls_back_without_host_telemetry() {
+    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let telemetry = Arc::new(RecordingTelemetry::default());
+    let proxy =
+        start_proxy(quic_udp_host_filter_config(QuicInitialMode::Disabled, true, true), Some(telemetry.clone()));
+    let (_control, relay) = socks_udp_associate(proxy.port);
+    let udp = udp_proxy_client();
+    let matching = rust_packet_seeds::quic_initial_with_host(0x0000_0001, "docs.example.test");
+
+    assert_eq!(udp_proxy_roundtrip_with_socket(&udp, relay, fixture.manifest().udp_echo_port, &matching), matching);
+
+    drop(proxy);
+
+    let snapshot = telemetry.snapshot();
+    assert!(snapshot.routes.iter().any(|route| {
+        route.target.port() == fixture.manifest().udp_echo_port && route.group_index == 1 && route.host.is_none()
+    }));
+    assert!(!snapshot
+        .routes
+        .iter()
+        .any(|route| { route.target.port() == fixture.manifest().udp_echo_port && route.group_index == 0 }));
+}
+
+#[test]
+fn socks5_udp_quic_initial_v2_routes_by_hostname_when_enabled() {
+    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let telemetry = Arc::new(RecordingTelemetry::default());
+    let proxy = start_proxy(quic_udp_host_filter_config(QuicInitialMode::Route, false, true), Some(telemetry.clone()));
+    let (_control, relay) = socks_udp_associate(proxy.port);
+    let udp = udp_proxy_client();
+    let matching = rust_packet_seeds::quic_initial_with_host(0x6b33_43cf, "docs.example.test");
+
+    assert_eq!(udp_proxy_roundtrip_with_socket(&udp, relay, fixture.manifest().udp_echo_port, &matching), matching);
+
+    drop(proxy);
+
+    let snapshot = telemetry.snapshot();
+    assert!(snapshot.routes.iter().any(|route| {
+        route.target.port() == fixture.manifest().udp_echo_port
+            && route.group_index == 0
+            && route.host.as_deref() == Some("docs.example.test")
     }));
 }
 
@@ -248,7 +296,7 @@ fn ephemeral_proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
     config
 }
 
-fn quic_udp_host_filter_config() -> RuntimeConfig {
+fn quic_udp_host_filter_config(mode: QuicInitialMode, support_v1: bool, support_v2: bool) -> RuntimeConfig {
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
 
     let mut filtered = DesyncGroup::new(0);
@@ -259,6 +307,9 @@ fn quic_udp_host_filter_config() -> RuntimeConfig {
     fallback.proto = IS_UDP;
 
     config.groups = vec![filtered, fallback];
+    config.quic_initial_mode = mode;
+    config.quic_support_v1 = support_v1;
+    config.quic_support_v2 = support_v2;
     config
 }
 
