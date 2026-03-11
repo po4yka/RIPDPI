@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
@@ -98,7 +99,7 @@ data class SettingsUiState(
     val chainDsl: String = "",
     val splitMarker: String = DefaultSplitMarker,
     val fakeTtl: Int = 8,
-    val fakeSni: String = "www.iana.org",
+    val fakeSni: String = DefaultFakeSni,
     val fakeOffsetMarker: String = DefaultFakeOffsetMarker,
     val fakeTlsUseOriginal: Boolean = false,
     val fakeTlsRandomize: Boolean = false,
@@ -159,6 +160,9 @@ data class SettingsUiState(
     val canForgetLearnedHosts: Boolean
         get() = !enableCmdSettings && hostAutolearnStorePresent
 
+    val canResetFakeTlsProfile: Boolean
+        get() = !enableCmdSettings && hasCustomFakeTlsProfile
+
     val fakeTlsControlsRelevant: Boolean
         get() = desyncHttpsEnabled && isFake
 
@@ -169,7 +173,8 @@ data class SettingsUiState(
                 fakeTlsDupSessionId ||
                 fakeTlsPadEncap ||
                 fakeTlsSize != 0 ||
-                fakeTlsSniMode != FakeTlsSniModeFixed
+                fakeTlsSniMode != FakeTlsSniModeFixed ||
+                (fakeTlsSniMode == FakeTlsSniModeFixed && fakeSni != DefaultFakeSni)
 }
 
 @VisibleForTesting
@@ -224,7 +229,7 @@ internal fun AppSettings.toUiState(
         chainDsl = formatStrategyChainDsl(tcpChainSteps, udpChainSteps),
         splitMarker = primaryTcpStep?.marker ?: effectiveSplitMarker(),
         fakeTtl = fakeTtl.takeIf { it > 0 } ?: 8,
-        fakeSni = fakeSni.ifEmpty { "www.iana.org" },
+        fakeSni = fakeSni.ifEmpty { DefaultFakeSni },
         fakeOffsetMarker = effectiveFakeOffsetMarker(),
         fakeTlsUseOriginal = fakeTlsUseOriginal,
         fakeTlsRandomize = fakeTlsRandomize,
@@ -440,6 +445,35 @@ class SettingsViewModel
                             message = "Stored host learning was removed and the next RIPDPI start will rebuild it from scratch.",
                             tone = SettingsNoticeTone.Info,
                         )
+                }
+            _effects.send(effect)
+        }
+    }
+
+    fun resetFakeTlsProfile() {
+        viewModelScope.launch {
+            appSettingsRepository.update {
+                setFakeTlsUseOriginal(false)
+                setFakeTlsRandomize(false)
+                setFakeTlsDupSessionId(false)
+                setFakeTlsPadEncap(false)
+                setFakeTlsSize(0)
+                setFakeTlsSniMode(FakeTlsSniModeFixed)
+                setFakeSni(DefaultFakeSni)
+            }
+            val effect =
+                if (serviceStateStore.status.value.first == AppStatus.Running) {
+                    SettingsEffect.Notice(
+                        title = "Fake TLS profile reset for next start",
+                        message = "The profile is back to the default fake ClientHello. Restart RIPDPI to apply it to the active session.",
+                        tone = SettingsNoticeTone.Info,
+                    )
+                } else {
+                    SettingsEffect.Notice(
+                        title = "Fake TLS profile reset",
+                        message = "RIPDPI will use the default fake ClientHello, fixed SNI, and input-sized payload on the next start.",
+                        tone = SettingsNoticeTone.Info,
+                    )
                 }
             _effects.send(effect)
         }

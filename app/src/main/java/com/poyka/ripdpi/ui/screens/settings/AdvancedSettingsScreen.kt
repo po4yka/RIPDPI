@@ -34,6 +34,7 @@ import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
@@ -571,6 +572,7 @@ fun AdvancedSettingsRoute(
             }
         },
         onForgetLearnedHosts = viewModel::forgetLearnedHosts,
+        onResetFakeTlsProfile = viewModel::resetFakeTlsProfile,
         modifier = modifier,
     )
 }
@@ -584,11 +586,17 @@ private fun AdvancedSettingsScreen(
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
     onForgetLearnedHosts: () -> Unit,
+    onResetFakeTlsProfile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val visualEditorEnabled = !uiState.enableCmdSettings
+    val showFakeTlsSection =
+        uiState.desyncHttpsEnabled ||
+            uiState.isFake ||
+            uiState.hasCustomFakeTlsProfile ||
+            uiState.enableCmdSettings
     val desyncOptions =
         rememberSettingsOptions(
             labelArrayRes = R.array.ripdpi_desync_methods,
@@ -827,7 +835,7 @@ private fun AdvancedSettingsScreen(
                             showDivider = true,
                         )
                     }
-                    if (uiState.desyncHttpsEnabled || uiState.isFake) {
+                    if (showFakeTlsSection) {
                         Text(
                             text = stringResource(R.string.ripdpi_fake_tls_section_title),
                             style = RipDpiThemeTokens.type.bodyEmphasis,
@@ -843,6 +851,11 @@ private fun AdvancedSettingsScreen(
                             style = RipDpiThemeTokens.type.secondaryBody,
                             color = colors.mutedForeground,
                         )
+                        FakeTlsProfileCard(
+                            uiState = uiState,
+                            onResetFakeTlsProfile = onResetFakeTlsProfile,
+                            modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+                        )
                         HorizontalDivider(color = colors.divider)
                         AdvancedDropdownSetting(
                             title = stringResource(R.string.ripdpi_fake_tls_base_title),
@@ -851,7 +864,7 @@ private fun AdvancedSettingsScreen(
                             options = fakeTlsBaseOptions,
                             setting = AdvancedOptionSetting.FakeTlsBase,
                             onSelected = onOptionSelected,
-                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            enabled = visualEditorEnabled,
                             showDivider = true,
                         )
                         AdvancedDropdownSetting(
@@ -861,14 +874,14 @@ private fun AdvancedSettingsScreen(
                             options = fakeTlsSniModeOptions,
                             setting = AdvancedOptionSetting.FakeTlsSniMode,
                             onSelected = onOptionSelected,
-                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            enabled = visualEditorEnabled,
                             showDivider = uiState.fakeTlsSniMode == FakeTlsSniModeFixed,
                         )
                         if (uiState.fakeTlsSniMode == FakeTlsSniModeFixed) {
                             AdvancedTextSetting(
                                 title = stringResource(R.string.sni_of_fake_packet),
                                 value = uiState.fakeSni,
-                                enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                                enabled = visualEditorEnabled,
                                 disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                                 setting = AdvancedTextSetting.FakeSni,
                                 onConfirm = onTextConfirmed,
@@ -880,7 +893,7 @@ private fun AdvancedSettingsScreen(
                             subtitle = stringResource(R.string.ripdpi_fake_tls_randomize_body),
                             checked = uiState.fakeTlsRandomize,
                             onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsRandomize, it) },
-                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            enabled = visualEditorEnabled,
                             showDivider = true,
                         )
                         SettingsRow(
@@ -888,7 +901,7 @@ private fun AdvancedSettingsScreen(
                             subtitle = stringResource(R.string.ripdpi_fake_tls_dup_sid_body),
                             checked = uiState.fakeTlsDupSessionId,
                             onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsDupSessionId, it) },
-                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            enabled = visualEditorEnabled,
                             showDivider = true,
                         )
                         SettingsRow(
@@ -896,7 +909,7 @@ private fun AdvancedSettingsScreen(
                             subtitle = stringResource(R.string.ripdpi_fake_tls_pad_encap_body),
                             checked = uiState.fakeTlsPadEncap,
                             onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsPadEncap, it) },
-                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            enabled = visualEditorEnabled,
                             showDivider = true,
                         )
                         AdvancedTextSetting(
@@ -904,7 +917,7 @@ private fun AdvancedSettingsScreen(
                             description = stringResource(R.string.config_fake_tls_size_helper),
                             value = uiState.fakeTlsSize.toString(),
                             placeholder = stringResource(R.string.config_placeholder_fake_tls_size),
-                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            enabled = visualEditorEnabled,
                             validator = { it.isEmpty() || it.toIntOrNull() != null },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
@@ -1358,6 +1371,191 @@ private fun AdvancedTextSetting(
 private val SettingsUiState.defaultTtlValue: String
     get() = if (customTtl) defaultTtl.toString() else ""
 
+private data class FakeTlsStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
+@Composable
+private fun FakeTlsProfileCard(
+    uiState: SettingsUiState,
+    onResetFakeTlsProfile: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val status = rememberFakeTlsStatus(uiState)
+    val baseSummary =
+        stringResource(
+            if (uiState.fakeTlsUseOriginal) {
+                R.string.ripdpi_fake_tls_summary_base_original
+            } else {
+                R.string.ripdpi_fake_tls_summary_base_default
+            },
+        )
+    val sniSummary =
+        if (uiState.fakeTlsSniMode == FakeTlsSniModeFixed) {
+            stringResource(
+                R.string.ripdpi_fake_tls_summary_sni_fixed,
+                uiState.fakeSni.ifBlank { DefaultFakeSni },
+            )
+        } else {
+            stringResource(R.string.ripdpi_fake_tls_summary_sni_randomized)
+        }
+    val mutationSummary =
+        buildList {
+            if (uiState.fakeTlsRandomize) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_randomize))
+            if (uiState.fakeTlsDupSessionId) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_dup_sid))
+            if (uiState.fakeTlsPadEncap) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_pad_encap))
+        }.ifEmpty {
+            listOf(stringResource(R.string.ripdpi_fake_tls_summary_mutation_none))
+        }.joinToString(", ")
+    val sizeSummary =
+        when {
+            uiState.fakeTlsSize > 0 -> stringResource(R.string.ripdpi_fake_tls_summary_size_exact, uiState.fakeTlsSize)
+            uiState.fakeTlsSize < 0 -> stringResource(R.string.ripdpi_fake_tls_summary_size_minus, -uiState.fakeTlsSize)
+            else -> stringResource(R.string.ripdpi_fake_tls_summary_size_input)
+        }
+    val scopeSummary =
+        when {
+            uiState.enableCmdSettings -> stringResource(R.string.ripdpi_fake_tls_scope_cli)
+            !uiState.desyncHttpsEnabled -> stringResource(R.string.ripdpi_fake_tls_scope_https_disabled)
+            !uiState.isFake -> stringResource(R.string.ripdpi_fake_tls_scope_needs_fake)
+            uiState.isServiceRunning -> stringResource(R.string.ripdpi_fake_tls_scope_restart)
+            else -> stringResource(R.string.ripdpi_fake_tls_scope_applies)
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Tonal,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            FakeTlsSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_tls_summary_label_base),
+                value = baseSummary,
+            )
+            FakeTlsSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_tls_summary_label_sni),
+                value = sniSummary,
+            )
+            FakeTlsSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_tls_summary_label_mutations),
+                value = mutationSummary,
+            )
+            FakeTlsSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_tls_summary_label_size),
+                value = sizeSummary,
+            )
+            FakeTlsSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_tls_summary_label_scope),
+                value = scopeSummary,
+            )
+        }
+        if (uiState.canResetFakeTlsProfile) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                RipDpiButton(
+                    text = stringResource(R.string.ripdpi_fake_tls_reset_action),
+                    onClick = onResetFakeTlsProfile,
+                    variant = RipDpiButtonVariant.Outline,
+                    trailingIcon = RipDpiIcons.Close,
+                )
+            }
+            Text(
+                text = stringResource(R.string.ripdpi_fake_tls_reset_hint),
+                style = type.caption,
+                color = colors.mutedForeground,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FakeTlsSummaryLine(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        Text(
+            text = label,
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+        Text(
+            text = value,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+    }
+}
+
+@Composable
+private fun rememberFakeTlsStatus(uiState: SettingsUiState): FakeTlsStatusContent =
+    when {
+        uiState.enableCmdSettings ->
+            FakeTlsStatusContent(
+                label = stringResource(R.string.ripdpi_fake_tls_cli_status_title),
+                body = stringResource(R.string.ripdpi_fake_tls_cli_status_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        !uiState.desyncHttpsEnabled ->
+            FakeTlsStatusContent(
+                label = stringResource(R.string.ripdpi_fake_tls_https_disabled_title),
+                body = stringResource(R.string.ripdpi_fake_tls_https_disabled_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        !uiState.isFake && uiState.hasCustomFakeTlsProfile ->
+            FakeTlsStatusContent(
+                label = stringResource(R.string.ripdpi_fake_tls_saved_title),
+                body = stringResource(R.string.ripdpi_fake_tls_saved_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        !uiState.isFake ->
+            FakeTlsStatusContent(
+                label = stringResource(R.string.ripdpi_fake_tls_waiting_title),
+                body = stringResource(R.string.ripdpi_fake_tls_waiting_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        uiState.hasCustomFakeTlsProfile ->
+            FakeTlsStatusContent(
+                label = stringResource(R.string.ripdpi_fake_tls_custom_title),
+                body = stringResource(R.string.ripdpi_fake_tls_custom_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        else ->
+            FakeTlsStatusContent(
+                label = stringResource(R.string.ripdpi_fake_tls_default_title),
+                body = stringResource(R.string.ripdpi_fake_tls_default_body),
+                tone = StatusIndicatorTone.Active,
+            )
+    }
+
 private data class HostAutolearnStatusContent(
     val label: String,
     val body: String,
@@ -1580,6 +1778,7 @@ private fun AdvancedSettingsScreenPreview() {
             onTextConfirmed = { _, _ -> },
             onOptionSelected = { _, _ -> },
             onForgetLearnedHosts = {},
+            onResetFakeTlsProfile = {},
         )
     }
 }
@@ -1602,8 +1801,14 @@ private fun AdvancedSettingsScreenDarkPreview() {
                     desyncMethod = "fake",
                     splitMarker = "host+1",
                     fakeTtl = 12,
-                    fakeSni = "www.iana.org",
+                    fakeSni = "alt.example.org",
                     fakeOffsetMarker = "method+2",
+                    fakeTlsUseOriginal = true,
+                    fakeTlsRandomize = true,
+                    fakeTlsDupSessionId = true,
+                    fakeTlsPadEncap = true,
+                    fakeTlsSize = -24,
+                    fakeTlsSniMode = "randomized",
                     dropSack = true,
                     desyncHttp = true,
                     desyncHttps = true,
@@ -1624,6 +1829,7 @@ private fun AdvancedSettingsScreenDarkPreview() {
             onTextConfirmed = { _, _ -> },
             onOptionSelected = { _, _ -> },
             onForgetLearnedHosts = {},
+            onResetFakeTlsProfile = {},
         )
     }
 }

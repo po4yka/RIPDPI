@@ -22,7 +22,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setSplitPosition(1)
             .setSplitMarker(DefaultSplitMarker)
             .setFakeTtl(8)
-            .setFakeSni("www.iana.org")
+            .setFakeSni(DefaultFakeSni)
             .setFakeOffsetMarker(DefaultFakeOffsetMarker)
             .setFakeTlsSniMode(FakeTlsSniModeFixed)
             .setOobData("a")

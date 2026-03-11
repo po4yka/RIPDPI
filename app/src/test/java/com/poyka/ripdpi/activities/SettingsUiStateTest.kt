@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
@@ -32,6 +33,7 @@ class SettingsUiStateTest {
         assertEquals(0, state.fakeTlsSize)
         assertFalse(state.fakeTlsControlsRelevant)
         assertFalse(state.hasCustomFakeTlsProfile)
+        assertFalse(state.canResetFakeTlsProfile)
         assertTrue(state.desyncHttpEnabled)
         assertTrue(state.desyncHttpsEnabled)
         assertFalse(state.desyncUdpEnabled)
@@ -266,6 +268,25 @@ class SettingsUiStateTest {
         assertTrue(state.fakeTlsRandomize)
         assertTrue(state.fakeTlsDupSessionId)
         assertTrue(state.fakeTlsPadEncap)
+        assertTrue(state.canResetFakeTlsProfile)
+    }
+
+    @Test
+    fun `custom fixed fake sni counts as fake tls profile`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncMethod("fake")
+                .setFakeSni("alt.example.org")
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.fakeTlsControlsRelevant)
+        assertTrue(state.hasCustomFakeTlsProfile)
+        assertTrue(state.canResetFakeTlsProfile)
+        assertEquals("alt.example.org", state.fakeSni)
+        assertTrue(DefaultFakeSni != state.fakeSni)
     }
 
     @Test
