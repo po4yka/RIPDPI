@@ -1,0 +1,18 @@
+[
+    {
+        "createdAt": 0,
+        "id": "<id>",
+        "level": "info",
+        "message": "accepted",
+        "sessionId": null,
+        "source": "proxy"
+    },
+    {
+        "createdAt": 0,
+        "id": "<id>",
+        "level": "warn",
+        "message": "slow upstream",
+        "sessionId": null,
+        "source": "tunnel"
+    }
+]

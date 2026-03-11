@@ -9,7 +9,6 @@ use once_cell::sync::OnceCell;
 
 #[cfg(target_os = "android")]
 use log::LevelFilter;
-#[cfg(target_os = "android")]
 use std::fmt;
 #[cfg(target_os = "android")]
 use tracing::Subscriber;
@@ -116,10 +115,10 @@ where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
     fn on_event(&self, event: &tracing::Event<'_>, _ctx: Context<'_, S>) {
-        let mut visitor = MessageVisitor::default();
+        let mut visitor = MessageFieldFormatter::default();
         event.record(&mut visitor);
         let metadata = event.metadata();
-        let message = if visitor.fields.is_empty() { metadata.target().to_string() } else { visitor.fields };
+        let message = visitor.finish(metadata.target());
 
         match *metadata.level() {
             tracing::Level::ERROR => log::error!("{message}"),
@@ -132,36 +131,107 @@ where
 }
 
 #[derive(Default)]
-#[cfg(target_os = "android")]
-struct MessageVisitor {
+#[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+pub(crate) struct MessageFieldFormatter {
     fields: String,
 }
 
-#[cfg(target_os = "android")]
-impl tracing::field::Visit for MessageVisitor {
-    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn fmt::Debug) {
-        if !self.fields.is_empty() {
-            self.fields.push(' ');
-        }
-        if field.name() == "message" {
-            self.fields.push_str(&format!("{value:?}"));
+impl MessageFieldFormatter {
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn record_named_debug(&mut self, field: &str, value: &dyn fmt::Debug) {
+        self.push_value(field, &format!("{value:?}"));
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn record_named_str(&mut self, field: &str, value: &str) {
+        self.push_value(field, value);
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn finish(self, target: &str) -> String {
+        if self.fields.is_empty() {
+            target.to_string()
         } else {
-            self.fields.push_str(field.name());
-            self.fields.push('=');
-            self.fields.push_str(&format!("{value:?}"));
+            self.fields
         }
     }
 
-    fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    fn push_value(&mut self, field: &str, value: &str) {
         if !self.fields.is_empty() {
             self.fields.push(' ');
         }
-        if field.name() == "message" {
+        if field == "message" {
             self.fields.push_str(value);
         } else {
-            self.fields.push_str(field.name());
+            self.fields.push_str(field);
             self.fields.push('=');
             self.fields.push_str(value);
         }
+    }
+}
+
+impl tracing::field::Visit for MessageFieldFormatter {
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn fmt::Debug) {
+        self.record_named_debug(field.name(), value);
+    }
+
+    fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+        self.record_named_str(field.name(), value);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use golden_test_support::assert_text_golden;
+
+    #[test]
+    fn formatter_renders_plain_message_golden() {
+        let mut formatter = MessageFieldFormatter::default();
+        formatter.record_named_str("message", "proxy started");
+
+        assert_text_golden(
+            env!("CARGO_MANIFEST_DIR"),
+            "tests/golden/plain_message.txt",
+            &formatter.finish("fallback.target"),
+        );
+    }
+
+    #[test]
+    fn formatter_renders_structured_fields_golden() {
+        let mut formatter = MessageFieldFormatter::default();
+        formatter.record_named_str("message", "route selected");
+        formatter.record_named_str("target", "203.0.113.10:443");
+        formatter.record_named_debug("group", &2);
+
+        assert_text_golden(
+            env!("CARGO_MANIFEST_DIR"),
+            "tests/golden/structured_fields.txt",
+            &formatter.finish("fallback.target"),
+        );
+    }
+
+    #[test]
+    fn formatter_falls_back_to_target_when_message_is_absent() {
+        let formatter = MessageFieldFormatter::default();
+        assert_text_golden(
+            env!("CARGO_MANIFEST_DIR"),
+            "tests/golden/fallback_target.txt",
+            &formatter.finish("ripdpi.native"),
+        );
+    }
+
+    #[test]
+    fn formatter_preserves_debug_quotes_for_non_message_fields() {
+        let mut formatter = MessageFieldFormatter::default();
+        formatter.record_named_str("message", "tunnel error");
+        formatter.record_named_debug("error", &"unexpected eof");
+
+        assert_text_golden(
+            env!("CARGO_MANIFEST_DIR"),
+            "tests/golden/debug_quotes.txt",
+            &formatter.finish("fallback.target"),
+        );
     }
 }

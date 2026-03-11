@@ -1,0 +1,30 @@
+{
+  "activeSessions": 0,
+  "capturedAt": 0,
+  "health": "healthy",
+  "lastError": null,
+  "lastHost": null,
+  "lastRouteGroup": null,
+  "lastTarget": null,
+  "listenerAddress": "127.0.0.1:<port>",
+  "nativeEvents": [
+    {
+      "createdAt": 0,
+      "level": "info",
+      "message": "listener started addr=127.0.0.1:<port> maxClients=512 groups=2",
+      "source": "proxy"
+    }
+  ],
+  "routeChanges": 0,
+  "source": "proxy",
+  "state": "running",
+  "totalErrors": 0,
+  "totalSessions": 0,
+  "tunnelStats": {
+    "rxBytes": 0,
+    "rxPackets": 0,
+    "txBytes": 0,
+    "txPackets": 0
+  },
+  "upstreamAddress": null
+}

@@ -1,0 +1,23 @@
+{
+  "activeSessions": 0,
+  "capturedAt": 0,
+  "health": "idle",
+  "lastError": null,
+  "lastHost": null,
+  "lastRouteGroup": null,
+  "lastTarget": null,
+  "listenerAddress": null,
+  "nativeEvents": [],
+  "routeChanges": 0,
+  "source": "tunnel",
+  "state": "idle",
+  "totalErrors": 0,
+  "totalSessions": 0,
+  "tunnelStats": {
+    "rxBytes": 0,
+    "rxPackets": 0,
+    "txBytes": 0,
+    "txPackets": 0
+  },
+  "upstreamAddress": null
+}

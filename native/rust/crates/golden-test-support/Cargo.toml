@@ -1,0 +1,12 @@
+[package]
+name = "golden-test-support"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = { workspace = true }
+similar = { workspace = true }

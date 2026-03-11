@@ -1,0 +1,23 @@
+{
+  "activeSessions": 1,
+  "capturedAt": 0,
+  "health": "degraded",
+  "lastError": "boom",
+  "lastHost": null,
+  "lastRouteGroup": null,
+  "lastTarget": null,
+  "listenerAddress": null,
+  "nativeEvents": [],
+  "routeChanges": 0,
+  "source": "tunnel",
+  "state": "running",
+  "totalErrors": 1,
+  "totalSessions": 1,
+  "tunnelStats": {
+    "rxBytes": 100,
+    "rxPackets": 10,
+    "txBytes": 90,
+    "txPackets": 9
+  },
+  "upstreamAddress": "127.0.0.1:1080"
+}

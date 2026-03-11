@@ -1,0 +1,69 @@
+{
+  "finishedAt": 0,
+  "pathMode": "RAW_PATH",
+  "profileId": "default",
+  "results": [
+    {
+      "details": [
+        {
+          "key": "resolved",
+          "value": "127.0.0.1:9"
+        },
+        {
+          "key": "tlsStatus",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tlsVersion",
+          "value": "unknown"
+        },
+        {
+          "key": "tlsError",
+          "value": "Connection refused (os error 61)"
+        },
+        {
+          "key": "tlsSignal",
+          "value": "tls_unavailable"
+        },
+        {
+          "key": "tls13Status",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tls13Version",
+          "value": "unknown"
+        },
+        {
+          "key": "tls13Error",
+          "value": "Connection refused (os error 61)"
+        },
+        {
+          "key": "tls12Status",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tls12Version",
+          "value": "unknown"
+        },
+        {
+          "key": "tls12Error",
+          "value": "Connection refused (os error 61)"
+        },
+        {
+          "key": "httpStatus",
+          "value": "http_blockpage"
+        },
+        {
+          "key": "httpResponse",
+          "value": "403 Forbidden server=unknown"
+        }
+      ],
+      "outcome": "http_blockpage",
+      "probeType": "domain_reachability",
+      "target": "127.0.0.1"
+    }
+  ],
+  "sessionId": "session-golden",
+  "startedAt": 0,
+  "summary": "0/1 probes succeeded"
+}

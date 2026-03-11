@@ -135,15 +135,18 @@ impl TunnelTelemetryState {
         if let Ok(mut guard) = self.upstream_address.lock() {
             *guard = Some(upstream.clone());
         }
+        log::info!("tunnel started upstream={upstream}");
         self.push_event("tunnel", "info", format!("tunnel started upstream={upstream}"));
     }
 
     fn mark_stop_requested(&self) {
+        log::info!("tunnel stop requested");
         self.push_event("tunnel", "info", "tunnel stop requested".to_string());
     }
 
     fn mark_stopped(&self) {
         self.running.store(false, Ordering::Relaxed);
+        log::info!("tunnel stopped");
         self.push_event("tunnel", "info", "tunnel stopped".to_string());
     }
 
@@ -152,6 +155,7 @@ impl TunnelTelemetryState {
         if let Ok(mut guard) = self.last_error.lock() {
             *guard = Some(error.clone());
         }
+        log::warn!("tunnel error: {error}");
         self.push_event("tunnel", "warn", format!("tunnel error: {error}"));
     }
 
@@ -721,8 +725,10 @@ impl BlankCheck for String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use golden_test_support::{assert_text_golden, canonicalize_json_with};
     use proptest::collection::vec;
     use proptest::prelude::*;
+    use serde_json::{json, Value};
 
     fn lossy_string(max_len: usize) -> impl Strategy<Value = String> {
         vec(any::<u8>(), 0..max_len).prop_map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
@@ -1113,6 +1119,29 @@ mod tests {
     }
 
     #[test]
+    fn tunnel_telemetry_and_stats_match_goldens() {
+        let ready = TunnelTelemetryState::new().snapshot((0, 0, 0, 0));
+        assert_tunnel_snapshot_golden("tunnel_ready", &ready);
+        assert_tunnel_stats_golden("tunnel_ready_stats", (0, 0, 0, 0));
+
+        let state = TunnelTelemetryState::new();
+        state.mark_started("127.0.0.1:1080".to_string());
+        state.record_error("boom".to_string());
+        state.mark_stop_requested();
+
+        let running = state.snapshot((7, 70, 8, 80));
+        assert_tunnel_snapshot_golden("tunnel_running_degraded_first_poll", &running);
+        assert_tunnel_stats_golden("tunnel_running_stats", (7, 70, 8, 80));
+
+        let drained = state.snapshot((9, 90, 10, 100));
+        assert_tunnel_snapshot_golden("tunnel_running_degraded_second_poll", &drained);
+
+        state.mark_stopped();
+        let stopped = state.snapshot((0, 0, 0, 0));
+        assert_tunnel_snapshot_golden("tunnel_stopped", &stopped);
+    }
+
+    #[test]
     fn destroy_removes_ready_tunnel_session() {
         let handle = SESSIONS.insert(TunnelSession {
             config: Arc::new(config_from_payload(sample_payload()).expect("config")),
@@ -1189,9 +1218,7 @@ mod tests {
             stats.rx_packets.fetch_add(8, Ordering::Relaxed);
             stats.rx_bytes.fetch_add(80, Ordering::Relaxed);
 
-            session
-                .telemetry
-                .mark_started(format!("{}:{}", session.config.socks5.address, session.config.socks5.port));
+            session.telemetry.mark_started(format!("{}:{}", session.config.socks5.address, session.config.socks5.port));
 
             let worker_cancel = cancel.clone();
             let worker_telemetry = session.telemetry.clone();
@@ -1264,6 +1291,50 @@ mod tests {
     impl Drop for TunnelSessionHarness {
         fn drop(&mut self) {
             self.cleanup();
+        }
+    }
+
+    fn assert_tunnel_snapshot_golden(name: &str, snapshot: &NativeRuntimeSnapshot) {
+        let actual = canonicalize_json_with(
+            &serde_json::to_string(snapshot).expect("serialize tunnel snapshot"),
+            scrub_runtime_timestamps,
+        )
+        .expect("canonicalize tunnel telemetry");
+        assert_text_golden(env!("CARGO_MANIFEST_DIR"), &format!("tests/golden/{name}.json"), &actual);
+    }
+
+    fn assert_tunnel_stats_golden(name: &str, stats: (u64, u64, u64, u64)) {
+        let actual = canonicalize_json_with(
+            &json!({
+                "txPackets": stats.0,
+                "txBytes": stats.1,
+                "rxPackets": stats.2,
+                "rxBytes": stats.3,
+            })
+            .to_string(),
+            |_| {},
+        )
+        .expect("canonicalize tunnel stats");
+        assert_text_golden(env!("CARGO_MANIFEST_DIR"), &format!("tests/golden/{name}.json"), &actual);
+    }
+
+    fn scrub_runtime_timestamps(value: &mut Value) {
+        match value {
+            Value::Array(items) => {
+                for item in items {
+                    scrub_runtime_timestamps(item);
+                }
+            }
+            Value::Object(map) => {
+                for (key, item) in map.iter_mut() {
+                    if matches!(key.as_str(), "createdAt" | "capturedAt") {
+                        *item = Value::from(0);
+                    } else {
+                        scrub_runtime_timestamps(item);
+                    }
+                }
+            }
+            _ => {}
         }
     }
 

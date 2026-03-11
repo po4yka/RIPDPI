@@ -78,7 +78,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: "**/build/reports/tests/"
+          path: |
+            **/build/reports/tests/
+            **/build/golden-diffs/
           retention-days: 7
 
   static-analysis:
@@ -141,6 +143,7 @@ jobs:
             **/build/reports/detekt/
             **/build/reports/ktlint/
             **/build/reports/lint-results*.html
+            native/rust/target/golden-diffs/
           retention-days: 7
 
   rust-network-e2e:
@@ -261,6 +264,17 @@ jobs:
               adb logcat -d > android-logcat.txt
               exit 1
             }
+
+      - name: Upload Android E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-network-e2e-artifacts
+          path: |
+            android-logcat.txt
+            app/build/reports/androidTests/
+            ${{ runner.temp }}/local-network-fixture/
+          retention-days: 7
 
       - name: Capture fixture state
         if: always()

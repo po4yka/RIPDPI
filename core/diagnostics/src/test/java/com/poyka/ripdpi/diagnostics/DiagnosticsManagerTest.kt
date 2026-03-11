@@ -48,6 +48,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -178,6 +181,91 @@ class DiagnosticsManagerTest {
         }
 
     @Test
+    fun `persisted native events match golden contract`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            manager.persistServiceNativeEvents(
+                ServiceTelemetrySnapshot(
+                    proxyTelemetry =
+                        com.poyka.ripdpi.core.NativeRuntimeSnapshot(
+                            source = "proxy",
+                            nativeEvents =
+                                listOf(
+                                    NativeRuntimeEvent(
+                                        source = "proxy",
+                                        level = "info",
+                                        message = "accepted",
+                                        createdAt = 10L,
+                                    ),
+                                ),
+                        ),
+                    tunnelTelemetry =
+                        com.poyka.ripdpi.core.NativeRuntimeSnapshot(
+                            source = "tunnel",
+                            nativeEvents =
+                                listOf(
+                                    NativeRuntimeEvent(
+                                        source = "tunnel",
+                                        level = "warn",
+                                        message = "slow upstream",
+                                        createdAt = 20L,
+                                    ),
+                                ),
+                        ),
+                ),
+            )
+
+            GoldenContractSupport.assertJsonGolden(
+                "persisted_native_events.json",
+                json.encodeToString(history.nativeEventsState.value),
+                ::scrubDiagnosticsJson,
+            )
+        }
+
+    @Test
+    fun `passive monitor snapshot serialization matches golden contract`() {
+        val snapshot =
+            PassiveMonitorSnapshot(
+                activeMode = "VPN",
+                connectionState = "Running",
+                networkType = "wifi",
+                publicIp = "198.51.100.8",
+                txPackets = 12,
+                txBytes = 2_048,
+                rxPackets = 18,
+                rxBytes = 4_096,
+                nativeEvents =
+                    listOf(
+                        NativeSessionEvent(
+                            source = "proxy",
+                            level = "info",
+                            message = "accepted",
+                            createdAt = 321L,
+                        ),
+                    ),
+                capturedAt = 654L,
+            )
+
+        GoldenContractSupport.assertJsonGolden(
+            "passive_monitor_snapshot.json",
+            json.encodeToString(PassiveMonitorSnapshot.serializer(), snapshot),
+            ::scrubDiagnosticsJson,
+        )
+    }
+
+    @Test
     fun `createArchive includes selected session and redacts human readable files`() =
         runTest {
             val cacheDir = Files.createTempDirectory("diagnostics-archive-selected").toFile()
@@ -265,6 +353,67 @@ class DiagnosticsManagerTest {
             assertTrue(entries.getValue("manifest.json").contains("\"ssid\": \"redacted\""))
             assertFalse(entries.getValue("manifest.json").contains("198.51.100.8"))
             assertEquals("session-selected", history.exportsState.value.single().sessionId)
+        }
+
+    @Test
+    fun `archive telemetry outputs match golden contracts`() =
+        runTest {
+            val cacheDir = Files.createTempDirectory("diagnostics-archive-golden").toFile()
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-selected",
+                                profileId = "default",
+                                pathMode = "IN_PATH",
+                                summary = "Blocked DNS",
+                            ),
+                        )
+                    replaceProbeResults(
+                        "session-selected",
+                        listOf(
+                            ProbeResultEntity(
+                                id = "probe-1",
+                                sessionId = "session-selected",
+                                probeType = "dns",
+                                target = "blocked.example",
+                                outcome = "substituted",
+                                detailJson = "[]",
+                                createdAt = 30L,
+                            ),
+                        ),
+                    )
+                    upsertSnapshot(snapshot(id = "snapshot-selected", sessionId = "session-selected"))
+                    upsertContextSnapshot(context(id = "context-selected", sessionId = "session-selected"))
+                    insertTelemetrySample(sample(id = "telemetry-1", publicIp = "198.51.100.8"))
+                    insertNativeSessionEvent(event(id = "event-selected", sessionId = "session-selected", source = "dns", level = "warn"))
+                    insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "warn"))
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(cacheDir),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val archive = manager.createArchive("session-selected")
+            val entries = unzipEntries(archive.absolutePath)
+
+            GoldenContractSupport.assertTextGolden(
+                "telemetry_archive.csv",
+                entries.getValue("telemetry.csv"),
+            )
+            GoldenContractSupport.assertJsonGolden(
+                "telemetry_archive_manifest.json",
+                entries.getValue("manifest.json"),
+                ::scrubDiagnosticsJson,
+            )
         }
 
     @Test
@@ -1329,4 +1478,27 @@ private fun unzipEntries(absolutePath: String): Map<String, String> =
                 put(entry.name, zip.getInputStream(entry).bufferedReader().use { it.readText() })
             }
         }
+    }
+
+private fun scrubDiagnosticsJson(value: JsonElement): JsonElement =
+    when (value) {
+        is JsonArray -> JsonArray(value.map(::scrubDiagnosticsJson))
+        is JsonObject ->
+            JsonObject(
+                value.mapValues { (key, element) ->
+                    when (key) {
+                        "id" -> Json.parseToJsonElement("\"<id>\"")
+                        "createdAt",
+                        "capturedAt",
+                        "startedAt",
+                        "finishedAt",
+                        -> Json.parseToJsonElement("0")
+
+                        "fileName" -> Json.parseToJsonElement("\"ripdpi-diagnostics-<timestamp>.zip\"")
+                        else -> scrubDiagnosticsJson(element)
+                    }
+                },
+            )
+
+        else -> value
     }

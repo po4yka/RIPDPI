@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
 
 workspace_manifest="$repo_root/native/rust/Cargo.toml"
 byedpi_manifest="$repo_root/native/rust/third_party/byedpi/Cargo.toml"
+export RIPDPI_GOLDEN_ARTIFACT_DIR="${RIPDPI_GOLDEN_ARTIFACT_DIR:-$repo_root/native/rust/target/golden-diffs}"
 
 echo "==> rustfmt"
 cargo fmt --manifest-path "$workspace_manifest" --all --check
