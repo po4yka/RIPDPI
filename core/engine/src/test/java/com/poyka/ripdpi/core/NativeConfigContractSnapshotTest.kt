@@ -71,6 +71,12 @@ class NativeConfigContractSnapshotTest {
                   "desyncUdp": false,
                   "desyncMethod": "disorder",
                   "splitMarker": "1",
+                  "tcpChainSteps": [
+                    {
+                      "kind": "disorder",
+                      "marker": "1"
+                    }
+                  ],
                   "fakeTtl": 8,
                   "fakeSni": "www.iana.org",
                   "oobChar": 97,
@@ -83,6 +89,7 @@ class NativeConfigContractSnapshotTest {
                   "hosts": null,
                   "tcpFastOpen": false,
                   "udpFakeCount": 0,
+                  "udpChainSteps": [],
                   "dropSack": false,
                   "fakeOffsetMarker": "0"
                 }
@@ -139,6 +146,16 @@ class NativeConfigContractSnapshotTest {
                   "desyncUdp": true,
                   "desyncMethod": "fake",
                   "splitMarker": "host+2",
+                  "tcpChainSteps": [
+                    {
+                      "kind": "tlsrec",
+                      "marker": "sniext+3"
+                    },
+                    {
+                      "kind": "fake",
+                      "marker": "host+2"
+                    }
+                  ],
                   "fakeTtl": 9,
                   "fakeSni": "alt.example.org",
                   "oobChar": 90,
@@ -151,6 +168,12 @@ class NativeConfigContractSnapshotTest {
                   "hosts": "example.org",
                   "tcpFastOpen": true,
                   "udpFakeCount": 4,
+                  "udpChainSteps": [
+                    {
+                      "kind": "fake_burst",
+                      "count": 4
+                    }
+                  ],
                   "dropSack": true,
                   "fakeOffsetMarker": "endhost-1"
                 }

@@ -24,6 +24,7 @@
         },
         "service": {
             "activeMode": "VPN",
+            "chainSummary": "tcp: split(1)",
             "configSource": "ui",
             "desyncMethod": "split",
             "lastNativeErrorHeadline": "none",

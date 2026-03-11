@@ -19,6 +19,18 @@ private val appSettingsJson =
     }
 
 @Serializable
+internal data class AppSettingsTcpChainSnapshot(
+    val kind: String,
+    val marker: String,
+)
+
+@Serializable
+internal data class AppSettingsUdpChainSnapshot(
+    val kind: String,
+    val count: Int,
+)
+
+@Serializable
 internal data class AppSettingsSnapshot(
     val formatVersion: Int = AppSettingsJsonFormatVersion,
     val appTheme: String = defaultSettings.appTheme,
@@ -65,6 +77,8 @@ internal data class AppSettingsSnapshot(
     val backupPin: String = defaultSettings.backupPin,
     val appIconVariant: String = defaultSettings.appIconVariant,
     val appIconStyle: String = defaultSettings.appIconStyle,
+    val tcpChainSteps: List<AppSettingsTcpChainSnapshot> = emptyList(),
+    val udpChainSteps: List<AppSettingsUdpChainSnapshot> = emptyList(),
 )
 
 fun AppSettings.toJson(): String = appSettingsJson.encodeToString(toSnapshot())
@@ -117,6 +131,8 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         backupPin = backupPin,
         appIconVariant = appIconVariant,
         appIconStyle = appIconStyle,
+        tcpChainSteps = tcpChainStepsList.map { AppSettingsTcpChainSnapshot(kind = it.kind, marker = it.marker) },
+        udpChainSteps = udpChainStepsList.map { AppSettingsUdpChainSnapshot(kind = it.kind, count = it.count) },
     )
 
 private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
@@ -170,5 +186,25 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setBackupPin(backupPin)
         .setAppIconVariant(appIconVariant)
         .setAppIconStyle(appIconStyle)
+        .also { builder ->
+            tcpChainSteps.forEach { step ->
+                builder.addTcpChainSteps(
+                    com.poyka.ripdpi.proto.StrategyTcpStep
+                        .newBuilder()
+                        .setKind(step.kind)
+                        .setMarker(step.marker)
+                        .build(),
+                )
+            }
+            udpChainSteps.forEach { step ->
+                builder.addUdpChainSteps(
+                    com.poyka.ripdpi.proto.StrategyUdpStep
+                        .newBuilder()
+                        .setKind(step.kind)
+                        .setCount(step.count)
+                        .build(),
+                )
+            }
+        }
         .build()
 }

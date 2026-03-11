@@ -12,6 +12,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.effectiveChainSummary
+import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.legacyDesyncMethod
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.Binds
@@ -52,6 +55,7 @@ class AndroidDiagnosticsContextProvider
         val activeMode = serviceStateStore.status.value.second
         val telemetry = serviceStateStore.telemetry.value
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        val tcpSteps = settings.effectiveTcpChainSteps()
         val lastNativeError =
             listOfNotNull(
                 telemetry.proxyTelemetry.lastError?.takeIf { it.isNotBlank() },
@@ -68,7 +72,8 @@ class AndroidDiagnosticsContextProvider
                     selectedProfileName = profile?.name ?: "unknown",
                     configSource = if (settings.enableCmdSettings) "command_line" else "ui",
                     proxyEndpoint = "${settings.proxyIp.ifEmpty { "127.0.0.1" }}:${settings.proxyPort.takeIf { it > 0 } ?: 1080}",
-                    desyncMethod = settings.desyncMethod.ifEmpty { "disorder" },
+                    desyncMethod = legacyDesyncMethod(tcpSteps).ifEmpty { "none" },
+                    chainSummary = settings.effectiveChainSummary(),
                     routeGroup = telemetry.proxyTelemetry.lastRouteGroup?.toString() ?: "unknown",
                     sessionUptimeMs =
                         telemetry.serviceStartedAt

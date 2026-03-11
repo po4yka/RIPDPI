@@ -3,9 +3,15 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveSplitMarker
+import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveTlsRecordMarker
+import com.poyka.ripdpi.data.effectiveUdpChainSteps
+import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.shellSplit
@@ -55,6 +61,7 @@ class RipDpiProxyUIPreferences(
     desyncUdp: Boolean? = null,
     desyncMethod: DesyncMethod? = null,
     splitMarker: String? = null,
+    tcpChainSteps: List<TcpChainStepModel>? = null,
     fakeTtl: Int? = null,
     fakeSni: String? = null,
     oobChar: String? = null,
@@ -69,6 +76,7 @@ class RipDpiProxyUIPreferences(
     udpFakeCount: Int? = null,
     dropSack: Boolean? = null,
     fakeOffsetMarker: String? = null,
+    udpChainSteps: List<UdpChainStepModel>? = null,
 ) : RipDpiProxyPreferences {
     val ip: String = ip ?: "127.0.0.1"
     val port: Int = port ?: 1080
@@ -82,6 +90,14 @@ class RipDpiProxyUIPreferences(
     val desyncUdp: Boolean = desyncUdp ?: false
     val desyncMethod: DesyncMethod = desyncMethod ?: DesyncMethod.Disorder
     val splitMarker: String = normalizeOffsetExpression(splitMarker.orEmpty(), DefaultSplitMarker)
+    val tcpChainSteps: List<TcpChainStepModel> =
+        tcpChainSteps?.map { it.copy(marker = normalizeMarkerForStep(it.kind, it.marker)) }
+            ?: buildLegacyTcpChain(
+                desyncMethod = this.desyncMethod,
+                splitMarker = this.splitMarker,
+                tlsRecordSplit = tlsRecordSplit ?: false,
+                tlsRecordSplitMarker = tlsRecordSplitMarker,
+            )
     val fakeTtl: Int = fakeTtl ?: 8
     val fakeSni: String = fakeSni ?: "www.iana.org"
     val oobChar: Byte = (oobChar ?: "a")[0].code.toByte()
@@ -104,8 +120,10 @@ class RipDpiProxyUIPreferences(
         }
     val tcpFastOpen: Boolean = tcpFastOpen ?: false
     val udpFakeCount: Int = udpFakeCount ?: 0
+    val udpChainSteps: List<UdpChainStepModel> = udpChainSteps ?: buildLegacyUdpChain(this.udpFakeCount)
     val dropSack: Boolean = dropSack ?: false
     val fakeOffsetMarker: String = normalizeOffsetExpression(fakeOffsetMarker.orEmpty(), DefaultFakeOffsetMarker)
+    val chainSummary: String = formatChainSummary(this.tcpChainSteps, this.udpChainSteps)
 
     constructor(settings: AppSettings) : this(
         ip = settings.proxyIp.ifEmpty { null },
@@ -122,6 +140,7 @@ class RipDpiProxyUIPreferences(
                 .ifEmpty { null }
                 ?.let { DesyncMethod.fromName(it) },
         splitMarker = settings.effectiveSplitMarker(),
+        tcpChainSteps = settings.effectiveTcpChainSteps(),
         fakeTtl = settings.fakeTtl.takeIf { it > 0 },
         fakeSni = settings.fakeSni.ifEmpty { null },
         oobChar = settings.oobData.ifEmpty { null },
@@ -144,6 +163,7 @@ class RipDpiProxyUIPreferences(
         udpFakeCount = settings.udpFakeCount,
         dropSack = settings.dropSack,
         fakeOffsetMarker = settings.effectiveFakeOffsetMarker(),
+        udpChainSteps = settings.effectiveUdpChainSteps(),
     )
 
     override fun toNativeConfigJson(): String =
@@ -161,6 +181,9 @@ class RipDpiProxyUIPreferences(
                 desyncUdp = desyncUdp,
                 desyncMethod = desyncMethod.wireName,
                 splitMarker = splitMarker,
+                tcpChainSteps = tcpChainSteps.map {
+                    NativeProxyConfig.NativeTcpChainStep(kind = it.kind.wireName, marker = it.marker)
+                },
                 fakeTtl = fakeTtl,
                 fakeSni = fakeSni,
                 oobChar = oobChar.toInt() and 0xFF,
@@ -173,6 +196,9 @@ class RipDpiProxyUIPreferences(
                 hosts = hosts,
                 tcpFastOpen = tcpFastOpen,
                 udpFakeCount = udpFakeCount,
+                udpChainSteps = udpChainSteps.map {
+                    NativeProxyConfig.NativeUdpChainStep(kind = it.kind.wireName, count = it.count)
+                },
                 dropSack = dropSack,
                 fakeOffsetMarker = fakeOffsetMarker,
             ),
@@ -241,6 +267,18 @@ class RipDpiProxyUIPreferences(
 @Serializable
 private sealed interface NativeProxyConfig {
     @Serializable
+    data class NativeTcpChainStep(
+        val kind: String,
+        val marker: String,
+    )
+
+    @Serializable
+    data class NativeUdpChainStep(
+        val kind: String,
+        val count: Int,
+    )
+
+    @Serializable
     @SerialName("command_line")
     data class CommandLine(
         val args: List<String>,
@@ -261,6 +299,7 @@ private sealed interface NativeProxyConfig {
         val desyncUdp: Boolean,
         val desyncMethod: String,
         val splitMarker: String,
+        val tcpChainSteps: List<NativeTcpChainStep>,
         val fakeTtl: Int,
         val fakeSni: String,
         val oobChar: Int,
@@ -273,7 +312,43 @@ private sealed interface NativeProxyConfig {
         val hosts: String?,
         val tcpFastOpen: Boolean,
         val udpFakeCount: Int,
+        val udpChainSteps: List<NativeUdpChainStep>,
         val dropSack: Boolean,
         val fakeOffsetMarker: String,
     ) : NativeProxyConfig
+}
+
+private fun buildLegacyTcpChain(
+    desyncMethod: RipDpiProxyUIPreferences.DesyncMethod,
+    splitMarker: String,
+    tlsRecordSplit: Boolean,
+    tlsRecordSplitMarker: String?,
+): List<TcpChainStepModel> =
+    buildList {
+        if (tlsRecordSplit) {
+            add(TcpChainStepModel(TcpChainStepKind.TlsRec, normalizeOffsetExpression(tlsRecordSplitMarker.orEmpty(), DefaultTlsRecordMarker)))
+        }
+        when (desyncMethod) {
+            RipDpiProxyUIPreferences.DesyncMethod.None -> Unit
+            RipDpiProxyUIPreferences.DesyncMethod.Split -> add(TcpChainStepModel(TcpChainStepKind.Split, splitMarker))
+            RipDpiProxyUIPreferences.DesyncMethod.Disorder -> add(TcpChainStepModel(TcpChainStepKind.Disorder, splitMarker))
+            RipDpiProxyUIPreferences.DesyncMethod.Fake -> add(TcpChainStepModel(TcpChainStepKind.Fake, splitMarker))
+            RipDpiProxyUIPreferences.DesyncMethod.OOB -> add(TcpChainStepModel(TcpChainStepKind.Oob, splitMarker))
+            RipDpiProxyUIPreferences.DesyncMethod.DISOOB -> add(TcpChainStepModel(TcpChainStepKind.Disoob, splitMarker))
+        }
+    }
+
+private fun buildLegacyUdpChain(udpFakeCount: Int): List<UdpChainStepModel> =
+    if (udpFakeCount > 0) {
+        listOf(UdpChainStepModel(count = udpFakeCount))
+    } else {
+        emptyList()
+    }
+
+private fun normalizeMarkerForStep(
+    kind: TcpChainStepKind,
+    marker: String,
+): String {
+    val defaultValue = if (kind == TcpChainStepKind.TlsRec) DefaultTlsRecordMarker else DefaultSplitMarker
+    return normalizeOffsetExpression(marker, defaultValue)
 }

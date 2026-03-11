@@ -110,6 +110,56 @@ pub struct PartSpec {
     pub offset: OffsetExpr,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TcpChainStepKind {
+    Split,
+    Disorder,
+    Fake,
+    Oob,
+    Disoob,
+    TlsRec,
+}
+
+impl TcpChainStepKind {
+    pub const fn from_mode(mode: DesyncMode) -> Option<Self> {
+        match mode {
+            DesyncMode::None | DesyncMode::Split => Some(Self::Split),
+            DesyncMode::Disorder => Some(Self::Disorder),
+            DesyncMode::Oob => Some(Self::Oob),
+            DesyncMode::Disoob => Some(Self::Disoob),
+            DesyncMode::Fake => Some(Self::Fake),
+        }
+    }
+
+    pub const fn as_mode(self) -> Option<DesyncMode> {
+        match self {
+            Self::Split => Some(DesyncMode::Split),
+            Self::Disorder => Some(DesyncMode::Disorder),
+            Self::Fake => Some(DesyncMode::Fake),
+            Self::Oob => Some(DesyncMode::Oob),
+            Self::Disoob => Some(DesyncMode::Disoob),
+            Self::TlsRec => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TcpChainStep {
+    pub kind: TcpChainStepKind,
+    pub offset: OffsetExpr,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UdpChainStepKind {
+    FakeBurst,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UdpChainStep {
+    pub kind: UdpChainStepKind,
+    pub count: i32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cidr {
     pub addr: IpAddr,
@@ -144,6 +194,8 @@ pub struct DesyncGroup {
     pub drop_sack: bool,
     pub oob_data: Option<u8>,
     pub parts: Vec<PartSpec>,
+    pub tcp_chain: Vec<TcpChainStep>,
+    pub udp_chain: Vec<UdpChainStep>,
     pub mod_http: u32,
     pub tls_records: Vec<OffsetExpr>,
     pub tlsminor: Option<u8>,
@@ -176,6 +228,8 @@ impl DesyncGroup {
             drop_sack: false,
             oob_data: None,
             parts: Vec::new(),
+            tcp_chain: Vec::new(),
+            udp_chain: Vec::new(),
             mod_http: 0,
             tls_records: Vec::new(),
             tlsminor: None,
@@ -192,7 +246,9 @@ impl DesyncGroup {
     }
 
     pub fn is_actionable(&self) -> bool {
-        !self.parts.is_empty()
+        !self.tcp_chain.is_empty()
+            || !self.udp_chain.is_empty()
+            || !self.parts.is_empty()
             || !self.tls_records.is_empty()
             || self.mod_http != 0
             || self.tlsminor.is_some()
@@ -205,6 +261,59 @@ impl DesyncGroup {
             || !self.filters.ipset.is_empty()
             || self.port_filter.is_some()
             || self.ext_socks.is_some()
+    }
+
+    pub fn effective_tcp_chain(&self) -> Vec<TcpChainStep> {
+        if !self.tcp_chain.is_empty() {
+            return self.tcp_chain.clone();
+        }
+
+        let mut chain = Vec::with_capacity(self.tls_records.len() + self.parts.len());
+        for offset in &self.tls_records {
+            chain.push(TcpChainStep { kind: TcpChainStepKind::TlsRec, offset: *offset });
+        }
+        for part in &self.parts {
+            if let Some(kind) = TcpChainStepKind::from_mode(part.mode) {
+                chain.push(TcpChainStep { kind, offset: part.offset });
+            }
+        }
+        chain
+    }
+
+    pub fn effective_udp_chain(&self) -> Vec<UdpChainStep> {
+        if !self.udp_chain.is_empty() {
+            return self.udp_chain.clone();
+        }
+        if self.udp_fake_count > 0 {
+            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: self.udp_fake_count }]
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn sync_legacy_views_from_chains(&mut self) {
+        if !self.tcp_chain.is_empty() {
+            self.parts.clear();
+            self.tls_records.clear();
+            for step in &self.tcp_chain {
+                match step.kind {
+                    TcpChainStepKind::TlsRec => self.tls_records.push(step.offset),
+                    _ => {
+                        if let Some(mode) = step.kind.as_mode() {
+                            self.parts.push(PartSpec { mode, offset: step.offset });
+                        }
+                    }
+                }
+            }
+        }
+
+        if !self.udp_chain.is_empty() {
+            self.udp_fake_count = self
+                .udp_chain
+                .iter()
+                .filter_map(|step| matches!(step.kind, UdpChainStepKind::FakeBurst).then_some(step.count))
+                .sum();
+        }
     }
 }
 
@@ -874,6 +983,9 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     _ => DesyncMode::Fake,
                 };
                 group!().parts.push(PartSpec { mode, offset });
+                if let Some(kind) = TcpChainStepKind::from_mode(mode) {
+                    group!().tcp_chain.push(TcpChainStep { kind, offset });
+                }
             }
             "-t" | "--ttl" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -938,6 +1050,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
                 group!().tls_records.push(expr);
+                group!().tcp_chain.push(TcpChainStep { kind: TcpChainStepKind::TlsRec, offset: expr });
             }
             "-m" | "--tlsminor" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -949,9 +1062,13 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-a" | "--udp-fake" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().udp_fake_count = value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-                if group!().udp_fake_count < 0 {
+                let count = value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                if count < 0 {
                     return Err(ConfigError::invalid(arg, Some(value)));
+                }
+                group!().udp_fake_count += count;
+                if count > 0 {
+                    group!().udp_chain.push(UdpChainStep { kind: UdpChainStepKind::FakeBurst, count });
                 }
             }
             "-V" | "--pf" => {

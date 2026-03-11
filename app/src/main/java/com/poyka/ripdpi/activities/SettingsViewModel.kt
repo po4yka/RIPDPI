@@ -9,9 +9,19 @@ import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveSplitMarker
+import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveTlsRecordMarker
+import com.poyka.ripdpi.data.effectiveUdpChainSteps
+import com.poyka.ripdpi.data.formatChainSummary
+import com.poyka.ripdpi.data.formatStrategyChainDsl
+import com.poyka.ripdpi.data.legacyDesyncMethod
+import com.poyka.ripdpi.data.primaryTcpChainStep
+import com.poyka.ripdpi.data.tlsRecTcpChainStep
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -51,6 +61,10 @@ data class SettingsUiState(
     val defaultTtl: Int = 0,
     val customTtl: Boolean = false,
     val desyncMethod: String = "disorder",
+    val tcpChainSteps: List<TcpChainStepModel> = emptyList(),
+    val udpChainSteps: List<UdpChainStepModel> = emptyList(),
+    val chainSummary: String = "tcp: none",
+    val chainDsl: String = "",
     val splitMarker: String = DefaultSplitMarker,
     val fakeTtl: Int = 8,
     val fakeSni: String = "www.iana.org",
@@ -92,19 +106,23 @@ data class SettingsUiState(
 @VisibleForTesting
 internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
-    val normalizedDesyncMethod = desyncMethod.ifEmpty { "disorder" }
+    val tcpChainSteps = effectiveTcpChainSteps()
+    val udpChainSteps = effectiveUdpChainSteps()
+    val primaryTcpStep = primaryTcpChainStep(tcpChainSteps)
+    val tlsRecStep = tlsRecTcpChainStep(tcpChainSteps)
+    val normalizedDesyncMethod = legacyDesyncMethod(tcpChainSteps).ifEmpty { "none" }
     val normalizedHostsMode = hostsMode.ifEmpty { "disable" }
     val isVpn = normalizedMode == "vpn"
     val useCmdSettings = enableCmdSettings
-    val desyncEnabled = normalizedDesyncMethod != "none"
-    val isFake = normalizedDesyncMethod == "fake"
-    val isOob = normalizedDesyncMethod == "oob" || normalizedDesyncMethod == "disoob"
+    val desyncEnabled = primaryTcpStep != null
+    val isFake = tcpChainSteps.any { it.kind == TcpChainStepKind.Fake }
+    val isOob = tcpChainSteps.any { it.kind == TcpChainStepKind.Oob || it.kind == TcpChainStepKind.Disoob }
 
     val desyncAllUnchecked = !desyncHttp && !desyncHttps && !desyncUdp
     val desyncHttpEnabled = desyncAllUnchecked || desyncHttp
     val desyncHttpsEnabled = desyncAllUnchecked || desyncHttps
     val desyncUdpEnabled = desyncAllUnchecked || desyncUdp
-    val tlsRecEnabled = desyncHttpsEnabled && tlsrecEnabled
+    val tlsRecEnabled = desyncHttpsEnabled && tlsRecStep != null
 
     return SettingsUiState(
         settings = this,
@@ -126,7 +144,11 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
         defaultTtl = defaultTtl,
         customTtl = customTtl,
         desyncMethod = normalizedDesyncMethod,
-        splitMarker = effectiveSplitMarker(),
+        tcpChainSteps = tcpChainSteps,
+        udpChainSteps = udpChainSteps,
+        chainSummary = formatChainSummary(tcpChainSteps, udpChainSteps),
+        chainDsl = formatStrategyChainDsl(tcpChainSteps, udpChainSteps),
+        splitMarker = primaryTcpStep?.marker ?: effectiveSplitMarker(),
         fakeTtl = fakeTtl.takeIf { it > 0 } ?: 8,
         fakeSni = fakeSni.ifEmpty { "www.iana.org" },
         fakeOffsetMarker = effectiveFakeOffsetMarker(),
@@ -138,9 +160,9 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
         hostsMode = normalizedHostsMode,
         hostsBlacklist = hostsBlacklist,
         hostsWhitelist = hostsWhitelist,
-        tlsrecEnabled = tlsrecEnabled,
-        tlsrecMarker = effectiveTlsRecordMarker(),
-        udpFakeCount = udpFakeCount,
+        tlsrecEnabled = tlsRecStep != null,
+        tlsrecMarker = tlsRecStep?.marker ?: effectiveTlsRecordMarker(),
+        udpFakeCount = udpChainSteps.sumOf { it.count.coerceAtLeast(0) }.takeIf { it > 0 } ?: udpFakeCount,
         hostMixedCase = hostMixedCase,
         domainMixedCase = domainMixedCase,
         hostRemoveSpaces = hostRemoveSpaces,

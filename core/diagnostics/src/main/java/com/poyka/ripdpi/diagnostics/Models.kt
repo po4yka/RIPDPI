@@ -177,6 +177,7 @@ data class ServiceContextModel(
     val configSource: String,
     val proxyEndpoint: String,
     val desyncMethod: String,
+    val chainSummary: String,
     val routeGroup: String,
     val sessionUptimeMs: Long?,
     val lastNativeErrorHeadline: String,
