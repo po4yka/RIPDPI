@@ -1,3 +1,22 @@
+use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit as BlockKeyInit};
+use aes::Aes128;
+use aes_gcm::aead::AeadInPlace;
+use aes_gcm::{Aes128Gcm, Nonce};
+use ciadpi_packets::change_tls_sni_seeded_like_c;
+use hkdf::Hkdf;
+use sha2::Sha256;
+
+const QUIC_V1_VERSION: u32 = 0x0000_0001;
+const QUIC_V2_VERSION: u32 = 0x6b33_43cf;
+const QUIC_V1_SALT: [u8; 20] = [
+    0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb,
+    0x7f, 0x0a,
+];
+const QUIC_V2_SALT: [u8; 20] = [
+    0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb, 0xf9, 0xbd,
+    0x2e, 0xd9,
+];
+
 fn decode_hex(input: &str) -> Vec<u8> {
     let filtered: String = input.chars().filter(|ch| !ch.is_ascii_whitespace()).collect();
     assert_eq!(filtered.len() % 2, 0, "hex payload must have even length");
@@ -26,6 +45,10 @@ fn write_u24(data: &mut [u8], offset: usize, value: u32) {
     data[offset] = ((value >> 16) & 0xff) as u8;
     data[offset + 1] = ((value >> 8) & 0xff) as u8;
     data[offset + 2] = (value & 0xff) as u8;
+}
+
+fn write_u32(data: &mut [u8], offset: usize, value: u32) {
+    data[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
 }
 
 fn find_ext_block(data: &[u8]) -> usize {
@@ -110,4 +133,167 @@ pub fn tls_client_hello_ech() -> Vec<u8> {
     write_u24(&mut data, 6, handshake_len);
 
     data
+}
+
+fn encode_quic_varint(value: u64) -> Vec<u8> {
+    match value {
+        0..=63 => vec![value as u8],
+        64..=16_383 => ((0x4000 | value as u16).to_be_bytes()).to_vec(),
+        16_384..=1_073_741_823 => ((0x8000_0000 | value as u32).to_be_bytes()).to_vec(),
+        _ => {
+            let mut bytes = value.to_be_bytes();
+            bytes[0] |= 0xc0;
+            bytes.to_vec()
+        }
+    }
+}
+
+fn quic_hkdf_label(label: &str, out_len: usize) -> Vec<u8> {
+    let mut info = Vec::with_capacity(2 + 1 + label.len() + 1);
+    info.extend_from_slice(&(out_len as u16).to_be_bytes());
+    info.push(label.len() as u8);
+    info.extend_from_slice(label.as_bytes());
+    info.push(0);
+    info
+}
+
+fn quic_expand_label(secret: &[u8], label: &str, out: &mut [u8]) {
+    let hkdf = Hkdf::<Sha256>::from_prk(secret).expect("quic seed prk");
+    hkdf.expand(&quic_hkdf_label(label, out.len()), out).expect("quic seed expand");
+}
+
+fn quic_client_initial_secret(version: u32, dcid: &[u8]) -> [u8; 32] {
+    let salt = match version {
+        QUIC_V1_VERSION => &QUIC_V1_SALT,
+        QUIC_V2_VERSION => &QUIC_V2_SALT,
+        _ => panic!("unsupported quic version: {version:#x}"),
+    };
+    let hkdf = Hkdf::<Sha256>::new(Some(salt), dcid);
+    let mut secret = [0u8; 32];
+    hkdf.expand(&quic_hkdf_label("tls13 client in", secret.len()), &mut secret)
+        .expect("quic seed initial secret");
+    secret
+}
+
+fn append_crypto_frame(out: &mut Vec<u8>, offset: u64, data: &[u8]) {
+    out.push(0x06);
+    out.extend_from_slice(&encode_quic_varint(offset));
+    out.extend_from_slice(&encode_quic_varint(data.len() as u64));
+    out.extend_from_slice(data);
+}
+
+fn tls_client_hello_for_host(host: &str) -> Vec<u8> {
+    let data = tls_client_hello();
+    let mutation = change_tls_sni_seeded_like_c(&data, host.as_bytes(), data.len() + 64, 7);
+    assert_eq!(mutation.rc, 0, "seed TLS SNI mutation failed");
+    mutation.bytes
+}
+
+fn tls_client_hello_without_sni() -> Vec<u8> {
+    let mut data = tls_client_hello();
+    let ext_block = find_ext_block(&data);
+    let sni_offs = find_extension(&data, 0x0000);
+    let sni_size = 4 + read_u16(&data, sni_offs + 2) as usize;
+    let old_ext_len = read_u16(&data, ext_block) as usize;
+    let old_record_len = read_u16(&data, 3) as usize;
+    let old_handshake_len = ((data[6] as usize) << 16) | ((data[7] as usize) << 8) | data[8] as usize;
+
+    data.copy_within(sni_offs + sni_size.., sni_offs);
+    data.truncate(data.len() - sni_size);
+
+    write_u16(&mut data, ext_block, (old_ext_len - sni_size).try_into().expect("ext len fits"));
+    write_u16(&mut data, 3, (old_record_len - sni_size).try_into().expect("record len fits"));
+    write_u24(&mut data, 6, (old_handshake_len - sni_size) as u32);
+    data
+}
+
+fn quic_initial_from_tls(version: u32, client_hello: &[u8], gap_after_split: usize) -> Vec<u8> {
+    let dcid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
+    let scid = [0x11, 0x22, 0x33, 0x44];
+    let crypto = client_hello[5..].to_vec();
+    let split = crypto.len() / 2;
+    let mut plaintext = Vec::new();
+    append_crypto_frame(&mut plaintext, 0, &crypto[..split]);
+    append_crypto_frame(&mut plaintext, (split + gap_after_split) as u64, &crypto[split..]);
+
+    loop {
+        let payload_len = 4 + plaintext.len() + 16;
+        let header_len = 1 + 4 + 1 + dcid.len() + 1 + scid.len() + 1 + encode_quic_varint(payload_len as u64).len() + 4;
+        let total_len = header_len + payload_len;
+        if total_len >= 1200 {
+            break;
+        }
+        plaintext.extend(std::iter::repeat_n(0u8, 1200 - total_len));
+    }
+
+    let payload_len = 4 + plaintext.len() + 16;
+    let payload_len_varint = encode_quic_varint(payload_len as u64);
+    let first_byte = if version == QUIC_V2_VERSION { 0xd3 } else { 0xc3 };
+
+    let mut header = Vec::new();
+    header.push(first_byte);
+    header.extend_from_slice(&version.to_be_bytes());
+    header.push(dcid.len() as u8);
+    header.extend_from_slice(&dcid);
+    header.push(scid.len() as u8);
+    header.extend_from_slice(&scid);
+    header.push(0);
+    header.extend_from_slice(&payload_len_varint);
+
+    let packet_number = [0u8; 4];
+    let mut aad = header.clone();
+    aad.extend_from_slice(&packet_number);
+
+    let secret = quic_client_initial_secret(version, &dcid);
+    let (key_label, iv_label, hp_label) = if version == QUIC_V2_VERSION {
+        ("tls13 quicv2 key", "tls13 quicv2 iv", "tls13 quicv2 hp")
+    } else {
+        ("tls13 quic key", "tls13 quic iv", "tls13 quic hp")
+    };
+    let mut key = [0u8; 16];
+    let mut iv = [0u8; 12];
+    let mut hp = [0u8; 16];
+    quic_expand_label(&secret, key_label, &mut key);
+    quic_expand_label(&secret, iv_label, &mut iv);
+    quic_expand_label(&secret, hp_label, &mut hp);
+
+    let cipher = Aes128Gcm::new_from_slice(&key).expect("quic seed aes-gcm");
+    let mut ciphertext = plaintext;
+    let tag = cipher
+        .encrypt_in_place_detached(Nonce::from_slice(&iv), &aad, &mut ciphertext)
+        .expect("quic seed encrypt");
+
+    let hp_cipher = Aes128::new_from_slice(&hp).expect("quic seed hp");
+    let mut sample = GenericArray::clone_from_slice(&ciphertext[..16]);
+    hp_cipher.encrypt_block(&mut sample);
+
+    let mut packet = header;
+    packet.extend((0..4).map(|idx| packet_number[idx] ^ sample[1 + idx]));
+    packet.extend_from_slice(&ciphertext);
+    packet.extend_from_slice(&tag);
+    packet[0] ^= sample[0] & 0x0f;
+    packet
+}
+
+pub fn quic_initial_with_host(version: u32, host: &str) -> Vec<u8> {
+    let client_hello = tls_client_hello_for_host(host);
+    quic_initial_from_tls(version, &client_hello, 0)
+}
+
+pub fn quic_initial_v1() -> Vec<u8> {
+    quic_initial_with_host(QUIC_V1_VERSION, "docs.example.test")
+}
+
+pub fn quic_initial_v2() -> Vec<u8> {
+    quic_initial_with_host(QUIC_V2_VERSION, "media.example.test")
+}
+
+pub fn quic_initial_with_crypto_gap(version: u32, host: &str) -> Vec<u8> {
+    let client_hello = tls_client_hello_for_host(host);
+    quic_initial_from_tls(version, &client_hello, 5)
+}
+
+pub fn quic_initial_missing_sni(version: u32) -> Vec<u8> {
+    let client_hello = tls_client_hello_without_sni();
+    quic_initial_from_tls(version, &client_hello, 0)
 }

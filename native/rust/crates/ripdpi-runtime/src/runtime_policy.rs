@@ -7,7 +7,10 @@ use ciadpi_config::{
     dump_cache_entries, load_cache_entries_from_path, prefix_match_bytes, CacheEntry, DesyncGroup, RuntimeConfig,
     AUTO_NOPOST, AUTO_SORT, DETECT_RECONN,
 };
-use ciadpi_packets::{is_http, is_tls_client_hello, parse_http, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP};
+use ciadpi_packets::{
+    is_http, is_tls_client_hello, parse_http, parse_quic_initial, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP,
+    IS_UDP,
+};
 
 #[derive(Debug, Clone)]
 pub struct ConnectionRoute {
@@ -32,9 +35,16 @@ struct CacheRecord {
 pub struct RouteAdvance<'a> {
     pub dest: SocketAddr,
     pub payload: Option<&'a [u8]>,
+    pub transport: TransportProtocol,
     pub trigger: u32,
     pub can_reconnect: bool,
     pub host: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransportProtocol {
+    Tcp,
+    Udp,
 }
 
 #[derive(Debug, Default)]
@@ -169,6 +179,7 @@ impl RuntimeCache {
             route,
             request.dest,
             request.payload,
+            request.transport,
             request.trigger,
             request.can_reconnect,
         );
@@ -237,10 +248,11 @@ pub fn select_initial_group(
     dest: SocketAddr,
     payload: Option<&[u8]>,
     allow_unknown_payload: bool,
+    transport: TransportProtocol,
 ) -> Option<ConnectionRoute> {
     if let Some(route) = cache.lookup_and_prune(config, dest) {
         let group = config.groups.get(route.group_index)?;
-        if group_matches(group, dest, payload, allow_unknown_payload) {
+        if group_matches(group, dest, payload, allow_unknown_payload, transport) {
             return Some(route);
         }
     }
@@ -251,7 +263,7 @@ pub fn select_initial_group(
         if cache.detect_for(config, idx) != 0 {
             continue;
         }
-        if group_matches(group, dest, payload, allow_unknown_payload) {
+        if group_matches(group, dest, payload, allow_unknown_payload, transport) {
             return Some(ConnectionRoute { group_index: idx, attempted_mask });
         }
         attempted_mask |= group.bit;
@@ -265,6 +277,7 @@ pub fn select_next_group(
     route: &ConnectionRoute,
     dest: SocketAddr,
     payload: Option<&[u8]>,
+    transport: TransportProtocol,
     trigger: u32,
     can_reconnect: bool,
 ) -> Option<ConnectionRoute> {
@@ -283,7 +296,7 @@ pub fn select_next_group(
             attempted_mask |= group.bit;
             continue;
         }
-        if group_matches(group, dest, payload, false) {
+        if group_matches(group, dest, payload, false, transport) {
             return Some(ConnectionRoute { group_index: idx, attempted_mask });
         }
         attempted_mask |= group.bit;
@@ -295,18 +308,31 @@ pub fn extract_host(payload: &[u8]) -> Option<String> {
     parse_http(payload)
         .map(|host| String::from_utf8_lossy(host.host).into_owned())
         .or_else(|| parse_tls(payload).map(|host| String::from_utf8_lossy(host).into_owned()))
+        .or_else(|| parse_quic_initial(payload).map(|info| String::from_utf8_lossy(info.host()).into_owned()))
 }
 
 pub fn group_requires_payload(group: &DesyncGroup) -> bool {
     !group.filters.hosts.is_empty() || group.proto != 0
 }
 
-pub fn route_matches_payload(config: &RuntimeConfig, group_index: usize, dest: SocketAddr, payload: &[u8]) -> bool {
-    config.groups.get(group_index).is_some_and(|group| group_matches(group, dest, Some(payload), false))
+pub fn route_matches_payload(
+    config: &RuntimeConfig,
+    group_index: usize,
+    dest: SocketAddr,
+    payload: &[u8],
+    transport: TransportProtocol,
+) -> bool {
+    config.groups.get(group_index).is_some_and(|group| group_matches(group, dest, Some(payload), false, transport))
 }
 
-fn group_matches(group: &DesyncGroup, dest: SocketAddr, payload: Option<&[u8]>, allow_unknown_payload: bool) -> bool {
-    if !matches_l34(group, dest) {
+fn group_matches(
+    group: &DesyncGroup,
+    dest: SocketAddr,
+    payload: Option<&[u8]>,
+    allow_unknown_payload: bool,
+    transport: TransportProtocol,
+) -> bool {
+    if !matches_l34(group, dest, transport) {
         return false;
     }
     match payload {
@@ -320,12 +346,12 @@ fn payload_proto_known(group: &DesyncGroup) -> bool {
     group.proto == 0 || (group.proto & (IS_HTTP | IS_HTTPS)) == 0
 }
 
-fn matches_l34(group: &DesyncGroup, dest: SocketAddr) -> bool {
-    if (group.proto & IS_UDP) != 0 {
+fn matches_l34(group: &DesyncGroup, dest: SocketAddr, transport: TransportProtocol) -> bool {
+    if (group.proto & IS_UDP) != 0 && transport != TransportProtocol::Udp {
         return false;
     }
-    if (group.proto & IS_TCP) != 0 {
-        // Every TCP tunnel in the Rust runtime is stream-based.
+    if (group.proto & IS_TCP) != 0 && transport != TransportProtocol::Tcp {
+        return false;
     }
     if (group.proto & IS_IPV4) != 0 && !dest.is_ipv4() {
         return false;
@@ -396,6 +422,11 @@ fn now_unix() -> i64 {
 mod tests {
     use super::*;
 
+    #[allow(dead_code)]
+    mod rust_packet_seeds {
+        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../third_party/byedpi/tests/rust_packet_seeds.rs"));
+    }
+
     fn sample_dest(port: u16) -> SocketAddr {
         SocketAddr::from(([203, 0, 113, 10], port))
     }
@@ -432,7 +463,8 @@ mod tests {
         let config = config_with_groups(vec![first, second]);
         let mut cache = RuntimeCache::load(&config);
 
-        let route = select_initial_group(&config, &mut cache, sample_dest(80), None, true).expect("fallback route");
+        let route = select_initial_group(&config, &mut cache, sample_dest(80), None, true, TransportProtocol::Tcp)
+            .expect("fallback route");
 
         assert_eq!(route.group_index, 1);
         assert_eq!(route.attempted_mask, 0);
@@ -447,8 +479,9 @@ mod tests {
         let cache = RuntimeCache::load(&config);
         let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
 
-        let next = select_next_group(&config, &cache, &route, sample_dest(443), None, DETECT_RECONN, true)
-            .expect("next route");
+        let next =
+            select_next_group(&config, &cache, &route, sample_dest(443), None, TransportProtocol::Tcp, DETECT_RECONN, true)
+                .expect("next route");
 
         assert_eq!(next.group_index, 1);
         assert_eq!(next.attempted_mask, config.groups[0].bit);
@@ -458,7 +491,8 @@ mod tests {
     fn matches_l34_rejects_udp_proto() {
         let mut group = DesyncGroup::new(0);
         group.proto = IS_UDP;
-        assert!(!matches_l34(&group, sample_dest(443)));
+        assert!(!matches_l34(&group, sample_dest(443), TransportProtocol::Tcp));
+        assert!(matches_l34(&group, sample_dest(443), TransportProtocol::Udp));
     }
 
     #[test]
@@ -466,13 +500,13 @@ mod tests {
         let mut group = DesyncGroup::new(0);
         group.port_filter = Some((80, 443));
         // At start boundary
-        assert!(matches_l34(&group, sample_dest(80)));
+        assert!(matches_l34(&group, sample_dest(80), TransportProtocol::Tcp));
         // At end boundary
-        assert!(matches_l34(&group, sample_dest(443)));
+        assert!(matches_l34(&group, sample_dest(443), TransportProtocol::Tcp));
         // Below start
-        assert!(!matches_l34(&group, sample_dest(79)));
+        assert!(!matches_l34(&group, sample_dest(79), TransportProtocol::Tcp));
         // Above end
-        assert!(!matches_l34(&group, sample_dest(444)));
+        assert!(!matches_l34(&group, sample_dest(444), TransportProtocol::Tcp));
     }
 
     #[test]
@@ -480,10 +514,10 @@ mod tests {
         let mut group = DesyncGroup::new(0);
         group.proto = IS_IPV4;
         // IPv4 destination matches
-        assert!(matches_l34(&group, sample_dest(443)));
+        assert!(matches_l34(&group, sample_dest(443), TransportProtocol::Tcp));
         // IPv6 destination does not
         let ipv6_dest = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], 443));
-        assert!(!matches_l34(&group, ipv6_dest));
+        assert!(!matches_l34(&group, ipv6_dest, TransportProtocol::Tcp));
     }
 
     #[test]
@@ -540,10 +574,10 @@ mod tests {
     fn group_matches_no_payload_allow_unknown_false() {
         let mut group = DesyncGroup::new(0);
         // Empty hosts + known proto -> true
-        assert!(group_matches(&group, sample_dest(80), None, false));
+        assert!(group_matches(&group, sample_dest(80), None, false, TransportProtocol::Tcp));
         // Non-empty hosts -> false (can't verify without payload)
         group.filters.hosts.push("example.com".to_string());
-        assert!(!group_matches(&group, sample_dest(80), None, false));
+        assert!(!group_matches(&group, sample_dest(80), None, false, TransportProtocol::Tcp));
     }
 
     #[test]
@@ -566,7 +600,25 @@ mod tests {
         let matching = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
         let non_matching = b"GET / HTTP/1.1\r\nHost: other.example\r\n\r\n";
 
-        assert!(route_matches_payload(&config, 0, sample_dest(80), matching));
-        assert!(!route_matches_payload(&config, 0, sample_dest(80), non_matching,));
+        assert!(route_matches_payload(&config, 0, sample_dest(80), matching, TransportProtocol::Tcp));
+        assert!(!route_matches_payload(&config, 0, sample_dest(80), non_matching, TransportProtocol::Tcp));
+    }
+
+    #[test]
+    fn extract_host_reads_quic_initial_sni() {
+        let packet = rust_packet_seeds::quic_initial_v1();
+
+        assert_eq!(extract_host(&packet).as_deref(), Some("docs.example.test"));
+    }
+
+    #[test]
+    fn udp_host_filters_match_quic_initial_payloads() {
+        let mut group = DesyncGroup::new(0);
+        group.proto = IS_UDP;
+        group.filters.hosts.push("docs.example.test".to_string());
+        let config = config_with_groups(vec![group]);
+        let packet = rust_packet_seeds::quic_initial_v1();
+
+        assert!(route_matches_payload(&config, 0, sample_dest(443), &packet, TransportProtocol::Udp));
     }
 }

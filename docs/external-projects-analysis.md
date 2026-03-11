@@ -23,7 +23,7 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Repository | [bol-van/zapret2](https://github.com/bol-van/zapret2) |
 | Description | DPI circumvention tool for Linux/OpenWRT/FreeBSD with nfqueue/tproxy |
 | Language | C, Lua |
-| Last analyzed | 2026-03-11 (commit: HEAD at time of analysis, status refreshed after RIPDPI marker/chain port) |
+| Last analyzed | 2026-03-11 (commit: HEAD at time of analysis, status refreshed after RIPDPI marker/chain/QUIC port) |
 
 **Ideas extracted:**
 
@@ -33,11 +33,12 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | 2 | Ordered multi-step strategy chains | IMPLEMENTED | RIPDPI now stores and executes explicit TCP/UDP chains instead of a single `desyncMethod`. Supported TCP steps are `split`, `disorder`, `fake`, `oob`, `disoob`, and `tlsrec`; supported UDP step is `fake_burst(count)`. `tlsrec` is enforced as a prelude-only step in v1. |
 | 3 | Chain persistence, compatibility projection, and summary surface | IMPLEMENTED | The zapret2-style composition model is now carried through AppSettings, JNI JSON, diagnostics, and Android UI. RIPDPI persists structured chains, projects legacy `desync_method`/marker fields for compatibility, and renders deterministic summaries like `tcp: tlsrec(extlen) -> fake(host) -> split(midsld)`. |
 | 4 | Hybrid raw authoring for strategy composition | IMPLEMENTED | RIPDPI does not embed Lua, but it now exposes a structured chain DSL with `[tcp]` and `[udp]` sections that maps into typed storage. This gives a zapret2-like authoring surface without adding a runtime scripting engine. |
-| 5 | Binary blob support for custom fake packets (TLS/HTTP/QUIC templates) | PARTIAL | RIPDPI already supports custom fake payload blobs and fake modifiers. zapret2 still goes further with more curated, protocol-specific template sets, especially around realistic TLS/QUIC fake payloads. |
-| 6 | Range-based filtering (packet count, data size, sequence offset) | PARTIAL | RIPDPI now has richer chain composition, but its activation filters are still closer to rounds/protocol/port routing than zapret2's deeper per-flow/sequence/data-volume controls. |
-| 7 | Lua-based runtime scripting engine | NOT IMPLEMENTED | RIPDPI intentionally chose typed Rust/Kotlin structures over a Lua runtime. This keeps the Android/JNI surface smaller and safer, but it means users cannot define arbitrary runtime packet logic the way zapret2 can. |
-| 8 | Multi-instance processing pipeline architecture | NOT IMPLEMENTED | RIPDPI still uses its current local proxy/VPN routing model rather than independent parallel desync instances in the zapret2 sense. |
-| 9 | Automatic segmentation without manual MSS configuration | NOT IMPLEMENTED | Marker-aware chains improve split targeting, but RIPDPI still relies on explicit split markers rather than inferred MSS/MTU-aware auto-segmentation. |
+| 5 | QUIC Initial parsing/decryption for hostname-aware UDP handling | IMPLEMENTED | RIPDPI now decrypts QUIC v1/v2 Initial packets, defragments CRYPTO frames, extracts the embedded ClientHello, and uses the recovered SNI for UDP route selection, host filters, cache records, and telemetry. This is intentionally scoped to routing/host-awareness in v1; it does not add a separate user-visible QUIC mode or QUIC-specific chain steps yet. |
+| 6 | Binary blob support for custom fake packets (TLS/HTTP/QUIC templates) | PARTIAL | RIPDPI already supports custom fake payload blobs and fake modifiers. zapret2 still goes further with more curated, protocol-specific template sets, especially around realistic TLS/QUIC fake payloads. |
+| 7 | Range-based filtering (packet count, data size, sequence offset) | PARTIAL | RIPDPI now has richer chain composition and QUIC-aware UDP routing, but its activation filters are still closer to rounds/protocol/port/host routing than zapret2's deeper per-flow/sequence/data-volume controls. |
+| 8 | Lua-based runtime scripting engine | NOT IMPLEMENTED | RIPDPI intentionally chose typed Rust/Kotlin structures over a Lua runtime. This keeps the Android/JNI surface smaller and safer, but it means users cannot define arbitrary runtime packet logic the way zapret2 can. |
+| 9 | Multi-instance processing pipeline architecture | NOT IMPLEMENTED | RIPDPI still uses its current local proxy/VPN routing model rather than independent parallel desync instances in the zapret2 sense. |
+| 10 | Automatic segmentation without manual MSS configuration | NOT IMPLEMENTED | Marker-aware chains improve split targeting, but RIPDPI still relies on explicit split markers rather than inferred MSS/MTU-aware auto-segmentation. |
 
 ---
 
@@ -118,6 +119,8 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | TCP cutoff detection | -- | -- | Yes | -- | IMPLEMENTED |
 | SNI whitelist discovery | -- | -- | Yes | -- | IMPLEMENTED |
 | Raw chain DSL authoring | Yes | -- | -- | -- | IMPLEMENTED |
+| QUIC Initial parsing/decryption | Yes | -- | -- | -- | IMPLEMENTED |
+| QUIC-aware UDP host routing | Yes | -- | -- | -- | IMPLEMENTED |
 | Lua/scripting for strategies | Yes | -- | -- | -- | NOT IMPLEMENTED |
 | DNS encryption (DoH/DoT) | -- | Yes | -- | -- | NOT IMPLEMENTED |
 | Per-app network rules | -- | Yes | -- | -- | NOT IMPLEMENTED |
@@ -135,7 +138,7 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 2. **Diagnostic-first mode** -- run detection suite before connecting, pre-select optimal desync group; builds on existing `ripdpi-monitor` infrastructure
 3. **ECH support** -- protocol-level SNI hiding eliminates need for desync when server supports it; future-proof
 4. **Granular error classification** -- distinguish RST/abort/MITM/SNI-block for better auto-strategy selection; incremental improvement to existing `auto_level`
-5. **Auto segmentation** -- now that semantic markers and multi-step chains are implemented, the next zapret2-inspired improvement is automatically choosing split locations/sizes instead of requiring explicit markers
+5. **Auto segmentation** -- now that semantic markers, multi-step chains, and QUIC-aware UDP routing are implemented, the next zapret2-inspired improvement is automatically choosing split locations/sizes instead of requiring explicit markers
 
 ### Exploratory Ideas (interesting but larger scope)
 

@@ -9,7 +9,7 @@ use crate::platform;
 use crate::process;
 use crate::runtime_policy::{
     extract_host, group_requires_payload, route_matches_payload, select_initial_group, select_next_group,
-    ConnectionRoute, RouteAdvance, RuntimeCache,
+    ConnectionRoute, RouteAdvance, RuntimeCache, TransportProtocol,
 };
 use crate::{current_runtime_telemetry, RuntimeTelemetrySink};
 use ciadpi_config::{
@@ -359,9 +359,8 @@ fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> i
     let running = Arc::new(AtomicBool::new(true));
     let worker_socket = relay.try_clone()?;
     let worker_running = running.clone();
-    let config = state.config.clone();
-    let group = state.config.groups[state.config.actionable_group()].clone();
-    let worker = thread::spawn(move || udp_associate_loop(worker_socket, config, group, worker_running));
+    let worker_state = state.clone();
+    let worker = thread::spawn(move || udp_associate_loop(worker_socket, worker_state, worker_running));
 
     client.set_read_timeout(Some(Duration::from_millis(250)))?;
     let mut buffer = [0u8; 64];
@@ -515,11 +514,26 @@ fn maybe_delay_connect(
         return Ok(DelayConnect::Closed);
     };
 
-    let route = if route_matches_payload(&state.config, route.group_index, target, &payload) {
+    let route = if route_matches_payload(
+        &state.config,
+        route.group_index,
+        target,
+        &payload,
+        TransportProtocol::Tcp,
+    ) {
         route
     } else {
         let cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-        select_next_group(&state.config, &cache, &route, target, Some(&payload), 0, true)
+        select_next_group(
+            &state.config,
+            &cache,
+            &route,
+            target,
+            Some(&payload),
+            TransportProtocol::Tcp,
+            0,
+            true,
+        )
             .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
     };
 
@@ -615,8 +629,18 @@ fn select_route(
     payload: Option<&[u8]>,
     allow_unknown_payload: bool,
 ) -> io::Result<ConnectionRoute> {
+    select_route_for_transport(state, target, payload, allow_unknown_payload, TransportProtocol::Tcp)
+}
+
+fn select_route_for_transport(
+    state: &RuntimeState,
+    target: SocketAddr,
+    payload: Option<&[u8]>,
+    allow_unknown_payload: bool,
+    transport: TransportProtocol,
+) -> io::Result<ConnectionRoute> {
     let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-    select_initial_group(&state.config, &mut cache, target, payload, allow_unknown_payload)
+    select_initial_group(&state.config, &mut cache, target, payload, allow_unknown_payload, transport)
         .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))
 }
 
@@ -653,6 +677,7 @@ fn connect_target_with_route(
                         RouteAdvance {
                             dest: target,
                             payload,
+                            transport: TransportProtocol::Tcp,
                             trigger: DETECT_CONNECT,
                             can_reconnect: true,
                             host: host.clone(),
@@ -788,12 +813,7 @@ fn build_udp_relay_socket(ip: IpAddr, protect_path: Option<&str>) -> io::Result<
     Ok(socket)
 }
 
-fn udp_associate_loop(
-    relay: UdpSocket,
-    config: Arc<RuntimeConfig>,
-    group: DesyncGroup,
-    running: Arc<AtomicBool>,
-) -> io::Result<()> {
+fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running: Arc<AtomicBool>) -> io::Result<()> {
     let mut udp_client_addr = None;
     let mut buffer = [0u8; 65_535];
 
@@ -803,10 +823,27 @@ fn udp_associate_loop(
                 let known_client = udp_client_addr;
                 if known_client.is_none() || known_client == Some(sender) {
                     udp_client_addr = Some(sender);
-                    let Some((target, payload)) = parse_socks5_udp_packet(&buffer[..n], &config) else {
+                    let Some((target, payload)) = parse_socks5_udp_packet(&buffer[..n], &state.config) else {
                         continue;
                     };
-                    let actions = plan_udp(&group, payload, config.default_ttl);
+                    let host = extract_host(payload);
+                    let route =
+                        match select_route_for_transport(&state, target, Some(payload), false, TransportProtocol::Udp) {
+                            Ok(route) => route,
+                            Err(_) => continue,
+                        };
+                    if let Some(telemetry) = &state.telemetry {
+                        telemetry.on_route_selected(target, route.group_index, host.as_deref(), "initial");
+                    }
+                    if let Some(host) = host.clone() {
+                        if let Ok(mut cache) = state.cache.lock() {
+                            let _ = cache.store(&state.config, target, route.group_index, route.attempted_mask, Some(host));
+                        }
+                    }
+                    let Some(group) = state.config.groups.get(route.group_index) else {
+                        continue;
+                    };
+                    let actions = plan_udp(group, payload, state.config.default_ttl);
                     execute_udp_actions(&relay, target, &actions)?;
                 } else if let Some(client_addr) = udp_client_addr {
                     let packet = encode_socks5_udp_packet(sender, &buffer[..n]);
@@ -979,6 +1016,7 @@ fn relay(
                             RouteAdvance {
                                 dest: target,
                                 payload: Some(&original_request),
+                                transport: TransportProtocol::Tcp,
                                 trigger: DETECT_TORST,
                                 can_reconnect: true,
                                 host: host.clone(),
@@ -1023,6 +1061,7 @@ fn relay(
                                 RouteAdvance {
                                     dest: target,
                                     payload: Some(&original_request),
+                                    transport: TransportProtocol::Tcp,
                                     trigger: trigger_flag(trigger),
                                     can_reconnect: true,
                                     host: host.clone(),
@@ -1323,6 +1362,7 @@ fn reconnect_target(
                         RouteAdvance {
                             dest: target,
                             payload,
+                            transport: TransportProtocol::Tcp,
                             trigger: DETECT_CONNECT,
                             can_reconnect: true,
                             host: host.clone(),

@@ -23,8 +23,12 @@ libc = { workspace = true }
 windows-service = "0.8"
 
 [dev-dependencies]
+aes = { workspace = true }
+aes-gcm = { workspace = true }
 ciadpi-config = { workspace = true }
+hkdf = { workspace = true }
 local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }
 rustls = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
