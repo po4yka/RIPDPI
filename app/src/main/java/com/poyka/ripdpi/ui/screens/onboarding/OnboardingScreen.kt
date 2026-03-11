@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -49,6 +52,7 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiIntroScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlin.math.absoluteValue
 
 private val OnboardingPages =
     listOf(
@@ -192,40 +196,94 @@ fun OnboardingScreen(
                     .weight(1f)
                     .fillMaxWidth(),
         ) { page ->
-            val pageModel = OnboardingPages[page]
-            Column(
+            OnboardingPageScene(
+                pageModel = OnboardingPages[page],
+                pageOffset = pagerState.onboardingPageOffset(page),
                 modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                OnboardingIllustration(
-                    illustration = pageModel.illustration,
-                    modifier = Modifier.size(introLayout.illustrationSize),
-                )
-                Spacer(modifier = Modifier.height(introLayout.illustrationToTitleGap))
-                Text(
-                    text = stringResource(pageModel.titleRes),
-                    style = type.introTitle,
-                    color = colors.foreground,
-                    textAlign = TextAlign.Center,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = introLayout.titleHorizontalPadding),
-                )
-                Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
-                Text(
-                    text = stringResource(pageModel.descriptionRes),
-                    style = type.introBody,
-                    color = colors.mutedForeground,
-                    textAlign = TextAlign.Center,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = introLayout.bodyHorizontalPadding),
-                )
-            }
+            )
         }
+    }
+}
+
+@Composable
+private fun OnboardingPageScene(
+    pageModel: OnboardingPageModel,
+    pageOffset: Float,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val introLayout = rememberRipDpiIntroScaffoldMetrics()
+    val density = LocalDensity.current
+    val clampedOffset = pageOffset.coerceIn(-1f, 1f)
+    val pageProgress = (1f - clampedOffset.absoluteValue).coerceIn(0f, 1f)
+    val illustrationTravelPx =
+        with(density) {
+            (introLayout.illustrationSize * 0.55f).toPx()
+        }
+    val titleTravelPx =
+        with(density) {
+            28.dp.toPx()
+        }
+    val bodyTravelPx =
+        with(density) {
+            42.dp.toPx()
+        }
+    val illustrationLiftPx =
+        with(density) {
+            12.dp.toPx()
+        }
+    val textAlpha = (0.24f + (pageProgress * 0.76f)).coerceIn(0f, 1f)
+    val bodyAlpha = (0.18f + (pageProgress * 0.82f)).coerceIn(0f, 1f)
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        OnboardingIllustration(
+            illustration = pageModel.illustration,
+            modifier =
+                Modifier
+                    .size(introLayout.illustrationSize)
+                    .graphicsLayer {
+                        translationX = -clampedOffset * illustrationTravelPx
+                        translationY = (1f - pageProgress) * illustrationLiftPx
+                        scaleX = 0.88f + (pageProgress * 0.12f)
+                        scaleY = 0.88f + (pageProgress * 0.12f)
+                        alpha = (0.4f + (pageProgress * 0.6f)).coerceIn(0f, 1f)
+                    },
+        )
+        Spacer(modifier = Modifier.height(introLayout.illustrationToTitleGap))
+        Text(
+            text = stringResource(pageModel.titleRes),
+            style = type.introTitle,
+            color = colors.foreground,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = introLayout.titleHorizontalPadding)
+                    .graphicsLayer {
+                        translationX = clampedOffset * titleTravelPx
+                        alpha = textAlpha
+                    },
+        )
+        Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
+        Text(
+            text = stringResource(pageModel.descriptionRes),
+            style = type.introBody,
+            color = colors.mutedForeground,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = introLayout.bodyHorizontalPadding)
+                    .graphicsLayer {
+                        translationX = clampedOffset * bodyTravelPx
+                        alpha = bodyAlpha
+                    },
+        )
     }
 }
 
@@ -334,6 +392,9 @@ private fun OnboardingIllustration(
         }
     }
 }
+
+private fun PagerState.onboardingPageOffset(page: Int): Float =
+    (currentPage - page) + currentPageOffsetFraction
 
 private data class OnboardingPageModel(
     @param:StringRes val titleRes: Int,
