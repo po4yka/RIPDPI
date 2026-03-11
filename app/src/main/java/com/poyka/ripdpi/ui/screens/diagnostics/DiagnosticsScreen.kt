@@ -70,6 +70,7 @@ import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -97,6 +98,7 @@ fun DiagnosticsRoute(
     onSaveArchive: (String, String) -> Unit,
     onShareSummary: (String, String) -> Unit,
     onSaveLogs: () -> Unit,
+    onOpenHistory: () -> Unit,
     initialSection: DiagnosticsSection? = null,
     onInitialSectionHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -163,6 +165,7 @@ fun DiagnosticsRoute(
         onShareArchive = viewModel::shareArchive,
         onSaveArchive = viewModel::saveArchive,
         onSaveLogs = onSaveLogs,
+        onOpenHistory = onOpenHistory,
         modifier = modifier,
     )
 }
@@ -197,6 +200,7 @@ fun DiagnosticsScreen(
     onShareArchive: (String?) -> Unit,
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
+    onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -208,7 +212,16 @@ fun DiagnosticsScreen(
                 .fillMaxSize()
                 .background(colors.background),
         topBar = {
-            RipDpiTopAppBar(title = stringResource(R.string.diagnostics_title))
+            RipDpiTopAppBar(
+                title = stringResource(R.string.diagnostics_title),
+                actions = {
+                    RipDpiIconButton(
+                        icon = RipDpiIcons.Logs,
+                        contentDescription = stringResource(R.string.history_open_action),
+                        onClick = onOpenHistory,
+                    )
+                },
+            )
         },
     ) { innerPadding ->
         Box(
@@ -242,6 +255,7 @@ fun DiagnosticsScreen(
                             OverviewSection(
                                 uiState = uiState,
                                 onSelectSession = onSelectSession,
+                                onOpenHistory = onOpenHistory,
                             )
 
                         DiagnosticsSection.Scan ->
@@ -257,29 +271,11 @@ fun DiagnosticsScreen(
                         DiagnosticsSection.Live ->
                             LiveSection(uiState = uiState)
 
-                        DiagnosticsSection.Sessions ->
-                            SessionsSection(
-                                uiState = uiState,
-                                onSelectSession = onSelectSession,
-                                onPathModeFilter = onSessionPathFilter,
-                                onStatusFilter = onSessionStatusFilter,
-                                onSearch = onSessionSearch,
-                            )
-
                         DiagnosticsSection.Approaches ->
                             ApproachesSection(
                                 uiState = uiState,
                                 onSelectMode = onSelectApproachMode,
                                 onSelectApproach = onSelectApproach,
-                            )
-
-                        DiagnosticsSection.Events ->
-                            EventsSection(
-                                uiState = uiState,
-                                onSelectEvent = onSelectEvent,
-                                onToggleFilter = onToggleEventFilter,
-                                onSearch = onEventSearch,
-                                onAutoScroll = onEventAutoScroll,
                             )
 
                         DiagnosticsSection.Share ->
@@ -460,6 +456,7 @@ private fun DiagnosticsSectionSwitcher(
 private fun OverviewSection(
     uiState: DiagnosticsUiState,
     onSelectSession: (String) -> Unit,
+    onOpenHistory: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -510,6 +507,9 @@ private fun OverviewSection(
                 )
             }
         }
+        item {
+            HistoryCalloutCard(onOpenHistory = onOpenHistory)
+        }
         if (uiState.overview.warnings.isNotEmpty()) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
@@ -520,6 +520,28 @@ private fun OverviewSection(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HistoryCalloutCard(onOpenHistory: () -> Unit) {
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        Text(
+            text = stringResource(R.string.diagnostics_open_history_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Text(
+            text = stringResource(R.string.diagnostics_open_history_body),
+            style = RipDpiThemeTokens.type.body,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        RipDpiButton(
+            text = stringResource(R.string.diagnostics_open_history_action),
+            onClick = onOpenHistory,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
@@ -1665,9 +1687,7 @@ private fun DiagnosticsSection.label(): String =
         DiagnosticsSection.Overview -> stringResource(R.string.diagnostics_overview_section)
         DiagnosticsSection.Scan -> stringResource(R.string.diagnostics_scan_section)
         DiagnosticsSection.Live -> stringResource(R.string.diagnostics_monitor_section)
-        DiagnosticsSection.Sessions -> stringResource(R.string.diagnostics_sessions_section)
         DiagnosticsSection.Approaches -> stringResource(R.string.diagnostics_approaches_title)
-        DiagnosticsSection.Events -> stringResource(R.string.diagnostics_events_title)
         DiagnosticsSection.Share -> stringResource(R.string.diagnostics_share_section)
     }
 

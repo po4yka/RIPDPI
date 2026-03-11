@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.LibraryExtension
+import com.google.devtools.ksp.gradle.KspExtension
 
 plugins {
     id("ripdpi.android.library")
@@ -10,6 +11,11 @@ plugins {
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.data"
+}
+
+extensions.configure<KspExtension> {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.generateKotlin", "true")
 }
 
 dependencies {

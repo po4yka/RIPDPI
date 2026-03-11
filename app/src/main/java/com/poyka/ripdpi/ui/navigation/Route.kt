@@ -47,6 +47,11 @@ sealed class Route(
         icon = RipDpiIcons.Logs,
     )
 
+    data object History : Route(
+        route = "history",
+        titleRes = R.string.history_title,
+    )
+
     data object ModeEditor : Route(
         route = "mode_editor",
         titleRes = R.string.title_mode_editor,
@@ -91,6 +96,7 @@ sealed class Route(
                 Home,
                 Config,
                 Diagnostics,
+                History,
                 Settings,
                 ModeEditor,
                 DnsSettings,
