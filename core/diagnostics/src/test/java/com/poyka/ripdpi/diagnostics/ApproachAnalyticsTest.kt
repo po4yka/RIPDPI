@@ -2,8 +2,10 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.proto.StrategyTcpStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApproachAnalyticsTest {
@@ -70,6 +72,51 @@ class ApproachAnalyticsTest {
         assertNull(signature.fakeSniValue)
         assertNull(signature.fakeTlsBaseMode)
         assertEquals(emptyList<String>(), signature.fakeTlsMods)
+        assertNull(signature.fakeTlsSize)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature preserves hostfake chain without fake tls profile`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setDesyncHttp(true)
+                .setDesyncHttps(true)
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrec")
+                        .setMarker("extlen")
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("hostfake")
+                        .setMarker("endhost+8")
+                        .setMidhostMarker("midsld")
+                        .setFakeHostTemplate("googlevideo.com")
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("split")
+                        .setMarker("midsld")
+                        .build(),
+                ).build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "4")
+
+        assertEquals(
+            "tcp: tlsrec(extlen) -> hostfake(endhost+8 midhost=midsld host=googlevideo.com) -> split(midsld)",
+            signature.chainSummary,
+        )
+        assertEquals("fake", signature.desyncMethod)
+        assertEquals("extlen", signature.tlsRecordMarker)
+        assertEquals("endhost+8", signature.splitMarker)
+        assertNull(signature.fakeSniMode)
+        assertTrue(signature.fakeTlsMods.isEmpty())
+        assertNull(signature.fakeTlsBaseMode)
         assertNull(signature.fakeTlsSize)
     }
 }
