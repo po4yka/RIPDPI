@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultFakeSni
+import com.poyka.ripdpi.data.DefaultQuicFakeHost
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
@@ -50,6 +51,9 @@ class SettingsUiStateTest {
         assertFalse(state.quicFakeProfileActive)
         assertFalse(state.hasUdpFakeBurst)
         assertFalse(state.quicFakeControlsRelevant)
+        assertFalse(state.showQuicFakeHostOverride)
+        assertFalse(state.quicFakeUsesCustomHost)
+        assertEquals("", state.quicFakeEffectiveHost)
         assertFalse(state.showQuicFakeProfile)
         assertFalse(state.tlsRecEnabled)
         assertFalse(state.webrtcProtectionEnabled)
@@ -391,8 +395,29 @@ class SettingsUiStateTest {
         assertTrue(state.hasUdpFakeBurst)
         assertTrue(state.quicFakeProfileActive)
         assertTrue(state.showQuicFakeProfile)
+        assertTrue(state.showQuicFakeHostOverride)
+        assertTrue(state.quicFakeUsesCustomHost)
+        assertEquals("video.example.test", state.quicFakeEffectiveHost)
         assertEquals(QuicFakeProfileRealisticInitial, state.quicFakeProfile)
         assertEquals("video.example.test", state.quicFakeHost)
+    }
+
+    @Test
+    fun `realistic quic fake profile falls back to built in host label`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .setQuicFakeProfile(QuicFakeProfileRealisticInitial)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.showQuicFakeHostOverride)
+        assertFalse(state.quicFakeUsesCustomHost)
+        assertEquals(DefaultQuicFakeHost, state.quicFakeEffectiveHost)
     }
 
     @Test

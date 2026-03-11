@@ -1,8 +1,11 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -694,12 +698,6 @@ private fun AdvancedSettingsScreen(
             labelArrayRes = R.array.quic_initial_modes,
             valueArrayRes = R.array.quic_initial_modes_entries,
         )
-    val quicFakeProfileOptions =
-        rememberSettingsOptions(
-            labelArrayRes = R.array.quic_fake_profiles,
-            valueArrayRes = R.array.quic_fake_profiles_entries,
-        )
-
     RipDpiSettingsScaffold(
         modifier =
             modifier
@@ -1304,28 +1302,17 @@ private fun AdvancedSettingsScreen(
                     if (showQuicFakeSection) {
                         HorizontalDivider(color = colors.divider)
                         QuicFakeProfileCard(uiState = uiState)
-                        AdvancedDropdownSetting(
-                            title = stringResource(R.string.quic_fake_profile_title),
-                            description = stringResource(R.string.quic_fake_profile_body),
-                            value = uiState.quicFakeProfile,
+                        QuicFakePresetSelector(
+                            uiState = uiState,
                             enabled = visualEditorEnabled,
-                            options = quicFakeProfileOptions,
-                            setting = AdvancedOptionSetting.QuicFakeProfile,
-                            onSelected = onOptionSelected,
-                            showDivider = uiState.quicFakeProfile == QuicFakeProfileRealisticInitial,
+                            onProfileSelected = {
+                                onOptionSelected(AdvancedOptionSetting.QuicFakeProfile, it)
+                            },
                         )
-                        if (uiState.quicFakeProfile == QuicFakeProfileRealisticInitial) {
-                            AdvancedTextSetting(
-                                title = stringResource(R.string.quic_fake_host_title),
-                                description = stringResource(R.string.quic_fake_host_body),
-                                value = uiState.quicFakeHost,
+                        if (uiState.showQuicFakeHostOverride) {
+                            QuicFakeHostOverrideCard(
+                                uiState = uiState,
                                 enabled = visualEditorEnabled,
-                                disabledMessage =
-                                    stringResource(
-                                        R.string.advanced_settings_visual_controls_disabled,
-                                    ),
-                                placeholder = stringResource(R.string.config_placeholder_quic_fake_host),
-                                setting = AdvancedTextSetting.QuicFakeHost,
                                 onConfirm = onTextConfirmed,
                             )
                         }
@@ -1702,6 +1689,20 @@ private data class QuicFakeStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+private data class QuicFakePresetUiModel(
+    val value: String,
+    val title: String,
+    val body: String,
+    val isRecommended: Boolean = false,
+)
+
+private enum class SummaryCapsuleTone {
+    Neutral,
+    Active,
+    Info,
+    Warning,
+}
+
 @Composable
 private fun HostFakeProfileCard(
     uiState: SettingsUiState,
@@ -1872,10 +1873,43 @@ private fun QuicFakeProfileCard(
         } else {
             stringResource(R.string.quic_fake_profile_burst_missing)
         }
+    val badges =
+        buildList {
+            add(
+                stringResource(R.string.quic_fake_profile_badge_initial_only) to SummaryCapsuleTone.Info,
+            )
+            add(
+                if (uiState.hasUdpFakeBurst) {
+                    stringResource(
+                        R.string.quic_fake_profile_badge_burst_ready,
+                        uiState.udpFakeCount,
+                    ) to SummaryCapsuleTone.Active
+                } else {
+                    stringResource(R.string.quic_fake_profile_badge_burst_missing) to SummaryCapsuleTone.Warning
+                },
+            )
+            when (uiState.quicFakeProfile) {
+                QuicFakeProfileCompatDefault ->
+                    add(
+                        stringResource(R.string.quic_fake_profile_badge_compat_blob) to SummaryCapsuleTone.Neutral,
+                    )
+
+                QuicFakeProfileRealisticInitial ->
+                    add(
+                        if (uiState.quicFakeUsesCustomHost) {
+                            stringResource(R.string.quic_fake_profile_badge_host_custom)
+                        } else {
+                            stringResource(R.string.quic_fake_profile_badge_host_builtin)
+                        } to SummaryCapsuleTone.Active,
+                    )
+
+                else -> Unit
+            }
+        }
 
     RipDpiCard(
         modifier = modifier,
-        variant = RipDpiCardVariant.Tonal,
+        variant = RipDpiCardVariant.Elevated,
     ) {
         StatusIndicator(
             label = status.label,
@@ -1886,6 +1920,7 @@ private fun QuicFakeProfileCard(
             style = type.secondaryBody,
             color = colors.foreground,
         )
+        SummaryCapsuleFlow(items = badges)
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             ProfileSummaryLine(
                 label = stringResource(R.string.quic_fake_profile_summary_label_preset),
@@ -1905,6 +1940,229 @@ private fun QuicFakeProfileCard(
             )
         }
     }
+}
+
+@Composable
+private fun QuicFakePresetSelector(
+    uiState: SettingsUiState,
+    enabled: Boolean,
+    onProfileSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val presets =
+        listOf(
+            QuicFakePresetUiModel(
+                value = QuicFakeProfileDisabled,
+                title = stringResource(R.string.quic_fake_preset_off_title),
+                body = stringResource(R.string.quic_fake_preset_off_body),
+            ),
+            QuicFakePresetUiModel(
+                value = QuicFakeProfileCompatDefault,
+                title = stringResource(R.string.quic_fake_preset_compat_title),
+                body = stringResource(R.string.quic_fake_preset_compat_body),
+            ),
+            QuicFakePresetUiModel(
+                value = QuicFakeProfileRealisticInitial,
+                title = stringResource(R.string.quic_fake_preset_realistic_title),
+                body = stringResource(R.string.quic_fake_preset_realistic_body),
+                isRecommended = true,
+            ),
+        )
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Text(
+            text = stringResource(R.string.quic_fake_profile_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Text(
+            text = stringResource(R.string.quic_fake_profile_body),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        presets.forEach { preset ->
+            QuicFakePresetCard(
+                preset = preset,
+                selected = uiState.quicFakeProfile == preset.value,
+                enabled = enabled,
+                onClick = { onProfileSelected(preset.value) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuicFakePresetCard(
+    preset: QuicFakePresetUiModel,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val spacing = RipDpiThemeTokens.spacing
+    val badgeLabel =
+        when {
+            selected -> stringResource(R.string.quic_fake_preset_selected)
+            preset.isRecommended -> stringResource(R.string.quic_fake_preset_recommended)
+            else -> null
+        }
+    val badgeTone =
+        when {
+            selected -> StatusIndicatorTone.Active
+            preset.isRecommended -> StatusIndicatorTone.Idle
+            else -> StatusIndicatorTone.Idle
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = if (selected) RipDpiCardVariant.Tonal else RipDpiCardVariant.Outlined,
+        enabled = enabled,
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                Text(
+                    text = preset.title,
+                    style = type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Text(
+                    text = preset.body,
+                    style = type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+            badgeLabel?.let {
+                StatusIndicator(
+                    label = it,
+                    tone = badgeTone,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuicFakeHostOverrideCard(
+    uiState: SettingsUiState,
+    enabled: Boolean,
+    onConfirm: (AdvancedTextSetting, String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val statusLabel =
+        if (uiState.quicFakeUsesCustomHost) {
+            stringResource(R.string.quic_fake_host_custom_title)
+        } else {
+            stringResource(R.string.quic_fake_host_builtin_title)
+        }
+    val statusBody =
+        if (uiState.quicFakeUsesCustomHost) {
+            stringResource(R.string.quic_fake_host_custom_body)
+        } else {
+            stringResource(R.string.quic_fake_host_builtin_body)
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Outlined,
+    ) {
+        StatusIndicator(
+            label = statusLabel,
+            tone = if (uiState.quicFakeUsesCustomHost) StatusIndicatorTone.Active else StatusIndicatorTone.Idle,
+        )
+        Text(
+            text = statusBody,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        AdvancedTextSetting(
+            title = stringResource(R.string.quic_fake_host_title),
+            description = stringResource(R.string.quic_fake_host_body),
+            value = uiState.quicFakeHost,
+            enabled = enabled,
+            validator = { input ->
+                input.isBlank() || normalizeQuicFakeHost(input).isNotEmpty()
+            },
+            invalidMessage = stringResource(R.string.quic_fake_host_error),
+            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+            placeholder = stringResource(R.string.config_placeholder_quic_fake_host),
+            setting = AdvancedTextSetting.QuicFakeHost,
+            onConfirm = onConfirm,
+        )
+        ProfileSummaryLine(
+            label = stringResource(R.string.quic_fake_host_effective_label),
+            value = uiState.quicFakeEffectiveHost,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SummaryCapsuleFlow(
+    items: List<Pair<String, SummaryCapsuleTone>>,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        items.forEach { (text, tone) ->
+            SummaryCapsule(
+                text = text,
+                tone = tone,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryCapsule(
+    text: String,
+    tone: SummaryCapsuleTone,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val (container, content, border) =
+        when (tone) {
+            SummaryCapsuleTone.Neutral ->
+                Triple(colors.muted, colors.foreground, colors.border)
+            SummaryCapsuleTone.Active ->
+                Triple(colors.infoContainer, colors.infoContainerForeground, colors.info)
+            SummaryCapsuleTone.Info ->
+                Triple(colors.card, colors.mutedForeground, colors.border)
+            SummaryCapsuleTone.Warning ->
+                Triple(colors.warningContainer, colors.warningContainerForeground, colors.warning)
+        }
+
+    Text(
+        text = text,
+        modifier =
+            modifier
+                .background(container, RipDpiThemeTokens.shapes.lg)
+                .border(1.dp, border, RipDpiThemeTokens.shapes.lg)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+        style = type.caption,
+        color = content,
+    )
 }
 
 @Composable
