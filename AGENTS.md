@@ -89,3 +89,4 @@ Project-specific skills are in `.github/skills/`:
 | `service-lifecycle` | Working with VPN/proxy service start/stop logic |
 | `rust-android-ndk` | Building Rust for Android, cargo-ndk, cross-compilation targets |
 | `rust-jni-bridge` | Implementing JNI in Rust (jni crate vs UniFFI), type mapping |
+| `local-ci-act` | Running CI workflows locally with act, troubleshooting CI failures |
