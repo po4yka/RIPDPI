@@ -24,6 +24,7 @@ tokio-util = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+golden-test-support = { workspace = true }
 libc = { workspace = true }
 local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }

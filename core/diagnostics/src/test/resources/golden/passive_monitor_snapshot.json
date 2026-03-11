@@ -1,0 +1,19 @@
+{
+    "activeMode": "VPN",
+    "capturedAt": 0,
+    "connectionState": "Running",
+    "nativeEvents": [
+        {
+            "createdAt": 0,
+            "level": "info",
+            "message": "accepted",
+            "source": "proxy"
+        }
+    ],
+    "networkType": "wifi",
+    "publicIp": "198.51.100.8",
+    "rxBytes": 4096,
+    "rxPackets": 18,
+    "txBytes": 2048,
+    "txPackets": 12
+}

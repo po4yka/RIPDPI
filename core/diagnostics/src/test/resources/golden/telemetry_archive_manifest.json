@@ -1,0 +1,69 @@
+{
+    "approachCount": 1,
+    "contextSnapshotCount": 1,
+    "contextSummary": {
+        "device": {
+            "androidVersion": "16 (API 36)",
+            "appVersionName": "0.0.1",
+            "buildType": "debug",
+            "deviceName": "Google Pixel",
+            "locale": "en-US",
+            "timezone": "UTC"
+        },
+        "environment": {
+            "batterySaverState": "disabled",
+            "networkMeteredState": "disabled",
+            "powerSaveModeState": "disabled",
+            "roamingState": "disabled"
+        },
+        "permissions": {
+            "batteryOptimizationState": "disabled",
+            "dataSaverState": "disabled",
+            "notificationPermissionState": "enabled",
+            "vpnPermissionState": "enabled"
+        },
+        "service": {
+            "activeMode": "VPN",
+            "configSource": "ui",
+            "desyncMethod": "split",
+            "lastNativeErrorHeadline": "none",
+            "proxyEndpoint": "redacted",
+            "restartCount": 2,
+            "routeGroup": "3",
+            "selectedProfileName": "Default",
+            "serviceStatus": "Running"
+        }
+    },
+    "createdAt": 0,
+    "fileName": "ripdpi-diagnostics-<timestamp>.zip",
+    "globalEventCount": 1,
+    "includedSessionId": "session-selected",
+    "networkSummary": {
+        "captivePortalDetected": false,
+        "dnsServers": "redacted(1)",
+        "localAddresses": "redacted(1)",
+        "networkValidated": true,
+        "privateDnsMode": "system",
+        "publicAsn": "redacted",
+        "publicIp": "redacted",
+        "transport": "wifi",
+        "wifiDetails": {
+            "band": "5 GHz",
+            "bssid": "redacted",
+            "frequencyMhz": 5180,
+            "gateway": "redacted",
+            "linkSpeedMbps": 866,
+            "rssiDbm": -53,
+            "ssid": "redacted",
+            "wifiStandard": "802.11ax"
+        }
+    },
+    "privacyMode": "split_output",
+    "schemaVersion": 5,
+    "scope": "hybrid",
+    "selectedApproach": null,
+    "sessionEventCount": 1,
+    "sessionResultCount": 1,
+    "sessionSnapshotCount": 1,
+    "telemetrySampleCount": 1
+}

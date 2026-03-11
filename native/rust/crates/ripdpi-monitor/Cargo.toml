@@ -15,6 +15,7 @@ url = { workspace = true }
 webpki-roots = { workspace = true }
 
 [dev-dependencies]
+golden-test-support = { workspace = true }
 local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }
 rcgen = { workspace = true }

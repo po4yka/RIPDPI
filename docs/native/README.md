@@ -52,6 +52,17 @@ No packet payloads or packet captures are persisted.
 - The Android build targets these ABIs: `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`.
 - `ripdpi.localNativeAbis` can narrow the ABI set for local debug builds only.
 
+## Golden Contracts
+
+Structured telemetry and diagnostics-event payloads are treated as compatibility contracts.
+
+- Rust goldens live under each crate `tests/golden/` directory.
+- JVM goldens live under each module `src/test/resources/golden/` directory.
+- The default test mode is read-only and fails on unexpected payload changes.
+- Set `RIPDPI_BLESS_GOLDENS=1` to rewrite fixtures intentionally.
+- Use `scripts/tests/bless-telemetry-goldens.sh` to refresh the Rust and JVM telemetry/logging goldens together and then sync the Android instrumentation assets.
+- Volatile fields are scrubbed before comparison: timestamps, generated ids, dynamic archive file names, and ephemeral loopback ports. Semantic fields such as `state`, `health`, counters, event order, levels, and messages remain strict.
+
 ## Direct Native Modules
 
 - `native/rust/crates/ripdpi-android`

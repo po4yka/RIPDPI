@@ -20,4 +20,5 @@ dependencies {
     implementation(libs.logcat)
 
     testImplementation(libs.bundles.unit.test)
+    testImplementation(libs.kotlinx.serialization.json)
 }

@@ -1,0 +1,53 @@
+{
+    "lastFailureAt": 0,
+    "lastFailureSender": "Proxy",
+    "mode": "Proxy",
+    "proxyTelemetry": {
+        "health": "degraded",
+        "lastRouteGroup": 1,
+        "lastTarget": "203.0.113.10:443",
+        "listenerAddress": "127.0.0.1:<port>",
+        "nativeEvents": [
+            {
+                "createdAt": 0,
+                "level": "info",
+                "message": "accepted",
+                "source": "proxy"
+            }
+        ],
+        "routeChanges": 2,
+        "source": "proxy",
+        "state": "running",
+        "totalErrors": 1,
+        "totalSessions": 9
+    },
+    "restartCount": 1,
+    "serviceStartedAt": 0,
+    "status": "Halted",
+    "tunnelStats": {
+        "rxBytes": 60,
+        "rxPackets": 6,
+        "txBytes": 50,
+        "txPackets": 5
+    },
+    "tunnelTelemetry": {
+        "health": "healthy",
+        "nativeEvents": [
+            {
+                "createdAt": 0,
+                "level": "warn",
+                "message": "slow upstream",
+                "source": "tunnel"
+            }
+        ],
+        "source": "tunnel",
+        "state": "running",
+        "tunnelStats": {
+            "rxBytes": 40,
+            "rxPackets": 4,
+            "txBytes": 30,
+            "txPackets": 3
+        }
+    },
+    "updatedAt": 0
+}

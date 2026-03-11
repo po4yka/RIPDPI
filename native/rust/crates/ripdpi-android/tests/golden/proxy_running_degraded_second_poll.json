@@ -1,0 +1,23 @@
+{
+  "activeSessions": 0,
+  "capturedAt": 0,
+  "health": "degraded",
+  "lastError": "boom",
+  "lastHost": "example.org",
+  "lastRouteGroup": 2,
+  "lastTarget": "203.0.113.10:443",
+  "listenerAddress": "127.0.0.1:1080",
+  "nativeEvents": [],
+  "routeChanges": 1,
+  "source": "proxy",
+  "state": "running",
+  "totalErrors": 1,
+  "totalSessions": 1,
+  "tunnelStats": {
+    "rxBytes": 0,
+    "rxPackets": 0,
+    "txBytes": 0,
+    "txPackets": 0
+  },
+  "upstreamAddress": null
+}

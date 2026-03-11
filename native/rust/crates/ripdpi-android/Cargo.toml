@@ -27,4 +27,5 @@ serde_json = { workspace = true }
 socket2 = { workspace = true }
 
 [dev-dependencies]
+golden-test-support = { workspace = true }
 proptest = { workspace = true }
