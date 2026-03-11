@@ -31,7 +31,7 @@ class NetworkDiagnosticsNativeBindings
     constructor() : NetworkDiagnosticsBindings {
         companion object {
             init {
-                System.loadLibrary("ripdpi")
+                RipDpiNativeLoader.ensureLoaded()
             }
         }
 
@@ -108,7 +108,7 @@ class NetworkDiagnostics
                 if (handle == 0L) {
                     val createdHandle = nativeBindings.create()
                     if (createdHandle == 0L) {
-                        throw IllegalStateException("Native diagnostics session was not created")
+                        throw NativeError.SessionCreationFailed("diagnostics")
                     }
                     handle = createdHandle
                 }

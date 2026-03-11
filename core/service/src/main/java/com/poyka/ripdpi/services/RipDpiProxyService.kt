@@ -106,7 +106,8 @@ class RipDpiProxyService : LifecycleService() {
             startTelemetryUpdates()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start proxy\n${e.asLog()}" }
-            updateStatus(ServiceStatus.Failed)
+            val reason = classifyFailureReason(e)
+            updateStatus(ServiceStatus.Failed, reason)
             stop()
         }
     }
@@ -162,7 +163,7 @@ class RipDpiProxyService : LifecycleService() {
                 withContext(Dispatchers.Main) {
                     if (code != 0) {
                         logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
-                        updateStatus(ServiceStatus.Failed)
+                        updateStatus(ServiceStatus.Failed, FailureReason.NativeError("Proxy exited with code $code"))
                     } else if (!stopping) {
                         updateStatus(ServiceStatus.Disconnected)
                     }
@@ -195,7 +196,7 @@ class RipDpiProxyService : LifecycleService() {
         logcat(LogPriority.INFO) { "Proxy stopped" }
     }
 
-    private fun updateStatus(newStatus: ServiceStatus) {
+    private fun updateStatus(newStatus: ServiceStatus, failureReason: FailureReason? = null) {
         logcat { "Proxy status changed from $status to $newStatus" }
 
         status = newStatus
@@ -227,7 +228,10 @@ class RipDpiProxyService : LifecycleService() {
         )
 
         if (newStatus == ServiceStatus.Failed) {
-            serviceStateStore.emitFailed(Sender.Proxy)
+            serviceStateStore.emitFailed(
+                Sender.Proxy,
+                failureReason ?: FailureReason.Unexpected(IllegalStateException("Unknown failure")),
+            )
         }
     }
 
@@ -253,6 +257,13 @@ class RipDpiProxyService : LifecycleService() {
                 }
             }
     }
+
+    private fun classifyFailureReason(e: Exception): FailureReason =
+        when (e) {
+            is java.io.IOException -> FailureReason.NativeError(e.message ?: "I/O error")
+            is IllegalStateException -> FailureReason.NativeError(e.message ?: "Native error")
+            else -> FailureReason.Unexpected(e)
+        }
 
     private fun createNotification(): Notification =
         createConnectionNotification(

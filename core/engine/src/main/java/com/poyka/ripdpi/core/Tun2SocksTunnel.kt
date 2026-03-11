@@ -84,7 +84,7 @@ class Tun2SocksTunnel(
     ) {
         mutex.withLock {
             if (handle != 0L) {
-                throw IllegalStateException("Tunnel is already running")
+                throw NativeError.AlreadyRunning("Tunnel")
             }
 
             val createdHandle =
@@ -92,7 +92,7 @@ class Tun2SocksTunnel(
                     nativeBindings.create(Json.encodeToString(config))
                 }
             if (createdHandle == 0L) {
-                throw IllegalStateException("Native tunnel session was not created")
+                throw NativeError.SessionCreationFailed("tunnel")
             }
 
             try {
@@ -112,7 +112,7 @@ class Tun2SocksTunnel(
     suspend fun stop() {
         mutex.withLock {
             if (handle == 0L) {
-                throw IllegalStateException("Tunnel is not running")
+                throw NativeError.NotRunning("Tunnel")
             }
 
             try {

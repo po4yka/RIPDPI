@@ -129,7 +129,8 @@ class RipDpiVpnService : LifecycleVpnService() {
             startTelemetryUpdates()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start VPN\n${e.asLog()}" }
-            updateStatus(ServiceStatus.Failed)
+            val reason = classifyFailureReason(e)
+            updateStatus(ServiceStatus.Failed, reason)
             stop()
         }
     }
@@ -165,6 +166,8 @@ class RipDpiVpnService : LifecycleVpnService() {
                 } catch (e: Exception) {
                     if (shutdownError == null) {
                         shutdownError = e
+                    } else {
+                        shutdownError.addSuppressed(e)
                     }
                     logcat(LogPriority.ERROR) { "Failed to stop proxy\n${e.asLog()}" }
                 }
@@ -199,7 +202,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                 withContext(Dispatchers.Main) {
                     if (code != 0) {
                         logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
-                        updateStatus(ServiceStatus.Failed)
+                        updateStatus(ServiceStatus.Failed, FailureReason.NativeError("Proxy exited with code $code"))
                         if (!stopping) {
                             stop()
                         }
@@ -288,7 +291,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         logcat(LogPriority.INFO) { "Tun2socks stopped" }
     }
 
-    private fun updateStatus(newStatus: ServiceStatus) {
+    private fun updateStatus(newStatus: ServiceStatus, failureReason: FailureReason? = null) {
         logcat { "VPN status changed from $status to $newStatus" }
 
         status = newStatus
@@ -326,7 +329,10 @@ class RipDpiVpnService : LifecycleVpnService() {
         )
 
         if (newStatus == ServiceStatus.Failed) {
-            serviceStateStore.emitFailed(Sender.VPN)
+            serviceStateStore.emitFailed(
+                Sender.VPN,
+                failureReason ?: FailureReason.Unexpected(IllegalStateException("Unknown failure")),
+            )
         }
     }
 
@@ -360,6 +366,19 @@ class RipDpiVpnService : LifecycleVpnService() {
                 }
             }
     }
+
+    private fun classifyFailureReason(e: Exception): FailureReason =
+        when (e) {
+            is java.io.IOException -> FailureReason.NativeError(e.message ?: "I/O error")
+            is IllegalStateException -> {
+                if (e.message?.contains("VPN") == true || e.message?.contains("tunnel") == true) {
+                    FailureReason.TunnelEstablishmentFailed
+                } else {
+                    FailureReason.NativeError(e.message ?: "Native error")
+                }
+            }
+            else -> FailureReason.Unexpected(e)
+        }
 
     private fun createNotification(): Notification =
         createConnectionNotification(

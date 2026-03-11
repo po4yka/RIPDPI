@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::fmt::Debug;
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpStream, ToSocketAddrs, UdpSocket};
@@ -23,6 +23,7 @@ const IO_TIMEOUT: Duration = Duration::from_millis(1200);
 const MAX_HTTP_BYTES: usize = 64 * 1024;
 const FAT_HEADER_REQUESTS: usize = 16;
 const FAT_HEADER_THRESHOLD_BYTES: usize = 16 * 1024;
+const MAX_PASSIVE_EVENTS: usize = 256;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -138,7 +139,7 @@ pub struct NativeSessionEvent {
 struct SharedState {
     progress: Option<ScanProgress>,
     report: Option<ScanReport>,
-    passive_events: Vec<NativeSessionEvent>,
+    passive_events: VecDeque<NativeSessionEvent>,
 }
 
 pub struct MonitorSession {
@@ -1557,7 +1558,10 @@ fn set_report(shared: &Arc<Mutex<SharedState>>, report: ScanReport) {
 
 fn push_event(shared: &Arc<Mutex<SharedState>>, source: &str, level: &str, message: String) {
     if let Ok(mut guard) = shared.lock() {
-        guard.passive_events.push(NativeSessionEvent {
+        if guard.passive_events.len() >= MAX_PASSIVE_EVENTS {
+            guard.passive_events.pop_front();
+        }
+        guard.passive_events.push_back(NativeSessionEvent {
             source: source.to_string(),
             level: level.to_string(),
             message,

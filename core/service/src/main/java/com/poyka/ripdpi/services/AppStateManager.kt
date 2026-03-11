@@ -14,9 +14,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+sealed interface FailureReason {
+    data class NativeError(val message: String) : FailureReason
+    data object TunnelEstablishmentFailed : FailureReason
+    data class Unexpected(val cause: Throwable) : FailureReason
+}
+
 sealed class ServiceEvent {
     data class Failed(
         val sender: Sender,
+        val reason: FailureReason,
     ) : ServiceEvent()
 }
 
@@ -43,7 +50,7 @@ interface ServiceStateStore {
         mode: Mode,
     )
 
-    fun emitFailed(sender: Sender)
+    fun emitFailed(sender: Sender, reason: FailureReason)
 
     fun updateTelemetry(snapshot: ServiceTelemetrySnapshot)
 }
@@ -86,8 +93,8 @@ class DefaultServiceStateStore
                 )
         }
 
-        override fun emitFailed(sender: Sender) {
-            _events.tryEmit(ServiceEvent.Failed(sender))
+        override fun emitFailed(sender: Sender, reason: FailureReason) {
+            _events.tryEmit(ServiceEvent.Failed(sender, reason))
             _telemetry.value =
                 _telemetry.value.copy(
                     lastFailureSender = sender,

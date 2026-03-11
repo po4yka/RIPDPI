@@ -65,7 +65,7 @@ pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> 
     let mut listener = MioTcpListener::from_std(listener);
     let mut poll = Poll::new()?;
     poll.registry().register(&mut listener, LISTENER, Interest::READABLE)?;
-    let mut events = Events::with_capacity(32);
+    let mut events = Events::with_capacity(256);
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_listener_started(
             SocketAddr::new(state.config.listen.listen_ip, state.config.listen.listen_port),
@@ -95,6 +95,7 @@ pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> 
                         let Some(_slot) =
                             ClientSlotGuard::acquire(state.active_clients.clone(), state.config.max_open as usize)
                         else {
+                            let _ = SockRef::from(&client).set_linger(Some(Duration::ZERO));
                             drop(client);
                             continue;
                         };

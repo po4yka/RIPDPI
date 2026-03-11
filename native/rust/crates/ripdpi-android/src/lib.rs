@@ -30,6 +30,47 @@ static SESSIONS: once_cell::sync::Lazy<HandleRegistry<ProxySession>> = once_cell
 static DIAGNOSTIC_SESSIONS: once_cell::sync::Lazy<HandleRegistry<MonitorSession>> =
     once_cell::sync::Lazy::new(HandleRegistry::new);
 
+#[derive(Debug, thiserror::Error)]
+enum JniProxyError {
+    #[error("invalid configuration: {0}")]
+    InvalidConfig(String),
+
+    #[error("{0}")]
+    InvalidArgument(String),
+
+    #[error("{0}")]
+    IllegalState(&'static str),
+
+    #[error("I/O failure: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("{0}")]
+    Serialization(#[from] serde_json::Error),
+}
+
+impl JniProxyError {
+    fn throw(self, env: &mut JNIEnv) {
+        let (class, msg) = match &self {
+            Self::InvalidConfig(_) | Self::InvalidArgument(_) => {
+                ("java/lang/IllegalArgumentException", self.to_string())
+            }
+            Self::IllegalState(_) => ("java/lang/IllegalStateException", self.to_string()),
+            Self::Io(_) => ("java/io/IOException", self.to_string()),
+            Self::Serialization(_) => ("java/lang/RuntimeException", self.to_string()),
+        };
+        let _ = env.throw_new(class, &msg);
+    }
+}
+
+fn extract_panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
+    payload
+        .downcast_ref::<String>()
+        .map(|s| s.as_str())
+        .or_else(|| payload.downcast_ref::<&str>().copied())
+        .unwrap_or("unknown panic")
+        .to_string()
+}
+
 struct ProxySession {
     config: RuntimeConfig,
     telemetry: Arc<ProxyTelemetryState>,
@@ -182,6 +223,17 @@ struct NativeRuntimeSnapshot {
     captured_at: u64,
 }
 
+struct TelemetryStrings {
+    listener_address: Option<String>,
+    upstream_address: Option<String>,
+    last_target: Option<String>,
+    last_host: Option<String>,
+    last_error: Option<String>,
+    last_autolearn_host: Option<String>,
+    last_autolearn_action: Option<String>,
+    events: VecDeque<NativeRuntimeEvent>,
+}
+
 struct ProxyTelemetryState {
     running: AtomicBool,
     active_sessions: AtomicU64,
@@ -189,18 +241,11 @@ struct ProxyTelemetryState {
     total_errors: AtomicU64,
     route_changes: AtomicU64,
     last_route_group: AtomicI64,
-    listener_address: Mutex<Option<String>>,
-    upstream_address: Mutex<Option<String>>,
-    last_target: Mutex<Option<String>>,
-    last_host: Mutex<Option<String>>,
-    last_error: Mutex<Option<String>>,
     autolearn_enabled: AtomicBool,
     learned_host_count: AtomicU64,
     penalized_host_count: AtomicU64,
     last_autolearn_group: AtomicI64,
-    last_autolearn_host: Mutex<Option<String>>,
-    last_autolearn_action: Mutex<Option<String>>,
-    events: Mutex<VecDeque<NativeRuntimeEvent>>,
+    strings: Mutex<TelemetryStrings>,
 }
 
 impl ProxyTelemetryState {
@@ -212,35 +257,41 @@ impl ProxyTelemetryState {
             total_errors: AtomicU64::new(0),
             route_changes: AtomicU64::new(0),
             last_route_group: AtomicI64::new(-1),
-            listener_address: Mutex::new(None),
-            upstream_address: Mutex::new(None),
-            last_target: Mutex::new(None),
-            last_host: Mutex::new(None),
-            last_error: Mutex::new(None),
             autolearn_enabled: AtomicBool::new(false),
             learned_host_count: AtomicU64::new(0),
             penalized_host_count: AtomicU64::new(0),
             last_autolearn_group: AtomicI64::new(-1),
-            last_autolearn_host: Mutex::new(None),
-            last_autolearn_action: Mutex::new(None),
-            events: Mutex::new(VecDeque::with_capacity(MAX_PROXY_EVENTS)),
+            strings: Mutex::new(TelemetryStrings {
+                listener_address: None,
+                upstream_address: None,
+                last_target: None,
+                last_host: None,
+                last_error: None,
+                last_autolearn_host: None,
+                last_autolearn_action: None,
+                events: VecDeque::with_capacity(MAX_PROXY_EVENTS),
+            }),
         }
     }
 
     fn mark_running(&self, bind_addr: String, max_clients: usize, group_count: usize) {
         self.running.store(true, Ordering::Relaxed);
-        self.replace_string(&self.listener_address, Some(bind_addr.clone()));
-        self.push_event(
-            "proxy",
-            "info",
-            format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}"),
-        );
+        let message = format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}");
+        log::info!("{message}");
+        if let Ok(mut guard) = self.strings.lock() {
+            guard.listener_address = Some(bind_addr);
+            Self::push_event_to(&mut guard.events, "proxy", "info", message);
+        }
     }
 
     fn mark_stopped(&self) {
         self.running.store(false, Ordering::Relaxed);
         self.active_sessions.store(0, Ordering::Relaxed);
-        self.push_event("proxy", "info", "listener stopped".to_string());
+        let message = "listener stopped".to_string();
+        log::info!("{message}");
+        if let Ok(mut guard) = self.strings.lock() {
+            Self::push_event_to(&mut guard.events, "proxy", "info", message);
+        }
     }
 
     fn on_client_accepted(&self) {
@@ -256,25 +307,29 @@ impl ProxyTelemetryState {
 
     fn on_client_error(&self, error: String) {
         self.total_errors.fetch_add(1, Ordering::Relaxed);
-        self.replace_string(&self.last_error, Some(error.clone()));
-        self.push_event("proxy", "warn", format!("client error: {error}"));
+        let message = format!("client error: {error}");
+        log::warn!("{message}");
+        if let Ok(mut guard) = self.strings.lock() {
+            guard.last_error = Some(error);
+            Self::push_event_to(&mut guard.events, "proxy", "warn", message);
+        }
     }
 
     fn on_route_selected(&self, target: String, group_index: usize, host: Option<String>, phase: &str) {
         self.last_route_group.store(group_index.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
-        self.replace_string(&self.last_target, Some(target.clone()));
-        self.replace_string(&self.last_host, host.clone());
-        self.push_event(
-            "proxy",
-            "info",
-            format!(
-                "route selected phase={} group={} target={} host={}",
-                phase,
-                group_index,
-                target,
-                host.unwrap_or_else(|| "<none>".to_string())
-            ),
+        let message = format!(
+            "route selected phase={} group={} target={} host={}",
+            phase,
+            group_index,
+            target,
+            host.as_deref().unwrap_or("<none>")
         );
+        log::info!("{message}");
+        if let Ok(mut guard) = self.strings.lock() {
+            guard.last_target = Some(target);
+            guard.last_host = host;
+            Self::push_event_to(&mut guard.events, "proxy", "info", message);
+        }
     }
 
     fn on_route_advanced(
@@ -287,20 +342,20 @@ impl ProxyTelemetryState {
     ) {
         self.route_changes.fetch_add(1, Ordering::Relaxed);
         self.last_route_group.store(to_group.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
-        self.replace_string(&self.last_target, Some(target.clone()));
-        self.replace_string(&self.last_host, host.clone());
-        self.push_event(
-            "proxy",
-            "warn",
-            format!(
-                "route advanced target={} from={} to={} trigger={} host={}",
-                target,
-                from_group,
-                to_group,
-                trigger,
-                host.unwrap_or_else(|| "<none>".to_string())
-            ),
+        let message = format!(
+            "route advanced target={} from={} to={} trigger={} host={}",
+            target,
+            from_group,
+            to_group,
+            trigger,
+            host.as_deref().unwrap_or("<none>")
         );
+        log::warn!("{message}");
+        if let Ok(mut guard) = self.strings.lock() {
+            guard.last_target = Some(target);
+            guard.last_host = host;
+            Self::push_event_to(&mut guard.events, "proxy", "warn", message);
+        }
     }
 
     fn set_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
@@ -310,27 +365,47 @@ impl ProxyTelemetryState {
     }
 
     fn on_autolearn_event(&self, action: &'static str, host: Option<String>, group_index: Option<usize>) {
-        self.replace_string(&self.last_autolearn_host, host.clone());
-        self.replace_string(&self.last_autolearn_action, Some(action.to_string()));
         self.last_autolearn_group.store(
             group_index.and_then(|value| i64::try_from(value).ok()).unwrap_or(-1),
             Ordering::Relaxed,
         );
-        self.push_event(
-            "autolearn",
-            if action == "group_penalized" { "warn" } else { "info" },
-            format!(
-                "autolearn action={} host={} group={}",
-                action,
-                host.unwrap_or_else(|| "<none>".to_string()),
-                group_index
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|| "<none>".to_string())
-            ),
+        let level = if action == "group_penalized" { "warn" } else { "info" };
+        let message = format!(
+            "autolearn action={} host={} group={}",
+            action,
+            host.as_deref().unwrap_or("<none>"),
+            group_index
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "<none>".to_string())
         );
+        match level {
+            "warn" => log::warn!("{message}"),
+            _ => log::info!("{message}"),
+        }
+        if let Ok(mut guard) = self.strings.lock() {
+            guard.last_autolearn_host = host;
+            guard.last_autolearn_action = Some(action.to_string());
+            Self::push_event_to(&mut guard.events, "autolearn", level, message);
+        }
     }
 
     fn snapshot(&self) -> NativeRuntimeSnapshot {
+        let (listener_address, upstream_address, last_target, last_host, last_error, last_autolearn_host, last_autolearn_action, native_events) =
+            if let Ok(mut guard) = self.strings.lock() {
+                (
+                    guard.listener_address.clone(),
+                    guard.upstream_address.clone(),
+                    guard.last_target.clone(),
+                    guard.last_host.clone(),
+                    guard.last_error.clone(),
+                    guard.last_autolearn_host.clone(),
+                    guard.last_autolearn_action.clone(),
+                    guard.events.drain(..).collect(),
+                )
+            } else {
+                (None, None, None, None, None, None, None, Vec::new())
+            };
+
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
             state: if self.running.load(Ordering::Relaxed) { "running".to_string() } else { "idle".to_string() },
@@ -351,41 +426,29 @@ impl ProxyTelemetryState {
                 value if value >= 0 => i32::try_from(value).ok(),
                 _ => None,
             },
-            listener_address: self.clone_string(&self.listener_address),
-            upstream_address: self.clone_string(&self.upstream_address),
-            last_target: self.clone_string(&self.last_target),
-            last_host: self.clone_string(&self.last_host),
-            last_error: self.clone_string(&self.last_error),
+            listener_address,
+            upstream_address,
+            last_target,
+            last_host,
+            last_error,
             autolearn_enabled: self.autolearn_enabled.load(Ordering::Relaxed),
             learned_host_count: i32::try_from(self.learned_host_count.load(Ordering::Relaxed)).unwrap_or(i32::MAX),
             penalized_host_count: i32::try_from(self.penalized_host_count.load(Ordering::Relaxed)).unwrap_or(i32::MAX),
-            last_autolearn_host: self.clone_string(&self.last_autolearn_host),
+            last_autolearn_host,
             last_autolearn_group: match self.last_autolearn_group.load(Ordering::Relaxed) {
                 value if value >= 0 => i32::try_from(value).ok(),
                 _ => None,
             },
-            last_autolearn_action: self.clone_string(&self.last_autolearn_action),
+            last_autolearn_action,
             tunnel_stats: TunnelStatsSnapshot { tx_packets: 0, tx_bytes: 0, rx_packets: 0, rx_bytes: 0 },
-            native_events: self.drain_events(),
+            native_events,
             captured_at: now_ms(),
         }
     }
 
-    fn replace_string(&self, slot: &Mutex<Option<String>>, value: Option<String>) {
-        if let Ok(mut guard) = slot.lock() {
-            *guard = value;
-        }
-    }
-
-    fn clone_string(&self, slot: &Mutex<Option<String>>) -> Option<String> {
-        slot.lock().ok().and_then(|guard| guard.clone())
-    }
-
-    fn drain_events(&self) -> Vec<NativeRuntimeEvent> {
-        if let Ok(mut guard) = self.events.lock() {
-            guard.drain(..).collect()
-        } else {
-            Vec::new()
+    fn clear_last_error(&self) {
+        if let Ok(mut guard) = self.strings.lock() {
+            guard.last_error = None;
         }
     }
 
@@ -395,17 +458,21 @@ impl ProxyTelemetryState {
             "error" => log::error!("{message}"),
             _ => log::info!("{message}"),
         }
-        if let Ok(mut guard) = self.events.lock() {
-            if guard.len() >= MAX_PROXY_EVENTS {
-                guard.pop_front();
-            }
-            guard.push_back(NativeRuntimeEvent {
-                source: source.to_string(),
-                level: level.to_string(),
-                message,
-                created_at: now_ms(),
-            });
+        if let Ok(mut guard) = self.strings.lock() {
+            Self::push_event_to(&mut guard.events, source, level, message);
         }
+    }
+
+    fn push_event_to(events: &mut VecDeque<NativeRuntimeEvent>, source: &str, level: &str, message: String) {
+        if events.len() >= MAX_PROXY_EVENTS {
+            events.pop_front();
+        }
+        events.push_back(NativeRuntimeEvent {
+            source: source.to_string(),
+            level: level.to_string(),
+            message,
+            created_at: now_ms(),
+        });
     }
 }
 
@@ -474,8 +541,9 @@ pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void)
 fn proxy_create_entry(mut env: JNIEnv, config_json: JString) -> jlong {
     init_android_logging("ripdpi-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| create_session(&mut env, config_json))).unwrap_or_else(
-        |_| {
-            throw_runtime_exception(&mut env, "Proxy session creation panicked");
+        |panic_payload| {
+            let msg = extract_panic_message(panic_payload);
+            throw_runtime_exception(&mut env, format!("Proxy session creation panicked: {msg}"));
             0
         },
     )
@@ -483,23 +551,30 @@ fn proxy_create_entry(mut env: JNIEnv, config_json: JString) -> jlong {
 
 fn proxy_start_entry(mut env: JNIEnv, handle: jlong) -> jint {
     init_android_logging("ripdpi-native");
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| start_session(&mut env, handle))).unwrap_or_else(|_| {
-        throw_runtime_exception(&mut env, "Proxy session start panicked");
-        libc::EINVAL
-    })
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| start_session(&mut env, handle))).unwrap_or_else(
+        |panic_payload| {
+            let msg = extract_panic_message(panic_payload);
+            throw_runtime_exception(&mut env, format!("Proxy session start panicked: {msg}"));
+            libc::EINVAL
+        },
+    )
 }
 
 fn proxy_stop_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("ripdpi-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stop_session(&mut env, handle)))
-        .map_err(|_| throw_runtime_exception(&mut env, "Proxy session stop panicked"));
+        .map_err(|panic_payload| {
+            let msg = extract_panic_message(panic_payload);
+            throw_runtime_exception(&mut env, format!("Proxy session stop panicked: {msg}"));
+        });
 }
 
 fn proxy_poll_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| poll_proxy_telemetry(&mut env, handle))).unwrap_or_else(
-        |_| {
-            throw_runtime_exception(&mut env, "Proxy telemetry polling panicked");
+        |panic_payload| {
+            let msg = extract_panic_message(panic_payload);
+            throw_runtime_exception(&mut env, format!("Proxy telemetry polling panicked: {msg}"));
             std::ptr::null_mut()
         },
     )
@@ -508,7 +583,10 @@ fn proxy_poll_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jstring {
 fn proxy_destroy_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("ripdpi-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle)))
-        .map_err(|_| throw_runtime_exception(&mut env, "Proxy session destroy panicked"));
+        .map_err(|panic_payload| {
+            let msg = extract_panic_message(panic_payload);
+            throw_runtime_exception(&mut env, format!("Proxy session destroy panicked: {msg}"));
+        });
 }
 
 macro_rules! export_diagnostics_jni {
@@ -530,8 +608,9 @@ fn diagnostics_create_entry(mut env: JNIEnv) -> jlong {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         DIAGNOSTIC_SESSIONS.insert(MonitorSession::new()) as jlong
     }))
-    .unwrap_or_else(|_| {
-        throw_runtime_exception(&mut env, "Diagnostics session creation panicked");
+    .unwrap_or_else(|panic_payload| {
+        let msg = extract_panic_message(panic_payload);
+        throw_runtime_exception(&mut env, format!("Diagnostics session creation panicked: {msg}"));
         0
     })
 }
@@ -541,7 +620,10 @@ fn diagnostics_start_scan_entry(mut env: JNIEnv, handle: jlong, request_json: JS
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         start_diagnostics_scan(&mut env, handle, request_json, session_id);
     }))
-    .map_err(|_| throw_runtime_exception(&mut env, "Diagnostics scan start panicked"));
+    .map_err(|panic_payload| {
+        let msg = extract_panic_message(panic_payload);
+        throw_runtime_exception(&mut env, format!("Diagnostics scan start panicked: {msg}"));
+    });
 }
 
 fn diagnostics_cancel_scan_entry(mut env: JNIEnv, handle: jlong) {
@@ -550,7 +632,10 @@ fn diagnostics_cancel_scan_entry(mut env: JNIEnv, handle: jlong) {
         diagnostics_session(&mut env, handle)?.cancel_scan();
         Some(())
     }))
-    .map_err(|_| throw_runtime_exception(&mut env, "Diagnostics cancel panicked"));
+    .map_err(|panic_payload| {
+        let msg = extract_panic_message(panic_payload);
+        throw_runtime_exception(&mut env, format!("Diagnostics cancel panicked: {msg}"));
+    });
 }
 
 fn diagnostics_poll_progress_entry(mut env: JNIEnv, handle: jlong) -> jstring {
@@ -558,8 +643,9 @@ fn diagnostics_poll_progress_entry(mut env: JNIEnv, handle: jlong) -> jstring {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         poll_diagnostics_string(&mut env, handle, ripdpi_monitor::MonitorSession::poll_progress_json)
     }))
-    .unwrap_or_else(|_| {
-        throw_runtime_exception(&mut env, "Diagnostics progress polling panicked");
+    .unwrap_or_else(|panic_payload| {
+        let msg = extract_panic_message(panic_payload);
+        throw_runtime_exception(&mut env, format!("Diagnostics progress polling panicked: {msg}"));
         std::ptr::null_mut()
     })
 }
@@ -569,8 +655,9 @@ fn diagnostics_take_report_entry(mut env: JNIEnv, handle: jlong) -> jstring {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         poll_diagnostics_string(&mut env, handle, ripdpi_monitor::MonitorSession::take_report_json)
     }))
-    .unwrap_or_else(|_| {
-        throw_runtime_exception(&mut env, "Diagnostics report polling panicked");
+    .unwrap_or_else(|panic_payload| {
+        let msg = extract_panic_message(panic_payload);
+        throw_runtime_exception(&mut env, format!("Diagnostics report polling panicked: {msg}"));
         std::ptr::null_mut()
     })
 }
@@ -580,8 +667,9 @@ fn diagnostics_poll_passive_events_entry(mut env: JNIEnv, handle: jlong) -> jstr
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         poll_diagnostics_string(&mut env, handle, ripdpi_monitor::MonitorSession::poll_passive_events_json)
     }))
-    .unwrap_or_else(|_| {
-        throw_runtime_exception(&mut env, "Diagnostics passive polling panicked");
+    .unwrap_or_else(|panic_payload| {
+        let msg = extract_panic_message(panic_payload);
+        throw_runtime_exception(&mut env, format!("Diagnostics passive polling panicked: {msg}"));
         std::ptr::null_mut()
     })
 }
@@ -589,7 +677,10 @@ fn diagnostics_poll_passive_events_entry(mut env: JNIEnv, handle: jlong) -> jstr
 fn diagnostics_destroy_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("ripdpi-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_diagnostics_session(&mut env, handle)))
-        .map_err(|_| throw_runtime_exception(&mut env, "Diagnostics session destroy panicked"));
+        .map_err(|panic_payload| {
+            let msg = extract_panic_message(panic_payload);
+            throw_runtime_exception(&mut env, format!("Diagnostics session destroy panicked: {msg}"));
+        });
 }
 
 #[unsafe(no_mangle)]
@@ -742,21 +833,21 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
     let payload = match parse_proxy_config_json(&json) {
         Ok(payload) => payload,
         Err(err) => {
-            throw_illegal_argument(env, err);
+            err.throw(env);
             return 0;
         }
     };
 
     let config = match runtime_config_from_payload(payload) {
         Ok(config) => config,
-        Err(message) => {
-            throw_illegal_argument(env, message);
+        Err(err) => {
+            err.throw(env);
             return 0;
         }
     };
 
     if let Err(err) = runtime::create_listener(&config) {
-        throw_io_exception(env, format!("Failed to prepare proxy listener: {err}"));
+        JniProxyError::Io(err).throw(env);
         return 0;
     }
 
@@ -770,8 +861,8 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
 fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
-        Err(message) => {
-            throw_illegal_argument(env, message);
+        Err(err) => {
+            err.throw(env);
             return libc::EINVAL;
         }
     };
@@ -793,7 +884,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
         }
     }
 
-    session.telemetry.replace_string(&session.telemetry.last_error, None);
+    session.telemetry.clear_last_error();
     install_runtime_telemetry(Arc::new(ProxyTelemetryObserver { state: session.telemetry.clone() }));
     process::prepare_embedded();
     let result = runtime::run_proxy_with_listener(config, listener);
@@ -814,8 +905,8 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
 fn stop_session(env: &mut JNIEnv, handle: jlong) {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
-        Err(message) => {
-            throw_illegal_argument(env, message);
+        Err(err) => {
+            err.throw(env);
             return;
         }
     };
@@ -842,8 +933,8 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
 fn destroy_session(env: &mut JNIEnv, handle: jlong) {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,
-        Err(message) => {
-            throw_illegal_argument(env, message);
+        Err(err) => {
+            err.throw(env);
             return;
         }
     };
@@ -856,7 +947,7 @@ fn destroy_session(env: &mut JNIEnv, handle: jlong) {
     let _ = remove_proxy_session(handle);
 }
 
-fn runtime_config_from_payload(payload: ProxyConfigPayload) -> Result<RuntimeConfig, String> {
+fn runtime_config_from_payload(payload: ProxyConfigPayload) -> Result<RuntimeConfig, JniProxyError> {
     match payload {
         ProxyConfigPayload::CommandLine { args } => runtime_config_from_command_line(args),
         ProxyConfigPayload::Ui(config) => runtime_config_from_ui(config),

@@ -15,15 +15,15 @@ use hs5t_core::Stats;
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
 use jni::{JNIEnv, JavaVM};
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
 use tokio_util::sync::CancellationToken;
 
-static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 static SESSIONS: Lazy<HandleRegistry<TunnelSession>> = Lazy::new(HandleRegistry::new);
 
 struct TunnelSession {
+    runtime: Arc<Runtime>,
     config: Arc<Config>,
     last_error: Arc<Mutex<Option<String>>>,
     telemetry: Arc<TunnelTelemetryState>,
@@ -396,8 +396,16 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
             return 0;
         }
     };
+    let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
+        Ok(rt) => Arc::new(rt),
+        Err(err) => {
+            throw_io_exception(env, format!("Failed to initialize Tokio runtime: {err}"));
+            return 0;
+        }
+    };
 
     SESSIONS.insert(TunnelSession {
+        runtime,
         config,
         last_error: Arc::new(Mutex::new(None)),
         telemetry: Arc::new(TunnelTelemetryState::new()),
@@ -417,13 +425,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         throw_illegal_argument(env, message);
         return;
     }
-    let runtime = match get_runtime() {
-        Some(runtime) => runtime,
-        None => {
-            throw_io_exception(env, "Failed to initialize Tokio runtime");
-            return;
-        }
-    };
+    let runtime = session.runtime.clone();
 
     let cancel = Arc::new(CancellationToken::new());
     let stats = Arc::new(Stats::new());
@@ -576,10 +578,6 @@ fn destroy_session(env: &mut JNIEnv, handle: jlong) {
     }
     drop(state);
     let _ = remove_tunnel_session(handle);
-}
-
-fn get_runtime() -> Option<&'static Runtime> {
-    RUNTIME.get_or_try_init(|| tokio::runtime::Builder::new_multi_thread().enable_all().build()).ok()
 }
 
 fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config, String> {
@@ -1144,6 +1142,7 @@ mod tests {
     #[test]
     fn destroy_removes_ready_tunnel_session() {
         let handle = SESSIONS.insert(TunnelSession {
+            runtime: Arc::new(tokio::runtime::Builder::new_current_thread().build().expect("test runtime")),
             config: Arc::new(config_from_payload(sample_payload()).expect("config")),
             last_error: Arc::new(Mutex::new(None)),
             telemetry: Arc::new(TunnelTelemetryState::new()),
@@ -1195,6 +1194,7 @@ mod tests {
             }
 
             let handle = SESSIONS.insert(TunnelSession {
+                runtime: Arc::new(tokio::runtime::Builder::new_current_thread().build().expect("test runtime")),
                 config: Arc::new(config_from_payload(sample_payload()).expect("config")),
                 last_error: Arc::new(Mutex::new(None)),
                 telemetry: Arc::new(TunnelTelemetryState::new()),

@@ -32,7 +32,7 @@ class RipDpiProxyNativeBindings
     constructor() : RipDpiProxyBindings {
         companion object {
             init {
-                System.loadLibrary("ripdpi")
+                RipDpiNativeLoader.ensureLoaded()
             }
         }
 
@@ -72,12 +72,12 @@ class RipDpiProxy(
         val handle =
             mutex.withLock {
                 if (this.handle != 0L) {
-                    throw IllegalStateException("Proxy is already running")
+                    throw NativeError.AlreadyRunning("Proxy")
                 }
 
                 val createdHandle = nativeBindings.create(preferences.toNativeConfigJson())
                 if (createdHandle == 0L) {
-                    throw IllegalStateException("Native proxy session was not created")
+                    throw NativeError.SessionCreationFailed("proxy")
                 }
                 this.handle = createdHandle
                 createdHandle
@@ -101,7 +101,7 @@ class RipDpiProxy(
     override suspend fun stopProxy() {
         mutex.withLock {
             if (handle == 0L) {
-                throw IllegalStateException("Proxy is not running")
+                throw NativeError.NotRunning("Proxy")
             }
 
             nativeBindings.stop(handle)

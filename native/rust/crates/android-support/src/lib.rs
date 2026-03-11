@@ -41,16 +41,16 @@ impl<T> HandleRegistry<T> {
 
     pub fn insert(&self, value: T) -> u64 {
         let handle = self.next.fetch_add(1, Ordering::Relaxed);
-        self.inner.lock().expect("handle registry poisoned").insert(handle, Arc::new(value));
+        self.inner.lock().unwrap_or_else(|e| e.into_inner()).insert(handle, Arc::new(value));
         handle
     }
 
     pub fn get(&self, handle: u64) -> Option<Arc<T>> {
-        self.inner.lock().expect("handle registry poisoned").get(&handle).cloned()
+        self.inner.lock().unwrap_or_else(|e| e.into_inner()).get(&handle).cloned()
     }
 
     pub fn remove(&self, handle: u64) -> Option<Arc<T>> {
-        self.inner.lock().expect("handle registry poisoned").remove(&handle)
+        self.inner.lock().unwrap_or_else(|e| e.into_inner()).remove(&handle)
     }
 }
 
