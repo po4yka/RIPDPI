@@ -11,6 +11,7 @@ import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.FailureReason
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
@@ -59,8 +60,8 @@ class FakeServiceStateStore(
         statusState.value = status to mode
     }
 
-    override fun emitFailed(sender: Sender) {
-        eventFlow.tryEmit(ServiceEvent.Failed(sender))
+    override fun emitFailed(sender: Sender, reason: FailureReason) {
+        eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
     }
 
     override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {

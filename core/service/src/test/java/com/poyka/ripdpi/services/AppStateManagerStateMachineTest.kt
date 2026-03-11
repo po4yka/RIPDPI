@@ -81,12 +81,12 @@ class AppStateManagerStateMachineTest {
             }
 
             StateStoreCommand.EMIT_FAILED_PROXY -> {
-                store.emitFailed(Sender.Proxy)
+                store.emitFailed(Sender.Proxy, FailureReason.NativeError("proxy error"))
                 model.copy(lastFailureSender = Sender.Proxy, lastFailureAt = TimestampExpectation.AnyNonNull)
             }
 
             StateStoreCommand.EMIT_FAILED_VPN -> {
-                store.emitFailed(Sender.VPN)
+                store.emitFailed(Sender.VPN, FailureReason.NativeError("vpn error"))
                 model.copy(lastFailureSender = Sender.VPN, lastFailureAt = TimestampExpectation.AnyNonNull)
             }
 

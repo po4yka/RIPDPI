@@ -25,6 +25,7 @@ import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.services.FailureReason
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
 import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
@@ -1311,8 +1312,8 @@ private class FakeServiceStateStore(
         statusState.value = status to mode
     }
 
-    override fun emitFailed(sender: Sender) {
-        eventFlow.tryEmit(ServiceEvent.Failed(sender))
+    override fun emitFailed(sender: Sender, reason: FailureReason) {
+        eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
     }
 
     override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {

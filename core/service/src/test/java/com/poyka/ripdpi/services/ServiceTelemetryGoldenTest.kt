@@ -56,7 +56,7 @@ class ServiceTelemetryGoldenTest {
                 updatedAt = 123L,
             ),
         )
-        store.emitFailed(Sender.Proxy)
+        store.emitFailed(Sender.Proxy, FailureReason.NativeError("proxy error"))
         store.setStatus(AppStatus.Halted, Mode.Proxy)
         store.updateTelemetry(
             ServiceTelemetrySnapshot(
