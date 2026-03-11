@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
+import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -16,6 +18,9 @@ class SettingsUiStateTest {
         assertTrue(state.isVpn)
         assertFalse(state.useCmdSettings)
         assertEquals("disorder", state.desyncMethod)
+        assertFalse(state.hostAutolearnEnabled)
+        assertEquals(DefaultHostAutolearnPenaltyTtlHours, state.hostAutolearnPenaltyTtlHours)
+        assertEquals(DefaultHostAutolearnMaxHosts, state.hostAutolearnMaxHosts)
         assertTrue(state.desyncEnabled)
         assertFalse(state.isFake)
         assertFalse(state.isOob)
@@ -181,5 +186,22 @@ class SettingsUiStateTest {
         val state = defaults.toUiState(isHydrated = false)
         assertFalse(state.isHydrated)
         assertFalse(state.biometricEnabled)
+    }
+
+    @Test
+    fun `host autolearn values normalize from stored settings`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setHostAutolearnEnabled(true)
+                .setHostAutolearnPenaltyTtlHours(0)
+                .setHostAutolearnMaxHosts(0)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.hostAutolearnEnabled)
+        assertEquals(DefaultHostAutolearnPenaltyTtlHours, state.hostAutolearnPenaltyTtlHours)
+        assertEquals(DefaultHostAutolearnMaxHosts, state.hostAutolearnMaxHosts)
     }
 }

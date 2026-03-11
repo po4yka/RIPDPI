@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,9 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.SettingsEffect
+import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
+import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.QuicInitialModeDisabled
@@ -56,6 +61,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
+import kotlinx.coroutines.flow.collect
 
 private enum class AdvancedToggleSetting {
     UseCommandLine,
@@ -71,6 +77,7 @@ private enum class AdvancedToggleSetting {
     TlsrecEnabled,
     QuicSupportV1,
     QuicSupportV2,
+    HostAutolearnEnabled,
 }
 
 private enum class AdvancedTextSetting {
@@ -88,6 +95,8 @@ private enum class AdvancedTextSetting {
     OobData,
     TlsrecMarker,
     UdpFakeCount,
+    HostAutolearnPenaltyTtlHours,
+    HostAutolearnMaxHosts,
     HostsBlacklist,
     HostsWhitelist,
 }
@@ -98,6 +107,12 @@ private enum class AdvancedOptionSetting {
     QuicInitialMode,
 }
 
+private data class AdvancedNotice(
+    val title: String,
+    val message: String,
+    val tone: WarningBannerTone,
+)
+
 @Composable
 fun AdvancedSettingsRoute(
     onBack: () -> Unit,
@@ -105,9 +120,29 @@ fun AdvancedSettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var notice by remember { mutableStateOf<AdvancedNotice?>(null) }
+
+    LaunchedEffect(viewModel) {
+        viewModel.effects.collect { effect ->
+            if (effect is SettingsEffect.Notice) {
+                notice =
+                    AdvancedNotice(
+                        title = effect.title,
+                        message = effect.message,
+                        tone =
+                            when (effect.tone) {
+                                SettingsNoticeTone.Info -> WarningBannerTone.Info
+                                SettingsNoticeTone.Warning -> WarningBannerTone.Warning
+                                SettingsNoticeTone.Error -> WarningBannerTone.Error
+                            },
+                    )
+            }
+        }
+    }
 
     AdvancedSettingsScreen(
         uiState = uiState,
+        notice = notice,
         onBack = onBack,
         onToggleChanged = { setting, enabled ->
             when (setting) {
@@ -225,6 +260,15 @@ fun AdvancedSettingsRoute(
                         value = enabled.toString(),
                     ) {
                         setQuicSupportV2(enabled)
+                    }
+                }
+
+                AdvancedToggleSetting.HostAutolearnEnabled -> {
+                    viewModel.updateSetting(
+                        key = "hostAutolearnEnabled",
+                        value = enabled.toString(),
+                    ) {
+                        setHostAutolearnEnabled(enabled)
                     }
                 }
 
@@ -387,6 +431,30 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
+                AdvancedTextSetting.HostAutolearnPenaltyTtlHours -> {
+                    value.toIntOrNull()?.let { ttl ->
+                        val normalized = normalizeHostAutolearnPenaltyTtlHours(ttl)
+                        viewModel.updateSetting(
+                            key = "hostAutolearnPenaltyTtlHours",
+                            value = normalized.toString(),
+                        ) {
+                            setHostAutolearnPenaltyTtlHours(normalized)
+                        }
+                    }
+                }
+
+                AdvancedTextSetting.HostAutolearnMaxHosts -> {
+                    value.toIntOrNull()?.let { maxHosts ->
+                        val normalized = normalizeHostAutolearnMaxHosts(maxHosts)
+                        viewModel.updateSetting(
+                            key = "hostAutolearnMaxHosts",
+                            value = normalized.toString(),
+                        ) {
+                            setHostAutolearnMaxHosts(normalized)
+                        }
+                    }
+                }
+
                 AdvancedTextSetting.HostsBlacklist -> {
                     viewModel.updateSetting(
                         key = "hostsBlacklist",
@@ -436,6 +504,7 @@ fun AdvancedSettingsRoute(
                 }
             }
         },
+        onForgetLearnedHosts = viewModel::forgetLearnedHosts,
         modifier = modifier,
     )
 }
@@ -443,10 +512,12 @@ fun AdvancedSettingsRoute(
 @Composable
 private fun AdvancedSettingsScreen(
     uiState: SettingsUiState,
+    notice: AdvancedNotice?,
     onBack: () -> Unit,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
+    onForgetLearnedHosts: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -483,6 +554,15 @@ private fun AdvancedSettingsScreen(
                     title = stringResource(R.string.config_cli_banner_title),
                     message = stringResource(R.string.config_cli_banner_body),
                     tone = WarningBannerTone.Restricted,
+                )
+            }
+        }
+        notice?.let {
+            item(key = "advanced_settings_notice") {
+                WarningBanner(
+                    title = it.title,
+                    message = it.message,
+                    tone = it.tone,
                 )
             }
         }
@@ -737,6 +817,73 @@ private fun AdvancedSettingsScreen(
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncUdp, it) },
                         enabled = visualEditorEnabled,
                     )
+                }
+            }
+        }
+
+        item(key = "advanced_host_autolearn") {
+            SettingsSection(title = stringResource(R.string.host_autolearn_section_title)) {
+                RipDpiCard {
+                    SettingsRow(
+                        title = stringResource(R.string.host_autolearn_enabled_title),
+                        subtitle = stringResource(R.string.host_autolearn_enabled_body),
+                        checked = uiState.hostAutolearnEnabled,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostAutolearnEnabled, it) },
+                        enabled = visualEditorEnabled,
+                        showDivider = uiState.hostAutolearnEnabled,
+                    )
+                    if (uiState.hostAutolearnEnabled) {
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.host_autolearn_penalty_ttl_title),
+                            description = stringResource(R.string.host_autolearn_penalty_ttl_body),
+                            value = uiState.hostAutolearnPenaltyTtlHours.toString(),
+                            enabled = visualEditorEnabled,
+                            validator = { validateIntRange(it, 1, 24 * 30) },
+                            invalidMessage = stringResource(R.string.config_error_out_of_range),
+                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            setting = AdvancedTextSetting.HostAutolearnPenaltyTtlHours,
+                            onConfirm = onTextConfirmed,
+                            showDivider = true,
+                        )
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.host_autolearn_max_hosts_title),
+                            description = stringResource(R.string.host_autolearn_max_hosts_body),
+                            value = uiState.hostAutolearnMaxHosts.toString(),
+                            enabled = visualEditorEnabled,
+                            validator = { validateIntRange(it, 1, 50_000) },
+                            invalidMessage = stringResource(R.string.config_error_out_of_range),
+                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            setting = AdvancedTextSetting.HostAutolearnMaxHosts,
+                            onConfirm = onTextConfirmed,
+                            showDivider = true,
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.host_autolearn_helper),
+                        style = RipDpiThemeTokens.type.caption,
+                        color = colors.mutedForeground,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        RipDpiButton(
+                            text = stringResource(R.string.host_autolearn_forget_action),
+                            onClick = onForgetLearnedHosts,
+                            variant = RipDpiButtonVariant.Secondary,
+                            trailingIcon = RipDpiIcons.Close,
+                        )
+                    }
                 }
             }
         }
@@ -1074,10 +1221,12 @@ private fun AdvancedSettingsScreenPreview() {
                     udpFakeCount = 0,
                     hostsMode = "disable",
                 ),
+            notice = null,
             onBack = {},
             onToggleChanged = { _, _ -> },
             onTextConfirmed = { _, _ -> },
             onOptionSelected = { _, _ -> },
+            onForgetLearnedHosts = {},
         )
     }
 }
@@ -1115,10 +1264,12 @@ private fun AdvancedSettingsScreenDarkPreview() {
                     domainMixedCase = true,
                     hostRemoveSpaces = false,
                 ),
+            notice = null,
             onBack = {},
             onToggleChanged = { _, _ -> },
             onTextConfirmed = { _, _ -> },
             onOptionSelected = { _, _ -> },
+            onForgetLearnedHosts = {},
         )
     }
 }

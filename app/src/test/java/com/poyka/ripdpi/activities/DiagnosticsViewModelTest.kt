@@ -596,6 +596,12 @@ class DiagnosticsViewModelTest {
                                 sessionUptimeMs = 20_000L,
                                 lastNativeErrorHeadline = "none",
                                 restartCount = 2,
+                                hostAutolearnEnabled = "enabled",
+                                learnedHostCount = 3,
+                                penalizedHostCount = 1,
+                                lastAutolearnHost = "example.org",
+                                lastAutolearnGroup = "2",
+                                lastAutolearnAction = "host_promoted",
                             ),
                         permissions =
                             PermissionContextModel(
@@ -687,6 +693,7 @@ private class FakeDiagnosticsManager(
                 BypassStrategySignature(
                     mode = "VPN",
                     configSource = "ui",
+                    hostAutolearn = "enabled",
                     desyncMethod = "split",
                     chainSummary = "tcp: split(1)",
                     protocolToggles = listOf("HTTP", "HTTPS"),

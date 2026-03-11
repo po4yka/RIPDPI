@@ -33,6 +33,7 @@ enum class BypassApproachKind {
 data class BypassStrategySignature(
     val mode: String,
     val configSource: String,
+    val hostAutolearn: String,
     val desyncMethod: String,
     val chainSummary: String,
     val protocolToggles: List<String>,
@@ -122,6 +123,12 @@ fun deriveBypassStrategySignature(
     return BypassStrategySignature(
         mode = mode,
         configSource = if (settings.enableCmdSettings) "command_line" else "ui",
+        hostAutolearn =
+            when {
+                settings.enableCmdSettings -> "command_line"
+                settings.hostAutolearnEnabled -> "enabled"
+                else -> "disabled"
+            },
         desyncMethod = desyncMethod,
         chainSummary = formatChainSummary(tcpSteps, udpSteps),
         protocolToggles = protocols,
@@ -151,6 +158,14 @@ fun BypassStrategySignature.displayLabel(): String =
         append(chainSummary)
         append(" · ")
         append(protocolToggles.joinToString("/"))
+        append(" · ")
+        append(
+            when (hostAutolearn) {
+                "command_line" -> "Autolearn CLI"
+                "enabled" -> "Autolearn on"
+                else -> "Autolearn off"
+            },
+        )
         if (tlsRecordSplitEnabled) {
             append(" · TLS split")
         }

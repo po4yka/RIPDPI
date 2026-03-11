@@ -552,6 +552,10 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
             phase: "advanced",
         });
     }
+
+    fn on_host_autolearn_state(&self, _enabled: bool, _learned_host_count: usize, _penalized_host_count: usize) {}
+
+    fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
 }
 
 fn _assert_fixture_event_contains(events: &[FixtureEvent], service: &str, detail: &str) {

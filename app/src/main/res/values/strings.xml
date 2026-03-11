@@ -134,6 +134,15 @@
     <string name="config_tls_record_marker_helper">Accepts offsets like 0, host, sniext, extlen, or 1+s.</string>
     <string name="config_https_chain_hint">TLS record steps now live inside the strategy chain editor as tlsrec markers.</string>
     <string name="config_udp_chain_hint">UDP fake bursts now live inside the strategy chain editor as fake_burst counts.</string>
+    <string name="host_autolearn_section_title">Host learning</string>
+    <string name="host_autolearn_enabled_title">Learn routes per host</string>
+    <string name="host_autolearn_enabled_body">Remember the winning TCP route per HTTP Host or TLS SNI and prefer it on future connections.</string>
+    <string name="host_autolearn_penalty_ttl_title">Penalty TTL (hours)</string>
+    <string name="host_autolearn_penalty_ttl_body">How long a failing host route stays deprioritized before RIPDPI can prefer it again.</string>
+    <string name="host_autolearn_max_hosts_title">Learned hosts limit</string>
+    <string name="host_autolearn_max_hosts_body">Maximum number of remembered hosts stored on this device.</string>
+    <string name="host_autolearn_helper">TCP HTTP/TLS only. Learned hosts are remembered across restarts.</string>
+    <string name="host_autolearn_forget_action">Forget learned hosts</string>
     <string name="quic_initial_section_title">QUIC Initial</string>
     <string name="quic_initial_section_body">Control whether RIPDPI decrypts QUIC Initial packets to recover SNI for UDP host routing, filters, cache records, and telemetry.</string>
     <string name="quic_initial_mode_title">QUIC handling</string>

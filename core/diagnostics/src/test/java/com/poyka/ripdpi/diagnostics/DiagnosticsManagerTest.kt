@@ -530,6 +530,7 @@ class DiagnosticsManagerTest {
                 BypassStrategySignature(
                     mode = "VPN",
                     configSource = "ui",
+                    hostAutolearn = "enabled",
                     desyncMethod = "split",
                     chainSummary = "tcp: split(1)",
                     protocolToggles = listOf("HTTP", "HTTPS"),
@@ -660,6 +661,7 @@ class DiagnosticsManagerTest {
                 BypassStrategySignature(
                     mode = "Proxy",
                     configSource = "ui",
+                    hostAutolearn = "disabled",
                     desyncMethod = "fake",
                     chainSummary = "tcp: fake(method+1)",
                     protocolToggles = listOf("HTTP"),
@@ -1072,6 +1074,12 @@ private class FakeDiagnosticsContextProvider : DiagnosticsContextProvider {
                     sessionUptimeMs = 15_000L,
                     lastNativeErrorHeadline = "none",
                     restartCount = 2,
+                    hostAutolearnEnabled = "enabled",
+                    learnedHostCount = 4,
+                    penalizedHostCount = 1,
+                    lastAutolearnHost = "example.org",
+                    lastAutolearnGroup = "3",
+                    lastAutolearnAction = "host_promoted",
                 ),
             permissions =
                 PermissionContextModel(

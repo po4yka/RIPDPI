@@ -1251,6 +1251,7 @@ dependencies = [
  "mio 0.8.11",
  "native-soak-support",
  "rustls",
+ "serde",
  "serde_json",
  "sha2",
  "socket2 0.5.10",

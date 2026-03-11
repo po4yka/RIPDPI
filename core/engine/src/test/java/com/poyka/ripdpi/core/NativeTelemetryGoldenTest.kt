@@ -65,6 +65,12 @@ class NativeTelemetryGoldenTest {
                 source = "proxy",
                 state = "running",
                 health = "healthy",
+                autolearnEnabled = true,
+                learnedHostCount = 3,
+                penalizedHostCount = 1,
+                lastAutolearnHost = "example.org",
+                lastAutolearnGroup = 2,
+                lastAutolearnAction = "host_promoted",
                 listenerAddress = "127.0.0.1:<port>",
                 nativeEvents =
                     if (includeEvents) {
