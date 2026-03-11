@@ -128,7 +128,7 @@
     <string name="config_default_ttl_helper">Leave empty to use the engine default.</string>
     <string name="config_chain_summary_label">Strategy chain: %1$s</string>
     <string name="config_chain_editor_label">Strategy chain</string>
-    <string name="config_chain_editor_helper">Use [tcp] and [udp] sections. Hostfake syntax: hostfake &lt;marker&gt; [midhost=&lt;marker&gt;] [host=&lt;template&gt;]. HTTP example: hostfake endhost+8 midhost=midsld host=googlevideo.com. TLS example: tlsrec extlen, hostfake endhost host=cdn.discordapp.net. Hostfake targets Host/SNI only and falls back harmlessly when no hostname is present.</string>
+    <string name="config_chain_editor_helper">Use [tcp] and [udp] sections. Markers accept numeric or semantic offsets. The Hostfake profile below explains hostname-targeted fake chunks and shows ready-to-paste HTTP and TLS examples.</string>
     <string name="config_split_marker_helper">Accepts offsets like 1, host, method+2, midsld-1, or 1+s.</string>
     <string name="config_fake_offset_marker_helper">Accepts numeric or semantic offsets like 0, host+1, endhost-2, or 1+se.</string>
     <string name="config_fake_tls_size_helper">0 = input-sized, positive = exact target bytes, negative = input minus N.</string>
@@ -204,6 +204,40 @@ split midsld
 
 [udp]
 fake_burst 3</string>
+    <string name="ripdpi_hostfake_available_title">Hostname targeting available</string>
+    <string name="ripdpi_hostfake_available_body">Add a hostfake step when you want fake chunks only around the HTTP Host or TLS SNI span instead of faking the whole payload.</string>
+    <string name="ripdpi_hostfake_ready_title">Hostname targeting ready</string>
+    <string name="ripdpi_hostfake_ready_body">The saved strategy chain already contains hostfake steps and will use them on the next RIPDPI start.</string>
+    <string name="ripdpi_hostfake_restart_title">Restart to apply hostfake</string>
+    <string name="ripdpi_hostfake_restart_body">Hostfake is configured in settings, but the running RIPDPI session started before this chain change.</string>
+    <string name="ripdpi_hostfake_protocols_off_title">HTTP and HTTPS are off</string>
+    <string name="ripdpi_hostfake_protocols_off_body">Enable HTTP or HTTPS desync if you want hostfake to target Host or SNI fields.</string>
+    <string name="ripdpi_hostfake_cli_title">Controlled by command line</string>
+    <string name="ripdpi_hostfake_cli_body">Visual hostfake guidance stays visible here, but the active chain comes from raw RIPDPI arguments while command line settings are enabled.</string>
+    <string name="ripdpi_hostfake_summary_label_profile">Chain profile</string>
+    <string name="ripdpi_hostfake_summary_label_scope">Traffic scope</string>
+    <string name="ripdpi_hostfake_summary_label_template">Primary fake host</string>
+    <string name="ripdpi_hostfake_summary_label_midhost">Real host split</string>
+    <string name="ripdpi_hostfake_summary_label_end_marker">Segment boundary</string>
+    <string name="ripdpi_hostfake_summary_label_transport">Fake transport</string>
+    <string name="ripdpi_hostfake_summary_label_http_example">HTTP example</string>
+    <string name="ripdpi_hostfake_summary_label_tls_example">TLS example</string>
+    <string name="ripdpi_hostfake_summary_profile_none">Not in the current chain</string>
+    <string name="ripdpi_hostfake_summary_profile_single">1 hostfake step</string>
+    <string name="ripdpi_hostfake_summary_profile_multiple">%1$d hostfake steps</string>
+    <string name="ripdpi_hostfake_summary_scope_http_https">HTTP Host and TLS SNI</string>
+    <string name="ripdpi_hostfake_summary_scope_http">HTTP Host only</string>
+    <string name="ripdpi_hostfake_summary_scope_https">TLS SNI only</string>
+    <string name="ripdpi_hostfake_summary_scope_none">No matching protocol enabled</string>
+    <string name="ripdpi_hostfake_summary_template_random">Random same-length hostname</string>
+    <string name="ripdpi_hostfake_summary_midhost_whole">Keep the real host as one span</string>
+    <string name="ripdpi_hostfake_summary_midhost_marker">Split the real host at %1$s</string>
+    <string name="ripdpi_hostfake_summary_end_marker_none">Use the default step boundary</string>
+    <string name="ripdpi_hostfake_summary_transport">Fake TTL %1$d</string>
+    <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
+    <string name="ripdpi_hostfake_example_tls">tlsrec extlen
+hostfake endhost host=cdn.discordapp.net</string>
+    <string name="ripdpi_hostfake_scope_note">Hostfake only touches Host/SNI-sized chunks. It does not use the full Fake TLS profile or fake offset marker.</string>
     <string name="config_desync_none">none</string>
     <string name="config_desync_disorder">disorder</string>
     <string name="config_desync_fake">fake</string>
