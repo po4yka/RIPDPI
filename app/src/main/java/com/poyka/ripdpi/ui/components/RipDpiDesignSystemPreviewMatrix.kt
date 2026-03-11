@@ -44,7 +44,26 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
-private fun RipDpiDesignSystemPreviewMatrix(themePreference: String) {
+internal fun RipDpiDesignSystemPreviewMatrixCatalog(themePreference: String) {
+    RipDpiDesignSystemCatalog(
+        themePreference = themePreference,
+        includeInteractiveStates = true,
+    )
+}
+
+@Composable
+internal fun RipDpiDesignSystemScreenshotCatalog(themePreference: String) {
+    RipDpiDesignSystemCatalog(
+        themePreference = themePreference,
+        includeInteractiveStates = false,
+    )
+}
+
+@Composable
+private fun RipDpiDesignSystemCatalog(
+    themePreference: String,
+    includeInteractiveStates: Boolean,
+) {
     val dropdownOptions =
         listOf(
             RipDpiDropdownOption("auto", "Auto"),
@@ -57,199 +76,245 @@ private fun RipDpiDesignSystemPreviewMatrix(themePreference: String) {
             PreviewMatrixRow(
                 title = "Buttons",
                 cells =
-                    listOf(
-                        "Enabled" to {
-                            RipDpiButton(text = "Connect", onClick = {})
-                        },
-                        "Disabled" to {
-                            RipDpiButton(text = "Connect", onClick = {}, enabled = false)
-                        },
-                        "Pressed" to {
-                            RipDpiButton(
-                                text = "Connect",
-                                onClick = {},
-                                interactionSource = rememberPreviewInteractionSource(pressed = true),
+                    buildList {
+                        add("Enabled" to { RipDpiButton(text = "Connect", onClick = {}) })
+                        add("Disabled" to { RipDpiButton(text = "Connect", onClick = {}, enabled = false) })
+                        if (includeInteractiveStates) {
+                            add(
+                                "Pressed" to {
+                                    RipDpiButton(
+                                        text = "Connect",
+                                        onClick = {},
+                                        interactionSource = rememberPreviewInteractionSource(pressed = true),
+                                    )
+                                },
                             )
-                        },
-                        "Focused" to {
-                            RipDpiButton(
-                                text = "Connect",
-                                onClick = {},
-                                interactionSource = rememberPreviewInteractionSource(focused = true),
+                            add(
+                                "Focused" to {
+                                    RipDpiButton(
+                                        text = "Connect",
+                                        onClick = {},
+                                        interactionSource = rememberPreviewInteractionSource(focused = true),
+                                    )
+                                },
                             )
-                        },
-                        "Loading" to {
-                            RipDpiButton(
-                                text = "Connecting",
-                                onClick = {},
-                                loading = true,
-                                density = RipDpiControlDensity.Compact,
+                        }
+                        if (includeInteractiveStates) {
+                            add(
+                                "Loading" to {
+                                    RipDpiButton(
+                                        text = "Connecting",
+                                        onClick = {},
+                                        loading = true,
+                                        density = RipDpiControlDensity.Compact,
+                                    )
+                                },
                             )
-                        },
-                    ),
+                        }
+                    },
             )
 
             PreviewMatrixRow(
                 title = "Destructive",
                 cells =
-                    listOf(
-                        "Enabled" to {
-                            RipDpiButton(
-                                text = "Reset",
-                                onClick = {},
-                                variant = RipDpiButtonVariant.Destructive,
+                    buildList {
+                        add(
+                            "Enabled" to {
+                                RipDpiButton(
+                                    text = "Reset",
+                                    onClick = {},
+                                    variant = RipDpiButtonVariant.Destructive,
+                                )
+                            },
+                        )
+                        add(
+                            "Disabled" to {
+                                RipDpiButton(
+                                    text = "Reset",
+                                    onClick = {},
+                                    variant = RipDpiButtonVariant.Destructive,
+                                    enabled = false,
+                                )
+                            },
+                        )
+                        if (includeInteractiveStates) {
+                            add(
+                                "Pressed" to {
+                                    RipDpiButton(
+                                        text = "Reset",
+                                        onClick = {},
+                                        variant = RipDpiButtonVariant.Destructive,
+                                        interactionSource = rememberPreviewInteractionSource(pressed = true),
+                                    )
+                                },
                             )
-                        },
-                        "Disabled" to {
-                            RipDpiButton(
-                                text = "Reset",
-                                onClick = {},
-                                variant = RipDpiButtonVariant.Destructive,
-                                enabled = false,
+                            add(
+                                "Focused" to {
+                                    RipDpiButton(
+                                        text = "Reset",
+                                        onClick = {},
+                                        variant = RipDpiButtonVariant.Destructive,
+                                        interactionSource = rememberPreviewInteractionSource(focused = true),
+                                    )
+                                },
                             )
-                        },
-                        "Pressed" to {
-                            RipDpiButton(
-                                text = "Reset",
-                                onClick = {},
-                                variant = RipDpiButtonVariant.Destructive,
-                                interactionSource = rememberPreviewInteractionSource(pressed = true),
-                            )
-                        },
-                        "Focused" to {
-                            RipDpiButton(
-                                text = "Reset",
-                                onClick = {},
-                                variant = RipDpiButtonVariant.Destructive,
-                                interactionSource = rememberPreviewInteractionSource(focused = true),
-                            )
-                        },
-                    ),
+                        }
+                    },
             )
 
             PreviewMatrixRow(
                 title = "Icon Buttons",
                 cells =
-                    listOf(
-                        "Enabled" to {
-                            RipDpiIconButton(
-                                icon = RipDpiIcons.Settings,
-                                contentDescription = "Settings",
-                                onClick = {},
-                                style = RipDpiIconButtonStyle.Outline,
+                    buildList {
+                        add(
+                            "Enabled" to {
+                                RipDpiIconButton(
+                                    icon = RipDpiIcons.Settings,
+                                    contentDescription = "Settings",
+                                    onClick = {},
+                                    style = RipDpiIconButtonStyle.Outline,
+                                )
+                            },
+                        )
+                        add(
+                            "Disabled" to {
+                                RipDpiIconButton(
+                                    icon = RipDpiIcons.Settings,
+                                    contentDescription = "Settings",
+                                    onClick = {},
+                                    style = RipDpiIconButtonStyle.Outline,
+                                    enabled = false,
+                                )
+                            },
+                        )
+                        if (includeInteractiveStates) {
+                            add(
+                                "Pressed" to {
+                                    RipDpiIconButton(
+                                        icon = RipDpiIcons.Settings,
+                                        contentDescription = "Settings",
+                                        onClick = {},
+                                        style = RipDpiIconButtonStyle.Outline,
+                                        interactionSource = rememberPreviewInteractionSource(pressed = true),
+                                    )
+                                },
                             )
-                        },
-                        "Disabled" to {
-                            RipDpiIconButton(
-                                icon = RipDpiIcons.Settings,
-                                contentDescription = "Settings",
-                                onClick = {},
-                                style = RipDpiIconButtonStyle.Outline,
-                                enabled = false,
+                            add(
+                                "Focused" to {
+                                    RipDpiIconButton(
+                                        icon = RipDpiIcons.Settings,
+                                        contentDescription = "Settings",
+                                        onClick = {},
+                                        style = RipDpiIconButtonStyle.Outline,
+                                        interactionSource = rememberPreviewInteractionSource(focused = true),
+                                    )
+                                },
                             )
-                        },
-                        "Pressed" to {
-                            RipDpiIconButton(
-                                icon = RipDpiIcons.Settings,
-                                contentDescription = "Settings",
-                                onClick = {},
-                                style = RipDpiIconButtonStyle.Outline,
-                                interactionSource = rememberPreviewInteractionSource(pressed = true),
-                            )
-                        },
-                        "Focused" to {
-                            RipDpiIconButton(
-                                icon = RipDpiIcons.Settings,
-                                contentDescription = "Settings",
-                                onClick = {},
-                                style = RipDpiIconButtonStyle.Outline,
-                                interactionSource = rememberPreviewInteractionSource(focused = true),
-                            )
-                        },
-                    ),
+                        }
+                    },
             )
 
             PreviewMatrixRow(
                 title = "Config Fields",
                 cells =
-                    listOf(
-                        "Enabled" to {
-                            RipDpiConfigTextField(
-                                value = "127.0.0.1",
-                                onValueChange = {},
-                                label = "Proxy IP",
-                                helperText = "Local listener address",
+                    buildList {
+                        add(
+                            "Enabled" to {
+                                RipDpiConfigTextField(
+                                    value = "127.0.0.1",
+                                    onValueChange = {},
+                                    label = "Proxy IP",
+                                    helperText = "Local listener address",
+                                )
+                            },
+                        )
+                        add(
+                            "Disabled" to {
+                                RipDpiConfigTextField(
+                                    value = "127.0.0.1",
+                                    onValueChange = {},
+                                    label = "Proxy IP",
+                                    helperText = "Local listener address",
+                                    enabled = false,
+                                )
+                            },
+                        )
+                        if (includeInteractiveStates) {
+                            add(
+                                "Focused" to {
+                                    RipDpiConfigTextField(
+                                        value = "127.0.0.1",
+                                        onValueChange = {},
+                                        label = "Proxy IP",
+                                        helperText = "Local listener address",
+                                        interactionSource = rememberPreviewInteractionSource(focused = true),
+                                    )
+                                },
                             )
-                        },
-                        "Disabled" to {
-                            RipDpiConfigTextField(
-                                value = "127.0.0.1",
-                                onValueChange = {},
-                                label = "Proxy IP",
-                                helperText = "Local listener address",
-                                enabled = false,
-                            )
-                        },
-                        "Focused" to {
-                            RipDpiConfigTextField(
-                                value = "127.0.0.1",
-                                onValueChange = {},
-                                label = "Proxy IP",
-                                helperText = "Local listener address",
-                                interactionSource = rememberPreviewInteractionSource(focused = true),
-                            )
-                        },
-                        "Error" to {
-                            RipDpiConfigTextField(
-                                value = "999.0.0.1",
-                                onValueChange = {},
-                                label = "Proxy IP",
-                                errorText = "Enter a valid IP address",
-                            )
-                        },
-                    ),
+                        }
+                        add(
+                            "Error" to {
+                                RipDpiConfigTextField(
+                                    value = "999.0.0.1",
+                                    onValueChange = {},
+                                    label = "Proxy IP",
+                                    errorText = "Enter a valid IP address",
+                                )
+                            },
+                        )
+                    },
             )
 
             PreviewMatrixRow(
                 title = "Multiline",
                 cells =
-                    listOf(
-                        "Enabled" to {
-                            RipDpiConfigTextField(
-                                value = "--dpi-desync=fake --dpi-desync-ttl=5",
-                                onValueChange = {},
-                                label = "Command line",
-                                multiline = true,
+                    buildList {
+                        add(
+                            "Enabled" to {
+                                RipDpiConfigTextField(
+                                    value = "--dpi-desync=fake --dpi-desync-ttl=5",
+                                    onValueChange = {},
+                                    label = "Command line",
+                                    multiline = true,
+                                )
+                            },
+                        )
+                        add(
+                            "Disabled" to {
+                                RipDpiConfigTextField(
+                                    value = "--dpi-desync=fake --dpi-desync-ttl=5",
+                                    onValueChange = {},
+                                    label = "Command line",
+                                    multiline = true,
+                                    enabled = false,
+                                )
+                            },
+                        )
+                        if (includeInteractiveStates) {
+                            add(
+                                "Focused" to {
+                                    RipDpiConfigTextField(
+                                        value = "--dpi-desync=fake --dpi-desync-ttl=5",
+                                        onValueChange = {},
+                                        label = "Command line",
+                                        multiline = true,
+                                        interactionSource = rememberPreviewInteractionSource(focused = true),
+                                    )
+                                },
                             )
-                        },
-                        "Disabled" to {
-                            RipDpiConfigTextField(
-                                value = "--dpi-desync=fake --dpi-desync-ttl=5",
-                                onValueChange = {},
-                                label = "Command line",
-                                multiline = true,
-                                enabled = false,
-                            )
-                        },
-                        "Focused" to {
-                            RipDpiConfigTextField(
-                                value = "--dpi-desync=fake --dpi-desync-ttl=5",
-                                onValueChange = {},
-                                label = "Command line",
-                                multiline = true,
-                                interactionSource = rememberPreviewInteractionSource(focused = true),
-                            )
-                        },
-                        "Error" to {
-                            RipDpiConfigTextField(
-                                value = "--broken",
-                                onValueChange = {},
-                                label = "Command line",
-                                multiline = true,
-                                errorText = "Option is not supported in this mode",
-                            )
-                        },
-                    ),
+                        }
+                        add(
+                            "Error" to {
+                                RipDpiConfigTextField(
+                                    value = "--broken",
+                                    onValueChange = {},
+                                    label = "Command line",
+                                    multiline = true,
+                                    errorText = "Option is not supported in this mode",
+                                )
+                            },
+                        )
+                    },
             )
 
             PreviewMatrixRow(
@@ -565,29 +630,29 @@ private fun rememberPreviewInteractionSource(
 @Preview(name = "Catalog Light Compact", showBackground = true, widthDp = 390, heightDp = 2200)
 @Composable
 private fun RipDpiDesignSystemPreviewMatrixLightPreview() {
-    RipDpiDesignSystemPreviewMatrix(themePreference = "light")
+    RipDpiDesignSystemPreviewMatrixCatalog(themePreference = "light")
 }
 
 @Preview(name = "Catalog Light Medium", showBackground = true, widthDp = 720, heightDp = 2200)
 @Composable
 private fun RipDpiDesignSystemPreviewMatrixMediumPreview() {
-    RipDpiDesignSystemPreviewMatrix(themePreference = "light")
+    RipDpiDesignSystemPreviewMatrixCatalog(themePreference = "light")
 }
 
 @Preview(name = "Catalog Light Expanded", showBackground = true, widthDp = 1040, heightDp = 2200)
 @Composable
 private fun RipDpiDesignSystemPreviewMatrixExpandedPreview() {
-    RipDpiDesignSystemPreviewMatrix(themePreference = "light")
+    RipDpiDesignSystemPreviewMatrixCatalog(themePreference = "light")
 }
 
 @Preview(name = "Catalog Large Font", showBackground = true, widthDp = 720, heightDp = 2200, fontScale = 1.3f)
 @Composable
 private fun RipDpiDesignSystemPreviewMatrixLargeFontPreview() {
-    RipDpiDesignSystemPreviewMatrix(themePreference = "light")
+    RipDpiDesignSystemPreviewMatrixCatalog(themePreference = "light")
 }
 
 @Preview(name = "Catalog Dark", showBackground = true, widthDp = 720, heightDp = 2200)
 @Composable
 private fun RipDpiDesignSystemPreviewMatrixDarkPreview() {
-    RipDpiDesignSystemPreviewMatrix(themePreference = "dark")
+    RipDpiDesignSystemPreviewMatrixCatalog(themePreference = "dark")
 }

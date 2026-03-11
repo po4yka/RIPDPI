@@ -21,6 +21,11 @@ import kotlin.time.Duration.Companion.minutes
 @Preview(name = "Home Expanded", showBackground = true, widthDp = 1040, heightDp = 920)
 @Composable
 private fun HomeExpandedPreview() {
+    RipDpiHomeExpandedPreviewScene()
+}
+
+@Composable
+internal fun RipDpiHomeExpandedPreviewScene() {
     RipDpiTheme(themePreference = "light") {
         HomeScreen(
             uiState =
@@ -49,6 +54,11 @@ private fun HomeExpandedPreview() {
 @Preview(name = "Settings Medium", showBackground = true, widthDp = 720, heightDp = 1100)
 @Composable
 private fun SettingsMediumPreview() {
+    RipDpiSettingsMediumPreviewScene()
+}
+
+@Composable
+internal fun RipDpiSettingsMediumPreviewScene() {
     RipDpiTheme(themePreference = "light") {
         SettingsScreen(
             uiState =
@@ -95,6 +105,11 @@ private fun SettingsMediumPreview() {
 @Preview(name = "Intro Large Font", showBackground = true, widthDp = 420, heightDp = 900, fontScale = 1.3f)
 @Composable
 private fun IntroLargeFontPreview() {
+    RipDpiIntroLargeFontPreviewScene()
+}
+
+@Composable
+internal fun RipDpiIntroLargeFontPreviewScene() {
     RipDpiTheme(themePreference = "dark") {
         OnboardingScreen(
             uiState = OnboardingUiState(currentPage = 1, totalPages = 3),
