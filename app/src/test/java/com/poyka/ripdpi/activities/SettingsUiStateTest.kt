@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.DefaultQuicFakeHost
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
+import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.proto.StrategyTcpStep
@@ -418,6 +419,43 @@ class SettingsUiStateTest {
         assertTrue(state.showQuicFakeHostOverride)
         assertFalse(state.quicFakeUsesCustomHost)
         assertEquals(DefaultQuicFakeHost, state.quicFakeEffectiveHost)
+    }
+
+    @Test
+    fun `compat quic fake profile hides host override state`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .setUdpFakeCount(2)
+                .setQuicFakeProfile(QuicFakeProfileCompatDefault)
+                .setQuicFakeHost("video.example.test")
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.showQuicFakeProfile)
+        assertFalse(state.showQuicFakeHostOverride)
+        assertFalse(state.quicFakeUsesCustomHost)
+        assertEquals("", state.quicFakeEffectiveHost)
+    }
+
+    @Test
+    fun `quic fake profile remains visible in command line mode`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setEnableCmdSettings(true)
+                .setDesyncUdp(false)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.enableCmdSettings)
+        assertFalse(state.quicFakeControlsRelevant)
+        assertTrue(state.showQuicFakeProfile)
     }
 
     @Test
