@@ -47,9 +47,9 @@ fn marker_based_legacy_views_roundtrip_through_tcp_chain_projection() {
     assert_eq!(
         chain,
         vec![
-            TcpChainStep { kind: TcpChainStepKind::TlsRec, offset: OffsetExpr::marker(OffsetBase::ExtLen, 0) },
-            TcpChainStep { kind: TcpChainStepKind::Fake, offset: OffsetExpr::marker(OffsetBase::Host, 0) },
-            TcpChainStep { kind: TcpChainStepKind::Split, offset: OffsetExpr::marker(OffsetBase::EndSld, 0) },
+            TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
+            TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::marker(OffsetBase::Host, 0)),
+            TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::EndSld, 0)),
         ]
     );
 

@@ -13,10 +13,10 @@ use crate::runtime_policy::{
 };
 use crate::{current_runtime_telemetry, RuntimeTelemetrySink};
 use ciadpi_config::{
-    DesyncGroup, DesyncMode, QuicInitialMode, RuntimeConfig, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT,
-    DETECT_TLS_ERR, DETECT_TORST,
+    DesyncGroup, QuicInitialMode, RuntimeConfig, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR,
+    DETECT_TORST,
 };
-use ciadpi_desync::{build_fake_packet, plan_tcp, plan_udp, DesyncAction, DesyncPlan};
+use ciadpi_desync::{build_fake_packet, build_hostfake_bytes, plan_tcp, plan_udp, resolve_hostfake_span, DesyncAction, DesyncPlan};
 use ciadpi_session::{
     detect_response_trigger, encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply,
     parse_http_connect_request, parse_socks4_request, parse_socks5_request, ClientRequest, SessionConfig, SessionError,
@@ -102,19 +102,22 @@ pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> 
                         if let Some(telemetry) = &state.telemetry {
                             telemetry.on_client_accepted();
                         }
-                        thread::spawn(move || {
-                            let _slot = _slot;
-                            let result = handle_client(client, &state);
-                            if let Err(err) = &result {
-                                log::error!("ciadpi client error: {err}");
-                                if let Some(telemetry) = &state.telemetry {
-                                    telemetry.on_client_error(err);
+                        thread::Builder::new()
+                            .name("ripdpi-client".into())
+                            .spawn(move || {
+                                let _slot = _slot;
+                                let result = handle_client(client, &state);
+                                if let Err(err) = &result {
+                                    log::error!("ciadpi client error: {err}");
+                                    if let Some(telemetry) = &state.telemetry {
+                                        telemetry.on_client_error(err);
+                                    }
                                 }
-                            }
-                            if let Some(telemetry) = &state.telemetry {
-                                telemetry.on_client_finished();
-                            }
-                        });
+                                if let Some(telemetry) = &state.telemetry {
+                                    telemetry.on_client_finished();
+                                }
+                            })
+                            .expect("failed to spawn client thread");
                     }
                     Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
                     Err(err) => return Err(err),
@@ -364,7 +367,10 @@ fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> i
     let worker_socket = relay.try_clone()?;
     let worker_running = running.clone();
     let worker_state = state.clone();
-    let worker = thread::spawn(move || udp_associate_loop(worker_socket, worker_state, worker_running));
+    let worker = thread::Builder::new()
+        .name("ripdpi-udp".into())
+        .spawn(move || udp_associate_loop(worker_socket, worker_state, worker_running))
+        .expect("failed to spawn UDP relay thread");
 
     client.set_read_timeout(Some(Duration::from_millis(250)))?;
     let mut buffer = [0u8; 64];
@@ -1184,8 +1190,14 @@ fn relay_streams(
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let drop_sack = group.drop_sack;
 
-    let down = thread::spawn(move || copy_inbound_half(upstream_reader, client_writer, inbound_session));
-    let up = thread::spawn(move || copy_outbound_half(client_reader, upstream_writer, config, group, outbound_session));
+    let down = thread::Builder::new()
+        .name("ripdpi-dn".into())
+        .spawn(move || copy_inbound_half(upstream_reader, client_writer, inbound_session))
+        .expect("failed to spawn inbound relay thread");
+    let up = thread::Builder::new()
+        .name("ripdpi-up".into())
+        .spawn(move || copy_outbound_half(client_reader, upstream_writer, config, group, outbound_session))
+        .expect("failed to spawn outbound relay thread");
 
     let up_result = up.join().map_err(|_| io::Error::other("upstream thread panicked"))?;
     let down_result = down.join().map_err(|_| io::Error::other("downstream thread panicked"))?;
@@ -1583,11 +1595,25 @@ fn execute_tcp_plan(
     plan: &DesyncPlan,
     seed: u32,
 ) -> io::Result<()> {
-    let fake = build_fake_packet(group, &plan.tampered, seed)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "failed to build fake packet for tcp desync"))?;
+    let fake = if plan.steps.iter().any(|step| matches!(step.kind, TcpChainStepKind::Fake)) {
+        Some(
+            build_fake_packet(group, &plan.tampered, seed)
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "failed to build fake packet for tcp desync"))?,
+        )
+    } else {
+        None
+    };
+    let send_steps = group
+        .effective_tcp_chain()
+        .into_iter()
+        .filter(|step| !matches!(step.kind, TcpChainStepKind::TlsRec))
+        .collect::<Vec<_>>();
+    if send_steps.len() < plan.steps.len() {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "tcp plan steps exceed configured send steps"));
+    }
 
     let mut cursor = 0usize;
-    for step in &plan.steps {
+    for (index, step) in plan.steps.iter().enumerate() {
         let start = usize::try_from(step.start)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "negative tcp plan start"))?;
         let end = usize::try_from(step.end)
@@ -1596,9 +1622,10 @@ fn execute_tcp_plan(
             return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid tcp desync step bounds"));
         }
         let chunk = &plan.tampered[start..end];
+        let configured_step = &send_steps[index];
 
-        match step.mode {
-            DesyncMode::None | DesyncMode::Split => {
+        match step.kind {
+            TcpChainStepKind::Split => {
                 writer.write_all(chunk)?;
                 platform::wait_tcp_stage(
                     writer,
@@ -1606,7 +1633,7 @@ fn execute_tcp_plan(
                     Duration::from_millis(config.await_interval.max(1) as u64),
                 )?;
             }
-            DesyncMode::Oob => {
+            TcpChainStepKind::Oob => {
                 send_out_of_band(writer, chunk, group.oob_data.unwrap_or(b'a'))?;
                 platform::wait_tcp_stage(
                     writer,
@@ -1614,7 +1641,7 @@ fn execute_tcp_plan(
                     Duration::from_millis(config.await_interval.max(1) as u64),
                 )?;
             }
-            DesyncMode::Disorder => {
+            TcpChainStepKind::Disorder => {
                 set_stream_ttl(writer, 1)?;
                 writer.write_all(chunk)?;
                 platform::wait_tcp_stage(
@@ -1626,7 +1653,7 @@ fn execute_tcp_plan(
                     set_stream_ttl(writer, config.default_ttl)?;
                 }
             }
-            DesyncMode::Disoob => {
+            TcpChainStepKind::Disoob => {
                 set_stream_ttl(writer, 1)?;
                 send_out_of_band(writer, chunk, group.oob_data.unwrap_or(b'a'))?;
                 platform::wait_tcp_stage(
@@ -1638,7 +1665,8 @@ fn execute_tcp_plan(
                     set_stream_ttl(writer, config.default_ttl)?;
                 }
             }
-            DesyncMode::Fake => {
+            TcpChainStepKind::Fake => {
+                let fake = fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
                 let span = chunk.len();
                 let fake_end = fake.fake_offset.saturating_add(span).min(fake.bytes.len());
                 let fake_chunk = &fake.bytes[fake.fake_offset..fake_end];
@@ -1657,6 +1685,83 @@ fn execute_tcp_plan(
                     config.default_ttl,
                     (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
                 )?;
+            }
+            TcpChainStepKind::HostFake => {
+                let Some(span) = resolve_hostfake_span(configured_step, &plan.tampered, start, end, seed) else {
+                    writer.write_all(chunk)?;
+                    platform::wait_tcp_stage(
+                        writer,
+                        config.wait_send,
+                        Duration::from_millis(config.await_interval.max(1) as u64),
+                    )?;
+                    cursor = end;
+                    continue;
+                };
+
+                if start < span.host_start {
+                    writer.write_all(&plan.tampered[start..span.host_start])?;
+                    platform::wait_tcp_stage(
+                        writer,
+                        config.wait_send,
+                        Duration::from_millis(config.await_interval.max(1) as u64),
+                    )?;
+                }
+
+                let real_host = &plan.tampered[span.host_start..span.host_end];
+                let fake_host = build_hostfake_bytes(real_host, configured_step.fake_host_template.as_deref(), seed);
+                platform::send_fake_tcp(
+                    writer,
+                    real_host,
+                    &fake_host,
+                    group.ttl.unwrap_or(8),
+                    group.md5sig,
+                    config.default_ttl,
+                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                )?;
+
+                if let Some(midhost) = span.midhost {
+                    writer.write_all(&plan.tampered[span.host_start..midhost])?;
+                    platform::wait_tcp_stage(
+                        writer,
+                        config.wait_send,
+                        Duration::from_millis(config.await_interval.max(1) as u64),
+                    )?;
+                    writer.write_all(&plan.tampered[midhost..span.host_end])?;
+                    platform::wait_tcp_stage(
+                        writer,
+                        config.wait_send,
+                        Duration::from_millis(config.await_interval.max(1) as u64),
+                    )?;
+                } else {
+                    writer.write_all(real_host)?;
+                    platform::wait_tcp_stage(
+                        writer,
+                        config.wait_send,
+                        Duration::from_millis(config.await_interval.max(1) as u64),
+                    )?;
+                }
+
+                platform::send_fake_tcp(
+                    writer,
+                    real_host,
+                    &fake_host,
+                    group.ttl.unwrap_or(8),
+                    group.md5sig,
+                    config.default_ttl,
+                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                )?;
+
+                if span.host_end < end {
+                    writer.write_all(&plan.tampered[span.host_end..end])?;
+                    platform::wait_tcp_stage(
+                        writer,
+                        config.wait_send,
+                        Duration::from_millis(config.await_interval.max(1) as u64),
+                    )?;
+                }
+            }
+            TcpChainStepKind::TlsRec => {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "tlsrec step must not appear in tcp send plan"));
             }
         }
         cursor = end;
@@ -1891,7 +1996,7 @@ mod tests {
         assert!(check_round(group.rounds, 3));
         assert!(!check_round(group.rounds, 5));
 
-        group.tcp_chain.push(TcpChainStep { kind: TcpChainStepKind::Split, offset: test_offset() });
+        group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
         assert!(has_tcp_actions(&group));
         assert!(should_desync_tcp(&group, 2));
         assert!(!should_desync_tcp(&group, 5));

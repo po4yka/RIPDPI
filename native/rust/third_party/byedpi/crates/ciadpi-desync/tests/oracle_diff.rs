@@ -51,7 +51,7 @@ fn mod_http_and_split_plan_matches_fixture() {
     let plan = plan_tcp(&config.groups[idx], &payload, 7, config.default_ttl).expect("plan");
 
     assert_eq!(hex(&plan.tampered), expected["tampered_hex"].as_str().unwrap());
-    assert_eq!(plan.steps[0].mode as u64, expected["step_mode"].as_u64().unwrap());
+    assert_eq!(plan.steps[0].kind.as_mode().unwrap() as u64, expected["step_mode"].as_u64().unwrap());
     assert_eq!(plan.steps[0].end as i64, expected["step_end"].as_i64().unwrap());
 }
 
@@ -134,7 +134,7 @@ fn desync_modes_map_to_distinct_plans() {
             plan_tcp(&config.groups[idx], b"GET / HTTP/1.1\r\nHost: www.wikipedia.org\r\n\r\n", 7, config.default_ttl)
                 .expect("plan");
 
-        assert_eq!(plan.steps[0].mode, expected_mode, "{flag}");
+        assert_eq!(plan.steps[0].kind.as_mode().unwrap(), expected_mode, "{flag}");
         assert_eq!(plan.steps[0].end, 8, "{flag}");
     }
 }

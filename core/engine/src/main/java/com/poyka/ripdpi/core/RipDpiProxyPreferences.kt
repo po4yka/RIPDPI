@@ -116,7 +116,7 @@ class RipDpiProxyUIPreferences(
     val desyncMethod: DesyncMethod = desyncMethod ?: DesyncMethod.Disorder
     val splitMarker: String = normalizeOffsetExpression(splitMarker.orEmpty(), DefaultSplitMarker)
     val tcpChainSteps: List<TcpChainStepModel> =
-        tcpChainSteps?.map { it.copy(marker = normalizeMarkerForStep(it.kind, it.marker)) }
+        tcpChainSteps?.map(::normalizeTcpChainStep)
             ?: buildLegacyTcpChain(
                 desyncMethod = this.desyncMethod,
                 splitMarker = this.splitMarker,
@@ -241,7 +241,12 @@ class RipDpiProxyUIPreferences(
                 desyncMethod = desyncMethod.wireName,
                 splitMarker = splitMarker,
                 tcpChainSteps = tcpChainSteps.map {
-                    NativeProxyConfig.NativeTcpChainStep(kind = it.kind.wireName, marker = it.marker)
+                    NativeProxyConfig.NativeTcpChainStep(
+                        kind = it.kind.wireName,
+                        marker = it.marker,
+                        midhostMarker = it.midhostMarker,
+                        fakeHostTemplate = it.fakeHostTemplate,
+                    )
                 },
                 fakeTtl = fakeTtl,
                 fakeSni = fakeSni,
@@ -342,6 +347,8 @@ private sealed interface NativeProxyConfig {
     data class NativeTcpChainStep(
         val kind: String,
         val marker: String,
+        val midhostMarker: String = "",
+        val fakeHostTemplate: String = "",
     )
 
     @Serializable
@@ -437,3 +444,6 @@ private fun normalizeMarkerForStep(
     val defaultValue = if (kind == TcpChainStepKind.TlsRec) DefaultTlsRecordMarker else DefaultSplitMarker
     return normalizeOffsetExpression(marker, defaultValue)
 }
+
+private fun normalizeTcpChainStep(step: TcpChainStepModel): TcpChainStepModel =
+    step.copy(marker = normalizeMarkerForStep(step.kind, step.marker))

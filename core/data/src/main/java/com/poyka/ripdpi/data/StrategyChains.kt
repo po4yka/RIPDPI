@@ -13,6 +13,7 @@ enum class TcpChainStepKind(val wireName: String) {
     Split("split"),
     Disorder("disorder"),
     Fake("fake"),
+    HostFake("hostfake"),
     Oob("oob"),
     Disoob("disoob"),
     TlsRec("tlsrec"),
@@ -24,6 +25,7 @@ enum class TcpChainStepKind(val wireName: String) {
                 Split -> "split"
                 Disorder -> "disorder"
                 Fake -> "fake"
+                HostFake -> "fake"
                 Oob -> "oob"
                 Disoob -> "disoob"
                 TlsRec -> null
@@ -48,6 +50,8 @@ enum class TcpChainStepKind(val wireName: String) {
 data class TcpChainStepModel(
     val kind: TcpChainStepKind,
     val marker: String,
+    val midhostMarker: String = "",
+    val fakeHostTemplate: String = "",
 )
 
 @Serializable
@@ -96,7 +100,7 @@ fun formatChainSummary(
 ): String =
     listOfNotNull(
         tcpSteps.takeIf { it.isNotEmpty() }?.joinToString(prefix = "tcp: ", separator = " -> ") {
-            "${it.kind.wireName}(${normalizeTcpMarker(it)})"
+            formatTcpStepSummary(it)
         },
         udpSteps.takeIf { it.isNotEmpty() }?.joinToString(prefix = "udp: ", separator = " -> ") {
             "${it.kind.wireName}(${it.count.coerceAtLeast(0)})"
@@ -112,7 +116,7 @@ fun formatStrategyChainDsl(
     val lines = mutableListOf<String>()
     if (tcpSteps.isNotEmpty()) {
         lines += "[tcp]"
-        lines += tcpSteps.map { "${it.kind.wireName} ${normalizeTcpMarker(it)}" }
+        lines += tcpSteps.map(::formatTcpStepDsl)
     }
     if (udpSteps.isNotEmpty()) {
         if (lines.isNotEmpty()) {
@@ -162,9 +166,7 @@ fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
                 TcpSection -> {
                     val kind = TcpChainStepKind.fromWireName(parts[0])
                         ?: error("Unknown TCP step '${parts[0]}' on line ${index + 1}")
-                    val marker = normalizeTcpMarker(kind, parts[1])
-                    require(isValidOffsetExpression(marker)) { "Invalid marker on line ${index + 1}" }
-                    tcpSteps += TcpChainStepModel(kind = kind, marker = marker)
+                    tcpSteps += parseTcpStep(kind, parts[1], index + 1)
                 }
 
                 UdpSection -> {
@@ -240,7 +242,12 @@ private fun AppSettings.synthesizeLegacyTcpChain(): List<TcpChainStepModel> {
 
 private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
     val kind = TcpChainStepKind.fromWireName(kind) ?: return null
-    return TcpChainStepModel(kind = kind, marker = normalizeTcpMarker(kind, marker))
+    return TcpChainStepModel(
+        kind = kind,
+        marker = normalizeTcpMarker(kind, marker),
+        midhostMarker = normalizeMidhostMarker(kind, midhostMarker),
+        fakeHostTemplate = normalizeFakeHostTemplate(kind, fakeHostTemplate),
+    )
 }
 
 private fun StrategyUdpStep.toModelOrNull(): UdpChainStepModel? {
@@ -253,6 +260,8 @@ private fun TcpChainStepModel.toProto(): StrategyTcpStep =
         .newBuilder()
         .setKind(kind.wireName)
         .setMarker(normalizeTcpMarker(this))
+        .setMidhostMarker(normalizeMidhostMarker(kind, midhostMarker))
+        .setFakeHostTemplate(normalizeFakeHostTemplate(kind, fakeHostTemplate))
         .build()
 
 private fun UdpChainStepModel.toProto(): StrategyUdpStep =
@@ -274,10 +283,120 @@ private fun validateTcpChain(steps: List<TcpChainStepModel>) {
 
 private fun normalizeTcpMarker(step: TcpChainStepModel): String = normalizeTcpMarker(step.kind, step.marker)
 
+private fun formatTcpStepSummary(step: TcpChainStepModel): String =
+    buildString {
+        append(step.kind.wireName)
+        append('(')
+        append(normalizeTcpMarker(step))
+        val normalizedMidhost = normalizeMidhostMarker(step.kind, step.midhostMarker)
+        if (normalizedMidhost.isNotEmpty()) {
+            append(" midhost=")
+            append(normalizedMidhost)
+        }
+        val normalizedTemplate = normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate)
+        if (normalizedTemplate.isNotEmpty()) {
+            append(" host=")
+            append(normalizedTemplate)
+        }
+        append(')')
+    }
+
+private fun formatTcpStepDsl(step: TcpChainStepModel): String =
+    buildString {
+        append(step.kind.wireName)
+        append(' ')
+        append(normalizeTcpMarker(step))
+        val normalizedMidhost = normalizeMidhostMarker(step.kind, step.midhostMarker)
+        if (normalizedMidhost.isNotEmpty()) {
+            append(" midhost=")
+            append(normalizedMidhost)
+        }
+        val normalizedTemplate = normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate)
+        if (normalizedTemplate.isNotEmpty()) {
+            append(" host=")
+            append(normalizedTemplate)
+        }
+    }
+
+private fun parseTcpStep(
+    kind: TcpChainStepKind,
+    spec: String,
+    lineNumber: Int,
+): TcpChainStepModel {
+    val tokens = spec.split(Regex("\\s+")).filter { it.isNotBlank() }
+    require(tokens.isNotEmpty()) { "Missing marker on line $lineNumber" }
+    val marker = normalizeTcpMarker(kind, tokens.first())
+    require(isValidOffsetExpression(marker)) { "Invalid marker on line $lineNumber" }
+
+    var midhostMarker = ""
+    var fakeHostTemplate = ""
+    tokens.drop(1).forEach { token ->
+        val (key, value) = token.split('=', limit = 2).takeIf { it.size == 2 }
+            ?: error("Invalid TCP step option '$token' on line $lineNumber")
+        when (key.lowercase()) {
+            "midhost" -> {
+                require(kind == TcpChainStepKind.HostFake) { "midhost is only supported for hostfake on line $lineNumber" }
+                val normalized = normalizeMidhostMarker(kind, value)
+                require(normalized.isNotEmpty() && isValidOffsetExpression(normalized)) {
+                    "Invalid midhost marker on line $lineNumber"
+                }
+                midhostMarker = normalized
+            }
+
+            "host" -> {
+                require(kind == TcpChainStepKind.HostFake) { "host template is only supported for hostfake on line $lineNumber" }
+                val normalized = normalizeFakeHostTemplate(kind, value)
+                require(normalized.isNotEmpty()) { "Invalid host template on line $lineNumber" }
+                fakeHostTemplate = normalized
+            }
+
+            else -> error("Unknown TCP step option '$key' on line $lineNumber")
+        }
+    }
+
+    return TcpChainStepModel(
+        kind = kind,
+        marker = marker,
+        midhostMarker = midhostMarker,
+        fakeHostTemplate = fakeHostTemplate,
+    )
+}
+
 private fun normalizeTcpMarker(
     kind: TcpChainStepKind,
     marker: String,
 ): String {
     val defaultValue = if (kind == TcpChainStepKind.TlsRec) DefaultTlsRecordMarker else DefaultSplitMarker
     return normalizeOffsetExpression(marker, defaultValue)
+}
+
+private fun normalizeMidhostMarker(
+    kind: TcpChainStepKind,
+    marker: String,
+): String = if (kind == TcpChainStepKind.HostFake) normalizeOffsetExpression(marker, "").trim() else ""
+
+private fun normalizeFakeHostTemplate(
+    kind: TcpChainStepKind,
+    template: String,
+): String {
+    if (kind != TcpChainStepKind.HostFake) {
+        return ""
+    }
+    val trimmed = template.trim().trimEnd('.').lowercase()
+    if (trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') || trimmed.contains("..")) {
+        return ""
+    }
+    if (!trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }) {
+        return ""
+    }
+    if (trimmed.split('.').any { label -> label.isEmpty() || label.startsWith('-') || label.endsWith('-') }) {
+        return ""
+    }
+    val ipv4Parts = trimmed.split('.')
+    val isIpv4Literal =
+        ipv4Parts.size == 4 &&
+            ipv4Parts.all { part ->
+                part.toIntOrNull()?.let { value -> value in 0..255 && value.toString() == part } == true
+            }
+    return if (isIpv4Literal) "" else trimmed
 }

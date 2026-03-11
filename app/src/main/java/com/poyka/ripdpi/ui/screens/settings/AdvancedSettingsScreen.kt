@@ -801,9 +801,9 @@ private fun AdvancedSettingsScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
                         setting = AdvancedTextSetting.ChainDsl,
                         onConfirm = onTextConfirmed,
-                        showDivider = uiState.isFake || uiState.isOob,
+                        showDivider = uiState.usesFakeTransport || uiState.isOob,
                     )
-                    if (uiState.isFake) {
+                    if (uiState.usesFakeTransport) {
                         AdvancedTextSetting(
                             title = stringResource(R.string.ripdpi_fake_ttl_setting),
                             value = uiState.fakeTtl.toString(),
@@ -818,22 +818,25 @@ private fun AdvancedSettingsScreen(
                                 ),
                             setting = AdvancedTextSetting.FakeTtl,
                             onConfirm = onTextConfirmed,
-                            showDivider = true,
+                            showDivider = uiState.isFake,
                         )
-                        AdvancedTextSetting(
-                            title = stringResource(R.string.ripdpi_fake_offset_setting),
-                            description = stringResource(R.string.config_fake_offset_marker_helper),
-                            value = uiState.fakeOffsetMarker,
-                            placeholder = stringResource(R.string.config_placeholder_fake_offset_marker),
-                            enabled = visualEditorEnabled,
-                            validator = { it.isBlank() || isValidOffsetExpression(it) },
-                            invalidMessage = stringResource(R.string.config_error_invalid_marker),
-                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-                            setting = AdvancedTextSetting.FakeOffsetMarker,
-                            onConfirm = onTextConfirmed,
-                            showDivider = true,
-                        )
+                        if (uiState.isFake) {
+                            AdvancedTextSetting(
+                                title = stringResource(R.string.ripdpi_fake_offset_setting),
+                                description = stringResource(R.string.config_fake_offset_marker_helper),
+                                value = uiState.fakeOffsetMarker,
+                                placeholder = stringResource(R.string.config_placeholder_fake_offset_marker),
+                                enabled = visualEditorEnabled,
+                                validator = { it.isBlank() || isValidOffsetExpression(it) },
+                                invalidMessage = stringResource(R.string.config_error_invalid_marker),
+                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                                keyboardOptions =
+                                    KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                                setting = AdvancedTextSetting.FakeOffsetMarker,
+                                onConfirm = onTextConfirmed,
+                                showDivider = true,
+                            )
+                        }
                     }
                     if (showFakeTlsSection) {
                         Text(

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
+import com.poyka.ripdpi.proto.StrategyTcpStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -28,6 +29,8 @@ class SettingsUiStateTest {
         assertEquals(DefaultHostAutolearnMaxHosts, state.hostAutolearnMaxHosts)
         assertTrue(state.desyncEnabled)
         assertFalse(state.isFake)
+        assertFalse(state.usesFakeTransport)
+        assertFalse(state.hasHostFake)
         assertFalse(state.isOob)
         assertEquals(FakeTlsSniModeFixed, state.fakeTlsSniMode)
         assertEquals(0, state.fakeTlsSize)
@@ -73,7 +76,32 @@ class SettingsUiStateTest {
         val settings = defaults.toBuilder().setDesyncMethod("fake").build()
         val state = settings.toUiState()
         assertTrue(state.isFake)
+        assertTrue(state.usesFakeTransport)
         assertTrue(state.desyncEnabled)
+    }
+
+    @Test
+    fun `hostfake step enables fake transport without fake tls controls`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("hostfake")
+                        .setMarker("endhost+8")
+                        .setMidhostMarker("midsld")
+                        .setFakeHostTemplate("googlevideo.com")
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.isFake)
+        assertTrue(state.usesFakeTransport)
+        assertTrue(state.hasHostFake)
+        assertFalse(state.fakeTlsControlsRelevant)
+        assertEquals("tcp: hostfake(endhost+8 midhost=midsld host=googlevideo.com)", state.chainSummary)
     }
 
     @Test

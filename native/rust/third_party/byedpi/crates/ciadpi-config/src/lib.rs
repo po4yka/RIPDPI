@@ -121,6 +121,7 @@ pub enum TcpChainStepKind {
     Split,
     Disorder,
     Fake,
+    HostFake,
     Oob,
     Disoob,
     TlsRec,
@@ -142,6 +143,7 @@ impl TcpChainStepKind {
             Self::Split => Some(DesyncMode::Split),
             Self::Disorder => Some(DesyncMode::Disorder),
             Self::Fake => Some(DesyncMode::Fake),
+            Self::HostFake => None,
             Self::Oob => Some(DesyncMode::Oob),
             Self::Disoob => Some(DesyncMode::Disoob),
             Self::TlsRec => None,
@@ -149,10 +151,18 @@ impl TcpChainStepKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TcpChainStep {
     pub kind: TcpChainStepKind,
     pub offset: OffsetExpr,
+    pub midhost_offset: Option<OffsetExpr>,
+    pub fake_host_template: Option<String>,
+}
+
+impl TcpChainStep {
+    pub const fn new(kind: TcpChainStepKind, offset: OffsetExpr) -> Self {
+        Self { kind, offset, midhost_offset: None, fake_host_template: None }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -276,11 +286,11 @@ impl DesyncGroup {
 
         let mut chain = Vec::with_capacity(self.tls_records.len() + self.parts.len());
         for offset in &self.tls_records {
-            chain.push(TcpChainStep { kind: TcpChainStepKind::TlsRec, offset: *offset });
+            chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, *offset));
         }
         for part in &self.parts {
             if let Some(kind) = TcpChainStepKind::from_mode(part.mode) {
-                chain.push(TcpChainStep { kind, offset: part.offset });
+                chain.push(TcpChainStep::new(kind, part.offset));
             }
         }
         chain
@@ -496,6 +506,45 @@ fn lower_host_char(ch: char) -> Option<char> {
     } else {
         None
     }
+}
+
+fn host_template_char(ch: char) -> Option<char> {
+    match ch {
+        '.' => Some('.'),
+        _ => lower_host_char(ch),
+    }
+}
+
+fn is_ip_literal(value: &str) -> bool {
+    value.parse::<IpAddr>().is_ok()
+}
+
+pub fn normalize_fake_host_template(spec: &str) -> Result<String, ConfigError> {
+    let trimmed = spec.trim().trim_end_matches('.');
+    if trimmed.is_empty() {
+        return Err(ConfigError::invalid("hostfake-template", Some(spec)));
+    }
+    if trimmed.contains(':') || is_ip_literal(trimmed) {
+        return Err(ConfigError::invalid("hostfake-template", Some(spec)));
+    }
+
+    let mut normalized = String::with_capacity(trimmed.len());
+    for ch in trimmed.chars() {
+        let Some(lower) = host_template_char(ch) else {
+            return Err(ConfigError::invalid("hostfake-template", Some(spec)));
+        };
+        normalized.push(lower);
+    }
+
+    if normalized.starts_with('.') || normalized.ends_with('.') || normalized.contains("..") {
+        return Err(ConfigError::invalid("hostfake-template", Some(spec)));
+    }
+    for label in normalized.split('.') {
+        if label.is_empty() || label.starts_with('-') || label.ends_with('-') {
+            return Err(ConfigError::invalid("hostfake-template", Some(spec)));
+        }
+    }
+    Ok(normalized)
 }
 
 pub fn parse_hosts_spec(spec: &str) -> Result<Vec<String>, ConfigError> {
@@ -1068,7 +1117,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 };
                 group!().parts.push(PartSpec { mode, offset });
                 if let Some(kind) = TcpChainStepKind::from_mode(mode) {
-                    group!().tcp_chain.push(TcpChainStep { kind, offset });
+                    group!().tcp_chain.push(TcpChainStep::new(kind, offset));
                 }
             }
             "-t" | "--ttl" => {
@@ -1122,7 +1171,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
                 group!().tls_records.push(expr);
-                group!().tcp_chain.push(TcpChainStep { kind: TcpChainStepKind::TlsRec, offset: expr });
+                group!().tcp_chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, expr));
             }
             "-m" | "--tlsminor" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
