@@ -1383,6 +1383,7 @@ class DiagnosticsViewModel
                         DiagnosticsFieldUiModel("Android", "${device.androidVersion} (API ${device.apiLevel})"),
                         DiagnosticsFieldUiModel("Mode", service.activeMode),
                         DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
+                        DiagnosticsFieldUiModel("Host learning", buildHostAutolearnOverviewSummary(service)),
                         DiagnosticsFieldUiModel("Restrictions", listOf(permissions.dataSaverState, environment.powerSaveModeState).joinToString(" · ")),
                     ),
             )
@@ -1413,12 +1414,12 @@ class DiagnosticsViewModel
                     title = "Host learning",
                     fields =
                         listOf(
-                            DiagnosticsFieldUiModel("Enabled", service.hostAutolearnEnabled),
+                            DiagnosticsFieldUiModel("Enabled", formatAutolearnState(service.hostAutolearnEnabled)),
                             DiagnosticsFieldUiModel("Learned hosts", service.learnedHostCount.toString()),
                             DiagnosticsFieldUiModel("Penalized", service.penalizedHostCount.toString()),
-                            DiagnosticsFieldUiModel("Last host", service.lastAutolearnHost),
-                            DiagnosticsFieldUiModel("Last group", service.lastAutolearnGroup),
-                            DiagnosticsFieldUiModel("Last action", service.lastAutolearnAction),
+                            DiagnosticsFieldUiModel("Last host", formatAutolearnHost(service.lastAutolearnHost)),
+                            DiagnosticsFieldUiModel("Last group", formatAutolearnGroup(service.lastAutolearnGroup)),
+                            DiagnosticsFieldUiModel("Last action", formatAutolearnAction(service.lastAutolearnAction)),
                         ),
                 ),
             )
@@ -1479,12 +1480,12 @@ class DiagnosticsViewModel
                             DiagnosticsFieldUiModel("Chain", service.chainSummary),
                             DiagnosticsFieldUiModel("Desync", service.desyncMethod),
                             DiagnosticsFieldUiModel("Route group", service.routeGroup),
-                            DiagnosticsFieldUiModel("Autolearn", service.hostAutolearnEnabled),
+                            DiagnosticsFieldUiModel("Autolearn", formatAutolearnState(service.hostAutolearnEnabled)),
                             DiagnosticsFieldUiModel("Learned hosts", service.learnedHostCount.toString()),
                             DiagnosticsFieldUiModel("Penalized hosts", service.penalizedHostCount.toString()),
-                            DiagnosticsFieldUiModel("Last learned host", service.lastAutolearnHost),
-                            DiagnosticsFieldUiModel("Last learned group", service.lastAutolearnGroup),
-                            DiagnosticsFieldUiModel("Last autolearn action", service.lastAutolearnAction),
+                            DiagnosticsFieldUiModel("Last learned host", formatAutolearnHost(service.lastAutolearnHost)),
+                            DiagnosticsFieldUiModel("Last learned group", formatAutolearnGroup(service.lastAutolearnGroup)),
+                            DiagnosticsFieldUiModel("Last autolearn action", formatAutolearnAction(service.lastAutolearnAction)),
                             DiagnosticsFieldUiModel("Restart count", service.restartCount.toString()),
                             DiagnosticsFieldUiModel("Uptime", service.sessionUptimeMs?.let(::formatDurationMs) ?: "Unknown"),
                             DiagnosticsFieldUiModel("Last native error", service.lastNativeErrorHeadline),
@@ -1569,6 +1570,45 @@ class DiagnosticsViewModel
                     add(DiagnosticsFieldUiModel("Signal level", cellular.signalLevel?.toString() ?: "Unknown"))
                     add(DiagnosticsFieldUiModel("Signal dBm", cellular.signalDbm?.let { "$it dBm" } ?: "Unknown"))
                 }
+            }
+
+        private fun buildHostAutolearnOverviewSummary(service: com.poyka.ripdpi.diagnostics.ServiceContextModel): String {
+            val state = formatAutolearnState(service.hostAutolearnEnabled)
+            val details =
+                buildList {
+                    if (service.learnedHostCount > 0) {
+                        add("${service.learnedHostCount} learned")
+                    }
+                    if (service.penalizedHostCount > 0) {
+                        add("${service.penalizedHostCount} penalized")
+                    }
+                }
+            return if (details.isEmpty()) state else "$state · ${details.joinToString(" · ")}"
+        }
+
+        private fun formatAutolearnState(value: String): String =
+            when (value.lowercase(Locale.US)) {
+                "enabled" -> "Active"
+                "disabled" -> "Off"
+                else -> "Unknown"
+            }
+
+        private fun formatAutolearnHost(value: String): String =
+            value.takeUnless { it.isBlank() || it == "none" } ?: "None yet"
+
+        private fun formatAutolearnGroup(value: String): String =
+            value
+                .takeUnless { it.isBlank() || it == "none" }
+                ?.let { "Route $it" }
+                ?: "None yet"
+
+        private fun formatAutolearnAction(value: String): String =
+            when (value.lowercase(Locale.US)) {
+                "host_promoted" -> "Promoted best route"
+                "group_penalized" -> "Penalized failing route"
+                "store_reset" -> "Reset stored hosts"
+                "none", "" -> "None yet"
+                else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
             }
 
         private fun redactValue(value: String?): String = value?.let { "redacted" } ?: "Unknown"
