@@ -35,6 +35,8 @@ import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.isValidOffsetExpression
 import com.poyka.ripdpi.data.normalizeOffsetExpression
+import com.poyka.ripdpi.data.parseStrategyChainDsl
+import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -75,6 +77,7 @@ private enum class AdvancedTextSetting {
     MaxConnections,
     BufferSize,
     DefaultTtl,
+    ChainDsl,
     SplitMarker,
     FakeTtl,
     FakeSni,
@@ -277,6 +280,16 @@ fun AdvancedSettingsRoute(
                                 setDefaultTtl(ttl)
                             }
                         }
+                    }
+                }
+
+                AdvancedTextSetting.ChainDsl -> {
+                    val parsed = parseStrategyChainDsl(value).getOrNull() ?: return@AdvancedSettingsScreen
+                    viewModel.updateSetting(
+                        key = "chainDsl",
+                        value = value,
+                    ) {
+                        setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
                     }
                 }
 
@@ -569,32 +582,27 @@ private fun AdvancedSettingsScreen(
                         onConfirm = onTextConfirmed,
                         showDivider = true,
                     )
-                    AdvancedDropdownSetting(
-                        title = stringResource(R.string.ripdpi_desync_method_setting),
-                        description = stringResource(R.string.config_desync_helper),
-                        value = uiState.desyncMethod,
-                        enabled = visualEditorEnabled,
-                        options = desyncOptions,
-                        setting = AdvancedOptionSetting.DesyncMethod,
-                        onSelected = onOptionSelected,
-                        showDivider = true,
+                    Text(
+                        text = stringResource(R.string.config_chain_summary_label, uiState.chainSummary),
+                        style = RipDpiThemeTokens.type.caption,
+                        color = colors.mutedForeground,
                     )
-                    if (uiState.desyncEnabled) {
-                        AdvancedTextSetting(
-                            title = stringResource(R.string.ripdpi_split_position_setting),
-                            description = stringResource(R.string.config_split_marker_helper),
-                            value = uiState.splitMarker,
-                            placeholder = stringResource(R.string.config_placeholder_split_marker),
-                            enabled = visualEditorEnabled,
-                            validator = { it.isBlank() || isValidOffsetExpression(it) },
-                            invalidMessage = stringResource(R.string.config_error_invalid_marker),
-                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-                            setting = AdvancedTextSetting.SplitMarker,
-                            onConfirm = onTextConfirmed,
-                            showDivider = true,
-                        )
-                    }
+                    HorizontalDivider(color = colors.divider)
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.config_chain_editor_label),
+                        description = stringResource(R.string.config_chain_editor_helper),
+                        value = uiState.chainDsl,
+                        placeholder = stringResource(R.string.config_placeholder_chain_dsl),
+                        enabled = visualEditorEnabled,
+                        multiline = true,
+                        validator = { parseStrategyChainDsl(it).isSuccess },
+                        invalidMessage = stringResource(R.string.config_error_invalid_chain),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                        setting = AdvancedTextSetting.ChainDsl,
+                        onConfirm = onTextConfirmed,
+                        showDivider = uiState.isFake || uiState.isOob,
+                    )
                     if (uiState.isFake) {
                         AdvancedTextSetting(
                             title = stringResource(R.string.ripdpi_fake_ttl_setting),
@@ -727,34 +735,11 @@ private fun AdvancedSettingsScreen(
         item(key = "advanced_https") {
             SettingsSection(title = stringResource(R.string.desync_https_category)) {
                 RipDpiCard {
-                    SettingsRow(
-                        title = stringResource(R.string.ripdpi_tlsrec_enabled_setting),
-                        checked = uiState.tlsrecEnabled,
-                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TlsrecEnabled, it) },
-                        enabled = visualEditorEnabled && uiState.desyncHttpsEnabled,
-                        showDivider = uiState.tlsRecEnabled,
+                    Text(
+                        text = stringResource(R.string.config_https_chain_hint),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.mutedForeground,
                     )
-                    if (uiState.tlsRecEnabled) {
-                        AdvancedTextSetting(
-                            title = stringResource(R.string.ripdpi_tlsrec_position_setting),
-                            description = stringResource(R.string.config_tls_record_marker_helper),
-                            value = uiState.tlsrecMarker,
-                            placeholder = stringResource(R.string.config_placeholder_tls_record_marker),
-                            enabled = visualEditorEnabled,
-                            validator = { it.isBlank() || isValidOffsetExpression(it) },
-                            invalidMessage = stringResource(R.string.config_error_invalid_marker),
-                            disabledMessage =
-                                if (!visualEditorEnabled) {
-                                    stringResource(R.string.advanced_settings_visual_controls_disabled)
-                                } else {
-                                    null
-                                },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-                            setting = AdvancedTextSetting.TlsrecMarker,
-                            onConfirm = onTextConfirmed,
-                            showDivider = false,
-                        )
-                    }
                 }
             }
         }
@@ -762,25 +747,10 @@ private fun AdvancedSettingsScreen(
         item(key = "advanced_udp") {
             SettingsSection(title = stringResource(R.string.desync_udp_category)) {
                 RipDpiCard {
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.ripdpi_udp_fake_count),
-                        value = uiState.udpFakeCount.toString(),
-                        enabled = visualEditorEnabled && uiState.desyncUdpEnabled,
-                        validator = { validateIntRange(it, 0, Int.MAX_VALUE) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage =
-                            if (!visualEditorEnabled) {
-                                stringResource(R.string.advanced_settings_visual_controls_disabled)
-                            } else {
-                                null
-                            },
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
-                        setting = AdvancedTextSetting.UdpFakeCount,
-                        onConfirm = onTextConfirmed,
+                    Text(
+                        text = stringResource(R.string.config_udp_chain_hint),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.mutedForeground,
                     )
                 }
             }

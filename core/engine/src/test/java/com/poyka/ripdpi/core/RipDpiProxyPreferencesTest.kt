@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.jsonObject
 
@@ -46,6 +47,8 @@ class RipDpiProxyPreferencesTest {
         assertEquals("example.com", payload.string("hosts"))
         assertEquals("www.example.com", payload.string("fakeSni"))
         assertEquals("1", payload.string("splitMarker"))
+        assertEquals("disorder", payload.array("tcpChainSteps")[0].jsonObject.string("kind"))
+        assertEquals("1", payload.array("tcpChainSteps")[0].jsonObject.string("marker"))
     }
 
     @Test
@@ -69,3 +72,5 @@ private fun String.parseJsonObject(): JsonObject = Json.parseToJsonElement(this)
 private fun JsonObject.string(name: String): String = (getValue(name) as JsonPrimitive).content
 
 private fun JsonObject.int(name: String): Int = (getValue(name) as JsonPrimitive).content.toInt()
+
+private fun JsonObject.array(name: String): JsonArray = getValue(name).jsonArray

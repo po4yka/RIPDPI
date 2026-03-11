@@ -15,7 +15,7 @@ use crate::runtime_policy::{
     select_next_group, ConnectionRoute, RouteAdvance, RuntimeCache,
 };
 use ciadpi_config::{
-    DesyncGroup, DesyncMode, RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR,
+    DesyncGroup, DesyncMode, RuntimeConfig, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR,
     DETECT_TORST,
 };
 use ciadpi_desync::{build_fake_packet, plan_tcp, plan_udp, DesyncAction, DesyncPlan};
@@ -1611,7 +1611,11 @@ fn send_with_group(
     if should_desync_tcp(group, round) {
         let seed = DESYNC_SEED_BASE + (round.saturating_sub(1) as u32);
         match plan_tcp(group, payload, seed, config.default_ttl) {
-            Ok(plan) if group.parts.iter().any(|part| part.mode == DesyncMode::Fake) => {
+            Ok(plan) if group
+                .effective_tcp_chain()
+                .iter()
+                .any(|step| matches!(step.kind, TcpChainStepKind::Fake)) =>
+            {
                 execute_tcp_plan(writer, config, group, &plan, seed)?
             }
             Ok(plan) => execute_tcp_actions(
@@ -1634,10 +1638,7 @@ fn should_desync_tcp(group: &DesyncGroup, round: i32) -> bool {
 }
 
 fn has_tcp_actions(group: &DesyncGroup) -> bool {
-    !group.parts.is_empty()
-        || group.mod_http != 0
-        || !group.tls_records.is_empty()
-        || group.tlsminor.is_some()
+    !group.effective_tcp_chain().is_empty() || group.mod_http != 0 || group.tlsminor.is_some()
 }
 
 fn check_round(rounds: [i32; 2], round: i32) -> bool {
@@ -1824,7 +1825,7 @@ fn mio_to_std_stream(stream: mio::net::TcpStream) -> TcpStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ciadpi_config::{DesyncMode, OffsetExpr, PartSpec};
+    use ciadpi_config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
     use ciadpi_packets::DEFAULT_FAKE_TLS;
     use std::io::{Read, Write};
 
@@ -2046,10 +2047,7 @@ mod tests {
         assert!(check_round(group.rounds, 3));
         assert!(!check_round(group.rounds, 5));
 
-        group.parts.push(PartSpec {
-            mode: DesyncMode::Split,
-            offset: test_offset(),
-        });
+        group.tcp_chain.push(TcpChainStep { kind: TcpChainStepKind::Split, offset: test_offset() });
         assert!(has_tcp_actions(&group));
         assert!(should_desync_tcp(&group, 2));
         assert!(!should_desync_tcp(&group, 5));

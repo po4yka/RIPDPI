@@ -1091,6 +1091,7 @@ class DiagnosticsViewModel
                         strategySignature?.let { signature ->
                             add(DiagnosticsFieldUiModel("Mode", signature.mode))
                             add(DiagnosticsFieldUiModel("Config source", signature.configSource))
+                            add(DiagnosticsFieldUiModel("Chain", signature.chainSummary))
                             add(DiagnosticsFieldUiModel("Desync", signature.desyncMethod))
                             add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
                             add(DiagnosticsFieldUiModel("TLS record split", signature.tlsRecordSplitEnabled.toString()))
@@ -1352,6 +1353,7 @@ class DiagnosticsViewModel
                             DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
                             DiagnosticsFieldUiModel("Config source", service.configSource),
                             DiagnosticsFieldUiModel("Proxy", if (showSensitiveDetails) service.proxyEndpoint else redactValue(service.proxyEndpoint)),
+                            DiagnosticsFieldUiModel("Chain", service.chainSummary),
                             DiagnosticsFieldUiModel("Desync", service.desyncMethod),
                             DiagnosticsFieldUiModel("Route group", service.routeGroup),
                             DiagnosticsFieldUiModel("Restart count", service.restartCount.toString()),
