@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.services.FailureReason
+import com.poyka.ripdpi.services.displayMessage
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -178,11 +179,7 @@ class LogsViewModel
     }
 
     private fun appendFailureLog(sender: Sender, reason: FailureReason) {
-        val detail = when (reason) {
-            is FailureReason.NativeError -> reason.message
-            is FailureReason.TunnelEstablishmentFailed -> "Tunnel establishment failed"
-            is FailureReason.Unexpected -> reason.cause.message ?: "Unexpected error"
-        }
+        val detail = reason.displayMessage
         appendEntry(
             LogEntry(
                 id = System.currentTimeMillis(),
