@@ -258,13 +258,6 @@ class RipDpiProxyService : LifecycleService() {
             }
     }
 
-    private fun classifyFailureReason(e: Exception): FailureReason =
-        when (e) {
-            is java.io.IOException -> FailureReason.NativeError(e.message ?: "I/O error")
-            is IllegalStateException -> FailureReason.NativeError(e.message ?: "Native error")
-            else -> FailureReason.Unexpected(e)
-        }
-
     private fun createNotification(): Notification =
         createConnectionNotification(
             this,
