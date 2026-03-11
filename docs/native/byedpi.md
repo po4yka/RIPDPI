@@ -44,7 +44,7 @@ Relevant sources:
 | --- | --- | --- | --- | --- |
 | `ciadpi_config::parse_cli` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreate(configJson)` | Command-line mode only | Parses user-supplied ByeDPI-style arguments into a `RuntimeConfig`. |
 | `ciadpi_config::parse_hosts_spec` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreate(configJson)` | UI mode host list setup | Parses the app host list string into normalized host rules. |
-| `runtime::create_listener` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniCreate(configJson)`, `jniStart(handle)` | Create-time validation and start | Opens the local listening socket for the proxy runtime. |
+| `runtime::create_listener` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Start only | Opens the local listening socket for the proxy runtime. |
 | `process::prepare_embedded` | `native/rust/crates/ripdpi-runtime/src/process.rs` | `jniStart(handle)` | Always before the runtime loop | Resets the embedded shutdown flag without daemon or signal handler behavior. |
 | `runtime::run_proxy_with_listener` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Always after session start | Runs the Rust proxy loop on the listener owned by the native session. |
 | `process::request_shutdown` | `native/rust/crates/ripdpi-runtime/src/process.rs` | `jniStop(handle)` | Stop path | Signals the Rust runtime loop to exit. |
@@ -108,6 +108,18 @@ The drained event ring records:
 `RipDpiProxyCmdPreferences` now serializes a single JSON payload with `kind = "command_line"`.
 
 This path still goes through `ciadpi_config::parse_cli`, so CLI flags are interpreted by the in-repo Rust module rather than an Android-only parser.
+
+## Current Test Coverage
+
+The proxy stack is currently covered by:
+
+- Rust unit, property-based, state-machine, fault-injection, and telemetry-golden tests in `ripdpi-android`
+- repo-owned local-network E2E for the proxy runtime in `ripdpi-runtime`
+- Kotlin wrapper and service-layer tests in `core:engine` and `core:service`
+- Android instrumentation integration and network E2E through the real `libripdpi.so`
+- host-side soak runs for restart loops, sustained traffic, and fault recovery
+
+See [../testing.md](../testing.md) for commands and CI lanes.
 
 ## Stop Behavior
 
