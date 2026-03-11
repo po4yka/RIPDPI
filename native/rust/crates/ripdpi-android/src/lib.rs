@@ -9,7 +9,10 @@ use android_support::{
     init_android_logging, throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception,
     HandleRegistry, JNI_VERSION,
 };
-use ciadpi_config::{DesyncGroup, DesyncMode, OffsetExpr, PartSpec, RuntimeConfig, StartupEnv};
+use ciadpi_config::{
+    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
+    UdpChainStep, UdpChainStepKind,
+};
 use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE};
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jstring};
@@ -46,6 +49,20 @@ enum ProxyConfigPayload {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ProxyUiTcpChainStep {
+    kind: String,
+    marker: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProxyUiUdpChainStep {
+    kind: String,
+    count: i32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ProxyUiConfig {
     ip: String,
     port: i32,
@@ -60,6 +77,8 @@ struct ProxyUiConfig {
     desync_method: String,
     #[serde(default)]
     split_marker: Option<String>,
+    #[serde(default)]
+    tcp_chain_steps: Vec<ProxyUiTcpChainStep>,
     #[serde(default)]
     split_position: i32,
     #[serde(default)]
@@ -81,6 +100,8 @@ struct ProxyUiConfig {
     hosts: Option<String>,
     tcp_fast_open: bool,
     udp_fake_count: i32,
+    #[serde(default)]
+    udp_chain_steps: Vec<ProxyUiUdpChainStep>,
     drop_sack: bool,
     #[serde(default)]
     fake_offset_marker: Option<String>,
@@ -815,7 +836,6 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
     if payload.fake_ttl > 0 {
         group.ttl = Some(u8::try_from(payload.fake_ttl).map_err(|_| "Invalid fakeTtl".to_string())?);
     }
-    group.udp_fake_count = payload.udp_fake_count;
     group.drop_sack = payload.drop_sack;
     group.proto = (u32::from(payload.desync_http) * IS_HTTP)
         | (u32::from(payload.desync_https) * IS_HTTPS)
@@ -824,24 +844,65 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
         | (u32::from(payload.domain_mixed_case) * MH_DMIX)
         | (u32::from(payload.host_remove_spaces) * MH_SPACE);
 
-    let part_offset = parse_offset_expr_field(
-        payload.split_marker.as_deref(),
-        || legacy_marker_expression(payload.split_position, payload.split_at_host),
-        "splitMarker",
-    )?;
-    let desync_mode = parse_desync_mode(&payload.desync_method)?;
-    group.parts.push(PartSpec { mode: desync_mode, offset: part_offset });
-
-    if payload.tls_record_split {
-        let expr = parse_offset_expr_field(
-            payload.tls_record_split_marker.as_deref(),
-            || legacy_marker_expression(payload.tls_record_split_position, payload.tls_record_split_at_sni),
-            "tlsRecordSplitMarker",
+    if !payload.tcp_chain_steps.is_empty() {
+        for step in &payload.tcp_chain_steps {
+            group.tcp_chain.push(TcpChainStep {
+                kind: parse_tcp_chain_step_kind(&step.kind)?,
+                offset: parse_offset_expr_field(Some(step.marker.as_str()), || "0".to_string(), "tcpChainSteps")?,
+            });
+        }
+    } else {
+        let part_offset = parse_offset_expr_field(
+            payload.split_marker.as_deref(),
+            || legacy_marker_expression(payload.split_position, payload.split_at_host),
+            "splitMarker",
         )?;
-        group.tls_records.push(expr);
+        let desync_mode = parse_desync_mode(&payload.desync_method)?;
+        if desync_mode != DesyncMode::None {
+            group.parts.push(PartSpec { mode: desync_mode, offset: part_offset });
+            if let Some(kind) = TcpChainStepKind::from_mode(desync_mode) {
+                group.tcp_chain.push(TcpChainStep { kind, offset: part_offset });
+            }
+        }
+
+        if payload.tls_record_split {
+            let expr = parse_offset_expr_field(
+                payload.tls_record_split_marker.as_deref(),
+                || legacy_marker_expression(payload.tls_record_split_position, payload.tls_record_split_at_sni),
+                "tlsRecordSplitMarker",
+            )?;
+            group.tls_records.push(expr);
+            group.tcp_chain.push(TcpChainStep { kind: TcpChainStepKind::TlsRec, offset: expr });
+        }
     }
 
-    if desync_mode == DesyncMode::Fake {
+    if !payload.udp_chain_steps.is_empty() {
+        for step in &payload.udp_chain_steps {
+            if step.count < 0 {
+                return Err("udpChainSteps count must be non-negative".to_string());
+            }
+            group.udp_chain.push(UdpChainStep {
+                kind: parse_udp_chain_step_kind(&step.kind)?,
+                count: step.count,
+            });
+        }
+    } else {
+        group.udp_fake_count = payload.udp_fake_count;
+        if payload.udp_fake_count > 0 {
+            group.udp_chain.push(UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: payload.udp_fake_count });
+        }
+    }
+
+    let has_fake_step = group
+        .effective_tcp_chain()
+        .iter()
+        .any(|step| matches!(step.kind, TcpChainStepKind::Fake));
+    let has_oob_step = group
+        .effective_tcp_chain()
+        .iter()
+        .any(|step| matches!(step.kind, TcpChainStepKind::Oob | TcpChainStepKind::Disoob));
+
+    if has_fake_step {
         group.fake_offset = Some(parse_offset_expr_field(
             payload.fake_offset_marker.as_deref(),
             || payload.fake_offset.to_string(),
@@ -850,9 +911,11 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
         group.fake_sni_list.push(payload.fake_sni);
     }
 
-    if desync_mode == DesyncMode::Oob {
+    if has_oob_step {
         group.oob_data = Some(payload.oob_char);
     }
+
+    group.sync_legacy_views_from_chains();
 
     let action_proto = group.proto;
     groups.push(group);
@@ -866,6 +929,25 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
     }
 
     Ok(config)
+}
+
+fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, String> {
+    match value {
+        "split" => Ok(TcpChainStepKind::Split),
+        "disorder" => Ok(TcpChainStepKind::Disorder),
+        "fake" => Ok(TcpChainStepKind::Fake),
+        "oob" => Ok(TcpChainStepKind::Oob),
+        "disoob" => Ok(TcpChainStepKind::Disoob),
+        "tlsrec" => Ok(TcpChainStepKind::TlsRec),
+        _ => Err(format!("Unknown tcpChainSteps kind: {value}")),
+    }
+}
+
+fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, String> {
+    match value {
+        "fake_burst" => Ok(UdpChainStepKind::FakeBurst),
+        _ => Err(format!("Unknown udpChainSteps kind: {value}")),
+    }
 }
 
 fn parse_desync_mode(value: &str) -> Result<DesyncMode, String> {
@@ -1169,6 +1251,7 @@ mod tests {
                 desync_udp,
                 desync_method,
                 split_marker,
+                tcp_chain_steps: Vec::new(),
                 split_position,
                 split_at_host,
                 fake_ttl,
@@ -1185,6 +1268,7 @@ mod tests {
                 hosts,
                 tcp_fast_open,
                 udp_fake_count,
+                udp_chain_steps: Vec::new(),
                 drop_sack,
                 fake_offset_marker,
                 fake_offset,
@@ -1207,6 +1291,7 @@ mod tests {
             desync_udp: false,
             desync_method: "disorder".to_string(),
             split_marker: Some("host+1".to_string()),
+            tcp_chain_steps: Vec::new(),
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
@@ -1223,6 +1308,7 @@ mod tests {
             hosts: None,
             tcp_fast_open: false,
             udp_fake_count: 0,
+            udp_chain_steps: Vec::new(),
             drop_sack: false,
             fake_offset_marker: None,
             fake_offset: 0,
@@ -1275,6 +1361,7 @@ mod tests {
             desync_udp: false,
             desync_method: "disorder".to_string(),
             split_marker: None,
+            tcp_chain_steps: Vec::new(),
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
@@ -1291,6 +1378,7 @@ mod tests {
             hosts: None,
             tcp_fast_open: false,
             udp_fake_count: 0,
+            udp_chain_steps: Vec::new(),
             drop_sack: false,
             fake_offset_marker: None,
             fake_offset: 0,
@@ -1669,6 +1757,7 @@ mod tests {
                 desync_udp: false,
                 desync_method,
                 split_marker: None,
+                tcp_chain_steps: Vec::new(),
                 split_position,
                 split_at_host,
                 fake_ttl: 8,
@@ -1685,6 +1774,7 @@ mod tests {
                 hosts,
                 tcp_fast_open,
                 udp_fake_count,
+                udp_chain_steps: Vec::new(),
                 drop_sack,
                 fake_offset_marker: None,
                 fake_offset,

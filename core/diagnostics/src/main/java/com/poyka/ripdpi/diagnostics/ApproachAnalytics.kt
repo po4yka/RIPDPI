@@ -1,9 +1,14 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
-import com.poyka.ripdpi.data.effectiveSplitMarker
-import com.poyka.ripdpi.data.effectiveTlsRecordMarker
+import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.effectiveUdpChainSteps
+import com.poyka.ripdpi.data.formatChainSummary
+import com.poyka.ripdpi.data.legacyDesyncMethod
+import com.poyka.ripdpi.data.primaryTcpChainStep
+import com.poyka.ripdpi.data.tlsRecTcpChainStep
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -29,6 +34,7 @@ data class BypassStrategySignature(
     val mode: String,
     val configSource: String,
     val desyncMethod: String,
+    val chainSummary: String,
     val protocolToggles: List<String>,
     val tlsRecordSplitEnabled: Boolean,
     val tlsRecordMarker: String?,
@@ -91,6 +97,10 @@ fun deriveBypassStrategySignature(
     modeOverride: Mode? = null,
 ): BypassStrategySignature {
     val mode = (modeOverride ?: Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })).name
+    val tcpSteps = settings.effectiveTcpChainSteps()
+    val udpSteps = settings.effectiveUdpChainSteps()
+    val primaryTcpStep = primaryTcpChainStep(tcpSteps)
+    val tlsRecStep = tlsRecTcpChainStep(tcpSteps)
     val protocols =
         buildList {
             if (settings.desyncHttp) add("HTTP")
@@ -99,20 +109,25 @@ fun deriveBypassStrategySignature(
         }.ifEmpty {
             listOf("NONE")
         }
-    val desyncMethod = settings.desyncMethod.ifEmpty { "disorder" }
+    val desyncMethod = legacyDesyncMethod(tcpSteps).ifEmpty { "none" }
     val fakeSniMode =
         settings.fakeSni
-            .takeIf { it.isNotBlank() && desyncMethod in setOf("fake", "disoob") }
+            .takeIf {
+                it.isNotBlank() && tcpSteps.any { step ->
+                    step.kind == TcpChainStepKind.Fake || step.kind == TcpChainStepKind.Disoob
+                }
+            }
             ?.let { "custom" }
 
     return BypassStrategySignature(
         mode = mode,
         configSource = if (settings.enableCmdSettings) "command_line" else "ui",
         desyncMethod = desyncMethod,
+        chainSummary = formatChainSummary(tcpSteps, udpSteps),
         protocolToggles = protocols,
-        tlsRecordSplitEnabled = settings.tlsrecEnabled,
-        tlsRecordMarker = settings.effectiveTlsRecordMarker().takeIf { settings.tlsrecEnabled },
-        splitMarker = settings.effectiveSplitMarker().takeIf { desyncMethod != "none" },
+        tlsRecordSplitEnabled = tlsRecStep != null,
+        tlsRecordMarker = tlsRecStep?.marker,
+        splitMarker = primaryTcpStep?.marker,
         fakeSniMode = fakeSniMode,
         fakeOffsetMarker =
             settings
@@ -133,7 +148,7 @@ fun BypassStrategySignature.displayLabel(): String =
     buildString {
         append(mode)
         append(" ")
-        append(desyncMethod.replaceFirstChar { it.uppercase() })
+        append(chainSummary)
         append(" · ")
         append(protocolToggles.joinToString("/"))
         if (tlsRecordSplitEnabled) {

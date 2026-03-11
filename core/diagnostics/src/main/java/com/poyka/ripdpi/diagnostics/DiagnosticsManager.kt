@@ -904,6 +904,7 @@ class DefaultDiagnosticsManager
                 appendLine("configSource=${contextSummary.service.configSource}")
                 appendLine("proxyEndpoint=${contextSummary.service.proxyEndpoint}")
                 appendLine("desyncMethod=${contextSummary.service.desyncMethod}")
+                appendLine("chainSummary=${contextSummary.service.chainSummary}")
                 appendLine("lastNativeError=${contextSummary.service.lastNativeErrorHeadline}")
                 appendLine("vpnPermission=${contextSummary.permissions.vpnPermissionState}")
                 appendLine("notifications=${contextSummary.permissions.notificationPermissionState}")
@@ -1346,6 +1347,7 @@ internal data class RedactedServiceContextSummary(
     val configSource: String,
     val proxyEndpoint: String,
     val desyncMethod: String,
+    val chainSummary: String,
     val routeGroup: String,
     val restartCount: Int,
     val lastNativeErrorHeadline: String,
@@ -1433,6 +1435,7 @@ private fun DiagnosticContextModel.toRedactedSummary(): RedactedDiagnosticContex
                 configSource = service.configSource,
                 proxyEndpoint = if (service.proxyEndpoint == "unknown") "unknown" else "redacted",
                 desyncMethod = service.desyncMethod,
+                chainSummary = service.chainSummary,
                 routeGroup = service.routeGroup,
                 restartCount = service.restartCount,
                 lastNativeErrorHeadline = service.lastNativeErrorHeadline,

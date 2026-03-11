@@ -84,9 +84,7 @@ fun ConfigScreen(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val selectedPreset = uiState.presets.firstOrNull { it.isSelected } ?: uiState.presets.last()
-    val desyncSummary =
-        uiState.draft.desyncMethod.takeIf { it.isNotBlank() }
-            ?: stringResource(R.string.config_desync_disorder)
+    val desyncSummary = uiState.draft.chainSummary
 
     RipDpiContentScreenScaffold(
         modifier =
@@ -284,7 +282,6 @@ private fun ConfigScreenDarkPreview() {
             proxyPort = "1086",
             useCommandLineSettings = true,
             commandLineArgs = "--fake --split 2",
-            desyncMethod = "fake",
             defaultTtl = "12",
         )
     RipDpiTheme(themePreference = "dark") {

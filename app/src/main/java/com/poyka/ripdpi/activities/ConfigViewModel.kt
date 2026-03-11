@@ -5,6 +5,16 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.StrategyChainSet
+import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.effectiveUdpChainSteps
+import com.poyka.ripdpi.data.formatChainSummary
+import com.poyka.ripdpi.data.formatStrategyChainDsl
+import com.poyka.ripdpi.data.legacyDesyncMethod
+import com.poyka.ripdpi.data.parseStrategyChainDsl
+import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.checkNotLocalIp
@@ -32,9 +42,28 @@ data class ConfigDraft(
     val bufferSize: String = "16384",
     val useCommandLineSettings: Boolean = false,
     val commandLineArgs: String = "",
+    val tcpChainSteps: List<TcpChainStepModel> = emptyList(),
+    val udpChainSteps: List<UdpChainStepModel> = emptyList(),
+    val chainDsl: String = "",
     val desyncMethod: String = "disorder",
     val defaultTtl: String = "",
-)
+) {
+    val chainSummary: String
+        get() = resolvedChainSet().let { formatChainSummary(it.tcpSteps, it.udpSteps) }
+
+    fun resolvedChainSet(): StrategyChainSet =
+        parseStrategyChainDsl(chainDsl).getOrNull() ?: StrategyChainSet(tcpSteps = tcpChainSteps, udpSteps = udpChainSteps)
+
+    fun withChainDsl(value: String): ConfigDraft {
+        val parsed = parseStrategyChainDsl(value).getOrNull()
+        return copy(
+            chainDsl = value,
+            tcpChainSteps = parsed?.tcpSteps ?: tcpChainSteps,
+            udpChainSteps = parsed?.udpSteps ?: udpChainSteps,
+            desyncMethod = parsed?.let { legacyDesyncMethod(it.tcpSteps) } ?: desyncMethod,
+        )
+    }
+}
 
 enum class ConfigPresetKind {
     Recommended,
@@ -74,6 +103,7 @@ internal const val ConfigFieldProxyPort = "proxyPort"
 internal const val ConfigFieldMaxConnections = "maxConnections"
 internal const val ConfigFieldBufferSize = "bufferSize"
 internal const val ConfigFieldDefaultTtl = "defaultTtl"
+internal const val ConfigFieldStrategyChain = "strategyChain"
 
 internal fun AppSettings.toConfigDraft(): ConfigDraft =
     ConfigDraft(
@@ -85,7 +115,10 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
         bufferSize = (bufferSize.takeIf { it > 0 } ?: 16_384).toString(),
         useCommandLineSettings = enableCmdSettings,
         commandLineArgs = cmdArgs,
-        desyncMethod = desyncMethod.ifEmpty { "disorder" },
+        tcpChainSteps = effectiveTcpChainSteps(),
+        udpChainSteps = effectiveUdpChainSteps(),
+        chainDsl = formatStrategyChainDsl(effectiveTcpChainSteps(), effectiveUdpChainSteps()),
+        desyncMethod = legacyDesyncMethod(effectiveTcpChainSteps()).ifEmpty { "none" },
         defaultTtl = if (customTtl && defaultTtl > 0) defaultTtl.toString() else "",
     )
 
@@ -146,6 +179,10 @@ internal fun validateConfigDraft(draft: ConfigDraft): Map<String, String> =
         if (draft.defaultTtl.isNotEmpty() && !validateIntRange(draft.defaultTtl, 0, 255)) {
             put(ConfigFieldDefaultTtl, "out_of_range")
         }
+
+        if (!draft.useCommandLineSettings && parseStrategyChainDsl(draft.chainDsl).isFailure) {
+            put(ConfigFieldStrategyChain, "invalid_chain")
+        }
     }
 
 private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSettings.Builder =
@@ -159,7 +196,8 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         setProxyPort(draft.proxyPort.toIntOrNull() ?: defaults.proxyPort)
         setMaxConnections(draft.maxConnections.toIntOrNull() ?: defaults.maxConnections)
         setBufferSize(draft.bufferSize.toIntOrNull() ?: defaults.bufferSize)
-        setDesyncMethod(draft.desyncMethod.ifBlank { defaults.desyncMethod })
+        val chains = draft.resolvedChainSet()
+        setStrategyChains(chains.tcpSteps, chains.udpSteps)
         setCustomTtl(draft.defaultTtl.isNotBlank())
         setDefaultTtl(draft.defaultTtl.toIntOrNull() ?: 0)
     }
@@ -248,6 +286,10 @@ class ConfigViewModel
             val baseDraft = current.draft ?: uiState.value.draft
             current.copy(draft = baseDraft.transform())
         }
+    }
+
+    fun updateChainDsl(value: String) {
+        updateDraft { withChainDsl(value) }
     }
 
     fun cancelEditing() {

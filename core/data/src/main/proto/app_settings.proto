@@ -2,6 +2,16 @@ syntax = "proto3";
 option java_package = "com.poyka.ripdpi.proto";
 option java_multiple_files = true;
 
+message StrategyTcpStep {
+  string kind = 1;
+  string marker = 2;
+}
+
+message StrategyUdpStep {
+  string kind = 1;
+  int32 count = 2;
+}
+
 message AppSettings {
   // General
   string app_theme = 1;       // "system" | "light" | "dark"
@@ -71,4 +81,6 @@ message AppSettings {
   string split_marker = 69;
   string fake_offset_marker = 70;
   string tlsrec_marker = 71;
+  repeated StrategyTcpStep tcp_chain_steps = 72;
+  repeated StrategyUdpStep udp_chain_steps = 73;
 }

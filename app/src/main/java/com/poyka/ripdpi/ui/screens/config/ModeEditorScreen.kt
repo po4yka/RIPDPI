@@ -35,6 +35,7 @@ import com.poyka.ripdpi.activities.ConfigFieldDnsIp
 import com.poyka.ripdpi.activities.ConfigFieldMaxConnections
 import com.poyka.ripdpi.activities.ConfigFieldProxyIp
 import com.poyka.ripdpi.activities.ConfigFieldProxyPort
+import com.poyka.ripdpi.activities.ConfigFieldStrategyChain
 import com.poyka.ripdpi.activities.ConfigPreset
 import com.poyka.ripdpi.activities.ConfigPresetKind
 import com.poyka.ripdpi.activities.ConfigUiState
@@ -52,8 +53,6 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
-import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
-import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
@@ -115,7 +114,7 @@ fun ModeEditorRoute(
         onProxyPortChanged = { viewModel.updateDraft { copy(proxyPort = it) } },
         onMaxConnectionsChanged = { viewModel.updateDraft { copy(maxConnections = it) } },
         onBufferSizeChanged = { viewModel.updateDraft { copy(bufferSize = it) } },
-        onDesyncMethodChanged = { viewModel.updateDraft { copy(desyncMethod = it) } },
+        onChainDslChanged = viewModel::updateChainDsl,
         onDefaultTtlChanged = { viewModel.updateDraft { copy(defaultTtl = it) } },
         onCommandLineEnabledChanged = { viewModel.updateDraft { copy(useCommandLineSettings = it) } },
         onCommandLineArgsChanged = { viewModel.updateDraft { copy(commandLineArgs = it) } },
@@ -134,7 +133,7 @@ fun ModeEditorScreen(
     onProxyPortChanged: (String) -> Unit,
     onMaxConnectionsChanged: (String) -> Unit,
     onBufferSizeChanged: (String) -> Unit,
-    onDesyncMethodChanged: (String) -> Unit,
+    onChainDslChanged: (String) -> Unit,
     onDefaultTtlChanged: (String) -> Unit,
     onCommandLineEnabledChanged: (Boolean) -> Unit,
     onCommandLineArgsChanged: (String) -> Unit,
@@ -145,13 +144,6 @@ fun ModeEditorScreen(
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val draft = uiState.editingPreset?.draft ?: uiState.draft
-    val desyncOptions =
-        listOf(
-            RipDpiDropdownOption(value = "none", label = stringResource(R.string.config_desync_none)),
-            RipDpiDropdownOption(value = "disorder", label = stringResource(R.string.config_desync_disorder)),
-            RipDpiDropdownOption(value = "fake", label = stringResource(R.string.config_desync_fake)),
-            RipDpiDropdownOption(value = "split", label = stringResource(R.string.config_desync_split)),
-        )
 
     RipDpiScreenScaffold(
         modifier = modifier.fillMaxSize(),
@@ -324,12 +316,20 @@ fun ModeEditorScreen(
                             errorText = validationMessage(uiState.validationErrors[ConfigFieldBufferSize]),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         )
-                        RipDpiDropdown(
-                            options = desyncOptions,
-                            selectedValue = draft.desyncMethod,
-                            onValueSelected = onDesyncMethodChanged,
-                            label = stringResource(R.string.ripdpi_desync_method_setting),
-                            helperText = stringResource(R.string.config_desync_helper),
+                        Text(
+                            text = stringResource(R.string.config_chain_summary_label, draft.chainSummary),
+                            style = RipDpiThemeTokens.type.caption,
+                            color = colors.mutedForeground,
+                        )
+                        RipDpiConfigTextField(
+                            value = draft.chainDsl,
+                            onValueChange = onChainDslChanged,
+                            label = stringResource(R.string.config_chain_editor_label),
+                            placeholder = stringResource(R.string.config_placeholder_chain_dsl),
+                            helperText = stringResource(R.string.config_chain_editor_helper),
+                            errorText = validationMessage(uiState.validationErrors[ConfigFieldStrategyChain]),
+                            multiline = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
                         )
                         RipDpiTextField(
                             value = draft.defaultTtl,
@@ -399,6 +399,7 @@ private fun validationMessage(errorKey: String?): String? =
         "invalid_proxy_ip" -> stringResource(R.string.config_error_invalid_proxy_ip)
         "invalid_port" -> stringResource(R.string.config_error_invalid_port)
         "out_of_range" -> stringResource(R.string.config_error_out_of_range)
+        "invalid_chain" -> stringResource(R.string.config_error_invalid_chain)
         else -> null
     }
 
@@ -416,7 +417,6 @@ private fun ModeEditorScreenPreview() {
             proxyPort = "1080",
             maxConnections = "512",
             bufferSize = "16384",
-            desyncMethod = "disorder",
         )
     RipDpiTheme {
         ModeEditorScreen(
@@ -440,7 +440,7 @@ private fun ModeEditorScreenPreview() {
             onProxyPortChanged = {},
             onMaxConnectionsChanged = {},
             onBufferSizeChanged = {},
-            onDesyncMethodChanged = {},
+            onChainDslChanged = {},
             onDefaultTtlChanged = {},
             onCommandLineEnabledChanged = {},
             onCommandLineArgsChanged = {},
@@ -460,7 +460,7 @@ private fun ModeEditorScreenDarkPreview() {
             proxyPort = "1085",
             maxConnections = "1024",
             bufferSize = "32768",
-            desyncMethod = "fake",
+            chainDsl = "[tcp]\nfake host+1\nsplit midsld\n\n[udp]\nfake_burst 2",
             defaultTtl = "12",
             useCommandLineSettings = true,
             commandLineArgs = "--fake --ttl 12 --split 2",
@@ -492,7 +492,7 @@ private fun ModeEditorScreenDarkPreview() {
             onProxyPortChanged = {},
             onMaxConnectionsChanged = {},
             onBufferSizeChanged = {},
-            onDesyncMethodChanged = {},
+            onChainDslChanged = {},
             onDefaultTtlChanged = {},
             onCommandLineEnabledChanged = {},
             onCommandLineArgsChanged = {},
