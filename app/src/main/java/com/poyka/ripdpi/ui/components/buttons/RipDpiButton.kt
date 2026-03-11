@@ -43,6 +43,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -67,6 +68,7 @@ fun RipDpiButton(
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
     interactionSource: MutableInteractionSource? = null,
+    hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
@@ -138,6 +140,7 @@ fun RipDpiButton(
                     enabled = isInteractive,
                     role = Role.Button,
                     interactionSource = resolvedInteractionSource,
+                    hapticFeedback = hapticFeedback,
                     onClick = onClick,
                 ),
     ) {
