@@ -3,13 +3,11 @@ package com.poyka.ripdpi.ui.screens.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
@@ -21,13 +19,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsUiState
@@ -42,8 +40,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
-import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -426,7 +424,6 @@ private fun AdvancedSettingsScreen(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val layout = RipDpiThemeTokens.layout
     val visualEditorEnabled = !uiState.enableCmdSettings
     val desyncOptions =
         rememberSettingsOptions(
@@ -439,104 +436,172 @@ private fun AdvancedSettingsScreen(
             valueArrayRes = R.array.ripdpi_hosts_modes_entries,
         )
 
-    Column(
+    RipDpiSettingsScaffold(
         modifier =
             modifier
                 .fillMaxSize()
                 .background(colors.background),
+        title = stringResource(R.string.title_advanced_settings),
+        navigationIcon = RipDpiIcons.Back,
+        onNavigationClick = onBack,
     ) {
-        RipDpiTopAppBar(
-            title = stringResource(R.string.title_advanced_settings),
-            navigationIcon = RipDpiIcons.Back,
-            onNavigationClick = onBack,
-        )
+        if (uiState.enableCmdSettings) {
+            item(key = "advanced_settings_warning") {
+                WarningBanner(
+                    title = stringResource(R.string.config_cli_banner_title),
+                    message = stringResource(R.string.config_cli_banner_body),
+                    tone = WarningBannerTone.Restricted,
+                )
+            }
+        }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding =
-                PaddingValues(
-                    start = layout.horizontalPadding,
-                    top = spacing.sm,
-                    end = layout.horizontalPadding,
-                    bottom = spacing.xxl,
-                ),
-            verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
-        ) {
-            if (uiState.enableCmdSettings) {
-                item(key = "advanced_settings_warning") {
-                    WarningBanner(
-                        title = stringResource(R.string.config_cli_banner_title),
-                        message = stringResource(R.string.config_cli_banner_body),
-                        tone = WarningBannerTone.Restricted,
+        item(key = "advanced_overrides") {
+            SettingsSection(title = stringResource(R.string.config_overrides_section)) {
+                RipDpiCard {
+                    SettingsRow(
+                        title = stringResource(R.string.use_command_line_settings),
+                        subtitle = stringResource(R.string.config_command_line_caption),
+                        checked = uiState.enableCmdSettings,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.UseCommandLine, it) },
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.command_line_arguments),
+                        description = stringResource(R.string.config_command_line_helper),
+                        value = uiState.cmdArgs,
+                        placeholder = stringResource(R.string.config_placeholder_command_line),
+                        enabled = uiState.enableCmdSettings,
+                        multiline = true,
+                        disabledMessage = stringResource(R.string.advanced_settings_command_line_disabled),
+                        setting = AdvancedTextSetting.CommandLineArgs,
+                        onConfirm = onTextConfirmed,
                     )
                 }
             }
+        }
 
-            item(key = "advanced_overrides") {
-                SettingsSection(title = stringResource(R.string.config_overrides_section)) {
-                    RipDpiCard {
-                        SettingsRow(
-                            title = stringResource(R.string.use_command_line_settings),
-                            subtitle = stringResource(R.string.config_command_line_caption),
-                            checked = uiState.enableCmdSettings,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.UseCommandLine, it) },
-                            showDivider = true,
-                        )
-                        AdvancedTextSetting(
-                            title = stringResource(R.string.command_line_arguments),
-                            description = stringResource(R.string.config_command_line_helper),
-                            value = uiState.cmdArgs,
-                            placeholder = stringResource(R.string.config_placeholder_command_line),
-                            enabled = uiState.enableCmdSettings,
-                            multiline = true,
-                            disabledMessage = stringResource(R.string.advanced_settings_command_line_disabled),
-                            setting = AdvancedTextSetting.CommandLineArgs,
-                            onConfirm = onTextConfirmed,
-                        )
-                    }
+        item(key = "advanced_proxy") {
+            SettingsSection(title = stringResource(R.string.ripdpi_proxy)) {
+                RipDpiCard {
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.bye_dpi_proxy_ip_setting),
+                        description = stringResource(R.string.config_proxy_helper),
+                        value = uiState.proxyIp,
+                        placeholder = stringResource(R.string.config_placeholder_proxy_ip),
+                        enabled = visualEditorEnabled,
+                        validator = ::checkIp,
+                        invalidMessage = stringResource(R.string.config_error_invalid_proxy_ip),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        setting = AdvancedTextSetting.ProxyIp,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.ripdpi_proxy_port_setting),
+                        description = stringResource(R.string.config_port_helper),
+                        value = uiState.proxyPort.toString(),
+                        placeholder = stringResource(R.string.config_placeholder_proxy_port),
+                        enabled = visualEditorEnabled,
+                        validator = ::validatePort,
+                        invalidMessage = stringResource(R.string.config_error_invalid_port),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                            ),
+                        setting = AdvancedTextSetting.ProxyPort,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.ripdpi_max_connections_setting),
+                        description = stringResource(R.string.config_max_connections_helper),
+                        value = uiState.maxConnections.toString(),
+                        enabled = visualEditorEnabled,
+                        validator = { validateIntRange(it, 1, Short.MAX_VALUE.toInt()) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                            ),
+                        setting = AdvancedTextSetting.MaxConnections,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.ripdpi_buffer_size_setting),
+                        description = stringResource(R.string.config_buffer_helper),
+                        value = uiState.bufferSize.toString(),
+                        enabled = visualEditorEnabled,
+                        validator = { validateIntRange(it, 1, Int.MAX_VALUE / 4) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                            ),
+                        setting = AdvancedTextSetting.BufferSize,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.ripdpi_no_domain_setting),
+                        checked = uiState.noDomain,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
+                        enabled = visualEditorEnabled,
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
+                        checked = uiState.tcpFastOpen,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
+                        enabled = visualEditorEnabled,
+                    )
                 }
             }
+        }
 
-            item(key = "advanced_proxy") {
-                SettingsSection(title = stringResource(R.string.ripdpi_proxy)) {
-                    RipDpiCard {
+        item(key = "advanced_desync") {
+            SettingsSection(title = stringResource(R.string.ripdpi_desync)) {
+                RipDpiCard {
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.ripdpi_default_ttl_setting),
+                        description = stringResource(R.string.config_default_ttl_helper),
+                        value = uiState.defaultTtlValue,
+                        placeholder = stringResource(R.string.config_placeholder_default_ttl),
+                        enabled = visualEditorEnabled,
+                        validator = { it.isEmpty() || validateIntRange(it, 0, 255) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                            ),
+                        setting = AdvancedTextSetting.DefaultTtl,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    AdvancedDropdownSetting(
+                        title = stringResource(R.string.ripdpi_desync_method_setting),
+                        description = stringResource(R.string.config_desync_helper),
+                        value = uiState.desyncMethod,
+                        enabled = visualEditorEnabled,
+                        options = desyncOptions,
+                        setting = AdvancedOptionSetting.DesyncMethod,
+                        onSelected = onOptionSelected,
+                        showDivider = true,
+                    )
+                    if (uiState.desyncEnabled) {
                         AdvancedTextSetting(
-                            title = stringResource(R.string.bye_dpi_proxy_ip_setting),
-                            description = stringResource(R.string.config_proxy_helper),
-                            value = uiState.proxyIp,
-                            placeholder = stringResource(R.string.config_placeholder_proxy_ip),
+                            title = stringResource(R.string.ripdpi_split_position_setting),
+                            value = uiState.splitPosition.toString(),
                             enabled = visualEditorEnabled,
-                            validator = ::checkIp,
-                            invalidMessage = stringResource(R.string.config_error_invalid_proxy_ip),
-                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            setting = AdvancedTextSetting.ProxyIp,
-                            onConfirm = onTextConfirmed,
-                            showDivider = true,
-                        )
-                        AdvancedTextSetting(
-                            title = stringResource(R.string.ripdpi_proxy_port_setting),
-                            description = stringResource(R.string.config_port_helper),
-                            value = uiState.proxyPort.toString(),
-                            placeholder = stringResource(R.string.config_placeholder_proxy_port),
-                            enabled = visualEditorEnabled,
-                            validator = ::validatePort,
-                            invalidMessage = stringResource(R.string.config_error_invalid_port),
-                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            keyboardOptions =
-                                KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done,
-                                ),
-                            setting = AdvancedTextSetting.ProxyPort,
-                            onConfirm = onTextConfirmed,
-                            showDivider = true,
-                        )
-                        AdvancedTextSetting(
-                            title = stringResource(R.string.ripdpi_max_connections_setting),
-                            description = stringResource(R.string.config_max_connections_helper),
-                            value = uiState.maxConnections.toString(),
-                            enabled = visualEditorEnabled,
-                            validator = { validateIntRange(it, 1, Short.MAX_VALUE.toInt()) },
+                            validator = { it.toIntOrNull() != null },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             keyboardOptions =
@@ -544,16 +609,24 @@ private fun AdvancedSettingsScreen(
                                     keyboardType = KeyboardType.Number,
                                     imeAction = ImeAction.Done,
                                 ),
-                            setting = AdvancedTextSetting.MaxConnections,
+                            setting = AdvancedTextSetting.SplitPosition,
                             onConfirm = onTextConfirmed,
                             showDivider = true,
                         )
-                        AdvancedTextSetting(
-                            title = stringResource(R.string.ripdpi_buffer_size_setting),
-                            description = stringResource(R.string.config_buffer_helper),
-                            value = uiState.bufferSize.toString(),
+                        SettingsRow(
+                            title = stringResource(R.string.ripdpi_split_at_host_setting),
+                            checked = uiState.splitAtHost,
+                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.SplitAtHost, it) },
                             enabled = visualEditorEnabled,
-                            validator = { validateIntRange(it, 1, Int.MAX_VALUE / 4) },
+                            showDivider = true,
+                        )
+                    }
+                    if (uiState.isFake) {
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.ripdpi_fake_ttl_setting),
+                            value = uiState.fakeTtl.toString(),
+                            enabled = visualEditorEnabled,
+                            validator = { validateIntRange(it, 1, 255) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             keyboardOptions =
@@ -561,37 +634,24 @@ private fun AdvancedSettingsScreen(
                                     keyboardType = KeyboardType.Number,
                                     imeAction = ImeAction.Done,
                                 ),
-                            setting = AdvancedTextSetting.BufferSize,
+                            setting = AdvancedTextSetting.FakeTtl,
                             onConfirm = onTextConfirmed,
                             showDivider = true,
                         )
-                        SettingsRow(
-                            title = stringResource(R.string.ripdpi_no_domain_setting),
-                            checked = uiState.noDomain,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.sni_of_fake_packet),
+                            value = uiState.fakeSni,
                             enabled = visualEditorEnabled,
+                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                            setting = AdvancedTextSetting.FakeSni,
+                            onConfirm = onTextConfirmed,
                             showDivider = true,
                         )
-                        SettingsRow(
-                            title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
-                            checked = uiState.tcpFastOpen,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
-                            enabled = visualEditorEnabled,
-                        )
-                    }
-                }
-            }
-
-            item(key = "advanced_desync") {
-                SettingsSection(title = stringResource(R.string.ripdpi_desync)) {
-                    RipDpiCard {
                         AdvancedTextSetting(
-                            title = stringResource(R.string.ripdpi_default_ttl_setting),
-                            description = stringResource(R.string.config_default_ttl_helper),
-                            value = uiState.defaultTtlValue,
-                            placeholder = stringResource(R.string.config_placeholder_default_ttl),
+                            title = stringResource(R.string.ripdpi_fake_offset_setting),
+                            value = uiState.fakeOffset.toString(),
                             enabled = visualEditorEnabled,
-                            validator = { it.isEmpty() || validateIntRange(it, 0, 255) },
+                            validator = { it.toIntOrNull() != null },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             keyboardOptions =
@@ -599,227 +659,115 @@ private fun AdvancedSettingsScreen(
                                     keyboardType = KeyboardType.Number,
                                     imeAction = ImeAction.Done,
                                 ),
-                            setting = AdvancedTextSetting.DefaultTtl,
+                            setting = AdvancedTextSetting.FakeOffset,
                             onConfirm = onTextConfirmed,
                             showDivider = true,
                         )
-                        AdvancedDropdownSetting(
-                            title = stringResource(R.string.ripdpi_desync_method_setting),
-                            description = stringResource(R.string.config_desync_helper),
-                            value = uiState.desyncMethod,
-                            enabled = visualEditorEnabled,
-                            options = desyncOptions,
-                            setting = AdvancedOptionSetting.DesyncMethod,
-                            onSelected = onOptionSelected,
-                            showDivider = true,
-                        )
-                        if (uiState.desyncEnabled) {
-                            AdvancedTextSetting(
-                                title = stringResource(R.string.ripdpi_split_position_setting),
-                                value = uiState.splitPosition.toString(),
-                                enabled = visualEditorEnabled,
-                                validator = { it.toIntOrNull() != null },
-                                invalidMessage = stringResource(R.string.config_error_out_of_range),
-                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                                keyboardOptions =
-                                    KeyboardOptions(
-                                        keyboardType = KeyboardType.Number,
-                                        imeAction = ImeAction.Done,
-                                    ),
-                                setting = AdvancedTextSetting.SplitPosition,
-                                onConfirm = onTextConfirmed,
-                                showDivider = true,
-                            )
-                            SettingsRow(
-                                title = stringResource(R.string.ripdpi_split_at_host_setting),
-                                checked = uiState.splitAtHost,
-                                onCheckedChange = { onToggleChanged(AdvancedToggleSetting.SplitAtHost, it) },
-                                enabled = visualEditorEnabled,
-                                showDivider = true,
-                            )
-                        }
-                        if (uiState.isFake) {
-                            AdvancedTextSetting(
-                                title = stringResource(R.string.ripdpi_fake_ttl_setting),
-                                value = uiState.fakeTtl.toString(),
-                                enabled = visualEditorEnabled,
-                                validator = { validateIntRange(it, 1, 255) },
-                                invalidMessage = stringResource(R.string.config_error_out_of_range),
-                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                                keyboardOptions =
-                                    KeyboardOptions(
-                                        keyboardType = KeyboardType.Number,
-                                        imeAction = ImeAction.Done,
-                                    ),
-                                setting = AdvancedTextSetting.FakeTtl,
-                                onConfirm = onTextConfirmed,
-                                showDivider = true,
-                            )
-                            AdvancedTextSetting(
-                                title = stringResource(R.string.sni_of_fake_packet),
-                                value = uiState.fakeSni,
-                                enabled = visualEditorEnabled,
-                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                                setting = AdvancedTextSetting.FakeSni,
-                                onConfirm = onTextConfirmed,
-                                showDivider = true,
-                            )
-                            AdvancedTextSetting(
-                                title = stringResource(R.string.ripdpi_fake_offset_setting),
-                                value = uiState.fakeOffset.toString(),
-                                enabled = visualEditorEnabled,
-                                validator = { it.toIntOrNull() != null },
-                                invalidMessage = stringResource(R.string.config_error_out_of_range),
-                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                                keyboardOptions =
-                                    KeyboardOptions(
-                                        keyboardType = KeyboardType.Number,
-                                        imeAction = ImeAction.Done,
-                                    ),
-                                setting = AdvancedTextSetting.FakeOffset,
-                                onConfirm = onTextConfirmed,
-                                showDivider = true,
-                            )
-                        }
-                        if (uiState.isOob) {
-                            AdvancedTextSetting(
-                                title = stringResource(R.string.oob_data),
-                                value = uiState.oobData,
-                                enabled = visualEditorEnabled,
-                                validator = { it.length <= 1 },
-                                invalidMessage = stringResource(R.string.advanced_settings_error_oob_data),
-                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                                keyboardOptions =
-                                    KeyboardOptions(
-                                        keyboardType = KeyboardType.Ascii,
-                                        imeAction = ImeAction.Done,
-                                    ),
-                                setting = AdvancedTextSetting.OobData,
-                                onConfirm = onTextConfirmed,
-                                showDivider = true,
-                            )
-                        }
-                        SettingsRow(
-                            title = stringResource(R.string.ripdpi_drop_sack_setting),
-                            checked = uiState.dropSack,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DropSack, it) },
-                            enabled = visualEditorEnabled,
-                        )
                     }
-                }
-            }
-
-            item(key = "advanced_protocols") {
-                SettingsSection(title = stringResource(R.string.ripdpi_protocols_category)) {
-                    RipDpiCard {
-                        Text(
-                            text = stringResource(R.string.ripdpi_protocols_hint),
-                            style = RipDpiThemeTokens.type.caption,
-                            color = colors.mutedForeground,
-                        )
-                        HorizontalDivider(color = colors.divider)
-                        SettingsRow(
-                            title = stringResource(R.string.desync_http),
-                            checked = uiState.desyncHttp,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncHttp, it) },
-                            enabled = visualEditorEnabled,
-                            showDivider = true,
-                        )
-                        SettingsRow(
-                            title = stringResource(R.string.desync_https),
-                            checked = uiState.desyncHttps,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncHttps, it) },
-                            enabled = visualEditorEnabled,
-                            showDivider = true,
-                        )
-                        SettingsRow(
-                            title = stringResource(R.string.desync_udp),
-                            checked = uiState.desyncUdp,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncUdp, it) },
-                            enabled = visualEditorEnabled,
-                        )
-                    }
-                }
-            }
-
-            item(key = "advanced_http") {
-                SettingsSection(title = stringResource(R.string.desync_http_category)) {
-                    RipDpiCard {
-                        SettingsRow(
-                            title = stringResource(R.string.ripdpi_host_mixed_case_setting),
-                            checked = uiState.hostMixedCase,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostMixedCase, it) },
-                            enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                            showDivider = true,
-                        )
-                        SettingsRow(
-                            title = stringResource(R.string.ripdpi_domain_mixed_case_setting),
-                            checked = uiState.domainMixedCase,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DomainMixedCase, it) },
-                            enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                            showDivider = true,
-                        )
-                        SettingsRow(
-                            title = stringResource(R.string.ripdpi_host_remove_spaces_setting),
-                            checked = uiState.hostRemoveSpaces,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostRemoveSpaces, it) },
-                            enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
-                        )
-                    }
-                }
-            }
-
-            item(key = "advanced_https") {
-                SettingsSection(title = stringResource(R.string.desync_https_category)) {
-                    RipDpiCard {
-                        SettingsRow(
-                            title = stringResource(R.string.ripdpi_tlsrec_enabled_setting),
-                            checked = uiState.tlsrecEnabled,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TlsrecEnabled, it) },
-                            enabled = visualEditorEnabled && uiState.desyncHttpsEnabled,
-                            showDivider = uiState.tlsRecEnabled,
-                        )
-                        if (uiState.tlsRecEnabled) {
-                            AdvancedTextSetting(
-                                title = stringResource(R.string.ripdpi_tlsrec_position_setting),
-                                value = uiState.tlsrecPosition.toString(),
-                                enabled = visualEditorEnabled,
-                                validator = { validateIntRange(it, 2 * Short.MIN_VALUE, 2 * Short.MAX_VALUE) },
-                                invalidMessage = stringResource(R.string.config_error_out_of_range),
-                                disabledMessage =
-                                    if (!visualEditorEnabled) {
-                                        stringResource(R.string.advanced_settings_visual_controls_disabled)
-                                    } else {
-                                        null
-                                    },
-                                keyboardOptions =
-                                    KeyboardOptions(
-                                        keyboardType = KeyboardType.Number,
-                                        imeAction = ImeAction.Done,
-                                    ),
-                                setting = AdvancedTextSetting.TlsrecPosition,
-                                onConfirm = onTextConfirmed,
-                                showDivider = true,
-                            )
-                            SettingsRow(
-                                title = stringResource(R.string.ripdpi_tlsrec_at_sni_setting),
-                                checked = uiState.tlsrecAtSni,
-                                onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TlsrecAtSni, it) },
-                                enabled = visualEditorEnabled,
-                            )
-                        }
-                    }
-                }
-            }
-
-            item(key = "advanced_udp") {
-                SettingsSection(title = stringResource(R.string.desync_udp_category)) {
-                    RipDpiCard {
+                    if (uiState.isOob) {
                         AdvancedTextSetting(
-                            title = stringResource(R.string.ripdpi_udp_fake_count),
-                            value = uiState.udpFakeCount.toString(),
-                            enabled = visualEditorEnabled && uiState.desyncUdpEnabled,
-                            validator = { validateIntRange(it, 0, Int.MAX_VALUE) },
+                            title = stringResource(R.string.oob_data),
+                            value = uiState.oobData,
+                            enabled = visualEditorEnabled,
+                            validator = { it.length <= 1 },
+                            invalidMessage = stringResource(R.string.advanced_settings_error_oob_data),
+                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Ascii,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            setting = AdvancedTextSetting.OobData,
+                            onConfirm = onTextConfirmed,
+                            showDivider = true,
+                        )
+                    }
+                    SettingsRow(
+                        title = stringResource(R.string.ripdpi_drop_sack_setting),
+                        checked = uiState.dropSack,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DropSack, it) },
+                        enabled = visualEditorEnabled,
+                    )
+                }
+            }
+        }
+
+        item(key = "advanced_protocols") {
+            SettingsSection(title = stringResource(R.string.ripdpi_protocols_category)) {
+                RipDpiCard {
+                    Text(
+                        text = stringResource(R.string.ripdpi_protocols_hint),
+                        style = RipDpiThemeTokens.type.caption,
+                        color = colors.mutedForeground,
+                    )
+                    HorizontalDivider(color = colors.divider)
+                    SettingsRow(
+                        title = stringResource(R.string.desync_http),
+                        checked = uiState.desyncHttp,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncHttp, it) },
+                        enabled = visualEditorEnabled,
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.desync_https),
+                        checked = uiState.desyncHttps,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncHttps, it) },
+                        enabled = visualEditorEnabled,
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.desync_udp),
+                        checked = uiState.desyncUdp,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncUdp, it) },
+                        enabled = visualEditorEnabled,
+                    )
+                }
+            }
+        }
+
+        item(key = "advanced_http") {
+            SettingsSection(title = stringResource(R.string.desync_http_category)) {
+                RipDpiCard {
+                    SettingsRow(
+                        title = stringResource(R.string.ripdpi_host_mixed_case_setting),
+                        checked = uiState.hostMixedCase,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostMixedCase, it) },
+                        enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.ripdpi_domain_mixed_case_setting),
+                        checked = uiState.domainMixedCase,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DomainMixedCase, it) },
+                        enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.ripdpi_host_remove_spaces_setting),
+                        checked = uiState.hostRemoveSpaces,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostRemoveSpaces, it) },
+                        enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                    )
+                }
+            }
+        }
+
+        item(key = "advanced_https") {
+            SettingsSection(title = stringResource(R.string.desync_https_category)) {
+                RipDpiCard {
+                    SettingsRow(
+                        title = stringResource(R.string.ripdpi_tlsrec_enabled_setting),
+                        checked = uiState.tlsrecEnabled,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TlsrecEnabled, it) },
+                        enabled = visualEditorEnabled && uiState.desyncHttpsEnabled,
+                        showDivider = uiState.tlsRecEnabled,
+                    )
+                    if (uiState.tlsRecEnabled) {
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.ripdpi_tlsrec_position_setting),
+                            value = uiState.tlsrecPosition.toString(),
+                            enabled = visualEditorEnabled,
+                            validator = { validateIntRange(it, 2 * Short.MIN_VALUE, 2 * Short.MAX_VALUE) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage =
                                 if (!visualEditorEnabled) {
@@ -832,55 +780,89 @@ private fun AdvancedSettingsScreen(
                                     keyboardType = KeyboardType.Number,
                                     imeAction = ImeAction.Done,
                                 ),
-                            setting = AdvancedTextSetting.UdpFakeCount,
+                            setting = AdvancedTextSetting.TlsrecPosition,
                             onConfirm = onTextConfirmed,
+                            showDivider = true,
+                        )
+                        SettingsRow(
+                            title = stringResource(R.string.ripdpi_tlsrec_at_sni_setting),
+                            checked = uiState.tlsrecAtSni,
+                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TlsrecAtSni, it) },
+                            enabled = visualEditorEnabled,
                         )
                     }
                 }
             }
+        }
 
-            item(key = "advanced_hosts") {
-                SettingsSection(title = stringResource(R.string.ripdpi_hosts_mode_setting)) {
-                    RipDpiCard {
-                        AdvancedDropdownSetting(
-                            title = stringResource(R.string.ripdpi_hosts_mode_setting),
-                            value = uiState.hostsMode,
-                            enabled = visualEditorEnabled,
-                            options = hostsOptions,
-                            setting = AdvancedOptionSetting.HostsMode,
-                            onSelected = onOptionSelected,
-                            showDivider = uiState.hostsMode != "disable",
-                        )
-                        when (uiState.hostsMode) {
-                            "blacklist" -> {
-                                AdvancedTextSetting(
-                                    title = stringResource(R.string.ripdpi_hosts_blacklist_setting),
-                                    value = uiState.hostsBlacklist,
-                                    enabled = visualEditorEnabled,
-                                    multiline = true,
-                                    disabledMessage =
-                                        stringResource(
-                                            R.string.advanced_settings_visual_controls_disabled,
-                                        ),
-                                    setting = AdvancedTextSetting.HostsBlacklist,
-                                    onConfirm = onTextConfirmed,
-                                )
-                            }
+        item(key = "advanced_udp") {
+            SettingsSection(title = stringResource(R.string.desync_udp_category)) {
+                RipDpiCard {
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.ripdpi_udp_fake_count),
+                        value = uiState.udpFakeCount.toString(),
+                        enabled = visualEditorEnabled && uiState.desyncUdpEnabled,
+                        validator = { validateIntRange(it, 0, Int.MAX_VALUE) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage =
+                            if (!visualEditorEnabled) {
+                                stringResource(R.string.advanced_settings_visual_controls_disabled)
+                            } else {
+                                null
+                            },
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                            ),
+                        setting = AdvancedTextSetting.UdpFakeCount,
+                        onConfirm = onTextConfirmed,
+                    )
+                }
+            }
+        }
 
-                            "whitelist" -> {
-                                AdvancedTextSetting(
-                                    title = stringResource(R.string.ripdpi_hosts_whitelist_setting),
-                                    value = uiState.hostsWhitelist,
-                                    enabled = visualEditorEnabled,
-                                    multiline = true,
-                                    disabledMessage =
-                                        stringResource(
-                                            R.string.advanced_settings_visual_controls_disabled,
-                                        ),
-                                    setting = AdvancedTextSetting.HostsWhitelist,
-                                    onConfirm = onTextConfirmed,
-                                )
-                            }
+        item(key = "advanced_hosts") {
+            SettingsSection(title = stringResource(R.string.ripdpi_hosts_mode_setting)) {
+                RipDpiCard {
+                    AdvancedDropdownSetting(
+                        title = stringResource(R.string.ripdpi_hosts_mode_setting),
+                        value = uiState.hostsMode,
+                        enabled = visualEditorEnabled,
+                        options = hostsOptions,
+                        setting = AdvancedOptionSetting.HostsMode,
+                        onSelected = onOptionSelected,
+                        showDivider = uiState.hostsMode != "disable",
+                    )
+                    when (uiState.hostsMode) {
+                        "blacklist" -> {
+                            AdvancedTextSetting(
+                                title = stringResource(R.string.ripdpi_hosts_blacklist_setting),
+                                value = uiState.hostsBlacklist,
+                                enabled = visualEditorEnabled,
+                                multiline = true,
+                                disabledMessage =
+                                    stringResource(
+                                        R.string.advanced_settings_visual_controls_disabled,
+                                    ),
+                                setting = AdvancedTextSetting.HostsBlacklist,
+                                onConfirm = onTextConfirmed,
+                            )
+                        }
+
+                        "whitelist" -> {
+                            AdvancedTextSetting(
+                                title = stringResource(R.string.ripdpi_hosts_whitelist_setting),
+                                value = uiState.hostsWhitelist,
+                                enabled = visualEditorEnabled,
+                                multiline = true,
+                                disabledMessage =
+                                    stringResource(
+                                        R.string.advanced_settings_visual_controls_disabled,
+                                    ),
+                                setting = AdvancedTextSetting.HostsWhitelist,
+                                onConfirm = onTextConfirmed,
+                            )
                         }
                     }
                 }

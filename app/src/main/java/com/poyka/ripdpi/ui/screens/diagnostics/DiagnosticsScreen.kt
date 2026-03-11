@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -21,8 +22,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,8 +45,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
-import com.poyka.ripdpi.activities.DiagnosticsEffect
 import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
+import com.poyka.ripdpi.activities.DiagnosticsEffect
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
 import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
@@ -71,6 +72,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -186,80 +188,97 @@ fun DiagnosticsScreen(
 ) {
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
-    val spacing = RipDpiThemeTokens.spacing
 
-    Column(
+    RipDpiScreenScaffold(
         modifier =
             modifier
                 .fillMaxSize()
                 .background(colors.background),
-    ) {
-        RipDpiTopAppBar(title = stringResource(R.string.diagnostics_title))
-        DiagnosticsSectionSwitcher(
-            selectedSection = uiState.selectedSection,
-            onSelectSection = onSelectSection,
-            modifier = Modifier.padding(horizontal = layout.horizontalPadding),
-        )
-        HorizontalPager(
-            state = pagerState,
+        topBar = {
+            RipDpiTopAppBar(title = stringResource(R.string.diagnostics_title))
+        },
+    ) { innerPadding ->
+        Box(
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-        ) { page ->
-            when (DiagnosticsSection.entries[page]) {
-                DiagnosticsSection.Overview ->
-                    OverviewSection(
-                        uiState = uiState,
-                        onSelectSession = onSelectSession,
-                    )
+                    .fillMaxSize()
+                    .background(colors.background)
+                    .padding(innerPadding),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .widthIn(max = layout.contentMaxWidth),
+            ) {
+                DiagnosticsSectionSwitcher(
+                    selectedSection = uiState.selectedSection,
+                    onSelectSection = onSelectSection,
+                    modifier = Modifier.padding(horizontal = layout.horizontalPadding),
+                )
+                HorizontalPager(
+                    state = pagerState,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                ) { page ->
+                    when (DiagnosticsSection.entries[page]) {
+                        DiagnosticsSection.Overview ->
+                            OverviewSection(
+                                uiState = uiState,
+                                onSelectSession = onSelectSession,
+                            )
 
-                DiagnosticsSection.Scan ->
-                    ScanSection(
-                        uiState = uiState,
-                        onSelectProfile = onSelectProfile,
-                        onRunRawScan = onRunRawScan,
-                        onRunInPathScan = onRunInPathScan,
-                        onCancelScan = onCancelScan,
-                        onSelectProbe = onSelectProbe,
-                    )
+                        DiagnosticsSection.Scan ->
+                            ScanSection(
+                                uiState = uiState,
+                                onSelectProfile = onSelectProfile,
+                                onRunRawScan = onRunRawScan,
+                                onRunInPathScan = onRunInPathScan,
+                                onCancelScan = onCancelScan,
+                                onSelectProbe = onSelectProbe,
+                            )
 
-                DiagnosticsSection.Live ->
-                    LiveSection(uiState = uiState)
+                        DiagnosticsSection.Live ->
+                            LiveSection(uiState = uiState)
 
-                DiagnosticsSection.Sessions ->
-                    SessionsSection(
-                        uiState = uiState,
-                        onSelectSession = onSelectSession,
-                        onPathModeFilter = onSessionPathFilter,
-                        onStatusFilter = onSessionStatusFilter,
-                        onSearch = onSessionSearch,
-                    )
+                        DiagnosticsSection.Sessions ->
+                            SessionsSection(
+                                uiState = uiState,
+                                onSelectSession = onSelectSession,
+                                onPathModeFilter = onSessionPathFilter,
+                                onStatusFilter = onSessionStatusFilter,
+                                onSearch = onSessionSearch,
+                            )
 
-                DiagnosticsSection.Approaches ->
-                    ApproachesSection(
-                        uiState = uiState,
-                        onSelectMode = onSelectApproachMode,
-                        onSelectApproach = onSelectApproach,
-                    )
+                        DiagnosticsSection.Approaches ->
+                            ApproachesSection(
+                                uiState = uiState,
+                                onSelectMode = onSelectApproachMode,
+                                onSelectApproach = onSelectApproach,
+                            )
 
-                DiagnosticsSection.Events ->
-                    EventsSection(
-                        uiState = uiState,
-                        onSelectEvent = onSelectEvent,
-                        onToggleFilter = onToggleEventFilter,
-                        onSearch = onEventSearch,
-                        onAutoScroll = onEventAutoScroll,
-                    )
+                        DiagnosticsSection.Events ->
+                            EventsSection(
+                                uiState = uiState,
+                                onSelectEvent = onSelectEvent,
+                                onToggleFilter = onToggleEventFilter,
+                                onSearch = onEventSearch,
+                                onAutoScroll = onEventAutoScroll,
+                            )
 
-                DiagnosticsSection.Share ->
-                    ShareSection(
-                        uiState = uiState,
-                        onShareSummary = onShareSummary,
-                        onShareArchive = onShareArchive,
-                        onSaveArchive = onSaveArchive,
-                        onSaveLogs = onSaveLogs,
-                    )
+                        DiagnosticsSection.Share ->
+                            ShareSection(
+                                uiState = uiState,
+                                onShareSummary = onShareSummary,
+                                onShareArchive = onShareArchive,
+                                onSaveArchive = onSaveArchive,
+                                onSaveLogs = onSaveLogs,
+                            )
+                    }
+                }
             }
         }
     }
