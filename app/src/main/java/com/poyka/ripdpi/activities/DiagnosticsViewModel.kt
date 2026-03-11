@@ -1213,16 +1213,24 @@ class DiagnosticsViewModel
                                 add(DiagnosticsFieldUiModel("Split marker", it))
                             }
                             signature.fakeTlsBaseMode?.let {
-                                add(DiagnosticsFieldUiModel("Fake TLS base", it))
+                                add(DiagnosticsFieldUiModel("Fake TLS base", formatFakeTlsBaseMode(it)))
                             }
                             signature.fakeSniMode?.let {
-                                add(DiagnosticsFieldUiModel("Fake TLS SNI", it))
+                                add(
+                                    DiagnosticsFieldUiModel(
+                                        "Fake TLS SNI",
+                                        formatFakeTlsSni(
+                                            mode = it,
+                                            fixedValue = signature.fakeSniValue,
+                                        ),
+                                    ),
+                                )
                             }
                             if (signature.fakeTlsMods.isNotEmpty()) {
-                                add(DiagnosticsFieldUiModel("Fake TLS mods", signature.fakeTlsMods.joinToString(",")))
+                                add(DiagnosticsFieldUiModel("Fake TLS mods", formatFakeTlsMods(signature.fakeTlsMods)))
                             }
                             signature.fakeTlsSize?.let {
-                                add(DiagnosticsFieldUiModel("Fake TLS size", it.toString()))
+                                add(DiagnosticsFieldUiModel("Fake TLS size", formatFakeTlsSize(it)))
                             }
                             signature.fakeOffsetMarker?.let {
                                 add(DiagnosticsFieldUiModel("Fake offset marker", it))
@@ -1621,6 +1629,40 @@ class DiagnosticsViewModel
                 "store_reset" -> "Reset stored hosts"
                 "none", "" -> "None yet"
                 else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
+            }
+
+        private fun formatFakeTlsBaseMode(value: String): String =
+            when (value.lowercase(Locale.US)) {
+                "default" -> "Default fake ClientHello"
+                "original" -> "Original ClientHello"
+                else -> value
+            }
+
+        private fun formatFakeTlsSni(
+            mode: String,
+            fixedValue: String?,
+        ): String =
+            when (mode.lowercase(Locale.US)) {
+                "fixed" -> fixedValue?.takeIf { it.isNotBlank() }?.let { "Fixed ($it)" } ?: "Fixed"
+                "randomized" -> "Randomized"
+                else -> mode
+            }
+
+        private fun formatFakeTlsMods(values: List<String>): String =
+            values.joinToString(", ") { value ->
+                when (value.lowercase(Locale.US)) {
+                    "rand" -> "Randomize TLS material"
+                    "dupsid" -> "Copy Session ID"
+                    "padencap" -> "Padding camouflage"
+                    else -> value
+                }
+            }
+
+        private fun formatFakeTlsSize(value: Int): String =
+            when {
+                value > 0 -> "Exactly $value bytes"
+                value < 0 -> "Input minus ${-value} bytes"
+                else -> "Match input size"
             }
 
         private fun redactValue(value: String?): String = value?.let { "redacted" } ?: "Unknown"

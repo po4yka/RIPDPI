@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
@@ -16,6 +17,7 @@ import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.proto.AppSettings
 import java.security.MessageDigest
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -40,14 +42,16 @@ data class BypassStrategySignature(
     val chainSummary: String,
     val protocolToggles: List<String>,
     val tlsRecordSplitEnabled: Boolean,
-    val tlsRecordMarker: String?,
-    val splitMarker: String?,
-    val fakeSniMode: String?,
-    val fakeTlsBaseMode: String?,
+    val tlsRecordMarker: String? = null,
+    val splitMarker: String? = null,
+    val fakeSniMode: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val fakeSniValue: String? = null,
+    val fakeTlsBaseMode: String? = null,
     val fakeTlsMods: List<String> = emptyList(),
-    val fakeTlsSize: Int?,
-    val fakeOffsetMarker: String?,
-    val routeGroup: String?,
+    val fakeTlsSize: Int? = null,
+    val fakeOffsetMarker: String? = null,
+    val routeGroup: String? = null,
 )
 
 @Serializable
@@ -118,6 +122,7 @@ fun deriveBypassStrategySignature(
     val desyncMethod = legacyDesyncMethod(tcpSteps).ifEmpty { "none" }
     val hasFakeStep = tcpSteps.any { step -> step.kind == TcpChainStepKind.Fake }
     val fakeTlsProfileActive = hasFakeStep && settings.desyncHttps && settings.hasCustomFakeTlsProfile()
+    val fakeTlsSniMode = settings.effectiveFakeTlsSniMode()
     val fakeTlsMods =
         buildList {
             if (settings.fakeTlsRandomize) add("rand")
@@ -140,7 +145,8 @@ fun deriveBypassStrategySignature(
         tlsRecordSplitEnabled = tlsRecStep != null,
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
-        fakeSniMode = settings.effectiveFakeTlsSniMode().takeIf { fakeTlsProfileActive },
+        fakeSniMode = fakeTlsSniMode.takeIf { fakeTlsProfileActive },
+        fakeSniValue = settings.fakeSni.ifBlank { null }?.takeIf { fakeTlsProfileActive && fakeTlsSniMode == FakeTlsSniModeFixed },
         fakeTlsBaseMode = if (fakeTlsProfileActive) if (settings.fakeTlsUseOriginal) "original" else "default" else null,
         fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
         fakeTlsSize = settings.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },

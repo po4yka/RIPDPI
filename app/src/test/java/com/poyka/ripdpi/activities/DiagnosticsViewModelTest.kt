@@ -303,6 +303,62 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `approaches detail humanizes fake tls signature`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-fake-tls",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "enabled",
+                            desyncMethod = "fake",
+                            chainSummary = "tcp: fake(host)",
+                            protocolToggles = listOf("HTTPS"),
+                            tlsRecordSplitEnabled = false,
+                            tlsRecordMarker = null,
+                            splitMarker = "host",
+                            fakeSniMode = "fixed",
+                            fakeSniValue = "alt.example.org",
+                            fakeTlsBaseMode = "original",
+                            fakeTlsMods = listOf("rand", "dupsid", "padencap"),
+                            fakeTlsSize = -24,
+                            fakeOffsetMarker = "host+1",
+                            routeGroup = "2",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-fake-tls")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(signature.any { it.label == "Fake TLS base" && it.value == "Original ClientHello" })
+            assertTrue(signature.any { it.label == "Fake TLS SNI" && it.value == "Fixed (alt.example.org)" })
+            assertTrue(
+                signature.any {
+                    it.label == "Fake TLS mods" &&
+                        it.value == "Randomize TLS material, Copy Session ID, Padding camouflage"
+                },
+            )
+            assertTrue(signature.any { it.label == "Fake TLS size" && it.value == "Input minus 24 bytes" })
+            collector.cancel()
+        }
+
+    @Test
     fun `snapshot detail shows wifi and cellular transport fields`() =
         runTest {
             val wifiDetail =
@@ -658,6 +714,7 @@ private class FakeDiagnosticsManager(
     var initializeCalls = 0
     var lastArchiveSessionId: String? = null
     var lastActiveProfileId: String? = null
+    var strategySignatureOverride: BypassStrategySignature? = null
 
     override val activeScanProgress: StateFlow<ScanProgress?> = _progressState.asStateFlow()
     override val profiles: Flow<List<DiagnosticProfileEntity>> = profilesState
@@ -695,23 +752,25 @@ private class FakeDiagnosticsManager(
                 approachStatsState.value.firstOrNull { it.approachId.kind == kind && it.approachId.value == id }
                     ?: sampleApproachSummary(kind = kind, id = id),
             strategySignature =
-                BypassStrategySignature(
-                    mode = "VPN",
-                    configSource = "ui",
-                    hostAutolearn = "enabled",
-                    desyncMethod = "split",
-                    chainSummary = "tcp: split(1)",
-                    protocolToggles = listOf("HTTP", "HTTPS"),
-                    tlsRecordSplitEnabled = true,
-                    tlsRecordMarker = "extlen",
-                    splitMarker = "1",
-                    fakeSniMode = null,
-                    fakeTlsBaseMode = null,
-                    fakeTlsMods = emptyList(),
-                    fakeTlsSize = null,
-                    fakeOffsetMarker = null,
-                    routeGroup = "3",
-                ),
+                strategySignatureOverride ?:
+                    BypassStrategySignature(
+                        mode = "VPN",
+                        configSource = "ui",
+                        hostAutolearn = "enabled",
+                        desyncMethod = "split",
+                        chainSummary = "tcp: split(1)",
+                        protocolToggles = listOf("HTTP", "HTTPS"),
+                        tlsRecordSplitEnabled = true,
+                        tlsRecordMarker = "extlen",
+                        splitMarker = "1",
+                        fakeSniMode = null,
+                        fakeSniValue = null,
+                        fakeTlsBaseMode = null,
+                        fakeTlsMods = emptyList(),
+                        fakeTlsSize = null,
+                        fakeOffsetMarker = null,
+                        routeGroup = "3",
+                    ),
             recentValidatedSessions = sessionsState.value.take(2),
             recentUsageSessions = emptyList(),
             commonProbeFailures = listOf("dns_blocked (2)"),

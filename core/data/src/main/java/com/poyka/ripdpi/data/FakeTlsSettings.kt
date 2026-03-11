@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.AppSettings
 
+const val DefaultFakeSni = "www.iana.org"
 const val FakeTlsSniModeFixed = "fixed"
 const val FakeTlsSniModeRandomized = "randomized"
 
@@ -20,4 +21,5 @@ fun AppSettings.hasCustomFakeTlsProfile(): Boolean =
         fakeTlsDupSessionId ||
         fakeTlsPadEncap ||
         fakeTlsSize != 0 ||
-        effectiveFakeTlsSniMode() != FakeTlsSniModeFixed
+        effectiveFakeTlsSniMode() != FakeTlsSniModeFixed ||
+        (effectiveFakeTlsSniMode() == FakeTlsSniModeFixed && fakeSni.isNotBlank() && fakeSni != DefaultFakeSni)
