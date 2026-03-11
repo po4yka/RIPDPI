@@ -4,8 +4,8 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ciadpi_config::{
-    dump_cache_entries, load_cache_entries_from_path, prefix_match_bytes, CacheEntry, DesyncGroup, RuntimeConfig,
-    AUTO_NOPOST, AUTO_SORT, DETECT_RECONN,
+    dump_cache_entries, load_cache_entries_from_path, prefix_match_bytes, CacheEntry, DesyncGroup, QuicInitialMode,
+    RuntimeConfig, AUTO_NOPOST, AUTO_SORT, DETECT_RECONN,
 };
 use ciadpi_packets::{
     is_http, is_tls_client_hello, parse_http, parse_quic_initial, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP,
@@ -45,6 +45,19 @@ pub struct RouteAdvance<'a> {
 pub enum TransportProtocol {
     Tcp,
     Udp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtractedHost {
+    pub host: String,
+    pub source: HostSource,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostSource {
+    Http,
+    Tls,
+    Quic,
 }
 
 #[derive(Debug, Default)]
@@ -252,7 +265,7 @@ pub fn select_initial_group(
 ) -> Option<ConnectionRoute> {
     if let Some(route) = cache.lookup_and_prune(config, dest) {
         let group = config.groups.get(route.group_index)?;
-        if group_matches(group, dest, payload, allow_unknown_payload, transport) {
+        if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
             return Some(route);
         }
     }
@@ -263,7 +276,7 @@ pub fn select_initial_group(
         if cache.detect_for(config, idx) != 0 {
             continue;
         }
-        if group_matches(group, dest, payload, allow_unknown_payload, transport) {
+        if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
             return Some(ConnectionRoute { group_index: idx, attempted_mask });
         }
         attempted_mask |= group.bit;
@@ -296,7 +309,7 @@ pub fn select_next_group(
             attempted_mask |= group.bit;
             continue;
         }
-        if group_matches(group, dest, payload, false, transport) {
+        if group_matches(config, group, dest, payload, false, transport) {
             return Some(ConnectionRoute { group_index: idx, attempted_mask });
         }
         attempted_mask |= group.bit;
@@ -304,11 +317,20 @@ pub fn select_next_group(
     None
 }
 
-pub fn extract_host(payload: &[u8]) -> Option<String> {
+pub fn extract_host_info(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
     parse_http(payload)
-        .map(|host| String::from_utf8_lossy(host.host).into_owned())
-        .or_else(|| parse_tls(payload).map(|host| String::from_utf8_lossy(host).into_owned()))
-        .or_else(|| parse_quic_initial(payload).map(|info| String::from_utf8_lossy(info.host()).into_owned()))
+        .map(|host| ExtractedHost { host: String::from_utf8_lossy(host.host).into_owned(), source: HostSource::Http })
+        .or_else(|| {
+            parse_tls(payload).map(|host| ExtractedHost {
+                host: String::from_utf8_lossy(host).into_owned(),
+                source: HostSource::Tls,
+            })
+        })
+        .or_else(|| extract_quic_host(config, payload))
+}
+
+pub fn extract_host(config: &RuntimeConfig, payload: &[u8]) -> Option<String> {
+    extract_host_info(config, payload).map(|host| host.host)
 }
 
 pub fn group_requires_payload(group: &DesyncGroup) -> bool {
@@ -322,10 +344,14 @@ pub fn route_matches_payload(
     payload: &[u8],
     transport: TransportProtocol,
 ) -> bool {
-    config.groups.get(group_index).is_some_and(|group| group_matches(group, dest, Some(payload), false, transport))
+    config
+        .groups
+        .get(group_index)
+        .is_some_and(|group| group_matches(config, group, dest, Some(payload), false, transport))
 }
 
 fn group_matches(
+    config: &RuntimeConfig,
     group: &DesyncGroup,
     dest: SocketAddr,
     payload: Option<&[u8]>,
@@ -336,7 +362,7 @@ fn group_matches(
         return false;
     }
     match payload {
-        Some(payload) => matches_payload(group, payload),
+        Some(payload) => matches_payload(config, group, payload),
         None if allow_unknown_payload => true,
         None => group.filters.hosts.is_empty() && payload_proto_known(group),
     }
@@ -368,7 +394,7 @@ fn matches_l34(group: &DesyncGroup, dest: SocketAddr, transport: TransportProtoc
     true
 }
 
-fn matches_payload(group: &DesyncGroup, payload: &[u8]) -> bool {
+fn matches_payload(config: &RuntimeConfig, group: &DesyncGroup, payload: &[u8]) -> bool {
     if group.proto != 0 {
         let l7 = group.proto & !(IS_TCP | IS_UDP | IS_IPV4);
         if l7 != 0 {
@@ -384,7 +410,21 @@ fn matches_payload(group: &DesyncGroup, payload: &[u8]) -> bool {
     if group.filters.hosts.is_empty() {
         return true;
     }
-    extract_host(payload).as_deref().is_some_and(|host| group.filters.hosts_match(host))
+    extract_host(config, payload).as_deref().is_some_and(|host| group.filters.hosts_match(host))
+}
+
+fn extract_quic_host(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
+    if matches!(config.quic_initial_mode, QuicInitialMode::Disabled) || (!config.quic_support_v1 && !config.quic_support_v2)
+    {
+        return None;
+    }
+    let info = parse_quic_initial(payload)?;
+    let allowed =
+        (info.version == 0x0000_0001 && config.quic_support_v1) || (info.version == 0x6b33_43cf && config.quic_support_v2);
+    allowed.then(|| ExtractedHost {
+        host: String::from_utf8_lossy(info.host()).into_owned(),
+        source: HostSource::Quic,
+    })
 }
 
 fn cache_matches(entry: &CacheEntry, dest: SocketAddr) -> bool {
@@ -573,23 +613,25 @@ mod tests {
     #[test]
     fn group_matches_no_payload_allow_unknown_false() {
         let mut group = DesyncGroup::new(0);
+        let config = RuntimeConfig::default();
         // Empty hosts + known proto -> true
-        assert!(group_matches(&group, sample_dest(80), None, false, TransportProtocol::Tcp));
+        assert!(group_matches(&config, &group, sample_dest(80), None, false, TransportProtocol::Tcp));
         // Non-empty hosts -> false (can't verify without payload)
         group.filters.hosts.push("example.com".to_string());
-        assert!(!group_matches(&group, sample_dest(80), None, false, TransportProtocol::Tcp));
+        assert!(!group_matches(&config, &group, sample_dest(80), None, false, TransportProtocol::Tcp));
     }
 
     #[test]
     fn matches_payload_l7_proto_filtering() {
         let mut group = DesyncGroup::new(0);
         group.proto = IS_TCP | IS_HTTP;
+        let config = RuntimeConfig::default();
         let http_payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
         let tls_payload = ciadpi_packets::DEFAULT_FAKE_TLS;
         // HTTP payload matches IS_HTTP
-        assert!(matches_payload(&group, http_payload));
+        assert!(matches_payload(&config, &group, http_payload));
         // TLS payload does not match IS_HTTP
-        assert!(!matches_payload(&group, tls_payload));
+        assert!(!matches_payload(&config, &group, tls_payload));
     }
 
     #[test]
@@ -608,7 +650,7 @@ mod tests {
     fn extract_host_reads_quic_initial_sni() {
         let packet = rust_packet_seeds::quic_initial_v1();
 
-        assert_eq!(extract_host(&packet).as_deref(), Some("docs.example.test"));
+        assert_eq!(extract_host(&RuntimeConfig::default(), &packet).as_deref(), Some("docs.example.test"));
     }
 
     #[test]
@@ -620,5 +662,23 @@ mod tests {
         let packet = rust_packet_seeds::quic_initial_v1();
 
         assert!(route_matches_payload(&config, 0, sample_dest(443), &packet, TransportProtocol::Udp));
+    }
+
+    #[test]
+    fn extract_host_skips_quic_when_disabled() {
+        let packet = rust_packet_seeds::quic_initial_v1();
+        let mut config = RuntimeConfig::default();
+        config.quic_initial_mode = QuicInitialMode::Disabled;
+
+        assert_eq!(extract_host(&config, &packet), None);
+    }
+
+    #[test]
+    fn extract_host_respects_quic_version_toggles() {
+        let packet = rust_packet_seeds::quic_initial_v2();
+        let mut config = RuntimeConfig::default();
+        config.quic_support_v2 = false;
+
+        assert_eq!(extract_host(&config, &packet), None);
     }
 }

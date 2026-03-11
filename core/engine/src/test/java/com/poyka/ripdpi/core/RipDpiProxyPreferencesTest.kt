@@ -49,6 +49,9 @@ class RipDpiProxyPreferencesTest {
         assertEquals("1", payload.string("splitMarker"))
         assertEquals("disorder", payload.array("tcpChainSteps")[0].jsonObject.string("kind"))
         assertEquals("1", payload.array("tcpChainSteps")[0].jsonObject.string("marker"))
+        assertEquals("route_and_cache", payload.string("quicInitialMode"))
+        assertEquals("true", payload.string("quicSupportV1"))
+        assertEquals("true", payload.string("quicSupportV2"))
     }
 
     @Test
@@ -64,6 +67,22 @@ class RipDpiProxyPreferencesTest {
         assertEquals("ui", payload.string("kind"))
         assertEquals("disable", payload.string("hostsMode"))
         assertEquals(null, payload["hosts"]?.jsonPrimitive?.contentOrNull)
+    }
+
+    @Test
+    fun uiPreferencesEncodeQuicOverrides() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                quicInitialMode = "route",
+                quicSupportV1 = false,
+                quicSupportV2 = true,
+            )
+
+        val payload = preferences.toNativeConfigJson().parseJsonObject()
+
+        assertEquals("route", payload.string("quicInitialMode"))
+        assertEquals("false", payload.string("quicSupportV1"))
+        assertEquals("true", payload.string("quicSupportV2"))
     }
 }
 

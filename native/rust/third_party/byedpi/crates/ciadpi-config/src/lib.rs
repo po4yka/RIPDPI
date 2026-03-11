@@ -352,7 +352,18 @@ pub struct RuntimeConfig {
     pub protect_path: Option<String>,
     pub daemonize: bool,
     pub pid_file: Option<String>,
+    pub quic_initial_mode: QuicInitialMode,
+    pub quic_support_v1: bool,
+    pub quic_support_v2: bool,
     pub groups: Vec<DesyncGroup>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum QuicInitialMode {
+    Disabled,
+    Route,
+    #[default]
+    RouteAndCache,
 }
 
 impl Default for RuntimeConfig {
@@ -389,6 +400,9 @@ impl Default for RuntimeConfig {
             protect_path: None,
             daemonize: false,
             pid_file: None,
+            quic_initial_mode: QuicInitialMode::RouteAndCache,
+            quic_support_v1: true,
+            quic_support_v2: true,
             groups: vec![DesyncGroup::new(0)],
         }
     }

@@ -8,13 +8,13 @@ use std::time::Duration;
 use crate::platform;
 use crate::process;
 use crate::runtime_policy::{
-    extract_host, group_requires_payload, route_matches_payload, select_initial_group, select_next_group,
-    ConnectionRoute, RouteAdvance, RuntimeCache, TransportProtocol,
+    extract_host, extract_host_info, group_requires_payload, route_matches_payload, select_initial_group,
+    select_next_group, ConnectionRoute, HostSource, RouteAdvance, RuntimeCache, TransportProtocol,
 };
 use crate::{current_runtime_telemetry, RuntimeTelemetrySink};
 use ciadpi_config::{
-    DesyncGroup, DesyncMode, RuntimeConfig, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR,
-    DETECT_TORST,
+    DesyncGroup, DesyncMode, QuicInitialMode, RuntimeConfig, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT,
+    DETECT_TLS_ERR, DETECT_TORST,
 };
 use ciadpi_desync::{build_fake_packet, plan_tcp, plan_udp, DesyncAction, DesyncPlan};
 use ciadpi_session::{
@@ -234,7 +234,7 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                     relay(client, upstream, state, target.addr, route, None)
                 }
                 DelayConnect::Delayed { route, payload } => {
-                    let host = extract_host(&payload);
+                    let host = extract_host(&state.config, &payload);
                     let (upstream, route) =
                         connect_target_with_route(target.addr, state, route, Some(&payload), host.clone())?;
                     relay(client, upstream, state, target.addr, route, Some(payload))
@@ -280,7 +280,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                     }
                 },
                 DelayConnect::Delayed { route, payload } => {
-                    let host = extract_host(&payload);
+                    let host = extract_host(&state.config, &payload);
                     match connect_target_with_route(target.addr, state, route, Some(&payload), host.clone()) {
                         Ok((upstream, route)) => relay(client, upstream, state, target.addr, route, Some(payload)),
                         Err(_) => Ok(()),
@@ -327,7 +327,7 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
                     }
                 },
                 DelayConnect::Delayed { route, payload } => {
-                    let host = extract_host(&payload);
+                    let host = extract_host(&state.config, &payload);
                     match connect_target_with_route(target.addr, state, route, Some(&payload), host.clone()) {
                         Ok((upstream, route)) => relay(client, upstream, state, target.addr, route, Some(payload)),
                         Err(_) => Ok(()),
@@ -345,7 +345,7 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
 
 fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u8) -> io::Result<()> {
     let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, &state.config)?;
-    let host = extract_host(&first_request);
+    let host = extract_host(&state.config, &first_request);
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_slice()) };
     let (upstream, route) = connect_target(target, state, payload, false, host)?;
     relay(client, upstream, state, target, route, if first_request.is_empty() { None } else { Some(first_request) })
@@ -826,7 +826,8 @@ fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running: Arc<Atomic
                     let Some((target, payload)) = parse_socks5_udp_packet(&buffer[..n], &state.config) else {
                         continue;
                     };
-                    let host = extract_host(payload);
+                    let host_info = extract_host_info(&state.config, payload);
+                    let host = host_info.as_ref().map(|value| value.host.clone());
                     let route =
                         match select_route_for_transport(&state, target, Some(payload), false, TransportProtocol::Udp) {
                             Ok(route) => route,
@@ -835,7 +836,7 @@ fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running: Arc<Atomic
                     if let Some(telemetry) = &state.telemetry {
                         telemetry.on_route_selected(target, route.group_index, host.as_deref(), "initial");
                     }
-                    if let Some(host) = host.clone() {
+                    if let Some(host) = host.clone().filter(|_| should_cache_udp_host(&state.config, host_info.as_ref())) {
                         if let Ok(mut cache) = state.cache.lock() {
                             let _ = cache.store(&state.config, target, route.group_index, route.attempted_mask, Some(host));
                         }
@@ -941,6 +942,14 @@ fn set_udp_ttl(relay: &UdpSocket, target: SocketAddr, ttl: u8) -> io::Result<()>
     }
 }
 
+fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&crate::runtime_policy::ExtractedHost>) -> bool {
+    match host.map(|value| value.source) {
+        Some(HostSource::Quic) => matches!(config.quic_initial_mode, QuicInitialMode::RouteAndCache),
+        Some(HostSource::Http | HostSource::Tls) => true,
+        None => false,
+    }
+}
+
 fn connect_socket(target: SocketAddr, bind_ip: IpAddr, protect_path: Option<&str>, tfo: bool) -> io::Result<TcpStream> {
     let domain = match target {
         SocketAddr::V4(_) => Domain::IPV4,
@@ -998,7 +1007,7 @@ fn relay(
         };
         if let Some(first_request) = first_request {
             let original_request = first_request;
-            let host = extract_host(&original_request);
+            let host = extract_host(&state.config, &original_request);
 
             loop {
                 session_state = SessionState::default();
@@ -1756,6 +1765,20 @@ mod tests {
             parse_socks5_udp_packet(&packet, &config).expect("parse udp relay packet");
         assert_eq!(decoded_sender, sender);
         assert_eq!(decoded_payload, payload);
+    }
+
+    #[test]
+    fn should_cache_udp_host_only_caches_quic_in_cache_mode() {
+        let mut config = RuntimeConfig::default();
+        let quic = crate::runtime_policy::ExtractedHost { host: "docs.example.test".to_string(), source: HostSource::Quic };
+        let tls = crate::runtime_policy::ExtractedHost { host: "docs.example.test".to_string(), source: HostSource::Tls };
+
+        config.quic_initial_mode = QuicInitialMode::Route;
+        assert!(!should_cache_udp_host(&config, Some(&quic)));
+        assert!(should_cache_udp_host(&config, Some(&tls)));
+
+        config.quic_initial_mode = QuicInitialMode::RouteAndCache;
+        assert!(should_cache_udp_host(&config, Some(&quic)));
     }
 
     #[test]

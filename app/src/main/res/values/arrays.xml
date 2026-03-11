@@ -47,4 +47,15 @@
         <item name="blacklist">blacklist</item>
         <item name="whitelist">whitelist</item>
     </array>
+
+    <array name="quic_initial_modes">
+        <item name="disabled">Disabled</item>
+        <item name="route">Route by SNI</item>
+        <item name="route_and_cache">Route and cache</item>
+    </array>
+    <array name="quic_initial_modes_entries">
+        <item name="disabled">disabled</item>
+        <item name="route">route</item>
+        <item name="route_and_cache">route_and_cache</item>
+    </array>
 </resources>

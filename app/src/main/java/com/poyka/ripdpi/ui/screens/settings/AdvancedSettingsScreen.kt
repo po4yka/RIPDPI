@@ -33,6 +33,7 @@ import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.QuicInitialModeDisabled
 import com.poyka.ripdpi.data.isValidOffsetExpression
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.parseStrategyChainDsl
@@ -68,6 +69,8 @@ private enum class AdvancedToggleSetting {
     DomainMixedCase,
     HostRemoveSpaces,
     TlsrecEnabled,
+    QuicSupportV1,
+    QuicSupportV2,
 }
 
 private enum class AdvancedTextSetting {
@@ -92,6 +95,7 @@ private enum class AdvancedTextSetting {
 private enum class AdvancedOptionSetting {
     DesyncMethod,
     HostsMode,
+    QuicInitialMode,
 }
 
 @Composable
@@ -203,6 +207,24 @@ fun AdvancedSettingsRoute(
                         value = enabled.toString(),
                     ) {
                         setTlsrecEnabled(enabled)
+                    }
+                }
+
+                AdvancedToggleSetting.QuicSupportV1 -> {
+                    viewModel.updateSetting(
+                        key = "quicSupportV1",
+                        value = enabled.toString(),
+                    ) {
+                        setQuicSupportV1(enabled)
+                    }
+                }
+
+                AdvancedToggleSetting.QuicSupportV2 -> {
+                    viewModel.updateSetting(
+                        key = "quicSupportV2",
+                        value = enabled.toString(),
+                    ) {
+                        setQuicSupportV2(enabled)
                     }
                 }
 
@@ -403,6 +425,15 @@ fun AdvancedSettingsRoute(
                         setHostsMode(value)
                     }
                 }
+
+                AdvancedOptionSetting.QuicInitialMode -> {
+                    viewModel.updateSetting(
+                        key = "quicInitialMode",
+                        value = value,
+                    ) {
+                        setQuicInitialMode(value)
+                    }
+                }
             }
         },
         modifier = modifier,
@@ -430,6 +461,11 @@ private fun AdvancedSettingsScreen(
         rememberSettingsOptions(
             labelArrayRes = R.array.ripdpi_hosts_modes,
             valueArrayRes = R.array.ripdpi_hosts_modes_entries,
+        )
+    val quicModeOptions =
+        rememberSettingsOptions(
+            labelArrayRes = R.array.quic_initial_modes,
+            valueArrayRes = R.array.quic_initial_modes_entries,
         )
 
     RipDpiSettingsScaffold(
@@ -752,6 +788,46 @@ private fun AdvancedSettingsScreen(
                         style = RipDpiThemeTokens.type.secondaryBody,
                         color = colors.mutedForeground,
                     )
+                }
+            }
+        }
+
+        item(key = "advanced_quic") {
+            SettingsSection(title = stringResource(R.string.quic_initial_section_title)) {
+                RipDpiCard {
+                    Text(
+                        text = stringResource(R.string.quic_initial_section_body),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.mutedForeground,
+                    )
+                    HorizontalDivider(color = colors.divider)
+                    AdvancedDropdownSetting(
+                        title = stringResource(R.string.quic_initial_mode_title),
+                        description = stringResource(R.string.quic_initial_mode_body),
+                        value = uiState.quicInitialMode,
+                        enabled = visualEditorEnabled,
+                        options = quicModeOptions,
+                        setting = AdvancedOptionSetting.QuicInitialMode,
+                        onSelected = onOptionSelected,
+                        showDivider = uiState.quicInitialMode != QuicInitialModeDisabled,
+                    )
+                    if (uiState.quicInitialMode != QuicInitialModeDisabled) {
+                        SettingsRow(
+                            title = stringResource(R.string.quic_initial_support_v1_title),
+                            subtitle = stringResource(R.string.quic_initial_support_v1_body),
+                            checked = uiState.quicSupportV1,
+                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.QuicSupportV1, it) },
+                            enabled = visualEditorEnabled,
+                            showDivider = true,
+                        )
+                        SettingsRow(
+                            title = stringResource(R.string.quic_initial_support_v2_title),
+                            subtitle = stringResource(R.string.quic_initial_support_v2_body),
+                            checked = uiState.quicSupportV2,
+                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.QuicSupportV2, it) },
+                            enabled = visualEditorEnabled,
+                        )
+                    }
                 }
             }
         }

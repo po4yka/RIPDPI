@@ -3,15 +3,20 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
+import com.poyka.ripdpi.data.effectiveQuicInitialMode
+import com.poyka.ripdpi.data.effectiveQuicSupportV1
+import com.poyka.ripdpi.data.effectiveQuicSupportV2
 import com.poyka.ripdpi.data.effectiveSplitMarker
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveTlsRecordMarker
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
+import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.shellSplit
@@ -77,6 +82,9 @@ class RipDpiProxyUIPreferences(
     dropSack: Boolean? = null,
     fakeOffsetMarker: String? = null,
     udpChainSteps: List<UdpChainStepModel>? = null,
+    quicInitialMode: String? = null,
+    quicSupportV1: Boolean? = null,
+    quicSupportV2: Boolean? = null,
 ) : RipDpiProxyPreferences {
     val ip: String = ip ?: "127.0.0.1"
     val port: Int = port ?: 1080
@@ -123,6 +131,9 @@ class RipDpiProxyUIPreferences(
     val udpChainSteps: List<UdpChainStepModel> = udpChainSteps ?: buildLegacyUdpChain(this.udpFakeCount)
     val dropSack: Boolean = dropSack ?: false
     val fakeOffsetMarker: String = normalizeOffsetExpression(fakeOffsetMarker.orEmpty(), DefaultFakeOffsetMarker)
+    val quicInitialMode: String = normalizeQuicInitialMode(quicInitialMode.orEmpty().ifBlank { QuicInitialModeRouteAndCache })
+    val quicSupportV1: Boolean = quicSupportV1 ?: true
+    val quicSupportV2: Boolean = quicSupportV2 ?: true
     val chainSummary: String = formatChainSummary(this.tcpChainSteps, this.udpChainSteps)
 
     constructor(settings: AppSettings) : this(
@@ -164,6 +175,9 @@ class RipDpiProxyUIPreferences(
         dropSack = settings.dropSack,
         fakeOffsetMarker = settings.effectiveFakeOffsetMarker(),
         udpChainSteps = settings.effectiveUdpChainSteps(),
+        quicInitialMode = settings.effectiveQuicInitialMode(),
+        quicSupportV1 = settings.effectiveQuicSupportV1(),
+        quicSupportV2 = settings.effectiveQuicSupportV2(),
     )
 
     override fun toNativeConfigJson(): String =
@@ -201,6 +215,9 @@ class RipDpiProxyUIPreferences(
                 },
                 dropSack = dropSack,
                 fakeOffsetMarker = fakeOffsetMarker,
+                quicInitialMode = quicInitialMode,
+                quicSupportV1 = quicSupportV1,
+                quicSupportV2 = quicSupportV2,
             ),
         )
 
@@ -315,6 +332,9 @@ private sealed interface NativeProxyConfig {
         val udpChainSteps: List<NativeUdpChainStep>,
         val dropSack: Boolean,
         val fakeOffsetMarker: String,
+        val quicInitialMode: String,
+        val quicSupportV1: Boolean,
+        val quicSupportV2: Boolean,
     ) : NativeProxyConfig
 }
 

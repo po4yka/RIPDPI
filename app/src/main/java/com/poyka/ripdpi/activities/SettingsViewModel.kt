@@ -9,10 +9,14 @@ import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
+import com.poyka.ripdpi.data.effectiveQuicInitialMode
+import com.poyka.ripdpi.data.effectiveQuicSupportV1
+import com.poyka.ripdpi.data.effectiveQuicSupportV2
 import com.poyka.ripdpi.data.effectiveSplitMarker
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveTlsRecordMarker
@@ -80,6 +84,9 @@ data class SettingsUiState(
     val tlsrecEnabled: Boolean = false,
     val tlsrecMarker: String = DefaultTlsRecordMarker,
     val udpFakeCount: Int = 0,
+    val quicInitialMode: String = QuicInitialModeRouteAndCache,
+    val quicSupportV1: Boolean = true,
+    val quicSupportV2: Boolean = true,
     val hostMixedCase: Boolean = false,
     val domainMixedCase: Boolean = false,
     val hostRemoveSpaces: Boolean = false,
@@ -163,6 +170,9 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
         tlsrecEnabled = tlsRecStep != null,
         tlsrecMarker = tlsRecStep?.marker ?: effectiveTlsRecordMarker(),
         udpFakeCount = udpChainSteps.sumOf { it.count.coerceAtLeast(0) }.takeIf { it > 0 } ?: udpFakeCount,
+        quicInitialMode = effectiveQuicInitialMode(),
+        quicSupportV1 = effectiveQuicSupportV1(),
+        quicSupportV2 = effectiveQuicSupportV2(),
         hostMixedCase = hostMixedCase,
         domainMixedCase = domainMixedCase,
         hostRemoveSpaces = hostRemoveSpaces,
