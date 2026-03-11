@@ -173,6 +173,16 @@ fn write_u16(data: &mut [u8], offset: usize, value: usize) -> bool {
     true
 }
 
+fn write_u24(data: &mut [u8], offset: usize, value: usize) -> bool {
+    if offset + 2 >= data.len() || value > 0x00ff_ffff {
+        return false;
+    }
+    data[offset] = ((value >> 16) & 0xff) as u8;
+    data[offset + 1] = ((value >> 8) & 0xff) as u8;
+    data[offset + 2] = (value & 0xff) as u8;
+    true
+}
+
 fn find_tls_ext_offset(kind: u16, data: &[u8], mut skip: usize) -> Option<usize> {
     if data.len() <= skip + 2 {
         return None;
@@ -213,6 +223,57 @@ fn find_tls_ext_len_offset(data: &[u8]) -> Option<usize> {
 
 fn find_ext_block(data: &[u8]) -> Option<usize> {
     find_tls_ext_len_offset(data)
+}
+
+fn adjust_tls_lengths(buffer: &mut [u8], ext_len_start: usize, delta: isize) -> bool {
+    let Some(record_len) = read_u16(buffer, 3).map(|value| value as isize) else {
+        return false;
+    };
+    let Some(handshake_len) = read_u24(buffer, 6).map(|value| value as isize) else {
+        return false;
+    };
+    let Some(ext_len) = read_u16(buffer, ext_len_start).map(|value| value as isize) else {
+        return false;
+    };
+
+    let record_len = record_len + delta;
+    let handshake_len = handshake_len + delta;
+    let ext_len = ext_len + delta;
+    if record_len < 0 || handshake_len < 0 || ext_len < 0 {
+        return false;
+    }
+    write_u16(buffer, 3, record_len as usize)
+        && write_u24(buffer, 6, handshake_len as usize)
+        && write_u16(buffer, ext_len_start, ext_len as usize)
+}
+
+fn fill_random_alnum(byte: &mut u8, rng: &mut OracleRng) {
+    let roll = rng.next_mod(36);
+    *byte = if roll < 10 { b'0' + roll as u8 } else { b'a' + (roll as u8 - 10) };
+}
+
+fn fill_random_lower(byte: &mut u8, rng: &mut OracleRng) {
+    *byte = b'a' + (rng.next_u8() % 26);
+}
+
+fn fill_random_tls_host_like_c(host: &mut [u8], rng: &mut OracleRng) {
+    const RANDOM_TLDS: [&[u8; 3]; 8] = [b"com", b"net", b"org", b"edu", b"gov", b"mil", b"int", b"biz"];
+    if host.is_empty() {
+        return;
+    }
+    fill_random_lower(&mut host[0], rng);
+    let len = host.len();
+    if len >= 7 {
+        for byte in &mut host[1..len - 4] {
+            fill_random_alnum(byte, rng);
+        }
+        host[len - 4] = b'.';
+        host[len - 3..].copy_from_slice(RANDOM_TLDS[rng.next_mod(RANDOM_TLDS.len())]);
+    } else {
+        for byte in &mut host[1..] {
+            fill_random_alnum(byte, rng);
+        }
+    }
 }
 
 fn ascii_case_eq(a: &[u8], b: &[u8]) -> bool {
@@ -944,6 +1005,141 @@ pub fn randomize_tls_seeded_like_c(input: &[u8], seed: u32) -> PacketMutation {
     PacketMutation { rc: 0, bytes: output }
 }
 
+pub fn randomize_tls_sni_seeded_like_c(input: &[u8], seed: u32) -> PacketMutation {
+    let Some(markers) = tls_marker_info(input) else {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    };
+    let mut output = input.to_vec();
+    let mut rng = OracleRng::seeded(seed);
+    fill_random_tls_host_like_c(&mut output[markers.host_start..markers.host_end], &mut rng);
+    PacketMutation { rc: 0, bytes: output }
+}
+
+pub fn duplicate_tls_session_id_like_c(fake_input: &[u8], original_input: &[u8]) -> PacketMutation {
+    let mut output = fake_input.to_vec();
+    if !is_tls_client_hello(fake_input) || !is_tls_client_hello(original_input) || output.len() < 44 || original_input.len() < 44
+    {
+        return PacketMutation { rc: -1, bytes: output };
+    }
+    let sid_len = output[43] as usize;
+    if output.len() < 44 + sid_len || original_input[43] as usize != sid_len || original_input.len() < 44 + sid_len {
+        return PacketMutation { rc: -1, bytes: output };
+    }
+    output[44..44 + sid_len].copy_from_slice(&original_input[44..44 + sid_len]);
+    PacketMutation { rc: 0, bytes: output }
+}
+
+pub fn tune_tls_padding_size_like_c(input: &[u8], target_size: usize) -> PacketMutation {
+    if target_size == input.len() {
+        return PacketMutation { rc: 0, bytes: input.to_vec() };
+    }
+    let Some(ext_len_start) = find_tls_ext_len_offset(input) else {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    };
+    let mut output = input.to_vec();
+    let pad_offs = find_tls_ext_offset(0x0015, &output, ext_len_start);
+
+    match target_size.cmp(&output.len()) {
+        std::cmp::Ordering::Equal => PacketMutation { rc: 0, bytes: output },
+        std::cmp::Ordering::Greater => {
+            let grow = target_size - output.len();
+            let pad_offs = if let Some(pad_offs) = pad_offs {
+                let Some(pad_len) = read_u16(&output, pad_offs + 2) else {
+                    return PacketMutation { rc: -1, bytes: input.to_vec() };
+                };
+                if pad_offs + 4 + pad_len != output.len() {
+                    return PacketMutation { rc: -1, bytes: input.to_vec() };
+                }
+                pad_offs
+            } else {
+                if grow < 4 {
+                    return PacketMutation { rc: -1, bytes: input.to_vec() };
+                }
+                let pad_offs = output.len();
+                output.resize(target_size, 0);
+                let _ = write_u16(&mut output, pad_offs, 0x0015);
+                let _ = write_u16(&mut output, pad_offs + 2, grow - 4);
+                if !adjust_tls_lengths(&mut output, ext_len_start, grow as isize) {
+                    return PacketMutation { rc: -1, bytes: input.to_vec() };
+                }
+                return PacketMutation { rc: 0, bytes: output };
+            };
+            let Some(pad_len) = read_u16(&output, pad_offs + 2) else {
+                return PacketMutation { rc: -1, bytes: input.to_vec() };
+            };
+            output.resize(target_size, 0);
+            if !write_u16(&mut output, pad_offs + 2, pad_len + grow)
+                || !adjust_tls_lengths(&mut output, ext_len_start, grow as isize)
+            {
+                return PacketMutation { rc: -1, bytes: input.to_vec() };
+            }
+            PacketMutation { rc: 0, bytes: output }
+        }
+        std::cmp::Ordering::Less => {
+            let Some(pad_offs) = pad_offs else {
+                return PacketMutation { rc: -1, bytes: input.to_vec() };
+            };
+            let Some(pad_len) = read_u16(&output, pad_offs + 2) else {
+                return PacketMutation { rc: -1, bytes: input.to_vec() };
+            };
+            if pad_offs + 4 + pad_len != output.len() {
+                return PacketMutation { rc: -1, bytes: input.to_vec() };
+            }
+            let shrink = output.len() - target_size;
+            let ext_total = pad_len + 4;
+            if shrink <= pad_len {
+                output.truncate(target_size);
+                if !write_u16(&mut output, pad_offs + 2, pad_len - shrink)
+                    || !adjust_tls_lengths(&mut output, ext_len_start, -(shrink as isize))
+                {
+                    return PacketMutation { rc: -1, bytes: input.to_vec() };
+                }
+                PacketMutation { rc: 0, bytes: output }
+            } else if shrink == ext_total {
+                output.truncate(target_size);
+                if !adjust_tls_lengths(&mut output, ext_len_start, -(shrink as isize)) {
+                    return PacketMutation { rc: -1, bytes: input.to_vec() };
+                }
+                PacketMutation { rc: 0, bytes: output }
+            } else {
+                PacketMutation { rc: -1, bytes: input.to_vec() }
+            }
+        }
+    }
+}
+
+pub fn padencap_tls_like_c(input: &[u8], payload_len: usize) -> PacketMutation {
+    let Some(ext_len_start) = find_tls_ext_len_offset(input) else {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    };
+    let mut output = input.to_vec();
+    let pad_len_offs = if let Some(pad_offs) = find_tls_ext_offset(0x0015, &output, ext_len_start) {
+        let Some(pad_len) = read_u16(&output, pad_offs + 2) else {
+            return PacketMutation { rc: -1, bytes: input.to_vec() };
+        };
+        if pad_offs + 4 + pad_len != output.len() {
+            return PacketMutation { rc: -1, bytes: input.to_vec() };
+        }
+        pad_offs + 2
+    } else {
+        let pad_offs = output.len();
+        output.extend_from_slice(&[0x00, 0x15, 0x00, 0x00]);
+        if !adjust_tls_lengths(&mut output, ext_len_start, 4) {
+            return PacketMutation { rc: -1, bytes: input.to_vec() };
+        }
+        pad_offs + 2
+    };
+    let Some(pad_len) = read_u16(&output, pad_len_offs) else {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    };
+    if !write_u16(&mut output, pad_len_offs, pad_len + payload_len)
+        || !adjust_tls_lengths(&mut output, ext_len_start, payload_len as isize)
+    {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    }
+    PacketMutation { rc: 0, bytes: output }
+}
+
 pub fn change_tls_sni_seeded_like_c(input: &[u8], host: &[u8], capacity: usize, seed: u32) -> PacketMutation {
     if capacity < input.len() || host.len() > u16::MAX as usize {
         return PacketMutation { rc: -1, bytes: input.to_vec() };
@@ -1115,6 +1311,72 @@ mod tests {
         truncated.truncate(markers.host_start + 4);
 
         assert!(tls_marker_info(&truncated).is_none());
+    }
+
+    #[test]
+    fn randomize_tls_sni_preserves_valid_host_length() {
+        let original = parse_tls(DEFAULT_FAKE_TLS).expect("original tls sni").to_vec();
+        let mutation = randomize_tls_sni_seeded_like_c(DEFAULT_FAKE_TLS, 7);
+        let randomized = parse_tls(&mutation.bytes).expect("randomized tls sni").to_vec();
+
+        assert_eq!(mutation.rc, 0);
+        assert_eq!(randomized.len(), original.len());
+        assert_ne!(randomized, original);
+        assert!(randomized.iter().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'.'));
+    }
+
+    #[test]
+    fn duplicate_tls_session_id_uses_original_when_compatible() {
+        let source = DEFAULT_FAKE_TLS.to_vec();
+        let mut fake = DEFAULT_FAKE_TLS.to_vec();
+        fake[44..44 + fake[43] as usize].fill(b'Z');
+
+        let mutation = duplicate_tls_session_id_like_c(&fake, &source);
+
+        assert_eq!(mutation.rc, 0);
+        assert_eq!(
+            &mutation.bytes[44..44 + mutation.bytes[43] as usize],
+            &source[44..44 + source[43] as usize]
+        );
+    }
+
+    #[test]
+    fn duplicate_tls_session_id_rejects_incompatible_lengths() {
+        let mut source = DEFAULT_FAKE_TLS.to_vec();
+        source[43] = source[43].saturating_sub(1);
+
+        let mutation = duplicate_tls_session_id_like_c(DEFAULT_FAKE_TLS, &source);
+
+        assert_eq!(mutation.rc, -1);
+        assert_eq!(mutation.bytes, DEFAULT_FAKE_TLS);
+    }
+
+    #[test]
+    fn tune_tls_padding_size_can_grow_and_shrink_default_fake() {
+        let grown = tune_tls_padding_size_like_c(DEFAULT_FAKE_TLS, DEFAULT_FAKE_TLS.len() + 12);
+        let shrunk = tune_tls_padding_size_like_c(DEFAULT_FAKE_TLS, DEFAULT_FAKE_TLS.len() - 12);
+
+        assert_eq!(grown.rc, 0);
+        assert_eq!(grown.bytes.len(), DEFAULT_FAKE_TLS.len() + 12);
+        assert_eq!(parse_tls(&grown.bytes), Some(&b"www.wikipedia.org"[..]));
+
+        assert_eq!(shrunk.rc, 0);
+        assert_eq!(shrunk.bytes.len(), DEFAULT_FAKE_TLS.len() - 12);
+        assert_eq!(parse_tls(&shrunk.bytes), Some(&b"www.wikipedia.org"[..]));
+    }
+
+    #[test]
+    fn padencap_tls_updates_padding_and_lengths() {
+        let mutation = padencap_tls_like_c(DEFAULT_FAKE_TLS, 24);
+        let ext_len_start = find_tls_ext_len_offset(&mutation.bytes).expect("ext len offset");
+        let pad_offs = find_tls_ext_offset(0x0015, &mutation.bytes, ext_len_start).expect("padding ext");
+        let pad_len = read_u16(&mutation.bytes, pad_offs + 2).expect("pad len");
+
+        assert_eq!(mutation.rc, 0);
+        assert_eq!(mutation.bytes.len(), DEFAULT_FAKE_TLS.len());
+        assert_eq!(read_u16(DEFAULT_FAKE_TLS, 3).unwrap() + 24, read_u16(&mutation.bytes, 3).unwrap());
+        assert_eq!(read_u16(DEFAULT_FAKE_TLS, pad_offs + 2).unwrap() + 24, pad_len);
+        assert_eq!(parse_tls(&mutation.bytes), Some(&b"www.wikipedia.org"[..]));
     }
 
     #[test]
