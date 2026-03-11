@@ -86,7 +86,7 @@ fn help_text() -> String {
     );
     text.push_str("    -O, --fake-offset <pos_t> Fake data start offset\n");
     text.push_str("    -l, --fake-data <f|:str>  Set custom fake packet\n");
-    text.push_str("    -Q, --fake-tls-mod <flag> Modify fake TLS CH: rand,orig,msize=<int>\n");
+    text.push_str("    -Q, --fake-tls-mod <flag> Modify fake TLS CH: rand,orig,rndsni,dupsid,padencap,msize=<int>\n");
     text.push_str("    -e, --oob-data <char>     Set custom OOB data\n");
     text.push_str("    -M, --mod-http <h,d,r>    Modify HTTP: hcsmix,dcsmix,rmspace\n");
     text.push_str("    -r, --tlsrec <pos_t>      Make TLS record at position\n");

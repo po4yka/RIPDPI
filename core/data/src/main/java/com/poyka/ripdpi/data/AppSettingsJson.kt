@@ -55,6 +55,12 @@ internal data class AppSettingsSnapshot(
     val fakeSni: String = defaultSettings.fakeSni,
     val fakeOffset: Int = defaultSettings.fakeOffset,
     val fakeOffsetMarker: String = defaultSettings.fakeOffsetMarker,
+    val fakeTlsUseOriginal: Boolean = defaultSettings.fakeTlsUseOriginal,
+    val fakeTlsRandomize: Boolean = defaultSettings.fakeTlsRandomize,
+    val fakeTlsDupSessionId: Boolean = defaultSettings.fakeTlsDupSessionId,
+    val fakeTlsPadEncap: Boolean = defaultSettings.fakeTlsPadEncap,
+    val fakeTlsSize: Int = defaultSettings.fakeTlsSize,
+    val fakeTlsSniMode: String = defaultSettings.fakeTlsSniMode,
     val oobData: String = defaultSettings.oobData,
     val dropSack: Boolean = defaultSettings.dropSack,
     val desyncHttp: Boolean = defaultSettings.desyncHttp,
@@ -115,6 +121,12 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         fakeSni = fakeSni,
         fakeOffset = fakeOffset,
         fakeOffsetMarker = fakeOffsetMarker,
+        fakeTlsUseOriginal = fakeTlsUseOriginal,
+        fakeTlsRandomize = fakeTlsRandomize,
+        fakeTlsDupSessionId = fakeTlsDupSessionId,
+        fakeTlsPadEncap = fakeTlsPadEncap,
+        fakeTlsSize = fakeTlsSize,
+        fakeTlsSniMode = effectiveFakeTlsSniMode(),
         oobData = oobData,
         dropSack = dropSack,
         desyncHttp = desyncHttp,
@@ -176,6 +188,12 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setFakeSni(fakeSni)
         .setFakeOffset(fakeOffset)
         .setFakeOffsetMarker(fakeOffsetMarker)
+        .setFakeTlsUseOriginal(fakeTlsUseOriginal)
+        .setFakeTlsRandomize(fakeTlsRandomize)
+        .setFakeTlsDupSessionId(fakeTlsDupSessionId)
+        .setFakeTlsPadEncap(fakeTlsPadEncap)
+        .setFakeTlsSize(fakeTlsSize)
+        .setFakeTlsSniMode(normalizeFakeTlsSniMode(fakeTlsSniMode))
         .setOobData(oobData)
         .setDropSack(dropSack)
         .setDesyncHttp(desyncHttp)
