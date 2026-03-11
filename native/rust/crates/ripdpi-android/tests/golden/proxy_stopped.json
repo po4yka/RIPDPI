@@ -20,6 +20,7 @@
       "source": "proxy"
     }
   ],
+  "networkErrors": 0,
   "penalizedHostCount": 1,
   "routeChanges": 1,
   "source": "proxy",

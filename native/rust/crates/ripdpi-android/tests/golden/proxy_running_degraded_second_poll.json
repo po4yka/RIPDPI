@@ -13,6 +13,7 @@
   "learnedHostCount": 4,
   "listenerAddress": "127.0.0.1:1080",
   "nativeEvents": [],
+  "networkErrors": 0,
   "penalizedHostCount": 1,
   "routeChanges": 1,
   "source": "proxy",

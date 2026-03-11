@@ -75,6 +75,17 @@ pub fn init_android_logging(tag: &'static str) {
     });
 }
 
+/// Ignore SIGPIPE so that socket peer disconnects don't crash the process.
+///
+/// On Android, the ART runtime does not ignore SIGPIPE by default for native
+/// code. Writing to a closed socket/pipe delivers SIGPIPE, which terminates
+/// the process unless handled. This must be called once from `JNI_OnLoad`.
+pub fn ignore_sigpipe() {
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_IGN);
+    }
+}
+
 pub fn throw_illegal_argument(env: &mut JNIEnv, message: impl AsRef<str>) {
     let _ = env.throw_new("java/lang/IllegalArgumentException", message.as_ref());
 }

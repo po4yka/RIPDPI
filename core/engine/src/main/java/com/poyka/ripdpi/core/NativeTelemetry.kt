@@ -18,6 +18,7 @@ data class NativeRuntimeSnapshot(
     val activeSessions: Long = 0,
     val totalSessions: Long = 0,
     val totalErrors: Long = 0,
+    val networkErrors: Long = 0,
     val routeChanges: Long = 0,
     val lastRouteGroup: Int? = null,
     val listenerAddress: String? = null,
