@@ -1,14 +1,25 @@
 package com.poyka.ripdpi.ui.components.indicators
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -28,6 +39,7 @@ fun StatusIndicator(
     tone: StatusIndicatorTone = StatusIndicatorTone.Active,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val motion = RipDpiThemeTokens.motion
     val indicatorColor =
         when (tone) {
             StatusIndicatorTone.Active -> colors.foreground
@@ -35,20 +47,72 @@ fun StatusIndicator(
             StatusIndicatorTone.Warning -> colors.warning
             StatusIndicatorTone.Error -> colors.destructive
         }
+    val animatedIndicatorColor by animateColorAsState(
+        targetValue = indicatorColor,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "statusIndicatorColor",
+    )
+    val pulseTransition =
+        if (motion.allowsInfiniteMotion && tone != StatusIndicatorTone.Idle && tone != StatusIndicatorTone.Error) {
+            rememberInfiniteTransition(label = "statusPulse")
+        } else {
+            null
+        }
+    val pulseScale by (
+        pulseTransition?.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.8f,
+            animationSpec =
+                infiniteRepeatable(
+                    animation =
+                        tween(
+                            durationMillis = motion.duration(motion.emphasizedDurationMillis * 2),
+                            easing = LinearEasing,
+                        ),
+                    repeatMode = RepeatMode.Restart,
+                ),
+            label = "statusPulseScale",
+        ) ?: rememberUpdatedState(1f)
+    )
+    val pulseAlpha by (
+        pulseTransition?.animateFloat(
+            initialValue = 0.22f,
+            targetValue = 0f,
+            animationSpec =
+                infiniteRepeatable(
+                    animation =
+                        tween(
+                            durationMillis = motion.duration(motion.emphasizedDurationMillis * 2),
+                            easing = LinearEasing,
+                        ),
+                    repeatMode = RepeatMode.Restart,
+                ),
+            label = "statusPulseAlpha",
+        ) ?: rememberUpdatedState(0f)
+    )
 
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .size(8.dp)
-                    .background(indicatorColor, CircleShape),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {}
+        Box(contentAlignment = Alignment.Center) {
+            if (pulseAlpha > 0f) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(8.dp)
+                            .scale(pulseScale)
+                            .background(animatedIndicatorColor.copy(alpha = pulseAlpha), CircleShape),
+                )
+            }
+            Box(
+                modifier =
+                    Modifier
+                        .size(8.dp)
+                        .background(animatedIndicatorColor, CircleShape),
+            )
+        }
         Text(
             text = label,
             style = RipDpiThemeTokens.type.brandStatus,

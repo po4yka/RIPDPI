@@ -34,6 +34,7 @@ fun RipDpiTheme(
     val colorScheme = if (isDark) ripDpiDarkColorScheme() else ripDpiLightColorScheme()
     val extendedColors = if (isDark) DarkRipDpiExtendedColors else LightRipDpiExtendedColors
     val layout = ripDpiLayoutForWidth(screenWidthDp = LocalConfiguration.current.screenWidthDp)
+    val motion = rememberRipDpiMotion()
 
     CompositionLocalProvider(
         LocalRipDpiExtendedColors provides extendedColors,
@@ -42,6 +43,7 @@ fun RipDpiTheme(
         LocalRipDpiLayout provides layout,
         LocalRipDpiComponentMetrics provides DefaultRipDpiComponentMetrics,
         LocalRipDpiShapes provides DefaultRipDpiShapes,
+        LocalRipDpiMotion provides motion,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
@@ -70,4 +72,7 @@ object RipDpiThemeTokens {
 
     val shapes: RipDpiShapeTokens
         @Composable get() = LocalRipDpiShapes.current
+
+    val motion: RipDpiMotion
+        @Composable get() = LocalRipDpiMotion.current
 }

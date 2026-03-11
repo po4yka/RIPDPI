@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.ui.navigation
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,8 +22,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
@@ -58,7 +65,9 @@ fun BottomNavBar(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .widthIn(max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding)
+                        .widthIn(
+                            max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding,
+                        )
                         .height(layout.bottomBarHeight)
                         .padding(horizontal = components.chipVerticalPadding + components.switchThumbPadding),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -84,7 +93,41 @@ private fun RowScope.BottomNavItem(
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
+    val motion = RipDpiThemeTokens.motion
     val type = RipDpiThemeTokens.type
+    val indicatorColor by animateColorAsState(
+        targetValue = if (selected) colors.inputBackground else Color.Transparent,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "bottomNavIndicatorColor",
+    )
+    val iconTint by animateColorAsState(
+        targetValue = if (selected) colors.foreground else colors.mutedForeground,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "bottomNavIconTint",
+    )
+    val labelColor by animateColorAsState(
+        targetValue = if (selected) colors.foreground else colors.mutedForeground,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "bottomNavLabelColor",
+    )
+    val indicatorWidth by animateDpAsState(
+        targetValue =
+            if (selected) {
+                components.bottomNavIndicatorWidth
+            } else {
+                components.bottomNavIndicatorHeight
+            },
+        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        label = "bottomNavIndicatorWidth",
+    )
+    val selectionScale by animateFloatAsState(
+        targetValue = if (selected) motion.selectionScale else 1f,
+        animationSpec = tween(
+            durationMillis = motion.duration(motion.quickDurationMillis),
+            easing = FastOutSlowInEasing,
+        ),
+        label = "bottomNavSelectionScale",
+    )
 
     Column(
         modifier =
@@ -92,6 +135,10 @@ private fun RowScope.BottomNavItem(
                 .fillMaxHeight()
                 .weight(1f)
                 .padding(vertical = 3.dp)
+                .graphicsLayer {
+                    scaleX = selectionScale
+                    scaleY = selectionScale
+                }
                 .ripDpiSelectable(
                     selected = selected,
                     role = Role.Tab,
@@ -103,9 +150,9 @@ private fun RowScope.BottomNavItem(
         Box(
             modifier =
                 Modifier
-                    .size(width = components.bottomNavIndicatorWidth, height = components.bottomNavIndicatorHeight)
+                    .size(width = indicatorWidth, height = components.bottomNavIndicatorHeight)
                     .background(
-                        color = if (selected) colors.inputBackground else Color.Transparent,
+                        color = indicatorColor,
                         shape = RipDpiThemeTokens.shapes.xxl,
                     ),
             contentAlignment = Alignment.Center,
@@ -113,16 +160,15 @@ private fun RowScope.BottomNavItem(
             Icon(
                 imageVector = requireNotNull(destination.icon),
                 contentDescription = null,
-                tint = if (selected) colors.foreground else colors.mutedForeground,
+                tint = iconTint,
                 modifier = Modifier.size(RipDpiIconSizes.Default),
             )
         }
         Text(
             text =
-                androidx.compose.ui.res
-                    .stringResource(destination.titleRes),
+                androidx.compose.ui.res.stringResource(destination.titleRes),
             style = type.navLabel,
-            color = if (selected) colors.foreground else colors.mutedForeground,
+            color = labelColor,
         )
     }
 }

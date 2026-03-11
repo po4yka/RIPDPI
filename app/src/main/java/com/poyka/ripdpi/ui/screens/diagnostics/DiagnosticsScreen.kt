@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -18,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -30,8 +36,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -76,6 +85,9 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.max
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -836,9 +848,18 @@ private fun EventsSection(
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val listState = rememberLazyListState()
+    val isAtLiveEdge by remember(listState) {
+        derivedStateOf {
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset <= 24
+        }
+    }
 
-    LaunchedEffect(uiState.events.filters.autoScroll, uiState.events.events.size) {
-        if (uiState.events.filters.autoScroll && uiState.events.events.isNotEmpty()) {
+    LaunchedEffect(uiState.events.filters.autoScroll, uiState.events.events.firstOrNull()?.id) {
+        if (
+            uiState.events.filters.autoScroll &&
+            uiState.events.events.isNotEmpty() &&
+            isAtLiveEdge
+        ) {
             listState.animateScrollToItem(0)
         }
     }
@@ -1083,7 +1104,11 @@ private fun MetricsRow(metrics: List<DiagnosticsMetricUiModel>) {
         return
     }
     LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        items(metrics, key = { "${it.label}-${it.value}" }) { metric ->
+        itemsIndexed(
+            items = metrics,
+            key = { index, metric -> "${metric.label}-$index" },
+            contentType = { _, _ -> "metric" },
+        ) { _, metric ->
             TelemetryMetricCard(metric = metric)
         }
     }
@@ -1091,10 +1116,21 @@ private fun MetricsRow(metrics: List<DiagnosticsMetricUiModel>) {
 
 @Composable
 private fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
+    val motion = RipDpiThemeTokens.motion
     val palette = metricPalette(metric.tone)
+    val animatedContainer by animateColorAsState(
+        targetValue = palette.container,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "telemetryMetricContainer",
+    )
+    val animatedContent by animateColorAsState(
+        targetValue = palette.content,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "telemetryMetricContent",
+    )
     Surface(
-        color = palette.container,
-        contentColor = palette.content,
+        color = animatedContainer,
+        contentColor = animatedContent,
         shape = MaterialTheme.shapes.large,
     ) {
         Column(
@@ -1106,21 +1142,52 @@ private fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
             Text(
                 text = metric.label.uppercase(),
                 style = RipDpiThemeTokens.type.sectionTitle,
-                color = palette.content.copy(alpha = 0.75f),
+                color = animatedContent.copy(alpha = 0.75f),
             )
-            Text(
-                text = metric.value,
-                style = RipDpiThemeTokens.type.monoValue,
-                color = palette.content,
-            )
+            AnimatedContent(
+                targetState = metric.value,
+                transitionSpec = {
+                    androidx.compose.animation.fadeIn(
+                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                    ) togetherWith androidx.compose.animation.fadeOut(
+                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    )
+                },
+                label = "telemetryMetricValue",
+            ) { value ->
+                Text(
+                    text = value,
+                    style = RipDpiThemeTokens.type.monoValue,
+                    color = animatedContent,
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSparklineUiModel) {
+    val motion = RipDpiThemeTokens.motion
     val palette = metricPalette(trend.tone)
     val dividerColor = RipDpiThemeTokens.colors.divider
+    val animatedStrokeColor by animateColorAsState(
+        targetValue = palette.content,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "telemetrySparklineStroke",
+    )
+    var previousValues by remember(trend.label) { mutableStateOf(trend.values) }
+    var currentValues by remember(trend.label) { mutableStateOf(trend.values) }
+    val transitionProgress = remember(trend.label) { Animatable(1f) }
+
+    LaunchedEffect(trend.values) {
+        previousValues = currentValues.ifEmpty { trend.values }
+        currentValues = trend.values
+        transitionProgress.snapTo(0f)
+        transitionProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
+        )
+    }
     RipDpiCard {
         Text(
             text = trend.label,
@@ -1133,7 +1200,7 @@ private fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSpa
                     .fillMaxWidth()
                     .height(84.dp),
         ) {
-            val values = trend.values
+            val values = interpolatedSeries(previousValues, currentValues, transitionProgress.value)
             if (values.isEmpty()) {
                 return@Canvas
             }
@@ -1159,7 +1226,7 @@ private fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSpa
                 }
             drawPath(
                 path = path,
-                color = palette.content,
+                color = animatedStrokeColor,
                 style = Stroke(width = 4f, cap = StrokeCap.Round),
             )
             drawLine(
@@ -1171,6 +1238,58 @@ private fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSpa
         }
     }
 }
+
+private fun interpolatedSeries(
+    from: List<Float>,
+    to: List<Float>,
+    progress: Float,
+): List<Float> {
+    if (to.isEmpty()) {
+        return from
+    }
+    if (from.isEmpty()) {
+        return to
+    }
+
+    val pointCount = max(from.size, to.size)
+    return List(pointCount) { index ->
+        val samplePosition =
+            if (pointCount == 1) {
+                0f
+            } else {
+                index.toFloat() / (pointCount - 1).toFloat()
+            }
+        lerpFloat(
+            start = sampleSeries(from, samplePosition),
+            stop = sampleSeries(to, samplePosition),
+            fraction = progress,
+        )
+    }
+}
+
+private fun sampleSeries(
+    values: List<Float>,
+    position: Float,
+): Float {
+    if (values.isEmpty()) {
+        return 0f
+    }
+    if (values.size == 1) {
+        return values.first()
+    }
+
+    val scaledIndex = position.coerceIn(0f, 1f) * values.lastIndex
+    val lowerIndex = floor(scaledIndex).toInt()
+    val upperIndex = ceil(scaledIndex).toInt().coerceAtMost(values.lastIndex)
+    val localFraction = scaledIndex - lowerIndex
+    return lerpFloat(values[lowerIndex], values[upperIndex], localFraction)
+}
+
+private fun lerpFloat(
+    start: Float,
+    stop: Float,
+    fraction: Float,
+): Float = start + (stop - start) * fraction
 
 @Composable
 private fun SessionRow(
