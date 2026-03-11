@@ -76,6 +76,7 @@ abstract class BuildRustNativeLibsTask
             val manifest = workspaceManifest.get().asFile
             val artifacts = artifactSpecs.get().map(::parseArtifactSpec)
             val packageNames = artifacts.map(RustNativeArtifact::packageName).distinct()
+            val expectedOutputNames = artifacts.map(RustNativeArtifact::outputName).toSet()
             val outputRoot = outputDir.get().asFile
             val cargoTargetRoot = cargoTargetDir.get().asFile
             val cargoExecutable = resolveRustTool("cargo")
@@ -107,6 +108,7 @@ abstract class BuildRustNativeLibsTask
                 val abiCargoTargetDir = cargoTargetRoot.resolve(abi)
                 val abiOutputDir = outputRoot.resolve(abi)
                 abiOutputDir.mkdirs()
+                pruneStaleArtifactOutputs(abiOutputDir, expectedOutputNames)
 
                 val cargoEnvironment =
                     mapOf(
@@ -187,6 +189,24 @@ abstract class BuildRustNativeLibsTask
 
             val activeAbis = abis.get().toSet()
             val stale = outputRoot.listFiles()?.filter { it.isDirectory && it.name !in activeAbis }.orEmpty()
+            if (stale.isEmpty()) {
+                return
+            }
+
+            fileSystemOperations.delete {
+                delete(stale)
+            }
+        }
+
+        private fun pruneStaleArtifactOutputs(abiOutputDir: File, expectedOutputNames: Set<String>) {
+            if (!abiOutputDir.isDirectory) {
+                return
+            }
+
+            val stale =
+                abiOutputDir.listFiles()
+                    ?.filter { candidate -> candidate.isFile && candidate.name !in expectedOutputNames }
+                    .orEmpty()
             if (stale.isEmpty()) {
                 return
             }
