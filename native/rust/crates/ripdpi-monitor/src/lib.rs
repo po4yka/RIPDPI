@@ -547,30 +547,11 @@ fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> Probe
     let http_port = target.http_port.unwrap_or(80);
     let connect_target = domain_connect_target(target);
     let resolved = resolve_addresses(&connect_target, https_port);
-    let tls13 = try_tls_handshake(
-        &connect_target,
-        https_port,
-        transport,
-        &target.host,
-        true,
-        TlsClientProfile::Tls13Only,
-    );
-    let tls12 = try_tls_handshake(
-        &connect_target,
-        https_port,
-        transport,
-        &target.host,
-        true,
-        TlsClientProfile::Tls12Only,
-    );
-    let http = try_http_request(
-        &connect_target,
-        http_port,
-        transport,
-        &target.host,
-        &target.http_path,
-        false,
-    );
+    let tls13 =
+        try_tls_handshake(&connect_target, https_port, transport, &target.host, true, TlsClientProfile::Tls13Only);
+    let tls12 =
+        try_tls_handshake(&connect_target, https_port, transport, &target.host, true, TlsClientProfile::Tls12Only);
+    let http = try_http_request(&connect_target, http_port, transport, &target.host, &target.http_path, false);
     let tls_signal = classify_tls_signal(&tls13, &tls12);
     let preferred_tls = preferred_tls_observation(&tls13, &tls12);
 
@@ -1651,9 +1632,11 @@ struct DnsJsonAnswer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use golden_test_support::{assert_text_golden, canonicalize_json_with};
     use rcgen::generate_simple_self_signed;
     use rustls::pki_types::PrivateKeyDer;
     use rustls::{ServerConfig, ServerConnection};
+    use serde_json::Value;
     use std::net::TcpListener;
     use std::sync::atomic::AtomicUsize;
 
@@ -1867,6 +1850,43 @@ mod tests {
         let second = session.poll_passive_events_json().expect("poll passive events again").expect("events json");
         let drained: Vec<NativeSessionEvent> = serde_json::from_str(&second).expect("decode drained events");
         assert!(drained.is_empty());
+    }
+
+    #[test]
+    fn monitor_json_contracts_match_goldens() {
+        let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
+        let request = ScanRequest {
+            profile_id: "default".to_string(),
+            display_name: "Passive events golden".to_string(),
+            path_mode: ScanPathMode::RawPath,
+            proxy_host: None,
+            proxy_port: None,
+            domain_targets: vec![DomainTarget {
+                host: "127.0.0.1".to_string(),
+                connect_ip: None,
+                https_port: Some(9),
+                http_port: Some(server.port()),
+                http_path: "/".to_string(),
+            }],
+            dns_targets: vec![],
+            tcp_targets: vec![],
+            whitelist_sni: vec![],
+        };
+        let session = MonitorSession::new();
+        session.start_scan("session-golden".to_string(), request).expect("start scan");
+
+        let progress_json = wait_for_progress_json(&session);
+        assert_monitor_json_golden("progress_starting", &progress_json, server.port());
+
+        let report_json = wait_for_report_json(&session);
+        assert_monitor_json_golden("final_report", &report_json, server.port());
+
+        let passive_events_json =
+            session.poll_passive_events_json().expect("poll passive events").expect("events json");
+        assert_monitor_json_golden("passive_events_first_poll", &passive_events_json, server.port());
+
+        let drained_json = session.poll_passive_events_json().expect("poll passive events again").expect("events json");
+        assert_monitor_json_golden("passive_events_second_poll", &drained_json, server.port());
     }
 
     struct UdpDnsServer {
@@ -2224,6 +2244,55 @@ mod tests {
             thread::sleep(Duration::from_millis(50));
         }
         panic!("timed out waiting for scan report");
+    }
+
+    fn wait_for_progress_json(session: &MonitorSession) -> String {
+        for _ in 0..50 {
+            if let Some(progress_json) = session.poll_progress_json().expect("poll progress json") {
+                return progress_json;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        panic!("timed out waiting for scan progress");
+    }
+
+    fn wait_for_report_json(session: &MonitorSession) -> String {
+        for _ in 0..50 {
+            if let Some(report_json) = session.take_report_json().expect("take report json") {
+                return report_json;
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+        panic!("timed out waiting for scan report");
+    }
+
+    fn assert_monitor_json_golden(name: &str, actual_json: &str, http_port: u16) {
+        let actual = canonicalize_json_with(actual_json, |value| scrub_monitor_json(value, http_port))
+            .expect("canonicalize monitor json");
+        assert_text_golden(env!("CARGO_MANIFEST_DIR"), &format!("tests/golden/{name}.json"), &actual);
+    }
+
+    fn scrub_monitor_json(value: &mut Value, http_port: u16) {
+        match value {
+            Value::Array(items) => {
+                for item in items {
+                    scrub_monitor_json(item, http_port);
+                }
+            }
+            Value::Object(map) => {
+                for (key, item) in map.iter_mut() {
+                    if matches!(key.as_str(), "startedAt" | "finishedAt" | "createdAt") {
+                        *item = Value::from(0);
+                    } else {
+                        scrub_monitor_json(item, http_port);
+                    }
+                }
+            }
+            Value::String(text) => {
+                *text = text.replace(&format!("127.0.0.1:{http_port}"), "127.0.0.1:<port>");
+            }
+            _ => {}
+        }
     }
 
     trait ScanReportExt {

@@ -280,6 +280,11 @@ impl ProxyTelemetryState {
     }
 
     fn push_event(&self, source: &str, level: &str, message: String) {
+        match level {
+            "warn" => log::warn!("{message}"),
+            "error" => log::error!("{message}"),
+            _ => log::info!("{message}"),
+        }
         if let Ok(mut guard) = self.events.lock() {
             if guard.len() >= MAX_PROXY_EVENTS {
                 guard.pop_front();
@@ -655,14 +660,13 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
     };
 
     let config = session.config.clone();
-    let listener = match runtime::create_listener(&config) {
-        Ok(listener) => listener,
+    let (listener, listener_fd) = match open_proxy_listener(&config, &session.telemetry) {
+        Ok(parts) => parts,
         Err(err) => {
             throw_io_exception(env, format!("Failed to open proxy listener: {err}"));
             return libc::EINVAL;
         }
     };
-    let listener_fd = listener.as_raw_fd();
 
     {
         let mut state = session.state.lock().expect("proxy session poisoned");
@@ -711,9 +715,9 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
     };
 
     process::request_shutdown();
-    let rc = unsafe { libc::shutdown(listener_fd, libc::SHUT_RDWR) };
-    if rc != 0 {
-        throw_io_exception(env, format!("Failed to stop proxy listener: {}", std::io::Error::last_os_error()));
+    if let Err(err) = shutdown_proxy_listener(listener_fd) {
+        throw_io_exception(env, format!("Failed to stop proxy listener: {err}"));
+        session.telemetry.on_client_error(err.to_string());
     }
     session.telemetry.push_event("proxy", "info", "stop requested".to_string());
 }
@@ -1014,6 +1018,31 @@ fn positive_os_error(err: &std::io::Error, fallback: i32) -> i32 {
     err.raw_os_error().unwrap_or(fallback)
 }
 
+fn open_proxy_listener(
+    config: &RuntimeConfig,
+    telemetry: &ProxyTelemetryState,
+) -> Result<(std::net::TcpListener, i32), std::io::Error> {
+    match runtime::create_listener(config) {
+        Ok(listener) => {
+            let listener_fd = listener.as_raw_fd();
+            Ok((listener, listener_fd))
+        }
+        Err(err) => {
+            telemetry.on_client_error(format!("listener open failed: {err}"));
+            Err(err)
+        }
+    }
+}
+
+fn shutdown_proxy_listener(listener_fd: i32) -> Result<(), std::io::Error> {
+    let rc = unsafe { libc::shutdown(listener_fd, libc::SHUT_RDWR) };
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
+
 fn now_ms() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
@@ -1021,10 +1050,12 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::SocketAddr;
+    use std::net::{Ipv4Addr, SocketAddr, TcpListener};
 
+    use golden_test_support::{assert_text_golden, canonicalize_json_with};
     use proptest::collection::vec;
     use proptest::prelude::*;
+    use serde_json::Value;
 
     fn lossy_string(max_len: usize) -> impl Strategy<Value = String> {
         vec(any::<u8>(), 0..max_len).prop_map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
@@ -1221,6 +1252,29 @@ mod tests {
     }
 
     #[test]
+    fn open_proxy_listener_records_telemetry_when_bind_fails() {
+        let busy = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind busy listener");
+        let mut config = RuntimeConfig::default();
+        config.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        config.listen.listen_port = busy.local_addr().expect("busy listener addr").port();
+        let telemetry = ProxyTelemetryState::new();
+
+        let err = open_proxy_listener(&config, &telemetry).expect_err("listener bind should fail");
+        let snapshot = telemetry.snapshot();
+
+        assert!(err.kind() == std::io::ErrorKind::AddrInUse || err.raw_os_error().is_some());
+        assert_eq!(snapshot.total_errors, 1);
+        assert!(snapshot.last_error.expect("listener error").contains("listener open failed"));
+        assert_eq!(snapshot.health, "idle");
+    }
+
+    #[test]
+    fn shutdown_proxy_listener_rejects_invalid_descriptor() {
+        let err = shutdown_proxy_listener(-1).expect_err("invalid listener fd should fail");
+        assert!(err.raw_os_error().is_some());
+    }
+
+    #[test]
     fn rejects_invalid_handle() {
         assert!(to_handle(0).is_none());
         assert!(to_handle(-1).is_none());
@@ -1301,6 +1355,34 @@ mod tests {
     }
 
     #[test]
+    fn proxy_telemetry_snapshots_match_goldens() {
+        let idle = ProxyTelemetryState::new().snapshot();
+        assert_proxy_snapshot_golden("proxy_idle", &idle);
+
+        let state = Arc::new(ProxyTelemetryState::new());
+        let observer = ProxyTelemetryObserver { state: state.clone() };
+        let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
+        let target = SocketAddr::from(([203, 0, 113, 10], 443));
+
+        observer.on_listener_started(listener, 256, 3);
+        observer.on_client_accepted();
+        observer.on_route_selected(target, 1, Some("example.org"), "connect");
+        observer.on_route_advanced(target, 1, 2, 7, Some("example.org"));
+        observer.on_client_error(&std::io::Error::other("boom"));
+        observer.on_client_finished();
+
+        let running = state.snapshot();
+        assert_proxy_snapshot_golden("proxy_running_degraded_first_poll", &running);
+
+        let drained = state.snapshot();
+        assert_proxy_snapshot_golden("proxy_running_degraded_second_poll", &drained);
+
+        observer.on_listener_stopped();
+        let stopped = state.snapshot();
+        assert_proxy_snapshot_golden("proxy_stopped", &stopped);
+    }
+
+    #[test]
     fn destroy_removes_idle_proxy_session() {
         let handle = SESSIONS.insert(ProxySession {
             config: RuntimeConfig::default(),
@@ -1342,11 +1424,36 @@ mod tests {
 
     impl Default for ProxySessionHarness {
         fn default() -> Self {
-            Self {
-                active_handle: None,
-                stale_handle: None,
-                next_listener_fd: 32,
+            Self { active_handle: None, stale_handle: None, next_listener_fd: 32 }
+        }
+    }
+
+    fn assert_proxy_snapshot_golden(name: &str, snapshot: &NativeRuntimeSnapshot) {
+        let actual = canonicalize_json_with(
+            &serde_json::to_string(snapshot).expect("serialize proxy snapshot"),
+            scrub_runtime_timestamps,
+        )
+        .expect("canonicalize proxy telemetry");
+        assert_text_golden(env!("CARGO_MANIFEST_DIR"), &format!("tests/golden/{name}.json"), &actual);
+    }
+
+    fn scrub_runtime_timestamps(value: &mut Value) {
+        match value {
+            Value::Array(items) => {
+                for item in items {
+                    scrub_runtime_timestamps(item);
+                }
             }
+            Value::Object(map) => {
+                for (key, item) in map.iter_mut() {
+                    if matches!(key.as_str(), "createdAt" | "capturedAt") {
+                        *item = Value::from(0);
+                    } else {
+                        scrub_runtime_timestamps(item);
+                    }
+                }
+            }
+            _ => {}
         }
     }
 

@@ -1,0 +1,20 @@
+[
+  {
+    "createdAt": 0,
+    "level": "info",
+    "message": "Starting Passive events golden in RawPath transport=DIRECT",
+    "source": "engine"
+  },
+  {
+    "createdAt": 0,
+    "level": "warn",
+    "message": "127.0.0.1 -> http_blockpage (tls13=tls_handshake_failed, tls12=tls_handshake_failed, http=http_blockpage)",
+    "source": "domain_reachability"
+  },
+  {
+    "createdAt": 0,
+    "level": "info",
+    "message": "Diagnostics finished",
+    "source": "engine"
+  }
+]
