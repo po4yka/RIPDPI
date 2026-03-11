@@ -185,6 +185,13 @@ data class DiagnosticsScanUiModel(
 data class DiagnosticsLiveUiModel(
     val statusLabel: String = "Idle",
     val freshnessLabel: String = "No live telemetry",
+    val headline: String = "Live monitor standing by",
+    val body: String = "Continuous monitor is waiting for an active RIPDPI session.",
+    val networkLabel: String? = null,
+    val modeLabel: String? = null,
+    val signalLabel: String = "No transfer observed yet",
+    val eventSummaryLabel: String = "Runtime feed is quiet",
+    val highlights: List<DiagnosticsMetricUiModel> = emptyList(),
     val metrics: List<DiagnosticsMetricUiModel> = emptyList(),
     val trends: List<DiagnosticsSparklineUiModel> = emptyList(),
     val snapshot: DiagnosticsNetworkSnapshotUiModel? = null,
@@ -649,6 +656,7 @@ class DiagnosticsViewModel
             val sharePreview = buildSharePreview(latestCompletedSession, latestSnapshot, latestContext, currentTelemetry, nativeEvents, latestReport)
             val liveMetrics = buildLiveMetrics(currentTelemetry, nativeEvents)
             val liveTrends = buildLiveTrends(telemetry)
+            val liveHighlights = buildLiveHighlights(currentTelemetry, nativeEvents)
             val selectedApproachKind =
                 when (selectedApproachMode) {
                     DiagnosticsApproachMode.Profiles -> BypassApproachKind.Profile
@@ -735,6 +743,13 @@ class DiagnosticsViewModel
                         freshnessLabel =
                             currentTelemetry?.createdAt?.let { "Updated ${formatTimestamp(it)}" }
                                 ?: "No live telemetry",
+                        headline = buildLiveHeadline(health, currentTelemetry, nativeEvents),
+                        body = buildLiveBody(currentTelemetry, nativeEvents),
+                        networkLabel = currentTelemetry?.networkType,
+                        modeLabel = currentTelemetry?.activeMode,
+                        signalLabel = buildLiveSignalLabel(currentTelemetry),
+                        eventSummaryLabel = buildLiveEventSummaryLabel(nativeEvents),
+                        highlights = liveHighlights,
                         metrics = liveMetrics,
                         trends = liveTrends,
                         snapshot = latestSnapshot,
@@ -899,6 +914,41 @@ class DiagnosticsViewModel
                 )
             }
 
+        private fun buildLiveHighlights(
+            telemetry: TelemetrySampleEntity?,
+            events: List<NativeSessionEventEntity>,
+        ): List<DiagnosticsMetricUiModel> {
+            val warningCount = events.count { it.level.equals("warn", ignoreCase = true) }
+            val errorCount = events.count { it.level.equals("error", ignoreCase = true) }
+            return buildList {
+                telemetry?.let {
+                    add(DiagnosticsMetricUiModel(label = "TX", value = formatBytes(it.txBytes), tone = DiagnosticsTone.Info))
+                    add(DiagnosticsMetricUiModel(label = "RX", value = formatBytes(it.rxBytes), tone = DiagnosticsTone.Positive))
+                    add(
+                        DiagnosticsMetricUiModel(
+                            label = "Packets",
+                            value = (it.txPackets + it.rxPackets).toString(),
+                            tone = DiagnosticsTone.Neutral,
+                        ),
+                    )
+                }
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = "Warnings",
+                        value = warningCount.toString(),
+                        tone = if (warningCount > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
+                    ),
+                )
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = "Errors",
+                        value = errorCount.toString(),
+                        tone = if (errorCount > 0) DiagnosticsTone.Negative else DiagnosticsTone.Neutral,
+                    ),
+                )
+            }
+        }
+
         private fun buildLiveTrends(telemetry: List<TelemetrySampleEntity>): List<DiagnosticsSparklineUiModel> {
             val samples = telemetry.take(24).reversed()
             if (samples.isEmpty()) {
@@ -928,6 +978,66 @@ class DiagnosticsViewModel
                 ),
             )
         }
+
+        private fun buildLiveHeadline(
+            health: DiagnosticsHealth,
+            telemetry: TelemetrySampleEntity?,
+            events: List<NativeSessionEventEntity>,
+        ): String {
+            val surfacedEvent =
+                events.firstOrNull { it.level.equals("error", ignoreCase = true) }
+                    ?: events.firstOrNull { it.level.equals("warn", ignoreCase = true) }
+            return when {
+                surfacedEvent?.level?.equals("error", ignoreCase = true) == true -> "Runtime needs intervention"
+                health == DiagnosticsHealth.Attention -> "Runtime requires a closer look"
+                telemetry == null -> "Live monitor standing by"
+                telemetry.connectionState.equals("running", ignoreCase = true) -> "Traffic is moving through ${telemetry.networkType}"
+                else -> telemetry.connectionState.replaceFirstChar { it.uppercase() }
+            }
+        }
+
+        private fun buildLiveBody(
+            telemetry: TelemetrySampleEntity?,
+            events: List<NativeSessionEventEntity>,
+        ): String {
+            val surfacedEvent =
+                events.firstOrNull { it.level.equals("error", ignoreCase = true) }
+                    ?: events.firstOrNull { it.level.equals("warn", ignoreCase = true) }
+            if (surfacedEvent != null) {
+                return surfacedEvent.message
+            }
+            telemetry ?: return "Continuous monitor is waiting for an active RIPDPI session."
+            val totalBytes = formatBytes(telemetry.txBytes + telemetry.rxBytes)
+            val packetCount = telemetry.txPackets + telemetry.rxPackets
+            val modeLabel = telemetry.activeMode ?: "Idle"
+            return "$modeLabel mode · $totalBytes transferred · $packetCount packets observed"
+        }
+
+        private fun buildLiveSignalLabel(telemetry: TelemetrySampleEntity?): String =
+            telemetry?.let { "${formatBytes(it.txBytes)} sent · ${formatBytes(it.rxBytes)} received" }
+                ?: "No transfer observed yet"
+
+        private fun buildLiveEventSummaryLabel(events: List<NativeSessionEventEntity>): String {
+            val warningCount = events.count { it.level.equals("warn", ignoreCase = true) }
+            val errorCount = events.count { it.level.equals("error", ignoreCase = true) }
+            return when {
+                errorCount > 0 && warningCount > 0 ->
+                    "$errorCount error${pluralSuffix(errorCount)} · $warningCount warning${pluralSuffix(warningCount)} in runtime feed"
+
+                errorCount > 0 ->
+                    "$errorCount error${pluralSuffix(errorCount)} in runtime feed"
+
+                warningCount > 0 ->
+                    "$warningCount warning${pluralSuffix(warningCount)} in runtime feed"
+
+                events.isNotEmpty() ->
+                    "${events.size} informational event${pluralSuffix(events.size)} in runtime feed"
+
+                else -> "Runtime feed is quiet"
+            }
+        }
+
+        private fun pluralSuffix(count: Int): String = if (count == 1) "" else "s"
 
         private fun buildSharePreview(
             latestSession: ScanSessionEntity?,
