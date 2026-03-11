@@ -92,6 +92,8 @@ fn help_text() -> String {
     text.push_str("    -r, --tlsrec <pos_t>      Make TLS record at position\n");
     text.push_str("    -m, --tlsminor <ver>      Change minor version of TLS\n");
     text.push_str("    -a, --udp-fake <count>    UDP fakes count, default 0\n");
+    text.push_str("        --fake-quic-profile <mode> Fake QUIC payload: disabled,compat_default,realistic_initial\n");
+    text.push_str("        --fake-quic-host <domain> Override SNI used by realistic QUIC fake Initials\n");
     #[cfg(target_os = "linux")]
     {
         text.push_str("    -Y, --drop-sack           Drop packets with SACK extension\n");
@@ -132,6 +134,8 @@ fn canonical_option(option: &str) -> &str {
         "--tlsrec" | "-r" => "-r",
         "--tlsminor" | "-m" => "-m",
         "--udp-fake" | "-a" => "-a",
+        "--fake-quic-profile" => "--fake-quic-profile",
+        "--fake-quic-host" => "--fake-quic-host",
         "--def-ttl" | "-g" => "-g",
         "--pf" | "-V" => "-V",
         "--round" | "-R" => "-R",

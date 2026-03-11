@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
+import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.StrategyTcpStep
 import org.junit.Assert.assertEquals
@@ -118,5 +119,25 @@ class ApproachAnalyticsTest {
         assertTrue(signature.fakeTlsMods.isEmpty())
         assertNull(signature.fakeTlsBaseMode)
         assertNull(signature.fakeTlsSize)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature includes quic fake profile when active`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .setUdpFakeCount(3)
+                .setQuicFakeProfile(QuicFakeProfileRealisticInitial)
+                .setQuicFakeHost("video.example.test")
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "5")
+
+        assertEquals(QuicFakeProfileRealisticInitial, signature.quicFakeProfile)
+        assertEquals("video.example.test", signature.quicFakeHost)
     }
 }

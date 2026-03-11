@@ -97,4 +97,6 @@ message AppSettings {
   bool fake_tls_pad_encap = 83;
   int32 fake_tls_size = 84;
   string fake_tls_sni_mode = 85; // "fixed" | "randomized"
+  string quic_fake_profile = 86; // "disabled" | "compat_default" | "realistic_initial"
+  string quic_fake_host = 87;
 }

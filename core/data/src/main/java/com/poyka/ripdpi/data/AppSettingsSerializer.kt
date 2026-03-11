@@ -33,6 +33,8 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setQuicInitialMode(QuicInitialModeRouteAndCache)
             .setQuicSupportV1(true)
             .setQuicSupportV2(true)
+            .setQuicFakeProfile(QuicFakeProfileDisabled)
+            .setQuicFakeHost("")
             .setHostAutolearnEnabled(false)
             .setHostAutolearnPenaltyTtlHours(DefaultHostAutolearnPenaltyTtlHours)
             .setHostAutolearnMaxHosts(DefaultHostAutolearnMaxHosts)

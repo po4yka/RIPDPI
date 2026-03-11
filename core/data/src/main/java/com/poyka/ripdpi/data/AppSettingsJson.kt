@@ -90,6 +90,8 @@ internal data class AppSettingsSnapshot(
     val quicInitialMode: String = defaultSettings.quicInitialMode,
     val quicSupportV1: Boolean = defaultSettings.quicSupportV1,
     val quicSupportV2: Boolean = defaultSettings.quicSupportV2,
+    val quicFakeProfile: String = defaultSettings.quicFakeProfile,
+    val quicFakeHost: String = defaultSettings.quicFakeHost,
     val hostAutolearnEnabled: Boolean = defaultSettings.hostAutolearnEnabled,
     val hostAutolearnPenaltyTtlHours: Int = defaultSettings.hostAutolearnPenaltyTtlHours,
     val hostAutolearnMaxHosts: Int = defaultSettings.hostAutolearnMaxHosts,
@@ -164,6 +166,8 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         quicInitialMode = effectiveQuicInitialMode(),
         quicSupportV1 = effectiveQuicSupportV1(),
         quicSupportV2 = effectiveQuicSupportV2(),
+        quicFakeProfile = effectiveQuicFakeProfile(),
+        quicFakeHost = effectiveQuicFakeHost(),
         hostAutolearnEnabled = hostAutolearnEnabled,
         hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
         hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
@@ -229,6 +233,8 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setQuicInitialMode(quicInitialMode)
         .setQuicSupportV1(quicSupportV1)
         .setQuicSupportV2(quicSupportV2)
+        .setQuicFakeProfile(normalizeQuicFakeProfile(quicFakeProfile))
+        .setQuicFakeHost(normalizeQuicFakeHost(quicFakeHost))
         .setHostAutolearnEnabled(hostAutolearnEnabled)
         .setHostAutolearnPenaltyTtlHours(normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours))
         .setHostAutolearnMaxHosts(normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts))
