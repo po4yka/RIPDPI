@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -34,55 +36,93 @@ fun LogRow(
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
-    val badgeBackground =
-        when (tone) {
-            LogRowTone.Dns -> colors.accent
-            LogRowTone.Connection -> colors.foreground.copy(alpha = 0.08f)
-            LogRowTone.Warning -> colors.warning.copy(alpha = 0.18f)
-            LogRowTone.Error -> colors.destructive.copy(alpha = 0.18f)
-        }
-    val badgeContent =
-        when (tone) {
-            LogRowTone.Dns -> colors.foreground
-            LogRowTone.Connection -> colors.foreground
-            LogRowTone.Warning -> colors.foreground
-            LogRowTone.Error -> colors.foreground
-        }
+    val spacing = RipDpiThemeTokens.spacing
+    val typeScale = RipDpiThemeTokens.type
+    val palette = logRowPalette(tone)
 
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(min = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .heightIn(min = components.decorativeBadgeSize)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "$timestamp ${type.uppercase()} $message"
+                },
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         verticalAlignment = Alignment.Top,
     ) {
-        Text(
+        androidx.compose.material3.Text(
             text = timestamp,
-            style = RipDpiThemeTokens.type.monoLog,
+            style = typeScale.monoLog,
             color = colors.mutedForeground,
         )
         Box(
             modifier =
                 Modifier
-                    .background(badgeBackground, RipDpiThemeTokens.shapes.xxl)
+                    .background(palette.badgeContainer, RipDpiThemeTokens.shapes.xxl)
                     .padding(
                         horizontal = components.compactPillHorizontalPadding,
                         vertical = components.compactPillVerticalPadding,
                     ),
         ) {
-            Text(
+            androidx.compose.material3.Text(
                 text = type.uppercase(),
-                style = RipDpiThemeTokens.type.smallLabel,
-                color = badgeContent,
+                style = typeScale.smallLabel,
+                color = palette.badgeContent,
             )
         }
-        Text(
+        androidx.compose.material3.Text(
             text = message,
             modifier = Modifier.weight(1f),
-            style = RipDpiThemeTokens.type.monoInline,
-            color = colors.foreground,
+            style = typeScale.monoInline,
+            color = palette.message,
         )
+    }
+}
+
+@Immutable
+private data class LogRowPalette(
+    val badgeContainer: Color,
+    val badgeContent: Color,
+    val message: Color,
+)
+
+@Composable
+private fun logRowPalette(tone: LogRowTone): LogRowPalette {
+    val colors = RipDpiThemeTokens.colors
+
+    return when (tone) {
+        LogRowTone.Dns -> {
+            LogRowPalette(
+                badgeContainer = colors.infoContainer,
+                badgeContent = colors.infoContainerForeground,
+                message = colors.foreground,
+            )
+        }
+
+        LogRowTone.Connection -> {
+            LogRowPalette(
+                badgeContainer = colors.inputBackground,
+                badgeContent = colors.foreground,
+                message = colors.foreground,
+            )
+        }
+
+        LogRowTone.Warning -> {
+            LogRowPalette(
+                badgeContainer = colors.warningContainer,
+                badgeContent = colors.warningContainerForeground,
+                message = colors.foreground,
+            )
+        }
+
+        LogRowTone.Error -> {
+            LogRowPalette(
+                badgeContainer = colors.destructiveContainer,
+                badgeContent = colors.destructiveContainerForeground,
+                message = colors.foreground,
+            )
+        }
     }
 }
 
@@ -90,7 +130,7 @@ fun LogRow(
 @Composable
 private fun LogRowPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             LogRow(
                 timestamp = "02:14:38",
                 type = "dns",
