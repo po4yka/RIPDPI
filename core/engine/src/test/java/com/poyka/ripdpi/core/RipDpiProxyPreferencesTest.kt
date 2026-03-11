@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -107,6 +109,30 @@ class RipDpiProxyPreferencesTest {
         assertEquals("route", payload.string("quicInitialMode"))
         assertEquals("false", payload.string("quicSupportV1"))
         assertEquals("true", payload.string("quicSupportV2"))
+    }
+
+    @Test
+    fun uiPreferencesEncodeHostfakeChainOptions() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                tcpChainSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.HostFake,
+                            marker = "endhost+8",
+                            midhostMarker = "midsld",
+                            fakeHostTemplate = "googlevideo.com",
+                        ),
+                    ),
+            )
+
+        val payload = preferences.toNativeConfigJson().parseJsonObject()
+        val step = payload.array("tcpChainSteps")[0].jsonObject
+
+        assertEquals("hostfake", step.string("kind"))
+        assertEquals("endhost+8", step.string("marker"))
+        assertEquals("midsld", step.string("midhostMarker"))
+        assertEquals("googlevideo.com", step.string("fakeHostTemplate"))
     }
 }
 

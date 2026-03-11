@@ -5,6 +5,8 @@ option java_multiple_files = true;
 message StrategyTcpStep {
   string kind = 1;
   string marker = 2;
+  string midhost_marker = 3;
+  string fake_host_template = 4;
 }
 
 message StrategyUdpStep {

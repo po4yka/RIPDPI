@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -215,6 +217,80 @@ class NativeConfigContractSnapshotTest {
                   "hostAutolearnPenaltyTtlSecs": 43200,
                   "hostAutolearnMaxHosts": 2048,
                   "hostAutolearnStorePath": "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json"
+                }
+                """,
+        )
+    }
+
+    @Test
+    fun proxyHostfakeUiPayloadMatchesSnapshot() {
+        val payload =
+            RipDpiProxyUIPreferences(
+                tcpChainSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.HostFake,
+                            marker = "endhost+8",
+                            midhostMarker = "midsld",
+                            fakeHostTemplate = "googlevideo.com",
+                        ),
+                    ),
+            ).toNativeConfigJson()
+
+        assertJsonSnapshot(
+            actualJson = payload,
+            expectedJson =
+                """
+                {
+                  "kind": "ui",
+                  "ip": "127.0.0.1",
+                  "port": 1080,
+                  "maxConnections": 512,
+                  "bufferSize": 16384,
+                  "defaultTtl": 0,
+                  "customTtl": false,
+                  "noDomain": false,
+                  "desyncHttp": true,
+                  "desyncHttps": true,
+                  "desyncUdp": false,
+                  "desyncMethod": "disorder",
+                  "splitMarker": "1",
+                  "tcpChainSteps": [
+                    {
+                      "kind": "hostfake",
+                      "marker": "endhost+8",
+                      "midhostMarker": "midsld",
+                      "fakeHostTemplate": "googlevideo.com"
+                    }
+                  ],
+                  "fakeTtl": 8,
+                  "fakeSni": "www.iana.org",
+                  "fakeTlsUseOriginal": false,
+                  "fakeTlsRandomize": false,
+                  "fakeTlsDupSessionId": false,
+                  "fakeTlsPadEncap": false,
+                  "fakeTlsSize": 0,
+                  "fakeTlsSniMode": "fixed",
+                  "oobChar": 97,
+                  "hostMixedCase": false,
+                  "domainMixedCase": false,
+                  "hostRemoveSpaces": false,
+                  "tlsRecordSplit": false,
+                  "tlsRecordSplitMarker": "0",
+                  "hostsMode": "disable",
+                  "hosts": null,
+                  "tcpFastOpen": false,
+                  "udpFakeCount": 0,
+                  "udpChainSteps": [],
+                  "dropSack": false,
+                  "fakeOffsetMarker": "0",
+                  "quicInitialMode": "route_and_cache",
+                  "quicSupportV1": true,
+                  "quicSupportV2": true,
+                  "hostAutolearnEnabled": false,
+                  "hostAutolearnPenaltyTtlSecs": 21600,
+                  "hostAutolearnMaxHosts": 512,
+                  "hostAutolearnStorePath": null
                 }
                 """,
         )

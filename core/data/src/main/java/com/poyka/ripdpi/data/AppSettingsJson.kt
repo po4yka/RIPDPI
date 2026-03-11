@@ -22,6 +22,8 @@ private val appSettingsJson =
 internal data class AppSettingsTcpChainSnapshot(
     val kind: String,
     val marker: String,
+    val midhostMarker: String? = null,
+    val fakeHostTemplate: String? = null,
 )
 
 @Serializable
@@ -149,7 +151,15 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         backupPin = backupPin,
         appIconVariant = appIconVariant,
         appIconStyle = appIconStyle,
-        tcpChainSteps = tcpChainStepsList.map { AppSettingsTcpChainSnapshot(kind = it.kind, marker = it.marker) },
+        tcpChainSteps =
+            tcpChainStepsList.map {
+                AppSettingsTcpChainSnapshot(
+                    kind = it.kind,
+                    marker = it.marker,
+                    midhostMarker = it.midhostMarker.takeIf(String::isNotBlank),
+                    fakeHostTemplate = it.fakeHostTemplate.takeIf(String::isNotBlank),
+                )
+            },
         udpChainSteps = udpChainStepsList.map { AppSettingsUdpChainSnapshot(kind = it.kind, count = it.count) },
         quicInitialMode = effectiveQuicInitialMode(),
         quicSupportV1 = effectiveQuicSupportV1(),
@@ -229,6 +239,8 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                         .newBuilder()
                         .setKind(step.kind)
                         .setMarker(step.marker)
+                        .setMidhostMarker(step.midhostMarker.orEmpty())
+                        .setFakeHostTemplate(step.fakeHostTemplate.orEmpty())
                         .build(),
                 )
             }

@@ -86,6 +86,18 @@ enum ProxySessionState {
     Running { listener_fd: i32 },
 }
 
+/// Returns true for I/O errors caused by transient network conditions
+/// (e.g., Doze mode, network handover, airplane mode toggle).
+/// These are separated from permanent failures in telemetry so the UI
+/// can distinguish recoverable connectivity blips from real bugs.
+fn is_transient_network_error(error: &std::io::Error) -> bool {
+    matches!(
+        error.raw_os_error(),
+        Some(libc::ENETUNREACH | libc::EHOSTUNREACH | libc::ETIMEDOUT | libc::ECONNREFUSED | libc::ECONNRESET
+            | libc::ECONNABORTED | libc::ENETDOWN | libc::EPIPE)
+    )
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ProxyConfigPayload {
@@ -98,6 +110,10 @@ enum ProxyConfigPayload {
 struct ProxyUiTcpChainStep {
     kind: String,
     marker: String,
+    #[serde(default)]
+    midhost_marker: Option<String>,
+    #[serde(default)]
+    fake_host_template: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -232,6 +248,7 @@ struct NativeRuntimeSnapshot {
     active_sessions: u64,
     total_sessions: u64,
     total_errors: u64,
+    network_errors: u64,
     route_changes: u64,
     last_route_group: Option<i32>,
     listener_address: Option<String>,
@@ -266,6 +283,7 @@ struct ProxyTelemetryState {
     active_sessions: AtomicU64,
     total_sessions: AtomicU64,
     total_errors: AtomicU64,
+    network_errors: AtomicU64,
     route_changes: AtomicU64,
     last_route_group: AtomicI64,
     autolearn_enabled: AtomicBool,
@@ -282,6 +300,7 @@ impl ProxyTelemetryState {
             active_sessions: AtomicU64::new(0),
             total_sessions: AtomicU64::new(0),
             total_errors: AtomicU64::new(0),
+            network_errors: AtomicU64::new(0),
             route_changes: AtomicU64::new(0),
             last_route_group: AtomicI64::new(-1),
             autolearn_enabled: AtomicBool::new(false),
@@ -338,6 +357,20 @@ impl ProxyTelemetryState {
         log::warn!("{message}");
         if let Ok(mut guard) = self.strings.lock() {
             guard.last_error = Some(error);
+            Self::push_event_to(&mut guard.events, "proxy", "warn", message);
+        }
+    }
+
+    fn on_client_io_error(&self, error: &std::io::Error) {
+        self.total_errors.fetch_add(1, Ordering::Relaxed);
+        if is_transient_network_error(error) {
+            self.network_errors.fetch_add(1, Ordering::Relaxed);
+        }
+        let error_str = error.to_string();
+        let message = format!("client error: {error_str}");
+        log::warn!("{message}");
+        if let Ok(mut guard) = self.strings.lock() {
+            guard.last_error = Some(error_str);
             Self::push_event_to(&mut guard.events, "proxy", "warn", message);
         }
     }
@@ -448,6 +481,7 @@ impl ProxyTelemetryState {
             active_sessions: self.active_sessions.load(Ordering::Relaxed),
             total_sessions: self.total_sessions.load(Ordering::Relaxed),
             total_errors: self.total_errors.load(Ordering::Relaxed),
+            network_errors: self.network_errors.load(Ordering::Relaxed),
             route_changes: self.route_changes.load(Ordering::Relaxed),
             last_route_group: match self.last_route_group.load(Ordering::Relaxed) {
                 value if value >= 0 => i32::try_from(value).ok(),
@@ -525,7 +559,7 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
     }
 
     fn on_client_error(&self, error: &std::io::Error) {
-        self.state.on_client_error(error.to_string());
+        self.state.on_client_io_error(error);
     }
 
     fn on_route_selected(
@@ -561,6 +595,7 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
 
 #[unsafe(no_mangle)]
 pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
+    android_support::ignore_sigpipe();
     init_android_logging("ripdpi-native");
     JNI_VERSION
 }
@@ -617,14 +652,9 @@ fn proxy_destroy_entry(mut env: JNIEnv, handle: jlong) {
 }
 
 macro_rules! export_diagnostics_jni {
-    ($primary:ident, $alias:ident, ($($arg:ident: $arg_ty:ty),* $(,)?), $ret:ty, $entry:ident) => {
+    ($name:ident, ($($arg:ident: $arg_ty:ty),* $(,)?), $ret:ty, $entry:ident) => {
         #[unsafe(no_mangle)]
-        pub extern "system" fn $primary(env: JNIEnv, _thiz: JObject, $($arg: $arg_ty),*) -> $ret {
-            $entry(env, $($arg),*)
-        }
-
-        #[unsafe(no_mangle)]
-        pub extern "system" fn $alias(env: JNIEnv, _thiz: JObject, $($arg: $arg_ty),*) -> $ret {
+        pub extern "system" fn $name(env: JNIEnv, _thiz: JObject, $($arg: $arg_ty),*) -> $ret {
             $entry(env, $($arg),*)
         }
     };
@@ -711,30 +741,12 @@ fn diagnostics_destroy_entry(mut env: JNIEnv, handle: jlong) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniCreate(
-    env: JNIEnv,
-    _thiz: JObject,
-    config_json: JString,
-) -> jlong {
-    proxy_create_entry(env, config_json)
-}
-
-#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate(
     env: JNIEnv,
     _thiz: JObject,
     config_json: JString,
 ) -> jlong {
     proxy_create_entry(env, config_json)
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStart(
-    env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) -> jint {
-    proxy_start_entry(env, handle)
 }
 
 #[unsafe(no_mangle)]
@@ -747,26 +759,12 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniS
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniStop(env: JNIEnv, _thiz: JObject, handle: jlong) {
-    proxy_stop_entry(env, handle);
-}
-
-#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop(
     env: JNIEnv,
     _thiz: JObject,
     handle: jlong,
 ) {
     proxy_stop_entry(env, handle);
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniPollTelemetry(
-    env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) -> jstring {
-    proxy_poll_telemetry_entry(env, handle)
 }
 
 #[unsafe(no_mangle)]
@@ -779,11 +777,6 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniP
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxy_jniDestroy(env: JNIEnv, _thiz: JObject, handle: jlong) {
-    proxy_destroy_entry(env, handle);
-}
-
-#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy(
     env: JNIEnv,
     _thiz: JObject,
@@ -793,7 +786,6 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniD
 }
 
 export_diagnostics_jni!(
-    Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniCreate,
     Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCreate,
     (),
     jlong,
@@ -801,7 +793,6 @@ export_diagnostics_jni!(
 );
 
 export_diagnostics_jni!(
-    Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniStartScan,
     Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniStartScan,
     (handle: jlong, request_json: JString, session_id: JString),
     (),
@@ -809,7 +800,6 @@ export_diagnostics_jni!(
 );
 
 export_diagnostics_jni!(
-    Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniCancelScan,
     Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCancelScan,
     (handle: jlong),
     (),
@@ -817,7 +807,6 @@ export_diagnostics_jni!(
 );
 
 export_diagnostics_jni!(
-    Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniPollProgress,
     Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniPollProgress,
     (handle: jlong),
     jstring,
@@ -825,7 +814,6 @@ export_diagnostics_jni!(
 );
 
 export_diagnostics_jni!(
-    Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniTakeReport,
     Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniTakeReport,
     (handle: jlong),
     jstring,
@@ -833,7 +821,6 @@ export_diagnostics_jni!(
 );
 
 export_diagnostics_jni!(
-    Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniPollPassiveEvents,
     Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniPollPassiveEvents,
     (handle: jlong),
     jstring,
@@ -841,7 +828,6 @@ export_diagnostics_jni!(
 );
 
 export_diagnostics_jni!(
-    Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniDestroy,
     Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniDestroy,
     (handle: jlong),
     (),
@@ -1076,10 +1062,25 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniPr
 
     if !payload.tcp_chain_steps.is_empty() {
         for step in &payload.tcp_chain_steps {
-            group.tcp_chain.push(TcpChainStep {
-                kind: parse_tcp_chain_step_kind(&step.kind)?,
-                offset: parse_offset_expr_field(Some(step.marker.as_str()), || "0".to_string(), "tcpChainSteps")?,
-            });
+            let kind = parse_tcp_chain_step_kind(&step.kind)?;
+            let offset = parse_offset_expr_field(Some(step.marker.as_str()), || "0".to_string(), "tcpChainSteps")?;
+            let midhost_offset = step
+                .midhost_marker
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ciadpi_config::parse_offset_expr)
+                .transpose()
+                .map_err(|_| JniProxyError::InvalidConfig("Invalid tcpChainSteps midhostMarker".to_string()))?;
+            let fake_host_template = step
+                .fake_host_template
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ciadpi_config::normalize_fake_host_template)
+                .transpose()
+                .map_err(|_| JniProxyError::InvalidConfig("Invalid tcpChainSteps fakeHostTemplate".to_string()))?;
+            group.tcp_chain.push(TcpChainStep { kind, offset, midhost_offset, fake_host_template });
         }
     } else {
         let part_offset = parse_offset_expr_field(
@@ -1091,7 +1092,7 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniPr
         if desync_mode != DesyncMode::None {
             group.parts.push(PartSpec { mode: desync_mode, offset: part_offset });
             if let Some(kind) = TcpChainStepKind::from_mode(desync_mode) {
-                group.tcp_chain.push(TcpChainStep { kind, offset: part_offset });
+                group.tcp_chain.push(TcpChainStep::new(kind, part_offset));
             }
         }
 
@@ -1102,7 +1103,7 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniPr
                 "tlsRecordSplitMarker",
             )?;
             group.tls_records.push(expr);
-            group.tcp_chain.push(TcpChainStep { kind: TcpChainStepKind::TlsRec, offset: expr });
+            group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, expr));
         }
     }
 
@@ -1180,12 +1181,13 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniPr
 
 fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, JniProxyError> {
     match value {
-        "split" => Ok(TcpChainStepKind::Split),
-        "disorder" => Ok(TcpChainStepKind::Disorder),
-        "fake" => Ok(TcpChainStepKind::Fake),
-        "oob" => Ok(TcpChainStepKind::Oob),
-        "disoob" => Ok(TcpChainStepKind::Disoob),
-        "tlsrec" => Ok(TcpChainStepKind::TlsRec),
+            "split" => Ok(TcpChainStepKind::Split),
+            "disorder" => Ok(TcpChainStepKind::Disorder),
+            "fake" => Ok(TcpChainStepKind::Fake),
+            "hostfake" => Ok(TcpChainStepKind::HostFake),
+            "oob" => Ok(TcpChainStepKind::Oob),
+            "disoob" => Ok(TcpChainStepKind::Disoob),
+            "tlsrec" => Ok(TcpChainStepKind::TlsRec),
         _ => Err(JniProxyError::InvalidConfig(format!("Unknown tcpChainSteps kind: {value}"))),
     }
 }
@@ -1632,6 +1634,71 @@ mod tests {
         assert_eq!(config.host_autolearn_penalty_ttl_secs, 3_600);
         assert_eq!(config.host_autolearn_max_hosts, 128);
         assert_eq!(config.host_autolearn_store_path.as_deref(), Some("/tmp/host-autolearn-v1.json"));
+    }
+
+    #[test]
+    fn parses_hostfake_tcp_chain_step_payload() {
+        let payload = ProxyConfigPayload::Ui(ProxyUiConfig {
+            ip: "127.0.0.1".to_string(),
+            port: 1080,
+            max_connections: 512,
+            buffer_size: 16384,
+            default_ttl: 0,
+            custom_ttl: false,
+            no_domain: false,
+            desync_http: true,
+            desync_https: true,
+            desync_udp: false,
+            desync_method: "disorder".to_string(),
+            split_marker: Some("1".to_string()),
+            tcp_chain_steps: vec![ProxyUiTcpChainStep {
+                kind: "hostfake".to_string(),
+                marker: "endhost+8".to_string(),
+                midhost_marker: Some("midsld".to_string()),
+                fake_host_template: Some("googlevideo.com".to_string()),
+            }],
+            split_position: 1,
+            split_at_host: false,
+            fake_ttl: 8,
+            fake_sni: "www.iana.org".to_string(),
+            fake_tls_use_original: false,
+            fake_tls_randomize: false,
+            fake_tls_dup_session_id: false,
+            fake_tls_pad_encap: false,
+            fake_tls_size: 0,
+            fake_tls_sni_mode: default_fake_tls_sni_mode(),
+            oob_char: b'a',
+            host_mixed_case: false,
+            domain_mixed_case: false,
+            host_remove_spaces: false,
+            tls_record_split: false,
+            tls_record_split_marker: None,
+            tls_record_split_position: 0,
+            tls_record_split_at_sni: false,
+            hosts_mode: HOSTS_DISABLE.to_string(),
+            hosts: None,
+            tcp_fast_open: false,
+            udp_fake_count: 0,
+            udp_chain_steps: Vec::new(),
+            drop_sack: false,
+            fake_offset_marker: None,
+            fake_offset: 0,
+            quic_initial_mode: Some("route_and_cache".to_string()),
+            quic_support_v1: true,
+            quic_support_v2: true,
+            host_autolearn_enabled: false,
+            host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+            host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+            host_autolearn_store_path: None,
+        });
+
+        let config = runtime_config_from_payload(payload).expect("hostfake ui config");
+        let group = &config.groups[0];
+
+        assert_eq!(group.tcp_chain.len(), 1);
+        assert!(matches!(group.tcp_chain[0].kind, TcpChainStepKind::HostFake));
+        assert_eq!(group.tcp_chain[0].midhost_offset, Some(ciadpi_config::OffsetExpr::marker(ciadpi_config::OffsetBase::MidSld, 0)));
+        assert_eq!(group.tcp_chain[0].fake_host_template.as_deref(), Some("googlevideo.com"));
     }
 
     #[test]
