@@ -113,6 +113,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Verify Android JNI native build
+        run: ./gradlew :core:engine:buildRustNativeLibs -Pripdpi.localNativeAbis=arm64-v8a
+
       - name: Run cargo-deny
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
