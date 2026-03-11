@@ -91,7 +91,10 @@ class NativeConfigContractSnapshotTest {
                   "udpFakeCount": 0,
                   "udpChainSteps": [],
                   "dropSack": false,
-                  "fakeOffsetMarker": "0"
+                  "fakeOffsetMarker": "0",
+                  "quicInitialMode": "route_and_cache",
+                  "quicSupportV1": true,
+                  "quicSupportV2": true
                 }
                 """,
         )
@@ -126,6 +129,9 @@ class NativeConfigContractSnapshotTest {
                 udpFakeCount = 4,
                 dropSack = true,
                 fakeOffsetMarker = "endhost-1",
+                quicInitialMode = "route",
+                quicSupportV1 = false,
+                quicSupportV2 = true,
             ).toNativeConfigJson()
 
         assertJsonSnapshot(
@@ -175,7 +181,10 @@ class NativeConfigContractSnapshotTest {
                     }
                   ],
                   "dropSack": true,
-                  "fakeOffsetMarker": "endhost-1"
+                  "fakeOffsetMarker": "endhost-1",
+                  "quicInitialMode": "route",
+                  "quicSupportV1": false,
+                  "quicSupportV2": true
                 }
                 """,
         )

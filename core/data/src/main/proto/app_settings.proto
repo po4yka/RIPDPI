@@ -83,4 +83,7 @@ message AppSettings {
   string tlsrec_marker = 71;
   repeated StrategyTcpStep tcp_chain_steps = 72;
   repeated StrategyUdpStep udp_chain_steps = 73;
+  string quic_initial_mode = 74; // "disabled" | "route" | "route_and_cache"
+  bool quic_support_v1 = 75;
+  bool quic_support_v2 = 76;
 }

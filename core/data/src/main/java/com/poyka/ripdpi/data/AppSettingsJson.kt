@@ -79,6 +79,9 @@ internal data class AppSettingsSnapshot(
     val appIconStyle: String = defaultSettings.appIconStyle,
     val tcpChainSteps: List<AppSettingsTcpChainSnapshot> = emptyList(),
     val udpChainSteps: List<AppSettingsUdpChainSnapshot> = emptyList(),
+    val quicInitialMode: String = defaultSettings.quicInitialMode,
+    val quicSupportV1: Boolean = defaultSettings.quicSupportV1,
+    val quicSupportV2: Boolean = defaultSettings.quicSupportV2,
 )
 
 fun AppSettings.toJson(): String = appSettingsJson.encodeToString(toSnapshot())
@@ -133,6 +136,9 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         appIconStyle = appIconStyle,
         tcpChainSteps = tcpChainStepsList.map { AppSettingsTcpChainSnapshot(kind = it.kind, marker = it.marker) },
         udpChainSteps = udpChainStepsList.map { AppSettingsUdpChainSnapshot(kind = it.kind, count = it.count) },
+        quicInitialMode = effectiveQuicInitialMode(),
+        quicSupportV1 = effectiveQuicSupportV1(),
+        quicSupportV2 = effectiveQuicSupportV2(),
     )
 
 private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
@@ -186,6 +192,9 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setBackupPin(backupPin)
         .setAppIconVariant(appIconVariant)
         .setAppIconStyle(appIconStyle)
+        .setQuicInitialMode(quicInitialMode)
+        .setQuicSupportV1(quicSupportV1)
+        .setQuicSupportV2(quicSupportV2)
         .also { builder ->
             tcpChainSteps.forEach { step ->
                 builder.addTcpChainSteps(
