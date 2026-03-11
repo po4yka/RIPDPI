@@ -954,38 +954,43 @@ fn runtime_config_from_payload(payload: ProxyConfigPayload) -> Result<RuntimeCon
     }
 }
 
-fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<RuntimeConfig, String> {
+fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<RuntimeConfig, JniProxyError> {
     if args.first().is_some_and(|value| !value.starts_with('-')) {
         args.remove(0);
     }
 
     let parsed = ciadpi_config::parse_cli(&args, &StartupEnv::default())
-        .map_err(|err| format!("Invalid command-line proxy config: {}", err.option))?;
+        .map_err(|err| JniProxyError::InvalidConfig(format!("Invalid command-line proxy config: {}", err.option)))?;
 
     match parsed {
         ciadpi_config::ParseResult::Run(config) => Ok(config),
-        _ => Err("Command-line proxy config must resolve to a runnable config".to_string()),
+        _ => Err(JniProxyError::InvalidConfig(
+            "Command-line proxy config must resolve to a runnable config".to_string(),
+        )),
     }
 }
 
-fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, String> {
-    let listen_ip = IpAddr::from_str(&payload.ip).map_err(|_| "Invalid proxy IP".to_string())?;
+fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniProxyError> {
+    let listen_ip =
+        IpAddr::from_str(&payload.ip).map_err(|_| JniProxyError::InvalidConfig("Invalid proxy IP".to_string()))?;
     let mut config = RuntimeConfig::default();
     config.listen.listen_ip = listen_ip;
-    config.listen.listen_port = u16::try_from(payload.port).map_err(|_| "Invalid proxy port".to_string())?;
+    config.listen.listen_port =
+        u16::try_from(payload.port).map_err(|_| JniProxyError::InvalidConfig("Invalid proxy port".to_string()))?;
     if config.listen.listen_port == 0 {
-        return Err("Invalid proxy port".to_string());
+        return Err(JniProxyError::InvalidConfig("Invalid proxy port".to_string()));
     }
     if payload.max_connections <= 0 {
-        return Err("maxConnections must be positive".to_string());
+        return Err(JniProxyError::InvalidConfig("maxConnections must be positive".to_string()));
     }
     config.max_open = payload.max_connections;
-    config.buffer_size = usize::try_from(payload.buffer_size).map_err(|_| "Invalid bufferSize".to_string())?;
+    config.buffer_size = usize::try_from(payload.buffer_size)
+        .map_err(|_| JniProxyError::InvalidConfig("Invalid bufferSize".to_string()))?;
     if config.buffer_size == 0 {
-        return Err("bufferSize must be positive".to_string());
+        return Err(JniProxyError::InvalidConfig("bufferSize must be positive".to_string()));
     }
     if payload.udp_fake_count < 0 {
-        return Err("udpFakeCount must be non-negative".to_string());
+        return Err(JniProxyError::InvalidConfig("udpFakeCount must be non-negative".to_string()));
     }
     config.resolve = !payload.no_domain;
     config.tfo = payload.tcp_fast_open;
@@ -1003,9 +1008,12 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned);
     if payload.custom_ttl {
-        let ttl = u8::try_from(payload.default_ttl).map_err(|_| "Invalid defaultTtl".to_string())?;
+        let ttl = u8::try_from(payload.default_ttl)
+            .map_err(|_| JniProxyError::InvalidConfig("Invalid defaultTtl".to_string()))?;
         if ttl == 0 {
-            return Err("defaultTtl must be positive when customTtl is enabled".to_string());
+            return Err(JniProxyError::InvalidConfig(
+                "defaultTtl must be positive when customTtl is enabled".to_string(),
+            ));
         }
         config.default_ttl = ttl;
         config.custom_ttl = true;
@@ -1024,7 +1032,7 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
         HOSTS_BLACKLIST => {
             group.filters.hosts = parse_hosts(payload.hosts.as_deref())?;
         }
-        _ => return Err("Unknown hostsMode".to_string()),
+        _ => return Err(JniProxyError::InvalidConfig("Unknown hostsMode".to_string())),
     }
 
     if payload.fake_ttl > 0 {

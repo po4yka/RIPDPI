@@ -35,10 +35,12 @@ class AppStateManagerTest {
         runTest {
             val serviceStateStore = DefaultServiceStateStore()
             serviceStateStore.events.test {
-                serviceStateStore.emitFailed(Sender.VPN)
+                val reason = FailureReason.NativeError("test error")
+                serviceStateStore.emitFailed(Sender.VPN, reason)
                 val event = awaitItem()
                 assertTrue(event is ServiceEvent.Failed)
                 assertEquals(Sender.VPN, (event as ServiceEvent.Failed).sender)
+                assertEquals(reason, event.reason)
             }
         }
 
@@ -47,9 +49,10 @@ class AppStateManagerTest {
         runTest {
             val serviceStateStore = DefaultServiceStateStore()
             serviceStateStore.events.test {
-                serviceStateStore.emitFailed(Sender.Proxy)
+                serviceStateStore.emitFailed(Sender.Proxy, FailureReason.TunnelEstablishmentFailed)
                 val event = awaitItem() as ServiceEvent.Failed
                 assertEquals(Sender.Proxy, event.sender)
+                assertEquals(FailureReason.TunnelEstablishmentFailed, event.reason)
             }
         }
 
@@ -138,7 +141,7 @@ class AppStateManagerTest {
     fun `emitFailed stores last failure metadata`() {
         val serviceStateStore = DefaultServiceStateStore()
 
-        serviceStateStore.emitFailed(Sender.Proxy)
+        serviceStateStore.emitFailed(Sender.Proxy, FailureReason.NativeError("test"))
 
         assertEquals(Sender.Proxy, serviceStateStore.telemetry.value.lastFailureSender)
         assertTrue((serviceStateStore.telemetry.value.lastFailureAt ?: 0L) > 0L)

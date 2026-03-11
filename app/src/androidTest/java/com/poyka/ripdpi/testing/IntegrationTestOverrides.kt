@@ -20,6 +20,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.FailureReason
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
 import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
@@ -73,8 +74,8 @@ class RecordingServiceStateStore(
         statusState.value = status to mode
     }
 
-    override fun emitFailed(sender: Sender) {
-        val event = ServiceEvent.Failed(sender)
+    override fun emitFailed(sender: Sender, reason: FailureReason) {
+        val event = ServiceEvent.Failed(sender, reason)
         eventHistory += event
         eventFlow.tryEmit(event)
     }
