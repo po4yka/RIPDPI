@@ -218,6 +218,7 @@ impl TunnelTelemetryState {
 
 #[unsafe(no_mangle)]
 pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
+    android_support::ignore_sigpipe();
     init_android_logging("hs5t-native");
     JNI_VERSION
 }
@@ -269,31 +270,12 @@ fn tunnel_destroy_entry(mut env: JNIEnv, handle: jlong) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniCreate(
-    env: JNIEnv,
-    _thiz: JObject,
-    config_json: JString,
-) -> jlong {
-    tunnel_create_entry(env, config_json)
-}
-
-#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniCreate(
     env: JNIEnv,
     _thiz: JObject,
     config_json: JString,
 ) -> jlong {
     tunnel_create_entry(env, config_json)
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniStart(
-    env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-    tun_fd: jint,
-) {
-    tunnel_start_entry(env, handle, tun_fd);
 }
 
 #[unsafe(no_mangle)]
@@ -307,26 +289,12 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniSta
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniStop(env: JNIEnv, _thiz: JObject, handle: jlong) {
-    tunnel_stop_entry(env, handle);
-}
-
-#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStop(
     env: JNIEnv,
     _thiz: JObject,
     handle: jlong,
 ) {
     tunnel_stop_entry(env, handle);
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniGetStats(
-    env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) -> jlongArray {
-    tunnel_stats_entry(env, handle)
 }
 
 #[unsafe(no_mangle)]
@@ -339,30 +307,12 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGet
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniGetTelemetry(
-    env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) -> jni::sys::jstring {
-    tunnel_telemetry_entry(env, handle)
-}
-
-#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetTelemetry(
     env: JNIEnv,
     _thiz: JObject,
     handle: jlong,
 ) -> jni::sys::jstring {
     tunnel_telemetry_entry(env, handle)
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksTunnel_jniDestroy(
-    env: JNIEnv,
-    _thiz: JObject,
-    handle: jlong,
-) {
-    tunnel_destroy_entry(env, handle);
 }
 
 #[unsafe(no_mangle)]
@@ -396,7 +346,13 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
             return 0;
         }
     };
-    let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .thread_stack_size(1024 * 1024)
+        .thread_name("hs5t-tokio")
+        .enable_all()
+        .build()
+    {
         Ok(rt) => Arc::new(rt),
         Err(err) => {
             throw_io_exception(env, format!("Failed to initialize Tokio runtime: {err}"));
@@ -425,6 +381,14 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         throw_illegal_argument(env, message);
         return;
     }
+    // Duplicate the fd so run_tunnel owns an independent copy.
+    // If VpnService revokes the original fd, the dup'd fd remains valid
+    // until run_tunnel closes it via File::from_raw_fd.
+    let owned_fd = unsafe { libc::dup(tun_fd) };
+    if owned_fd < 0 {
+        throw_io_exception(env, format!("Failed to dup TUN fd: {}", std::io::Error::last_os_error()));
+        return;
+    }
     let runtime = session.runtime.clone();
 
     let cancel = Arc::new(CancellationToken::new());
@@ -447,9 +411,11 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
 
     let worker_cancel = cancel.clone();
     let worker_stats = stats.clone();
-    let worker = std::thread::spawn(move || {
+    let worker = std::thread::Builder::new()
+        .name("hs5t-worker".into())
+        .spawn(move || {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            runtime.block_on(hs5t_core::run_tunnel(config, tun_fd, (*worker_cancel).clone(), worker_stats.clone()))
+            runtime.block_on(hs5t_core::run_tunnel(config, owned_fd, (*worker_cancel).clone(), worker_stats.clone()))
         }));
 
         match result {
@@ -470,7 +436,8 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
             }
         }
         telemetry.mark_stopped();
-    });
+    })
+    .expect("failed to spawn tunnel worker thread");
 
     state = session.state.lock().expect("tunnel session poisoned");
     match &*state {

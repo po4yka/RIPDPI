@@ -59,6 +59,7 @@ dependencies = [
  "android_logger",
  "golden-test-support",
  "jni",
+ "libc",
  "log",
  "once_cell",
  "tracing",
