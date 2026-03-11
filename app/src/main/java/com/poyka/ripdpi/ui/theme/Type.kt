@@ -94,7 +94,6 @@ data class RipDpiTextStyles(
     val monoInline: TextStyle,
     val monoLog: TextStyle,
     val monoSmall: TextStyle,
-    val brandGlyph: TextStyle,
     val brandMark: TextStyle,
     val brandStatus: TextStyle,
 )
@@ -126,7 +125,6 @@ val RipDpiTypeScale =
         monoInline = monoStyle(fontSize = 12, lineHeight = 20),
         monoLog = monoStyle(fontSize = 11, lineHeight = 20),
         monoSmall = monoStyle(fontSize = 10, lineHeight = 20),
-        brandGlyph = pixelStyle(fontSize = 24, lineHeight = 24),
         brandMark = pixelStyle(fontSize = 32, lineHeight = 48, letterSpacing = 0.8f),
         brandStatus = monoStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Medium),
     )

@@ -41,9 +41,10 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.OnboardingEffect
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.OnboardingViewModel
-import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
+import com.poyka.ripdpi.ui.components.intro.DefaultRipDpiIntroScaffoldMetrics
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -111,7 +112,7 @@ fun OnboardingScreen(
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    val introLayout = RipDpiThemeTokens.introLayout
+    val introLayout = DefaultRipDpiIntroScaffoldMetrics
     val pagerState =
         rememberPagerState(
             initialPage = uiState.currentPage.coerceIn(0, OnboardingPages.lastIndex),
@@ -230,7 +231,7 @@ private fun OnboardingIllustration(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val introLayout = RipDpiThemeTokens.introLayout
+    val introLayout = DefaultRipDpiIntroScaffoldMetrics
     val strokeWidth = introLayout.illustrationIconStrokeWidth
 
     Box(

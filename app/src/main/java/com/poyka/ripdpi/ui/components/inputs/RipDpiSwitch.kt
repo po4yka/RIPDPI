@@ -33,6 +33,10 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val PressedCheckedTrackBlend = 0.18f
+private const val PressedDarkTrackBlend = 0.32f
+private const val PressedLightTrackBlend = 0.22f
+
 @Composable
 fun RipDpiSwitch(
     checked: Boolean,
@@ -49,12 +53,33 @@ fun RipDpiSwitch(
     val trackColor by animateColorAsState(
         targetValue =
             when {
-                isPressed && checked -> lerp(colors.foreground, scheme.onSurfaceVariant, 0.18f)
-                isPressed -> lerp(colors.background, colors.foreground, if (isDark) 0.32f else 0.22f)
-                checked && isDark -> colors.foreground
-                checked -> colors.foreground
-                isDark -> lerp(colors.background, colors.foreground, 0.25f)
-                else -> lerp(colors.background, colors.foreground, 0.16f)
+                isPressed && checked -> {
+                    lerp(colors.foreground, scheme.onSurfaceVariant, PressedCheckedTrackBlend)
+                }
+
+                isPressed -> {
+                    lerp(
+                        colors.background,
+                        colors.foreground,
+                        if (isDark) PressedDarkTrackBlend else PressedLightTrackBlend,
+                    )
+                }
+
+                checked && isDark -> {
+                    colors.foreground
+                }
+
+                checked -> {
+                    colors.foreground
+                }
+
+                isDark -> {
+                    lerp(colors.background, colors.foreground, 0.25f)
+                }
+
+                else -> {
+                    lerp(colors.background, colors.foreground, 0.16f)
+                }
             },
         label = "switchTrack",
     )
@@ -68,8 +93,12 @@ fun RipDpiSwitch(
             },
         label = "switchThumb",
     )
+    val thumbTravel =
+        components.switchWidth -
+            components.switchThumbSize -
+            (components.switchThumbPadding * 2)
     val thumbOffset by animateDpAsState(
-        targetValue = if (checked) components.switchThumbSize else 0.dp,
+        targetValue = if (checked) thumbTravel else 0.dp,
         label = "switchOffset",
     )
     val alpha by animateFloatAsState(targetValue = if (enabled) 1f else 0.38f, label = "switchAlpha")
@@ -79,7 +108,6 @@ fun RipDpiSwitch(
         modifier =
             modifier
                 .size(width = components.switchWidth, height = components.switchHeight)
-                .background(trackColor.copy(alpha = alpha), CircleShape)
                 .then(
                     if (interactive) {
                         Modifier.ripDpiToggleable(
@@ -93,16 +121,24 @@ fun RipDpiSwitch(
                         Modifier
                     },
                 ),
+        contentAlignment = Alignment.CenterStart,
     ) {
         Box(
             modifier =
                 Modifier
-                    .padding(components.switchThumbPadding)
-                    .offset(x = thumbOffset)
-                    .size(components.switchThumbSize)
-                    .shadow(elevation = 3.dp, shape = CircleShape, clip = false)
-                    .background(thumbColor.copy(alpha = alpha), CircleShape),
-        )
+                    .size(width = components.switchWidth, height = components.switchTrackHeight)
+                    .background(trackColor.copy(alpha = alpha), CircleShape),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .offset(x = components.switchThumbPadding + thumbOffset)
+                        .size(components.switchThumbSize)
+                        .shadow(elevation = 3.dp, shape = CircleShape, clip = false)
+                        .background(thumbColor.copy(alpha = alpha), CircleShape),
+            )
+        }
     }
 }
 
