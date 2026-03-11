@@ -153,10 +153,22 @@ class RipDpiVpnService : LifecycleVpnService() {
         mutex.withLock {
             stopping = true
             try {
-                stopTun2Socks()
-                stopProxy()
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR) { "Failed to stop VPN\n${e.asLog()}" }
+                var shutdownError: Exception? = null
+                try {
+                    stopTun2Socks()
+                } catch (e: Exception) {
+                    shutdownError = e
+                    logcat(LogPriority.ERROR) { "Failed to stop tunnel\n${e.asLog()}" }
+                }
+                try {
+                    stopProxy()
+                } catch (e: Exception) {
+                    if (shutdownError == null) {
+                        shutdownError = e
+                    }
+                    logcat(LogPriority.ERROR) { "Failed to stop proxy\n${e.asLog()}" }
+                }
+                shutdownError?.let { throw it }
             } finally {
                 stopping = false
             }

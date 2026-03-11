@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.core.testing.FaultOutcome
+import com.poyka.ripdpi.core.testing.FaultQueue
+import com.poyka.ripdpi.core.testing.FaultSpec
+import com.poyka.ripdpi.core.testing.faultThrowable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 
@@ -39,6 +43,13 @@ class FakeRipDpiProxyRuntime : RipDpiProxyRuntime {
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot = telemetryValue
 }
 
+enum class ProxyBindingFaultTarget {
+    CREATE,
+    START,
+    STOP,
+    TELEMETRY,
+}
+
 class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     var createdHandle: Long = 1L
     var startResult: Int = 0
@@ -53,6 +64,7 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     var lastStoppedHandle: Long? = null
     var lastDestroyedHandle: Long? = null
     var telemetryJson: String? = null
+    val faults = FaultQueue<ProxyBindingFaultTarget>()
     val createdPayloads = mutableListOf<String>()
     val startedHandles = mutableListOf<Long>()
     val stoppedHandles = mutableListOf<Long>()
@@ -60,6 +72,7 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     val telemetryHandles = mutableListOf<Long>()
 
     override fun create(configJson: String): Long {
+        faults.next(ProxyBindingFaultTarget.CREATE)?.throwOrIgnore()
         createFailure?.let { throw it }
         lastCreatePayload = configJson
         createdPayloads += configJson
@@ -73,6 +86,7 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
         startBlocker?.let { blocker ->
             runBlocking { blocker.await() }
         }
+        faults.next(ProxyBindingFaultTarget.START)?.throwOrIgnore()
         startFailure?.let { throw it }
         return startResult
     }
@@ -80,11 +94,15 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     override fun stop(handle: Long) {
         lastStoppedHandle = handle
         stoppedHandles += handle
+        faults.next(ProxyBindingFaultTarget.STOP)?.throwOrIgnore()
         stopFailure?.let { throw it }
     }
 
     override fun pollTelemetry(handle: Long): String? {
         telemetryHandles += handle
+        faults.next(ProxyBindingFaultTarget.TELEMETRY)?.let { fault ->
+            return fault.payloadResult() ?: telemetryJson
+        }
         telemetryFailure?.let { throw it }
         return telemetryJson
     }
@@ -123,6 +141,14 @@ class FakeTun2SocksBridge : Tun2SocksBridge {
     override suspend fun telemetry(): NativeRuntimeSnapshot = telemetryValue
 }
 
+enum class TunnelBindingFaultTarget {
+    CREATE,
+    START,
+    STOP,
+    STATS,
+    TELEMETRY,
+}
+
 class FakeTun2SocksBridgeFactory(
     private val bridge: Tun2SocksBridge = FakeTun2SocksBridge(),
 ) : Tun2SocksBridgeFactory {
@@ -143,6 +169,7 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     var lastDestroyedHandle: Long? = null
     var nativeStats: LongArray = longArrayOf()
     var telemetryJson: String? = null
+    val faults = FaultQueue<TunnelBindingFaultTarget>()
     val createdPayloads = mutableListOf<String>()
     val startedHandles = mutableListOf<Long>()
     val stoppedHandles = mutableListOf<Long>()
@@ -151,6 +178,7 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     val telemetryHandles = mutableListOf<Long>()
 
     override fun create(configJson: String): Long {
+        faults.next(TunnelBindingFaultTarget.CREATE)?.throwOrIgnore()
         createFailure?.let { throw it }
         lastCreatePayload = configJson
         createdPayloads += configJson
@@ -164,23 +192,29 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
         lastStartHandle = handle
         lastStartTunFd = tunFd
         startedHandles += handle
+        faults.next(TunnelBindingFaultTarget.START)?.throwOrIgnore()
         startFailure?.let { throw it }
     }
 
     override fun stop(handle: Long) {
         lastStopHandle = handle
         stoppedHandles += handle
+        faults.next(TunnelBindingFaultTarget.STOP)?.throwOrIgnore()
         stopFailure?.let { throw it }
     }
 
     override fun getStats(handle: Long): LongArray {
         statsHandles += handle
+        faults.next(TunnelBindingFaultTarget.STATS)?.throwOrIgnore()
         statsFailure?.let { throw it }
         return nativeStats
     }
 
     override fun getTelemetry(handle: Long): String? {
         telemetryHandles += handle
+        faults.next(TunnelBindingFaultTarget.TELEMETRY)?.let { fault ->
+            return fault.payloadResult() ?: telemetryJson
+        }
         telemetryFailure?.let { throw it }
         return telemetryJson
     }
@@ -189,6 +223,16 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
         lastDestroyedHandle = handle
         destroyedHandles += handle
     }
+}
+
+enum class DiagnosticsBindingFaultTarget {
+    CREATE,
+    START_SCAN,
+    CANCEL,
+    POLL_PROGRESS,
+    TAKE_REPORT,
+    PASSIVE_EVENTS,
+    DESTROY,
 }
 
 class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
@@ -207,6 +251,7 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
     var reportJson: String? = null
     var passiveEventsJson: String? = "[]"
     var state: ScanState = ScanState.READY
+    val faults = FaultQueue<DiagnosticsBindingFaultTarget>()
     var lastStartedHandle: Long? = null
     var lastStartedRequestJson: String? = null
     var lastStartedSessionId: String? = null
@@ -217,6 +262,7 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
     val passiveEventHandles = mutableListOf<Long>()
 
     override fun create(): Long {
+        faults.next(DiagnosticsBindingFaultTarget.CREATE)?.throwOrIgnore()
         createFailure?.let { throw it }
         return createdHandle
     }
@@ -232,35 +278,66 @@ class FakeNetworkDiagnosticsBindings : NetworkDiagnosticsBindings {
         lastStartedHandle = handle
         lastStartedRequestJson = requestJson
         lastStartedSessionId = sessionId
+        faults.next(DiagnosticsBindingFaultTarget.START_SCAN)?.throwOrIgnore()
         startFailure?.let { throw it }
         state = ScanState.SCANNING
     }
 
     override fun cancelScan(handle: Long) {
         cancelledHandles += handle
+        faults.next(DiagnosticsBindingFaultTarget.CANCEL)?.throwOrIgnore()
         state = ScanState.READY
     }
 
     override fun pollProgress(handle: Long): String? {
         progressHandles += handle
+        faults.next(DiagnosticsBindingFaultTarget.POLL_PROGRESS)?.let { fault ->
+            return fault.payloadResult() ?: progressJson
+        }
         pollProgressFailure?.let { throw it }
         return progressJson
     }
 
     override fun takeReport(handle: Long): String? {
         reportHandles += handle
+        faults.next(DiagnosticsBindingFaultTarget.TAKE_REPORT)?.let { fault ->
+            return fault.payloadResult() ?: reportJson
+        }
         takeReportFailure?.let { throw it }
         return reportJson
     }
 
     override fun pollPassiveEvents(handle: Long): String? {
         passiveEventHandles += handle
+        faults.next(DiagnosticsBindingFaultTarget.PASSIVE_EVENTS)?.let { fault ->
+            return fault.payloadResult() ?: passiveEventsJson
+        }
         passiveEventsFailure?.let { throw it }
         return passiveEventsJson
     }
 
     override fun destroy(handle: Long) {
         destroyedHandles += handle
+        faults.next(DiagnosticsBindingFaultTarget.DESTROY)?.throwOrIgnore()
         state = ScanState.READY
     }
 }
+
+private fun <T> FaultSpec<T>.throwOrIgnore() {
+    when (outcome) {
+        FaultOutcome.MALFORMED_PAYLOAD,
+        FaultOutcome.BLANK_PAYLOAD,
+        -> Unit
+
+        else -> throw faultThrowable(outcome, message)
+    }
+}
+
+private fun <T> FaultSpec<T>.payloadResult(): String? =
+    when (outcome) {
+        FaultOutcome.MALFORMED_PAYLOAD -> payload ?: """{"malformed"""
+        FaultOutcome.BLANK_PAYLOAD -> payload ?: ""
+        else -> {
+            throw faultThrowable(outcome, message)
+        }
+    }

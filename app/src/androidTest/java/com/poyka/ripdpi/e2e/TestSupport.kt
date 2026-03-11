@@ -51,6 +51,39 @@ data class FixtureEventDto(
     val createdAt: Long,
 )
 
+enum class FixtureFaultScopeDto {
+    ONE_SHOT,
+    PERSISTENT,
+}
+
+enum class FixtureFaultTargetDto {
+    TCP_ECHO,
+    UDP_ECHO,
+    TLS_ECHO,
+    DNS_UDP,
+    DNS_HTTP,
+    SOCKS5_RELAY,
+}
+
+enum class FixtureFaultOutcomeDto {
+    TCP_RESET,
+    TCP_TRUNCATE,
+    UDP_DROP,
+    UDP_DELAY,
+    TLS_ABORT,
+    DNS_NX_DOMAIN,
+    DNS_SERV_FAIL,
+    DNS_TIMEOUT,
+    SOCKS_REJECT_CONNECT,
+}
+
+data class FixtureFaultSpecDto(
+    val target: FixtureFaultTargetDto,
+    val outcome: FixtureFaultOutcomeDto,
+    val scope: FixtureFaultScopeDto = FixtureFaultScopeDto.ONE_SHOT,
+    val delayMs: Long? = null,
+)
+
 class LocalFixtureClient(
     private val controlHost: String,
     private val controlPort: Int,
@@ -67,6 +100,32 @@ class LocalFixtureClient(
 
     fun resetEvents() {
         val connection = openConnection("/events/reset", method = "POST")
+        connection.outputStream.use { output ->
+            output.write(ByteArray(0))
+        }
+        connection.inputStream.close()
+        connection.disconnect()
+    }
+
+    fun setFault(spec: FixtureFaultSpecDto) {
+        val connection = openConnection("/faults", method = "POST")
+        connection.outputStream.use { output ->
+            val body =
+                org.json.JSONObject()
+                    .put("target", spec.target.name.lowercase())
+                    .put("outcome", spec.outcome.name.lowercase())
+                    .put("scope", spec.scope.name.lowercase())
+                    .apply {
+                        spec.delayMs?.let { put("delayMs", it) }
+                    }.toString()
+            output.write(body.toByteArray(StandardCharsets.UTF_8))
+        }
+        connection.inputStream.close()
+        connection.disconnect()
+    }
+
+    fun resetFaults() {
+        val connection = openConnection("/faults/reset", method = "POST")
         connection.outputStream.use { output ->
             output.write(ByteArray(0))
         }

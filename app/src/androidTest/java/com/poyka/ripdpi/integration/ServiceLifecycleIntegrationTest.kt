@@ -7,6 +7,7 @@ import android.net.VpnService
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
+import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.ProxyPreferencesResolverModule
 import com.poyka.ripdpi.core.RipDpiProxyFactory
@@ -14,6 +15,9 @@ import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
+import com.poyka.ripdpi.core.testing.FaultOutcome
+import com.poyka.ripdpi.core.testing.FaultScope
+import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.AppStatus
@@ -29,6 +33,8 @@ import com.poyka.ripdpi.services.ServiceStateStoreModule
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
 import com.poyka.ripdpi.testing.IntegrationTestOverrides
+import com.poyka.ripdpi.testing.ProxyRuntimeFaultTarget
+import com.poyka.ripdpi.testing.TunnelBridgeFaultTarget
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -344,6 +350,127 @@ class ServiceLifecycleIntegrationTest {
         }
     }
 
+    @Test
+    fun proxyServiceStopFailureStillHaltsAndSecondStopDoesNotLoop() {
+        runBlocking {
+            startService(RipDpiProxyService::class.java)
+            awaitStatus(AppStatus.Running, Mode.Proxy)
+
+            IntegrationTestOverrides.proxyFactory.lastRuntime.faults.enqueue(
+                FaultSpec(
+                    target = ProxyRuntimeFaultTarget.STOP,
+                    outcome = FaultOutcome.EXCEPTION,
+                    scope = FaultScope.ONE_SHOT,
+                    message = "proxy stop failed",
+                ),
+            )
+
+            stopService(RipDpiProxyService::class.java)
+            awaitStatus(AppStatus.Halted, Mode.Proxy)
+
+            stopService(RipDpiProxyService::class.java)
+            delay(200)
+
+            assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
+        }
+    }
+
+    @Test
+    fun proxyServiceTelemetryFailureFallsBackToIdleSnapshot() {
+        runBlocking {
+            IntegrationTestOverrides.proxyFactory.lastRuntime.telemetryValue =
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    state = "running",
+                    health = "healthy",
+                    activeSessions = 1,
+                    totalSessions = 2,
+                )
+
+            startService(RipDpiProxyService::class.java)
+            awaitStatus(AppStatus.Running, Mode.Proxy)
+            awaitTelemetrySnapshot { snapshot ->
+                snapshot.mode == Mode.Proxy && snapshot.proxyTelemetry.state == "running"
+            }
+
+            IntegrationTestOverrides.proxyFactory.lastRuntime.faults.enqueue(
+                FaultSpec(
+                    target = ProxyRuntimeFaultTarget.TELEMETRY,
+                    outcome = FaultOutcome.EXCEPTION,
+                    scope = FaultScope.PERSISTENT,
+                    message = "telemetry unavailable",
+                ),
+            )
+
+            awaitTelemetrySnapshot { snapshot ->
+                snapshot.mode == Mode.Proxy &&
+                    snapshot.status == AppStatus.Running &&
+                    snapshot.proxyTelemetry.state == "idle"
+            }
+        }
+    }
+
+    @Test
+    fun vpnServiceTunnelStopFailureStillClosesSessionAndHalts() {
+        assumeVpnPrepared()
+        runBlocking {
+            startService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Running, Mode.VPN)
+
+            IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.faults.enqueue(
+                FaultSpec(
+                    target = TunnelBridgeFaultTarget.STOP,
+                    outcome = FaultOutcome.EXCEPTION,
+                    message = "tunnel stop failed",
+                ),
+            )
+
+            stopService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Halted, Mode.VPN)
+
+            assertTrue(IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed)
+            assertEquals(1, IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.stopCount)
+            assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
+        }
+    }
+
+    @Test
+    fun vpnServiceTelemetryFailureFallsBackToIdleTunnelSnapshot() {
+        assumeVpnPrepared()
+        runBlocking {
+            IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.telemetryValue =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "running",
+                    health = "healthy",
+                    activeSessions = 1,
+                    tunnelStats = com.poyka.ripdpi.core.TunnelStats(txPackets = 5, rxPackets = 6),
+                )
+
+            startService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Running, Mode.VPN)
+            awaitTelemetrySnapshot { snapshot ->
+                snapshot.mode == Mode.VPN && snapshot.tunnelTelemetry.state == "running"
+            }
+
+            IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.faults.enqueue(
+                FaultSpec(
+                    target = TunnelBridgeFaultTarget.TELEMETRY,
+                    outcome = FaultOutcome.EXCEPTION,
+                    scope = FaultScope.PERSISTENT,
+                    message = "tunnel telemetry failed",
+                ),
+            )
+
+            awaitTelemetrySnapshot { snapshot ->
+                snapshot.mode == Mode.VPN &&
+                    snapshot.status == AppStatus.Running &&
+                    snapshot.tunnelTelemetry.state == "idle" &&
+                    snapshot.tunnelStats == com.poyka.ripdpi.core.TunnelStats()
+            }
+        }
+    }
+
     private fun startService(serviceClass: Class<*>) {
         ContextCompat.startForegroundService(
             appContext,
@@ -391,6 +518,16 @@ class ServiceLifecycleIntegrationTest {
                 ) {
                     return@withTimeout
                 }
+                delay(50)
+            }
+        }
+    }
+
+    private suspend fun awaitTelemetrySnapshot(
+        predicate: (com.poyka.ripdpi.services.ServiceTelemetrySnapshot) -> Boolean,
+    ) {
+        withTimeout(10.seconds) {
+            while (!predicate(IntegrationTestOverrides.serviceStateStore.telemetry.value)) {
                 delay(50)
             }
         }

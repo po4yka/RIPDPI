@@ -26,12 +26,12 @@ const QUIC_MAX_CRYPTO_LEN: usize = 64 * 1024;
 const QUIC_V1_VERSION: u32 = 0x0000_0001;
 const QUIC_V2_VERSION: u32 = 0x6b33_43cf;
 const QUIC_V1_SALT: [u8; 20] = [
-    0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb,
-    0x7f, 0x0a,
+    0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f,
+    0x0a,
 ];
 const QUIC_V2_SALT: [u8; 20] = [
-    0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb, 0xf9, 0xbd,
-    0x2e, 0xd9,
+    0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb, 0xf9, 0xbd, 0x2e,
+    0xd9,
 ];
 
 pub const DEFAULT_FAKE_TLS: &[u8] = &[
@@ -671,8 +671,7 @@ fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHeader<'_>) ->
     let packet_number = u32::from_be_bytes(packet_number_bytes);
 
     let ciphertext_len = header.payload_len.checked_sub(pn_len + QUIC_TAG_LEN)?;
-    let ciphertext =
-        buffer.get(header.pn_offset + pn_len..header.pn_offset + pn_len + ciphertext_len)?.to_vec();
+    let ciphertext = buffer.get(header.pn_offset + pn_len..header.pn_offset + pn_len + ciphertext_len)?.to_vec();
     let tag = buffer.get(header.pn_offset + pn_len + ciphertext_len..header.pn_offset + header.payload_len)?;
 
     let mut aad = buffer.get(..header.pn_offset + pn_len)?.to_vec();
@@ -688,12 +687,7 @@ fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHeader<'_>) ->
     let cipher = Aes128Gcm::new_from_slice(&key).ok()?;
     let mut plaintext = ciphertext;
     cipher
-        .decrypt_in_place_detached(
-            Nonce::from_slice(&nonce_bytes),
-            &aad,
-            &mut plaintext,
-            Tag::from_slice(tag),
-        )
+        .decrypt_in_place_detached(Nonce::from_slice(&nonce_bytes), &aad, &mut plaintext, Tag::from_slice(tag))
         .ok()?;
     Some(plaintext)
 }
