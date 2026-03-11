@@ -18,7 +18,7 @@ Feature geometry does not belong in the global theme. Flow-specific measurements
 
 - Actions: `RipDpiButton`, `RipDpiIconButton`, `RipDpiChip`
 - Inputs: `RipDpiTextField`, `RipDpiConfigTextField`, `RipDpiDropdown`, `RipDpiSwitch`
-- Containers: `RipDpiCard`, `SettingsRow`, `RipDpiBottomSheet`, `RipDpiDialog`, `RipDpiSnackbar`, `WarningBanner`
+- Containers: `RipDpiCard`, `PresetCard`, `SettingsRow`, `RipDpiBottomSheet`, `RipDpiDialog`, `RipDpiSnackbar`, `WarningBanner`
 - Navigation: `RipDpiTopAppBar`, `BottomNavBar`, `SettingsCategoryHeader`
 - Indicators: `StatusIndicator`, `RipDpiPageIndicators`, `LogRow`
 - Scaffolds: `RipDpiContentScreenScaffold`, `RipDpiSettingsScaffold`, `RipDpiDashboardScaffold`, `RipDpiIntroScaffold`
@@ -70,6 +70,7 @@ Reusable primitives must not override typography inline for branding. If a scree
 - Icon-only buttons require a content description.
 - `RipDpiDropdown`, `RipDpiTextField`, and `RipDpiSwitch` must surface label and error semantics.
 - Secondary text roles must remain readable in both light and dark themes.
+- Selectable cards such as `PresetCard` must expose their selection state semantically, not only visually.
 
 ## Contributor Rules
 

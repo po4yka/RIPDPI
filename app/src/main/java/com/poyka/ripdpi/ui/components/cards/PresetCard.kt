@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.components.cards
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,22 +10,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
-import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.ripDpiSelectable
+import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 @Composable
 fun PresetCard(
@@ -34,35 +36,48 @@ fun PresetCard(
     badgeText: String? = null,
     selected: Boolean = false,
     enabled: Boolean = true,
+    interactionSource: MutableInteractionSource? = null,
     onClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
-    val scheme = MaterialTheme.colorScheme
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
     val shape = RipDpiThemeTokens.shapes.xl
-    val borderColor = if (selected) colors.foreground else colors.cardBorder
-    val background =
-        if (selected) {
-            lerp(scheme.background, colors.foreground, if (scheme.background.luminance() < 0.5f) 0.04f else 0.05f)
-        } else {
-            MaterialTheme.colorScheme.surface
-        }
+    val surfaceStyle =
+        ripDpiSurfaceStyle(
+            if (selected) {
+                RipDpiSurfaceRole.SelectedCard
+            } else {
+                RipDpiSurfaceRole.Card
+            },
+        )
+    val badgePalette = presetCardBadgePalette(selected = selected)
+    val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
 
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(min = 65.dp)
-                .background(background, shape)
-                .border(1.dp, borderColor, shape)
-                .ripDpiClickable(
+                .heightIn(min = components.settingsRowMinHeightWithSubtitle)
+                .shadow(surfaceStyle.shadowElevation, shape, clip = false)
+                .background(surfaceStyle.container, shape)
+                .border(
+                    width = if (surfaceStyle.border == Color.Transparent) 0.dp else 1.dp,
+                    color = surfaceStyle.border,
+                    shape = shape,
+                ).alpha(if (enabled) 1f else 0.38f)
+                .ripDpiSelectable(
+                    selected = selected,
                     enabled = enabled,
-                    role = Role.Button,
+                    role = Role.RadioButton,
+                    interactionSource = resolvedInteractionSource,
                     onClick = onClick,
-                )
-                .padding(horizontal = components.fieldHorizontalPadding, vertical = 13.dp)
-                .alpha(if (enabled) 1f else 0.38f),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+                ).padding(
+                    horizontal = components.fieldHorizontalPadding,
+                    vertical = components.settingsRowVerticalPadding,
+                ),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -71,16 +86,16 @@ fun PresetCard(
         ) {
             Text(
                 text = title,
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = colors.foreground,
+                style = type.bodyEmphasis,
+                color = surfaceStyle.content,
             )
             badgeText?.let {
                 Box(
                     modifier =
                         Modifier
                             .background(
-                                colors.foreground.copy(alpha = if (selected) 0.12f else 0.08f),
-                                RipDpiThemeTokens.shapes.xxl,
+                                color = badgePalette.container,
+                                shape = RipDpiThemeTokens.shapes.xxl,
                             ).padding(
                                 horizontal = components.compactPillHorizontalPadding,
                                 vertical = components.compactPillVerticalPadding,
@@ -88,16 +103,39 @@ fun PresetCard(
                 ) {
                     Text(
                         text = it,
-                        style = RipDpiThemeTokens.type.smallLabel,
-                        color = colors.foreground,
+                        style = type.smallLabel,
+                        color = badgePalette.content,
                     )
                 }
             }
         }
         Text(
             text = description,
-            style = RipDpiThemeTokens.type.caption,
+            style = type.secondaryBody,
             color = colors.mutedForeground,
+        )
+    }
+}
+
+@Immutable
+private data class PresetCardBadgePalette(
+    val container: Color,
+    val content: Color,
+)
+
+@Composable
+private fun presetCardBadgePalette(selected: Boolean): PresetCardBadgePalette {
+    val colors = RipDpiThemeTokens.colors
+
+    return if (selected) {
+        PresetCardBadgePalette(
+            container = colors.foreground,
+            content = colors.background,
+        )
+    } else {
+        PresetCardBadgePalette(
+            container = colors.inputBackground,
+            content = colors.mutedForeground,
         )
     }
 }

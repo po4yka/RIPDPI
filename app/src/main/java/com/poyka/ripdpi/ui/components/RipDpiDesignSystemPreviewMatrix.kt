@@ -28,10 +28,13 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
+import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbar
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.LogRow
+import com.poyka.ripdpi.ui.components.indicators.LogRowTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
@@ -320,6 +323,37 @@ private fun RipDpiDesignSystemPreviewMatrix(themePreference: String) {
 
         PreviewSection(title = "Semantic Tones") {
             PreviewMatrixRow(
+                title = "Selectable Cards",
+                cells =
+                    listOf(
+                        "Selected" to {
+                            PresetCard(
+                                title = "Automatic",
+                                description = "Detect and apply the strongest path optimization strategy.",
+                                badgeText = "Active",
+                                selected = true,
+                                onClick = {},
+                            )
+                        },
+                        "Default" to {
+                            PresetCard(
+                                title = "desync (fake)",
+                                description = "Send fake packets before the real request leaves the device.",
+                                onClick = {},
+                            )
+                        },
+                        "Disabled" to {
+                            PresetCard(
+                                title = "SOCKS5 proxy",
+                                description = "Tunnel traffic through the local proxy listener.",
+                                enabled = false,
+                                onClick = {},
+                            )
+                        },
+                    ),
+            )
+
+            PreviewMatrixRow(
                 title = "Banners",
                 cells =
                     listOf(
@@ -382,6 +416,45 @@ private fun RipDpiDesignSystemPreviewMatrix(themePreference: String) {
                             RipDpiSnackbar(
                                 message = "This option only applies when command-line mode is enabled.",
                                 tone = RipDpiSnackbarTone.Restricted,
+                            )
+                        },
+                    ),
+            )
+
+            PreviewMatrixRow(
+                title = "Log Rows",
+                cells =
+                    listOf(
+                        "DNS" to {
+                            LogRow(
+                                timestamp = "02:14:38",
+                                type = "dns",
+                                message = "Resolver switched to 1.1.1.1 after the tunnel became active.",
+                                tone = LogRowTone.Dns,
+                            )
+                        },
+                        "Connection" to {
+                            LogRow(
+                                timestamp = "02:14:42",
+                                type = "conn",
+                                message = "VPN service started on 127.0.0.1:1080.",
+                                tone = LogRowTone.Connection,
+                            )
+                        },
+                        "Warning" to {
+                            LogRow(
+                                timestamp = "02:14:47",
+                                type = "warn",
+                                message = "Fallback DNS is active for the current network.",
+                                tone = LogRowTone.Warning,
+                            )
+                        },
+                        "Error" to {
+                            LogRow(
+                                timestamp = "02:14:51",
+                                type = "error",
+                                message = "VPN permission was denied by the system.",
+                                tone = LogRowTone.Error,
                             )
                         },
                     ),
