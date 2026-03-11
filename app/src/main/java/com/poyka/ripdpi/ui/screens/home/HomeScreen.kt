@@ -27,7 +27,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -39,21 +38,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionRecovery
-import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
-import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -102,10 +100,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(colors.background),
     ) {
-        RipDpiTopAppBar(
-            title = stringResource(R.string.app_name),
-            brandGlyph = stringResource(R.string.app_name).take(1),
-        )
+        HomeTopBar(title = stringResource(R.string.app_name))
 
         Column(
             modifier =
@@ -284,9 +279,9 @@ private fun HomeConnectionButton(
     onClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val components = RipDpiThemeTokens.components
     val type = RipDpiThemeTokens.type
     val scheme = MaterialTheme.colorScheme
+    val homeChrome = DefaultHomeChromeMetrics
     val infiniteTransition = rememberInfiniteTransition()
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 0.96f,
@@ -351,14 +346,14 @@ private fun HomeConnectionButton(
         Box(
             modifier =
                 Modifier
-                    .size(components.homeConnectionHaloSize)
+                    .size(homeChrome.connectionHaloSize)
                     .scale(buttonScale)
                     .background(haloColor, CircleShape),
         )
         Column(
             modifier =
                 Modifier
-                    .size(components.homeConnectionButtonSize)
+                    .size(homeChrome.connectionButtonSize)
                     .scale(buttonScale)
                     .background(containerColor, CircleShape)
                     .border(width = 1.dp, color = borderColor, shape = CircleShape)
@@ -366,10 +361,9 @@ private fun HomeConnectionButton(
                         enabled = state != ConnectionState.Connecting,
                         role = androidx.compose.ui.semantics.Role.Button,
                         onClick = onClick,
-                    )
-                    .padding(
-                        horizontal = components.homeConnectionHorizontalPadding,
-                        vertical = components.homeConnectionVerticalPadding,
+                    ).padding(
+                        horizontal = homeChrome.connectionHorizontalPadding,
+                        vertical = homeChrome.connectionVerticalPadding,
                     ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -378,7 +372,7 @@ private fun HomeConnectionButton(
                 imageVector = icon,
                 contentDescription = null,
                 tint = contentColor,
-                modifier = Modifier.size(components.homeConnectionIconSize),
+                modifier = Modifier.size(homeChrome.connectionIconSize),
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
