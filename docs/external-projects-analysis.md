@@ -23,17 +23,21 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Repository | [bol-van/zapret2](https://github.com/bol-van/zapret2) |
 | Description | DPI circumvention tool for Linux/OpenWRT/FreeBSD with nfqueue/tproxy |
 | Language | C, Lua |
-| Last analyzed | 2026-03-11 (commit: HEAD at time of analysis) |
+| Last analyzed | 2026-03-11 (commit: HEAD at time of analysis, status refreshed after RIPDPI marker/chain port) |
 
 **Ideas extracted:**
 
 | # | Idea | Status | Notes |
 |---|------|--------|-------|
-| 1 | Lua-based strategy scripts for user-configurable packet manipulation | NEW | zapret2 lets users write Lua scripts that define custom desync strategies at runtime. RIPDPI uses static group configs -- a scripting layer would allow power users to compose arbitrary bypass sequences without app updates. |
-| 2 | Multi-instance processing pipeline architecture | NEW | zapret2 runs multiple nfqueue instances in parallel, each handling a subset of traffic. Could inspire a multi-proxy-group architecture where different apps/domains route through separate desync pipelines concurrently. |
-| 3 | Binary blob support for custom fake packets (TLS/HTTP/QUIC templates) | PARTIAL | RIPDPI supports `--fake-data` for custom fake payloads and `FM_ORIG`/`FM_RAND` modes. zapret2 goes further with pre-built binary templates for specific protocol versions (TLS 1.2/1.3 ClientHello, HTTP/3 Initial). Adding curated template blobs could improve fake packet realism. |
-| 4 | Range-based filtering (packet count, data size, sequence offset) | PARTIAL | RIPDPI has `rounds` (which request attempt to apply desync) and protocol/port filtering. zapret2 adds filtering by cumulative data volume and TCP sequence number ranges, allowing finer control over when desync activates within a connection. |
-| 5 | Automatic segmentation without manual MSS configuration | NEW | zapret2 auto-detects optimal split sizes based on observed MSS/MTU without user input. RIPDPI requires explicit split offsets. Auto-segmentation would simplify UX for non-technical users. |
+| 1 | Semantic marker system for protocol-aware offsets (`host`, `endhost`, `sld`, `midsld`, `endsld`, `method`, `extlen`, `sniext`) | IMPLEMENTED | RIPDPI now has a structured marker model in the vendored Rust stack and Android persistence layer. Offsets are no longer just numeric or host/SNI toggles; they resolve the same semantic positions zapret2 uses for HTTP/TLS-aware splitting and record placement. |
+| 2 | Ordered multi-step strategy chains | IMPLEMENTED | RIPDPI now stores and executes explicit TCP/UDP chains instead of a single `desyncMethod`. Supported TCP steps are `split`, `disorder`, `fake`, `oob`, `disoob`, and `tlsrec`; supported UDP step is `fake_burst(count)`. `tlsrec` is enforced as a prelude-only step in v1. |
+| 3 | Chain persistence, compatibility projection, and summary surface | IMPLEMENTED | The zapret2-style composition model is now carried through AppSettings, JNI JSON, diagnostics, and Android UI. RIPDPI persists structured chains, projects legacy `desync_method`/marker fields for compatibility, and renders deterministic summaries like `tcp: tlsrec(extlen) -> fake(host) -> split(midsld)`. |
+| 4 | Hybrid raw authoring for strategy composition | IMPLEMENTED | RIPDPI does not embed Lua, but it now exposes a structured chain DSL with `[tcp]` and `[udp]` sections that maps into typed storage. This gives a zapret2-like authoring surface without adding a runtime scripting engine. |
+| 5 | Binary blob support for custom fake packets (TLS/HTTP/QUIC templates) | PARTIAL | RIPDPI already supports custom fake payload blobs and fake modifiers. zapret2 still goes further with more curated, protocol-specific template sets, especially around realistic TLS/QUIC fake payloads. |
+| 6 | Range-based filtering (packet count, data size, sequence offset) | PARTIAL | RIPDPI now has richer chain composition, but its activation filters are still closer to rounds/protocol/port routing than zapret2's deeper per-flow/sequence/data-volume controls. |
+| 7 | Lua-based runtime scripting engine | NOT IMPLEMENTED | RIPDPI intentionally chose typed Rust/Kotlin structures over a Lua runtime. This keeps the Android/JNI surface smaller and safer, but it means users cannot define arbitrary runtime packet logic the way zapret2 can. |
+| 8 | Multi-instance processing pipeline architecture | NOT IMPLEMENTED | RIPDPI still uses its current local proxy/VPN routing model rather than independent parallel desync instances in the zapret2 sense. |
+| 9 | Automatic segmentation without manual MSS configuration | NOT IMPLEMENTED | Marker-aware chains improve split targeting, but RIPDPI still relies on explicit split markers rather than inferred MSS/MTU-aware auto-segmentation. |
 
 ---
 
@@ -104,6 +108,8 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Technique | zapret2 | rethink-app | dpi-detector | NoDPI | RIPDPI Status |
 |-----------|---------|-------------|--------------|-------|---------------|
 | Packet splitting/fragmentation | Yes | -- | -- | Yes | IMPLEMENTED |
+| Semantic marker offsets | Yes | -- | -- | Partial | IMPLEMENTED |
+| Ordered multi-step strategy chains | Yes | -- | -- | Partial | IMPLEMENTED |
 | Fake packets (TTL/MD5) | Yes | -- | -- | -- | IMPLEMENTED |
 | TLS record splitting | Yes | -- | -- | -- | IMPLEMENTED |
 | TLS version spoofing | -- | -- | -- | Yes | IMPLEMENTED |
@@ -111,6 +117,7 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Auto-detect & group switching | Yes | -- | -- | -- | IMPLEMENTED |
 | TCP cutoff detection | -- | -- | Yes | -- | IMPLEMENTED |
 | SNI whitelist discovery | -- | -- | Yes | -- | IMPLEMENTED |
+| Raw chain DSL authoring | Yes | -- | -- | -- | IMPLEMENTED |
 | Lua/scripting for strategies | Yes | -- | -- | -- | NOT IMPLEMENTED |
 | DNS encryption (DoH/DoT) | -- | Yes | -- | -- | NOT IMPLEMENTED |
 | Per-app network rules | -- | Yes | -- | -- | NOT IMPLEMENTED |
@@ -128,7 +135,7 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 2. **Diagnostic-first mode** -- run detection suite before connecting, pre-select optimal desync group; builds on existing `ripdpi-monitor` infrastructure
 3. **ECH support** -- protocol-level SNI hiding eliminates need for desync when server supports it; future-proof
 4. **Granular error classification** -- distinguish RST/abort/MITM/SNI-block for better auto-strategy selection; incremental improvement to existing `auto_level`
-5. **Auto segmentation** -- remove need for users to specify split offsets; UX improvement
+5. **Auto segmentation** -- now that semantic markers and multi-step chains are implemented, the next zapret2-inspired improvement is automatically choosing split locations/sizes instead of requiring explicit markers
 
 ### Exploratory Ideas (interesting but larger scope)
 
@@ -136,3 +143,4 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 - Per-app desync routing
 - Category-based domain filtering
 - Multi-fragment random splitting
+- Deeper zapret2-style range filters (sequence/data-volume aware activation)
