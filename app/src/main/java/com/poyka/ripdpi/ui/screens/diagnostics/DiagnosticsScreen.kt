@@ -58,6 +58,7 @@ import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEffect
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
 import com.poyka.ripdpi.activities.DiagnosticsHealth
+import com.poyka.ripdpi.activities.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsNetworkSnapshotUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
@@ -725,16 +726,13 @@ private fun LiveSection(uiState: DiagnosticsUiState) {
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
-            RipDpiCard(variant = RipDpiCardVariant.Elevated) {
-                StatusIndicator(
-                    label = uiState.live.statusLabel,
-                    tone = uiState.overview.health.statusTone(),
-                )
-                Text(
-                    text = uiState.live.freshnessLabel,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
+            LiveHeroCard(
+                live = uiState.live,
+                health = uiState.overview.health,
+            )
+        }
+        if (uiState.live.metrics.isNotEmpty()) {
+            item {
                 MetricsRow(metrics = uiState.live.metrics)
             }
         }
@@ -769,6 +767,215 @@ private fun LiveSection(uiState: DiagnosticsUiState) {
                         EventRow(event = event, onClick = {})
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveHeroCard(
+    live: DiagnosticsLiveUiModel,
+    health: DiagnosticsHealth,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val motion = RipDpiThemeTokens.motion
+    val palette = liveHeroPalette(health)
+    val liveBadgeText = live.networkLabel ?: live.modeLabel ?: "Standby"
+    val animatedContainer by animateColorAsState(
+        targetValue = palette.container,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "liveHeroContainer",
+    )
+    val animatedAccent by animateColorAsState(
+        targetValue = palette.content,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "liveHeroAccent",
+    )
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = animatedContainer,
+        contentColor = colors.foreground,
+        shape = RipDpiThemeTokens.shapes.xl,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(spacing.md),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StatusIndicator(
+                    label = live.statusLabel,
+                    tone = health.statusTone(),
+                )
+                EventBadge(
+                    text = liveBadgeText,
+                    tone = if (live.networkLabel == null) DiagnosticsTone.Neutral else DiagnosticsTone.Info,
+                )
+            }
+            AnimatedContent(
+                targetState = live.headline,
+                transitionSpec = {
+                    androidx.compose.animation.fadeIn(
+                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                    ) togetherWith androidx.compose.animation.fadeOut(
+                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    )
+                },
+                label = "liveHeroHeadline",
+            ) { headline ->
+                Text(
+                    text = headline,
+                    style = RipDpiThemeTokens.type.screenTitle,
+                    color = colors.foreground,
+                )
+            }
+            AnimatedContent(
+                targetState = live.body,
+                transitionSpec = {
+                    androidx.compose.animation.fadeIn(
+                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                    ) togetherWith androidx.compose.animation.fadeOut(
+                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    )
+                },
+                label = "liveHeroBody",
+            ) { body ->
+                Text(
+                    text = body,
+                    style = RipDpiThemeTokens.type.body,
+                    color = colors.foreground.copy(alpha = 0.92f),
+                )
+            }
+            if (live.highlights.isNotEmpty()) {
+                LiveHighlightsGrid(highlights = live.highlights.take(4))
+            }
+            HorizontalDivider(color = animatedAccent.copy(alpha = 0.14f))
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                AnimatedContent(
+                    targetState = live.signalLabel,
+                    transitionSpec = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                        ) togetherWith androidx.compose.animation.fadeOut(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
+                    },
+                    label = "liveHeroSignalLabel",
+                ) { signalLabel ->
+                    Text(
+                        text = signalLabel,
+                        style = RipDpiThemeTokens.type.bodyEmphasis,
+                        color = animatedAccent,
+                    )
+                }
+                AnimatedContent(
+                    targetState = live.eventSummaryLabel to live.freshnessLabel,
+                    transitionSpec = {
+                        androidx.compose.animation.fadeIn(
+                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                        ) togetherWith androidx.compose.animation.fadeOut(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
+                    },
+                    label = "liveHeroMeta",
+                ) { meta ->
+                    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        Text(
+                            text = meta.first,
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.foreground.copy(alpha = 0.82f),
+                        )
+                        Text(
+                            text = meta.second,
+                            style = RipDpiThemeTokens.type.monoSmall,
+                            color = colors.mutedForeground,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveHighlightsGrid(highlights: List<DiagnosticsMetricUiModel>) {
+    val spacing = RipDpiThemeTokens.spacing
+    val rows = remember(highlights) { highlights.chunked(2) }
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        rows.forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                row.forEach { metric ->
+                    LiveHighlightCard(
+                        metric = metric,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (row.size == 1) {
+                    Box(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveHighlightCard(
+    metric: DiagnosticsMetricUiModel,
+    modifier: Modifier = Modifier,
+) {
+    val motion = RipDpiThemeTokens.motion
+    val palette = metricPalette(metric.tone)
+    val animatedContainer by animateColorAsState(
+        targetValue = palette.container.copy(alpha = 0.92f),
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "liveHighlightContainer",
+    )
+    val animatedContent by animateColorAsState(
+        targetValue = palette.content,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "liveHighlightContent",
+    )
+    Surface(
+        modifier = modifier,
+        color = animatedContainer,
+        contentColor = animatedContent,
+        shape = RipDpiThemeTokens.shapes.lg,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = metric.label.uppercase(),
+                style = RipDpiThemeTokens.type.sectionTitle,
+                color = animatedContent.copy(alpha = 0.72f),
+            )
+            AnimatedContent(
+                targetState = metric.value,
+                transitionSpec = {
+                    androidx.compose.animation.fadeIn(
+                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                    ) togetherWith androidx.compose.animation.fadeOut(
+                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    )
+                },
+                label = "liveHighlightValue",
+            ) { value ->
+                Text(
+                    text = value,
+                    style = RipDpiThemeTokens.type.monoValue,
+                    color = animatedContent,
+                )
             }
         }
     }
@@ -1497,6 +1704,36 @@ private fun warningBannerTone(health: DiagnosticsHealth): WarningBannerTone =
         DiagnosticsHealth.Degraded -> WarningBannerTone.Error
         DiagnosticsHealth.Idle -> WarningBannerTone.Restricted
     }
+
+@Composable
+private fun liveHeroPalette(health: DiagnosticsHealth): MetricPalette {
+    val colors = RipDpiThemeTokens.colors
+    return when (health) {
+        DiagnosticsHealth.Healthy ->
+            MetricPalette(
+                container = colors.muted,
+                content = colors.success,
+            )
+
+        DiagnosticsHealth.Attention ->
+            MetricPalette(
+                container = colors.warningContainer,
+                content = colors.warning,
+            )
+
+        DiagnosticsHealth.Degraded ->
+            MetricPalette(
+                container = colors.destructiveContainer,
+                content = colors.destructive,
+            )
+
+        DiagnosticsHealth.Idle ->
+            MetricPalette(
+                container = colors.accent,
+                content = colors.foreground,
+            )
+    }
+}
 
 @Composable
 private fun metricPalette(tone: DiagnosticsTone): MetricPalette {
