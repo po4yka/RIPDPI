@@ -134,6 +134,14 @@
     <string name="config_tls_record_marker_helper">Accepts offsets like 0, host, sniext, extlen, or 1+s.</string>
     <string name="config_https_chain_hint">TLS record steps now live inside the strategy chain editor as tlsrec markers.</string>
     <string name="config_udp_chain_hint">UDP fake bursts now live inside the strategy chain editor as fake_burst counts.</string>
+    <string name="quic_initial_section_title">QUIC Initial</string>
+    <string name="quic_initial_section_body">Control whether RIPDPI decrypts QUIC Initial packets to recover SNI for UDP host routing, filters, cache records, and telemetry.</string>
+    <string name="quic_initial_mode_title">QUIC handling</string>
+    <string name="quic_initial_mode_body">Disabled skips QUIC inspection. Route by SNI uses the recovered hostname for live routing only. Route and cache also stores QUIC-derived hosts for repeated UDP flows.</string>
+    <string name="quic_initial_support_v1_title">Support QUIC v1</string>
+    <string name="quic_initial_support_v1_body">Allow hostname extraction from QUIC version 1 Initial packets.</string>
+    <string name="quic_initial_support_v2_title">Support QUIC v2</string>
+    <string name="quic_initial_support_v2_body">Allow hostname extraction from QUIC version 2 Initial packets.</string>
     <string name="config_command_line_caption">Prefer raw RIPDPI flags over the visual editor.</string>
     <string name="config_command_line_helper">Applied when command line settings are enabled.</string>
     <string name="config_cli_banner_title">Command line overrides enabled</string>

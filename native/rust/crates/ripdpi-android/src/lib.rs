@@ -10,8 +10,8 @@ use android_support::{
     HandleRegistry, JNI_VERSION,
 };
 use ciadpi_config::{
-    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
-    UdpChainStep, UdpChainStepKind,
+    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep,
+    TcpChainStepKind, UdpChainStep, UdpChainStepKind,
 };
 use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE};
 use jni::objects::{JObject, JString};
@@ -106,9 +106,19 @@ struct ProxyUiConfig {
     #[serde(default)]
     fake_offset_marker: Option<String>,
     fake_offset: i32,
+    #[serde(default)]
+    quic_initial_mode: Option<String>,
+    #[serde(default = "default_true")]
+    quic_support_v1: bool,
+    #[serde(default = "default_true")]
+    quic_support_v2: bool,
 }
 
 const MAX_PROXY_EVENTS: usize = 128;
+
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -808,6 +818,9 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
     }
     config.resolve = !payload.no_domain;
     config.tfo = payload.tcp_fast_open;
+    config.quic_initial_mode = parse_quic_initial_mode(payload.quic_initial_mode.as_deref().unwrap_or("route_and_cache"))?;
+    config.quic_support_v1 = payload.quic_support_v1;
+    config.quic_support_v2 = payload.quic_support_v2;
     if payload.custom_ttl {
         let ttl = u8::try_from(payload.default_ttl).map_err(|_| "Invalid defaultTtl".to_string())?;
         if ttl == 0 {
@@ -947,6 +960,15 @@ fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, String> {
     match value {
         "fake_burst" => Ok(UdpChainStepKind::FakeBurst),
         _ => Err(format!("Unknown udpChainSteps kind: {value}")),
+    }
+}
+
+fn parse_quic_initial_mode(value: &str) -> Result<QuicInitialMode, String> {
+    match value.trim().to_lowercase().as_str() {
+        "disabled" => Ok(QuicInitialMode::Disabled),
+        "route" => Ok(QuicInitialMode::Route),
+        "route_and_cache" => Ok(QuicInitialMode::RouteAndCache),
+        _ => Err(format!("Unknown quicInitialMode: {value}")),
     }
 }
 
@@ -1222,8 +1244,19 @@ mod tests {
             proptest::option::of(lossy_string(24)),
             -64i32..64i32,
         );
+        let quic = (
+            prop_oneof![
+                Just(Some("disabled".to_string())),
+                Just(Some("route".to_string())),
+                Just(Some("route_and_cache".to_string())),
+                Just(None),
+                proptest::option::of(lossy_string(24)),
+            ],
+            any::<bool>(),
+            any::<bool>(),
+        );
 
-        (core, toggles, desync, mutations, hosts).prop_map(
+        (core, toggles, desync, mutations, hosts, quic).prop_map(
             |(
                 (ip, port, max_connections, buffer_size, default_ttl),
                 (custom_ttl, no_domain, desync_http, desync_https, desync_udp),
@@ -1238,6 +1271,7 @@ mod tests {
                     tls_record_split_at_sni,
                 ),
                 (hosts_mode, hosts, tcp_fast_open, udp_fake_count, drop_sack, fake_offset_marker, fake_offset),
+                (quic_initial_mode, quic_support_v1, quic_support_v2),
             )| ProxyUiConfig {
                 ip,
                 port,
@@ -1272,6 +1306,9 @@ mod tests {
                 drop_sack,
                 fake_offset_marker,
                 fake_offset,
+                quic_initial_mode,
+                quic_support_v1,
+                quic_support_v2,
             },
         )
     }
@@ -1312,11 +1349,17 @@ mod tests {
             drop_sack: false,
             fake_offset_marker: None,
             fake_offset: 0,
+            quic_initial_mode: Some("route".to_string()),
+            quic_support_v1: false,
+            quic_support_v2: true,
         });
 
         let config = runtime_config_from_payload(payload).expect("ui config");
         assert_eq!(config.listen.listen_port, 1080);
         assert_eq!(config.groups.len(), 2);
+        assert_eq!(config.quic_initial_mode, QuicInitialMode::Route);
+        assert!(!config.quic_support_v1);
+        assert!(config.quic_support_v2);
     }
 
     #[test]
@@ -1382,6 +1425,9 @@ mod tests {
             drop_sack: false,
             fake_offset_marker: None,
             fake_offset: 0,
+            quic_initial_mode: Some("route_and_cache".to_string()),
+            quic_support_v1: true,
+            quic_support_v2: true,
         }))
         .expect_err("port zero should be rejected");
 
@@ -1778,6 +1824,9 @@ mod tests {
                 drop_sack,
                 fake_offset_marker: None,
                 fake_offset,
+                quic_initial_mode: Some("route_and_cache".to_string()),
+                quic_support_v1: true,
+                quic_support_v2: true,
             }).expect("valid payload");
 
             prop_assert_eq!(config.listen.listen_ip, IpAddr::from_str(&ip).expect("valid ip"));

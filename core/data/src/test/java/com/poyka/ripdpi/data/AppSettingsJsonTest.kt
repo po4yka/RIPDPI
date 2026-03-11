@@ -56,6 +56,9 @@ class AppSettingsJsonTest {
                 .setBackupPin("1234")
                 .setAppIconVariant("raven")
                 .setAppIconStyle("plain")
+                .setQuicInitialMode("route")
+                .setQuicSupportV1(true)
+                .setQuicSupportV2(false)
                 .build()
 
         val decoded = appSettingsFromJson(settings.toJson())
@@ -74,6 +77,23 @@ class AppSettingsJsonTest {
 
         assertTrue(json.contains("\"formatVersion\": 1"))
         assertTrue(json.contains("\"mode\": \"proxy\""))
+    }
+
+    @Test
+    fun `decoder fills missing quic fields from defaults`() {
+        val decoded =
+            appSettingsFromJson(
+                """
+                {
+                  "formatVersion": 1,
+                  "mode": "vpn"
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(AppSettingsSerializer.defaultValue.quicInitialMode, decoded.quicInitialMode)
+        assertEquals(AppSettingsSerializer.defaultValue.quicSupportV1, decoded.quicSupportV1)
+        assertEquals(AppSettingsSerializer.defaultValue.quicSupportV2, decoded.quicSupportV2)
     }
 
     @Test
