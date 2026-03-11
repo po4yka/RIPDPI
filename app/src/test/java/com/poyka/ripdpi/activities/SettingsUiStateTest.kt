@@ -128,6 +128,24 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `hostfake profile remains visible in command line mode`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setEnableCmdSettings(true)
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.enableCmdSettings)
+        assertFalse(state.hostFakeControlsRelevant)
+        assertTrue(state.showHostFakeProfile)
+    }
+
+    @Test
     fun `desync method oob sets isOob`() {
         val settings = defaults.toBuilder().setDesyncMethod("oob").build()
         assertTrue(settings.toUiState().isOob)

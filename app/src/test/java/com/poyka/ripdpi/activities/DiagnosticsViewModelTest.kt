@@ -359,6 +359,63 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `approaches detail keeps hostfake chain visible without fake tls rows`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-hostfake",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "enabled",
+                            desyncMethod = "fake",
+                            chainSummary =
+                                "tcp: tlsrec(extlen) -> hostfake(endhost+8 midhost=midsld host=googlevideo.com) -> split(midsld)",
+                            protocolToggles = listOf("HTTP", "HTTPS"),
+                            tlsRecordSplitEnabled = true,
+                            tlsRecordMarker = "extlen",
+                            splitMarker = "endhost+8",
+                            fakeSniMode = null,
+                            fakeSniValue = null,
+                            fakeTlsBaseMode = null,
+                            fakeTlsMods = emptyList(),
+                            fakeTlsSize = null,
+                            fakeOffsetMarker = null,
+                            routeGroup = "4",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-hostfake")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(
+                signature.any {
+                    it.label == "Chain" &&
+                        it.value.contains("hostfake(endhost+8 midhost=midsld host=googlevideo.com)")
+                },
+            )
+            assertTrue(signature.any { it.label == "TLS record marker" && it.value == "extlen" })
+            assertTrue(signature.any { it.label == "Split marker" && it.value == "endhost+8" })
+            assertFalse(signature.any { it.label.startsWith("Fake TLS") })
+            collector.cancel()
+        }
+
+    @Test
     fun `snapshot detail shows wifi and cellular transport fields`() =
         runTest {
             val wifiDetail =
