@@ -69,3 +69,14 @@ Android VPN/proxy app for path optimization using in-repository Rust native modu
 
 - `ci.yml`: build + unit tests + static analysis on push/PR to main
 - `release.yml`: signed release APK on `v*` tags or manual dispatch
+
+## Testing
+
+- TDD is the default workflow for features, bugfixes, and refactors. Use the `tdd` skill (`.github/skills/tdd/SKILL.md`).
+- Test doubles are hand-written `Fake*` classes in `TestDoubles.kt`. No mocking frameworks (MockK, Mockito).
+- Fault injection uses `FaultQueue<T>` + `FaultSpec` from `core/engine/src/main/java/com/poyka/ripdpi/core/testing/FaultModel.kt`.
+- Kotlin test names use backticks: `` `proxy start propagates exception` ``. Rust uses `snake_case`.
+- Prefer single-module test commands for fast iteration: `./gradlew :core:engine:testDebugUnitTest --tests "ClassName"`.
+- `./gradlew staticAnalysis` applies to test code -- run it before committing.
+- Golden contracts are read-only by default. Bless with `RIPDPI_BLESS_GOLDENS=1`, review diffs, explain changes in the commit message.
+- Full test stack docs: `docs/testing.md`.
