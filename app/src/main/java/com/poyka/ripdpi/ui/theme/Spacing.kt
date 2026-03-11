@@ -25,13 +25,13 @@ data class RipDpiLayout(
     val snackbarMaxWidth: Dp = 560.dp,
     val cardPadding: Dp = 16.dp,
     val sectionGap: Dp = 20.dp,
-    val appBarHeight: Dp = 48.dp,
+    val appBarMinHeight: Dp = 56.dp,
     val bottomBarHeight: Dp = 64.dp,
 )
 
 @Immutable
 data class RipDpiComponentMetrics(
-    val controlHeight: Dp = 40.dp,
+    val controlHeight: Dp = 48.dp,
     val compactCornerRadius: Dp = 8.dp,
     val mediumCornerRadius: Dp = 10.dp,
     val largeCornerRadius: Dp = 12.dp,
@@ -39,7 +39,7 @@ data class RipDpiComponentMetrics(
     val cardCornerRadius: Dp = 16.dp,
     val chipCornerRadius: Dp = 12.dp,
     val pillCornerRadius: Dp = 28.dp,
-    val buttonMinHeight: Dp = 40.dp,
+    val buttonMinHeight: Dp = 48.dp,
     val buttonHorizontalPadding: Dp = 20.dp,
     val buttonVerticalPadding: Dp = 10.dp,
     val fieldHorizontalPadding: Dp = 17.dp,
@@ -47,11 +47,12 @@ data class RipDpiComponentMetrics(
     val multilineFieldMinHeight: Dp = 96.dp,
     val chipHorizontalPadding: Dp = 17.dp,
     val chipVerticalPadding: Dp = 6.dp,
-    val iconButtonSize: Dp = 40.dp,
-    val switchWidth: Dp = 44.dp,
-    val switchHeight: Dp = 24.dp,
-    val switchThumbSize: Dp = 20.dp,
-    val switchThumbPadding: Dp = 2.dp,
+    val iconButtonSize: Dp = 48.dp,
+    val switchWidth: Dp = 52.dp,
+    val switchHeight: Dp = 48.dp,
+    val switchTrackHeight: Dp = 32.dp,
+    val switchThumbSize: Dp = 24.dp,
+    val switchThumbPadding: Dp = 4.dp,
     val dialogIconSize: Dp = 40.dp,
     val decorativeBadgeSize: Dp = 28.dp,
     val compactPillHorizontalPadding: Dp = 8.dp,
@@ -63,34 +64,6 @@ data class RipDpiComponentMetrics(
     val settingsRowMinHeightWithSubtitle: Dp = 68.dp,
     val bottomNavIndicatorWidth: Dp = 52.dp,
     val bottomNavIndicatorHeight: Dp = 28.dp,
-    val homeConnectionHaloSize: Dp = 216.dp,
-    val homeConnectionButtonSize: Dp = 172.dp,
-    val homeConnectionHorizontalPadding: Dp = 20.dp,
-    val homeConnectionVerticalPadding: Dp = 24.dp,
-    val homeConnectionIconSize: Dp = 28.dp,
-)
-
-@Immutable
-data class RipDpiIntroLayout(
-    val topActionRowHeight: Dp = 37.dp,
-    val topActionTopPadding: Dp = 16.dp,
-    val illustrationSize: Dp = 64.dp,
-    val illustrationCornerRadius: Dp = 16.dp,
-    val illustrationBorderWidth: Dp = 1.5.dp,
-    val illustrationIconSize: Dp = 24.dp,
-    val illustrationIconStrokeWidth: Dp = 2.dp,
-    val illustrationToTitleGap: Dp = 40.dp,
-    val titleToBodyGap: Dp = 16.dp,
-    val bodyToContentGap: Dp = 24.dp,
-    val titleHorizontalPadding: Dp = 12.dp,
-    val bodyHorizontalPadding: Dp = 14.dp,
-    val indicatorSize: Dp = 8.dp,
-    val indicatorActiveWidth: Dp = 24.dp,
-    val indicatorSpacing: Dp = 8.dp,
-    val footerProgressGap: Dp = 28.dp,
-    val footerButtonHorizontalInset: Dp = 18.dp,
-    val footerButtonMinHeight: Dp = 52.dp,
-    val footerBottomPadding: Dp = 40.dp,
 )
 
 object RipDpiStroke {
@@ -101,9 +74,7 @@ object RipDpiStroke {
 val DefaultRipDpiSpacing = RipDpiSpacing()
 val DefaultRipDpiLayout = RipDpiLayout()
 val DefaultRipDpiComponentMetrics = RipDpiComponentMetrics()
-val DefaultRipDpiIntroLayout = RipDpiIntroLayout()
 
 internal val LocalRipDpiSpacing = staticCompositionLocalOf { DefaultRipDpiSpacing }
 internal val LocalRipDpiLayout = staticCompositionLocalOf { DefaultRipDpiLayout }
 internal val LocalRipDpiComponentMetrics = staticCompositionLocalOf { DefaultRipDpiComponentMetrics }
-internal val LocalRipDpiIntroLayout = staticCompositionLocalOf { DefaultRipDpiIntroLayout }

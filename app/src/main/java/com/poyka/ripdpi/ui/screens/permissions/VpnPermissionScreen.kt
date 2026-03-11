@@ -38,11 +38,12 @@ import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
-import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
+import com.poyka.ripdpi.ui.components.intro.DefaultRipDpiIntroScaffoldMetrics
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -84,7 +85,7 @@ fun VpnPermissionScreen(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val introLayout = RipDpiThemeTokens.introLayout
+    val introLayout = DefaultRipDpiIntroScaffoldMetrics
 
     AuthPromptScaffold(
         title = stringResource(R.string.permissions_vpn_title),
@@ -158,7 +159,7 @@ internal fun AuthPromptScaffold(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
-    val introLayout = RipDpiThemeTokens.introLayout
+    val introLayout = DefaultRipDpiIntroScaffoldMetrics
     val type = RipDpiThemeTokens.type
 
     Column(
@@ -264,7 +265,7 @@ private fun AuthPromptBadge(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val introLayout = RipDpiThemeTokens.introLayout
+    val introLayout = DefaultRipDpiIntroScaffoldMetrics
     val strokeWidth = introLayout.illustrationIconStrokeWidth
 
     Box(
