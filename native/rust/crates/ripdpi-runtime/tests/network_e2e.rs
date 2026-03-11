@@ -5,11 +5,19 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use ciadpi_config::{parse_cli, ParseResult, StartupEnv};
-use local_network_fixture::{FixtureConfig, FixtureEvent, FixtureStack};
+use ciadpi_config::{parse_cli, DesyncGroup, ParseResult, RuntimeConfig, StartupEnv};
+use ciadpi_packets::IS_UDP;
+use local_network_fixture::{
+    FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
+    FixtureStack,
+};
 use ripdpi_runtime::process::{prepare_embedded, request_shutdown};
 use ripdpi_runtime::runtime::{create_listener, run_proxy_with_listener};
 use ripdpi_runtime::{clear_runtime_telemetry, install_runtime_telemetry, RuntimeTelemetrySink};
+
+#[allow(dead_code)]
+#[path = "../../../third_party/byedpi/tests/rust_packet_seeds.rs"]
+mod rust_packet_seeds;
 
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -17,7 +25,7 @@ const START_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[test]
 fn socks5_tcp_udp_tls_domain_chain_and_filtering_are_covered_end_to_end() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().expect("lock e2e tests");
+    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
 
     println!("tcp");
@@ -33,6 +41,61 @@ fn socks5_tcp_udp_tls_domain_chain_and_filtering_are_covered_end_to_end() {
     println!("host-filter");
     hosts_filter_only_routes_matching_domain_via_upstream(&fixture);
     println!("done");
+}
+
+#[test]
+fn upstream_tcp_reset_fault_is_observed_end_to_end() {
+    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    fixture.faults().set(FixtureFaultSpec {
+        target: FixtureFaultTarget::TcpEcho,
+        outcome: FixtureFaultOutcome::TcpReset,
+        scope: FixtureFaultScope::OneShot,
+        delay_ms: None,
+    });
+
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), None);
+    let mut stream = socks_connect(proxy.port, fixture.manifest().tcp_echo_port);
+    stream.write_all(b"fault reset").expect("write tcp payload");
+    let mut buf = [0u8; 32];
+    let read = stream.read(&mut buf);
+
+    assert!(read.is_err() || read.unwrap_or_default() != b"fault reset".len());
+    assert!(fixture
+        .events()
+        .snapshot()
+        .iter()
+        .any(|event| event.service == "tcp_echo" && event.detail.contains("TcpReset")));
+}
+
+#[test]
+fn socks5_udp_quic_initial_routes_by_hostname_and_records_host_telemetry() {
+    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let telemetry = Arc::new(RecordingTelemetry::default());
+    let proxy = start_proxy(quic_udp_host_filter_config(), Some(telemetry.clone()));
+    let (_control, relay) = socks_udp_associate(proxy.port);
+    let udp = udp_proxy_client();
+
+    let matching = rust_packet_seeds::quic_initial_with_host(0x0000_0001, "docs.example.test");
+    let fallback = rust_packet_seeds::quic_initial_with_host(0x0000_0001, "other.example.test");
+
+    assert_eq!(udp_proxy_roundtrip_with_socket(&udp, relay, fixture.manifest().udp_echo_port, &matching), matching);
+    assert_eq!(udp_proxy_roundtrip_with_socket(&udp, relay, fixture.manifest().udp_echo_port, &fallback), fallback);
+
+    drop(proxy);
+
+    let snapshot = telemetry.snapshot();
+    assert!(snapshot.routes.iter().any(|route| {
+        route.target.port() == fixture.manifest().udp_echo_port
+            && route.group_index == 0
+            && route.host.as_deref() == Some("docs.example.test")
+    }));
+    assert!(snapshot.routes.iter().any(|route| {
+        route.target.port() == fixture.manifest().udp_echo_port
+            && route.group_index == 1
+            && route.host.as_deref() == Some("other.example.test")
+    }));
 }
 
 fn socks5_tcp_round_trip(fixture: &FixtureStack) {
@@ -52,11 +115,7 @@ fn socks5_tcp_round_trip(fixture: &FixtureStack) {
         .routes
         .iter()
         .any(|route| route.target.port() == fixture.manifest().tcp_echo_port && route.phase == "initial"));
-    assert!(fixture
-        .events()
-        .snapshot()
-        .iter()
-        .any(|event| event.service == "tcp_echo" && event.detail == "echo"));
+    assert!(fixture.events().snapshot().iter().any(|event| event.service == "tcp_echo" && event.detail == "echo"));
 }
 
 fn socks5_udp_round_trip(fixture: &FixtureStack) {
@@ -64,11 +123,7 @@ fn socks5_udp_round_trip(fixture: &FixtureStack) {
     let (_control, relay) = socks_udp_associate(proxy.port);
     let body = udp_proxy_roundtrip(relay, fixture.manifest().udp_echo_port, b"fixture udp");
     assert_eq!(body, b"fixture udp");
-    assert!(fixture
-        .events()
-        .snapshot()
-        .iter()
-        .any(|event| event.service == "udp_echo" && event.protocol == "udp"));
+    assert!(fixture.events().snapshot().iter().any(|event| event.service == "udp_echo" && event.protocol == "udp"));
     drop(proxy);
 }
 
@@ -78,11 +133,9 @@ fn http_connect_round_trip(fixture: &FixtureStack) {
     stream.write_all(b"http connect").expect("write connect payload");
     assert_eq!(recv_exact(&mut stream, 12), b"http connect");
     let events = fixture.events().snapshot();
-    assert!(events.iter().any(|event| {
-        event.service == "tcp_echo" &&
-            event.protocol == "tcp" &&
-            event.detail == "echo"
-    }));
+    assert!(events
+        .iter()
+        .any(|event| { event.service == "tcp_echo" && event.protocol == "tcp" && event.detail == "echo" }));
     drop(proxy);
 }
 
@@ -144,7 +197,10 @@ fn hosts_filter_only_routes_matching_domain_via_upstream(fixture: &FixtureStack)
     assert_eq!(recv_exact(&mut ip_stream, 11), b"direct path");
 
     let upstream_after_ip = upstream_telemetry.snapshot().accepted;
-    assert_eq!(upstream_after_ip, upstream_after_domain, "non-matching IP target should not traverse the upstream relay");
+    assert_eq!(
+        upstream_after_ip, upstream_after_domain,
+        "non-matching IP target should not traverse the upstream relay"
+    );
     drop(proxy);
     drop(upstream);
 }
@@ -175,10 +231,7 @@ fn start_proxy(config: ciadpi_config::RuntimeConfig, telemetry: Option<Arc<Recor
     let port = listener.local_addr().expect("listener addr").port();
     let thread = thread::spawn(move || run_proxy_with_listener(config, listener));
     wait_for_port(port);
-    RunningProxy {
-        port,
-        thread: Some(thread),
-    }
+    RunningProxy { port, thread: Some(thread) }
 }
 
 fn proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
@@ -192,6 +245,20 @@ fn proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
 fn ephemeral_proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
     let mut config = proxy_config(args);
     config.listen.listen_port = 0;
+    config
+}
+
+fn quic_udp_host_filter_config() -> RuntimeConfig {
+    let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
+
+    let mut filtered = DesyncGroup::new(0);
+    filtered.proto = IS_UDP;
+    filtered.filters.hosts.push("docs.example.test".to_string());
+
+    let mut fallback = DesyncGroup::new(1);
+    fallback.proto = IS_UDP;
+
+    config.groups = vec![filtered, fallback];
     config
 }
 
@@ -214,14 +281,19 @@ fn socks_auth(proxy_port: u16) -> TcpStream {
 }
 
 fn socks_connect(proxy_port: u16, dst_port: u16) -> TcpStream {
+    let (stream, reply) = socks_connect_ip_reply(proxy_port, dst_port);
+    assert_eq!(reply[1], 0, "SOCKS5 connect failed: {reply:?}");
+    stream
+}
+
+fn socks_connect_ip_reply(proxy_port: u16, dst_port: u16) -> (TcpStream, Vec<u8>) {
     let mut stream = socks_auth(proxy_port);
     let mut request = vec![0x05, 0x01, 0x00, 0x01];
     request.extend(Ipv4Addr::LOCALHOST.octets());
     request.extend(dst_port.to_be_bytes());
     stream.write_all(&request).expect("write socks connect");
     let reply = recv_socks5_reply(&mut stream);
-    assert_eq!(reply[1], 0, "SOCKS5 connect failed: {reply:?}");
-    stream
+    (stream, reply)
 }
 
 fn socks_connect_domain(proxy_port: u16, host: &str, dst_port: u16) -> (TcpStream, Vec<u8>) {
@@ -272,8 +344,8 @@ fn parse_socks5_reply_addr(reply: &[u8]) -> SocketAddr {
         ),
         0x04 => SocketAddr::new(
             IpAddr::from([
-                reply[4], reply[5], reply[6], reply[7], reply[8], reply[9], reply[10], reply[11], reply[12],
-                reply[13], reply[14], reply[15], reply[16], reply[17], reply[18], reply[19],
+                reply[4], reply[5], reply[6], reply[7], reply[8], reply[9], reply[10], reply[11], reply[12], reply[13],
+                reply[14], reply[15], reply[16], reply[17], reply[18], reply[19],
             ]),
             u16::from_be_bytes([reply[20], reply[21]]),
         ),
@@ -282,10 +354,17 @@ fn parse_socks5_reply_addr(reply: &[u8]) -> SocketAddr {
 }
 
 fn udp_proxy_roundtrip(relay: SocketAddr, dst_port: u16, payload: &[u8]) -> Vec<u8> {
+    let socket = udp_proxy_client();
+    udp_proxy_roundtrip_with_socket(&socket, relay, dst_port, payload)
+}
+
+fn udp_proxy_client() -> UdpSocket {
     let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind udp client");
+    socket.set_read_timeout(Some(Duration::from_secs(5))).expect("set udp timeout");
     socket
-        .set_read_timeout(Some(Duration::from_secs(5)))
-        .expect("set udp timeout");
+}
+
+fn udp_proxy_roundtrip_with_socket(socket: &UdpSocket, relay: SocketAddr, dst_port: u16, payload: &[u8]) -> Vec<u8> {
     let mut packet = vec![0x00, 0x00, 0x00, 0x01];
     packet.extend(Ipv4Addr::LOCALHOST.octets());
     packet.extend(dst_port.to_be_bytes());
@@ -305,11 +384,8 @@ fn udp_proxy_roundtrip(relay: SocketAddr, dst_port: u16, payload: &[u8]) -> Vec<
 
 fn http_connect(proxy_port: u16, dst_port: u16) -> TcpStream {
     let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, proxy_port)).expect("connect http proxy");
-    write!(
-        stream,
-        "CONNECT 127.0.0.1:{dst_port} HTTP/1.1\r\nHost: 127.0.0.1:{dst_port}\r\n\r\n"
-    )
-    .expect("write http connect");
+    write!(stream, "CONNECT 127.0.0.1:{dst_port} HTTP/1.1\r\nHost: 127.0.0.1:{dst_port}\r\n\r\n")
+        .expect("write http connect");
     let mut response = Vec::new();
     let mut chunk = [0u8; 1024];
     while !response.windows(4).any(|window| window == b"\r\n\r\n") {
@@ -371,6 +447,8 @@ impl RecordingTelemetry {
 #[derive(Clone, Debug)]
 struct RouteEvent {
     target: SocketAddr,
+    group_index: usize,
+    host: Option<String>,
     phase: &'static str,
 }
 
@@ -399,19 +477,29 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
 
     fn on_client_error(&self, _error: &io::Error) {}
 
-    fn on_route_selected(&self, target: SocketAddr, _group_index: usize, _host: Option<&str>, phase: &'static str) {
-        self.routes.lock().expect("lock routes").push(RouteEvent { target, phase });
+    fn on_route_selected(&self, target: SocketAddr, group_index: usize, host: Option<&str>, phase: &'static str) {
+        self.routes.lock().expect("lock routes").push(RouteEvent {
+            target,
+            group_index,
+            host: host.map(ToOwned::to_owned),
+            phase,
+        });
     }
 
     fn on_route_advanced(
         &self,
         target: SocketAddr,
         _from_group: usize,
-        _to_group: usize,
+        to_group: usize,
         _trigger: u32,
-        _host: Option<&str>,
+        host: Option<&str>,
     ) {
-        self.routes.lock().expect("lock routes").push(RouteEvent { target, phase: "advanced" });
+        self.routes.lock().expect("lock routes").push(RouteEvent {
+            target,
+            group_index: to_group,
+            host: host.map(ToOwned::to_owned),
+            phase: "advanced",
+        });
     }
 }
 
