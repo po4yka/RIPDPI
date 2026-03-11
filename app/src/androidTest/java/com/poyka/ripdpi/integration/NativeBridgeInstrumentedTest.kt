@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.integration
 
+import com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings
 import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyNativeBindings
@@ -127,10 +128,12 @@ class NativeBridgeInstrumentedTest {
     @Test
     fun rawBindingsCreateAndDestroySessionsWithoutStarting() {
         val proxyBindings = RipDpiProxyNativeBindings()
+        val diagnosticsBindings = NetworkDiagnosticsNativeBindings()
         val tunnelBindings = Tun2SocksNativeBindings()
 
         val proxyHandle =
             proxyBindings.create(RipDpiProxyUIPreferences(port = reserveLoopbackPort()).toNativeConfigJson())
+        val diagnosticsHandle = diagnosticsBindings.create()
         val tunnelHandle =
             tunnelBindings.create(
                 """
@@ -167,9 +170,11 @@ class NativeBridgeInstrumentedTest {
             )
 
         assertTrue(proxyHandle > 0)
+        assertTrue(diagnosticsHandle > 0)
         assertTrue(tunnelHandle > 0)
 
         proxyBindings.destroy(proxyHandle)
+        diagnosticsBindings.destroy(diagnosticsHandle)
         tunnelBindings.destroy(tunnelHandle)
     }
 
