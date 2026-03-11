@@ -51,12 +51,12 @@ fn help_text() -> String {
         "    -R, --round <num[-numr]>  Number of request to which desync will be applied\n",
     );
     text.push_str(
-        "    -s, --split <pos_t>       Position format: offset[:repeats:skip][+flag1[flag2]]\n",
+        "    -s, --split <pos_t>       Position format: marker[:repeats:skip]\n",
     );
     text.push_str(
-        "                              Flags: +s - SNI offset, +h - HTTP host offset, +n - null\n",
+        "                              Markers: abs,host,endhost,sld,midsld,endsld,method,extlen,sniext\n",
     );
-    text.push_str("                              Additional flags: +e - end, +m - middle\n");
+    text.push_str("                              Also accepts legacy offset[:repeats:skip][+flag1[flag2]] syntax\n");
     text.push_str("    -d, --disorder <pos_t>    Split and send reverse order\n");
     text.push_str("    -o, --oob <pos_t>         Split and send as OOB data\n");
     text.push_str("    -q, --disoob <pos_t>      Split and send reverse order as OOB data\n");

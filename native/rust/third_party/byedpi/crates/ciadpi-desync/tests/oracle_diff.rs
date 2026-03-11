@@ -4,6 +4,7 @@ use ciadpi_config::{parse_cli, DesyncMode, ParseResult, RuntimeConfig, StartupEn
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use ciadpi_desync::build_fake_packet;
 use ciadpi_desync::{plan_tcp, plan_udp, DesyncAction};
+use ciadpi_packets::{http_marker_info, second_level_domain_span};
 use serde_json::Value;
 
 #[allow(dead_code)]
@@ -92,6 +93,31 @@ fn host_offset_plans_match_fixture() {
     let tls_plan = plan_tcp(&tls_config.groups[tls_idx], &tls_payload, 7, tls_config.default_ttl).expect("tls plan");
 
     assert_eq!(tls_plan.steps[0].end as i64, tls_expected["step_end"].as_i64().unwrap());
+}
+
+#[test]
+fn named_markers_drive_cli_planning() {
+    let http_payload = rust_packet_seeds::http_request();
+    let http_markers = http_marker_info(&http_payload).expect("http markers");
+    let (sld_start, sld_end) =
+        second_level_domain_span(&http_payload[http_markers.host_start..http_markers.host_end]).expect("sld span");
+    let expected_mid = (http_markers.host_start + sld_start + ((sld_end - sld_start) / 2)) as i64;
+
+    let (method_cfg, method_idx) = parse_group(&["--split", "method+2"]);
+    let method_plan =
+        plan_tcp(&method_cfg.groups[method_idx], &http_payload, 7, method_cfg.default_ttl).expect("method plan");
+    assert_eq!(method_plan.steps[0].end, 2);
+
+    let (mid_cfg, mid_idx) = parse_group(&["--split", "midsld"]);
+    let mid_plan = plan_tcp(&mid_cfg.groups[mid_idx], &http_payload, 7, mid_cfg.default_ttl).expect("midsld plan");
+    assert_eq!(mid_plan.steps[0].end, expected_mid);
+
+    let tls_payload = rust_packet_seeds::tls_client_hello();
+    for marker in ["sniext+1", "extlen"] {
+        let (cfg, idx) = parse_group(&["--tlsrec", marker]);
+        let plan = plan_tcp(&cfg.groups[idx], &tls_payload, 7, cfg.default_ttl).expect("tls marker plan");
+        assert_eq!(plan.tampered.len(), tls_payload.len() + 5, "{marker}");
+    }
 }
 
 #[test]

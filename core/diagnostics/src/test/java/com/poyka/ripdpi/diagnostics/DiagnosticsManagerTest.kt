@@ -533,11 +533,10 @@ class DiagnosticsManagerTest {
                     desyncMethod = "split",
                     protocolToggles = listOf("HTTP", "HTTPS"),
                     tlsRecordSplitEnabled = true,
-                    tlsRecordSplitAtSni = false,
-                    splitAtHost = false,
-                    splitPosition = 1,
+                    tlsRecordMarker = "extlen",
+                    splitMarker = "1",
                     fakeSniMode = null,
-                    fakeOffsetEnabled = false,
+                    fakeOffsetMarker = null,
                     routeGroup = "3",
                 )
             val strategyId = signature.stableId()
@@ -663,11 +662,10 @@ class DiagnosticsManagerTest {
                     desyncMethod = "fake",
                     protocolToggles = listOf("HTTP"),
                     tlsRecordSplitEnabled = false,
-                    tlsRecordSplitAtSni = false,
-                    splitAtHost = false,
-                    splitPosition = null,
+                    tlsRecordMarker = null,
+                    splitMarker = null,
                     fakeSniMode = "custom",
-                    fakeOffsetEnabled = true,
+                    fakeOffsetMarker = "method+1",
                     routeGroup = null,
                 )
             val strategyId = signature.stableId()
