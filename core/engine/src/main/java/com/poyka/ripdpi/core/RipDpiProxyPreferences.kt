@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
@@ -123,7 +124,7 @@ class RipDpiProxyUIPreferences(
                 tlsRecordSplitMarker = tlsRecordSplitMarker,
             )
     val fakeTtl: Int = fakeTtl ?: 8
-    val fakeSni: String = fakeSni ?: "www.iana.org"
+    val fakeSni: String = fakeSni ?: DefaultFakeSni
     val fakeTlsUseOriginal: Boolean = fakeTlsUseOriginal ?: false
     val fakeTlsRandomize: Boolean = fakeTlsRandomize ?: false
     val fakeTlsDupSessionId: Boolean = fakeTlsDupSessionId ?: false

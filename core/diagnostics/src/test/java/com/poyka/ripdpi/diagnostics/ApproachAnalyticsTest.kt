@@ -27,9 +27,28 @@ class ApproachAnalyticsTest {
         val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "2")
 
         assertEquals("randomized", signature.fakeSniMode)
+        assertNull(signature.fakeSniValue)
         assertEquals("original", signature.fakeTlsBaseMode)
         assertEquals(listOf("rand", "dupsid", "padencap"), signature.fakeTlsMods)
         assertEquals(-24, signature.fakeTlsSize)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature includes fixed fake sni value when active`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setDesyncHttp(true)
+                .setDesyncHttps(true)
+                .setDesyncMethod("fake")
+                .setFakeSni("alt.example.org")
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "1")
+
+        assertEquals("fixed", signature.fakeSniMode)
+        assertEquals("alt.example.org", signature.fakeSniValue)
     }
 
     @Test
@@ -48,6 +67,7 @@ class ApproachAnalyticsTest {
             )
 
         assertNull(signature.fakeSniMode)
+        assertNull(signature.fakeSniValue)
         assertNull(signature.fakeTlsBaseMode)
         assertEquals(emptyList<String>(), signature.fakeTlsMods)
         assertNull(signature.fakeTlsSize)
