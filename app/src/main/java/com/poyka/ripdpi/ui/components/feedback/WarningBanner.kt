@@ -1,14 +1,15 @@
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,12 +18,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
+import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 enum class WarningBannerTone {
     Warning,
@@ -39,36 +45,51 @@ fun WarningBanner(
     tone: WarningBannerTone = WarningBannerTone.Warning,
     icon: ImageVector? = null,
 ) {
+    val components = RipDpiThemeTokens.components
+    val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
+    val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Banner)
     val palette = warningBannerPalette(tone)
     val resolvedIcon = icon ?: defaultWarningBannerIcon(tone)
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .semantics { liveRegion = LiveRegionMode.Polite },
+        shape = RipDpiThemeTokens.shapes.xl,
         color = palette.container,
         border = BorderStroke(RipDpiStroke.Thin, palette.border),
         contentColor = palette.title,
+        shadowElevation = surfaceStyle.shadowElevation,
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = spacing.lg, vertical = spacing.lg),
+                    .padding(horizontal = layout.cardPadding, vertical = spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.Top,
         ) {
-            Icon(
-                imageVector = resolvedIcon,
-                contentDescription = null,
-                tint = palette.icon,
+            Box(
                 modifier =
                     Modifier
-                        .size(RipDpiIconSizes.Default)
-                        .padding(top = spacing.xs),
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        .size(components.decorativeBadgeSize)
+                        .background(palette.iconContainer, RipDpiThemeTokens.shapes.full),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = resolvedIcon,
+                    contentDescription = null,
+                    tint = palette.icon,
+                    modifier = Modifier.size(RipDpiIconSizes.Small),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
                 Text(
                     text = title,
                     style = type.bodyEmphasis,
@@ -88,6 +109,7 @@ fun WarningBanner(
 private data class WarningBannerPalette(
     val container: Color,
     val border: Color,
+    val iconContainer: Color,
     val icon: Color,
     val title: Color,
     val message: Color,
@@ -101,7 +123,8 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
         WarningBannerTone.Warning -> {
             WarningBannerPalette(
                 container = colors.warningContainer,
-                border = colors.warning,
+                border = colors.warning.copy(alpha = 0.52f),
+                iconContainer = colors.warning.copy(alpha = 0.12f),
                 icon = colors.warning,
                 title = colors.warningContainerForeground,
                 message = colors.warningContainerForeground,
@@ -111,7 +134,8 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
         WarningBannerTone.Error -> {
             WarningBannerPalette(
                 container = colors.destructiveContainer,
-                border = colors.destructive,
+                border = colors.destructive.copy(alpha = 0.52f),
+                iconContainer = colors.destructive.copy(alpha = 0.12f),
                 icon = colors.destructive,
                 title = colors.destructiveContainerForeground,
                 message = colors.destructiveContainerForeground,
@@ -121,7 +145,8 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
         WarningBannerTone.Info -> {
             WarningBannerPalette(
                 container = colors.infoContainer,
-                border = colors.info,
+                border = colors.info.copy(alpha = 0.48f),
+                iconContainer = colors.info.copy(alpha = 0.12f),
                 icon = colors.info,
                 title = colors.infoContainerForeground,
                 message = colors.infoContainerForeground,
@@ -131,7 +156,8 @@ private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette 
         WarningBannerTone.Restricted -> {
             WarningBannerPalette(
                 container = colors.restrictedContainer,
-                border = colors.restricted,
+                border = colors.restricted.copy(alpha = 0.52f),
+                iconContainer = colors.restricted.copy(alpha = 0.12f),
                 icon = colors.restricted,
                 title = colors.restrictedContainerForeground,
                 message = colors.restrictedContainerForeground,

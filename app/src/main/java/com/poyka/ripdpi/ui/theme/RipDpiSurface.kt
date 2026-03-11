@@ -12,8 +12,10 @@ enum class RipDpiSurfaceRole {
     TonalCard,
     ElevatedCard,
     StatusCard,
+    SelectedCard,
     Sheet,
     Banner,
+    Snackbar,
 }
 
 @Immutable
@@ -63,6 +65,15 @@ fun ripDpiSurfaceStyle(role: RipDpiSurfaceRole): RipDpiSurfaceStyle {
             )
         }
 
+        RipDpiSurfaceRole.SelectedCard -> {
+            RipDpiSurfaceStyle(
+                container = colors.accent,
+                border = colors.foreground,
+                content = colors.foreground,
+                shadowElevation = 4.dp,
+            )
+        }
+
         RipDpiSurfaceRole.Sheet -> {
             RipDpiSurfaceStyle(
                 container = MaterialTheme.colorScheme.surface,
@@ -77,6 +88,15 @@ fun ripDpiSurfaceStyle(role: RipDpiSurfaceRole): RipDpiSurfaceStyle {
                 container = MaterialTheme.colorScheme.surface,
                 border = colors.border,
                 content = colors.foreground,
+            )
+        }
+
+        RipDpiSurfaceRole.Snackbar -> {
+            RipDpiSurfaceStyle(
+                container = MaterialTheme.colorScheme.inverseSurface,
+                border = Color.Transparent,
+                content = MaterialTheme.colorScheme.inverseOnSurface,
+                shadowElevation = 18.dp,
             )
         }
     }
