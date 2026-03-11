@@ -164,7 +164,7 @@ class NativeWrapperStateMachineTest {
                         ProxyState.IDLE -> assertTrue(error is IOException)
                         ProxyState.RUNNING_FAILURE,
                         ProxyState.RUNNING_SUCCESS,
-                        -> assertTrue(error is IllegalStateException)
+                        -> assertTrue(error is NativeError.AlreadyRunning)
                     }
                     state
                 } finally {
@@ -186,7 +186,7 @@ class NativeWrapperStateMachineTest {
                             runCatching {
                                 harness.proxy.startProxy(RipDpiProxyUIPreferences(port = 1101))
                             }.exceptionOrNull()
-                        assertTrue(error is IllegalStateException)
+                        assertTrue(error is NativeError.AlreadyRunning)
                         state
                     }
                 }
@@ -205,7 +205,7 @@ class NativeWrapperStateMachineTest {
                             runCatching {
                                 harness.proxy.startProxy(RipDpiProxyUIPreferences(port = 1102))
                             }.exceptionOrNull()
-                        assertTrue(error is IllegalStateException)
+                        assertTrue(error is NativeError.AlreadyRunning)
                         state
                     }
                 }
@@ -214,7 +214,7 @@ class NativeWrapperStateMachineTest {
                 when (state) {
                     ProxyState.IDLE -> {
                         val error = runCatching { harness.proxy.stopProxy() }.exceptionOrNull()
-                        assertTrue(error is IllegalStateException)
+                        assertTrue(error is NativeError.NotRunning)
                         state
                     }
 
@@ -232,7 +232,7 @@ class NativeWrapperStateMachineTest {
                         harness.bindings.stopFailure = IOException("stop failure")
                         try {
                             val error = runCatching { harness.proxy.stopProxy() }.exceptionOrNull()
-                            assertTrue(error is IllegalStateException)
+                            assertTrue(error is NativeError.NotRunning)
                         } finally {
                             harness.bindings.stopFailure = null
                         }
@@ -349,7 +349,7 @@ class NativeWrapperStateMachineTest {
                             runCatching {
                                 tunnel.start(Tun2SocksConfig(socks5Port = 1081), tunFd = 42)
                             }.exceptionOrNull()
-                        assertTrue(error is IllegalStateException)
+                        assertTrue(error is NativeError.AlreadyRunning)
                         TunnelCommandResult(state)
                     }
                 }
@@ -363,7 +363,7 @@ class NativeWrapperStateMachineTest {
                         }.exceptionOrNull()
                     when (state) {
                         TunnelState.IDLE -> assertTrue(error is IOException)
-                        TunnelState.RUNNING -> assertTrue(error is IllegalStateException)
+                        TunnelState.RUNNING -> assertTrue(error is NativeError.AlreadyRunning)
                     }
                     TunnelCommandResult(state)
                 } finally {
@@ -392,7 +392,7 @@ class NativeWrapperStateMachineTest {
                             runCatching {
                                 tunnel.start(Tun2SocksConfig(socks5Port = 1084), tunFd = 45)
                             }.exceptionOrNull()
-                        assertTrue(error is IllegalStateException)
+                        assertTrue(error is NativeError.AlreadyRunning)
                         TunnelCommandResult(state)
                     }
                 }
@@ -401,7 +401,7 @@ class NativeWrapperStateMachineTest {
                 when (state) {
                     TunnelState.IDLE -> {
                         val error = runCatching { tunnel.stop() }.exceptionOrNull()
-                        assertTrue(error is IllegalStateException)
+                        assertTrue(error is NativeError.NotRunning)
                         TunnelCommandResult(state)
                     }
 
@@ -415,7 +415,7 @@ class NativeWrapperStateMachineTest {
                 when (state) {
                     TunnelState.IDLE -> {
                         val error = runCatching { tunnel.stop() }.exceptionOrNull()
-                        assertTrue(error is IllegalStateException)
+                        assertTrue(error is NativeError.NotRunning)
                         TunnelCommandResult(state)
                     }
 
@@ -556,7 +556,7 @@ class NativeWrapperStateMachineTest {
                         }.exceptionOrNull()
                     when (state) {
                         DiagnosticsState.UNINITIALIZED -> {
-                            assertTrue(error is IllegalStateException)
+                            assertTrue(error is NativeError.SessionCreationFailed)
                             DiagnosticsCommandResult(DiagnosticsState.UNINITIALIZED)
                         }
 
