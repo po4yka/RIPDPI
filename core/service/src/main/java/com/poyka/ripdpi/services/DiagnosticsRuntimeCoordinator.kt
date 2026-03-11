@@ -19,6 +19,20 @@ class DefaultDiagnosticsRuntimeCoordinator
         private val serviceStateStore: ServiceStateStore,
         private val appSettingsRepository: AppSettingsRepository,
     ) : DiagnosticsRuntimeCoordinator {
+        private var waitAttempts: Int = 50
+        private var waitDelayMs: Long = 200L
+
+        internal constructor(
+            serviceController: ServiceController,
+            serviceStateStore: ServiceStateStore,
+            appSettingsRepository: AppSettingsRepository,
+            waitAttempts: Int,
+            waitDelayMs: Long,
+        ) : this(serviceController, serviceStateStore, appSettingsRepository) {
+            this.waitAttempts = waitAttempts
+            this.waitDelayMs = waitDelayMs
+        }
+
     override suspend fun runRawPathScan(block: suspend () -> Unit) {
         val (status, mode) = serviceStateStore.status.value
         val shouldResume = status == AppStatus.Running && appSettingsRepository.snapshot().diagnosticsAutoResumeAfterRawScan
@@ -39,11 +53,12 @@ class DefaultDiagnosticsRuntimeCoordinator
     }
 
     private suspend fun waitForStatus(target: AppStatus) {
-        repeat(50) {
+        repeat(waitAttempts) {
             if (serviceStateStore.status.value.first == target) {
                 return
             }
-            delay(200)
+            delay(waitDelayMs)
         }
+        throw IllegalStateException("Timed out waiting for service status $target")
     }
 }

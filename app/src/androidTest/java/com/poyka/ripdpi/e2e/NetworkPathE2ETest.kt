@@ -20,6 +20,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -52,6 +53,7 @@ class NetworkPathE2ETest {
         fixtureClient = LocalFixtureClient.fromInstrumentationArgs()
         fixture = fixtureClient.manifest()
         fixtureClient.resetEvents()
+        fixtureClient.resetFaults()
         runBlocking {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
@@ -72,6 +74,7 @@ class NetworkPathE2ETest {
             stopService(RipDpiVpnService::class.java)
         }
         fixtureClient.resetEvents()
+        fixtureClient.resetFaults()
     }
 
     @Test
@@ -151,6 +154,112 @@ class NetworkPathE2ETest {
         awaitUntil {
             serviceStateStore.telemetry.value.status == AppStatus.Halted
         }
+    }
+
+    @Test
+    fun proxyServicePropagatesTcpResetFaultFromFixture() {
+        val listenPort = reserveLoopbackPort()
+        runBlocking {
+            appSettingsRepository.update {
+                proxyPort = listenPort
+                proxyIp = "127.0.0.1"
+            }
+        }
+
+        startService(RipDpiProxyService::class.java)
+        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+        fixtureClient.setFault(
+            FixtureFaultSpecDto(
+                target = FixtureFaultTargetDto.TCP_ECHO,
+                outcome = FixtureFaultOutcomeDto.TCP_RESET,
+            ),
+        )
+
+        val payload = "fixture-reset".encodeToByteArray()
+        val result = runCatching { socksTcpRoundTrip(listenPort, fixture.androidHost, fixture.tcpEchoPort, payload) }
+
+        if (result.isSuccess) {
+            assertFalse(result.getOrThrow().contentEquals(payload))
+        } else {
+            assertTrue(result.exceptionOrNull() != null)
+        }
+        assertTrue(
+            fixtureClient.events().any { event ->
+                event.service == "tcp_echo" && event.detail.contains("TcpReset", ignoreCase = true)
+            },
+        )
+    }
+
+    @Test
+    fun proxyServicePropagatesTlsAbortFaultFromFixture() {
+        val listenPort = reserveLoopbackPort()
+        runBlocking {
+            appSettingsRepository.update {
+                proxyPort = listenPort
+                proxyIp = "127.0.0.1"
+            }
+        }
+
+        startService(RipDpiProxyService::class.java)
+        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+        fixtureClient.setFault(
+            FixtureFaultSpecDto(
+                target = FixtureFaultTargetDto.TLS_ECHO,
+                outcome = FixtureFaultOutcomeDto.TLS_ABORT,
+            ),
+        )
+
+        val error =
+            runCatching {
+                httpConnectTlsHandshake(
+                    proxyPort = listenPort,
+                    targetHost = fixture.androidHost,
+                    targetPort = fixture.tlsEchoPort,
+                    sniHost = fixture.fixtureDomain,
+                )
+            }.exceptionOrNull()
+
+        assertTrue(error != null)
+        assertTrue(
+            fixtureClient.events().any { event ->
+                event.service == "tls_echo" && event.detail.contains("tls_abort", ignoreCase = true)
+            },
+        )
+    }
+
+    @Test
+    fun vpnServiceSurfacedFixtureFaultBreaksShellRoundTrip() {
+        ensureVpnPrepared(appContext)
+
+        val listenPort = reserveLoopbackPort()
+        runBlocking {
+            appSettingsRepository.update {
+                proxyPort = listenPort
+                proxyIp = "127.0.0.1"
+                dnsIp = "1.1.1.1"
+            }
+        }
+
+        startService(RipDpiVpnService::class.java)
+        awaitServiceStatus(AppStatus.Running, Mode.VPN)
+        fixtureClient.setFault(
+            FixtureFaultSpecDto(
+                target = FixtureFaultTargetDto.TCP_ECHO,
+                outcome = FixtureFaultOutcomeDto.TCP_RESET,
+            ),
+        )
+
+        val output =
+            execShell(
+                "sh -c 'printf vpn-reset | toybox nc -w 5 ${fixture.fixtureIpv4} ${fixture.tcpEchoPort}'",
+            ).trim()
+
+        assertFalse(output.contains("vpn-reset"))
+        assertTrue(
+            fixtureClient.events().any { event ->
+                event.service == "tcp_echo" && event.detail.contains("TcpReset", ignoreCase = true)
+            },
+        )
     }
 
     private fun startService(serviceClass: Class<*>) {

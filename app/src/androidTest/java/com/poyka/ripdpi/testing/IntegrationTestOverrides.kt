@@ -10,6 +10,10 @@ import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.TunnelStats
+import com.poyka.ripdpi.core.testing.FaultOutcome
+import com.poyka.ripdpi.core.testing.FaultQueue
+import com.poyka.ripdpi.core.testing.FaultSpec
+import com.poyka.ripdpi.core.testing.faultThrowable
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
@@ -86,6 +90,7 @@ class RecordingRipDpiProxyRuntime(
     private var exitCode = CompletableDeferred<Int>()
     var startFailure: Throwable? = null
     var telemetryValue: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy")
+    val faults = FaultQueue<ProxyRuntimeFaultTarget>()
 
     var lastPreferences: com.poyka.ripdpi.core.RipDpiProxyPreferences? = null
         private set
@@ -95,6 +100,7 @@ class RecordingRipDpiProxyRuntime(
     override suspend fun startProxy(preferences: com.poyka.ripdpi.core.RipDpiProxyPreferences): Int {
         lastPreferences = preferences
         events += "proxy:start"
+        faults.next(ProxyRuntimeFaultTarget.START)?.throwOrIgnore()
         startFailure?.let { throw it }
         return exitCode.await()
     }
@@ -102,12 +108,19 @@ class RecordingRipDpiProxyRuntime(
     override suspend fun stopProxy() {
         stopCount += 1
         events += "proxy:stop"
-        if (!exitCode.isCompleted) {
-            exitCode.complete(0)
+        try {
+            faults.next(ProxyRuntimeFaultTarget.STOP)?.throwOrIgnore()
+        } finally {
+            if (!exitCode.isCompleted) {
+                exitCode.complete(0)
+            }
         }
     }
 
-    override suspend fun pollTelemetry(): NativeRuntimeSnapshot = telemetryValue
+    override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
+        faults.next(ProxyRuntimeFaultTarget.TELEMETRY)?.throwOrIgnore()
+        return telemetryValue
+    }
 
     fun complete(exitCode: Int) {
         if (!this.exitCode.isCompleted) {
@@ -120,7 +133,14 @@ class RecordingRipDpiProxyRuntime(
         lastPreferences = null
         stopCount = 0
         startFailure = null
+        faults.clear()
     }
+}
+
+enum class ProxyRuntimeFaultTarget {
+    START,
+    STOP,
+    TELEMETRY,
 }
 
 class RecordingRipDpiProxyFactory(
@@ -147,8 +167,11 @@ class RecordingTun2SocksBridge(
         private set
     var failOnStart: Throwable? = null
     var failOnStats: Throwable? = null
+    var failOnStop: Throwable? = null
+    var failOnTelemetry: Throwable? = null
     var statsValue: TunnelStats = TunnelStats()
     var telemetryValue: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel")
+    val faults = FaultQueue<TunnelBridgeFaultTarget>()
 
     override suspend fun start(
         config: Tun2SocksConfig,
@@ -157,20 +180,28 @@ class RecordingTun2SocksBridge(
         events += "tunnel:start"
         startedConfig = config
         startedTunFd = tunFd
+        faults.next(TunnelBridgeFaultTarget.START)?.throwOrIgnore()
         failOnStart?.let { throw it }
     }
 
     override suspend fun stop() {
         stopCount += 1
         events += "tunnel:stop"
+        faults.next(TunnelBridgeFaultTarget.STOP)?.throwOrIgnore()
+        failOnStop?.let { throw it }
     }
 
     override suspend fun stats(): TunnelStats {
+        faults.next(TunnelBridgeFaultTarget.STATS)?.throwOrIgnore()
         failOnStats?.let { throw it }
         return statsValue
     }
 
-    override suspend fun telemetry(): NativeRuntimeSnapshot = telemetryValue
+    override suspend fun telemetry(): NativeRuntimeSnapshot {
+        faults.next(TunnelBridgeFaultTarget.TELEMETRY)?.throwOrIgnore()
+        failOnTelemetry?.let { throw it }
+        return telemetryValue
+    }
 
     fun reset() {
         startedConfig = null
@@ -178,9 +209,19 @@ class RecordingTun2SocksBridge(
         stopCount = 0
         failOnStart = null
         failOnStats = null
+        failOnStop = null
+        failOnTelemetry = null
         statsValue = TunnelStats()
         telemetryValue = NativeRuntimeSnapshot.idle(source = "tunnel")
+        faults.clear()
     }
+}
+
+enum class TunnelBridgeFaultTarget {
+    START,
+    STOP,
+    STATS,
+    TELEMETRY,
 }
 
 class RecordingTun2SocksBridgeFactory(
@@ -227,6 +268,7 @@ class RecordingVpnTunnelSessionProvider(
     private val events: MutableList<String>,
 ) : VpnTunnelSessionProvider {
     var establishFailure: Throwable? = null
+    val faults = FaultQueue<VpnSessionFaultTarget>()
     var lastDns: String? = null
         private set
     var lastIpv6: Boolean? = null
@@ -242,6 +284,7 @@ class RecordingVpnTunnelSessionProvider(
         lastDns = dns
         lastIpv6 = ipv6
         events += "vpn:establish"
+        faults.next(VpnSessionFaultTarget.ESTABLISH)?.throwOrIgnore()
         establishFailure?.let { throw it }
         return session
     }
@@ -251,7 +294,12 @@ class RecordingVpnTunnelSessionProvider(
         lastDns = null
         lastIpv6 = null
         establishFailure = null
+        faults.clear()
     }
+}
+
+enum class VpnSessionFaultTarget {
+    ESTABLISH,
 }
 
 class FixedProxyPreferencesResolver(
@@ -308,4 +356,14 @@ object IntegrationTestOverrides {
     }
 
     fun orderSnapshot(): List<String> = orderEvents.toList()
+}
+
+private fun <T> FaultSpec<T>.throwOrIgnore() {
+    when (outcome) {
+        FaultOutcome.MALFORMED_PAYLOAD,
+        FaultOutcome.BLANK_PAYLOAD,
+        -> Unit
+
+        else -> throw faultThrowable(outcome, message)
+    }
 }

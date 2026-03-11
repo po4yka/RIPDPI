@@ -96,18 +96,13 @@ fn build_tunnel_config(fixture: &FixtureStack, tun_name: &str) -> Config {
             netmask: Some("255.255.255.255".to_string()),
             cache_size: 128,
         }),
-        misc: MiscConfig {
-            max_session_count: 128,
-            ..MiscConfig::default()
-        },
+        misc: MiscConfig { max_session_count: 128, ..MiscConfig::default() },
     }
 }
 
 fn tcp_round_trip(host: &str, port: u16) {
     let mut stream = TcpStream::connect((host, port)).expect("connect through tunnel");
-    stream
-        .set_read_timeout(Some(Duration::from_secs(5)))
-        .expect("set tcp read timeout");
+    stream.set_read_timeout(Some(Duration::from_secs(5))).expect("set tcp read timeout");
     stream.write_all(b"tun tcp").expect("write tcp payload");
     let mut buf = [0u8; 7];
     stream.read_exact(&mut buf).expect("read tcp echo");
@@ -116,9 +111,7 @@ fn tcp_round_trip(host: &str, port: u16) {
 
 fn udp_round_trip(host: &str, port: u16) {
     let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).expect("bind udp client");
-    socket
-        .set_read_timeout(Some(Duration::from_secs(5)))
-        .expect("set udp timeout");
+    socket.set_read_timeout(Some(Duration::from_secs(5))).expect("set udp timeout");
     socket.connect((host, port)).expect("connect udp through tunnel");
     socket.send(b"tun udp").expect("send udp payload");
     let mut buf = [0u8; 64];
@@ -128,9 +121,7 @@ fn udp_round_trip(host: &str, port: u16) {
 
 fn mapdns_round_trip(host: &str) {
     let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).expect("bind dns client");
-    socket
-        .set_read_timeout(Some(Duration::from_secs(5)))
-        .expect("set dns timeout");
+    socket.set_read_timeout(Some(Duration::from_secs(5))).expect("set dns timeout");
     socket.connect((host, 53)).expect("connect mapdns");
     socket.send(&build_dns_query("fixture.test")).expect("send dns query");
     let mut buf = [0u8; 512];
@@ -162,9 +153,7 @@ impl TunHarness {
         let name = format!("ripdpi-tun-{}", std::process::id());
         let tunnel = LinuxTunnel::open(Some(&name), false).map_err(other_io)?;
         tunnel.set_mtu(1500).map_err(other_io)?;
-        tunnel
-            .set_ipv4(Ipv4Addr::new(10, 77, 0, 1), 24)
-            .map_err(other_io)?;
+        tunnel.set_ipv4(Ipv4Addr::new(10, 77, 0, 1), 24).map_err(other_io)?;
         tunnel.set_up().map_err(other_io)?;
         run_ip(&["route", "replace", E2E_ROUTE_CIDR, "dev", tunnel.name()])?;
         Ok(Self { tunnel })
@@ -198,11 +187,7 @@ fn run_ip(args: &[&str]) -> io::Result<()> {
     } else {
         Err(io::Error::new(
             ErrorKind::Other,
-            format!(
-                "ip {:?} failed: {}",
-                args,
-                String::from_utf8_lossy(&output.stderr).trim()
-            ),
+            format!("ip {:?} failed: {}", args, String::from_utf8_lossy(&output.stderr).trim()),
         ))
     }
 }
@@ -257,12 +242,7 @@ fn parse_a_answers(packet: &[u8]) -> Vec<Ipv4Addr> {
         let rdlen = u16::from_be_bytes([packet[cursor], packet[cursor + 1]]) as usize;
         cursor += 2;
         if record_type == 1 && rdlen == 4 && cursor + 4 <= packet.len() {
-            answers.push(Ipv4Addr::new(
-                packet[cursor],
-                packet[cursor + 1],
-                packet[cursor + 2],
-                packet[cursor + 3],
-            ));
+            answers.push(Ipv4Addr::new(packet[cursor], packet[cursor + 1], packet[cursor + 2], packet[cursor + 3]));
         }
         cursor += rdlen;
     }
