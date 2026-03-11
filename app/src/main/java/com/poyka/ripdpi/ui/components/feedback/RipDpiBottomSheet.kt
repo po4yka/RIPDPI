@@ -27,13 +27,16 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
+import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +52,7 @@ fun RipDpiBottomSheet(
     primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     secondaryActionLabel: String? = null,
     onSecondaryAction: (() -> Unit)? = null,
+    actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     ModalBottomSheet(
@@ -75,6 +79,7 @@ fun RipDpiBottomSheet(
             primaryActionVariant = primaryActionVariant,
             secondaryActionLabel = secondaryActionLabel,
             onSecondaryAction = onSecondaryAction,
+            actionLayout = actionLayout,
             content = content,
         )
     }
@@ -91,18 +96,21 @@ fun RipDpiBottomSheetCard(
     primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     secondaryActionLabel: String? = null,
     onSecondaryAction: (() -> Unit)? = null,
+    actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
+    val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Sheet)
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        contentColor = colors.foreground,
-        border = BorderStroke(RipDpiStroke.Thin, colors.cardBorder),
+        color = surfaceStyle.container,
+        contentColor = surfaceStyle.content,
+        border = BorderStroke(RipDpiStroke.Thin, surfaceStyle.border),
+        shadowElevation = surfaceStyle.shadowElevation,
     ) {
         Column(
             modifier =
@@ -146,6 +154,7 @@ fun RipDpiBottomSheetCard(
                 primaryActionVariant = primaryActionVariant,
                 secondaryActionLabel = secondaryActionLabel,
                 onSecondaryAction = onSecondaryAction,
+                actionLayout = actionLayout,
             )
         }
     }
@@ -193,36 +202,65 @@ private fun BottomSheetActionColumn(
     primaryActionVariant: RipDpiButtonVariant,
     secondaryActionLabel: String?,
     onSecondaryAction: (() -> Unit)?,
+    actionLayout: RipDpiActionLayout,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val hasPrimaryAction = primaryActionLabel != null && onPrimaryAction != null
     val hasSecondaryAction = secondaryActionLabel != null && onSecondaryAction != null
+    val resolvedActionLayout = actionLayout.resolvedActionLayout()
 
     if (!hasPrimaryAction && !hasSecondaryAction) {
         return
     }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        val primaryAction = onPrimaryAction
-        if (primaryActionLabel != null && primaryAction != null) {
-            RipDpiButton(
-                text = primaryActionLabel,
-                onClick = primaryAction,
-                modifier = Modifier.fillMaxWidth(),
-                variant = primaryActionVariant,
-            )
+    if (resolvedActionLayout == RipDpiActionLayout.Stacked) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            val primaryAction = onPrimaryAction
+            if (primaryActionLabel != null && primaryAction != null) {
+                RipDpiButton(
+                    text = primaryActionLabel,
+                    onClick = primaryAction,
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = primaryActionVariant,
+                )
+            }
+            val secondaryAction = onSecondaryAction
+            if (secondaryActionLabel != null && secondaryAction != null) {
+                RipDpiButton(
+                    text = secondaryActionLabel,
+                    onClick = secondaryAction,
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = RipDpiButtonVariant.Outline,
+                )
+            }
         }
-        val secondaryAction = onSecondaryAction
-        if (secondaryActionLabel != null && secondaryAction != null) {
-            RipDpiButton(
-                text = secondaryActionLabel,
-                onClick = secondaryAction,
-                modifier = Modifier.fillMaxWidth(),
-                variant = RipDpiButtonVariant.Outline,
-            )
+    } else {
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val secondaryAction = onSecondaryAction
+            if (secondaryActionLabel != null && secondaryAction != null) {
+                RipDpiButton(
+                    text = secondaryActionLabel,
+                    onClick = secondaryAction,
+                    variant = RipDpiButtonVariant.Outline,
+                    density = RipDpiControlDensity.Compact,
+                )
+            }
+            val primaryAction = onPrimaryAction
+            if (primaryActionLabel != null && primaryAction != null) {
+                RipDpiButton(
+                    text = primaryActionLabel,
+                    onClick = primaryAction,
+                    variant = primaryActionVariant,
+                    density = RipDpiControlDensity.Compact,
+                )
+            }
         }
     }
 }

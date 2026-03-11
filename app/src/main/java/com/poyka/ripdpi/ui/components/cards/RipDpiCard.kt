@@ -22,11 +22,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 enum class RipDpiCardVariant {
     Outlined,
+    Tonal,
     Elevated,
+    Status,
 }
 
 @Composable
@@ -41,15 +45,20 @@ fun RipDpiCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val shape = RipDpiThemeTokens.shapes.xl
-    val background = MaterialTheme.colorScheme.surface
-    val borderColor = if (variant == RipDpiCardVariant.Outlined) colors.cardBorder else Color.Transparent
+    val surfaceStyle =
+        when (variant) {
+            RipDpiCardVariant.Outlined -> ripDpiSurfaceStyle(RipDpiSurfaceRole.Card)
+            RipDpiCardVariant.Tonal -> ripDpiSurfaceStyle(RipDpiSurfaceRole.TonalCard)
+            RipDpiCardVariant.Elevated -> ripDpiSurfaceStyle(RipDpiSurfaceRole.ElevatedCard)
+            RipDpiCardVariant.Status -> ripDpiSurfaceStyle(RipDpiSurfaceRole.StatusCard)
+        }
     val interactionSource = remember { MutableInteractionSource() }
     val cardModifier =
         modifier
             .fillMaxWidth()
-            .shadow(if (variant == RipDpiCardVariant.Elevated) 24.dp else 0.dp, shape, clip = false)
-            .background(background, shape)
-            .border(if (variant == RipDpiCardVariant.Outlined) 1.dp else 0.dp, borderColor, shape)
+            .shadow(surfaceStyle.shadowElevation, shape, clip = false)
+            .background(surfaceStyle.container, shape)
+            .border(if (surfaceStyle.border == Color.Transparent) 0.dp else 1.dp, surfaceStyle.border, shape)
             .alpha(if (enabled) 1f else 0.38f)
             .then(
                 if (onClick != null) {
@@ -83,6 +92,18 @@ private fun RipDpiCardPreview() {
             )
             Text(
                 text = "Designed for monochrome list blocks and grouped controls.",
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
+        RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+            Text(
+                text = "Tonal card",
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = RipDpiThemeTokens.colors.foreground,
+            )
+            Text(
+                text = "Use for inline groups and selected settings content.",
                 style = RipDpiThemeTokens.type.secondaryBody,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
