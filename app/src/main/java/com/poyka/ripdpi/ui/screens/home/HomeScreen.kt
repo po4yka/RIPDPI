@@ -3,12 +3,8 @@ package com.poyka.ripdpi.ui.screens.home
 import android.text.format.Formatter
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,6 +13,8 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,12 +30,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -64,6 +65,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 import java.util.Locale
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 
@@ -315,40 +318,27 @@ private fun HomeConnectionButton(
     val type = RipDpiThemeTokens.type
     val scheme = MaterialTheme.colorScheme
     val homeChrome = rememberHomeChromeMetrics()
-    val pulseScale =
-        if (state == ConnectionState.Connecting && motion.allowsInfiniteMotion) {
-            val infiniteTransition = rememberInfiniteTransition()
-            val animatedPulseScale by infiniteTransition.animateFloat(
-                initialValue = 0.96f,
-                targetValue = 1.04f,
-                animationSpec =
-                    infiniteRepeatable(
-                        animation =
-                            tween(
-                                durationMillis = motion.duration(1_100),
-                                easing = LinearEasing,
-                            ),
-                        repeatMode = RepeatMode.Reverse,
-                    ),
-            )
-            animatedPulseScale
-        } else {
-            1f
-        }
-    val stateScale by animateFloatAsState(
+    val density = LocalDensity.current
+    val interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
         targetValue =
-            when (state) {
-                ConnectionState.Connected -> motion.selectionScale
-                ConnectionState.Error -> motion.pressScale
-
-                ConnectionState.Connecting,
-                ConnectionState.Disconnected,
-                -> 1f
+            if (isPressed && state != ConnectionState.Connecting) {
+                0.94f
+            } else {
+                1f
             },
-        animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
-        label = "homeConnectionStateScale",
+        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        label = "homeConnectionPressScale",
     )
-    val buttonScale = pulseScale * stateScale
+    val buttonScale = androidx.compose.runtime.remember { Animatable(1f) }
+    val haloScale = androidx.compose.runtime.remember { Animatable(1f) }
+    val shakeOffset = androidx.compose.runtime.remember { Animatable(0f) }
+    val previousState = androidx.compose.runtime.remember { mutableStateOf(state) }
+    val shakeDistance =
+        with(density) {
+            12.dp.toPx()
+        }
 
     val containerColor =
         when (state) {
@@ -415,6 +405,145 @@ private fun HomeConnectionButton(
         label = "homeConnectionBorder",
     )
 
+    LaunchedEffect(state) {
+        val priorState = previousState.value
+        previousState.value = state
+
+        if (priorState == state) {
+            return@LaunchedEffect
+        }
+
+        when (state) {
+            ConnectionState.Connecting -> {
+                coroutineScope {
+                    launch {
+                        buttonScale.snapTo(0.98f)
+                        buttonScale.animateTo(
+                            targetValue = 1.03f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
+                        buttonScale.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                        )
+                    }
+                    launch {
+                        haloScale.snapTo(0.88f)
+                        haloScale.animateTo(
+                            targetValue = 1.18f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
+                        )
+                        haloScale.animateTo(
+                            targetValue = 1.08f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                        )
+                    }
+                    launch {
+                        shakeOffset.snapTo(0f)
+                    }
+                }
+            }
+
+            ConnectionState.Connected -> {
+                coroutineScope {
+                    launch {
+                        buttonScale.snapTo(1.08f)
+                        buttonScale.animateTo(
+                            targetValue = motion.selectionScale,
+                            animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
+                        )
+                    }
+                    launch {
+                        haloScale.snapTo(1.08f)
+                        haloScale.animateTo(
+                            targetValue = 1.22f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
+                        )
+                        haloScale.animateTo(
+                            targetValue = 1.02f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                        )
+                    }
+                    launch {
+                        shakeOffset.animateTo(
+                            targetValue = 0f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
+                    }
+                }
+            }
+
+            ConnectionState.Error -> {
+                coroutineScope {
+                    launch {
+                        buttonScale.snapTo(0.95f)
+                        buttonScale.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                        )
+                    }
+                    launch {
+                        haloScale.snapTo(1.04f)
+                        haloScale.animateTo(
+                            targetValue = 1.1f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
+                        haloScale.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                        )
+                    }
+                    launch {
+                        shakeOffset.snapTo(0f)
+                        shakeOffset.animateTo(
+                            targetValue = -shakeDistance,
+                            animationSpec = tween(durationMillis = motion.duration(50)),
+                        )
+                        shakeOffset.animateTo(
+                            targetValue = shakeDistance * 0.8f,
+                            animationSpec = tween(durationMillis = motion.duration(60)),
+                        )
+                        shakeOffset.animateTo(
+                            targetValue = -shakeDistance * 0.5f,
+                            animationSpec = tween(durationMillis = motion.duration(55)),
+                        )
+                        shakeOffset.animateTo(
+                            targetValue = shakeDistance * 0.25f,
+                            animationSpec = tween(durationMillis = motion.duration(50)),
+                        )
+                        shakeOffset.animateTo(
+                            targetValue = 0f,
+                            animationSpec = tween(durationMillis = motion.duration(70)),
+                        )
+                    }
+                }
+            }
+
+            ConnectionState.Disconnected -> {
+                coroutineScope {
+                    launch {
+                        buttonScale.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                        )
+                    }
+                    launch {
+                        haloScale.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                        )
+                    }
+                    launch {
+                        shakeOffset.animateTo(
+                            targetValue = 0f,
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
@@ -423,19 +552,28 @@ private fun HomeConnectionButton(
             modifier =
                 Modifier
                     .size(homeChrome.connectionHaloSize)
-                    .scale(buttonScale)
+                    .graphicsLayer {
+                        scaleX = haloScale.value
+                        scaleY = haloScale.value
+                        translationX = shakeOffset.value * 0.2f
+                    }
                     .background(animatedHaloColor, CircleShape),
         )
         Column(
             modifier =
                 Modifier
                     .size(homeChrome.connectionButtonSize)
-                    .scale(buttonScale)
+                    .graphicsLayer {
+                        scaleX = buttonScale.value * pressScale
+                        scaleY = buttonScale.value * pressScale
+                        translationX = shakeOffset.value
+                    }
                     .background(animatedContainerColor, CircleShape)
                     .border(width = 1.dp, color = animatedBorderColor, shape = CircleShape)
                     .ripDpiClickable(
                         enabled = state != ConnectionState.Connecting,
                         role = androidx.compose.ui.semantics.Role.Button,
+                        interactionSource = interactionSource,
                         onClick = onClick,
                     ).padding(
                         horizontal = homeChrome.connectionHorizontalPadding,
