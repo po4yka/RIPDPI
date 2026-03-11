@@ -1,17 +1,18 @@
 package com.poyka.ripdpi.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -26,7 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -45,6 +46,9 @@ fun BottomNavBar(
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val layout = RipDpiThemeTokens.layout
+    val motion = RipDpiThemeTokens.motion
+    val destinations = Route.topLevel
+    val selectedIndex = destinations.indexOfFirst { currentRoute == it.route }.takeIf { it >= 0 }
 
     Column(
         modifier =
@@ -61,7 +65,7 @@ fun BottomNavBar(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            Row(
+            BoxWithConstraints(
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -70,15 +74,71 @@ fun BottomNavBar(
                         )
                         .height(layout.bottomBarHeight)
                         .padding(horizontal = components.chipVerticalPadding + components.switchThumbPadding),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Route.topLevel.forEach { destination ->
-                    BottomNavItem(
-                        destination = destination,
-                        selected = currentRoute == destination.route,
-                        onClick = { onNavigate(destination) },
+                val density = LocalDensity.current
+                val slotWidth = maxWidth / destinations.size.coerceAtLeast(1)
+                val indicatorOffsetPxTarget =
+                    selectedIndex?.let { index ->
+                        with(density) {
+                            (slotWidth * index + ((slotWidth - components.bottomNavIndicatorWidth) / 2)).toPx()
+                        }
+                    } ?: 0f
+                val indicatorOffsetPx by animateFloatAsState(
+                    targetValue = indicatorOffsetPxTarget,
+                    animationSpec =
+                        tween(
+                            durationMillis = motion.duration(motion.emphasizedDurationMillis),
+                            easing = FastOutSlowInEasing,
+                        ),
+                    label = "bottomNavIndicatorOffset",
+                )
+                val indicatorAlpha by animateFloatAsState(
+                    targetValue = if (selectedIndex != null) 1f else 0f,
+                    animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                    label = "bottomNavIndicatorAlpha",
+                )
+                val indicatorScaleX by animateFloatAsState(
+                    targetValue = if (selectedIndex != null) 1f else 0.88f,
+                    animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    label = "bottomNavIndicatorScaleX",
+                )
+                val indicatorTopOffsetPx =
+                    with(density) {
+                        (components.chipVerticalPadding + components.switchThumbPadding).toPx()
+                    }
+
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(
+                                    width = components.bottomNavIndicatorWidth,
+                                    height = components.bottomNavIndicatorHeight,
+                                ).graphicsLayer {
+                                    translationX = indicatorOffsetPx
+                                    translationY = indicatorTopOffsetPx
+                                    alpha = indicatorAlpha
+                                    scaleX = indicatorScaleX
+                                }.background(
+                                    color = colors.inputBackground,
+                                    shape = RipDpiThemeTokens.shapes.xxl,
+                                ),
                     )
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        destinations.forEach { destination ->
+                            BottomNavItem(
+                                destination = destination,
+                                selected = currentRoute == destination.route,
+                                onClick = { onNavigate(destination) },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -95,11 +155,6 @@ private fun RowScope.BottomNavItem(
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
     val type = RipDpiThemeTokens.type
-    val indicatorColor by animateColorAsState(
-        targetValue = if (selected) colors.inputBackground else Color.Transparent,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-        label = "bottomNavIndicatorColor",
-    )
     val iconTint by animateColorAsState(
         targetValue = if (selected) colors.foreground else colors.mutedForeground,
         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
@@ -109,16 +164,6 @@ private fun RowScope.BottomNavItem(
         targetValue = if (selected) colors.foreground else colors.mutedForeground,
         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
         label = "bottomNavLabelColor",
-    )
-    val indicatorWidth by animateDpAsState(
-        targetValue =
-            if (selected) {
-                components.bottomNavIndicatorWidth
-            } else {
-                components.bottomNavIndicatorHeight
-            },
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-        label = "bottomNavIndicatorWidth",
     )
     val selectionScale by animateFloatAsState(
         targetValue = if (selected) motion.selectionScale else 1f,
@@ -150,10 +195,9 @@ private fun RowScope.BottomNavItem(
         Box(
             modifier =
                 Modifier
-                    .size(width = indicatorWidth, height = components.bottomNavIndicatorHeight)
-                    .background(
-                        color = indicatorColor,
-                        shape = RipDpiThemeTokens.shapes.xxl,
+                    .size(
+                        width = components.bottomNavIndicatorWidth,
+                        height = components.bottomNavIndicatorHeight,
                     ),
             contentAlignment = Alignment.Center,
         ) {
