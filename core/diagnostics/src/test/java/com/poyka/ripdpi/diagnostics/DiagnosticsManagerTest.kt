@@ -935,11 +935,35 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
 
     override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = snapshotsState
 
+    override fun observeConnectionSnapshots(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<NetworkSnapshotEntity>> =
+        MutableStateFlow(snapshotsState.value.filter { it.sessionId == connectionSessionId }.take(limit))
+
     override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> = contextsState
+
+    override fun observeConnectionContexts(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<DiagnosticContextEntity>> =
+        MutableStateFlow(contextsState.value.filter { it.sessionId == connectionSessionId }.take(limit))
 
     override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> = telemetryState
 
+    override fun observeConnectionTelemetry(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<TelemetrySampleEntity>> =
+        MutableStateFlow(telemetryState.value.filter { it.sessionId == connectionSessionId }.take(limit))
+
     override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = nativeEventsState
+
+    override fun observeConnectionNativeEvents(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<NativeSessionEventEntity>> =
+        MutableStateFlow(nativeEventsState.value.filter { it.sessionId == connectionSessionId }.take(limit))
 
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = exportsState
 
@@ -951,6 +975,9 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
 
     override suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
         sessionsState.value.find { it.id == sessionId }
+
+    override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? =
+        usageSessionsState.value.find { it.id == sessionId }
 
     override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> = probeResults[sessionId].orEmpty()
 

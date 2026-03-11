@@ -43,11 +43,31 @@ class DiagnosticsContextProviderTest {
 
                     override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = MutableStateFlow(emptyList())
 
+                    override fun observeConnectionSnapshots(
+                        connectionSessionId: String,
+                        limit: Int,
+                    ): Flow<List<NetworkSnapshotEntity>> = MutableStateFlow(emptyList())
+
                     override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> = MutableStateFlow(emptyList())
+
+                    override fun observeConnectionContexts(
+                        connectionSessionId: String,
+                        limit: Int,
+                    ): Flow<List<DiagnosticContextEntity>> = MutableStateFlow(emptyList())
 
                     override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> = MutableStateFlow(emptyList())
 
+                    override fun observeConnectionTelemetry(
+                        connectionSessionId: String,
+                        limit: Int,
+                    ): Flow<List<TelemetrySampleEntity>> = MutableStateFlow(emptyList())
+
                     override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = MutableStateFlow(emptyList())
+
+                    override fun observeConnectionNativeEvents(
+                        connectionSessionId: String,
+                        limit: Int,
+                    ): Flow<List<NativeSessionEventEntity>> = MutableStateFlow(emptyList())
 
                     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = MutableStateFlow(emptyList())
 
@@ -67,6 +87,8 @@ class DiagnosticsContextProviderTest {
                     override suspend fun getPackVersion(packId: String): TargetPackVersionEntity? = null
 
                     override suspend fun getScanSession(sessionId: String): ScanSessionEntity? = null
+
+                    override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? = null
 
                     override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> = emptyList()
 
