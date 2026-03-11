@@ -4,7 +4,8 @@ use std::sync::OnceLock;
 
 use ciadpi_config::{
     dump_cache_entries, load_cache_entries, parse_cli, parse_hosts_spec, parse_ipset_spec, FilterSet,
-    OffsetExpr, ParseResult, StartupEnv, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    OffsetExpr, ParseResult, StartupEnv, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
     HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
 use serde_json::Value;
@@ -272,4 +273,33 @@ fn parse_args_host_autolearn_defaults_store_file_when_enabled() {
     assert_eq!(config.host_autolearn_penalty_ttl_secs, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS);
     assert_eq!(config.host_autolearn_max_hosts, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS);
     assert_eq!(config.host_autolearn_store_path.as_deref(), Some("host-autolearn-v1.json"));
+}
+
+#[test]
+fn fake_tls_mod_parser_accepts_richer_tokens() {
+    let config = parse_runtime(
+        &[
+            "--fake-tls-mod",
+            "rand,orig,rndsni,dupsid,padencap,msize=144",
+            "--fake-sni",
+            "docs.example.test",
+        ],
+        StartupEnv::default(),
+    );
+    let group = &config.groups[0];
+
+    assert_eq!(group.fake_mod, FM_RAND | FM_ORIG | FM_RNDSNI | FM_DUPSID | FM_PADENCAP);
+    assert_eq!(group.fake_tls_size, 144);
+    assert_eq!(group.fake_sni_list, vec!["docs.example.test".to_string()]);
+}
+
+#[test]
+fn fake_tls_mod_parser_rejects_unknown_tokens() {
+    let err = parse_cli(
+        &["--fake-tls-mod".to_string(), "rand,bogus".to_string()],
+        &StartupEnv::default(),
+    )
+    .expect_err("invalid fake tls mod token should fail");
+
+    assert!(err.to_string().contains("--fake-tls-mod"));
 }

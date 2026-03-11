@@ -539,6 +539,9 @@ class DiagnosticsManagerTest {
                     tlsRecordMarker = "extlen",
                     splitMarker = "1",
                     fakeSniMode = null,
+                    fakeTlsBaseMode = null,
+                    fakeTlsMods = emptyList(),
+                    fakeTlsSize = null,
                     fakeOffsetMarker = null,
                     routeGroup = "3",
                 )
@@ -669,7 +672,10 @@ class DiagnosticsManagerTest {
                     tlsRecordSplitEnabled = false,
                     tlsRecordMarker = null,
                     splitMarker = null,
-                    fakeSniMode = "custom",
+                    fakeSniMode = "fixed",
+                    fakeTlsBaseMode = "default",
+                    fakeTlsMods = emptyList(),
+                    fakeTlsSize = null,
                     fakeOffsetMarker = "method+1",
                     routeGroup = null,
                 )

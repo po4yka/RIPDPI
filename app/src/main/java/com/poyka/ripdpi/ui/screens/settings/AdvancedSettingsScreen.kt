@@ -34,6 +34,7 @@ import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
@@ -70,6 +71,9 @@ private enum class AdvancedToggleSetting {
     NoDomain,
     TcpFastOpen,
     DropSack,
+    FakeTlsRandomize,
+    FakeTlsDupSessionId,
+    FakeTlsPadEncap,
     DesyncHttp,
     DesyncHttps,
     DesyncUdp,
@@ -94,6 +98,7 @@ private enum class AdvancedTextSetting {
     FakeTtl,
     FakeSni,
     FakeOffsetMarker,
+    FakeTlsSize,
     OobData,
     TlsrecMarker,
     UdpFakeCount,
@@ -105,6 +110,8 @@ private enum class AdvancedTextSetting {
 
 private enum class AdvancedOptionSetting {
     DesyncMethod,
+    FakeTlsBase,
+    FakeTlsSniMode,
     HostsMode,
     QuicInitialMode,
 }
@@ -181,6 +188,33 @@ fun AdvancedSettingsRoute(
                         value = enabled.toString(),
                     ) {
                         setDropSack(enabled)
+                    }
+                }
+
+                AdvancedToggleSetting.FakeTlsRandomize -> {
+                    viewModel.updateSetting(
+                        key = "fakeTlsRandomize",
+                        value = enabled.toString(),
+                    ) {
+                        setFakeTlsRandomize(enabled)
+                    }
+                }
+
+                AdvancedToggleSetting.FakeTlsDupSessionId -> {
+                    viewModel.updateSetting(
+                        key = "fakeTlsDupSessionId",
+                        value = enabled.toString(),
+                    ) {
+                        setFakeTlsDupSessionId(enabled)
+                    }
+                }
+
+                AdvancedToggleSetting.FakeTlsPadEncap -> {
+                    viewModel.updateSetting(
+                        key = "fakeTlsPadEncap",
+                        value = enabled.toString(),
+                    ) {
+                        setFakeTlsPadEncap(enabled)
                     }
                 }
 
@@ -401,6 +435,17 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
+                AdvancedTextSetting.FakeTlsSize -> {
+                    value.toIntOrNull()?.let { fakeTlsSize ->
+                        viewModel.updateSetting(
+                            key = "fakeTlsSize",
+                            value = fakeTlsSize.toString(),
+                        ) {
+                            setFakeTlsSize(fakeTlsSize)
+                        }
+                    }
+                }
+
                 AdvancedTextSetting.OobData -> {
                     if (value.length <= 1) {
                         viewModel.updateSetting(
@@ -487,6 +532,25 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
+                AdvancedOptionSetting.FakeTlsBase -> {
+                    val useOriginal = value == "original"
+                    viewModel.updateSetting(
+                        key = "fakeTlsUseOriginal",
+                        value = useOriginal.toString(),
+                    ) {
+                        setFakeTlsUseOriginal(useOriginal)
+                    }
+                }
+
+                AdvancedOptionSetting.FakeTlsSniMode -> {
+                    viewModel.updateSetting(
+                        key = "fakeTlsSniMode",
+                        value = value,
+                    ) {
+                        setFakeTlsSniMode(value)
+                    }
+                }
+
                 AdvancedOptionSetting.HostsMode -> {
                     viewModel.updateSetting(
                         key = "hostsMode",
@@ -529,6 +593,16 @@ private fun AdvancedSettingsScreen(
         rememberSettingsOptions(
             labelArrayRes = R.array.ripdpi_desync_methods,
             valueArrayRes = R.array.ripdpi_desync_methods_entries,
+        )
+    val fakeTlsBaseOptions =
+        rememberSettingsOptions(
+            labelArrayRes = R.array.fake_tls_base_modes,
+            valueArrayRes = R.array.fake_tls_base_modes_entries,
+        )
+    val fakeTlsSniModeOptions =
+        rememberSettingsOptions(
+            labelArrayRes = R.array.fake_tls_sni_modes,
+            valueArrayRes = R.array.fake_tls_sni_modes_entries,
         )
     val hostsOptions =
         rememberSettingsOptions(
@@ -739,15 +813,6 @@ private fun AdvancedSettingsScreen(
                             showDivider = true,
                         )
                         AdvancedTextSetting(
-                            title = stringResource(R.string.sni_of_fake_packet),
-                            value = uiState.fakeSni,
-                            enabled = visualEditorEnabled,
-                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            setting = AdvancedTextSetting.FakeSni,
-                            onConfirm = onTextConfirmed,
-                            showDivider = true,
-                        )
-                        AdvancedTextSetting(
                             title = stringResource(R.string.ripdpi_fake_offset_setting),
                             description = stringResource(R.string.config_fake_offset_marker_helper),
                             value = uiState.fakeOffsetMarker,
@@ -758,6 +823,93 @@ private fun AdvancedSettingsScreen(
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
                             setting = AdvancedTextSetting.FakeOffsetMarker,
+                            onConfirm = onTextConfirmed,
+                            showDivider = true,
+                        )
+                    }
+                    if (uiState.desyncHttpsEnabled || uiState.isFake) {
+                        Text(
+                            text = stringResource(R.string.ripdpi_fake_tls_section_title),
+                            style = RipDpiThemeTokens.type.bodyEmphasis,
+                            color = colors.foreground,
+                        )
+                        Text(
+                            text =
+                                if (uiState.fakeTlsControlsRelevant) {
+                                    stringResource(R.string.ripdpi_fake_tls_section_body)
+                                } else {
+                                    stringResource(R.string.ripdpi_fake_tls_inactive)
+                                },
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.mutedForeground,
+                        )
+                        HorizontalDivider(color = colors.divider)
+                        AdvancedDropdownSetting(
+                            title = stringResource(R.string.ripdpi_fake_tls_base_title),
+                            description = stringResource(R.string.ripdpi_fake_tls_base_body),
+                            value = if (uiState.fakeTlsUseOriginal) "original" else "default",
+                            options = fakeTlsBaseOptions,
+                            setting = AdvancedOptionSetting.FakeTlsBase,
+                            onSelected = onOptionSelected,
+                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            showDivider = true,
+                        )
+                        AdvancedDropdownSetting(
+                            title = stringResource(R.string.ripdpi_fake_tls_sni_mode_title),
+                            description = stringResource(R.string.ripdpi_fake_tls_sni_mode_body),
+                            value = uiState.fakeTlsSniMode,
+                            options = fakeTlsSniModeOptions,
+                            setting = AdvancedOptionSetting.FakeTlsSniMode,
+                            onSelected = onOptionSelected,
+                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            showDivider = uiState.fakeTlsSniMode == FakeTlsSniModeFixed,
+                        )
+                        if (uiState.fakeTlsSniMode == FakeTlsSniModeFixed) {
+                            AdvancedTextSetting(
+                                title = stringResource(R.string.sni_of_fake_packet),
+                                value = uiState.fakeSni,
+                                enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                                setting = AdvancedTextSetting.FakeSni,
+                                onConfirm = onTextConfirmed,
+                                showDivider = true,
+                            )
+                        }
+                        SettingsRow(
+                            title = stringResource(R.string.ripdpi_fake_tls_randomize_title),
+                            subtitle = stringResource(R.string.ripdpi_fake_tls_randomize_body),
+                            checked = uiState.fakeTlsRandomize,
+                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsRandomize, it) },
+                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            showDivider = true,
+                        )
+                        SettingsRow(
+                            title = stringResource(R.string.ripdpi_fake_tls_dup_sid_title),
+                            subtitle = stringResource(R.string.ripdpi_fake_tls_dup_sid_body),
+                            checked = uiState.fakeTlsDupSessionId,
+                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsDupSessionId, it) },
+                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            showDivider = true,
+                        )
+                        SettingsRow(
+                            title = stringResource(R.string.ripdpi_fake_tls_pad_encap_title),
+                            subtitle = stringResource(R.string.ripdpi_fake_tls_pad_encap_body),
+                            checked = uiState.fakeTlsPadEncap,
+                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsPadEncap, it) },
+                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            showDivider = true,
+                        )
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.ripdpi_fake_tls_size_title),
+                            description = stringResource(R.string.config_fake_tls_size_helper),
+                            value = uiState.fakeTlsSize.toString(),
+                            placeholder = stringResource(R.string.config_placeholder_fake_tls_size),
+                            enabled = visualEditorEnabled && uiState.fakeTlsControlsRelevant,
+                            validator = { it.isEmpty() || it.toIntOrNull() != null },
+                            invalidMessage = stringResource(R.string.config_error_out_of_range),
+                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                            setting = AdvancedTextSetting.FakeTlsSize,
                             onConfirm = onTextConfirmed,
                             showDivider = true,
                         )

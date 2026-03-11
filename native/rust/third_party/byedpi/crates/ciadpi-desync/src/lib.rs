@@ -2,12 +2,13 @@
 
 use ciadpi_config::{
     DesyncGroup, DesyncMode, OffsetBase, OffsetExpr, OffsetProto, TcpChainStep, TcpChainStepKind, UdpChainStepKind,
-    FM_ORIG, FM_RAND,
+    FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ciadpi_packets::{
-    change_tls_sni_seeded_like_c, http_marker_info, is_http, is_tls_client_hello, mod_http_like_c, part_tls_like_c,
-    randomize_tls_seeded_like_c, second_level_domain_span, tls_marker_info, HttpMarkerInfo, OracleRng, TlsMarkerInfo,
-    DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, DEFAULT_FAKE_UDP, IS_HTTP, IS_HTTPS,
+    change_tls_sni_seeded_like_c, duplicate_tls_session_id_like_c, http_marker_info, is_http, is_tls_client_hello,
+    mod_http_like_c, padencap_tls_like_c, part_tls_like_c, randomize_tls_seeded_like_c,
+    randomize_tls_sni_seeded_like_c, second_level_domain_span, tls_marker_info, tune_tls_padding_size_like_c,
+    HttpMarkerInfo, OracleRng, TlsMarkerInfo, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, DEFAULT_FAKE_UDP, IS_HTTP, IS_HTTPS,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -238,10 +239,27 @@ pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<Tamp
     apply_tamper_with_tls_records(group, &tls_records, input, seed)
 }
 
+fn apply_tls_mutation(output: &mut Vec<u8>, mutation: ciadpi_packets::PacketMutation) {
+    if mutation.rc == 0 && is_tls_client_hello(&mutation.bytes) {
+        *output = mutation.bytes;
+    }
+}
+
+fn tls_sni_capacity(current: &[u8], target_size: usize, new_host: &[u8]) -> usize {
+    let Some(markers) = tls_marker_info(current) else {
+        return current.len().max(target_size);
+    };
+    let current_host_len = markers.host_end.saturating_sub(markers.host_start);
+    current
+        .len()
+        .max(target_size)
+        .max(current.len().saturating_add(new_host.len().saturating_sub(current_host_len)))
+}
+
 pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<FakePacketPlan, DesyncError> {
     let mut info = ProtoInfo::default();
     let mut rng = OracleRng::seeded(seed);
-    let sni = if group.fake_sni_list.is_empty() {
+    let fixed_sni = if group.fake_sni_list.is_empty() {
         None
     } else {
         Some(group.fake_sni_list[rng.next_mod(group.fake_sni_list.len())].as_bytes())
@@ -263,35 +281,34 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
         DEFAULT_FAKE_TLS.to_vec()
     };
 
-    let max_size = input.len().max(base.len());
-    let mut output = base;
-    let mut built_from_orig = false;
+    let fake_tls_target = normalize_fake_tls_size(group.fake_tls_size, input.len());
+    let mut output = if (group.fake_mod & FM_ORIG) != 0 && info.kind == IS_HTTPS { input.to_vec() } else { base };
 
-    if (group.fake_mod & FM_ORIG) != 0 && info.kind == IS_HTTPS {
-        output = input.to_vec();
-        if let Some(sni) = sni {
-            let target = normalize_fake_tls_size(group.fake_tls_size, input.len());
-            let mutation = change_tls_sni_seeded_like_c(&output, sni, output.len().max(target), seed);
-            if mutation.rc == 0 {
-                output = mutation.bytes;
-                built_from_orig = true;
-            }
-        } else {
-            built_from_orig = true;
+    if is_tls_client_hello(&output) {
+        if let Some(sni) = fixed_sni {
+            let mutation =
+                change_tls_sni_seeded_like_c(&output, sni, tls_sni_capacity(&output, fake_tls_target, sni), seed);
+            apply_tls_mutation(&mut output, mutation);
+        } else if (group.fake_mod & FM_RNDSNI) != 0 {
+            let mutation = randomize_tls_sni_seeded_like_c(&output, seed);
+            apply_tls_mutation(&mut output, mutation);
         }
-    }
-
-    if !built_from_orig {
-        if let Some(sni) = sni {
-            let mutation = change_tls_sni_seeded_like_c(&output, sni, output.len().max(max_size), seed);
-            if mutation.rc == 0 {
-                output = mutation.bytes;
-            }
+        if (group.fake_mod & FM_RAND) != 0 {
+            let mutation = randomize_tls_seeded_like_c(&output, seed);
+            apply_tls_mutation(&mut output, mutation);
         }
-    }
-
-    if (group.fake_mod & FM_RAND) != 0 {
-        output = randomize_tls_seeded_like_c(&output, seed).bytes;
+        if (group.fake_mod & FM_DUPSID) != 0 {
+            let mutation = duplicate_tls_session_id_like_c(&output, input);
+            apply_tls_mutation(&mut output, mutation);
+        }
+        if fake_tls_target != output.len() {
+            let mutation = tune_tls_padding_size_like_c(&output, fake_tls_target);
+            apply_tls_mutation(&mut output, mutation);
+        }
+        if (group.fake_mod & FM_PADENCAP) != 0 {
+            let mutation = padencap_tls_like_c(&output, input.len());
+            apply_tls_mutation(&mut output, mutation);
+        }
     }
 
     let fake_offset =
@@ -304,7 +321,7 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
 fn normalize_fake_tls_size(value: i32, input_len: usize) -> usize {
     if value < 0 {
         input_len.saturating_sub((-value) as usize)
-    } else if value as usize > input_len || value <= 0 {
+    } else if value <= 0 {
         input_len
     } else {
         value as usize
@@ -599,10 +616,65 @@ mod tests {
         assert_eq!(normalize_fake_tls_size(-200, 100), 0);
         // zero -> input_len
         assert_eq!(normalize_fake_tls_size(0, 100), 100);
-        // positive > input -> input_len
-        assert_eq!(normalize_fake_tls_size(200, 100), 100);
+        // positive -> explicit target size
+        assert_eq!(normalize_fake_tls_size(200, 100), 200);
         // positive in range -> value
         assert_eq!(normalize_fake_tls_size(50, 100), 50);
+    }
+
+    #[test]
+    fn build_fake_packet_applies_rndsni_and_dupsid_in_order() {
+        let mut group = DesyncGroup::new(0);
+        group.fake_mod = FM_ORIG | FM_RAND | FM_RNDSNI | FM_DUPSID;
+        let payload = DEFAULT_FAKE_TLS;
+        let expected_sid = payload[44..44 + payload[43] as usize].to_vec();
+        let original_host = ciadpi_packets::parse_tls(payload).expect("original tls host").to_vec();
+
+        let fake = build_fake_packet(&group, payload, 19).expect("fake packet");
+        let fake_host = ciadpi_packets::parse_tls(&fake.bytes).expect("fake tls host").to_vec();
+
+        assert_ne!(fake_host, original_host);
+        assert_eq!(&fake.bytes[44..44 + fake.bytes[43] as usize], expected_sid.as_slice());
+    }
+
+    #[test]
+    fn build_fake_packet_applies_fake_tls_size_to_default_and_orig_bases() {
+        let mut default_group = DesyncGroup::new(0);
+        default_group.fake_mod = FM_RNDSNI;
+        default_group.fake_tls_size = (DEFAULT_FAKE_TLS.len() + 12) as i32;
+
+        let default_fake = build_fake_packet(&default_group, DEFAULT_FAKE_TLS, 3).expect("default fake tls");
+        assert_eq!(default_fake.bytes.len(), DEFAULT_FAKE_TLS.len() + 12);
+
+        let mut orig_group = DesyncGroup::new(0);
+        orig_group.fake_mod = FM_ORIG | FM_RNDSNI;
+        orig_group.fake_tls_size = (DEFAULT_FAKE_TLS.len() + 8) as i32;
+
+        let orig_fake = build_fake_packet(&orig_group, DEFAULT_FAKE_TLS, 5).expect("orig fake tls");
+        assert_eq!(orig_fake.bytes.len(), DEFAULT_FAKE_TLS.len() + 8);
+    }
+
+    #[test]
+    fn build_fake_packet_ignores_tls_mods_for_http_payloads() {
+        let mut group = DesyncGroup::new(0);
+        group.fake_mod = FM_RAND | FM_RNDSNI | FM_DUPSID | FM_PADENCAP;
+
+        let fake = build_fake_packet(&group, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n", 11).expect("http fake");
+
+        assert_eq!(fake.bytes, DEFAULT_FAKE_HTTP);
+        assert_eq!(fake.proto.kind, IS_HTTP);
+    }
+
+    #[test]
+    fn build_fake_packet_padencap_keeps_valid_tls() {
+        let mut group = DesyncGroup::new(0);
+        group.fake_mod = FM_PADENCAP;
+
+        let fake = build_fake_packet(&group, DEFAULT_FAKE_TLS, 7).expect("padencap fake");
+
+        assert!(ciadpi_packets::parse_tls(&fake.bytes).is_some());
+        assert_eq!(fake.bytes.len(), DEFAULT_FAKE_TLS.len());
+        assert!(fake.fake_offset <= fake.bytes.len());
     }
 
     #[test]

@@ -22,6 +22,9 @@ pub const AUTO_SORT: u32 = 4;
 
 pub const FM_RAND: u32 = 1;
 pub const FM_ORIG: u32 = 2;
+pub const FM_RNDSNI: u32 = 4;
+pub const FM_DUPSID: u32 = 8;
+pub const FM_PADENCAP: u32 = 16;
 pub const HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS: i64 = 6 * 60 * 60;
 pub const HOST_AUTOLEARN_DEFAULT_MAX_HOSTS: usize = 512;
 pub const HOST_AUTOLEARN_DEFAULT_STORE_FILE: &str = "host-autolearn-v1.json";
@@ -621,6 +624,33 @@ pub fn file_or_inline_bytes(spec: &str) -> Result<Vec<u8>, ConfigError> {
     Ok(data)
 }
 
+fn apply_fake_tls_mod_token(group: &mut DesyncGroup, token: &str, arg: &str, raw_value: &str) -> Result<(), ConfigError> {
+    let token = token.trim();
+    if token.is_empty() {
+        return Err(ConfigError::invalid(arg, Some(raw_value)));
+    }
+    match token {
+        "rand" => group.fake_mod |= FM_RAND,
+        "orig" => group.fake_mod |= FM_ORIG,
+        "rndsni" => group.fake_mod |= FM_RNDSNI,
+        "dupsid" => group.fake_mod |= FM_DUPSID,
+        "padencap" => group.fake_mod |= FM_PADENCAP,
+        _ => {
+            let Some((name, value)) = token.split_once('=') else {
+                return Err(ConfigError::invalid(arg, Some(raw_value)));
+            };
+            match name {
+                "m" | "msize" => {
+                    group.fake_tls_size =
+                        value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(raw_value)))?;
+                }
+                _ => return Err(ConfigError::invalid(arg, Some(raw_value))),
+            }
+        }
+    }
+    Ok(())
+}
+
 fn parse_numeric_addr(spec: &str) -> Result<(IpAddr, Option<u16>), ConfigError> {
     let (host, port) = if let Some(rest) = spec.strip_prefix('[') {
         let end = rest.find(']').ok_or_else(|| ConfigError::invalid("address", Some(spec)))?;
@@ -1056,19 +1086,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             "-Q" | "--fake-tls-mod" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 for token in value.split(',') {
-                    match token.chars().next() {
-                        Some('r') => group!().fake_mod |= FM_RAND,
-                        Some('o') => group!().fake_mod |= FM_ORIG,
-                        Some('m') => {
-                            let (_, val) = token
-                                .split_once('=')
-                                .or_else(|| token.strip_prefix("msize=").map(|rest| ("msize", rest)))
-                                .ok_or_else(|| ConfigError::invalid(arg, Some(value)))?;
-                            group!().fake_tls_size =
-                                val.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-                        }
-                        _ => return Err(ConfigError::invalid(arg, Some(value))),
-                    }
+                    apply_fake_tls_mod_token(group!(), token, arg, value)?;
                 }
             }
             "-n" | "--fake-sni" => {

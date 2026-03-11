@@ -131,6 +131,7 @@
     <string name="config_chain_editor_helper">Use [tcp] and [udp] sections. Example: tlsrec extlen, fake host, split midsld, fake_burst 3.</string>
     <string name="config_split_marker_helper">Accepts offsets like 1, host, method+2, midsld-1, or 1+s.</string>
     <string name="config_fake_offset_marker_helper">Accepts numeric or semantic offsets like 0, host+1, endhost-2, or 1+se.</string>
+    <string name="config_fake_tls_size_helper">0 = input-sized, positive = exact target bytes, negative = input minus N.</string>
     <string name="config_tls_record_marker_helper">Accepts offsets like 0, host, sniext, extlen, or 1+s.</string>
     <string name="config_https_chain_hint">TLS record steps now live inside the strategy chain editor as tlsrec markers.</string>
     <string name="config_udp_chain_hint">UDP fake bursts now live inside the strategy chain editor as fake_burst counts.</string>
@@ -194,6 +195,7 @@
     <string name="config_error_invalid_chain">Enter a valid strategy chain DSL.</string>
     <string name="config_placeholder_split_marker">host</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
+    <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
     <string name="config_placeholder_chain_dsl">[tcp]
 tlsrec extlen
@@ -291,6 +293,21 @@ fake_burst 3</string>
     <string name="ripdpi_split_position_setting">Split marker</string>
     <string name="ripdpi_split_at_host_setting">Split at host</string>
     <string name="ripdpi_fake_ttl_setting">TTL of fake packets</string>
+    <string name="ripdpi_fake_tls_section_title">Fake TLS</string>
+    <string name="ripdpi_fake_tls_section_body">Tune how RIPDPI builds fake HTTPS ClientHello packets before they are split or sent.</string>
+    <string name="ripdpi_fake_tls_inactive">Fake TLS settings are idle until the current strategy chain includes an HTTPS fake step.</string>
+    <string name="ripdpi_fake_tls_base_title">ClientHello base</string>
+    <string name="ripdpi_fake_tls_base_body">Default uses RIPDPI’s built-in fake ClientHello. Original starts from the real outgoing ClientHello before applying fake-TLS mods.</string>
+    <string name="ripdpi_fake_tls_sni_mode_title">SNI mode</string>
+    <string name="ripdpi_fake_tls_sni_mode_body">Fixed keeps the configured fake SNI. Randomized generates a same-length hostname on each fake HTTPS packet.</string>
+    <string name="ripdpi_fake_tls_randomize_title">Randomize TLS material</string>
+    <string name="ripdpi_fake_tls_randomize_body">Randomize the ClientHello random, Session ID, and KeyShare bytes in the fake packet.</string>
+    <string name="ripdpi_fake_tls_dup_sid_title">Copy Session ID</string>
+    <string name="ripdpi_fake_tls_dup_sid_body">Copy the Session ID from the real ClientHello when the lengths match.</string>
+    <string name="ripdpi_fake_tls_pad_encap_title">Padding-based encapsulation</string>
+    <string name="ripdpi_fake_tls_pad_encap_body">Adjust TLS length fields so the real payload fits inside the fake packet’s padding accounting.</string>
+    <string name="ripdpi_fake_tls_size_title">Size tuning</string>
+    <string name="ripdpi_fake_tls_size_body">Controls the target fake TLS size before fake offset is resolved.</string>
     <string name="ripdpi_host_mixed_case_setting">Host mixed case</string>
     <string name="ripdpi_domain_mixed_case_setting">Domain mixed case</string>
     <string name="ripdpi_host_remove_spaces_setting">Host remove spaces</string>

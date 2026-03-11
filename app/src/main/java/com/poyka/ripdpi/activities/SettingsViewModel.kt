@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
@@ -19,6 +20,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
+import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.effectiveQuicInitialMode
 import com.poyka.ripdpi.data.effectiveQuicSupportV1
 import com.poyka.ripdpi.data.effectiveQuicSupportV2
@@ -98,6 +100,12 @@ data class SettingsUiState(
     val fakeTtl: Int = 8,
     val fakeSni: String = "www.iana.org",
     val fakeOffsetMarker: String = DefaultFakeOffsetMarker,
+    val fakeTlsUseOriginal: Boolean = false,
+    val fakeTlsRandomize: Boolean = false,
+    val fakeTlsDupSessionId: Boolean = false,
+    val fakeTlsPadEncap: Boolean = false,
+    val fakeTlsSize: Int = 0,
+    val fakeTlsSniMode: String = FakeTlsSniModeFixed,
     val oobData: String = "a",
     val dropSack: Boolean = false,
     val desyncHttp: Boolean = true,
@@ -150,6 +158,18 @@ data class SettingsUiState(
 
     val canForgetLearnedHosts: Boolean
         get() = !enableCmdSettings && hostAutolearnStorePresent
+
+    val fakeTlsControlsRelevant: Boolean
+        get() = desyncHttpsEnabled && isFake
+
+    val hasCustomFakeTlsProfile: Boolean
+        get() =
+            fakeTlsUseOriginal ||
+                fakeTlsRandomize ||
+                fakeTlsDupSessionId ||
+                fakeTlsPadEncap ||
+                fakeTlsSize != 0 ||
+                fakeTlsSniMode != FakeTlsSniModeFixed
 }
 
 @VisibleForTesting
@@ -206,6 +226,12 @@ internal fun AppSettings.toUiState(
         fakeTtl = fakeTtl.takeIf { it > 0 } ?: 8,
         fakeSni = fakeSni.ifEmpty { "www.iana.org" },
         fakeOffsetMarker = effectiveFakeOffsetMarker(),
+        fakeTlsUseOriginal = fakeTlsUseOriginal,
+        fakeTlsRandomize = fakeTlsRandomize,
+        fakeTlsDupSessionId = fakeTlsDupSessionId,
+        fakeTlsPadEncap = fakeTlsPadEncap,
+        fakeTlsSize = fakeTlsSize,
+        fakeTlsSniMode = effectiveFakeTlsSniMode(),
         oobData = oobData.ifEmpty { "a" },
         dropSack = dropSack,
         desyncHttp = desyncHttp,
