@@ -1689,7 +1689,6 @@ fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
     }
 }
 
-#[cfg(unix)]
 fn mio_to_std_stream(stream: mio::net::TcpStream) -> TcpStream {
     use std::os::fd::{FromRawFd, IntoRawFd};
 
@@ -1697,16 +1696,6 @@ fn mio_to_std_stream(stream: mio::net::TcpStream) -> TcpStream {
     // SAFETY: ownership of the file descriptor is moved out of the mio stream
     // and transferred directly into the std stream without duplication.
     unsafe { TcpStream::from_raw_fd(fd) }
-}
-
-#[cfg(windows)]
-fn mio_to_std_stream(stream: mio::net::TcpStream) -> TcpStream {
-    use std::os::windows::io::{FromRawSocket, IntoRawSocket};
-
-    let socket = stream.into_raw_socket();
-    // SAFETY: ownership of the socket is moved out of the mio stream and
-    // transferred directly into the std stream without duplication.
-    unsafe { TcpStream::from_raw_socket(socket) }
 }
 
 #[cfg(test)]

@@ -18,12 +18,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 socket2 = { workspace = true }
-
-[target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
-
-[target.'cfg(windows)'.dependencies]
-windows-service = "0.8"
 
 [dev-dependencies]
 aes = { workspace = true }
