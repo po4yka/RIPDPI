@@ -514,26 +514,11 @@ fn maybe_delay_connect(
         return Ok(DelayConnect::Closed);
     };
 
-    let route = if route_matches_payload(
-        &state.config,
-        route.group_index,
-        target,
-        &payload,
-        TransportProtocol::Tcp,
-    ) {
+    let route = if route_matches_payload(&state.config, route.group_index, target, &payload, TransportProtocol::Tcp) {
         route
     } else {
         let cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-        select_next_group(
-            &state.config,
-            &cache,
-            &route,
-            target,
-            Some(&payload),
-            TransportProtocol::Tcp,
-            0,
-            true,
-        )
+        select_next_group(&state.config, &cache, &route, target, Some(&payload), TransportProtocol::Tcp, 0, true)
             .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
     };
 
@@ -828,17 +813,25 @@ fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running: Arc<Atomic
                     };
                     let host_info = extract_host_info(&state.config, payload);
                     let host = host_info.as_ref().map(|value| value.host.clone());
-                    let route =
-                        match select_route_for_transport(&state, target, Some(payload), false, TransportProtocol::Udp) {
-                            Ok(route) => route,
-                            Err(_) => continue,
-                        };
+                    let route = match select_route_for_transport(
+                        &state,
+                        target,
+                        Some(payload),
+                        false,
+                        TransportProtocol::Udp,
+                    ) {
+                        Ok(route) => route,
+                        Err(_) => continue,
+                    };
                     if let Some(telemetry) = &state.telemetry {
                         telemetry.on_route_selected(target, route.group_index, host.as_deref(), "initial");
                     }
-                    if let Some(host) = host.clone().filter(|_| should_cache_udp_host(&state.config, host_info.as_ref())) {
+                    if let Some(host) =
+                        host.clone().filter(|_| should_cache_udp_host(&state.config, host_info.as_ref()))
+                    {
                         if let Ok(mut cache) = state.cache.lock() {
-                            let _ = cache.store(&state.config, target, route.group_index, route.attempted_mask, Some(host));
+                            let _ =
+                                cache.store(&state.config, target, route.group_index, route.attempted_mask, Some(host));
                         }
                     }
                     let Some(group) = state.config.groups.get(route.group_index) else {
@@ -1464,11 +1457,7 @@ fn send_with_group(
     if should_desync_tcp(group, round) {
         let seed = DESYNC_SEED_BASE + (round.saturating_sub(1) as u32);
         match plan_tcp(group, payload, seed, config.default_ttl) {
-            Ok(plan) if group
-                .effective_tcp_chain()
-                .iter()
-                .any(|step| matches!(step.kind, TcpChainStepKind::Fake)) =>
-            {
+            Ok(plan) if group.effective_tcp_chain().iter().any(|step| matches!(step.kind, TcpChainStepKind::Fake)) => {
                 execute_tcp_plan(writer, config, group, &plan, seed)?;
             }
             Ok(plan) => execute_tcp_actions(
@@ -1770,8 +1759,10 @@ mod tests {
     #[test]
     fn should_cache_udp_host_only_caches_quic_in_cache_mode() {
         let mut config = RuntimeConfig::default();
-        let quic = crate::runtime_policy::ExtractedHost { host: "docs.example.test".to_string(), source: HostSource::Quic };
-        let tls = crate::runtime_policy::ExtractedHost { host: "docs.example.test".to_string(), source: HostSource::Tls };
+        let quic =
+            crate::runtime_policy::ExtractedHost { host: "docs.example.test".to_string(), source: HostSource::Quic };
+        let tls =
+            crate::runtime_policy::ExtractedHost { host: "docs.example.test".to_string(), source: HostSource::Tls };
 
         config.quic_initial_mode = QuicInitialMode::Route;
         assert!(!should_cache_udp_host(&config, Some(&quic)));

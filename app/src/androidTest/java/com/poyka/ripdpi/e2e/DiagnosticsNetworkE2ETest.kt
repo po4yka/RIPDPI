@@ -68,6 +68,7 @@ class DiagnosticsNetworkE2ETest {
         fixtureClient = LocalFixtureClient.fromInstrumentationArgs()
         fixture = fixtureClient.manifest()
         fixtureClient.resetEvents()
+        fixtureClient.resetFaults()
         runBlocking {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
@@ -83,6 +84,7 @@ class DiagnosticsNetworkE2ETest {
             stopService(RipDpiVpnService::class.java)
         }
         fixtureClient.resetEvents()
+        fixtureClient.resetFaults()
     }
 
     @Test
@@ -159,6 +161,48 @@ class DiagnosticsNetworkE2ETest {
         assertTrue(detail.results.any { it.outcome == "dns_match" })
         assertTrue(detail.results.any { it.outcome == "http_ok" })
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
+    }
+
+    @Test
+    fun rawPathScanCapturesLocalDnsTimeoutFault() {
+        fixtureClient.setFault(
+            FixtureFaultSpecDto(
+                target = FixtureFaultTargetDto.DNS_HTTP,
+                outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+            ),
+        )
+
+        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.RAW_PATH) }
+        val detail = awaitCompletedSession(sessionId)
+
+        assertTrue(detail.results.any { it.probeType == "dns_resolution" && it.outcome == "doh_blocked" })
+        assertTrue(detail.events.isNotEmpty())
+    }
+
+    @Test
+    fun inPathScanCapturesFaultedTargetsWhileProxyServiceStaysRunning() {
+        val listenPort = reserveLoopbackPort()
+        runBlocking {
+            appSettingsRepository.update {
+                proxyIp = "127.0.0.1"
+                proxyPort = listenPort
+            }
+        }
+
+        startService(RipDpiProxyService::class.java)
+        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+        fixtureClient.setFault(
+            FixtureFaultSpecDto(
+                target = FixtureFaultTargetDto.DNS_HTTP,
+                outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+            ),
+        )
+
+        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.IN_PATH) }
+        val detail = awaitCompletedSession(sessionId)
+
+        assertTrue(detail.results.any { it.probeType == "dns_resolution" && it.outcome == "doh_blocked" })
+        awaitServiceStatus(AppStatus.Running, Mode.Proxy)
     }
 
     private suspend fun seedLocalProfile() {

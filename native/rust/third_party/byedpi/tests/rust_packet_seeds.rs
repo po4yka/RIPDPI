@@ -9,12 +9,12 @@ use sha2::Sha256;
 const QUIC_V1_VERSION: u32 = 0x0000_0001;
 const QUIC_V2_VERSION: u32 = 0x6b33_43cf;
 const QUIC_V1_SALT: [u8; 20] = [
-    0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb,
-    0x7f, 0x0a,
+    0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f,
+    0x0a,
 ];
 const QUIC_V2_SALT: [u8; 20] = [
-    0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb, 0xf9, 0xbd,
-    0x2e, 0xd9,
+    0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb, 0xf9, 0xbd, 0x2e,
+    0xd9,
 ];
 
 fn decode_hex(input: &str) -> Vec<u8> {
@@ -170,8 +170,7 @@ fn quic_client_initial_secret(version: u32, dcid: &[u8]) -> [u8; 32] {
     };
     let hkdf = Hkdf::<Sha256>::new(Some(salt), dcid);
     let mut secret = [0u8; 32];
-    hkdf.expand(&quic_hkdf_label("tls13 client in", secret.len()), &mut secret)
-        .expect("quic seed initial secret");
+    hkdf.expand(&quic_hkdf_label("tls13 client in", secret.len()), &mut secret).expect("quic seed initial secret");
     secret
 }
 
@@ -259,9 +258,8 @@ fn quic_initial_from_tls(version: u32, client_hello: &[u8], gap_after_split: usi
 
     let cipher = Aes128Gcm::new_from_slice(&key).expect("quic seed aes-gcm");
     let mut ciphertext = plaintext;
-    let tag = cipher
-        .encrypt_in_place_detached(Nonce::from_slice(&iv), &aad, &mut ciphertext)
-        .expect("quic seed encrypt");
+    let tag =
+        cipher.encrypt_in_place_detached(Nonce::from_slice(&iv), &aad, &mut ciphertext).expect("quic seed encrypt");
 
     let hp_cipher = Aes128::new_from_slice(&hp).expect("quic seed hp");
     let mut sample = GenericArray::clone_from_slice(&ciphertext[..16]);

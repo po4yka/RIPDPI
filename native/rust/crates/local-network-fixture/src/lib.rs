@@ -117,6 +117,87 @@ pub struct FixtureEvent {
     pub created_at: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FixtureFaultScope {
+    OneShot,
+    Persistent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FixtureFaultTarget {
+    TcpEcho,
+    UdpEcho,
+    TlsEcho,
+    DnsUdp,
+    DnsHttp,
+    Socks5Relay,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FixtureFaultOutcome {
+    TcpReset,
+    TcpTruncate,
+    UdpDrop,
+    UdpDelay,
+    TlsAbort,
+    DnsNxDomain,
+    DnsServFail,
+    DnsTimeout,
+    SocksRejectConnect,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FixtureFaultSpec {
+    pub target: FixtureFaultTarget,
+    pub outcome: FixtureFaultOutcome,
+    pub scope: FixtureFaultScope,
+    pub delay_ms: Option<u64>,
+}
+
+#[derive(Clone)]
+pub struct FaultController {
+    inner: Arc<Mutex<Vec<FixtureFaultSpec>>>,
+}
+
+impl FaultController {
+    fn new() -> Self {
+        Self { inner: Arc::new(Mutex::new(Vec::new())) }
+    }
+
+    pub fn set(&self, spec: FixtureFaultSpec) {
+        if let Ok(mut faults) = self.inner.lock() {
+            faults.push(spec);
+        }
+    }
+
+    pub fn clear(&self) {
+        if let Ok(mut faults) = self.inner.lock() {
+            faults.clear();
+        }
+    }
+
+    pub fn snapshot(&self) -> Vec<FixtureFaultSpec> {
+        self.inner.lock().map(|faults| faults.clone()).unwrap_or_default()
+    }
+
+    fn take_matching<F>(&self, target: FixtureFaultTarget, predicate: F) -> Option<FixtureFaultSpec>
+    where
+        F: Fn(&FixtureFaultOutcome) -> bool,
+    {
+        let mut faults = self.inner.lock().ok()?;
+        let index = faults.iter().position(|fault| fault.target == target && predicate(&fault.outcome))?;
+        let fault = faults[index].clone();
+        if fault.scope == FixtureFaultScope::OneShot {
+            faults.remove(index);
+        }
+        Some(fault)
+    }
+}
+
 #[derive(Clone)]
 pub struct EventLog {
     inner: Arc<Mutex<Vec<FixtureEvent>>>,
@@ -147,6 +228,7 @@ impl EventLog {
 pub struct FixtureStack {
     manifest: FixtureManifest,
     events: EventLog,
+    faults: FaultController,
     stop: Arc<AtomicBool>,
     handles: Vec<JoinHandle<()>>,
 }
@@ -171,6 +253,7 @@ impl FixtureStack {
 
         let stop = Arc::new(AtomicBool::new(false));
         let events = EventLog::new();
+        let faults = FaultController::new();
 
         let manifest = FixtureManifest {
             bind_host: config.bind_host.clone(),
@@ -189,13 +272,26 @@ impl FixtureStack {
         };
 
         let mut handles = Vec::new();
-        handles.push(start_tcp_echo_server(config.bind_host.clone(), config.tcp_echo_port, stop.clone(), events.clone())?);
-        handles.push(start_udp_echo_server(config.bind_host.clone(), config.udp_echo_port, stop.clone(), events.clone())?);
+        handles.push(start_tcp_echo_server(
+            config.bind_host.clone(),
+            config.tcp_echo_port,
+            stop.clone(),
+            events.clone(),
+            faults.clone(),
+        )?);
+        handles.push(start_udp_echo_server(
+            config.bind_host.clone(),
+            config.udp_echo_port,
+            stop.clone(),
+            events.clone(),
+            faults.clone(),
+        )?);
         handles.push(start_tls_echo_server(
             config.bind_host.clone(),
             config.tls_echo_port,
             stop.clone(),
             events.clone(),
+            faults.clone(),
             tls_server_config.clone(),
         )?);
         handles.push(start_dns_udp_server(
@@ -203,6 +299,7 @@ impl FixtureStack {
             config.dns_udp_port,
             stop.clone(),
             events.clone(),
+            faults.clone(),
             config.dns_answer_ipv4.clone(),
         )?);
         handles.push(start_dns_http_server(
@@ -210,22 +307,20 @@ impl FixtureStack {
             config.dns_http_port,
             stop.clone(),
             events.clone(),
+            faults.clone(),
             config.dns_answer_ipv4.clone(),
         )?);
-        handles.push(start_socks5_server(
-            config.clone(),
-            stop.clone(),
-            events.clone(),
-        )?);
+        handles.push(start_socks5_server(config.clone(), stop.clone(), events.clone(), faults.clone())?);
         handles.push(start_control_server(
             config.bind_host,
             config.control_port,
             stop.clone(),
             events.clone(),
+            faults.clone(),
             manifest.clone(),
         )?);
 
-        Ok(Self { manifest, events, stop, handles })
+        Ok(Self { manifest, events, faults, stop, handles })
     }
 
     pub fn manifest(&self) -> &FixtureManifest {
@@ -234,6 +329,10 @@ impl FixtureStack {
 
     pub fn events(&self) -> EventLog {
         self.events.clone()
+    }
+
+    pub fn faults(&self) -> FaultController {
+        self.faults.clone()
     }
 }
 
@@ -264,6 +363,7 @@ fn start_tcp_echo_server(
     port: u16,
     stop: Arc<AtomicBool>,
     events: EventLog,
+    faults: FaultController,
 ) -> io::Result<JoinHandle<()>> {
     let listener = TcpListener::bind((bind_host.as_str(), port))?;
     listener.set_nonblocking(true)?;
@@ -272,13 +372,52 @@ fn start_tcp_echo_server(
             match listener.accept() {
                 Ok((mut stream, peer)) => {
                     let events = events.clone();
+                    let faults = faults.clone();
                     thread::spawn(move || {
+                        if let Some(fault) = faults.take_matching(FixtureFaultTarget::TcpEcho, |outcome| {
+                            matches!(outcome, FixtureFaultOutcome::TcpReset | FixtureFaultOutcome::TcpTruncate)
+                        }) {
+                            events.record(event(
+                                "tcp_echo",
+                                "tcp",
+                                peer,
+                                stream.local_addr().ok(),
+                                &format!("fault:{:?}", fault.outcome),
+                                0,
+                                None,
+                            ));
+                            match fault.outcome {
+                                FixtureFaultOutcome::TcpReset => {
+                                    let _ = stream.shutdown(Shutdown::Both);
+                                    return;
+                                }
+                                FixtureFaultOutcome::TcpTruncate => {
+                                    let mut buf = [0u8; 4096];
+                                    if let Ok(read) = stream.read(&mut buf) {
+                                        let truncated = read.min(4);
+                                        let _ = stream.write_all(&buf[..truncated]);
+                                        let _ = stream.flush();
+                                    }
+                                    let _ = stream.shutdown(Shutdown::Both);
+                                    return;
+                                }
+                                _ => {}
+                            }
+                        }
                         let mut buf = [0u8; 4096];
                         loop {
                             match stream.read(&mut buf) {
                                 Ok(0) => return,
                                 Ok(read) => {
-                                    events.record(event("tcp_echo", "tcp", peer, stream.local_addr().ok(), "echo", read, None));
+                                    events.record(event(
+                                        "tcp_echo",
+                                        "tcp",
+                                        peer,
+                                        stream.local_addr().ok(),
+                                        "echo",
+                                        read,
+                                        None,
+                                    ));
                                     if stream.write_all(&buf[..read]).is_err() {
                                         return;
                                     }
@@ -301,6 +440,7 @@ fn start_udp_echo_server(
     port: u16,
     stop: Arc<AtomicBool>,
     events: EventLog,
+    faults: FaultController,
 ) -> io::Result<JoinHandle<()>> {
     let socket = UdpSocket::bind((bind_host.as_str(), port))?;
     socket.set_read_timeout(Some(IO_TIMEOUT))?;
@@ -310,6 +450,26 @@ fn start_udp_echo_server(
         while !stop.load(Ordering::Relaxed) {
             match socket.recv_from(&mut buf) {
                 Ok((read, peer)) => {
+                    if let Some(fault) = faults.take_matching(FixtureFaultTarget::UdpEcho, |outcome| {
+                        matches!(outcome, FixtureFaultOutcome::UdpDrop | FixtureFaultOutcome::UdpDelay)
+                    }) {
+                        events.record(event(
+                            "udp_echo",
+                            "udp",
+                            peer,
+                            local,
+                            &format!("fault:{:?}", fault.outcome),
+                            read,
+                            None,
+                        ));
+                        match fault.outcome {
+                            FixtureFaultOutcome::UdpDrop => continue,
+                            FixtureFaultOutcome::UdpDelay => {
+                                thread::sleep(Duration::from_millis(fault.delay_ms.unwrap_or(1_500)));
+                            }
+                            _ => {}
+                        }
+                    }
                     events.record(event("udp_echo", "udp", peer, local, "echo", read, None));
                     let _ = socket.send_to(&buf[..read], peer);
                 }
@@ -325,6 +485,7 @@ fn start_tls_echo_server(
     port: u16,
     stop: Arc<AtomicBool>,
     events: EventLog,
+    faults: FaultController,
     server_config: Arc<ServerConfig>,
 ) -> io::Result<JoinHandle<()>> {
     let listener = TcpListener::bind((bind_host.as_str(), port))?;
@@ -335,7 +496,23 @@ fn start_tls_echo_server(
                 Ok((mut stream, peer)) => {
                     let config = server_config.clone();
                     let events = events.clone();
+                    let faults = faults.clone();
                     thread::spawn(move || {
+                        if let Some(_fault) = faults.take_matching(FixtureFaultTarget::TlsEcho, |outcome| {
+                            matches!(outcome, FixtureFaultOutcome::TlsAbort)
+                        }) {
+                            events.record(event(
+                                "tls_echo",
+                                "tls",
+                                peer,
+                                stream.local_addr().ok(),
+                                "fault:tls_abort",
+                                0,
+                                None,
+                            ));
+                            let _ = stream.shutdown(Shutdown::Both);
+                            return;
+                        }
                         let mut connection = match ServerConnection::new(config) {
                             Ok(connection) => connection,
                             Err(_) => return,
@@ -347,15 +524,7 @@ fn start_tls_echo_server(
                         }
                         let sni = connection.server_name().map(ToOwned::to_owned);
                         let mut tls = StreamOwned::new(connection, stream);
-                        events.record(event(
-                            "tls_echo",
-                            "tls",
-                            peer,
-                            tls.sock.local_addr().ok(),
-                            "handshake",
-                            0,
-                            sni,
-                        ));
+                        events.record(event("tls_echo", "tls", peer, tls.sock.local_addr().ok(), "handshake", 0, sni));
                         let body = b"fixture tls ok";
                         let response = format!(
                             "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -378,10 +547,11 @@ fn start_dns_udp_server(
     port: u16,
     stop: Arc<AtomicBool>,
     events: EventLog,
+    faults: FaultController,
     answer_ip: String,
 ) -> io::Result<JoinHandle<()>> {
-    let answer_ip = Ipv4Addr::from_str(&answer_ip)
-        .map_err(|err| io::Error::new(ErrorKind::InvalidInput, err.to_string()))?;
+    let answer_ip =
+        Ipv4Addr::from_str(&answer_ip).map_err(|err| io::Error::new(ErrorKind::InvalidInput, err.to_string()))?;
     let socket = UdpSocket::bind((bind_host.as_str(), port))?;
     socket.set_read_timeout(Some(IO_TIMEOUT))?;
     let local = socket.local_addr().ok();
@@ -392,7 +562,38 @@ fn start_dns_udp_server(
                 Ok((read, peer)) => {
                     let query_name = parse_dns_question_name(&buf[..read]).unwrap_or_else(|| "unknown".to_string());
                     events.record(event("dns_udp", "udp", peer, local, &query_name, read, None));
-                    if let Ok(response) = build_udp_dns_answer(&buf[..read], answer_ip) {
+                    if let Some(fault) = faults.take_matching(FixtureFaultTarget::DnsUdp, |outcome| {
+                        matches!(
+                            outcome,
+                            FixtureFaultOutcome::DnsNxDomain
+                                | FixtureFaultOutcome::DnsServFail
+                                | FixtureFaultOutcome::DnsTimeout
+                        )
+                    }) {
+                        events.record(event(
+                            "dns_udp",
+                            "udp",
+                            peer,
+                            local,
+                            &format!("fault:{:?}", fault.outcome),
+                            read,
+                            None,
+                        ));
+                        match fault.outcome {
+                            FixtureFaultOutcome::DnsTimeout => continue,
+                            FixtureFaultOutcome::DnsNxDomain => {
+                                if let Ok(response) = build_udp_dns_error_response(&buf[..read], 3) {
+                                    let _ = socket.send_to(&response, peer);
+                                }
+                            }
+                            FixtureFaultOutcome::DnsServFail => {
+                                if let Ok(response) = build_udp_dns_error_response(&buf[..read], 2) {
+                                    let _ = socket.send_to(&response, peer);
+                                }
+                            }
+                            _ => {}
+                        }
+                    } else if let Ok(response) = build_udp_dns_answer(&buf[..read], answer_ip) {
                         let _ = socket.send_to(&response, peer);
                     }
                 }
@@ -408,12 +609,38 @@ fn start_dns_http_server(
     port: u16,
     stop: Arc<AtomicBool>,
     events: EventLog,
+    faults: FaultController,
     answer_ip: String,
 ) -> io::Result<JoinHandle<()>> {
     start_http_server(bind_host, port, stop, move |request, peer, local| {
         let path = request.path.clone();
         let query = request.query_param("name").unwrap_or_else(|| "unknown".to_string());
         events.record(event("dns_http", "http", peer, local, &format!("{path}?name={query}"), request.raw.len(), None));
+        if let Some(fault) = faults.take_matching(FixtureFaultTarget::DnsHttp, |outcome| {
+            matches!(
+                outcome,
+                FixtureFaultOutcome::DnsNxDomain | FixtureFaultOutcome::DnsServFail | FixtureFaultOutcome::DnsTimeout
+            )
+        }) {
+            events.record(event(
+                "dns_http",
+                "http",
+                peer,
+                local,
+                &format!("fault:{:?}", fault.outcome),
+                request.raw.len(),
+                None,
+            ));
+            return match fault.outcome {
+                FixtureFaultOutcome::DnsTimeout => {
+                    thread::sleep(Duration::from_millis(fault.delay_ms.unwrap_or(1_500)));
+                    HttpResponse::json("{}".to_string())
+                }
+                FixtureFaultOutcome::DnsNxDomain => HttpResponse::json(r#"{"Status":3,"Answer":[]}"#.to_string()),
+                FixtureFaultOutcome::DnsServFail => HttpResponse::json(r#"{"Status":2,"Answer":[]}"#.to_string()),
+                _ => HttpResponse::not_found(),
+            };
+        }
         let body = format!(r#"{{"Answer":[{{"type":1,"data":"{answer_ip}"}}]}}"#);
         HttpResponse::json(body)
     })
@@ -424,6 +651,7 @@ fn start_control_server(
     port: u16,
     stop: Arc<AtomicBool>,
     events: EventLog,
+    faults: FaultController,
     manifest: FixtureManifest,
 ) -> io::Result<JoinHandle<()>> {
     start_http_server(bind_host, port, stop, move |request, peer, local| {
@@ -441,17 +669,37 @@ fn start_control_server(
                 events.clear();
                 HttpResponse::text("reset")
             }
+            ("GET", "/faults") => {
+                events.record(event("control", "http", peer, local, "faults", request.raw.len(), None));
+                HttpResponse::json(serde_json::to_string(&faults.snapshot()).unwrap_or_else(|_| "[]".to_string()))
+            }
+            ("POST", "/faults") => match serde_json::from_slice::<FixtureFaultSpec>(&request.body) {
+                Ok(spec) => {
+                    faults.set(spec.clone());
+                    events.record(event(
+                        "control",
+                        "http",
+                        peer,
+                        local,
+                        &format!("fault:set:{:?}:{:?}", spec.target, spec.outcome),
+                        request.raw.len(),
+                        None,
+                    ));
+                    HttpResponse::text("ok")
+                }
+                Err(err) => HttpResponse::bad_request(&err.to_string()),
+            },
+            ("POST", "/faults/reset") => {
+                faults.clear();
+                events.record(event("control", "http", peer, local, "faults:reset", request.raw.len(), None));
+                HttpResponse::text("reset")
+            }
             _ => HttpResponse::not_found(),
         }
     })
 }
 
-fn start_http_server<F>(
-    bind_host: String,
-    port: u16,
-    stop: Arc<AtomicBool>,
-    handler: F,
-) -> io::Result<JoinHandle<()>>
+fn start_http_server<F>(bind_host: String, port: u16, stop: Arc<AtomicBool>, handler: F) -> io::Result<JoinHandle<()>>
 where
     F: Fn(HttpRequest, SocketAddr, Option<SocketAddr>) -> HttpResponse + Send + Sync + 'static,
 {
@@ -485,6 +733,7 @@ fn start_socks5_server(
     config: FixtureConfig,
     stop: Arc<AtomicBool>,
     events: EventLog,
+    faults: FaultController,
 ) -> io::Result<JoinHandle<()>> {
     let listener = TcpListener::bind((config.bind_host.as_str(), config.socks5_port))?;
     listener.set_nonblocking(true)?;
@@ -538,6 +787,7 @@ fn start_socks5_server(
                     let config = config.clone();
                     let events = events.clone();
                     let udp_shared = udp_shared.clone();
+                    let faults = faults.clone();
                     thread::spawn(move || {
                         let local = stream.local_addr().ok();
                         let _ = stream.set_read_timeout(Some(SOCKS_IO_TIMEOUT));
@@ -560,11 +810,27 @@ fn start_socks5_server(
                                     Ok(target) => target,
                                     Err(_) => return,
                                 };
-                                let mapped = map_target(target, &config).and_then(|target| resolve_socket_addr(&target));
+                                let mapped =
+                                    map_target(target, &config).and_then(|target| resolve_socket_addr(&target));
                                 let Some(mapped) = mapped.ok() else {
                                     let _ = stream.write_all(&encode_socks_reply_failure());
                                     return;
                                 };
+                                if let Some(_fault) = faults.take_matching(FixtureFaultTarget::Socks5Relay, |outcome| {
+                                    matches!(outcome, FixtureFaultOutcome::SocksRejectConnect)
+                                }) {
+                                    events.record(event(
+                                        "socks5_relay",
+                                        "tcp",
+                                        peer,
+                                        local,
+                                        &format!("fault:{}", mapped),
+                                        0,
+                                        None,
+                                    ));
+                                    let _ = stream.write_all(&encode_socks_reply_failure());
+                                    return;
+                                }
                                 events.record(event("socks5_relay", "tcp", peer, local, &mapped.to_string(), 0, None));
                                 match TcpStream::connect_timeout(&mapped, SOCKS_IO_TIMEOUT) {
                                     Ok(upstream) => {
@@ -590,7 +856,8 @@ fn start_socks5_server(
                                     match stream.read(&mut buf) {
                                         Ok(0) => break,
                                         Ok(_) => {}
-                                        Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+                                        Err(err)
+                                            if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
                                         Err(_) => break,
                                     }
                                     thread::sleep(IO_POLL_DELAY);
@@ -653,10 +920,7 @@ fn read_socks_target(stream: &mut TcpStream, atyp: u8) -> io::Result<SocksTarget
             let mut port = [0u8; 2];
             stream.read_exact(&mut addr)?;
             stream.read_exact(&mut port)?;
-            Ok(SocksTarget::Socket(SocketAddr::new(
-                IpAddr::V4(Ipv4Addr::from(addr)),
-                u16::from_be_bytes(port),
-            )))
+            Ok(SocksTarget::Socket(SocketAddr::new(IpAddr::V4(Ipv4Addr::from(addr)), u16::from_be_bytes(port))))
         }
         0x03 => {
             let mut len = [0u8; 1];
@@ -665,10 +929,7 @@ fn read_socks_target(stream: &mut TcpStream, atyp: u8) -> io::Result<SocksTarget
             let mut port = [0u8; 2];
             stream.read_exact(&mut domain)?;
             stream.read_exact(&mut port)?;
-            Ok(SocksTarget::Domain(
-                String::from_utf8_lossy(&domain).to_string(),
-                u16::from_be_bytes(port),
-            ))
+            Ok(SocksTarget::Domain(String::from_utf8_lossy(&domain).to_string(), u16::from_be_bytes(port)))
         }
         0x04 => {
             let mut addr = [0u8; 16];
@@ -705,10 +966,8 @@ fn resolve_socket_addr(target: &SocksTarget) -> io::Result<SocketAddr> {
 }
 
 fn map_socket_addr(address: SocketAddr, config: &FixtureConfig) -> SocketAddr {
-    let fixture_ip = config
-        .fixture_ipv4
-        .parse::<IpAddr>()
-        .unwrap_or_else(|_| IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)));
+    let fixture_ip =
+        config.fixture_ipv4.parse::<IpAddr>().unwrap_or_else(|_| IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)));
     if address.ip() == fixture_ip {
         SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), address.port())
     } else {
@@ -792,15 +1051,9 @@ fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u8>), io::Er
             }
             let mut raw = [0u8; 16];
             raw.copy_from_slice(&frame[4..20]);
-            Ok((
-                SocketAddr::new(IpAddr::from(raw), u16::from_be_bytes([frame[20], frame[21]])),
-                frame[22..].to_vec(),
-            ))
+            Ok((SocketAddr::new(IpAddr::from(raw), u16::from_be_bytes([frame[20], frame[21]])), frame[22..].to_vec()))
         }
-        atyp => Err(io::Error::new(
-            ErrorKind::InvalidData,
-            format!("SOCKS5 UDP atyp unsupported: {atyp}"),
-        )),
+        atyp => Err(io::Error::new(ErrorKind::InvalidData, format!("SOCKS5 UDP atyp unsupported: {atyp}"))),
     }
 }
 
@@ -809,6 +1062,7 @@ struct HttpRequest {
     method: String,
     path: String,
     query: String,
+    body: Vec<u8>,
     raw: Vec<u8>,
 }
 
@@ -834,11 +1088,27 @@ impl HttpResponse {
     }
 
     fn text(body: &str) -> Self {
-        Self { status_line: "HTTP/1.1 200 OK", content_type: "text/plain; charset=utf-8", body: body.as_bytes().to_vec() }
+        Self {
+            status_line: "HTTP/1.1 200 OK",
+            content_type: "text/plain; charset=utf-8",
+            body: body.as_bytes().to_vec(),
+        }
     }
 
     fn not_found() -> Self {
-        Self { status_line: "HTTP/1.1 404 Not Found", content_type: "text/plain; charset=utf-8", body: b"not found".to_vec() }
+        Self {
+            status_line: "HTTP/1.1 404 Not Found",
+            content_type: "text/plain; charset=utf-8",
+            body: b"not found".to_vec(),
+        }
+    }
+
+    fn bad_request(body: &str) -> Self {
+        Self {
+            status_line: "HTTP/1.1 400 Bad Request",
+            content_type: "text/plain; charset=utf-8",
+            body: body.as_bytes().to_vec(),
+        }
     }
 
     fn to_bytes(&self) -> Vec<u8> {
@@ -855,14 +1125,26 @@ impl HttpResponse {
 }
 
 fn parse_http_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
-    let raw = read_until_marker(stream, b"\r\n\r\n");
-    let request = String::from_utf8_lossy(&raw);
+    let mut raw = read_until_marker(stream, b"\r\n\r\n");
+    let request = String::from_utf8_lossy(&raw).into_owned();
     let first_line = request.lines().next().ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "empty request"))?;
     let mut parts = first_line.split_whitespace();
     let method = parts.next().unwrap_or("GET").to_string();
     let target = parts.next().unwrap_or("/");
     let (path, query) = target.split_once('?').unwrap_or((target, ""));
-    Ok(HttpRequest { method, path: path.to_string(), query: query.to_string(), raw })
+    let content_length = request
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("content-length").then(|| value.trim().parse::<usize>().ok()).flatten()
+        })
+        .unwrap_or(0);
+    let mut body = vec![0u8; content_length];
+    if content_length > 0 {
+        stream.read_exact(&mut body)?;
+        raw.extend_from_slice(&body);
+    }
+    Ok(HttpRequest { method, path: path.to_string(), query: query.to_string(), body, raw })
 }
 
 fn read_until_marker(stream: &mut impl Read, marker: &[u8]) -> Vec<u8> {
@@ -896,6 +1178,21 @@ fn build_udp_dns_answer(request: &[u8], answer_ip: Ipv4Addr) -> Result<Vec<u8>, 
     answer.extend(60u32.to_be_bytes());
     answer.extend(4u16.to_be_bytes());
     answer.extend(answer_ip.octets());
+    Ok(answer)
+}
+
+fn build_udp_dns_error_response(request: &[u8], rcode: u16) -> Result<Vec<u8>, String> {
+    if request.len() < 12 {
+        return Err("short request".to_string());
+    }
+    let mut answer = Vec::new();
+    answer.extend(&request[0..2]);
+    answer.extend((0x8180u16 | (rcode & 0x000f)).to_be_bytes());
+    answer.extend(1u16.to_be_bytes());
+    answer.extend(0u16.to_be_bytes());
+    answer.extend(0u16.to_be_bytes());
+    answer.extend(0u16.to_be_bytes());
+    answer.extend(&request[12..]);
     Ok(answer)
 }
 
@@ -939,12 +1236,7 @@ fn event(
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis()
-        .try_into()
-        .unwrap_or(u64::MAX)
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis().try_into().unwrap_or(u64::MAX)
 }
 
 fn wake_tcp(host: &str, port: u16) {
@@ -962,10 +1254,7 @@ fn env_string(key: &str, default: &str) -> String {
 }
 
 fn env_u16(key: &str, default: u16) -> u16 {
-    std::env::var(key)
-        .ok()
-        .and_then(|value| value.parse::<u16>().ok())
-        .unwrap_or(default)
+    std::env::var(key).ok().and_then(|value| value.parse::<u16>().ok()).unwrap_or(default)
 }
 
 fn percent_decode(value: &str) -> String {
