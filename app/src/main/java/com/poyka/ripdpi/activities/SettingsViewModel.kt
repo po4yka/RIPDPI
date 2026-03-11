@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
+import com.poyka.ripdpi.data.DefaultQuicFakeHost
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
@@ -17,6 +18,7 @@ import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
+import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -38,7 +40,7 @@ import com.poyka.ripdpi.data.legacyDesyncMethod
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.primaryTcpChainStep
-import com.poyka.ripdpi.data.tlsRecTcpChainStep
+import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.core.clearHostAutolearnStore
 import com.poyka.ripdpi.core.hasHostAutolearnStore
 import com.poyka.ripdpi.platform.LauncherIconController
@@ -186,6 +188,20 @@ data class SettingsUiState(
     val quicFakeControlsRelevant: Boolean
         get() = desyncUdpEnabled
 
+    val showQuicFakeHostOverride: Boolean
+        get() = quicFakeProfile == QuicFakeProfileRealisticInitial
+
+    val quicFakeUsesCustomHost: Boolean
+        get() = showQuicFakeHostOverride && quicFakeHost.isNotBlank()
+
+    val quicFakeEffectiveHost: String
+        get() =
+            if (showQuicFakeHostOverride) {
+                quicFakeHost.ifBlank { DefaultQuicFakeHost }
+            } else {
+                ""
+            }
+
     val showQuicFakeProfile: Boolean
         get() = enableCmdSettings || quicFakeControlsRelevant || quicFakeProfileActive || quicFakeHost.isNotBlank()
 
@@ -226,7 +242,7 @@ internal fun AppSettings.toUiState(
     val tcpChainSteps = effectiveTcpChainSteps()
     val udpChainSteps = effectiveUdpChainSteps()
     val primaryTcpStep = primaryTcpChainStep(tcpChainSteps)
-    val tlsRecStep = tlsRecTcpChainStep(tcpChainSteps)
+    val tlsRecStep = tlsPreludeTcpChainStep(tcpChainSteps)
     val normalizedDesyncMethod = legacyDesyncMethod(tcpChainSteps).ifEmpty { "none" }
     val normalizedHostsMode = hostsMode.ifEmpty { "disable" }
     val isVpn = normalizedMode == "vpn"
