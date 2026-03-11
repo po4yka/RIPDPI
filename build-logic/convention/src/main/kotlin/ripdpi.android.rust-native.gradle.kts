@@ -75,6 +75,7 @@ abstract class BuildRustNativeLibsTask
             val hostBinDir = resolveNdkToolchainBinDir()
             val manifest = workspaceManifest.get().asFile
             val artifacts = artifactSpecs.get().map(::parseArtifactSpec)
+            val packageNames = artifacts.map(RustNativeArtifact::packageName).distinct()
             val outputRoot = outputDir.get().asFile
             val cargoTargetRoot = cargoTargetDir.get().asFile
             val cargoExecutable = resolveRustTool("cargo")
@@ -118,24 +119,29 @@ abstract class BuildRustNativeLibsTask
                         "CARGO_TARGET_DIR" to abiCargoTargetDir.absolutePath,
                     )
 
-                for (artifact in artifacts) {
-                    execOperations.exec {
-                        workingDir = manifest.parentFile
-                        environment(cargoEnvironment)
-                        commandLine(
-                            cargoExecutable,
-                            "build",
-                            "--manifest-path",
-                            manifest.absolutePath,
-                            "-p",
-                            artifact.packageName,
-                            "--target",
-                            target,
-                            "--profile",
-                            cargoProfileName,
-                        )
-                    }.assertNormalExitValue()
+                val cargoCommand =
+                    buildList {
+                        add(cargoExecutable)
+                        add("build")
+                        add("--manifest-path")
+                        add(manifest.absolutePath)
+                        for (packageName in packageNames) {
+                            add("-p")
+                            add(packageName)
+                        }
+                        add("--target")
+                        add(target)
+                        add("--profile")
+                        add(cargoProfileName)
+                    }
 
+                execOperations.exec {
+                    workingDir = manifest.parentFile
+                    environment(cargoEnvironment)
+                    commandLine(cargoCommand)
+                }.assertNormalExitValue()
+
+                for (artifact in artifacts) {
                     val builtLibrary = abiCargoTargetDir.resolve("$target/$cargoProfileName/${artifact.sourceName}")
                     if (!builtLibrary.isFile) {
                         throw GradleException(
