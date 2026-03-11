@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.core
 
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -85,16 +87,23 @@ class Tun2SocksTunnel(
                 throw IllegalStateException("Tunnel is already running")
             }
 
-            val createdHandle = nativeBindings.create(Json.encodeToString(config))
+            val createdHandle =
+                withContext(Dispatchers.IO) {
+                    nativeBindings.create(Json.encodeToString(config))
+                }
             if (createdHandle == 0L) {
                 throw IllegalStateException("Native tunnel session was not created")
             }
 
             try {
-                nativeBindings.start(createdHandle, tunFd)
+                withContext(Dispatchers.IO) {
+                    nativeBindings.start(createdHandle, tunFd)
+                }
                 handle = createdHandle
             } catch (e: Exception) {
-                nativeBindings.destroy(createdHandle)
+                withContext(Dispatchers.IO) {
+                    nativeBindings.destroy(createdHandle)
+                }
                 throw e
             }
         }
@@ -107,10 +116,14 @@ class Tun2SocksTunnel(
             }
 
             try {
-                nativeBindings.stop(handle)
+                withContext(Dispatchers.IO) {
+                    nativeBindings.stop(handle)
+                }
             } finally {
                 try {
-                    nativeBindings.destroy(handle)
+                    withContext(Dispatchers.IO) {
+                        nativeBindings.destroy(handle)
+                    }
                 } finally {
                     handle = 0L
                 }
@@ -123,7 +136,11 @@ class Tun2SocksTunnel(
             if (handle == 0L) {
                 TunnelStats()
             } else {
-                TunnelStats.fromNative(nativeBindings.getStats(handle))
+                val nativeStats =
+                    withContext(Dispatchers.IO) {
+                        nativeBindings.getStats(handle)
+                    }
+                TunnelStats.fromNative(nativeStats)
             }
         }
 
@@ -132,7 +149,9 @@ class Tun2SocksTunnel(
             if (handle == 0L) {
                 NativeRuntimeSnapshot.idle(source = "tunnel")
             } else {
-                nativeBindings.getTelemetry(handle)
+                withContext(Dispatchers.IO) {
+                    nativeBindings.getTelemetry(handle)
+                }
                     ?.takeIf { it.isNotBlank() }
                     ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
                     ?: NativeRuntimeSnapshot.idle(source = "tunnel")

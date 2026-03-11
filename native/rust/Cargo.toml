@@ -90,3 +90,7 @@ lto = "thin"
 panic = "abort"
 strip = "symbols"
 codegen-units = 1
+
+[profile.android-jni]
+inherits = "release"
+panic = "unwind"

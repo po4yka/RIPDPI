@@ -485,7 +485,37 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniCreate(
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCreate(
+    mut env: JNIEnv,
+    _thiz: JObject,
+) -> jlong {
+    init_android_logging("ripdpi-native");
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        DIAGNOSTIC_SESSIONS.insert(MonitorSession::new()) as jlong
+    }))
+    .unwrap_or_else(|_| {
+        throw_runtime_exception(&mut env, "Diagnostics session creation panicked");
+        0
+    })
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniStartScan(
+    mut env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+    request_json: JString,
+    session_id: JString,
+) {
+    init_android_logging("ripdpi-native");
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        start_diagnostics_scan(&mut env, handle, request_json, session_id);
+    }))
+    .map_err(|_| throw_runtime_exception(&mut env, "Diagnostics scan start panicked"));
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniStartScan(
     mut env: JNIEnv,
     _thiz: JObject,
     handle: jlong,
@@ -514,7 +544,37 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniCancelSc
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCancelScan(
+    mut env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    init_android_logging("ripdpi-native");
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        diagnostics_session(&mut env, handle)?.cancel_scan();
+        Some(())
+    }))
+    .map_err(|_| throw_runtime_exception(&mut env, "Diagnostics cancel panicked"));
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniPollProgress(
+    mut env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) -> jstring {
+    init_android_logging("ripdpi-native");
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        poll_diagnostics_string(&mut env, handle, ripdpi_monitor::MonitorSession::poll_progress_json)
+    }))
+    .unwrap_or_else(|_| {
+        throw_runtime_exception(&mut env, "Diagnostics progress polling panicked");
+        std::ptr::null_mut()
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniPollProgress(
     mut env: JNIEnv,
     _thiz: JObject,
     handle: jlong,
@@ -546,6 +606,22 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniTakeRepo
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniTakeReport(
+    mut env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) -> jstring {
+    init_android_logging("ripdpi-native");
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        poll_diagnostics_string(&mut env, handle, ripdpi_monitor::MonitorSession::take_report_json)
+    }))
+    .unwrap_or_else(|_| {
+        throw_runtime_exception(&mut env, "Diagnostics report polling panicked");
+        std::ptr::null_mut()
+    })
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniPollPassiveEvents(
     mut env: JNIEnv,
     _thiz: JObject,
@@ -562,7 +638,34 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniPollPass
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniPollPassiveEvents(
+    mut env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) -> jstring {
+    init_android_logging("ripdpi-native");
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        poll_diagnostics_string(&mut env, handle, ripdpi_monitor::MonitorSession::poll_passive_events_json)
+    }))
+    .unwrap_or_else(|_| {
+        throw_runtime_exception(&mut env, "Diagnostics passive polling panicked");
+        std::ptr::null_mut()
+    })
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnostics_jniDestroy(
+    mut env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    init_android_logging("ripdpi-native");
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_diagnostics_session(&mut env, handle)))
+        .map_err(|_| throw_runtime_exception(&mut env, "Diagnostics session destroy panicked"));
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniDestroy(
     mut env: JNIEnv,
     _thiz: JObject,
     handle: jlong,
