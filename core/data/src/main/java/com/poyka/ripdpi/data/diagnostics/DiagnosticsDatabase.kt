@@ -4,13 +4,15 @@ import android.content.Context
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.poyka.ripdpi.data.Mode
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -72,31 +74,82 @@ data class ProbeResultEntity(
     val createdAt: Long,
 )
 
-@Entity(tableName = "network_snapshots")
+@Entity(
+    tableName = "network_snapshots",
+    indices = [
+        Index(
+            name = "index_network_snapshots_sessionId_capturedAt",
+            value = ["sessionId", "capturedAt"],
+        ),
+        Index(
+            name = "index_network_snapshots_connectionSessionId_capturedAt",
+            value = ["connectionSessionId", "capturedAt"],
+        ),
+        Index(
+            name = "index_network_snapshots_capturedAt",
+            value = ["capturedAt"],
+        ),
+    ],
+)
 @Serializable
 data class NetworkSnapshotEntity(
     @PrimaryKey val id: String,
     val sessionId: String?,
+    val connectionSessionId: String? = null,
     val snapshotKind: String,
     val payloadJson: String,
     val capturedAt: Long,
 )
 
-@Entity(tableName = "diagnostic_context_snapshots")
+@Entity(
+    tableName = "diagnostic_context_snapshots",
+    indices = [
+        Index(
+            name = "index_diagnostic_context_snapshots_sessionId_capturedAt",
+            value = ["sessionId", "capturedAt"],
+        ),
+        Index(
+            name = "index_diagnostic_context_snapshots_connectionSessionId_capturedAt",
+            value = ["connectionSessionId", "capturedAt"],
+        ),
+        Index(
+            name = "index_diagnostic_context_snapshots_capturedAt",
+            value = ["capturedAt"],
+        ),
+    ],
+)
 @Serializable
 data class DiagnosticContextEntity(
     @PrimaryKey val id: String,
     val sessionId: String?,
+    val connectionSessionId: String? = null,
     val contextKind: String,
     val payloadJson: String,
     val capturedAt: Long,
 )
 
-@Entity(tableName = "telemetry_samples")
+@Entity(
+    tableName = "telemetry_samples",
+    indices = [
+        Index(
+            name = "index_telemetry_samples_sessionId_createdAt",
+            value = ["sessionId", "createdAt"],
+        ),
+        Index(
+            name = "index_telemetry_samples_connectionSessionId_createdAt",
+            value = ["connectionSessionId", "createdAt"],
+        ),
+        Index(
+            name = "index_telemetry_samples_createdAt",
+            value = ["createdAt"],
+        ),
+    ],
+)
 @Serializable
 data class TelemetrySampleEntity(
     @PrimaryKey val id: String,
     val sessionId: String?,
+    val connectionSessionId: String? = null,
     val activeMode: String?,
     val connectionState: String,
     val networkType: String,
@@ -108,11 +161,28 @@ data class TelemetrySampleEntity(
     val createdAt: Long,
 )
 
-@Entity(tableName = "native_session_events")
+@Entity(
+    tableName = "native_session_events",
+    indices = [
+        Index(
+            name = "index_native_session_events_sessionId_createdAt",
+            value = ["sessionId", "createdAt"],
+        ),
+        Index(
+            name = "index_native_session_events_connectionSessionId_createdAt",
+            value = ["connectionSessionId", "createdAt"],
+        ),
+        Index(
+            name = "index_native_session_events_createdAt",
+            value = ["createdAt"],
+        ),
+    ],
+)
 @Serializable
 data class NativeSessionEventEntity(
     @PrimaryKey val id: String,
     val sessionId: String?,
+    val connectionSessionId: String? = null,
     val source: String,
     val level: String,
     val message: String,
@@ -135,19 +205,24 @@ data class BypassUsageSessionEntity(
     @PrimaryKey val id: String,
     val startedAt: Long,
     val finishedAt: Long?,
+    val updatedAt: Long = 0L,
     val serviceMode: String,
+    val connectionState: String = "Running",
+    val health: String = "idle",
     val approachProfileId: String?,
     val approachProfileName: String?,
     val strategyId: String,
     val strategyLabel: String,
     val strategyJson: String,
     val networkType: String,
+    val publicIp: String? = null,
     val txBytes: Long,
     val rxBytes: Long,
     val totalErrors: Long,
     val routeChanges: Long,
     val restartCount: Int,
     val endedReason: String?,
+    val failureMessage: String? = null,
 )
 
 @Dao
@@ -188,11 +263,40 @@ interface DiagnosticsDao {
     @Query("SELECT * FROM network_snapshots ORDER BY capturedAt DESC LIMIT :limit")
     fun observeSnapshots(limit: Int = 100): Flow<List<NetworkSnapshotEntity>>
 
+    @Query(
+        """
+        SELECT * FROM network_snapshots
+        WHERE connectionSessionId = :connectionSessionId
+        ORDER BY capturedAt DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeSnapshotsForConnectionSession(
+        connectionSessionId: String,
+        limit: Int = 100,
+    ): Flow<List<NetworkSnapshotEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertNetworkSnapshot(snapshot: NetworkSnapshotEntity)
 
+    @Query("DELETE FROM network_snapshots WHERE capturedAt < :threshold")
+    suspend fun deleteSnapshotsOlderThan(threshold: Long)
+
     @Query("SELECT * FROM diagnostic_context_snapshots ORDER BY capturedAt DESC LIMIT :limit")
     fun observeContextSnapshots(limit: Int = 100): Flow<List<DiagnosticContextEntity>>
+
+    @Query(
+        """
+        SELECT * FROM diagnostic_context_snapshots
+        WHERE connectionSessionId = :connectionSessionId
+        ORDER BY capturedAt DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeContextSnapshotsForConnectionSession(
+        connectionSessionId: String,
+        limit: Int = 100,
+    ): Flow<List<DiagnosticContextEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity)
@@ -203,6 +307,19 @@ interface DiagnosticsDao {
     @Query("SELECT * FROM telemetry_samples ORDER BY createdAt DESC LIMIT :limit")
     fun observeTelemetry(limit: Int = 200): Flow<List<TelemetrySampleEntity>>
 
+    @Query(
+        """
+        SELECT * FROM telemetry_samples
+        WHERE connectionSessionId = :connectionSessionId
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeTelemetryForConnectionSession(
+        connectionSessionId: String,
+        limit: Int = 200,
+    ): Flow<List<TelemetrySampleEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTelemetrySample(sample: TelemetrySampleEntity)
 
@@ -211,6 +328,19 @@ interface DiagnosticsDao {
 
     @Query("SELECT * FROM native_session_events ORDER BY createdAt DESC LIMIT :limit")
     fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
+
+    @Query(
+        """
+        SELECT * FROM native_session_events
+        WHERE connectionSessionId = :connectionSessionId
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeNativeEventsForConnectionSession(
+        connectionSessionId: String,
+        limit: Int = 250,
+    ): Flow<List<NativeSessionEventEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
@@ -224,14 +354,26 @@ interface DiagnosticsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExportRecord(record: ExportRecordEntity)
 
+    @Query("DELETE FROM export_records WHERE createdAt < :threshold")
+    suspend fun deleteExportRecordsOlderThan(threshold: Long)
+
     @Query("SELECT * FROM bypass_usage_sessions ORDER BY startedAt DESC LIMIT :limit")
     fun observeBypassUsageSessions(limit: Int = 100): Flow<List<BypassUsageSessionEntity>>
+
+    @Query("SELECT * FROM bypass_usage_sessions WHERE id = :sessionId LIMIT 1")
+    suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity)
 
     @Query("DELETE FROM bypass_usage_sessions WHERE finishedAt IS NOT NULL AND finishedAt < :threshold")
     suspend fun deleteBypassUsageSessionsOlderThan(threshold: Long)
+
+    @Query("DELETE FROM probe_results WHERE createdAt < :threshold")
+    suspend fun deleteProbeResultsOlderThan(threshold: Long)
+
+    @Query("DELETE FROM scan_sessions WHERE finishedAt IS NOT NULL AND finishedAt < :threshold")
+    suspend fun deleteScanSessionsOlderThan(threshold: Long)
 }
 
 @Database(
@@ -247,8 +389,8 @@ interface DiagnosticsDao {
         ExportRecordEntity::class,
         BypassUsageSessionEntity::class,
     ],
-    version = 3,
-    exportSchema = false,
+    version = 4,
+    exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
     abstract fun diagnosticsDao(): DiagnosticsDao
@@ -261,11 +403,31 @@ interface DiagnosticsHistoryRepository {
 
     fun observeSnapshots(limit: Int = 100): Flow<List<NetworkSnapshotEntity>>
 
+    fun observeConnectionSnapshots(
+        connectionSessionId: String,
+        limit: Int = 100,
+    ): Flow<List<NetworkSnapshotEntity>>
+
     fun observeContexts(limit: Int = 100): Flow<List<DiagnosticContextEntity>>
+
+    fun observeConnectionContexts(
+        connectionSessionId: String,
+        limit: Int = 100,
+    ): Flow<List<DiagnosticContextEntity>>
 
     fun observeTelemetry(limit: Int = 200): Flow<List<TelemetrySampleEntity>>
 
+    fun observeConnectionTelemetry(
+        connectionSessionId: String,
+        limit: Int = 200,
+    ): Flow<List<TelemetrySampleEntity>>
+
     fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
+
+    fun observeConnectionNativeEvents(
+        connectionSessionId: String,
+        limit: Int = 250,
+    ): Flow<List<NativeSessionEventEntity>>
 
     fun observeExportRecords(limit: Int = 50): Flow<List<ExportRecordEntity>>
 
@@ -276,6 +438,8 @@ interface DiagnosticsHistoryRepository {
     suspend fun getPackVersion(packId: String): TargetPackVersionEntity?
 
     suspend fun getScanSession(sessionId: String): ScanSessionEntity?
+
+    suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity?
 
     suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity>
 
@@ -319,14 +483,50 @@ class RoomDiagnosticsHistoryRepository
     override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> =
         dao.observeSnapshots(limit)
 
+    override fun observeConnectionSnapshots(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<NetworkSnapshotEntity>> =
+        dao.observeSnapshotsForConnectionSession(
+            connectionSessionId = connectionSessionId,
+            limit = limit,
+        )
+
     override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> =
         dao.observeContextSnapshots(limit)
+
+    override fun observeConnectionContexts(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<DiagnosticContextEntity>> =
+        dao.observeContextSnapshotsForConnectionSession(
+            connectionSessionId = connectionSessionId,
+            limit = limit,
+        )
 
     override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> =
         dao.observeTelemetry(limit)
 
+    override fun observeConnectionTelemetry(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<TelemetrySampleEntity>> =
+        dao.observeTelemetryForConnectionSession(
+            connectionSessionId = connectionSessionId,
+            limit = limit,
+        )
+
     override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> =
         dao.observeNativeEvents(limit)
+
+    override fun observeConnectionNativeEvents(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<NativeSessionEventEntity>> =
+        dao.observeNativeEventsForConnectionSession(
+            connectionSessionId = connectionSessionId,
+            limit = limit,
+        )
 
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> =
         dao.observeExportRecords(limit)
@@ -341,6 +541,9 @@ class RoomDiagnosticsHistoryRepository
 
     override suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
         dao.getScanSession(sessionId)
+
+    override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? =
+        dao.getBypassUsageSession(sessionId)
 
     override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> =
         dao.getProbeResults(sessionId)
@@ -396,12 +599,116 @@ class RoomDiagnosticsHistoryRepository
             return
         }
         val threshold = System.currentTimeMillis() - retentionDays * 24L * 60L * 60L * 1000L
+        dao.deleteProbeResultsOlderThan(threshold)
+        dao.deleteScanSessionsOlderThan(threshold)
+        dao.deleteSnapshotsOlderThan(threshold)
         dao.deleteContextOlderThan(threshold)
         dao.deleteTelemetryOlderThan(threshold)
         dao.deleteNativeEventsOlderThan(threshold)
+        dao.deleteExportRecordsOlderThan(threshold)
         dao.deleteBypassUsageSessionsOlderThan(threshold)
     }
 }
+
+internal val DiagnosticsDatabaseMigration3To4 =
+    object : Migration(3, 4) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN connectionState TEXT NOT NULL DEFAULT 'Running'")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN health TEXT NOT NULL DEFAULT 'idle'")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN publicIp TEXT")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN failureMessage TEXT")
+            database.execSQL(
+                """
+                UPDATE bypass_usage_sessions
+                SET updatedAt = COALESCE(finishedAt, startedAt),
+                    connectionState = CASE
+                        WHEN finishedAt IS NULL THEN 'Running'
+                        ELSE 'Stopped'
+                    END,
+                    health = 'idle'
+                """.trimIndent(),
+            )
+
+            database.execSQL("ALTER TABLE network_snapshots ADD COLUMN connectionSessionId TEXT")
+            database.execSQL("ALTER TABLE diagnostic_context_snapshots ADD COLUMN connectionSessionId TEXT")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN connectionSessionId TEXT")
+            database.execSQL("ALTER TABLE native_session_events ADD COLUMN connectionSessionId TEXT")
+
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_network_snapshots_sessionId_capturedAt
+                ON network_snapshots(sessionId, capturedAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_network_snapshots_connectionSessionId_capturedAt
+                ON network_snapshots(connectionSessionId, capturedAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_network_snapshots_capturedAt
+                ON network_snapshots(capturedAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_diagnostic_context_snapshots_sessionId_capturedAt
+                ON diagnostic_context_snapshots(sessionId, capturedAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_diagnostic_context_snapshots_connectionSessionId_capturedAt
+                ON diagnostic_context_snapshots(connectionSessionId, capturedAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_diagnostic_context_snapshots_capturedAt
+                ON diagnostic_context_snapshots(capturedAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_telemetry_samples_sessionId_createdAt
+                ON telemetry_samples(sessionId, createdAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_telemetry_samples_connectionSessionId_createdAt
+                ON telemetry_samples(connectionSessionId, createdAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_telemetry_samples_createdAt
+                ON telemetry_samples(createdAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_native_session_events_sessionId_createdAt
+                ON native_session_events(sessionId, createdAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_native_session_events_connectionSessionId_createdAt
+                ON native_session_events(connectionSessionId, createdAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_native_session_events_createdAt
+                ON native_session_events(createdAt)
+                """.trimIndent(),
+            )
+        }
+    }
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -425,7 +732,7 @@ object DiagnosticsDatabaseModule {
             context,
             DiagnosticsDatabase::class.java,
             "diagnostics.db",
-        ).fallbackToDestructiveMigration().build()
+        ).addMigrations(DiagnosticsDatabaseMigration3To4).build()
 
     @Provides
     @Singleton
