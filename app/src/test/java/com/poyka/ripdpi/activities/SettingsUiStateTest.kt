@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.DefaultSplitMarker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -28,6 +29,7 @@ class SettingsUiStateTest {
         assertFalse(state.hasBackupPin)
         assertEquals(LauncherIconManager.DefaultIconKey, state.appIconVariant)
         assertTrue(state.themedAppIconEnabled)
+        assertEquals(DefaultSplitMarker, state.splitMarker)
     }
 
     @Test
@@ -135,6 +137,19 @@ class SettingsUiStateTest {
     fun `empty desync method defaults to disorder`() {
         val settings = defaults.toBuilder().setDesyncMethod("").build()
         assertEquals("disorder", settings.toUiState().desyncMethod)
+    }
+
+    @Test
+    fun `legacy split settings map into effective marker`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setSplitMarker("")
+                .setSplitPosition(2)
+                .setSplitAtHost(true)
+                .build()
+
+        assertEquals("host+2", settings.toUiState().splitMarker)
     }
 
     @Test

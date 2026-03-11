@@ -30,6 +30,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.DefaultSplitMarker
+import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.isValidOffsetExpression
+import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -53,7 +58,6 @@ private enum class AdvancedToggleSetting {
     UseCommandLine,
     NoDomain,
     TcpFastOpen,
-    SplitAtHost,
     DropSack,
     DesyncHttp,
     DesyncHttps,
@@ -62,7 +66,6 @@ private enum class AdvancedToggleSetting {
     DomainMixedCase,
     HostRemoveSpaces,
     TlsrecEnabled,
-    TlsrecAtSni,
 }
 
 private enum class AdvancedTextSetting {
@@ -72,12 +75,12 @@ private enum class AdvancedTextSetting {
     MaxConnections,
     BufferSize,
     DefaultTtl,
-    SplitPosition,
+    SplitMarker,
     FakeTtl,
     FakeSni,
-    FakeOffset,
+    FakeOffsetMarker,
     OobData,
-    TlsrecPosition,
+    TlsrecMarker,
     UdpFakeCount,
     HostsBlacklist,
     HostsWhitelist,
@@ -125,15 +128,6 @@ fun AdvancedSettingsRoute(
                         value = enabled.toString(),
                     ) {
                         setTcpFastOpen(enabled)
-                    }
-                }
-
-                AdvancedToggleSetting.SplitAtHost -> {
-                    viewModel.updateSetting(
-                        key = "splitAtHost",
-                        value = enabled.toString(),
-                    ) {
-                        setSplitAtHost(enabled)
                     }
                 }
 
@@ -209,14 +203,6 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
-                AdvancedToggleSetting.TlsrecAtSni -> {
-                    viewModel.updateSetting(
-                        key = "tlsrecAtSni",
-                        value = enabled.toString(),
-                    ) {
-                        setTlsrecAtSni(enabled)
-                    }
-                }
             }
         },
         onTextConfirmed = { setting, value ->
@@ -294,14 +280,13 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
-                AdvancedTextSetting.SplitPosition -> {
-                    value.toIntOrNull()?.let { splitPosition ->
-                        viewModel.updateSetting(
-                            key = "splitPosition",
-                            value = value,
-                        ) {
-                            setSplitPosition(splitPosition)
-                        }
+                AdvancedTextSetting.SplitMarker -> {
+                    val marker = normalizeOffsetExpression(value, DefaultSplitMarker)
+                    viewModel.updateSetting(
+                        key = "splitMarker",
+                        value = marker,
+                    ) {
+                        setSplitMarker(marker)
                     }
                 }
 
@@ -325,14 +310,13 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
-                AdvancedTextSetting.FakeOffset -> {
-                    value.toIntOrNull()?.let { fakeOffset ->
-                        viewModel.updateSetting(
-                            key = "fakeOffset",
-                            value = value,
-                        ) {
-                            setFakeOffset(fakeOffset)
-                        }
+                AdvancedTextSetting.FakeOffsetMarker -> {
+                    val marker = normalizeOffsetExpression(value, DefaultFakeOffsetMarker)
+                    viewModel.updateSetting(
+                        key = "fakeOffsetMarker",
+                        value = marker,
+                    ) {
+                        setFakeOffsetMarker(marker)
                     }
                 }
 
@@ -347,14 +331,13 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
-                AdvancedTextSetting.TlsrecPosition -> {
-                    value.toIntOrNull()?.let { tlsrecPosition ->
-                        viewModel.updateSetting(
-                            key = "tlsrecPosition",
-                            value = value,
-                        ) {
-                            setTlsrecPosition(tlsrecPosition)
-                        }
+                AdvancedTextSetting.TlsrecMarker -> {
+                    val marker = normalizeOffsetExpression(value, DefaultTlsRecordMarker)
+                    viewModel.updateSetting(
+                        key = "tlsrecMarker",
+                        value = marker,
+                    ) {
+                        setTlsrecMarker(marker)
                     }
                 }
 
@@ -599,25 +582,16 @@ private fun AdvancedSettingsScreen(
                     if (uiState.desyncEnabled) {
                         AdvancedTextSetting(
                             title = stringResource(R.string.ripdpi_split_position_setting),
-                            value = uiState.splitPosition.toString(),
+                            description = stringResource(R.string.config_split_marker_helper),
+                            value = uiState.splitMarker,
+                            placeholder = stringResource(R.string.config_placeholder_split_marker),
                             enabled = visualEditorEnabled,
-                            validator = { it.toIntOrNull() != null },
-                            invalidMessage = stringResource(R.string.config_error_out_of_range),
+                            validator = { it.isBlank() || isValidOffsetExpression(it) },
+                            invalidMessage = stringResource(R.string.config_error_invalid_marker),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            keyboardOptions =
-                                KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done,
-                                ),
-                            setting = AdvancedTextSetting.SplitPosition,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                            setting = AdvancedTextSetting.SplitMarker,
                             onConfirm = onTextConfirmed,
-                            showDivider = true,
-                        )
-                        SettingsRow(
-                            title = stringResource(R.string.ripdpi_split_at_host_setting),
-                            checked = uiState.splitAtHost,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.SplitAtHost, it) },
-                            enabled = visualEditorEnabled,
                             showDivider = true,
                         )
                     }
@@ -649,17 +623,15 @@ private fun AdvancedSettingsScreen(
                         )
                         AdvancedTextSetting(
                             title = stringResource(R.string.ripdpi_fake_offset_setting),
-                            value = uiState.fakeOffset.toString(),
+                            description = stringResource(R.string.config_fake_offset_marker_helper),
+                            value = uiState.fakeOffsetMarker,
+                            placeholder = stringResource(R.string.config_placeholder_fake_offset_marker),
                             enabled = visualEditorEnabled,
-                            validator = { it.toIntOrNull() != null },
-                            invalidMessage = stringResource(R.string.config_error_out_of_range),
+                            validator = { it.isBlank() || isValidOffsetExpression(it) },
+                            invalidMessage = stringResource(R.string.config_error_invalid_marker),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            keyboardOptions =
-                                KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done,
-                                ),
-                            setting = AdvancedTextSetting.FakeOffset,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                            setting = AdvancedTextSetting.FakeOffsetMarker,
                             onConfirm = onTextConfirmed,
                             showDivider = true,
                         )
@@ -765,30 +737,22 @@ private fun AdvancedSettingsScreen(
                     if (uiState.tlsRecEnabled) {
                         AdvancedTextSetting(
                             title = stringResource(R.string.ripdpi_tlsrec_position_setting),
-                            value = uiState.tlsrecPosition.toString(),
+                            description = stringResource(R.string.config_tls_record_marker_helper),
+                            value = uiState.tlsrecMarker,
+                            placeholder = stringResource(R.string.config_placeholder_tls_record_marker),
                             enabled = visualEditorEnabled,
-                            validator = { validateIntRange(it, 2 * Short.MIN_VALUE, 2 * Short.MAX_VALUE) },
-                            invalidMessage = stringResource(R.string.config_error_out_of_range),
+                            validator = { it.isBlank() || isValidOffsetExpression(it) },
+                            invalidMessage = stringResource(R.string.config_error_invalid_marker),
                             disabledMessage =
                                 if (!visualEditorEnabled) {
                                     stringResource(R.string.advanced_settings_visual_controls_disabled)
                                 } else {
                                     null
                                 },
-                            keyboardOptions =
-                                KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done,
-                                ),
-                            setting = AdvancedTextSetting.TlsrecPosition,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                            setting = AdvancedTextSetting.TlsrecMarker,
                             onConfirm = onTextConfirmed,
-                            showDivider = true,
-                        )
-                        SettingsRow(
-                            title = stringResource(R.string.ripdpi_tlsrec_at_sni_setting),
-                            checked = uiState.tlsrecAtSni,
-                            onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TlsrecAtSni, it) },
-                            enabled = visualEditorEnabled,
+                            showDivider = false,
                         )
                     }
                 }
@@ -1052,8 +1016,7 @@ private fun AdvancedSettingsScreenPreview() {
                     customTtl = true,
                     defaultTtl = 8,
                     desyncMethod = "disorder",
-                    splitPosition = 2,
-                    splitAtHost = true,
+                    splitMarker = "host+2",
                     dropSack = false,
                     desyncHttp = true,
                     desyncHttps = true,
@@ -1089,18 +1052,16 @@ private fun AdvancedSettingsScreenDarkPreview() {
                     customTtl = true,
                     defaultTtl = 8,
                     desyncMethod = "fake",
-                    splitPosition = 1,
-                    splitAtHost = true,
+                    splitMarker = "host+1",
                     fakeTtl = 12,
                     fakeSni = "www.iana.org",
-                    fakeOffset = 2,
+                    fakeOffsetMarker = "method+2",
                     dropSack = true,
                     desyncHttp = true,
                     desyncHttps = true,
                     desyncUdp = true,
                     tlsrecEnabled = true,
-                    tlsrecPosition = 4,
-                    tlsrecAtSni = true,
+                    tlsrecMarker = "sniext+4",
                     udpFakeCount = 1,
                     hostsMode = "blacklist",
                     hostsBlacklist = "example.com\ncdn.example.net",

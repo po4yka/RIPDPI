@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use ciadpi_config::{
-    dump_cache_entries, load_cache_entries, parse_cli, parse_hosts_spec, parse_ipset_spec, FilterSet, ParseResult,
-    StartupEnv,
+    dump_cache_entries, load_cache_entries, parse_cli, parse_hosts_spec, parse_ipset_spec, FilterSet, OffsetExpr,
+    ParseResult, StartupEnv,
 };
 use serde_json::Value;
 #[cfg(target_os = "linux")]
@@ -197,8 +197,7 @@ fn parse_args_with_extended_desync_flags_matches_fixture() {
         expected["has_fake_data"].as_bool().unwrap()
     );
     let fake_offset = group.fake_offset.expect("fake offset");
-    assert_eq!(fake_offset.pos as i64, expected["fake_offset_pos"].as_i64().unwrap());
-    assert_eq!(fake_offset.flag as u64, expected["fake_offset_flag"].as_u64().unwrap());
+    assert_eq!(fake_offset, OffsetExpr::tls_host(1));
     assert_eq!(
         group.fake_sni_list,
         expected["fake_sni_list"]

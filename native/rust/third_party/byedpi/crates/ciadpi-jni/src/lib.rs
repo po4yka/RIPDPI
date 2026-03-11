@@ -4,9 +4,7 @@ use std::os::fd::{FromRawFd, IntoRawFd};
 use std::str::FromStr;
 use std::sync::Mutex;
 
-use ciadpi_config::{
-    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, RuntimeConfig, OFFSET_HOST, OFFSET_SNI,
-};
+use ciadpi_config::{DesyncGroup, DesyncMode, OffsetExpr, PartSpec, RuntimeConfig};
 use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE};
 use jni::objects::{JObject, JObjectArray, JString};
 use jni::sys::jint;
@@ -271,16 +269,15 @@ fn create_socket_from_ui(
         | (u32::from(domain_mixed_case) * MH_DMIX)
         | (u32::from(host_remove_spaces) * MH_SPACE);
 
-    let offset_flag = if group.proto != 0 || desync_https {
-        OFFSET_SNI
+    let use_tls_host = group.proto != 0 || desync_https;
+    let part_offset = if split_at_host {
+        if use_tls_host {
+            OffsetExpr::tls_host(i64::from(split_position))
+        } else {
+            OffsetExpr::host(i64::from(split_position))
+        }
     } else {
-        OFFSET_HOST
-    };
-    let part_offset = OffsetExpr {
-        pos: i64::from(split_position),
-        flag: if split_at_host { offset_flag } else { 0 },
-        repeats: 0,
-        skip: 0,
+        OffsetExpr::absolute(i64::from(split_position))
     };
     group.parts.push(PartSpec {
         mode: match desync_method {
@@ -296,25 +293,20 @@ fn create_socket_from_ui(
     });
 
     if tls_record_split {
-        group.tls_records.push(OffsetExpr {
-            pos: i64::from(tls_record_split_position),
-            flag: if tls_record_split_at_sni {
-                offset_flag
+        let expr = if tls_record_split_at_sni {
+            if use_tls_host {
+                OffsetExpr::tls_host(i64::from(tls_record_split_position))
             } else {
-                0
-            },
-            repeats: 0,
-            skip: 0,
-        });
+                OffsetExpr::host(i64::from(tls_record_split_position))
+            }
+        } else {
+            OffsetExpr::absolute(i64::from(tls_record_split_position))
+        };
+        group.tls_records.push(expr);
     }
 
     if desync_method == DESYNC_FAKE {
-        group.fake_offset = Some(OffsetExpr {
-            pos: i64::from(fake_offset),
-            flag: 0,
-            repeats: 0,
-            skip: 0,
-        });
+        group.fake_offset = Some(OffsetExpr::absolute(i64::from(fake_offset)));
         group.fake_sni_list.push(fake_sni);
     }
 

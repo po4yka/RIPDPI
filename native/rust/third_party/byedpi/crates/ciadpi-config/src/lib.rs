@@ -10,13 +10,6 @@ use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP, MH_DMIX, MH_HMI
 
 pub const VERSION: &str = "17.3";
 
-pub const OFFSET_END: u32 = 1;
-pub const OFFSET_MID: u32 = 2;
-pub const OFFSET_RAND: u32 = 4;
-pub const OFFSET_SNI: u32 = 8;
-pub const OFFSET_HOST: u32 = 16;
-pub const OFFSET_START: u32 = 32;
-
 pub const DETECT_HTTP_LOCAT: u32 = 1;
 pub const DETECT_TLS_ERR: u32 = 2;
 pub const DETECT_TORST: u32 = 8;
@@ -41,11 +34,74 @@ pub enum DesyncMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OffsetProto {
+    Any,
+    TlsOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OffsetBase {
+    Abs,
+    PayloadEnd,
+    PayloadMid,
+    PayloadRand,
+    Host,
+    EndHost,
+    HostMid,
+    HostRand,
+    Sld,
+    MidSld,
+    EndSld,
+    Method,
+    ExtLen,
+    SniExt,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OffsetExpr {
-    pub pos: i64,
-    pub flag: u32,
+    pub base: OffsetBase,
+    pub proto: OffsetProto,
+    pub delta: i64,
     pub repeats: i32,
     pub skip: i32,
+}
+
+impl OffsetExpr {
+    pub const fn absolute(delta: i64) -> Self {
+        Self { base: OffsetBase::Abs, proto: OffsetProto::Any, delta, repeats: 0, skip: 0 }
+    }
+
+    pub const fn marker(base: OffsetBase, delta: i64) -> Self {
+        Self { base, proto: OffsetProto::Any, delta, repeats: 0, skip: 0 }
+    }
+
+    pub const fn tls_marker(base: OffsetBase, delta: i64) -> Self {
+        Self { base, proto: OffsetProto::TlsOnly, delta, repeats: 0, skip: 0 }
+    }
+
+    pub const fn host(delta: i64) -> Self {
+        Self::marker(OffsetBase::Host, delta)
+    }
+
+    pub const fn tls_host(delta: i64) -> Self {
+        Self::tls_marker(OffsetBase::Host, delta)
+    }
+
+    pub const fn with_repeat_skip(self, repeats: i32, skip: i32) -> Self {
+        Self { repeats, skip, ..self }
+    }
+
+    pub const fn needs_tls_record_adjustment(self) -> bool {
+        !matches!(self.base, OffsetBase::Abs) || self.delta < 0
+    }
+
+    pub const fn absolute_positive(self) -> Option<i64> {
+        if matches!(self.base, OffsetBase::Abs) && self.delta >= 0 {
+            Some(self.delta)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -462,33 +518,84 @@ fn parse_numeric_addr(spec: &str) -> Result<(IpAddr, Option<u16>), ConfigError> 
     Ok((ip, port))
 }
 
-pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
-    let mut base = spec;
-    let mut flag = 0u32;
-    if let Some((prefix, suffix)) = spec.split_once('+') {
-        base = prefix;
-        let bytes = suffix.as_bytes();
-        match bytes.first().copied() {
-            Some(b's') => flag |= OFFSET_SNI,
-            Some(b'h') => flag |= OFFSET_HOST,
-            Some(b'n') | None => {}
-            _ => return Err(ConfigError::invalid("offset", Some(spec))),
-        }
-        match bytes.get(1).copied() {
-            Some(b'e') => flag |= OFFSET_END,
-            Some(b'm') => flag |= OFFSET_MID,
-            Some(b'r') => flag |= OFFSET_RAND,
-            Some(b's') => flag |= OFFSET_START,
-            _ => {}
-        }
+fn parse_named_offset_expr(spec: &str) -> Result<Option<OffsetExpr>, ConfigError> {
+    let Some(split_at) = spec.char_indices().skip(1).find_map(|(idx, ch)| matches!(ch, '+' | '-').then_some(idx))
+    else {
+        return Ok(marker_from_name(spec).map(|base| OffsetExpr::marker(base, 0)));
+    };
+    let name = &spec[..split_at];
+    let Some(base) = marker_from_name(name) else {
+        return Ok(None);
+    };
+    let delta = spec[split_at..].parse::<i64>().map_err(|_| ConfigError::invalid("offset", Some(spec)))?;
+    Ok(Some(OffsetExpr::marker(base, delta)))
+}
+
+fn marker_from_name(name: &str) -> Option<OffsetBase> {
+    match name {
+        "abs" => Some(OffsetBase::Abs),
+        "host" => Some(OffsetBase::Host),
+        "endhost" => Some(OffsetBase::EndHost),
+        "sld" => Some(OffsetBase::Sld),
+        "midsld" => Some(OffsetBase::MidSld),
+        "endsld" => Some(OffsetBase::EndSld),
+        "method" => Some(OffsetBase::Method),
+        "extlen" => Some(OffsetBase::ExtLen),
+        "sniext" => Some(OffsetBase::SniExt),
+        _ => None,
+    }
+}
+
+fn parse_legacy_offset_expr(spec: &str) -> Result<Option<OffsetExpr>, ConfigError> {
+    let Some((prefix, suffix)) = spec.split_once('+') else {
+        return Ok(None);
+    };
+    let delta = match prefix.parse::<i64>() {
+        Ok(value) => value,
+        Err(_) => return Ok(None),
+    };
+    if suffix.is_empty() || suffix.len() > 2 {
+        return Err(ConfigError::invalid("offset", Some(spec)));
     }
 
-    let mut parts = base.split(':');
-    let pos = parts
-        .next()
-        .ok_or_else(|| ConfigError::invalid("offset", Some(spec)))?
-        .parse::<i64>()
-        .map_err(|_| ConfigError::invalid("offset", Some(spec)))?;
+    let bytes = suffix.as_bytes();
+    let proto = match bytes.first().copied() {
+        Some(b's') => OffsetProto::TlsOnly,
+        Some(b'h') | Some(b'n') => OffsetProto::Any,
+        _ => return Err(ConfigError::invalid("offset", Some(spec))),
+    };
+    let second = bytes.get(1).copied();
+
+    let expr = match (bytes[0], second) {
+        (b's' | b'h', None | Some(b's')) => match proto {
+            OffsetProto::Any => OffsetExpr::marker(OffsetBase::Host, delta),
+            OffsetProto::TlsOnly => OffsetExpr::tls_marker(OffsetBase::Host, delta),
+        },
+        (b's' | b'h', Some(b'e')) => match proto {
+            OffsetProto::Any => OffsetExpr::marker(OffsetBase::EndHost, delta),
+            OffsetProto::TlsOnly => OffsetExpr::tls_marker(OffsetBase::EndHost, delta),
+        },
+        (b's' | b'h', Some(b'm')) => match proto {
+            OffsetProto::Any => OffsetExpr::marker(OffsetBase::HostMid, delta),
+            OffsetProto::TlsOnly => OffsetExpr::tls_marker(OffsetBase::HostMid, delta),
+        },
+        (b's' | b'h', Some(b'r')) => match proto {
+            OffsetProto::Any => OffsetExpr::marker(OffsetBase::HostRand, delta),
+            OffsetProto::TlsOnly => OffsetExpr::tls_marker(OffsetBase::HostRand, delta),
+        },
+        (b'n', None | Some(b's')) => OffsetExpr::absolute(delta),
+        (b'n', Some(b'e')) => OffsetExpr::marker(OffsetBase::PayloadEnd, delta),
+        (b'n', Some(b'm')) => OffsetExpr::marker(OffsetBase::PayloadMid, delta),
+        (b'n', Some(b'r')) => OffsetExpr::marker(OffsetBase::PayloadRand, delta),
+        _ => return Err(ConfigError::invalid("offset", Some(spec))),
+    };
+
+    Ok(Some(expr))
+}
+
+pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
+    let mut parts = spec.split(':');
+    let base = parts.next().ok_or_else(|| ConfigError::invalid("offset", Some(spec)))?;
     let repeats = match parts.next() {
         Some(value) => {
             let parsed = value.parse::<i32>().map_err(|_| ConfigError::invalid("offset", Some(spec)))?;
@@ -503,7 +610,18 @@ pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
         Some(value) => value.parse::<i32>().map_err(|_| ConfigError::invalid("offset", Some(spec)))?,
         None => 0,
     };
-    Ok(OffsetExpr { pos, flag, repeats, skip })
+
+    let expr = if let Ok(delta) = base.parse::<i64>() {
+        OffsetExpr::absolute(delta)
+    } else if let Some(expr) = parse_named_offset_expr(base)? {
+        expr
+    } else if let Some(expr) = parse_legacy_offset_expr(base)? {
+        expr
+    } else {
+        return Err(ConfigError::invalid("offset", Some(spec)));
+    };
+
+    Ok(expr.with_repeat_skip(repeats, skip))
 }
 
 fn parse_timeout(spec: &str, config: &mut RuntimeConfig) -> Result<(), ConfigError> {
@@ -816,7 +934,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             "-r" | "--tlsrec" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let expr = parse_offset_expr(value)?;
-                if expr.pos > u16::MAX as i64 {
+                if expr.absolute_positive().is_some_and(|pos| pos > u16::MAX as i64) {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
                 group!().tls_records.push(expr);
@@ -1069,16 +1187,34 @@ mod tests {
     #[test]
     fn parse_offset_expr_flag_combos() {
         let se = parse_offset_expr("5+se").unwrap();
-        assert_eq!(se.flag, OFFSET_SNI | OFFSET_END);
+        assert_eq!(se, OffsetExpr::tls_marker(OffsetBase::EndHost, 5));
 
         let hm = parse_offset_expr("3+hm").unwrap();
-        assert_eq!(hm.flag, OFFSET_HOST | OFFSET_MID);
+        assert_eq!(hm, OffsetExpr::marker(OffsetBase::HostMid, 3));
 
         let nr = parse_offset_expr("0+nr").unwrap();
-        assert_eq!(nr.flag, OFFSET_RAND);
+        assert_eq!(nr, OffsetExpr::marker(OffsetBase::PayloadRand, 0));
 
         let ss = parse_offset_expr("1+ss").unwrap();
-        assert_eq!(ss.flag, OFFSET_SNI | OFFSET_START);
+        assert_eq!(ss, OffsetExpr::tls_host(1));
+    }
+
+    #[test]
+    fn parse_offset_expr_named_markers() {
+        assert_eq!(parse_offset_expr("method+2").unwrap(), OffsetExpr::marker(OffsetBase::Method, 2));
+        assert_eq!(parse_offset_expr("midsld").unwrap(), OffsetExpr::marker(OffsetBase::MidSld, 0));
+        assert_eq!(parse_offset_expr("midsld-1").unwrap(), OffsetExpr::marker(OffsetBase::MidSld, -1));
+        assert_eq!(parse_offset_expr("sniext+4").unwrap(), OffsetExpr::marker(OffsetBase::SniExt, 4));
+        assert_eq!(parse_offset_expr("extlen").unwrap(), OffsetExpr::marker(OffsetBase::ExtLen, 0));
+        assert_eq!(parse_offset_expr("abs-5").unwrap(), OffsetExpr::absolute(-5));
+        assert_eq!(parse_offset_expr("-5").unwrap(), OffsetExpr::absolute(-5));
+    }
+
+    #[test]
+    fn parse_offset_expr_rejects_invalid_marker_syntax() {
+        for spec in ["host+", "midsld-", "unknown", "host+nope", "5+zz", "method++1"] {
+            assert!(parse_offset_expr(spec).is_err(), "{spec} should be rejected");
+        }
     }
 
     #[test]

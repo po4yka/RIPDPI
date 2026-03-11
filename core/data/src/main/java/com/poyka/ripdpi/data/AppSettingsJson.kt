@@ -38,9 +38,11 @@ internal data class AppSettingsSnapshot(
     val desyncMethod: String = defaultSettings.desyncMethod,
     val splitPosition: Int = defaultSettings.splitPosition,
     val splitAtHost: Boolean = defaultSettings.splitAtHost,
+    val splitMarker: String = defaultSettings.splitMarker,
     val fakeTtl: Int = defaultSettings.fakeTtl,
     val fakeSni: String = defaultSettings.fakeSni,
     val fakeOffset: Int = defaultSettings.fakeOffset,
+    val fakeOffsetMarker: String = defaultSettings.fakeOffsetMarker,
     val oobData: String = defaultSettings.oobData,
     val dropSack: Boolean = defaultSettings.dropSack,
     val desyncHttp: Boolean = defaultSettings.desyncHttp,
@@ -52,6 +54,7 @@ internal data class AppSettingsSnapshot(
     val tlsrecEnabled: Boolean = defaultSettings.tlsrecEnabled,
     val tlsrecPosition: Int = defaultSettings.tlsrecPosition,
     val tlsrecAtSni: Boolean = defaultSettings.tlsrecAtSni,
+    val tlsrecMarker: String = defaultSettings.tlsrecMarker,
     val udpFakeCount: Int = defaultSettings.udpFakeCount,
     val hostMixedCase: Boolean = defaultSettings.hostMixedCase,
     val domainMixedCase: Boolean = defaultSettings.domainMixedCase,
@@ -87,9 +90,11 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         desyncMethod = desyncMethod,
         splitPosition = splitPosition,
         splitAtHost = splitAtHost,
+        splitMarker = splitMarker,
         fakeTtl = fakeTtl,
         fakeSni = fakeSni,
         fakeOffset = fakeOffset,
+        fakeOffsetMarker = fakeOffsetMarker,
         oobData = oobData,
         dropSack = dropSack,
         desyncHttp = desyncHttp,
@@ -101,6 +106,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         tlsrecEnabled = tlsrecEnabled,
         tlsrecPosition = tlsrecPosition,
         tlsrecAtSni = tlsrecAtSni,
+        tlsrecMarker = tlsrecMarker,
         udpFakeCount = udpFakeCount,
         hostMixedCase = hostMixedCase,
         domainMixedCase = domainMixedCase,
@@ -137,9 +143,11 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setDesyncMethod(desyncMethod)
         .setSplitPosition(splitPosition)
         .setSplitAtHost(splitAtHost)
+        .setSplitMarker(splitMarker)
         .setFakeTtl(fakeTtl)
         .setFakeSni(fakeSni)
         .setFakeOffset(fakeOffset)
+        .setFakeOffsetMarker(fakeOffsetMarker)
         .setOobData(oobData)
         .setDropSack(dropSack)
         .setDesyncHttp(desyncHttp)
@@ -151,6 +159,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setTlsrecEnabled(tlsrecEnabled)
         .setTlsrecPosition(tlsrecPosition)
         .setTlsrecAtSni(tlsrecAtSni)
+        .setTlsrecMarker(tlsrecMarker)
         .setUdpFakeCount(udpFakeCount)
         .setHostMixedCase(hostMixedCase)
         .setDomainMixedCase(domainMixedCase)

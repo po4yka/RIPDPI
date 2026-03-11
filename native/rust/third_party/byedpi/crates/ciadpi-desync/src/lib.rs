@@ -1,19 +1,17 @@
 #![forbid(unsafe_code)]
 
-use ciadpi_config::{
-    DesyncGroup, DesyncMode, OffsetExpr, FM_ORIG, FM_RAND, OFFSET_END, OFFSET_HOST, OFFSET_MID, OFFSET_RAND, OFFSET_SNI,
-};
+use ciadpi_config::{DesyncGroup, DesyncMode, OffsetBase, OffsetExpr, OffsetProto, FM_ORIG, FM_RAND};
 use ciadpi_packets::{
-    change_tls_sni_seeded_like_c, is_http, is_tls_client_hello, mod_http_like_c, parse_http, parse_tls,
-    part_tls_like_c, randomize_tls_seeded_like_c, OracleRng, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, DEFAULT_FAKE_UDP,
-    IS_HTTP, IS_HTTPS,
+    change_tls_sni_seeded_like_c, http_marker_info, is_http, is_tls_client_hello, mod_http_like_c, part_tls_like_c,
+    randomize_tls_seeded_like_c, second_level_domain_span, tls_marker_info, HttpMarkerInfo, OracleRng, TlsMarkerInfo,
+    DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, DEFAULT_FAKE_UDP, IS_HTTP, IS_HTTPS,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ProtoInfo {
     pub kind: u32,
-    pub host_len: usize,
-    pub host_pos: usize,
+    http: Option<HttpMarkerInfo>,
+    tls: Option<TlsMarkerInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,46 +58,106 @@ pub struct DesyncPlan {
 pub struct DesyncError;
 
 fn init_proto_info(buffer: &[u8], info: &mut ProtoInfo) {
-    if info.host_len != 0 || info.host_pos != 0 {
+    if info.http.is_some() || info.tls.is_some() {
         return;
     }
-    if let Some(host) = parse_tls(buffer) {
+    if let Some(tls) = tls_marker_info(buffer) {
         info.kind = IS_HTTPS;
-        info.host_len = host.len();
-        info.host_pos = buffer.windows(host.len()).position(|window| window == host).unwrap_or(0);
-    } else if let Some(host) = parse_http(buffer) {
+        info.tls = Some(tls);
+    } else if let Some(http) = http_marker_info(buffer) {
         if info.kind == 0 {
             info.kind = IS_HTTP;
         }
-        info.host_len = host.host.len();
-        info.host_pos = buffer.windows(host.host.len()).position(|window| window == host.host).unwrap_or(0);
+        info.http = Some(http);
     }
 }
 
-fn gen_offset(expr: OffsetExpr, buffer: &[u8], n: usize, lp: i64, info: &mut ProtoInfo, rng: &mut OracleRng) -> i64 {
-    let mut pos = expr.pos;
-    if expr.flag & (OFFSET_SNI | OFFSET_HOST) != 0 {
-        init_proto_info(buffer, info);
-        if info.host_pos == 0 || ((expr.flag & OFFSET_SNI) != 0 && info.kind != IS_HTTPS) {
-            return -1;
+fn resolve_host_range<'a>(
+    buffer: &'a [u8],
+    info: &mut ProtoInfo,
+    proto: OffsetProto,
+) -> Option<(usize, usize, &'a [u8])> {
+    init_proto_info(buffer, info);
+    match proto {
+        OffsetProto::TlsOnly => {
+            let tls = info.tls?;
+            Some((tls.host_start, tls.host_end, &buffer[tls.host_start..tls.host_end]))
         }
-        pos += info.host_pos as i64;
-        if expr.flag & OFFSET_END != 0 {
-            pos += info.host_len as i64;
-        } else if expr.flag & OFFSET_MID != 0 {
-            pos += (info.host_len / 2) as i64;
-        } else if expr.flag & OFFSET_RAND != 0 && info.host_len != 0 {
-            pos += rng.next_mod(info.host_len) as i64;
+        OffsetProto::Any => {
+            if let Some(tls) = info.tls {
+                Some((tls.host_start, tls.host_end, &buffer[tls.host_start..tls.host_end]))
+            } else {
+                let http = info.http?;
+                Some((http.host_start, http.host_end, &buffer[http.host_start..http.host_end]))
+            }
         }
-    } else if expr.flag & OFFSET_RAND != 0 {
-        let available = n.saturating_sub(lp.max(0) as usize);
-        pos += lp + rng.next_mod(available.max(1)) as i64;
-    } else if expr.flag & OFFSET_MID != 0 {
-        pos += (n / 2) as i64;
-    } else if pos < 0 || expr.flag & OFFSET_END != 0 {
-        pos += n as i64;
     }
-    pos
+}
+
+fn gen_offset(
+    expr: OffsetExpr,
+    buffer: &[u8],
+    n: usize,
+    lp: i64,
+    info: &mut ProtoInfo,
+    rng: &mut OracleRng,
+) -> Option<i64> {
+    let pos = match expr.base {
+        OffsetBase::Abs => {
+            if expr.delta < 0 {
+                n as i64 + expr.delta
+            } else {
+                expr.delta
+            }
+        }
+        OffsetBase::PayloadEnd => n as i64 + expr.delta,
+        OffsetBase::PayloadMid => (n / 2) as i64 + expr.delta,
+        OffsetBase::PayloadRand => {
+            let available = n.saturating_sub(lp.max(0) as usize);
+            expr.delta + lp + rng.next_mod(available.max(1)) as i64
+        }
+        OffsetBase::Host => {
+            let (host_start, _, _) = resolve_host_range(buffer, info, expr.proto)?;
+            host_start as i64 + expr.delta
+        }
+        OffsetBase::EndHost => {
+            let (_, host_end, _) = resolve_host_range(buffer, info, expr.proto)?;
+            host_end as i64 + expr.delta
+        }
+        OffsetBase::HostMid => {
+            let (host_start, host_end, _) = resolve_host_range(buffer, info, expr.proto)?;
+            host_start as i64 + ((host_end - host_start) / 2) as i64 + expr.delta
+        }
+        OffsetBase::HostRand => {
+            let (host_start, host_end, _) = resolve_host_range(buffer, info, expr.proto)?;
+            let host_len = host_end.saturating_sub(host_start);
+            host_start as i64 + rng.next_mod(host_len.max(1)) as i64 + expr.delta
+        }
+        OffsetBase::Sld | OffsetBase::MidSld | OffsetBase::EndSld => {
+            let (host_start, _, host) = resolve_host_range(buffer, info, expr.proto)?;
+            let (sld_start, sld_end) = second_level_domain_span(host)?;
+            let anchor = match expr.base {
+                OffsetBase::Sld => sld_start,
+                OffsetBase::MidSld => sld_start + ((sld_end - sld_start) / 2),
+                OffsetBase::EndSld => sld_end,
+                _ => unreachable!(),
+            };
+            (host_start + anchor) as i64 + expr.delta
+        }
+        OffsetBase::Method => {
+            init_proto_info(buffer, info);
+            info.http.map(|http| http.method_start as i64 + expr.delta)?
+        }
+        OffsetBase::ExtLen => {
+            init_proto_info(buffer, info);
+            info.tls.map(|tls| tls.ext_len_start as i64 + expr.delta)?
+        }
+        OffsetBase::SniExt => {
+            init_proto_info(buffer, info);
+            info.tls.map(|tls| tls.sni_ext_start as i64 + expr.delta)?
+        }
+    };
+    Some(pos)
 }
 
 pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<TamperResult, DesyncError> {
@@ -126,15 +184,18 @@ pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<Tamp
             let mut remaining = total;
             while remaining > 0 {
                 let mut pos = (rc as i64) * 5;
-                pos += gen_offset(
+                let Some(offset) = gen_offset(
                     *expr,
                     &output,
                     output.len().saturating_sub(pos.max(0) as usize),
                     lp,
                     &mut info,
                     &mut rng,
-                );
-                if expr.pos < 0 || expr.flag != 0 {
+                ) else {
+                    break;
+                };
+                pos += offset;
+                if expr.needs_tls_record_adjustment() {
                     pos -= 5;
                 }
                 pos += (expr.skip as i64) * ((total - remaining) as i64);
@@ -216,7 +277,7 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
     }
 
     let fake_offset =
-        group.fake_offset.map(|expr| gen_offset(expr, input, input.len(), 0, &mut info, &mut rng)).unwrap_or(0);
+        group.fake_offset.and_then(|expr| gen_offset(expr, input, input.len(), 0, &mut info, &mut rng)).unwrap_or(0);
     let fake_offset = if fake_offset < 0 || fake_offset as usize > output.len() { 0 } else { fake_offset as usize };
 
     Ok(FakePacketPlan { bytes: output, fake_offset, proto: info })
@@ -241,7 +302,10 @@ pub fn plan_tcp(group: &DesyncGroup, input: &[u8], seed: u32, default_ttl: u8) -
     let mut lp = 0i64;
 
     for part in &group.parts {
-        let mut pos = gen_offset(part.offset, &tampered.bytes, tampered.bytes.len(), lp, &mut info, &mut rng);
+        let Some(mut pos) = gen_offset(part.offset, &tampered.bytes, tampered.bytes.len(), lp, &mut info, &mut rng)
+        else {
+            return Err(DesyncError);
+        };
         if pos < 0 || pos < lp {
             return Err(DesyncError);
         }
@@ -309,8 +373,8 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8) -> Vec<Des
     if group.udp_fake_count > 0 {
         let mut fake = group.fake_data.clone().unwrap_or_else(|| DEFAULT_FAKE_UDP.to_vec());
         if let Some(offset) = group.fake_offset {
-            if offset.pos >= 0 && (offset.pos as usize) < fake.len() {
-                fake = fake[offset.pos as usize..].to_vec();
+            if let Some(pos) = offset.absolute_positive().filter(|pos| (*pos as usize) < fake.len()) {
+                fake = fake[pos as usize..].to_vec();
             } else {
                 fake.clear();
             }
@@ -334,10 +398,10 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8) -> Vec<Des
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ciadpi_config::PartSpec;
+    use ciadpi_config::{OffsetBase, PartSpec};
 
     fn split_expr(pos: i64) -> OffsetExpr {
-        OffsetExpr { pos, flag: 0, repeats: 1, skip: 0 }
+        OffsetExpr::absolute(pos).with_repeat_skip(1, 0)
     }
 
     #[test]
@@ -475,18 +539,53 @@ mod tests {
         let mut rng = OracleRng::seeded(42);
         let buf = b"0123456789";
 
-        // OFFSET_END: pos += n
-        let expr_end = OffsetExpr { pos: -3, flag: OFFSET_END, repeats: 0, skip: 0 };
-        assert_eq!(gen_offset(expr_end, buf, buf.len(), 0, &mut info, &mut rng), 7);
+        let expr_end = OffsetExpr::marker(OffsetBase::PayloadEnd, -3);
+        assert_eq!(gen_offset(expr_end, buf, buf.len(), 0, &mut info, &mut rng), Some(7));
 
-        // OFFSET_MID: pos += n/2
-        let expr_mid = OffsetExpr { pos: 0, flag: OFFSET_MID, repeats: 0, skip: 0 };
-        assert_eq!(gen_offset(expr_mid, buf, buf.len(), 0, &mut info, &mut rng), 5);
+        let expr_mid = OffsetExpr::marker(OffsetBase::PayloadMid, 0);
+        assert_eq!(gen_offset(expr_mid, buf, buf.len(), 0, &mut info, &mut rng), Some(5));
 
-        // OFFSET_RAND: pos in range [lp, n)
-        let expr_rand = OffsetExpr { pos: 0, flag: OFFSET_RAND, repeats: 0, skip: 0 };
-        let result = gen_offset(expr_rand, buf, buf.len(), 0, &mut info, &mut rng);
+        let expr_rand = OffsetExpr::marker(OffsetBase::PayloadRand, 0);
+        let result = gen_offset(expr_rand, buf, buf.len(), 0, &mut info, &mut rng).expect("payload rand");
         assert!(result >= 0 && result <= buf.len() as i64);
+    }
+
+    #[test]
+    fn gen_offset_resolves_named_markers() {
+        let mut info = ProtoInfo::default();
+        let mut rng = OracleRng::seeded(7);
+        let http = b"\r\nGET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
+        let tls = DEFAULT_FAKE_TLS;
+        let expected_http_mid = 24 + 4 + ((11 - 4) / 2);
+        let tls_markers = tls_marker_info(tls).expect("tls markers");
+
+        assert_eq!(
+            gen_offset(OffsetExpr::marker(OffsetBase::Method, 0), http, http.len(), 0, &mut info, &mut rng),
+            Some(2)
+        );
+        assert_eq!(
+            gen_offset(OffsetExpr::marker(OffsetBase::MidSld, 0), http, http.len(), 0, &mut info, &mut rng),
+            Some(expected_http_mid as i64)
+        );
+
+        let mut tls_info = ProtoInfo::default();
+        let mut tls_rng = OracleRng::seeded(7);
+        assert_eq!(
+            gen_offset(OffsetExpr::marker(OffsetBase::SniExt, 0), tls, tls.len(), 0, &mut tls_info, &mut tls_rng),
+            Some(tls_markers.sni_ext_start as i64)
+        );
+        assert_eq!(
+            gen_offset(OffsetExpr::marker(OffsetBase::ExtLen, 0), tls, tls.len(), 0, &mut tls_info, &mut tls_rng),
+            Some(tls_markers.ext_len_start as i64)
+        );
+    }
+
+    #[test]
+    fn unresolved_markers_fail_planning_safely() {
+        let mut group = DesyncGroup::new(0);
+        group.parts.push(PartSpec { mode: DesyncMode::Split, offset: OffsetExpr::tls_host(0) });
+
+        assert!(plan_tcp(&group, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n", 7, 64).is_err());
     }
 
     #[test]

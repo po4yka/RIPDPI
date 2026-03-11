@@ -5,7 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.DefaultSplitMarker
+import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
+import com.poyka.ripdpi.data.effectiveSplitMarker
+import com.poyka.ripdpi.data.effectiveTlsRecordMarker
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,11 +51,10 @@ data class SettingsUiState(
     val defaultTtl: Int = 0,
     val customTtl: Boolean = false,
     val desyncMethod: String = "disorder",
-    val splitPosition: Int = 1,
-    val splitAtHost: Boolean = false,
+    val splitMarker: String = DefaultSplitMarker,
     val fakeTtl: Int = 8,
     val fakeSni: String = "www.iana.org",
-    val fakeOffset: Int = 0,
+    val fakeOffsetMarker: String = DefaultFakeOffsetMarker,
     val oobData: String = "a",
     val dropSack: Boolean = false,
     val desyncHttp: Boolean = true,
@@ -59,8 +64,7 @@ data class SettingsUiState(
     val hostsBlacklist: String = "",
     val hostsWhitelist: String = "",
     val tlsrecEnabled: Boolean = false,
-    val tlsrecPosition: Int = 0,
-    val tlsrecAtSni: Boolean = false,
+    val tlsrecMarker: String = DefaultTlsRecordMarker,
     val udpFakeCount: Int = 0,
     val hostMixedCase: Boolean = false,
     val domainMixedCase: Boolean = false,
@@ -122,11 +126,10 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
         defaultTtl = defaultTtl,
         customTtl = customTtl,
         desyncMethod = normalizedDesyncMethod,
-        splitPosition = splitPosition,
-        splitAtHost = splitAtHost,
+        splitMarker = effectiveSplitMarker(),
         fakeTtl = fakeTtl.takeIf { it > 0 } ?: 8,
         fakeSni = fakeSni.ifEmpty { "www.iana.org" },
-        fakeOffset = fakeOffset,
+        fakeOffsetMarker = effectiveFakeOffsetMarker(),
         oobData = oobData.ifEmpty { "a" },
         dropSack = dropSack,
         desyncHttp = desyncHttp,
@@ -136,8 +139,7 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
         hostsBlacklist = hostsBlacklist,
         hostsWhitelist = hostsWhitelist,
         tlsrecEnabled = tlsrecEnabled,
-        tlsrecPosition = tlsrecPosition,
-        tlsrecAtSni = tlsrecAtSni,
+        tlsrecMarker = effectiveTlsRecordMarker(),
         udpFakeCount = udpFakeCount,
         hostMixedCase = hostMixedCase,
         domainMixedCase = domainMixedCase,

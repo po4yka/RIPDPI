@@ -68,4 +68,7 @@ message AppSettings {
   string diagnostics_active_profile_id = 66;
   int32 diagnostics_history_retention_days = 67;
   bool diagnostics_export_include_history = 68;
+  string split_marker = 69;
+  string fake_offset_marker = 70;
+  string tlsrec_marker = 71;
 }

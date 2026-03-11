@@ -1,5 +1,12 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.DefaultSplitMarker
+import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
+import com.poyka.ripdpi.data.effectiveSplitMarker
+import com.poyka.ripdpi.data.effectiveTlsRecordMarker
+import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.shellSplit
 import kotlinx.serialization.SerialName
@@ -47,8 +54,7 @@ class RipDpiProxyUIPreferences(
     desyncHttps: Boolean? = null,
     desyncUdp: Boolean? = null,
     desyncMethod: DesyncMethod? = null,
-    splitPosition: Int? = null,
-    splitAtHost: Boolean? = null,
+    splitMarker: String? = null,
     fakeTtl: Int? = null,
     fakeSni: String? = null,
     oobChar: String? = null,
@@ -56,14 +62,13 @@ class RipDpiProxyUIPreferences(
     domainMixedCase: Boolean? = null,
     hostRemoveSpaces: Boolean? = null,
     tlsRecordSplit: Boolean? = null,
-    tlsRecordSplitPosition: Int? = null,
-    tlsRecordSplitAtSni: Boolean? = null,
+    tlsRecordSplitMarker: String? = null,
     hostsMode: HostsMode? = null,
     hosts: String? = null,
     tcpFastOpen: Boolean? = null,
     udpFakeCount: Int? = null,
     dropSack: Boolean? = null,
-    ripdpiFakeOffset: Int? = null,
+    fakeOffsetMarker: String? = null,
 ) : RipDpiProxyPreferences {
     val ip: String = ip ?: "127.0.0.1"
     val port: Int = port ?: 1080
@@ -76,8 +81,7 @@ class RipDpiProxyUIPreferences(
     val desyncHttps: Boolean = desyncHttps ?: true
     val desyncUdp: Boolean = desyncUdp ?: false
     val desyncMethod: DesyncMethod = desyncMethod ?: DesyncMethod.Disorder
-    val splitPosition: Int = splitPosition ?: 1
-    val splitAtHost: Boolean = splitAtHost ?: false
+    val splitMarker: String = normalizeOffsetExpression(splitMarker.orEmpty(), DefaultSplitMarker)
     val fakeTtl: Int = fakeTtl ?: 8
     val fakeSni: String = fakeSni ?: "www.iana.org"
     val oobChar: Byte = (oobChar ?: "a")[0].code.toByte()
@@ -85,8 +89,7 @@ class RipDpiProxyUIPreferences(
     val domainMixedCase: Boolean = domainMixedCase ?: false
     val hostRemoveSpaces: Boolean = hostRemoveSpaces ?: false
     val tlsRecordSplit: Boolean = tlsRecordSplit ?: false
-    val tlsRecordSplitPosition: Int = tlsRecordSplitPosition ?: 0
-    val tlsRecordSplitAtSni: Boolean = tlsRecordSplitAtSni ?: false
+    val tlsRecordSplitMarker: String = normalizeOffsetExpression(tlsRecordSplitMarker.orEmpty(), DefaultTlsRecordMarker)
     val hostsMode: HostsMode =
         if (hosts?.isBlank() != false) {
             HostsMode.Disable
@@ -102,7 +105,7 @@ class RipDpiProxyUIPreferences(
     val tcpFastOpen: Boolean = tcpFastOpen ?: false
     val udpFakeCount: Int = udpFakeCount ?: 0
     val dropSack: Boolean = dropSack ?: false
-    val fakeOffset: Int = ripdpiFakeOffset ?: 0
+    val fakeOffsetMarker: String = normalizeOffsetExpression(fakeOffsetMarker.orEmpty(), DefaultFakeOffsetMarker)
 
     constructor(settings: AppSettings) : this(
         ip = settings.proxyIp.ifEmpty { null },
@@ -118,8 +121,7 @@ class RipDpiProxyUIPreferences(
             settings.desyncMethod
                 .ifEmpty { null }
                 ?.let { DesyncMethod.fromName(it) },
-        splitPosition = settings.splitPosition,
-        splitAtHost = settings.splitAtHost,
+        splitMarker = settings.effectiveSplitMarker(),
         fakeTtl = settings.fakeTtl.takeIf { it > 0 },
         fakeSni = settings.fakeSni.ifEmpty { null },
         oobChar = settings.oobData.ifEmpty { null },
@@ -127,8 +129,7 @@ class RipDpiProxyUIPreferences(
         domainMixedCase = settings.domainMixedCase,
         hostRemoveSpaces = settings.hostRemoveSpaces,
         tlsRecordSplit = settings.tlsrecEnabled,
-        tlsRecordSplitPosition = settings.tlsrecPosition,
-        tlsRecordSplitAtSni = settings.tlsrecAtSni,
+        tlsRecordSplitMarker = settings.effectiveTlsRecordMarker(),
         hostsMode =
             settings.hostsMode
                 .ifEmpty { null }
@@ -142,7 +143,7 @@ class RipDpiProxyUIPreferences(
         tcpFastOpen = settings.tcpFastOpen,
         udpFakeCount = settings.udpFakeCount,
         dropSack = settings.dropSack,
-        ripdpiFakeOffset = settings.fakeOffset,
+        fakeOffsetMarker = settings.effectiveFakeOffsetMarker(),
     )
 
     override fun toNativeConfigJson(): String =
@@ -159,8 +160,7 @@ class RipDpiProxyUIPreferences(
                 desyncHttps = desyncHttps,
                 desyncUdp = desyncUdp,
                 desyncMethod = desyncMethod.wireName,
-                splitPosition = splitPosition,
-                splitAtHost = splitAtHost,
+                splitMarker = splitMarker,
                 fakeTtl = fakeTtl,
                 fakeSni = fakeSni,
                 oobChar = oobChar.toInt() and 0xFF,
@@ -168,14 +168,13 @@ class RipDpiProxyUIPreferences(
                 domainMixedCase = domainMixedCase,
                 hostRemoveSpaces = hostRemoveSpaces,
                 tlsRecordSplit = tlsRecordSplit,
-                tlsRecordSplitPosition = tlsRecordSplitPosition,
-                tlsRecordSplitAtSni = tlsRecordSplitAtSni,
+                tlsRecordSplitMarker = tlsRecordSplitMarker,
                 hostsMode = hostsMode.wireName,
                 hosts = hosts,
                 tcpFastOpen = tcpFastOpen,
                 udpFakeCount = udpFakeCount,
                 dropSack = dropSack,
-                fakeOffset = fakeOffset,
+                fakeOffsetMarker = fakeOffsetMarker,
             ),
         )
 
@@ -261,8 +260,7 @@ private sealed interface NativeProxyConfig {
         val desyncHttps: Boolean,
         val desyncUdp: Boolean,
         val desyncMethod: String,
-        val splitPosition: Int,
-        val splitAtHost: Boolean,
+        val splitMarker: String,
         val fakeTtl: Int,
         val fakeSni: String,
         val oobChar: Int,
@@ -270,13 +268,12 @@ private sealed interface NativeProxyConfig {
         val domainMixedCase: Boolean,
         val hostRemoveSpaces: Boolean,
         val tlsRecordSplit: Boolean,
-        val tlsRecordSplitPosition: Int,
-        val tlsRecordSplitAtSni: Boolean,
+        val tlsRecordSplitMarker: String,
         val hostsMode: String,
         val hosts: String?,
         val tcpFastOpen: Boolean,
         val udpFakeCount: Int,
         val dropSack: Boolean,
-        val fakeOffset: Int,
+        val fakeOffsetMarker: String,
     ) : NativeProxyConfig
 }

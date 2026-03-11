@@ -1094,7 +1094,15 @@ class DiagnosticsViewModel
                             add(DiagnosticsFieldUiModel("Desync", signature.desyncMethod))
                             add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
                             add(DiagnosticsFieldUiModel("TLS record split", signature.tlsRecordSplitEnabled.toString()))
-                            add(DiagnosticsFieldUiModel("Split at host", signature.splitAtHost.toString()))
+                            signature.tlsRecordMarker?.let {
+                                add(DiagnosticsFieldUiModel("TLS record marker", it))
+                            }
+                            signature.splitMarker?.let {
+                                add(DiagnosticsFieldUiModel("Split marker", it))
+                            }
+                            signature.fakeOffsetMarker?.let {
+                                add(DiagnosticsFieldUiModel("Fake offset marker", it))
+                            }
                             add(DiagnosticsFieldUiModel("Route group", signature.routeGroup ?: "Unknown"))
                         }
                     },

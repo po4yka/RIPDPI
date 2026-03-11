@@ -70,8 +70,7 @@ class NativeConfigContractSnapshotTest {
                   "desyncHttps": true,
                   "desyncUdp": false,
                   "desyncMethod": "disorder",
-                  "splitPosition": 1,
-                  "splitAtHost": false,
+                  "splitMarker": "1",
                   "fakeTtl": 8,
                   "fakeSni": "www.iana.org",
                   "oobChar": 97,
@@ -79,14 +78,13 @@ class NativeConfigContractSnapshotTest {
                   "domainMixedCase": false,
                   "hostRemoveSpaces": false,
                   "tlsRecordSplit": false,
-                  "tlsRecordSplitPosition": 0,
-                  "tlsRecordSplitAtSni": false,
+                  "tlsRecordSplitMarker": "0",
                   "hostsMode": "disable",
                   "hosts": null,
                   "tcpFastOpen": false,
                   "udpFakeCount": 0,
                   "dropSack": false,
-                  "fakeOffset": 0
+                  "fakeOffsetMarker": "0"
                 }
                 """,
         )
@@ -106,8 +104,7 @@ class NativeConfigContractSnapshotTest {
                 desyncHttps = true,
                 desyncUdp = true,
                 desyncMethod = RipDpiProxyUIPreferences.DesyncMethod.Fake,
-                splitPosition = 2,
-                splitAtHost = true,
+                splitMarker = "host+2",
                 fakeTtl = 9,
                 fakeSni = "alt.example.org",
                 oobChar = "Z",
@@ -115,14 +112,13 @@ class NativeConfigContractSnapshotTest {
                 domainMixedCase = true,
                 hostRemoveSpaces = true,
                 tlsRecordSplit = true,
-                tlsRecordSplitPosition = 3,
-                tlsRecordSplitAtSni = true,
+                tlsRecordSplitMarker = "sniext+3",
                 hostsMode = RipDpiProxyUIPreferences.HostsMode.Whitelist,
                 hosts = "example.org",
                 tcpFastOpen = true,
                 udpFakeCount = 4,
                 dropSack = true,
-                ripdpiFakeOffset = 7,
+                fakeOffsetMarker = "endhost-1",
             ).toNativeConfigJson()
 
         assertJsonSnapshot(
@@ -142,8 +138,7 @@ class NativeConfigContractSnapshotTest {
                   "desyncHttps": true,
                   "desyncUdp": true,
                   "desyncMethod": "fake",
-                  "splitPosition": 2,
-                  "splitAtHost": true,
+                  "splitMarker": "host+2",
                   "fakeTtl": 9,
                   "fakeSni": "alt.example.org",
                   "oobChar": 90,
@@ -151,14 +146,13 @@ class NativeConfigContractSnapshotTest {
                   "domainMixedCase": true,
                   "hostRemoveSpaces": true,
                   "tlsRecordSplit": true,
-                  "tlsRecordSplitPosition": 3,
-                  "tlsRecordSplitAtSni": true,
+                  "tlsRecordSplitMarker": "sniext+3",
                   "hostsMode": "whitelist",
                   "hosts": "example.org",
                   "tcpFastOpen": true,
                   "udpFakeCount": 4,
                   "dropSack": true,
-                  "fakeOffset": 7
+                  "fakeOffsetMarker": "endhost-1"
                 }
                 """,
         )
