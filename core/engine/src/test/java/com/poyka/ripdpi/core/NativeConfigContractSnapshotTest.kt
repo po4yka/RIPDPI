@@ -94,7 +94,11 @@ class NativeConfigContractSnapshotTest {
                   "fakeOffsetMarker": "0",
                   "quicInitialMode": "route_and_cache",
                   "quicSupportV1": true,
-                  "quicSupportV2": true
+                  "quicSupportV2": true,
+                  "hostAutolearnEnabled": false,
+                  "hostAutolearnPenaltyTtlSecs": 21600,
+                  "hostAutolearnMaxHosts": 512,
+                  "hostAutolearnStorePath": null
                 }
                 """,
         )
@@ -132,6 +136,10 @@ class NativeConfigContractSnapshotTest {
                 quicInitialMode = "route",
                 quicSupportV1 = false,
                 quicSupportV2 = true,
+                hostAutolearnEnabled = true,
+                hostAutolearnPenaltyTtlHours = 12,
+                hostAutolearnMaxHosts = 2048,
+                hostAutolearnStorePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json",
             ).toNativeConfigJson()
 
         assertJsonSnapshot(
@@ -184,7 +192,11 @@ class NativeConfigContractSnapshotTest {
                   "fakeOffsetMarker": "endhost-1",
                   "quicInitialMode": "route",
                   "quicSupportV1": false,
-                  "quicSupportV2": true
+                  "quicSupportV2": true,
+                  "hostAutolearnEnabled": true,
+                  "hostAutolearnPenaltyTtlSecs": 43200,
+                  "hostAutolearnMaxHosts": 2048,
+                  "hostAutolearnStorePath": "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json"
                 }
                 """,
         )

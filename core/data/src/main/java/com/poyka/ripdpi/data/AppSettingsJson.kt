@@ -82,6 +82,9 @@ internal data class AppSettingsSnapshot(
     val quicInitialMode: String = defaultSettings.quicInitialMode,
     val quicSupportV1: Boolean = defaultSettings.quicSupportV1,
     val quicSupportV2: Boolean = defaultSettings.quicSupportV2,
+    val hostAutolearnEnabled: Boolean = defaultSettings.hostAutolearnEnabled,
+    val hostAutolearnPenaltyTtlHours: Int = defaultSettings.hostAutolearnPenaltyTtlHours,
+    val hostAutolearnMaxHosts: Int = defaultSettings.hostAutolearnMaxHosts,
 )
 
 fun AppSettings.toJson(): String = appSettingsJson.encodeToString(toSnapshot())
@@ -139,6 +142,9 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         quicInitialMode = effectiveQuicInitialMode(),
         quicSupportV1 = effectiveQuicSupportV1(),
         quicSupportV2 = effectiveQuicSupportV2(),
+        hostAutolearnEnabled = hostAutolearnEnabled,
+        hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
+        hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
     )
 
 private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
@@ -195,6 +201,9 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setQuicInitialMode(quicInitialMode)
         .setQuicSupportV1(quicSupportV1)
         .setQuicSupportV2(quicSupportV2)
+        .setHostAutolearnEnabled(hostAutolearnEnabled)
+        .setHostAutolearnPenaltyTtlHours(normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours))
+        .setHostAutolearnMaxHosts(normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts))
         .also { builder ->
             tcpChainSteps.forEach { step ->
                 builder.addTcpChainSteps(

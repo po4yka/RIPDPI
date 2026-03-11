@@ -1201,6 +1201,7 @@ class DiagnosticsViewModel
                         strategySignature?.let { signature ->
                             add(DiagnosticsFieldUiModel("Mode", signature.mode))
                             add(DiagnosticsFieldUiModel("Config source", signature.configSource))
+                            add(DiagnosticsFieldUiModel("Autolearn", signature.hostAutolearn))
                             add(DiagnosticsFieldUiModel("Chain", signature.chainSummary))
                             add(DiagnosticsFieldUiModel("Desync", signature.desyncMethod))
                             add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
@@ -1408,6 +1409,18 @@ class DiagnosticsViewModel
                             DiagnosticsFieldUiModel("Roaming", environment.roamingState),
                         ),
                 ),
+                DiagnosticsContextGroupUiModel(
+                    title = "Host learning",
+                    fields =
+                        listOf(
+                            DiagnosticsFieldUiModel("Enabled", service.hostAutolearnEnabled),
+                            DiagnosticsFieldUiModel("Learned hosts", service.learnedHostCount.toString()),
+                            DiagnosticsFieldUiModel("Penalized", service.penalizedHostCount.toString()),
+                            DiagnosticsFieldUiModel("Last host", service.lastAutolearnHost),
+                            DiagnosticsFieldUiModel("Last group", service.lastAutolearnGroup),
+                            DiagnosticsFieldUiModel("Last action", service.lastAutolearnAction),
+                        ),
+                ),
             )
 
         private fun buildContextWarnings(context: DiagnosticContextModel?): List<DiagnosticsEventUiModel> {
@@ -1466,6 +1479,12 @@ class DiagnosticsViewModel
                             DiagnosticsFieldUiModel("Chain", service.chainSummary),
                             DiagnosticsFieldUiModel("Desync", service.desyncMethod),
                             DiagnosticsFieldUiModel("Route group", service.routeGroup),
+                            DiagnosticsFieldUiModel("Autolearn", service.hostAutolearnEnabled),
+                            DiagnosticsFieldUiModel("Learned hosts", service.learnedHostCount.toString()),
+                            DiagnosticsFieldUiModel("Penalized hosts", service.penalizedHostCount.toString()),
+                            DiagnosticsFieldUiModel("Last learned host", service.lastAutolearnHost),
+                            DiagnosticsFieldUiModel("Last learned group", service.lastAutolearnGroup),
+                            DiagnosticsFieldUiModel("Last autolearn action", service.lastAutolearnAction),
                             DiagnosticsFieldUiModel("Restart count", service.restartCount.toString()),
                             DiagnosticsFieldUiModel("Uptime", service.sessionUptimeMs?.let(::formatDurationMs) ?: "Unknown"),
                             DiagnosticsFieldUiModel("Last native error", service.lastNativeErrorHeadline),

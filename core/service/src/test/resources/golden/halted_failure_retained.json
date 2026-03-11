@@ -3,9 +3,14 @@
     "lastFailureSender": "Proxy",
     "mode": "Proxy",
     "proxyTelemetry": {
+        "autolearnEnabled": true,
         "health": "degraded",
+        "lastAutolearnAction": "host_promoted",
+        "lastAutolearnGroup": 1,
+        "lastAutolearnHost": "example.org",
         "lastRouteGroup": 1,
         "lastTarget": "203.0.113.10:443",
+        "learnedHostCount": 4,
         "listenerAddress": "127.0.0.1:<port>",
         "nativeEvents": [
             {
@@ -15,6 +20,7 @@
                 "source": "proxy"
             }
         ],
+        "penalizedHostCount": 1,
         "routeChanges": 2,
         "source": "proxy",
         "state": "running",

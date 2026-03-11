@@ -182,6 +182,12 @@ data class ServiceContextModel(
     val sessionUptimeMs: Long?,
     val lastNativeErrorHeadline: String,
     val restartCount: Int,
+    val hostAutolearnEnabled: String,
+    val learnedHostCount: Int,
+    val penalizedHostCount: Int,
+    val lastAutolearnHost: String,
+    val lastAutolearnGroup: String,
+    val lastAutolearnAction: String,
 )
 
 @Serializable

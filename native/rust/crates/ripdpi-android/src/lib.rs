@@ -11,7 +11,8 @@ use android_support::{
 };
 use ciadpi_config::{
     DesyncGroup, DesyncMode, OffsetExpr, PartSpec, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep,
-    TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+    TcpChainStepKind, UdpChainStep, UdpChainStepKind, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
 use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE};
 use jni::objects::{JObject, JString};
@@ -112,12 +113,28 @@ struct ProxyUiConfig {
     quic_support_v1: bool,
     #[serde(default = "default_true")]
     quic_support_v2: bool,
+    #[serde(default)]
+    host_autolearn_enabled: bool,
+    #[serde(default = "default_host_autolearn_penalty_ttl_secs")]
+    host_autolearn_penalty_ttl_secs: i64,
+    #[serde(default = "default_host_autolearn_max_hosts")]
+    host_autolearn_max_hosts: usize,
+    #[serde(default)]
+    host_autolearn_store_path: Option<String>,
 }
 
 const MAX_PROXY_EVENTS: usize = 128;
 
 fn default_true() -> bool {
     true
+}
+
+fn default_host_autolearn_penalty_ttl_secs() -> i64 {
+    HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS
+}
+
+fn default_host_autolearn_max_hosts() -> usize {
+    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -154,6 +171,12 @@ struct NativeRuntimeSnapshot {
     last_target: Option<String>,
     last_host: Option<String>,
     last_error: Option<String>,
+    autolearn_enabled: bool,
+    learned_host_count: i32,
+    penalized_host_count: i32,
+    last_autolearn_host: Option<String>,
+    last_autolearn_group: Option<i32>,
+    last_autolearn_action: Option<String>,
     tunnel_stats: TunnelStatsSnapshot,
     native_events: Vec<NativeRuntimeEvent>,
     captured_at: u64,
@@ -171,6 +194,12 @@ struct ProxyTelemetryState {
     last_target: Mutex<Option<String>>,
     last_host: Mutex<Option<String>>,
     last_error: Mutex<Option<String>>,
+    autolearn_enabled: AtomicBool,
+    learned_host_count: AtomicU64,
+    penalized_host_count: AtomicU64,
+    last_autolearn_group: AtomicI64,
+    last_autolearn_host: Mutex<Option<String>>,
+    last_autolearn_action: Mutex<Option<String>>,
     events: Mutex<VecDeque<NativeRuntimeEvent>>,
 }
 
@@ -188,6 +217,12 @@ impl ProxyTelemetryState {
             last_target: Mutex::new(None),
             last_host: Mutex::new(None),
             last_error: Mutex::new(None),
+            autolearn_enabled: AtomicBool::new(false),
+            learned_host_count: AtomicU64::new(0),
+            penalized_host_count: AtomicU64::new(0),
+            last_autolearn_group: AtomicI64::new(-1),
+            last_autolearn_host: Mutex::new(None),
+            last_autolearn_action: Mutex::new(None),
             events: Mutex::new(VecDeque::with_capacity(MAX_PROXY_EVENTS)),
         }
     }
@@ -268,6 +303,33 @@ impl ProxyTelemetryState {
         );
     }
 
+    fn set_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
+        self.autolearn_enabled.store(enabled, Ordering::Relaxed);
+        self.learned_host_count.store(learned_host_count as u64, Ordering::Relaxed);
+        self.penalized_host_count.store(penalized_host_count as u64, Ordering::Relaxed);
+    }
+
+    fn on_autolearn_event(&self, action: &'static str, host: Option<String>, group_index: Option<usize>) {
+        self.replace_string(&self.last_autolearn_host, host.clone());
+        self.replace_string(&self.last_autolearn_action, Some(action.to_string()));
+        self.last_autolearn_group.store(
+            group_index.and_then(|value| i64::try_from(value).ok()).unwrap_or(-1),
+            Ordering::Relaxed,
+        );
+        self.push_event(
+            "autolearn",
+            if action == "group_penalized" { "warn" } else { "info" },
+            format!(
+                "autolearn action={} host={} group={}",
+                action,
+                host.unwrap_or_else(|| "<none>".to_string()),
+                group_index
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "<none>".to_string())
+            ),
+        );
+    }
+
     fn snapshot(&self) -> NativeRuntimeSnapshot {
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
@@ -294,6 +356,15 @@ impl ProxyTelemetryState {
             last_target: self.clone_string(&self.last_target),
             last_host: self.clone_string(&self.last_host),
             last_error: self.clone_string(&self.last_error),
+            autolearn_enabled: self.autolearn_enabled.load(Ordering::Relaxed),
+            learned_host_count: i32::try_from(self.learned_host_count.load(Ordering::Relaxed)).unwrap_or(i32::MAX),
+            penalized_host_count: i32::try_from(self.penalized_host_count.load(Ordering::Relaxed)).unwrap_or(i32::MAX),
+            last_autolearn_host: self.clone_string(&self.last_autolearn_host),
+            last_autolearn_group: match self.last_autolearn_group.load(Ordering::Relaxed) {
+                value if value >= 0 => i32::try_from(value).ok(),
+                _ => None,
+            },
+            last_autolearn_action: self.clone_string(&self.last_autolearn_action),
             tunnel_stats: TunnelStatsSnapshot { tx_packets: 0, tx_bytes: 0, rx_packets: 0, rx_bytes: 0 },
             native_events: self.drain_events(),
             captured_at: now_ms(),
@@ -382,6 +453,15 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         host: Option<&str>,
     ) {
         self.state.on_route_advanced(target.to_string(), from_group, to_group, trigger, host.map(ToOwned::to_owned));
+    }
+
+    fn on_host_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
+        self.state.set_autolearn_state(enabled, learned_host_count, penalized_host_count);
+    }
+
+    fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group_index: Option<usize>) {
+        self.state
+            .on_autolearn_event(action, host.map(ToOwned::to_owned), group_index);
     }
 }
 
@@ -680,11 +760,11 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
         return 0;
     }
 
-    SESSIONS.insert(ProxySession {
-        config,
-        telemetry: Arc::new(ProxyTelemetryState::new()),
-        state: Mutex::new(ProxySessionState::Idle),
-    }) as jlong
+    let autolearn_enabled = config.host_autolearn_enabled;
+    let telemetry = Arc::new(ProxyTelemetryState::new());
+    telemetry.set_autolearn_state(autolearn_enabled, 0, 0);
+
+    SESSIONS.insert(ProxySession { config, telemetry, state: Mutex::new(ProxySessionState::Idle) }) as jlong
 }
 
 fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
@@ -822,6 +902,15 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
         parse_quic_initial_mode(payload.quic_initial_mode.as_deref().unwrap_or("route_and_cache"))?;
     config.quic_support_v1 = payload.quic_support_v1;
     config.quic_support_v2 = payload.quic_support_v2;
+    config.host_autolearn_enabled = payload.host_autolearn_enabled;
+    config.host_autolearn_penalty_ttl_secs = payload.host_autolearn_penalty_ttl_secs.max(1);
+    config.host_autolearn_max_hosts = payload.host_autolearn_max_hosts.max(1);
+    config.host_autolearn_store_path = payload
+        .host_autolearn_store_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
     if payload.custom_ttl {
         let ttl = u8::try_from(payload.default_ttl).map_err(|_| "Invalid defaultTtl".to_string())?;
         if ttl == 0 {
@@ -934,6 +1023,9 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, Strin
     config.groups = groups;
     if !matches!(config.listen.bind_ip, IpAddr::V6(_)) {
         config.ipv6 = false;
+    }
+    if config.host_autolearn_enabled && config.host_autolearn_store_path.is_none() {
+        return Err("hostAutolearnStorePath is required when hostAutolearnEnabled is true".to_string());
     }
 
     Ok(config)
@@ -1246,8 +1338,14 @@ mod tests {
             any::<bool>(),
             any::<bool>(),
         );
+        let autolearn = (
+            any::<bool>(),
+            -32i64..(HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS * 4),
+            0usize..2_048usize,
+            proptest::option::of(lossy_string(96)),
+        );
 
-        (core, toggles, desync, mutations, hosts, quic).prop_map(
+        (core, toggles, desync, mutations, hosts, quic, autolearn).prop_map(
             |(
                 (ip, port, max_connections, buffer_size, default_ttl),
                 (custom_ttl, no_domain, desync_http, desync_https, desync_udp),
@@ -1263,6 +1361,7 @@ mod tests {
                 ),
                 (hosts_mode, hosts, tcp_fast_open, udp_fake_count, drop_sack, fake_offset_marker, fake_offset),
                 (quic_initial_mode, quic_support_v1, quic_support_v2),
+                (host_autolearn_enabled, host_autolearn_penalty_ttl_secs, host_autolearn_max_hosts, host_autolearn_store_path),
             )| ProxyUiConfig {
                 ip,
                 port,
@@ -1300,6 +1399,10 @@ mod tests {
                 quic_initial_mode,
                 quic_support_v1,
                 quic_support_v2,
+                host_autolearn_enabled,
+                host_autolearn_penalty_ttl_secs,
+                host_autolearn_max_hosts,
+                host_autolearn_store_path,
             },
         )
     }
@@ -1343,6 +1446,10 @@ mod tests {
             quic_initial_mode: Some("route".to_string()),
             quic_support_v1: false,
             quic_support_v2: true,
+            host_autolearn_enabled: true,
+            host_autolearn_penalty_ttl_secs: 3_600,
+            host_autolearn_max_hosts: 128,
+            host_autolearn_store_path: Some("/tmp/host-autolearn-v1.json".to_string()),
         });
 
         let config = runtime_config_from_payload(payload).expect("ui config");
@@ -1351,6 +1458,10 @@ mod tests {
         assert_eq!(config.quic_initial_mode, QuicInitialMode::Route);
         assert!(!config.quic_support_v1);
         assert!(config.quic_support_v2);
+        assert!(config.host_autolearn_enabled);
+        assert_eq!(config.host_autolearn_penalty_ttl_secs, 3_600);
+        assert_eq!(config.host_autolearn_max_hosts, 128);
+        assert_eq!(config.host_autolearn_store_path.as_deref(), Some("/tmp/host-autolearn-v1.json"));
     }
 
     #[test]
@@ -1419,6 +1530,10 @@ mod tests {
             quic_initial_mode: Some("route_and_cache".to_string()),
             quic_support_v1: true,
             quic_support_v2: true,
+            host_autolearn_enabled: false,
+            host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+            host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+            host_autolearn_store_path: None,
         }))
         .expect_err("port zero should be rejected");
 
@@ -1514,6 +1629,10 @@ mod tests {
             quic_initial_mode: Some("bogus".to_string()),
             quic_support_v1: true,
             quic_support_v2: true,
+            host_autolearn_enabled: false,
+            host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+            host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+            host_autolearn_store_path: None,
         }))
         .expect_err("unknown quic mode should be rejected");
 
@@ -1525,6 +1644,55 @@ mod tests {
         let err = parse_proxy_config_json("{").expect_err("invalid json");
 
         assert!(err.contains("Invalid proxy config JSON"));
+    }
+
+    #[test]
+    fn rejects_enabled_autolearn_without_store_path() {
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ProxyUiConfig {
+            ip: "127.0.0.1".to_string(),
+            port: 1080,
+            max_connections: 512,
+            buffer_size: 16384,
+            default_ttl: 0,
+            custom_ttl: false,
+            no_domain: false,
+            desync_http: true,
+            desync_https: true,
+            desync_udp: false,
+            desync_method: "disorder".to_string(),
+            split_marker: Some("host+1".to_string()),
+            tcp_chain_steps: Vec::new(),
+            split_position: 1,
+            split_at_host: false,
+            fake_ttl: 8,
+            fake_sni: "www.iana.org".to_string(),
+            oob_char: b'a',
+            host_mixed_case: false,
+            domain_mixed_case: false,
+            host_remove_spaces: false,
+            tls_record_split: false,
+            tls_record_split_marker: None,
+            tls_record_split_position: 0,
+            tls_record_split_at_sni: false,
+            hosts_mode: HOSTS_DISABLE.to_string(),
+            hosts: None,
+            tcp_fast_open: false,
+            udp_fake_count: 0,
+            udp_chain_steps: Vec::new(),
+            drop_sack: false,
+            fake_offset_marker: None,
+            fake_offset: 0,
+            quic_initial_mode: Some("route_and_cache".to_string()),
+            quic_support_v1: true,
+            quic_support_v2: true,
+            host_autolearn_enabled: true,
+            host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+            host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+            host_autolearn_store_path: None,
+        }))
+        .expect_err("missing autolearn path should be rejected");
+
+        assert_eq!(err, "hostAutolearnStorePath is required when hostAutolearnEnabled is true");
     }
 
     #[test]
@@ -1602,6 +1770,8 @@ mod tests {
         observer.on_client_accepted();
         observer.on_route_selected(target, 1, Some("example.org"), "connect");
         observer.on_route_advanced(target, 1, 2, 7, Some("example.org"));
+        observer.on_host_autolearn_state(true, 4, 1);
+        observer.on_host_autolearn_event("host_promoted", Some("example.org"), Some(2));
         observer.on_client_error(&std::io::Error::other("boom"));
         observer.on_client_finished();
 
@@ -1617,7 +1787,13 @@ mod tests {
         assert_eq!(first.last_target.as_deref(), Some("203.0.113.10:443"));
         assert_eq!(first.last_host.as_deref(), Some("example.org"));
         assert_eq!(first.last_error.as_deref(), Some("boom"));
-        assert_eq!(first.native_events.len(), 4);
+        assert!(first.autolearn_enabled);
+        assert_eq!(first.learned_host_count, 4);
+        assert_eq!(first.penalized_host_count, 1);
+        assert_eq!(first.last_autolearn_host.as_deref(), Some("example.org"));
+        assert_eq!(first.last_autolearn_group, Some(2));
+        assert_eq!(first.last_autolearn_action.as_deref(), Some("host_promoted"));
+        assert_eq!(first.native_events.len(), 5);
 
         let second = state.snapshot();
         assert!(second.native_events.is_empty());
@@ -1644,6 +1820,8 @@ mod tests {
         observer.on_client_accepted();
         observer.on_route_selected(target, 1, Some("example.org"), "connect");
         observer.on_route_advanced(target, 1, 2, 7, Some("example.org"));
+        observer.on_host_autolearn_state(true, 4, 1);
+        observer.on_host_autolearn_event("host_promoted", Some("example.org"), Some(2));
         observer.on_client_error(&std::io::Error::other("boom"));
         observer.on_client_finished();
 
@@ -1913,6 +2091,10 @@ mod tests {
                 quic_initial_mode: Some("route_and_cache".to_string()),
                 quic_support_v1: true,
                 quic_support_v2: true,
+                host_autolearn_enabled: false,
+                host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+                host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+                host_autolearn_store_path: None,
             }).expect("valid payload");
 
             prop_assert_eq!(config.listen.listen_ip, IpAddr::from_str(&ip).expect("valid ip"));

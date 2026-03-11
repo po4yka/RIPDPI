@@ -128,6 +128,12 @@ class NativeBridgeWrappersTest {
                                 lastRouteGroup = 1,
                                 listenerAddress = "127.0.0.1:1080",
                                 lastTarget = "203.0.113.5:443",
+                                autolearnEnabled = true,
+                                learnedHostCount = 2,
+                                penalizedHostCount = 1,
+                                lastAutolearnHost = "example.org",
+                                lastAutolearnGroup = 1,
+                                lastAutolearnAction = "group_penalized",
                                 nativeEvents =
                                     listOf(
                                         NativeRuntimeEvent(
@@ -153,6 +159,9 @@ class NativeBridgeWrappersTest {
             assertEquals("running", telemetry.state)
             assertEquals(2L, telemetry.activeSessions)
             assertEquals("203.0.113.5:443", telemetry.lastTarget)
+            assertTrue(telemetry.autolearnEnabled)
+            assertEquals(2, telemetry.learnedHostCount)
+            assertEquals("group_penalized", telemetry.lastAutolearnAction)
             assertEquals(1, telemetry.nativeEvents.size)
             blocker.complete(Unit)
             assertEquals(0, start.await())

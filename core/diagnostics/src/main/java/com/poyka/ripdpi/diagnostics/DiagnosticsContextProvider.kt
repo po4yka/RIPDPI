@@ -35,7 +35,7 @@ interface DiagnosticsContextProvider {
 class AndroidDiagnosticsContextProvider
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
         private val appSettingsRepository: AppSettingsRepository,
         private val historyRepository: DiagnosticsHistoryRepository,
         private val serviceStateStore: ServiceStateStore,
@@ -81,6 +81,12 @@ class AndroidDiagnosticsContextProvider
                             ?.let { System.currentTimeMillis() - it },
                     lastNativeErrorHeadline = lastNativeError,
                     restartCount = telemetry.restartCount,
+                    hostAutolearnEnabled = booleanState(telemetry.proxyTelemetry.autolearnEnabled),
+                    learnedHostCount = telemetry.proxyTelemetry.learnedHostCount,
+                    penalizedHostCount = telemetry.proxyTelemetry.penalizedHostCount,
+                    lastAutolearnHost = telemetry.proxyTelemetry.lastAutolearnHost ?: "none",
+                    lastAutolearnGroup = telemetry.proxyTelemetry.lastAutolearnGroup?.toString() ?: "none",
+                    lastAutolearnAction = telemetry.proxyTelemetry.lastAutolearnAction ?: "none",
                 ),
             permissions =
                 PermissionContextModel(

@@ -776,6 +776,10 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
         let _ = target;
         self.route_count.fetch_add(1, Ordering::Relaxed);
     }
+
+    fn on_host_autolearn_state(&self, _enabled: bool, _learned_host_count: usize, _penalized_host_count: usize) {}
+
+    fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
 }
 
 #[derive(Debug)]

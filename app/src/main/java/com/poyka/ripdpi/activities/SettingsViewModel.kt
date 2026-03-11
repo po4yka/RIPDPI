@@ -1,13 +1,17 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
+import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.TcpChainStepKind
@@ -24,11 +28,16 @@ import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.legacyDesyncMethod
+import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
+import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsRecTcpChainStep
+import com.poyka.ripdpi.core.clearHostAutolearnStore
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +53,18 @@ sealed interface SettingsEffect {
         val key: String,
         val value: String,
     ) : SettingsEffect
+
+    data class Notice(
+        val title: String,
+        val message: String,
+        val tone: SettingsNoticeTone,
+    ) : SettingsEffect
+}
+
+enum class SettingsNoticeTone {
+    Info,
+    Warning,
+    Error,
 }
 
 data class SettingsUiState(
@@ -87,6 +108,9 @@ data class SettingsUiState(
     val quicInitialMode: String = QuicInitialModeRouteAndCache,
     val quicSupportV1: Boolean = true,
     val quicSupportV2: Boolean = true,
+    val hostAutolearnEnabled: Boolean = false,
+    val hostAutolearnPenaltyTtlHours: Int = DefaultHostAutolearnPenaltyTtlHours,
+    val hostAutolearnMaxHosts: Int = DefaultHostAutolearnMaxHosts,
     val hostMixedCase: Boolean = false,
     val domainMixedCase: Boolean = false,
     val hostRemoveSpaces: Boolean = false,
@@ -173,6 +197,9 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
         quicInitialMode = effectiveQuicInitialMode(),
         quicSupportV1 = effectiveQuicSupportV1(),
         quicSupportV2 = effectiveQuicSupportV2(),
+        hostAutolearnEnabled = hostAutolearnEnabled,
+        hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
+        hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
         hostMixedCase = hostMixedCase,
         domainMixedCase = domainMixedCase,
         hostRemoveSpaces = hostRemoveSpaces,
@@ -198,8 +225,10 @@ internal fun AppSettings.toUiState(isHydrated: Boolean = true): SettingsUiState 
 class SettingsViewModel
     @Inject
     constructor(
+        @param:ApplicationContext private val appContext: Context,
         private val appSettingsRepository: AppSettingsRepository,
         private val launcherIconController: LauncherIconController,
+        private val serviceStateStore: ServiceStateStore,
     ) : ViewModel() {
     private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
     val effects: Flow<SettingsEffect> = _effects.receiveAsFlow()
@@ -309,6 +338,36 @@ class SettingsViewModel
         viewModelScope.launch {
             appSettingsRepository.replace(AppSettingsSerializer.defaultValue)
             _effects.send(SettingsEffect.SettingChanged(key = "settings", value = "reset"))
+        }
+    }
+
+    fun forgetLearnedHosts() {
+        viewModelScope.launch {
+            val cleared = clearHostAutolearnStore(appContext)
+            val effect =
+                when {
+                    !cleared ->
+                        SettingsEffect.Notice(
+                            title = "Couldn’t clear learned hosts",
+                            message = "RIPDPI could not delete the stored host learning file on this device.",
+                            tone = SettingsNoticeTone.Error,
+                        )
+
+                    serviceStateStore.status.value.first == AppStatus.Running ->
+                        SettingsEffect.Notice(
+                            title = "Learned hosts cleared for next start",
+                            message = "The stored host learning file was removed. The running proxy keeps its in-memory routes until RIPDPI restarts.",
+                            tone = SettingsNoticeTone.Info,
+                        )
+
+                    else ->
+                        SettingsEffect.Notice(
+                            title = "Learned hosts cleared",
+                            message = "Stored host learning was removed and the next RIPDPI start will rebuild it from scratch.",
+                            tone = SettingsNoticeTone.Info,
+                        )
+                }
+            _effects.send(effect)
         }
     }
 

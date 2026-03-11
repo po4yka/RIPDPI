@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.core
 
+import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,6 +18,7 @@ interface ProxyPreferencesResolver {
 class DefaultProxyPreferencesResolver
     @Inject
     constructor(
+        @param:ApplicationContext private val context: Context,
         private val appSettingsRepository: AppSettingsRepository,
     ) : ProxyPreferencesResolver {
         override suspend fun resolve(): RipDpiProxyPreferences {
@@ -23,7 +26,13 @@ class DefaultProxyPreferencesResolver
             return if (settings.enableCmdSettings) {
                 RipDpiProxyCmdPreferences(settings.cmdArgs)
             } else {
-                RipDpiProxyUIPreferences(settings)
+                RipDpiProxyUIPreferences(
+                    settings = settings,
+                    hostAutolearnStorePath =
+                        settings
+                            .takeIf { it.hostAutolearnEnabled }
+                            ?.let { resolveHostAutolearnStorePath(context) },
+                )
             }
         }
     }

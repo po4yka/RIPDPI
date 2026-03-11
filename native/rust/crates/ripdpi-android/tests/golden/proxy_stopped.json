@@ -1,11 +1,16 @@
 {
   "activeSessions": 0,
+  "autolearnEnabled": true,
   "capturedAt": 0,
   "health": "idle",
+  "lastAutolearnAction": "host_promoted",
+  "lastAutolearnGroup": 2,
+  "lastAutolearnHost": "example.org",
   "lastError": "boom",
   "lastHost": "example.org",
   "lastRouteGroup": 2,
   "lastTarget": "203.0.113.10:443",
+  "learnedHostCount": 4,
   "listenerAddress": "127.0.0.1:1080",
   "nativeEvents": [
     {
@@ -15,6 +20,7 @@
       "source": "proxy"
     }
   ],
+  "penalizedHostCount": 1,
   "routeChanges": 1,
   "source": "proxy",
   "state": "idle",

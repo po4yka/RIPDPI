@@ -86,4 +86,7 @@ message AppSettings {
   string quic_initial_mode = 74; // "disabled" | "route" | "route_and_cache"
   bool quic_support_v1 = 75;
   bool quic_support_v2 = 76;
+  bool host_autolearn_enabled = 77;
+  int32 host_autolearn_penalty_ttl_hours = 78;
+  int32 host_autolearn_max_hosts = 79;
 }

@@ -36,6 +36,10 @@ class RipDpiProxyPreferencesTest {
                 hostsMode = RipDpiProxyUIPreferences.HostsMode.Blacklist,
                 hosts = "example.com",
                 fakeSni = "www.example.com",
+                hostAutolearnEnabled = true,
+                hostAutolearnPenaltyTtlHours = 12,
+                hostAutolearnMaxHosts = 1024,
+                hostAutolearnStorePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json",
             )
 
         val payload = preferences.toNativeConfigJson().parseJsonObject()
@@ -52,6 +56,13 @@ class RipDpiProxyPreferencesTest {
         assertEquals("route_and_cache", payload.string("quicInitialMode"))
         assertEquals("true", payload.string("quicSupportV1"))
         assertEquals("true", payload.string("quicSupportV2"))
+        assertEquals("true", payload.string("hostAutolearnEnabled"))
+        assertEquals(43_200, payload.int("hostAutolearnPenaltyTtlSecs"))
+        assertEquals(1024, payload.int("hostAutolearnMaxHosts"))
+        assertEquals(
+            "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json",
+            payload.string("hostAutolearnStorePath"),
+        )
     }
 
     @Test
