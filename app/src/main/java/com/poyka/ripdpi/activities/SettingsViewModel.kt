@@ -16,12 +16,15 @@ import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
+import com.poyka.ripdpi.data.effectiveQuicFakeHost
+import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.effectiveQuicInitialMode
 import com.poyka.ripdpi.data.effectiveQuicSupportV1
 import com.poyka.ripdpi.data.effectiveQuicSupportV2
@@ -121,6 +124,8 @@ data class SettingsUiState(
     val quicInitialMode: String = QuicInitialModeRouteAndCache,
     val quicSupportV1: Boolean = true,
     val quicSupportV2: Boolean = true,
+    val quicFakeProfile: String = QuicFakeProfileDisabled,
+    val quicFakeHost: String = "",
     val hostAutolearnEnabled: Boolean = false,
     val hostAutolearnPenaltyTtlHours: Int = DefaultHostAutolearnPenaltyTtlHours,
     val hostAutolearnMaxHosts: Int = DefaultHostAutolearnMaxHosts,
@@ -138,6 +143,10 @@ data class SettingsUiState(
     val webrtcProtectionEnabled: Boolean = false,
     val biometricEnabled: Boolean = false,
     val backupPin: String = "",
+    val diagnosticsMonitorEnabled: Boolean = true,
+    val diagnosticsSampleIntervalSeconds: Int = 15,
+    val diagnosticsHistoryRetentionDays: Int = 14,
+    val diagnosticsExportIncludeHistory: Boolean = true,
     val serviceStatus: AppStatus = AppStatus.Halted,
     val isVpn: Boolean = true,
     val selectedMode: Mode = Mode.VPN,
@@ -167,6 +176,18 @@ data class SettingsUiState(
 
     val fakeTlsControlsRelevant: Boolean
         get() = desyncHttpsEnabled && isFake
+
+    val hasUdpFakeBurst: Boolean
+        get() = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 }
+
+    val quicFakeProfileActive: Boolean
+        get() = quicFakeProfile != QuicFakeProfileDisabled
+
+    val quicFakeControlsRelevant: Boolean
+        get() = desyncUdpEnabled
+
+    val showQuicFakeProfile: Boolean
+        get() = enableCmdSettings || quicFakeControlsRelevant || quicFakeProfileActive || quicFakeHost.isNotBlank()
 
     val hostFakeSteps: List<TcpChainStepModel>
         get() = tcpChainSteps.filter { it.kind == TcpChainStepKind.HostFake }
@@ -270,6 +291,8 @@ internal fun AppSettings.toUiState(
         quicInitialMode = effectiveQuicInitialMode(),
         quicSupportV1 = effectiveQuicSupportV1(),
         quicSupportV2 = effectiveQuicSupportV2(),
+        quicFakeProfile = effectiveQuicFakeProfile(),
+        quicFakeHost = effectiveQuicFakeHost(),
         hostAutolearnEnabled = hostAutolearnEnabled,
         hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
         hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
@@ -287,6 +310,16 @@ internal fun AppSettings.toUiState(
         webrtcProtectionEnabled = webrtcProtectionEnabled,
         biometricEnabled = biometricEnabled,
         backupPin = backupPin,
+        diagnosticsMonitorEnabled = diagnosticsMonitorEnabled,
+        diagnosticsSampleIntervalSeconds =
+            diagnosticsSampleIntervalSeconds
+                .takeIf { it > 0 }
+                ?: AppSettingsSerializer.defaultValue.diagnosticsSampleIntervalSeconds,
+        diagnosticsHistoryRetentionDays =
+            diagnosticsHistoryRetentionDays
+                .takeIf { it > 0 }
+                ?: AppSettingsSerializer.defaultValue.diagnosticsHistoryRetentionDays,
+        diagnosticsExportIncludeHistory = diagnosticsExportIncludeHistory,
         serviceStatus = serviceStatus,
         isVpn = isVpn,
         selectedMode = if (isVpn) Mode.VPN else Mode.Proxy,

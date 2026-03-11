@@ -23,8 +23,11 @@ const QUIC_HP_SAMPLE_LEN: usize = 16;
 const QUIC_TAG_LEN: usize = 16;
 const QUIC_MAX_CID_LEN: usize = 20;
 const QUIC_MAX_CRYPTO_LEN: usize = 64 * 1024;
-const QUIC_V1_VERSION: u32 = 0x0000_0001;
-const QUIC_V2_VERSION: u32 = 0x6b33_43cf;
+pub const QUIC_V1_VERSION: u32 = 0x0000_0001;
+pub const QUIC_V2_VERSION: u32 = 0x6b33_43cf;
+const QUIC_FAKE_INITIAL_TARGET_LEN: usize = 1200;
+const QUIC_FAKE_DCID: [u8; 8] = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
+const QUIC_FAKE_SCID: [u8; 4] = [0x11, 0x22, 0x33, 0x44];
 const QUIC_V1_SALT: [u8; 20] = [
     0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f,
     0x0a,
@@ -58,6 +61,7 @@ pub const DEFAULT_FAKE_TLS: &[u8] = &[
 
 pub const DEFAULT_FAKE_HTTP: &[u8] = b"GET / HTTP/1.1\r\nHost: www.wikipedia.org\r\n\r\n";
 pub const DEFAULT_FAKE_UDP: &[u8] = &[0; 64];
+pub const DEFAULT_FAKE_QUIC_COMPAT_LEN: usize = 620;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HttpHost<'a> {
@@ -656,6 +660,131 @@ fn read_quic_varint(data: &[u8], offset: usize) -> Option<(u64, usize)> {
         value = (value << 8) | u64::from(*byte);
     }
     Some((value, len))
+}
+
+fn encode_quic_varint(value: u64) -> Vec<u8> {
+    match value {
+        0..=63 => vec![value as u8],
+        64..=16_383 => ((0x4000 | value as u16).to_be_bytes()).to_vec(),
+        16_384..=1_073_741_823 => ((0x8000_0000 | value as u32).to_be_bytes()).to_vec(),
+        _ => {
+            let mut bytes = value.to_be_bytes();
+            bytes[0] |= 0xc0;
+            bytes.to_vec()
+        }
+    }
+}
+
+fn append_quic_crypto_frame(out: &mut Vec<u8>, offset: u64, data: &[u8]) {
+    out.push(0x06);
+    out.extend_from_slice(&encode_quic_varint(offset));
+    out.extend_from_slice(&encode_quic_varint(data.len() as u64));
+    out.extend_from_slice(data);
+}
+
+pub fn default_fake_quic_compat() -> Vec<u8> {
+    let mut packet = vec![0; DEFAULT_FAKE_QUIC_COMPAT_LEN];
+    packet[0] = 0x40;
+    packet
+}
+
+pub fn build_quic_initial_from_tls(
+    version: u32,
+    tls_client_hello: &[u8],
+    gap_after_split: usize,
+) -> Option<Vec<u8>> {
+    let version = if supported_quic_version(version) { version } else { QUIC_V1_VERSION };
+    if !is_tls_client_hello(tls_client_hello) || tls_client_hello.len() <= TLS_RECORD_HEADER_LEN {
+        return None;
+    }
+
+    let crypto = tls_client_hello.get(TLS_RECORD_HEADER_LEN..)?.to_vec();
+    let split = crypto.len() / 2;
+    let mut plaintext = Vec::new();
+    append_quic_crypto_frame(&mut plaintext, 0, &crypto[..split]);
+    append_quic_crypto_frame(&mut plaintext, (split + gap_after_split) as u64, &crypto[split..]);
+
+    loop {
+        let payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
+        let payload_len_varint = encode_quic_varint(payload_len as u64);
+        let header_len = 1 + 4 + 1 + QUIC_FAKE_DCID.len() + 1 + QUIC_FAKE_SCID.len() + 1 + payload_len_varint.len();
+        let total_len = header_len + payload_len;
+        if total_len >= QUIC_FAKE_INITIAL_TARGET_LEN {
+            break;
+        }
+        plaintext.extend(std::iter::repeat_n(0u8, QUIC_FAKE_INITIAL_TARGET_LEN - total_len));
+    }
+
+    let payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
+    let payload_len_varint = encode_quic_varint(payload_len as u64);
+    let first_byte = if version == QUIC_V2_VERSION { 0xd3 } else { 0xc3 };
+
+    let mut header = Vec::new();
+    header.push(first_byte);
+    header.extend_from_slice(&version.to_be_bytes());
+    header.push(QUIC_FAKE_DCID.len() as u8);
+    header.extend_from_slice(&QUIC_FAKE_DCID);
+    header.push(QUIC_FAKE_SCID.len() as u8);
+    header.extend_from_slice(&QUIC_FAKE_SCID);
+    header.push(0);
+    header.extend_from_slice(&payload_len_varint);
+
+    let packet_number = [0u8; 4];
+    let mut aad = header.clone();
+    aad.extend_from_slice(&packet_number);
+
+    let secret = quic_derive_client_initial_secret(&QUIC_FAKE_DCID, version)?;
+    let (key_label, iv_label, hp_label) = if version == QUIC_V2_VERSION {
+        ("tls13 quicv2 key", "tls13 quicv2 iv", "tls13 quicv2 hp")
+    } else {
+        ("tls13 quic key", "tls13 quic iv", "tls13 quic hp")
+    };
+    let mut key = [0u8; 16];
+    let mut iv = [0u8; 12];
+    let mut hp = [0u8; 16];
+    quic_expand_label(&secret, key_label, &mut key)?;
+    quic_expand_label(&secret, iv_label, &mut iv)?;
+    quic_expand_label(&secret, hp_label, &mut hp)?;
+
+    let cipher = Aes128Gcm::new_from_slice(&key).ok()?;
+    let mut ciphertext = plaintext;
+    let tag = cipher
+        .encrypt_in_place_detached(Nonce::from_slice(&iv), &aad, &mut ciphertext)
+        .ok()?;
+
+    let hp_cipher = Aes128::new_from_slice(&hp).ok()?;
+    let mut sample = GenericArray::clone_from_slice(ciphertext.get(..QUIC_HP_SAMPLE_LEN)?);
+    hp_cipher.encrypt_block(&mut sample);
+
+    let mut packet = header;
+    packet.extend((0..4).map(|idx| packet_number[idx] ^ sample[1 + idx]));
+    packet.extend_from_slice(&ciphertext);
+    packet.extend_from_slice(&tag);
+    packet[0] ^= sample[0] & 0x0f;
+    Some(packet)
+}
+
+fn padded_default_fake_tls_client_hello() -> Vec<u8> {
+    let mut client_hello = DEFAULT_FAKE_TLS.to_vec();
+    let target_len = read_u16(DEFAULT_FAKE_TLS, 3)
+        .map(|record_len| record_len + TLS_RECORD_HEADER_LEN)
+        .unwrap_or(client_hello.len());
+    if client_hello.len() < target_len {
+        client_hello.resize(target_len, 0);
+    }
+    client_hello
+}
+
+pub fn build_realistic_quic_initial(version: u32, host_override: Option<&str>) -> Option<Vec<u8>> {
+    let mut client_hello = padded_default_fake_tls_client_hello();
+    if let Some(host) = host_override {
+        let capacity = client_hello.len().saturating_add(host.len()).saturating_add(64);
+        let mutation = change_tls_sni_seeded_like_c(&client_hello, host.as_bytes(), capacity, 7);
+        if mutation.rc == 0 && is_tls_client_hello(&mutation.bytes) {
+            client_hello = mutation.bytes;
+        }
+    }
+    build_quic_initial_from_tls(version, &client_hello, 0)
 }
 
 fn parse_quic_initial_header(buffer: &[u8]) -> Option<QuicInitialHeader<'_>> {
@@ -1347,7 +1476,7 @@ mod tests {
 
     #[test]
     fn parse_quic_initial_extracts_v1_sni() {
-        let packet = rust_packet_seeds::quic_initial_v1();
+        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, Some("docs.example.test")).expect("build quic initial v1");
         let parsed = parse_quic_initial(&packet).expect("parse quic initial v1");
 
         assert!(is_quic_initial(&packet));
@@ -1358,13 +1487,49 @@ mod tests {
 
     #[test]
     fn parse_quic_initial_extracts_v2_sni() {
-        let packet = rust_packet_seeds::quic_initial_v2();
+        let packet = build_realistic_quic_initial(QUIC_V2_VERSION, Some("media.example.test")).expect("build quic initial v2");
         let parsed = parse_quic_initial(&packet).expect("parse quic initial v2");
 
         assert!(is_quic_initial(&packet));
         assert_eq!(parsed.version, QUIC_V2_VERSION);
         assert!(parsed.is_crypto_complete);
         assert_eq!(parsed.host(), b"media.example.test");
+    }
+
+    #[test]
+    fn realistic_quic_fake_builder_round_trips_and_uses_default_tls_base() {
+        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, None).expect("build default realistic fake");
+        let parsed = parse_quic_initial(&packet).expect("parse realistic fake");
+
+        assert_eq!(parsed.version, QUIC_V1_VERSION);
+        assert_eq!(parsed.host(), b"www.wikipedia.org");
+        assert_eq!(packet.len(), QUIC_FAKE_INITIAL_TARGET_LEN);
+    }
+
+    #[test]
+    fn realistic_quic_fake_builder_applies_host_override() {
+        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, Some("video.example.test")).expect("build realistic fake");
+        let parsed = parse_quic_initial(&packet).expect("parse realistic fake");
+
+        assert_eq!(parsed.host(), b"video.example.test");
+    }
+
+    #[test]
+    fn realistic_quic_fake_builder_defaults_to_v1_for_unknown_versions() {
+        let packet = build_realistic_quic_initial(0xface_feed, Some("video.example.test")).expect("build realistic fake");
+        let parsed = parse_quic_initial(&packet).expect("parse realistic fake");
+
+        assert_eq!(parsed.version, QUIC_V1_VERSION);
+        assert_eq!(parsed.host(), b"video.example.test");
+    }
+
+    #[test]
+    fn compat_default_quic_fake_matches_zapret_layout() {
+        let packet = default_fake_quic_compat();
+
+        assert_eq!(packet.len(), DEFAULT_FAKE_QUIC_COMPAT_LEN);
+        assert_eq!(packet[0], 0x40);
+        assert!(packet[1..].iter().all(|byte| *byte == 0));
     }
 
     #[test]

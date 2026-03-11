@@ -2,9 +2,12 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
+import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
+import com.poyka.ripdpi.data.effectiveQuicFakeHost
+import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
@@ -50,6 +53,8 @@ data class BypassStrategySignature(
     val fakeTlsBaseMode: String? = null,
     val fakeTlsMods: List<String> = emptyList(),
     val fakeTlsSize: Int? = null,
+    val quicFakeProfile: String? = null,
+    val quicFakeHost: String? = null,
     val fakeOffsetMarker: String? = null,
     val routeGroup: String? = null,
 )
@@ -122,6 +127,8 @@ fun deriveBypassStrategySignature(
     val desyncMethod = legacyDesyncMethod(tcpSteps).ifEmpty { "none" }
     val hasFakeStep = tcpSteps.any { step -> step.kind == TcpChainStepKind.Fake }
     val fakeTlsProfileActive = hasFakeStep && settings.desyncHttps && settings.hasCustomFakeTlsProfile()
+    val quicFakeProfile = settings.effectiveQuicFakeProfile()
+    val quicFakeProfileActive = !settings.enableCmdSettings && settings.desyncUdp && quicFakeProfile != QuicFakeProfileDisabled
     val fakeTlsSniMode = settings.effectiveFakeTlsSniMode()
     val fakeTlsMods =
         buildList {
@@ -150,6 +157,8 @@ fun deriveBypassStrategySignature(
         fakeTlsBaseMode = if (fakeTlsProfileActive) if (settings.fakeTlsUseOriginal) "original" else "default" else null,
         fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
         fakeTlsSize = settings.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
+        quicFakeProfile = quicFakeProfile.takeIf { quicFakeProfileActive },
+        quicFakeHost = settings.effectiveQuicFakeHost().takeIf { quicFakeProfileActive && it.isNotBlank() },
         fakeOffsetMarker =
             settings
                 .effectiveFakeOffsetMarker()

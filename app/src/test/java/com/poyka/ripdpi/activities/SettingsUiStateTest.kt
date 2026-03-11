@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
+import com.poyka.ripdpi.data.QuicFakeProfileDisabled
+import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.proto.StrategyTcpStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -43,6 +45,12 @@ class SettingsUiStateTest {
         assertTrue(state.desyncHttpEnabled)
         assertTrue(state.desyncHttpsEnabled)
         assertFalse(state.desyncUdpEnabled)
+        assertEquals(QuicFakeProfileDisabled, state.quicFakeProfile)
+        assertEquals("", state.quicFakeHost)
+        assertFalse(state.quicFakeProfileActive)
+        assertFalse(state.hasUdpFakeBurst)
+        assertFalse(state.quicFakeControlsRelevant)
+        assertFalse(state.showQuicFakeProfile)
         assertFalse(state.tlsRecEnabled)
         assertFalse(state.webrtcProtectionEnabled)
         assertFalse(state.biometricEnabled)
@@ -51,6 +59,10 @@ class SettingsUiStateTest {
         assertEquals(LauncherIconManager.DefaultIconKey, state.appIconVariant)
         assertTrue(state.themedAppIconEnabled)
         assertEquals(DefaultSplitMarker, state.splitMarker)
+        assertTrue(state.diagnosticsMonitorEnabled)
+        assertEquals(15, state.diagnosticsSampleIntervalSeconds)
+        assertEquals(14, state.diagnosticsHistoryRetentionDays)
+        assertTrue(state.diagnosticsExportIncludeHistory)
     }
 
     @Test
@@ -261,6 +273,25 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `diagnostics history settings preserve stored values`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDiagnosticsMonitorEnabled(false)
+                .setDiagnosticsSampleIntervalSeconds(45)
+                .setDiagnosticsHistoryRetentionDays(30)
+                .setDiagnosticsExportIncludeHistory(false)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.diagnosticsMonitorEnabled)
+        assertEquals(45, state.diagnosticsSampleIntervalSeconds)
+        assertEquals(30, state.diagnosticsHistoryRetentionDays)
+        assertFalse(state.diagnosticsExportIncludeHistory)
+    }
+
+    @Test
     fun `ui state can remain unhydrated until datastore emits`() {
         val state = defaults.toUiState(isHydrated = false)
         assertFalse(state.isHydrated)
@@ -338,6 +369,30 @@ class SettingsUiStateTest {
         assertTrue(state.fakeTlsDupSessionId)
         assertTrue(state.fakeTlsPadEncap)
         assertTrue(state.canResetFakeTlsProfile)
+    }
+
+    @Test
+    fun `quic fake profile is exposed when udp desync is enabled`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .setUdpFakeCount(3)
+                .setQuicFakeProfile(QuicFakeProfileRealisticInitial)
+                .setQuicFakeHost("video.example.test")
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.desyncUdpEnabled)
+        assertTrue(state.quicFakeControlsRelevant)
+        assertTrue(state.hasUdpFakeBurst)
+        assertTrue(state.quicFakeProfileActive)
+        assertTrue(state.showQuicFakeProfile)
+        assertEquals(QuicFakeProfileRealisticInitial, state.quicFakeProfile)
+        assertEquals("video.example.test", state.quicFakeHost)
     }
 
     @Test

@@ -65,6 +65,8 @@ class AppSettingsJsonTest {
                 .setQuicInitialMode("route")
                 .setQuicSupportV1(true)
                 .setQuicSupportV2(false)
+                .setQuicFakeProfile(QuicFakeProfileRealisticInitial)
+                .setQuicFakeHost("video.example.test")
                 .setHostAutolearnEnabled(true)
                 .setHostAutolearnPenaltyTtlHours(12)
                 .setHostAutolearnMaxHosts(2048)
@@ -112,6 +114,8 @@ class AppSettingsJsonTest {
         assertEquals(AppSettingsSerializer.defaultValue.quicInitialMode, decoded.quicInitialMode)
         assertEquals(AppSettingsSerializer.defaultValue.quicSupportV1, decoded.quicSupportV1)
         assertEquals(AppSettingsSerializer.defaultValue.quicSupportV2, decoded.quicSupportV2)
+        assertEquals(AppSettingsSerializer.defaultValue.quicFakeProfile, decoded.quicFakeProfile)
+        assertEquals(AppSettingsSerializer.defaultValue.quicFakeHost, decoded.quicFakeHost)
     }
 
     @Test

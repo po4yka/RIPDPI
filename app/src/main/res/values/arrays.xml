@@ -59,6 +59,17 @@
         <item name="route_and_cache">route_and_cache</item>
     </array>
 
+    <array name="quic_fake_profiles">
+        <item name="disabled">Off</item>
+        <item name="compat_default">Zapret compatibility</item>
+        <item name="realistic_initial">Realistic Initial</item>
+    </array>
+    <array name="quic_fake_profiles_entries">
+        <item name="disabled">disabled</item>
+        <item name="compat_default">compat_default</item>
+        <item name="realistic_initial">realistic_initial</item>
+    </array>
+
     <array name="fake_tls_base_modes">
         <item name="default">Default fake ClientHello</item>
         <item name="original">Original ClientHello</item>

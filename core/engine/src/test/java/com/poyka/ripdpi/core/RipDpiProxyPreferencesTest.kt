@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,6 +46,8 @@ class RipDpiProxyPreferencesTest {
                 fakeTlsPadEncap = true,
                 fakeTlsSize = 192,
                 fakeTlsSniMode = FakeTlsSniModeRandomized,
+                quicFakeProfile = QuicFakeProfileRealisticInitial,
+                quicFakeHost = "video.example.test",
                 hostAutolearnEnabled = true,
                 hostAutolearnPenaltyTtlHours = 12,
                 hostAutolearnMaxHosts = 1024,
@@ -71,6 +74,8 @@ class RipDpiProxyPreferencesTest {
         assertEquals("route_and_cache", payload.string("quicInitialMode"))
         assertEquals("true", payload.string("quicSupportV1"))
         assertEquals("true", payload.string("quicSupportV2"))
+        assertEquals(QuicFakeProfileRealisticInitial, payload.string("quicFakeProfile"))
+        assertEquals("video.example.test", payload.string("quicFakeHost"))
         assertEquals("true", payload.string("hostAutolearnEnabled"))
         assertEquals(43_200, payload.int("hostAutolearnPenaltyTtlSecs"))
         assertEquals(1024, payload.int("hostAutolearnMaxHosts"))
@@ -102,6 +107,8 @@ class RipDpiProxyPreferencesTest {
                 quicInitialMode = "route",
                 quicSupportV1 = false,
                 quicSupportV2 = true,
+                quicFakeProfile = "compat_default",
+                quicFakeHost = "Video.Example.TEST.",
             )
 
         val payload = preferences.toNativeConfigJson().parseJsonObject()
@@ -109,6 +116,8 @@ class RipDpiProxyPreferencesTest {
         assertEquals("route", payload.string("quicInitialMode"))
         assertEquals("false", payload.string("quicSupportV1"))
         assertEquals("true", payload.string("quicSupportV2"))
+        assertEquals("compat_default", payload.string("quicFakeProfile"))
+        assertEquals("video.example.test", payload.string("quicFakeHost"))
     }
 
     @Test

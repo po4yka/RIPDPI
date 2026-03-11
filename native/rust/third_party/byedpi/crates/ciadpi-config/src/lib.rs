@@ -207,6 +207,8 @@ pub struct DesyncGroup {
     pub fake_sni_list: Vec<String>,
     pub fake_mod: u32,
     pub fake_tls_size: i32,
+    pub quic_fake_profile: QuicFakeProfile,
+    pub quic_fake_host: Option<String>,
     pub drop_sack: bool,
     pub oob_data: Option<u8>,
     pub parts: Vec<PartSpec>,
@@ -241,6 +243,8 @@ impl DesyncGroup {
             fake_sni_list: Vec::new(),
             fake_mod: 0,
             fake_tls_size: 0,
+            quic_fake_profile: QuicFakeProfile::Disabled,
+            quic_fake_host: None,
             drop_sack: false,
             oob_data: None,
             parts: Vec::new(),
@@ -386,6 +390,14 @@ pub enum QuicInitialMode {
     RouteAndCache,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum QuicFakeProfile {
+    #[default]
+    Disabled,
+    CompatDefault,
+    RealisticInitial,
+}
+
 impl Default for RuntimeConfig {
     fn default() -> Self {
         let ipv6 = ipv6_supported();
@@ -519,32 +531,49 @@ fn is_ip_literal(value: &str) -> bool {
     value.parse::<IpAddr>().is_ok()
 }
 
-pub fn normalize_fake_host_template(spec: &str) -> Result<String, ConfigError> {
+fn normalize_domain_host(spec: &str, option: &str) -> Result<String, ConfigError> {
     let trimmed = spec.trim().trim_end_matches('.');
     if trimmed.is_empty() {
-        return Err(ConfigError::invalid("hostfake-template", Some(spec)));
+        return Err(ConfigError::invalid(option, Some(spec)));
     }
     if trimmed.contains(':') || is_ip_literal(trimmed) {
-        return Err(ConfigError::invalid("hostfake-template", Some(spec)));
+        return Err(ConfigError::invalid(option, Some(spec)));
     }
 
     let mut normalized = String::with_capacity(trimmed.len());
     for ch in trimmed.chars() {
         let Some(lower) = host_template_char(ch) else {
-            return Err(ConfigError::invalid("hostfake-template", Some(spec)));
+            return Err(ConfigError::invalid(option, Some(spec)));
         };
         normalized.push(lower);
     }
 
     if normalized.starts_with('.') || normalized.ends_with('.') || normalized.contains("..") {
-        return Err(ConfigError::invalid("hostfake-template", Some(spec)));
+        return Err(ConfigError::invalid(option, Some(spec)));
     }
     for label in normalized.split('.') {
         if label.is_empty() || label.starts_with('-') || label.ends_with('-') {
-            return Err(ConfigError::invalid("hostfake-template", Some(spec)));
+            return Err(ConfigError::invalid(option, Some(spec)));
         }
     }
     Ok(normalized)
+}
+
+pub fn normalize_fake_host_template(spec: &str) -> Result<String, ConfigError> {
+    normalize_domain_host(spec, "hostfake-template")
+}
+
+pub fn normalize_quic_fake_host(spec: &str) -> Result<String, ConfigError> {
+    normalize_domain_host(spec, "fake-quic-host")
+}
+
+pub fn parse_quic_fake_profile(spec: &str) -> Result<QuicFakeProfile, ConfigError> {
+    match spec.trim().to_ascii_lowercase().as_str() {
+        "disabled" => Ok(QuicFakeProfile::Disabled),
+        "compat_default" => Ok(QuicFakeProfile::CompatDefault),
+        "realistic_initial" => Ok(QuicFakeProfile::RealisticInitial),
+        _ => Err(ConfigError::invalid("--fake-quic-profile", Some(spec))),
+    }
 }
 
 pub fn parse_hosts_spec(spec: &str) -> Result<Vec<String>, ConfigError> {
@@ -1192,6 +1221,14 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     group!().udp_chain.push(UdpChainStep { kind: UdpChainStepKind::FakeBurst, count });
                 }
             }
+            "--fake-quic-profile" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                group!().quic_fake_profile = parse_quic_fake_profile(value)?;
+            }
+            "--fake-quic-host" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                group!().quic_fake_host = Some(normalize_quic_fake_host(value)?);
+            }
             "-V" | "--pf" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let (start, end) = match value.split_once('-') {
@@ -1456,6 +1493,43 @@ mod tests {
         for spec in ["host+", "midsld-", "unknown", "host+nope", "5+zz", "method++1"] {
             assert!(parse_offset_expr(spec).is_err(), "{spec} should be rejected");
         }
+    }
+
+    #[test]
+    fn normalize_quic_fake_host_rejects_invalid_values() {
+        assert_eq!(normalize_quic_fake_host(" Example.COM. ").unwrap(), "example.com");
+        assert!(normalize_quic_fake_host("127.0.0.1").is_err());
+        assert!(normalize_quic_fake_host("::1").is_err());
+        assert!(normalize_quic_fake_host("bad..host").is_err());
+    }
+
+    #[test]
+    fn parse_quic_fake_profile_accepts_known_values() {
+        assert_eq!(parse_quic_fake_profile("disabled").unwrap(), QuicFakeProfile::Disabled);
+        assert_eq!(parse_quic_fake_profile("compat_default").unwrap(), QuicFakeProfile::CompatDefault);
+        assert_eq!(parse_quic_fake_profile("realistic_initial").unwrap(), QuicFakeProfile::RealisticInitial);
+        assert!(parse_quic_fake_profile("bogus").is_err());
+    }
+
+    #[test]
+    fn parse_cli_reads_quic_fake_profile_and_host() {
+        let args = vec![
+            "--udp-fake".to_string(),
+            "2".to_string(),
+            "--fake-quic-profile".to_string(),
+            "realistic_initial".to_string(),
+            "--fake-quic-host".to_string(),
+            "Video.Example.TEST.".to_string(),
+        ];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+        let group = &config.groups[0];
+
+        assert_eq!(group.quic_fake_profile, QuicFakeProfile::RealisticInitial);
+        assert_eq!(group.quic_fake_host.as_deref(), Some("video.example.test"));
+        assert_eq!(group.udp_fake_count, 2);
     }
 
     #[test]

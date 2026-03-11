@@ -45,9 +45,7 @@ enum class DiagnosticsSection {
     Overview,
     Scan,
     Live,
-    Sessions,
     Approaches,
-    Events,
     Share,
 }
 
@@ -1232,6 +1230,12 @@ class DiagnosticsViewModel
                             signature.fakeTlsSize?.let {
                                 add(DiagnosticsFieldUiModel("Fake TLS size", formatFakeTlsSize(it)))
                             }
+                            signature.quicFakeProfile?.let {
+                                add(DiagnosticsFieldUiModel("QUIC fake profile", formatQuicFakeProfile(it)))
+                            }
+                            signature.quicFakeHost?.let {
+                                add(DiagnosticsFieldUiModel("QUIC fake host", it))
+                            }
                             signature.fakeOffsetMarker?.let {
                                 add(DiagnosticsFieldUiModel("Fake offset marker", it))
                             }
@@ -1663,6 +1667,14 @@ class DiagnosticsViewModel
                 value > 0 -> "Exactly $value bytes"
                 value < 0 -> "Input minus ${-value} bytes"
                 else -> "Match input size"
+            }
+
+        private fun formatQuicFakeProfile(value: String): String =
+            when (value.lowercase(Locale.US)) {
+                "compat_default" -> "Zapret compatibility"
+                "realistic_initial" -> "Realistic Initial"
+                "disabled" -> "Off"
+                else -> value
             }
 
         private fun redactValue(value: String?): String = value?.let { "redacted" } ?: "Unknown"
