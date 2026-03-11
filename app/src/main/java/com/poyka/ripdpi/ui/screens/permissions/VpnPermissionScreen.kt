@@ -42,8 +42,9 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
-import com.poyka.ripdpi.ui.components.intro.DefaultRipDpiIntroScaffoldMetrics
+import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiIntroScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -85,7 +86,7 @@ fun VpnPermissionScreen(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val introLayout = DefaultRipDpiIntroScaffoldMetrics
+    val introLayout = rememberRipDpiIntroScaffoldMetrics()
 
     AuthPromptScaffold(
         title = stringResource(R.string.permissions_vpn_title),
@@ -158,48 +159,68 @@ internal fun AuthPromptScaffold(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val layout = RipDpiThemeTokens.layout
-    val introLayout = DefaultRipDpiIntroScaffoldMetrics
+    val introLayout = rememberRipDpiIntroScaffoldMetrics()
     val type = RipDpiThemeTokens.type
 
-    Column(
+    RipDpiIntroScaffold(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(colors.background)
-                .padding(horizontal = layout.horizontalPadding),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(introLayout.topActionRowHeight),
-            contentAlignment = Alignment.TopEnd,
-        ) {
-            if (topActionText != null && onTopAction != null) {
-                androidx.compose.material3.Text(
-                    text = topActionText,
-                    style = type.introAction,
-                    color = colors.mutedForeground,
-                    modifier =
-                        Modifier
-                            .padding(top = introLayout.topActionTopPadding)
-                            .ripDpiClickable(role = Role.Button, onClick = onTopAction),
+                .background(colors.background),
+        topAction = {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(introLayout.topActionRowHeight),
+                contentAlignment = Alignment.TopEnd,
+            ) {
+                if (topActionText != null && onTopAction != null) {
+                    androidx.compose.material3.Text(
+                        text = topActionText,
+                        style = type.introAction,
+                        color = colors.mutedForeground,
+                        modifier =
+                            Modifier
+                                .padding(top = introLayout.topActionTopPadding)
+                                .ripDpiClickable(role = Role.Button, onClick = onTopAction),
+                    )
+                }
+            }
+        },
+        footer = {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = introLayout.footerBottomPadding),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                progress?.let {
+                    it()
+                    Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                    content = footer,
                 )
             }
-        }
-
+        },
+    ) {
         banner?.let {
             it()
             Spacer(modifier = Modifier.height(spacing.lg))
         }
 
-        Box(
+        Column(
             modifier =
                 Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-            contentAlignment = Alignment.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -237,25 +258,6 @@ internal fun AuthPromptScaffold(
                 }
             }
         }
-
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = introLayout.footerBottomPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            progress?.let {
-                it()
-                Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
-            }
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(spacing.sm),
-                content = footer,
-            )
-        }
     }
 }
 
@@ -265,7 +267,7 @@ private fun AuthPromptBadge(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val introLayout = DefaultRipDpiIntroScaffoldMetrics
+    val introLayout = rememberRipDpiIntroScaffoldMetrics()
     val strokeWidth = introLayout.illustrationIconStrokeWidth
 
     Box(

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,9 +41,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
-private fun RipDpiDesignSystemPreviewMatrix(
-    themePreference: String,
-) {
+private fun RipDpiDesignSystemPreviewMatrix(themePreference: String) {
     val dropdownOptions =
         listOf(
             RipDpiDropdownOption("auto", "Auto"),
@@ -75,6 +73,14 @@ private fun RipDpiDesignSystemPreviewMatrix(
                                 text = "Connect",
                                 onClick = {},
                                 interactionSource = rememberPreviewInteractionSource(focused = true),
+                            )
+                        },
+                        "Loading" to {
+                            RipDpiButton(
+                                text = "Connecting",
+                                onClick = {},
+                                loading = true,
+                                density = RipDpiControlDensity.Compact,
                             )
                         },
                     ),
@@ -267,6 +273,49 @@ private fun RipDpiDesignSystemPreviewMatrix(
                         },
                     ),
             )
+
+            PreviewMatrixRow(
+                title = "Long Text",
+                cells =
+                    listOf(
+                        "Button" to {
+                            RipDpiButton(
+                                text = "Start local bypass service with diagnostic telemetry",
+                                onClick = {},
+                            )
+                        },
+                        "Dropdown" to {
+                            RipDpiDropdown(
+                                options = dropdownOptions,
+                                selectedValue = null,
+                                onValueSelected = {},
+                                label = "Traffic handling profile",
+                                placeholder = "Choose a connection strategy",
+                                errorText = "Choose a mode before saving this profile.",
+                            )
+                        },
+                        "Switch" to {
+                            RipDpiSwitch(
+                                checked = true,
+                                onCheckedChange = {},
+                                label = "Use system DNS as a safety fallback",
+                                helperText =
+                                    "Prevents blank connectivity if the tunnel resolver is unavailable.",
+                            )
+                        },
+                        "Text Field" to {
+                            RipDpiConfigTextField(
+                                value = "",
+                                onValueChange = {},
+                                label = "Custom startup command",
+                                helperText =
+                                    "Long commands wrap, but supporting text should remain readable at larger scales.",
+                                multiline = true,
+                                density = RipDpiControlDensity.Compact,
+                            )
+                        },
+                    ),
+            )
         }
 
         PreviewSection(title = "Semantic Tones") {
@@ -440,13 +489,31 @@ private fun rememberPreviewInteractionSource(
     return interactionSource
 }
 
-@Preview(showBackground = true, widthDp = 1360, heightDp = 2200)
+@Preview(name = "Catalog Light Compact", showBackground = true, widthDp = 390, heightDp = 2200)
 @Composable
 private fun RipDpiDesignSystemPreviewMatrixLightPreview() {
     RipDpiDesignSystemPreviewMatrix(themePreference = "light")
 }
 
-@Preview(showBackground = true, widthDp = 1360, heightDp = 2200)
+@Preview(name = "Catalog Light Medium", showBackground = true, widthDp = 720, heightDp = 2200)
+@Composable
+private fun RipDpiDesignSystemPreviewMatrixMediumPreview() {
+    RipDpiDesignSystemPreviewMatrix(themePreference = "light")
+}
+
+@Preview(name = "Catalog Light Expanded", showBackground = true, widthDp = 1040, heightDp = 2200)
+@Composable
+private fun RipDpiDesignSystemPreviewMatrixExpandedPreview() {
+    RipDpiDesignSystemPreviewMatrix(themePreference = "light")
+}
+
+@Preview(name = "Catalog Large Font", showBackground = true, widthDp = 720, heightDp = 2200, fontScale = 1.3f)
+@Composable
+private fun RipDpiDesignSystemPreviewMatrixLargeFontPreview() {
+    RipDpiDesignSystemPreviewMatrix(themePreference = "light")
+}
+
+@Preview(name = "Catalog Dark", showBackground = true, widthDp = 720, heightDp = 2200)
 @Composable
 private fun RipDpiDesignSystemPreviewMatrixDarkPreview() {
     RipDpiDesignSystemPreviewMatrix(themePreference = "dark")

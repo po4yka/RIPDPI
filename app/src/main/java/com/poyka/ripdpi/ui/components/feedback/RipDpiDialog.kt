@@ -29,7 +29,9 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
+import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 enum class RipDpiDialogTone {
     Default,
@@ -48,6 +50,7 @@ fun RipDpiDialog(
     confirmLabel: String? = null,
     onConfirm: (() -> Unit)? = null,
     tone: RipDpiDialogTone = RipDpiDialogTone.Default,
+    actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
     icon: ImageVector? = defaultDialogIcon(tone),
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -76,6 +79,7 @@ fun RipDpiDialog(
                 confirmLabel = confirmLabel,
                 onConfirm = onConfirm,
                 tone = tone,
+                actionLayout = actionLayout,
                 icon = icon,
                 content = content,
             )
@@ -93,6 +97,7 @@ fun RipDpiDialogCard(
     confirmLabel: String? = null,
     onConfirm: (() -> Unit)? = null,
     tone: RipDpiDialogTone = RipDpiDialogTone.Default,
+    actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
     icon: ImageVector? = defaultDialogIcon(tone),
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -100,14 +105,15 @@ fun RipDpiDialogCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val hasConfirmAction = confirmLabel != null && onConfirm != null
+    val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Sheet)
 
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surface,
-        contentColor = colors.foreground,
-        shadowElevation = 24.dp,
-        border = BorderStroke(RipDpiStroke.Thin, colors.cardBorder),
+        color = surfaceStyle.container,
+        contentColor = surfaceStyle.content,
+        shadowElevation = surfaceStyle.shadowElevation,
+        border = BorderStroke(RipDpiStroke.Thin, surfaceStyle.border),
     ) {
         Column(
             modifier =
@@ -148,6 +154,7 @@ fun RipDpiDialogCard(
                 confirmLabel = confirmLabel,
                 onConfirm = onConfirm,
                 tone = tone,
+                actionLayout = actionLayout,
                 hasConfirmAction = hasConfirmAction,
             )
         }
@@ -202,9 +209,11 @@ private fun DialogActionRow(
     confirmLabel: String?,
     onConfirm: (() -> Unit)?,
     tone: RipDpiDialogTone,
+    actionLayout: RipDpiActionLayout,
     hasConfirmAction: Boolean,
 ) {
     val spacing = RipDpiThemeTokens.spacing
+    val resolvedActionLayout = actionLayout.resolvedActionLayout()
     val primaryVariant =
         when (tone) {
             RipDpiDialogTone.Destructive -> RipDpiButtonVariant.Destructive
@@ -214,28 +223,60 @@ private fun DialogActionRow(
             -> RipDpiButtonVariant.Primary
         }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (hasConfirmAction) {
-            RipDpiButton(
-                text = dismissLabel,
-                onClick = onDismiss,
-                variant = RipDpiButtonVariant.Outline,
-            )
-            RipDpiButton(
-                text = confirmLabel.orEmpty(),
-                onClick = { onConfirm?.invoke() },
-                variant = primaryVariant,
-            )
-        } else {
-            RipDpiButton(
-                text = dismissLabel,
-                onClick = onDismiss,
-                variant = primaryVariant,
-            )
+    if (resolvedActionLayout == RipDpiActionLayout.Stacked) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            if (hasConfirmAction) {
+                RipDpiButton(
+                    text = confirmLabel.orEmpty(),
+                    onClick = { onConfirm?.invoke() },
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = primaryVariant,
+                )
+                RipDpiButton(
+                    text = dismissLabel,
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = RipDpiButtonVariant.Outline,
+                )
+            } else {
+                RipDpiButton(
+                    text = dismissLabel,
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = primaryVariant,
+                )
+            }
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (hasConfirmAction) {
+                RipDpiButton(
+                    text = dismissLabel,
+                    onClick = onDismiss,
+                    variant = RipDpiButtonVariant.Outline,
+                    density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
+                )
+                RipDpiButton(
+                    text = confirmLabel.orEmpty(),
+                    onClick = { onConfirm?.invoke() },
+                    variant = primaryVariant,
+                    density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
+                )
+            } else {
+                RipDpiButton(
+                    text = dismissLabel,
+                    onClick = onDismiss,
+                    variant = primaryVariant,
+                    density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
+                )
+            }
         }
     }
 }

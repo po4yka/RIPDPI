@@ -43,8 +43,9 @@ import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.OnboardingViewModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
-import com.poyka.ripdpi.ui.components.intro.DefaultRipDpiIntroScaffoldMetrics
+import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiIntroScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -112,7 +113,7 @@ fun OnboardingScreen(
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    val introLayout = DefaultRipDpiIntroScaffoldMetrics
+    val introLayout = rememberRipDpiIntroScaffoldMetrics()
     val pagerState =
         rememberPagerState(
             initialPage = uiState.currentPage.coerceIn(0, OnboardingPages.lastIndex),
@@ -132,31 +133,56 @@ fun OnboardingScreen(
         }
     }
 
-    Column(
+    RipDpiIntroScaffold(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(colors.background)
-                .padding(horizontal = RipDpiThemeTokens.layout.horizontalPadding),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(introLayout.topActionRowHeight),
-            contentAlignment = Alignment.TopEnd,
-        ) {
-            Text(
-                text = stringResource(R.string.onboarding_skip),
-                style = type.introAction,
-                color = colors.mutedForeground,
+                .background(colors.background),
+        topAction = {
+            Box(
                 modifier =
                     Modifier
-                        .padding(top = introLayout.topActionTopPadding)
-                        .ripDpiClickable(role = Role.Button, onClick = onSkip),
-            )
-        }
-
+                        .fillMaxWidth()
+                        .height(introLayout.topActionRowHeight),
+                contentAlignment = Alignment.TopEnd,
+            ) {
+                Text(
+                    text = stringResource(R.string.onboarding_skip),
+                    style = type.introAction,
+                    color = colors.mutedForeground,
+                    modifier =
+                        Modifier
+                            .padding(top = introLayout.topActionTopPadding)
+                            .ripDpiClickable(role = Role.Button, onClick = onSkip),
+                )
+            }
+        },
+        footer = {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = introLayout.footerBottomPadding),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                RipDpiPageIndicators(
+                    currentPage = pagerState.currentPage,
+                    pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size),
+                )
+                Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
+                RipDpiButton(
+                    text = stringResource(OnboardingPages[pagerState.currentPage].buttonLabelRes),
+                    onClick = onContinue,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = introLayout.footerButtonHorizontalInset)
+                            .heightIn(min = introLayout.footerButtonMinHeight),
+                    trailingIcon = RipDpiIcons.ChevronRight,
+                )
+            }
+        },
+    ) {
         HorizontalPager(
             state = pagerState,
             modifier =
@@ -198,30 +224,6 @@ fun OnboardingScreen(
                 )
             }
         }
-
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = introLayout.footerBottomPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            RipDpiPageIndicators(
-                currentPage = pagerState.currentPage,
-                pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size),
-            )
-            Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
-            RipDpiButton(
-                text = stringResource(OnboardingPages[pagerState.currentPage].buttonLabelRes),
-                onClick = onContinue,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                        .heightIn(min = introLayout.footerButtonMinHeight),
-                trailingIcon = RipDpiIcons.ChevronRight,
-            )
-        }
     }
 }
 
@@ -231,7 +233,7 @@ private fun OnboardingIllustration(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val introLayout = DefaultRipDpiIntroScaffoldMetrics
+    val introLayout = rememberRipDpiIntroScaffoldMetrics()
     val strokeWidth = introLayout.illustrationIconStrokeWidth
 
     Box(

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -47,6 +49,8 @@ fun RipDpiButton(
     modifier: Modifier = Modifier,
     variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     enabled: Boolean = true,
+    loading: Boolean = false,
+    density: RipDpiControlDensity = RipDpiControlDensity.Default,
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
     interactionSource: MutableInteractionSource? = null,
@@ -58,17 +62,23 @@ fun RipDpiButton(
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isPressed by resolvedInteractionSource.collectIsPressedAsState()
     val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
-    val base = buttonPalette(variant = variant, enabled = enabled, isPressed = isPressed)
+    val isInteractive = enabled && !loading
+    val base = buttonPalette(variant = variant, enabled = isInteractive, isPressed = isPressed)
+    val horizontalPadding =
+        when (density) {
+            RipDpiControlDensity.Default -> components.buttonHorizontalPadding
+            RipDpiControlDensity.Compact -> components.buttonHorizontalPadding - 4.dp
+        }
     val borderWidth =
         when {
-            !enabled && variant == RipDpiButtonVariant.Ghost -> 0.dp
+            !isInteractive && variant == RipDpiButtonVariant.Ghost -> 0.dp
             isFocused -> 2.dp
             variant == RipDpiButtonVariant.Outline -> 1.dp
             else -> 0.dp
         }
     val borderColor =
         when {
-            !enabled && variant == RipDpiButtonVariant.Outline -> colors.border
+            !isInteractive && variant == RipDpiButtonVariant.Outline -> colors.border
             isFocused -> MaterialTheme.colorScheme.outline
             variant == RipDpiButtonVariant.Outline -> colors.border
             else -> Color.Transparent
@@ -81,22 +91,29 @@ fun RipDpiButton(
                 .clip(shape)
                 .background(base.container, shape)
                 .border(width = borderWidth, color = borderColor, shape = shape)
-                .focusable(enabled = enabled, interactionSource = resolvedInteractionSource)
+                .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
                 .ripDpiClickable(
-                    enabled = enabled,
+                    enabled = isInteractive,
                     role = Role.Button,
                     interactionSource = resolvedInteractionSource,
                     onClick = onClick,
-                )
-                .padding(
-                    horizontal = components.buttonHorizontalPadding,
+                ).padding(
+                    horizontal = horizontalPadding,
                     vertical = components.buttonVerticalPadding,
                 ),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        leadingIcon?.let {
-            RipDpiButtonIcon(icon = it, tint = base.content)
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(RipDpiIconSizes.Small),
+                color = base.content,
+                strokeWidth = 2.dp,
+            )
+        } else {
+            leadingIcon?.let {
+                RipDpiButtonIcon(icon = it, tint = base.content)
+            }
         }
         Text(
             text = text,
@@ -105,8 +122,10 @@ fun RipDpiButton(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        trailingIcon?.let {
-            RipDpiButtonIcon(icon = it, tint = base.content)
+        if (!loading) {
+            trailingIcon?.let {
+                RipDpiButtonIcon(icon = it, tint = base.content)
+            }
         }
     }
 }
@@ -227,6 +246,7 @@ private fun RipDpiButtonDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             RipDpiButton(text = "Connect", onClick = {})
+            RipDpiButton(text = "Connecting", onClick = {}, loading = true)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 RipDpiButton(text = "Cancel", onClick = {}, variant = RipDpiButtonVariant.Outline)
                 RipDpiButton(text = "Reset", onClick = {}, variant = RipDpiButtonVariant.Destructive)

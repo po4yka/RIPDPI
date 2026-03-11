@@ -30,6 +30,7 @@ object RipDpiIconSizes {
     val Large = 32.dp
 }
 
+// Keep iconography on a single outlined Material language. Screens should import only this facade.
 object RipDpiIcons {
     val Home: ImageVector = Icons.Outlined.Home
     val Config: ImageVector = Icons.Outlined.Tune

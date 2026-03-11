@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,23 +16,26 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -44,6 +49,7 @@ fun RipDpiTextField(
     errorText: String? = null,
     enabled: Boolean = true,
     readOnly: Boolean = false,
+    density: RipDpiControlDensity = RipDpiControlDensity.Default,
     singleLine: Boolean = true,
     textStyle: TextStyle = RipDpiThemeTokens.type.monoValue,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
@@ -84,6 +90,7 @@ fun RipDpiTextField(
             errorText != null -> colors.destructive
             else -> colors.mutedForeground
         }
+    val labelColor = if (errorText != null) colors.destructive else colors.mutedForeground
 
     Column(
         modifier = modifier,
@@ -93,7 +100,7 @@ fun RipDpiTextField(
             Text(
                 text = it,
                 style = type.smallLabel,
-                color = colors.mutedForeground,
+                color = labelColor,
             )
         }
         BasicTextField(
@@ -109,7 +116,11 @@ fun RipDpiTextField(
             interactionSource = resolvedInteractionSource,
             modifier =
                 Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .semantics {
+                        label?.let { contentDescription = it }
+                        errorText?.let { error(it) }
+                    },
             decorationBox = { innerTextField ->
                 RipDpiTextFieldShell(
                     enabled = enabled,
@@ -117,6 +128,7 @@ fun RipDpiTextField(
                     borderColor = borderColor,
                     borderWidth = borderWidth,
                     minHeight = minHeight ?: components.controlHeight,
+                    density = density,
                     trailingContent = trailingContent,
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
@@ -155,6 +167,7 @@ fun RipDpiConfigTextField(
     enabled: Boolean = true,
     readOnly: Boolean = false,
     multiline: Boolean = false,
+    density: RipDpiControlDensity = RipDpiControlDensity.Default,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
@@ -173,6 +186,7 @@ fun RipDpiConfigTextField(
         errorText = errorText,
         enabled = enabled,
         readOnly = readOnly,
+        density = density,
         singleLine = !multiline,
         textStyle = RipDpiThemeTokens.type.monoConfig,
         keyboardOptions = keyboardOptions,
@@ -191,13 +205,23 @@ private fun RipDpiTextFieldShell(
     borderColor: Color,
     borderWidth: androidx.compose.ui.unit.Dp,
     minHeight: androidx.compose.ui.unit.Dp,
+    density: RipDpiControlDensity,
     trailingContent: (@Composable () -> Unit)?,
     content: @Composable RowScope.() -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
-    val startPadding = if (borderWidth > 1.dp) components.fieldFocusedHorizontalPadding else components.fieldHorizontalPadding
-    val endPadding = if (borderWidth > 1.dp) components.fieldFocusedHorizontalPadding else components.fieldHorizontalPadding
+    val basePadding =
+        if (borderWidth > 1.dp) {
+            components.fieldFocusedHorizontalPadding
+        } else {
+            components.fieldHorizontalPadding
+        }
+    val horizontalPadding =
+        when (density) {
+            RipDpiControlDensity.Default -> basePadding
+            RipDpiControlDensity.Compact -> basePadding - 4.dp
+        }
 
     Row(
         modifier =
@@ -206,7 +230,7 @@ private fun RipDpiTextFieldShell(
                 .heightIn(min = minHeight)
                 .background(colors.inputBackground, shape)
                 .border(borderWidth, borderColor, shape)
-                .padding(start = startPadding, end = endPadding)
+                .padding(start = horizontalPadding, end = horizontalPadding)
                 .alpha(if (enabled) 1f else 0.38f),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,

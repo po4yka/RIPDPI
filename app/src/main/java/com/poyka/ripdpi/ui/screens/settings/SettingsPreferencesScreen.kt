@@ -3,11 +3,9 @@ package com.poyka.ripdpi.ui.screens.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,13 +14,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
@@ -39,8 +37,8 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
-import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -90,7 +88,6 @@ internal fun SettingsScreen(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val layout = RipDpiThemeTokens.layout
     val themeOptions =
         stringArrayResource(R.array.themes)
             .zip(stringArrayResource(R.array.themes_entries))
@@ -116,178 +113,163 @@ internal fun SettingsScreen(
     val canSaveBackupPin = backupPinDraft.length == 4 && backupPinDraft != uiState.backupPin
     val showBackupPinEditor = uiState.biometricEnabled || uiState.hasBackupPin || backupPinDraft.isNotBlank()
 
-    Column(
+    RipDpiSettingsScaffold(
         modifier =
             modifier
                 .fillMaxSize()
                 .background(colors.background),
+        title = stringResource(R.string.settings),
     ) {
-        RipDpiTopAppBar(
-            title = stringResource(R.string.settings),
-        )
+        item {
+            SettingsSection(
+                title = stringResource(R.string.settings_connectivity_section),
+            ) {
+                SettingsRow(
+                    title = stringResource(R.string.title_dns_settings),
+                    subtitle =
+                        stringResource(
+                            if (uiState.isVpn) {
+                                R.string.settings_connectivity_dns_body
+                            } else {
+                                R.string.settings_connectivity_dns_body_proxy
+                            },
+                        ),
+                    value = uiState.dnsIp,
+                    onClick = onOpenDnsSettings,
+                    monospaceValue = true,
+                    showDivider = true,
+                )
+                SettingsRow(
+                    title = stringResource(R.string.title_advanced_settings),
+                    subtitle = stringResource(R.string.settings_advanced_body),
+                    value = stringResource(R.string.settings_manage_action),
+                    onClick = onOpenAdvancedSettings,
+                )
+            }
+        }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding =
-                PaddingValues(
-                    start = layout.horizontalPadding,
-                    top = spacing.sm,
-                    end = layout.horizontalPadding,
-                    bottom = spacing.xxl,
-                ),
-            verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
-        ) {
-            item {
-                SettingsSection(
-                    title = stringResource(R.string.settings_connectivity_section),
-                ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                SettingsCategoryHeader(
+                    title = stringResource(R.string.settings_security_section),
+                )
+
+                if (uiState.biometricEnabled && !uiState.hasBackupPin && backupPinDraft.isBlank()) {
+                    WarningBanner(
+                        title = stringResource(R.string.settings_warning_backup_pin_title),
+                        message = stringResource(R.string.settings_warning_backup_pin_body),
+                        tone = WarningBannerTone.Restricted,
+                    )
+                }
+
+                RipDpiCard {
                     SettingsRow(
-                        title = stringResource(R.string.title_dns_settings),
-                        subtitle =
-                            stringResource(
-                                if (uiState.isVpn) {
-                                    R.string.settings_connectivity_dns_body
-                                } else {
-                                    R.string.settings_connectivity_dns_body_proxy
-                                },
-                            ),
-                        value = uiState.dnsIp,
-                        onClick = onOpenDnsSettings,
-                        monospaceValue = true,
+                        title = stringResource(R.string.settings_webrtc_title),
+                        subtitle = stringResource(R.string.settings_webrtc_body),
+                        checked = uiState.webrtcProtectionEnabled,
+                        onCheckedChange = onWebRtcProtectionChanged,
                         showDivider = true,
                     )
                     SettingsRow(
-                        title = stringResource(R.string.title_advanced_settings),
-                        subtitle = stringResource(R.string.settings_advanced_body),
-                        value = stringResource(R.string.settings_manage_action),
-                        onClick = onOpenAdvancedSettings,
-                    )
-                }
-            }
+                        title = stringResource(R.string.settings_biometric_title),
+                        subtitle =
+                            stringResource(
+                                when {
+                                    uiState.biometricEnabled && uiState.hasBackupPin -> {
+                                        R.string.settings_biometric_body_with_pin
+                                    }
 
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                    SettingsCategoryHeader(
-                        title = stringResource(R.string.settings_security_section),
-                    )
+                                    uiState.biometricEnabled -> {
+                                        R.string.settings_biometric_body_without_pin
+                                    }
 
-                    if (uiState.biometricEnabled && !uiState.hasBackupPin && backupPinDraft.isBlank()) {
-                        WarningBanner(
-                            title = stringResource(R.string.settings_warning_backup_pin_title),
-                            message = stringResource(R.string.settings_warning_backup_pin_body),
-                            tone = WarningBannerTone.Restricted,
-                        )
-                    }
-
-                    RipDpiCard {
-                        SettingsRow(
-                            title = stringResource(R.string.settings_webrtc_title),
-                            subtitle = stringResource(R.string.settings_webrtc_body),
-                            checked = uiState.webrtcProtectionEnabled,
-                            onCheckedChange = onWebRtcProtectionChanged,
-                            showDivider = true,
-                        )
-                        SettingsRow(
-                            title = stringResource(R.string.settings_biometric_title),
-                            subtitle =
-                                stringResource(
-                                    when {
-                                        uiState.biometricEnabled && uiState.hasBackupPin -> {
-                                            R.string.settings_biometric_body_with_pin
-                                        }
-
-                                        uiState.biometricEnabled -> {
-                                            R.string.settings_biometric_body_without_pin
-                                        }
-
-                                        else -> {
-                                            R.string.settings_biometric_body_disabled
-                                        }
-                                    },
-                                ),
-                            checked = uiState.biometricEnabled,
-                            onCheckedChange = onBiometricChanged,
-                            showDivider = showBackupPinEditor,
-                        )
-
-                        if (showBackupPinEditor) {
-                            BackupPinEditor(
-                                value = backupPinDraft,
-                                errorText = pinErrorText,
-                                hasSavedPin = uiState.hasBackupPin,
-                                onValueChange = { next ->
-                                    backupPinDraft = next.filter(Char::isDigit).take(4)
+                                    else -> {
+                                        R.string.settings_biometric_body_disabled
+                                    }
                                 },
-                                onSave = { onSaveBackupPin(backupPinDraft) },
-                                onClear = {
-                                    backupPinDraft = ""
-                                    onSaveBackupPin("")
-                                },
-                                canSave = canSaveBackupPin,
-                            )
-                        }
-                    }
-                }
-            }
+                            ),
+                        checked = uiState.biometricEnabled,
+                        onCheckedChange = onBiometricChanged,
+                        showDivider = showBackupPinEditor,
+                    )
 
-            item {
-                SettingsSection(
-                    title = stringResource(R.string.settings_appearance_section),
-                ) {
-                    Text(
-                        text = stringResource(R.string.theme_settings),
-                        style = RipDpiThemeTokens.type.bodyEmphasis,
-                        color = colors.foreground,
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_theme_body),
-                        style = RipDpiThemeTokens.type.body,
-                        color = colors.mutedForeground,
-                    )
-                    RipDpiDropdown(
-                        options = themeOptions,
-                        selectedValue = uiState.appTheme,
-                        onValueSelected = onThemeSelected,
-                        helperText = stringResource(R.string.settings_theme_helper),
-                    )
-                    HorizontalDivider(color = colors.divider)
-                    SettingsRow(
-                        title = stringResource(R.string.title_app_customization),
-                        subtitle = stringResource(R.string.settings_customization_body),
-                        value = stringResource(R.string.settings_manage_action),
-                        onClick = onOpenCustomization,
-                    )
-                }
-            }
-
-            item {
-                SettingsSection(
-                    title = stringResource(R.string.settings_permissions_section),
-                ) {
-                    permissionSummary.items.forEachIndexed { index, item ->
-                        SettingsRow(
-                            title = item.title,
-                            subtitle = item.subtitle,
-                            value = item.actionLabel ?: item.statusLabel,
-                            onClick = item.actionLabel?.let { { onRepairPermission(item.kind) } },
-                            enabled = item.enabled,
-                            showDivider = index != permissionSummary.items.lastIndex,
+                    if (showBackupPinEditor) {
+                        BackupPinEditor(
+                            value = backupPinDraft,
+                            errorText = pinErrorText,
+                            hasSavedPin = uiState.hasBackupPin,
+                            onValueChange = { next ->
+                                backupPinDraft = next.filter(Char::isDigit).take(4)
+                            },
+                            onSave = { onSaveBackupPin(backupPinDraft) },
+                            onClear = {
+                                backupPinDraft = ""
+                                onSaveBackupPin("")
+                            },
+                            canSave = canSaveBackupPin,
                         )
                     }
                 }
             }
+        }
 
-            item {
-                SettingsSection(
-                    title = stringResource(R.string.settings_support_section),
-                ) {
+        item {
+            SettingsSection(
+                title = stringResource(R.string.settings_appearance_section),
+            ) {
+                Text(
+                    text = stringResource(R.string.theme_settings),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Text(
+                    text = stringResource(R.string.settings_theme_body),
+                    style = RipDpiThemeTokens.type.body,
+                    color = colors.mutedForeground,
+                )
+                RipDpiDropdown(
+                    options = themeOptions,
+                    selectedValue = uiState.appTheme,
+                    onValueSelected = onThemeSelected,
+                    helperText = stringResource(R.string.settings_theme_helper),
+                )
+                HorizontalDivider(color = colors.divider)
+                SettingsRow(
+                    title = stringResource(R.string.title_app_customization),
+                    subtitle = stringResource(R.string.settings_customization_body),
+                    value = stringResource(R.string.settings_manage_action),
+                    onClick = onOpenCustomization,
+                )
+            }
+        }
+
+        item {
+            SettingsSection(
+                title = stringResource(R.string.settings_permissions_section),
+            ) {
+                permissionSummary.items.forEachIndexed { index, item ->
                     SettingsRow(
-                        title = stringResource(R.string.about_category),
-                        subtitle = stringResource(R.string.settings_about_body),
-                        value = BuildConfig.VERSION_NAME,
-                        onClick = onOpenAbout,
+                        title = item.title,
+                        subtitle = item.subtitle,
+                        value = item.actionLabel ?: item.statusLabel,
+                        onClick = item.actionLabel?.let { { onRepairPermission(item.kind) } },
+                        enabled = item.enabled,
+                        showDivider = index != permissionSummary.items.lastIndex,
                     )
                 }
+            }
+        }
+
+        item {
+            SettingsSection(
+                title = stringResource(R.string.settings_support_section),
+            ) {
+                SettingsRow(
+                    title = stringResource(R.string.about_category),
+                    subtitle = stringResource(R.string.settings_about_body),
+                    value = BuildConfig.VERSION_NAME,
+                    onClick = onOpenAbout,
+                )
             }
         }
     }

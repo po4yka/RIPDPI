@@ -1,8 +1,11 @@
 package com.poyka.ripdpi.ui.components.intro
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 
 @Immutable
 internal data class RipDpiIntroScaffoldMetrics(
@@ -27,4 +30,37 @@ internal data class RipDpiIntroScaffoldMetrics(
     val footerBottomPadding: Dp = 40.dp,
 )
 
-internal val DefaultRipDpiIntroScaffoldMetrics = RipDpiIntroScaffoldMetrics()
+@Composable
+internal fun rememberRipDpiIntroScaffoldMetrics(): RipDpiIntroScaffoldMetrics {
+    val layout = RipDpiThemeTokens.layout
+
+    return when (layout.widthClass) {
+        RipDpiWidthClass.Compact -> {
+            RipDpiIntroScaffoldMetrics()
+        }
+
+        RipDpiWidthClass.Medium -> {
+            RipDpiIntroScaffoldMetrics(
+                topActionRowHeight = 44.dp,
+                illustrationSize = 80.dp,
+                illustrationToTitleGap = 48.dp,
+                titleHorizontalPadding = 20.dp,
+                bodyHorizontalPadding = 24.dp,
+                footerButtonHorizontalInset = 0.dp,
+                footerBottomPadding = 44.dp,
+            )
+        }
+
+        RipDpiWidthClass.Expanded -> {
+            RipDpiIntroScaffoldMetrics(
+                topActionRowHeight = 48.dp,
+                illustrationSize = 88.dp,
+                illustrationToTitleGap = 52.dp,
+                titleHorizontalPadding = 24.dp,
+                bodyHorizontalPadding = 28.dp,
+                footerButtonHorizontalInset = 0.dp,
+                footerBottomPadding = 48.dp,
+            )
+        }
+    }
+}

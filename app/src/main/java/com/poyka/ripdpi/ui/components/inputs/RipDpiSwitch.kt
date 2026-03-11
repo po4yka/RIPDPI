@@ -27,6 +27,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -42,13 +46,76 @@ fun RipDpiSwitch(
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
+    label: String? = null,
+    helperText: String? = null,
+    errorText: String? = null,
     enabled: Boolean = true,
+    readOnly: Boolean = false,
+    interactionSource: MutableInteractionSource? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val labelColor = if (errorText != null) colors.destructive else colors.foreground
+    val supportingColor = if (errorText != null) colors.destructive else colors.mutedForeground
+
+    if (label != null || helperText != null || errorText != null) {
+        Column(
+            modifier = modifier,
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                ) {
+                    label?.let {
+                        Text(
+                            text = it,
+                            style = type.body,
+                            color = labelColor,
+                        )
+                    }
+                    helperText?.takeIf { errorText == null }?.let {
+                        Text(
+                            text = it,
+                            style = type.caption,
+                            color = supportingColor,
+                        )
+                    }
+                }
+                RipDpiSwitch(
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                    enabled = enabled,
+                    readOnly = readOnly,
+                    interactionSource = interactionSource,
+                    modifier =
+                        Modifier.semantics {
+                            label?.let { contentDescription = it }
+                            stateDescription = if (checked) "On" else "Off"
+                            errorText?.let { error(it) }
+                        },
+                )
+            }
+            errorText?.let {
+                Text(
+                    text = it,
+                    style = type.caption,
+                    color = supportingColor,
+                )
+            }
+        }
+        return
+    }
     val components = RipDpiThemeTokens.components
     val scheme = MaterialTheme.colorScheme
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
+    val isPressed by resolvedInteractionSource.collectIsPressedAsState()
     val isDark = scheme.background.luminance() < 0.5f
     val trackColor by animateColorAsState(
         targetValue =
@@ -102,7 +169,7 @@ fun RipDpiSwitch(
         label = "switchOffset",
     )
     val alpha by animateFloatAsState(targetValue = if (enabled) 1f else 0.38f, label = "switchAlpha")
-    val interactive = enabled && onCheckedChange != null
+    val interactive = enabled && !readOnly && onCheckedChange != null
 
     Box(
         modifier =
@@ -114,7 +181,7 @@ fun RipDpiSwitch(
                             value = checked,
                             enabled = true,
                             role = Role.Switch,
-                            interactionSource = interactionSource,
+                            interactionSource = resolvedInteractionSource,
                             onValueChange = { value -> onCheckedChange(value) },
                         )
                     } else {
@@ -147,6 +214,12 @@ fun RipDpiSwitch(
 private fun RipDpiSwitchPreview() {
     RipDpiComponentPreview {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            RipDpiSwitch(
+                checked = true,
+                onCheckedChange = {},
+                label = "Use system DNS as fallback",
+                helperText = "Keeps a safe resolver available when tunnel DNS is unavailable",
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

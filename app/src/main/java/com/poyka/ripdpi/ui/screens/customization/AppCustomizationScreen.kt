@@ -5,11 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,11 +17,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LauncherIconManager
@@ -32,8 +30,8 @@ import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
-import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -66,7 +64,6 @@ internal fun AppCustomizationScreen(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
     val selectedOption = LauncherIconManager.resolveOption(uiState.appIconVariant)
     var showAdaptiveShapeSheet by rememberSaveable { mutableStateOf(false) }
@@ -93,108 +90,99 @@ internal fun AppCustomizationScreen(
         }
     }
 
-    Column(
+    RipDpiSettingsScaffold(
         modifier =
             modifier
                 .fillMaxSize()
                 .background(colors.background),
+        title = stringResource(R.string.title_app_icon),
+        navigationIcon = RipDpiIcons.Back,
+        onNavigationClick = onBack,
     ) {
-        RipDpiTopAppBar(
-            title = stringResource(R.string.title_app_icon),
-            navigationIcon = RipDpiIcons.Back,
-            onNavigationClick = onBack,
-        )
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding =
-                PaddingValues(
-                    start = layout.horizontalPadding,
-                    top = spacing.sm,
-                    end = layout.horizontalPadding,
-                    bottom = spacing.xxl,
-                ),
-            verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
-        ) {
-            item {
-                RipDpiCard {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        item {
+            RipDpiCard {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(72.dp)
+                                .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(72.dp)
-                                    .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Image(
-                                painter = painterResource(id = selectedOption.previewRes),
-                                contentDescription = stringResource(selectedOption.labelRes),
-                                modifier = Modifier.size(72.dp),
-                            )
-                        }
-                        Text(
-                            text = stringResource(selectedOption.labelRes),
-                            style = type.bodyEmphasis,
-                            color = colors.foreground,
-                        )
-                        Text(
-                            text = stringResource(R.string.customization_current_icon_caption),
-                            style = type.caption,
-                            color = colors.mutedForeground,
+                        Image(
+                            painter = painterResource(id = selectedOption.previewRes),
+                            contentDescription = stringResource(selectedOption.labelRes),
+                            modifier = Modifier.size(72.dp),
                         )
                     }
-                }
-            }
-
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                    SettingsCategoryHeader(
-                        title = stringResource(R.string.customization_available_icons_section),
-                    )
-                    RipDpiCard {
-                        IconPickerGrid(
-                            options = LauncherIconManager.availableIcons,
-                            selectedKey = uiState.appIconVariant,
-                            onOptionSelected = onIconSelected,
-                        )
-                    }
-                }
-            }
-
-            item {
-                RipDpiCard {
                     Text(
-                        text = stringResource(R.string.customization_notice_body),
+                        text = stringResource(selectedOption.labelRes),
+                        style = type.bodyEmphasis,
+                        color = colors.foreground,
+                    )
+                    Text(
+                        text = stringResource(R.string.customization_current_icon_caption),
                         style = type.caption,
                         color = colors.mutedForeground,
                     )
                 }
             }
+        }
 
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                    SettingsCategoryHeader(
-                        title = stringResource(R.string.customization_options_section),
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                SettingsCategoryHeader(
+                    title = stringResource(R.string.customization_available_icons_section),
+                )
+                RipDpiCard {
+                    IconPickerGrid(
+                        options = LauncherIconManager.availableIcons,
+                        selectedKey = uiState.appIconVariant,
+                        onOptionSelected = onIconSelected,
                     )
-                    RipDpiCard(paddingValues = PaddingValues(horizontal = layout.cardPadding, vertical = 0.dp)) {
-                        SettingsRow(
-                            title = stringResource(R.string.customization_shape_title),
-                            subtitle = stringResource(R.string.customization_shape_body),
-                            value = stringResource(R.string.customization_shape_system_default),
-                            onClick = { showAdaptiveShapeSheet = true },
-                            showDivider = true,
-                        )
-                        SettingsRow(
-                            title = stringResource(R.string.customization_themed_icon_title),
-                            subtitle = stringResource(R.string.customization_themed_icon_body),
-                            checked = uiState.themedAppIconEnabled,
-                            onCheckedChange = onThemedIconChanged,
-                        )
-                    }
+                }
+            }
+        }
+
+        item {
+            RipDpiCard {
+                Text(
+                    text = stringResource(R.string.customization_notice_body),
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                SettingsCategoryHeader(
+                    title = stringResource(R.string.customization_options_section),
+                )
+                RipDpiCard(
+                    paddingValues =
+                        androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = RipDpiThemeTokens.layout.cardPadding,
+                            vertical = 0.dp,
+                        ),
+                ) {
+                    SettingsRow(
+                        title = stringResource(R.string.customization_shape_title),
+                        subtitle = stringResource(R.string.customization_shape_body),
+                        value = stringResource(R.string.customization_shape_system_default),
+                        onClick = { showAdaptiveShapeSheet = true },
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.customization_themed_icon_title),
+                        subtitle = stringResource(R.string.customization_themed_icon_body),
+                        checked = uiState.themedAppIconEnabled,
+                        onCheckedChange = onThemedIconChanged,
+                    )
                 }
             }
         }

@@ -4,11 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -24,6 +26,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -44,7 +47,9 @@ fun RipDpiIconButton(
     modifier: Modifier = Modifier,
     style: RipDpiIconButtonStyle = RipDpiIconButtonStyle.Ghost,
     enabled: Boolean = true,
+    loading: Boolean = false,
     selected: Boolean = false,
+    density: RipDpiControlDensity = RipDpiControlDensity.Default,
     interactionSource: MutableInteractionSource? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -53,6 +58,13 @@ fun RipDpiIconButton(
     val shape = RipDpiThemeTokens.shapes.xl
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isPressed by resolvedInteractionSource.collectIsPressedAsState()
+    val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
+    val isInteractive = enabled && !loading
+    val iconSize =
+        when (density) {
+            RipDpiControlDensity.Default -> RipDpiIconSizes.Default
+            RipDpiControlDensity.Compact -> RipDpiIconSizes.Small
+        }
     val baseContainer =
         when (style) {
             RipDpiIconButtonStyle.Ghost -> Color.Transparent
@@ -62,19 +74,20 @@ fun RipDpiIconButton(
         }
     val background =
         when {
-            !enabled && style == RipDpiIconButtonStyle.Ghost -> Color.Transparent
-            !enabled -> colors.border
+            !isInteractive && style == RipDpiIconButtonStyle.Ghost -> Color.Transparent
+            !isInteractive -> colors.border
             isPressed -> lerp(baseContainer, scheme.onSurfaceVariant, 0.25f)
             else -> baseContainer
         }
     val iconTint =
         when {
-            !enabled -> colors.mutedForeground
+            !isInteractive -> colors.mutedForeground
             style == RipDpiIconButtonStyle.Filled -> colors.background
             else -> colors.foreground
         }
     val borderColor =
         when {
+            isFocused -> MaterialTheme.colorScheme.outline
             style == RipDpiIconButtonStyle.Outline && enabled -> colors.border
             style == RipDpiIconButtonStyle.Outline -> colors.border
             else -> Color.Transparent
@@ -86,10 +99,19 @@ fun RipDpiIconButton(
                 .size(components.iconButtonSize)
                 .clip(shape)
                 .background(background, shape)
-                .border(if (style == RipDpiIconButtonStyle.Outline) 1.dp else 0.dp, borderColor, shape)
-                .focusable(enabled = enabled, interactionSource = resolvedInteractionSource)
+                .border(
+                    if (isFocused) {
+                        2.dp
+                    } else if (style == RipDpiIconButtonStyle.Outline) {
+                        1.dp
+                    } else {
+                        0.dp
+                    },
+                    borderColor,
+                    shape,
+                ).focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
                 .ripDpiClickable(
-                    enabled = enabled,
+                    enabled = isInteractive,
                     role = Role.Button,
                     interactionSource = resolvedInteractionSource,
                     onClick = onClick,
@@ -97,12 +119,20 @@ fun RipDpiIconButton(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = iconTint,
-            modifier = Modifier.size(RipDpiIconSizes.Default),
-        )
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(iconSize),
+                color = iconTint,
+                strokeWidth = 2.dp,
+            )
+        } else {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = iconTint,
+                modifier = Modifier.size(iconSize),
+            )
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.components.cards
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,17 +18,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.ripDpiToggleable
-import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+enum class SettingsRowVariant {
+    Default,
+    Tonal,
+    Selected,
+}
 
 @Composable
 fun SettingsRow(
@@ -43,19 +51,49 @@ fun SettingsRow(
     showChevron: Boolean = value != null && onClick != null,
     showDivider: Boolean = false,
     monospaceValue: Boolean = false,
+    variant: SettingsRowVariant = SettingsRowVariant.Default,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
+    val containerColor =
+        when (variant) {
+            SettingsRowVariant.Default -> Color.Transparent
+            SettingsRowVariant.Tonal -> colors.inputBackground
+            SettingsRowVariant.Selected -> colors.accent
+        }
+    val borderColor =
+        when (variant) {
+            SettingsRowVariant.Default -> Color.Transparent
+            SettingsRowVariant.Tonal -> colors.border
+            SettingsRowVariant.Selected -> colors.foreground
+        }
     val rowContent: @Composable () -> Unit = {
         val rowInteractionSource = remember { MutableInteractionSource() }
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = if (subtitle == null) components.settingsRowMinHeight else components.settingsRowMinHeightWithSubtitle)
-                    .then(
+                    .background(containerColor, RipDpiThemeTokens.shapes.lg)
+                    .border(
+                        width = if (variant == SettingsRowVariant.Default) 0.dp else 1.dp,
+                        color = borderColor,
+                        shape = RipDpiThemeTokens.shapes.lg,
+                    ).then(
+                        if (variant == SettingsRowVariant.Default) {
+                            Modifier
+                        } else {
+                            Modifier.padding(horizontal = components.compactPillHorizontalPadding)
+                        },
+                    ).heightIn(
+                        min =
+                            if (subtitle == null) {
+                                components.settingsRowMinHeight
+                            } else {
+                                components.settingsRowMinHeightWithSubtitle
+                            },
+                    ).then(
                         if (checked != null && onCheckedChange != null) {
                             Modifier.ripDpiToggleable(
                                 enabled = enabled,
