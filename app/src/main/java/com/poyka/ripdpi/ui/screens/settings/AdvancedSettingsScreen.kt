@@ -35,14 +35,19 @@ import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
+import com.poyka.ripdpi.data.DefaultQuicFakeHost
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
+import com.poyka.ripdpi.data.QuicFakeProfileDisabled
+import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicInitialModeDisabled
 import com.poyka.ripdpi.data.isValidOffsetExpression
 import com.poyka.ripdpi.data.normalizeOffsetExpression
+import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -69,6 +74,8 @@ import kotlinx.coroutines.flow.collect
 
 private enum class AdvancedToggleSetting {
     UseCommandLine,
+    DiagnosticsMonitorEnabled,
+    DiagnosticsExportIncludeHistory,
     NoDomain,
     TcpFastOpen,
     DropSack,
@@ -88,6 +95,8 @@ private enum class AdvancedToggleSetting {
 }
 
 private enum class AdvancedTextSetting {
+    DiagnosticsSampleIntervalSeconds,
+    DiagnosticsHistoryRetentionDays,
     CommandLineArgs,
     ProxyIp,
     ProxyPort,
@@ -100,6 +109,7 @@ private enum class AdvancedTextSetting {
     FakeSni,
     FakeOffsetMarker,
     FakeTlsSize,
+    QuicFakeHost,
     OobData,
     TlsrecMarker,
     UdpFakeCount,
@@ -115,6 +125,7 @@ private enum class AdvancedOptionSetting {
     FakeTlsSniMode,
     HostsMode,
     QuicInitialMode,
+    QuicFakeProfile,
 }
 
 private data class AdvancedNotice(
@@ -162,6 +173,24 @@ fun AdvancedSettingsRoute(
                         value = enabled.toString(),
                     ) {
                         setEnableCmdSettings(enabled)
+                    }
+                }
+
+                AdvancedToggleSetting.DiagnosticsMonitorEnabled -> {
+                    viewModel.updateSetting(
+                        key = "diagnosticsMonitorEnabled",
+                        value = enabled.toString(),
+                    ) {
+                        setDiagnosticsMonitorEnabled(enabled)
+                    }
+                }
+
+                AdvancedToggleSetting.DiagnosticsExportIncludeHistory -> {
+                    viewModel.updateSetting(
+                        key = "diagnosticsExportIncludeHistory",
+                        value = enabled.toString(),
+                    ) {
+                        setDiagnosticsExportIncludeHistory(enabled)
                     }
                 }
 
@@ -313,6 +342,28 @@ fun AdvancedSettingsRoute(
         },
         onTextConfirmed = { setting, value ->
             when (setting) {
+                AdvancedTextSetting.DiagnosticsSampleIntervalSeconds -> {
+                    value.toIntOrNull()?.let { intervalSeconds ->
+                        viewModel.updateSetting(
+                            key = "diagnosticsSampleIntervalSeconds",
+                            value = intervalSeconds.toString(),
+                        ) {
+                            setDiagnosticsSampleIntervalSeconds(intervalSeconds)
+                        }
+                    }
+                }
+
+                AdvancedTextSetting.DiagnosticsHistoryRetentionDays -> {
+                    value.toIntOrNull()?.let { retentionDays ->
+                        viewModel.updateSetting(
+                            key = "diagnosticsHistoryRetentionDays",
+                            value = retentionDays.toString(),
+                        ) {
+                            setDiagnosticsHistoryRetentionDays(retentionDays)
+                        }
+                    }
+                }
+
                 AdvancedTextSetting.CommandLineArgs -> {
                     viewModel.updateSetting(
                         key = "cmdArgs",
@@ -447,6 +498,16 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
+                AdvancedTextSetting.QuicFakeHost -> {
+                    val normalized = normalizeQuicFakeHost(value)
+                    viewModel.updateSetting(
+                        key = "quicFakeHost",
+                        value = normalized,
+                    ) {
+                        setQuicFakeHost(normalized)
+                    }
+                }
+
                 AdvancedTextSetting.OobData -> {
                     if (value.length <= 1) {
                         viewModel.updateSetting(
@@ -569,6 +630,15 @@ fun AdvancedSettingsRoute(
                         setQuicInitialMode(value)
                     }
                 }
+
+                AdvancedOptionSetting.QuicFakeProfile -> {
+                    viewModel.updateSetting(
+                        key = "quicFakeProfile",
+                        value = value,
+                    ) {
+                        setQuicFakeProfile(value)
+                    }
+                }
             }
         },
         onForgetLearnedHosts = viewModel::forgetLearnedHosts,
@@ -593,6 +663,7 @@ private fun AdvancedSettingsScreen(
     val spacing = RipDpiThemeTokens.spacing
     val visualEditorEnabled = !uiState.enableCmdSettings
     val showHostFakeSection = uiState.showHostFakeProfile
+    val showQuicFakeSection = uiState.showQuicFakeProfile
     val showFakeTlsSection =
         uiState.desyncHttpsEnabled ||
             uiState.isFake ||
@@ -623,6 +694,11 @@ private fun AdvancedSettingsScreen(
             labelArrayRes = R.array.quic_initial_modes,
             valueArrayRes = R.array.quic_initial_modes_entries,
         )
+    val quicFakeProfileOptions =
+        rememberSettingsOptions(
+            labelArrayRes = R.array.quic_fake_profiles,
+            valueArrayRes = R.array.quic_fake_profiles_entries,
+        )
 
     RipDpiSettingsScaffold(
         modifier =
@@ -649,6 +725,63 @@ private fun AdvancedSettingsScreen(
                     message = it.message,
                     tone = it.tone,
                 )
+            }
+        }
+
+        item(key = "advanced_diagnostics_history") {
+            SettingsSection(title = stringResource(R.string.diagnostics_history_section)) {
+                RipDpiCard {
+                    SettingsRow(
+                        title = stringResource(R.string.settings_diagnostics_monitor_title),
+                        subtitle = stringResource(R.string.settings_diagnostics_monitor_body),
+                        checked = uiState.diagnosticsMonitorEnabled,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DiagnosticsMonitorEnabled, it) },
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.settings_diagnostics_sample_title),
+                        description = stringResource(R.string.settings_diagnostics_sample_body),
+                        value = uiState.diagnosticsSampleIntervalSeconds.toString(),
+                        enabled = uiState.diagnosticsMonitorEnabled,
+                        validator = { validateIntRange(it, 5, 300) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage = stringResource(R.string.settings_diagnostics_monitor_disabled),
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                            ),
+                        setting = AdvancedTextSetting.DiagnosticsSampleIntervalSeconds,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.settings_diagnostics_retention_title),
+                        description = stringResource(R.string.settings_diagnostics_retention_body),
+                        value = uiState.diagnosticsHistoryRetentionDays.toString(),
+                        validator = { validateIntRange(it, 1, 365) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                            ),
+                        setting = AdvancedTextSetting.DiagnosticsHistoryRetentionDays,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.settings_diagnostics_export_history_title),
+                        subtitle = stringResource(R.string.settings_diagnostics_export_history_body),
+                        checked = uiState.diagnosticsExportIncludeHistory,
+                        onCheckedChange = {
+                            onToggleChanged(
+                                AdvancedToggleSetting.DiagnosticsExportIncludeHistory,
+                                it,
+                            )
+                        },
+                    )
+                }
             }
         }
 
@@ -1168,6 +1301,40 @@ private fun AdvancedSettingsScreen(
                             enabled = visualEditorEnabled,
                         )
                     }
+                    if (showQuicFakeSection) {
+                        HorizontalDivider(color = colors.divider)
+                        QuicFakeProfileCard(uiState = uiState)
+                        AdvancedDropdownSetting(
+                            title = stringResource(R.string.quic_fake_profile_title),
+                            description = stringResource(R.string.quic_fake_profile_body),
+                            value = uiState.quicFakeProfile,
+                            enabled = visualEditorEnabled,
+                            options = quicFakeProfileOptions,
+                            setting = AdvancedOptionSetting.QuicFakeProfile,
+                            onSelected = onOptionSelected,
+                            showDivider = uiState.quicFakeProfile == QuicFakeProfileRealisticInitial,
+                        )
+                        if (uiState.quicFakeProfile == QuicFakeProfileRealisticInitial) {
+                            AdvancedTextSetting(
+                                title = stringResource(R.string.quic_fake_host_title),
+                                description = stringResource(R.string.quic_fake_host_body),
+                                value = uiState.quicFakeHost,
+                                enabled = visualEditorEnabled,
+                                disabledMessage =
+                                    stringResource(
+                                        R.string.advanced_settings_visual_controls_disabled,
+                                    ),
+                                placeholder = stringResource(R.string.config_placeholder_quic_fake_host),
+                                setting = AdvancedTextSetting.QuicFakeHost,
+                                onConfirm = onTextConfirmed,
+                            )
+                        }
+                        Text(
+                            text = stringResource(R.string.quic_fake_profile_helper),
+                            style = RipDpiThemeTokens.type.caption,
+                            color = colors.mutedForeground,
+                        )
+                    }
                 }
             }
         }
@@ -1529,6 +1696,12 @@ private data class HostFakeStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+private data class QuicFakeStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
 @Composable
 private fun HostFakeProfileCard(
     uiState: SettingsUiState,
@@ -1661,6 +1834,122 @@ private fun rememberHostFakeStatus(uiState: SettingsUiState): HostFakeStatusCont
                 label = stringResource(R.string.ripdpi_hostfake_available_title),
                 body = stringResource(R.string.ripdpi_hostfake_available_body),
                 tone = StatusIndicatorTone.Idle,
+            )
+    }
+
+@Composable
+private fun QuicFakeProfileCard(
+    uiState: SettingsUiState,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val status = rememberQuicFakeStatus(uiState)
+    val presetSummary =
+        stringResource(
+            when (uiState.quicFakeProfile) {
+                QuicFakeProfileCompatDefault -> R.string.quic_fake_profile_summary_compat
+                QuicFakeProfileRealisticInitial -> R.string.quic_fake_profile_summary_realistic
+                else -> R.string.quic_fake_profile_summary_off
+            },
+        )
+    val hostSummary =
+        when (uiState.quicFakeProfile) {
+            QuicFakeProfileRealisticInitial ->
+                uiState.quicFakeHost.ifBlank { DefaultQuicFakeHost }
+            else -> stringResource(R.string.quic_fake_profile_host_unused)
+        }
+    val scopeSummary =
+        when {
+            !uiState.desyncUdpEnabled -> stringResource(R.string.quic_fake_profile_scope_udp_disabled)
+            !uiState.hasUdpFakeBurst -> stringResource(R.string.quic_fake_profile_scope_needs_burst)
+            else -> stringResource(R.string.quic_fake_profile_scope_active)
+        }
+    val burstSummary =
+        if (uiState.hasUdpFakeBurst) {
+            stringResource(R.string.quic_fake_profile_burst_configured, uiState.udpFakeCount)
+        } else {
+            stringResource(R.string.quic_fake_profile_burst_missing)
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Tonal,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.quic_fake_profile_summary_label_preset),
+                value = presetSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.quic_fake_profile_summary_label_host),
+                value = hostSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.quic_fake_profile_summary_label_scope),
+                value = scopeSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.quic_fake_profile_summary_label_burst),
+                value = burstSummary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun rememberQuicFakeStatus(uiState: SettingsUiState): QuicFakeStatusContent =
+    when {
+        uiState.enableCmdSettings ->
+            QuicFakeStatusContent(
+                label = stringResource(R.string.quic_fake_profile_cli_title),
+                body = stringResource(R.string.quic_fake_profile_cli_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        !uiState.quicFakeControlsRelevant ->
+            QuicFakeStatusContent(
+                label = stringResource(R.string.quic_fake_profile_udp_disabled_title),
+                body = stringResource(R.string.quic_fake_profile_udp_disabled_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        !uiState.quicFakeProfileActive ->
+            QuicFakeStatusContent(
+                label = stringResource(R.string.quic_fake_profile_off_title),
+                body = stringResource(R.string.quic_fake_profile_off_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        !uiState.hasUdpFakeBurst ->
+            QuicFakeStatusContent(
+                label = stringResource(R.string.quic_fake_profile_saved_title),
+                body = stringResource(R.string.quic_fake_profile_saved_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.isServiceRunning ->
+            QuicFakeStatusContent(
+                label = stringResource(R.string.quic_fake_profile_restart_title),
+                body = stringResource(R.string.quic_fake_profile_restart_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        else ->
+            QuicFakeStatusContent(
+                label = stringResource(R.string.quic_fake_profile_ready_title),
+                body = stringResource(R.string.quic_fake_profile_ready_body),
+                tone = StatusIndicatorTone.Active,
             )
     }
 

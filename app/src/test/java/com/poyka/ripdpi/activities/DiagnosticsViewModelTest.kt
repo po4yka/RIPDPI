@@ -193,7 +193,7 @@ class DiagnosticsViewModelTest {
 
             val viewModel = DiagnosticsViewModel(manager)
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            viewModel.selectSection(DiagnosticsSection.Events)
+            viewModel.selectSection(DiagnosticsSection.Share)
             viewModel.selectProfile("custom")
             advanceUntilIdle()
 
@@ -412,6 +412,49 @@ class DiagnosticsViewModelTest {
             assertTrue(signature.any { it.label == "TLS record marker" && it.value == "extlen" })
             assertTrue(signature.any { it.label == "Split marker" && it.value == "endhost+8" })
             assertFalse(signature.any { it.label.startsWith("Fake TLS") })
+            collector.cancel()
+        }
+
+    @Test
+    fun `approaches detail humanizes quic fake profile`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-quic-fake",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "disabled",
+                            desyncMethod = "disorder",
+                            chainSummary = "udp: fake_burst(3)",
+                            protocolToggles = listOf("UDP"),
+                            tlsRecordSplitEnabled = false,
+                            quicFakeProfile = "realistic_initial",
+                            quicFakeHost = "video.example.test",
+                            routeGroup = "6",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-quic-fake")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(signature.any { it.label == "QUIC fake profile" && it.value == "Realistic Initial" })
+            assertTrue(signature.any { it.label == "QUIC fake host" && it.value == "video.example.test" })
             collector.cancel()
         }
 

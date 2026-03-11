@@ -10,7 +10,8 @@ use android_support::{
     HandleRegistry, JNI_VERSION,
 };
 use ciadpi_config::{
-    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep,
+    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv,
+    TcpChainStep,
     TcpChainStepKind, UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
     HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
     HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
@@ -28,6 +29,7 @@ const HOSTS_BLACKLIST: &str = "blacklist";
 const HOSTS_WHITELIST: &str = "whitelist";
 const FAKE_TLS_SNI_MODE_FIXED: &str = "fixed";
 const FAKE_TLS_SNI_MODE_RANDOMIZED: &str = "randomized";
+const QUIC_FAKE_PROFILE_DISABLED: &str = "disabled";
 
 static SESSIONS: once_cell::sync::Lazy<HandleRegistry<ProxySession>> = once_cell::sync::Lazy::new(HandleRegistry::new);
 static DIAGNOSTIC_SESSIONS: once_cell::sync::Lazy<HandleRegistry<MonitorSession>> =
@@ -186,6 +188,10 @@ struct ProxyUiConfig {
     quic_support_v1: bool,
     #[serde(default = "default_true")]
     quic_support_v2: bool,
+    #[serde(default = "default_quic_fake_profile")]
+    quic_fake_profile: String,
+    #[serde(default)]
+    quic_fake_host: String,
     #[serde(default)]
     host_autolearn_enabled: bool,
     #[serde(default = "default_host_autolearn_penalty_ttl_secs")]
@@ -204,6 +210,10 @@ fn default_true() -> bool {
 
 fn default_fake_tls_sni_mode() -> String {
     FAKE_TLS_SNI_MODE_FIXED.to_string()
+}
+
+fn default_quic_fake_profile() -> String {
+    QUIC_FAKE_PROFILE_DISABLED.to_string()
 }
 
 fn default_host_autolearn_penalty_ttl_secs() -> i64 {
@@ -1056,6 +1066,15 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniPr
     group.proto = (u32::from(payload.desync_http) * IS_HTTP)
         | (u32::from(payload.desync_https) * IS_HTTPS)
         | (u32::from(payload.desync_udp) * IS_UDP);
+    group.quic_fake_profile = parse_quic_fake_profile(&payload.quic_fake_profile)?;
+    group.quic_fake_host = {
+        let host = payload.quic_fake_host.trim();
+        if host.is_empty() {
+            None
+        } else {
+            ciadpi_config::normalize_quic_fake_host(host).ok()
+        }
+    };
     group.mod_http = (u32::from(payload.host_mixed_case) * MH_HMIX)
         | (u32::from(payload.domain_mixed_case) * MH_DMIX)
         | (u32::from(payload.host_remove_spaces) * MH_SPACE);
@@ -1205,6 +1224,15 @@ fn parse_quic_initial_mode(value: &str) -> Result<QuicInitialMode, JniProxyError
         "route" => Ok(QuicInitialMode::Route),
         "route_and_cache" => Ok(QuicInitialMode::RouteAndCache),
         _ => Err(JniProxyError::InvalidConfig(format!("Unknown quicInitialMode: {value}"))),
+    }
+}
+
+fn parse_quic_fake_profile(value: &str) -> Result<QuicFakeProfile, JniProxyError> {
+    match value.trim().to_lowercase().as_str() {
+        "disabled" | "" => Ok(QuicFakeProfile::Disabled),
+        "compat_default" => Ok(QuicFakeProfile::CompatDefault),
+        "realistic_initial" => Ok(QuicFakeProfile::RealisticInitial),
+        _ => Err(JniProxyError::InvalidConfig(format!("Unknown quicFakeProfile: {value}"))),
     }
 }
 
@@ -1494,6 +1522,13 @@ mod tests {
             ],
             any::<bool>(),
             any::<bool>(),
+            prop_oneof![
+                Just(QUIC_FAKE_PROFILE_DISABLED.to_string()),
+                Just("compat_default".to_string()),
+                Just("realistic_initial".to_string()),
+                lossy_string(24),
+            ],
+            lossy_string(64),
         );
         let autolearn = (
             any::<bool>(),
@@ -1517,7 +1552,7 @@ mod tests {
                     tls_record_split_at_sni,
                 ),
                 (hosts_mode, hosts, tcp_fast_open, udp_fake_count, drop_sack, fake_offset_marker, fake_offset),
-                (quic_initial_mode, quic_support_v1, quic_support_v2),
+                (quic_initial_mode, quic_support_v1, quic_support_v2, quic_fake_profile, quic_fake_host),
                 (host_autolearn_enabled, host_autolearn_penalty_ttl_secs, host_autolearn_max_hosts, host_autolearn_store_path),
             )| ProxyUiConfig {
                 ip,
@@ -1562,6 +1597,8 @@ mod tests {
                 quic_initial_mode,
                 quic_support_v1,
                 quic_support_v2,
+                quic_fake_profile,
+                quic_fake_host,
                 host_autolearn_enabled,
                 host_autolearn_penalty_ttl_secs,
                 host_autolearn_max_hosts,
@@ -1615,6 +1652,8 @@ mod tests {
             quic_initial_mode: Some("route".to_string()),
             quic_support_v1: false,
             quic_support_v2: true,
+            quic_fake_profile: "realistic_initial".to_string(),
+            quic_fake_host: "video.example.test".to_string(),
             host_autolearn_enabled: true,
             host_autolearn_penalty_ttl_secs: 3_600,
             host_autolearn_max_hosts: 128,
@@ -1627,6 +1666,8 @@ mod tests {
         assert_eq!(config.quic_initial_mode, QuicInitialMode::Route);
         assert!(!config.quic_support_v1);
         assert!(config.quic_support_v2);
+        assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::RealisticInitial);
+        assert_eq!(config.groups[0].quic_fake_host.as_deref(), Some("video.example.test"));
         assert_eq!(config.groups[0].fake_mod, FM_ORIG | FM_RAND | FM_DUPSID | FM_PADENCAP | FM_RNDSNI);
         assert_eq!(config.groups[0].fake_tls_size, 192);
         assert!(config.groups[0].fake_sni_list.is_empty());
@@ -1686,6 +1727,8 @@ mod tests {
             quic_initial_mode: Some("route_and_cache".to_string()),
             quic_support_v1: true,
             quic_support_v2: true,
+            quic_fake_profile: QUIC_FAKE_PROFILE_DISABLED.to_string(),
+            quic_fake_host: String::new(),
             host_autolearn_enabled: false,
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
@@ -1773,6 +1816,8 @@ mod tests {
             quic_initial_mode: Some("route_and_cache".to_string()),
             quic_support_v1: true,
             quic_support_v2: true,
+            quic_fake_profile: QUIC_FAKE_PROFILE_DISABLED.to_string(),
+            quic_fake_host: String::new(),
             host_autolearn_enabled: false,
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
@@ -1831,6 +1876,8 @@ mod tests {
         assert_eq!(config.quic_initial_mode, QuicInitialMode::RouteAndCache);
         assert!(config.quic_support_v1);
         assert!(config.quic_support_v2);
+        assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::Disabled);
+        assert_eq!(config.groups[0].quic_fake_host, None);
     }
 
     #[test]
@@ -1878,6 +1925,8 @@ mod tests {
             quic_initial_mode: Some("bogus".to_string()),
             quic_support_v1: true,
             quic_support_v2: true,
+            quic_fake_profile: QUIC_FAKE_PROFILE_DISABLED.to_string(),
+            quic_fake_host: String::new(),
             host_autolearn_enabled: false,
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
@@ -1886,6 +1935,122 @@ mod tests {
         .expect_err("unknown quic mode should be rejected");
 
         assert!(err.to_string().contains("Unknown quicInitialMode"));
+    }
+
+    #[test]
+    fn rejects_unknown_quic_fake_profile_in_ui_payload() {
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ProxyUiConfig {
+            ip: "127.0.0.1".to_string(),
+            port: 1080,
+            max_connections: 512,
+            buffer_size: 16384,
+            default_ttl: 0,
+            custom_ttl: false,
+            no_domain: false,
+            desync_http: true,
+            desync_https: true,
+            desync_udp: true,
+            desync_method: "disorder".to_string(),
+            split_marker: None,
+            tcp_chain_steps: Vec::new(),
+            split_position: 1,
+            split_at_host: false,
+            fake_ttl: 8,
+            fake_sni: "www.iana.org".to_string(),
+            fake_tls_use_original: false,
+            fake_tls_randomize: false,
+            fake_tls_dup_session_id: false,
+            fake_tls_pad_encap: false,
+            fake_tls_size: 0,
+            fake_tls_sni_mode: default_fake_tls_sni_mode(),
+            oob_char: b'a',
+            host_mixed_case: false,
+            domain_mixed_case: false,
+            host_remove_spaces: false,
+            tls_record_split: false,
+            tls_record_split_marker: None,
+            tls_record_split_position: 0,
+            tls_record_split_at_sni: false,
+            hosts_mode: HOSTS_DISABLE.to_string(),
+            hosts: None,
+            tcp_fast_open: false,
+            udp_fake_count: 1,
+            udp_chain_steps: Vec::new(),
+            drop_sack: false,
+            fake_offset_marker: None,
+            fake_offset: 0,
+            quic_initial_mode: Some("route_and_cache".to_string()),
+            quic_support_v1: true,
+            quic_support_v2: true,
+            quic_fake_profile: "bogus".to_string(),
+            quic_fake_host: String::new(),
+            host_autolearn_enabled: false,
+            host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+            host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+            host_autolearn_store_path: None,
+        }))
+        .expect_err("unknown quic fake profile should be rejected");
+
+        assert!(err.to_string().contains("Unknown quicFakeProfile"));
+    }
+
+    #[test]
+    fn invalid_quic_fake_host_normalizes_to_absent() {
+        let payload = ProxyConfigPayload::Ui(ProxyUiConfig {
+            ip: "127.0.0.1".to_string(),
+            port: 1080,
+            max_connections: 512,
+            buffer_size: 16384,
+            default_ttl: 0,
+            custom_ttl: false,
+            no_domain: false,
+            desync_http: true,
+            desync_https: true,
+            desync_udp: true,
+            desync_method: "disorder".to_string(),
+            split_marker: None,
+            tcp_chain_steps: Vec::new(),
+            split_position: 1,
+            split_at_host: false,
+            fake_ttl: 8,
+            fake_sni: "www.iana.org".to_string(),
+            fake_tls_use_original: false,
+            fake_tls_randomize: false,
+            fake_tls_dup_session_id: false,
+            fake_tls_pad_encap: false,
+            fake_tls_size: 0,
+            fake_tls_sni_mode: default_fake_tls_sni_mode(),
+            oob_char: b'a',
+            host_mixed_case: false,
+            domain_mixed_case: false,
+            host_remove_spaces: false,
+            tls_record_split: false,
+            tls_record_split_marker: None,
+            tls_record_split_position: 0,
+            tls_record_split_at_sni: false,
+            hosts_mode: HOSTS_DISABLE.to_string(),
+            hosts: None,
+            tcp_fast_open: false,
+            udp_fake_count: 1,
+            udp_chain_steps: Vec::new(),
+            drop_sack: false,
+            fake_offset_marker: None,
+            fake_offset: 0,
+            quic_initial_mode: Some("route_and_cache".to_string()),
+            quic_support_v1: true,
+            quic_support_v2: true,
+            quic_fake_profile: "realistic_initial".to_string(),
+            quic_fake_host: "127.0.0.1".to_string(),
+            host_autolearn_enabled: false,
+            host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+            host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+            host_autolearn_store_path: None,
+        });
+
+        let config = runtime_config_from_payload(payload).expect("ui config");
+
+        assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::RealisticInitial);
+        assert_eq!(config.groups[0].quic_fake_host, None);
     }
 
     #[test]
@@ -1940,6 +2105,8 @@ mod tests {
             quic_initial_mode: Some("route_and_cache".to_string()),
             quic_support_v1: true,
             quic_support_v2: true,
+            quic_fake_profile: QUIC_FAKE_PROFILE_DISABLED.to_string(),
+            quic_fake_host: String::new(),
             host_autolearn_enabled: true,
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
@@ -2352,6 +2519,8 @@ mod tests {
                 quic_initial_mode: Some("route_and_cache".to_string()),
                 quic_support_v1: true,
                 quic_support_v2: true,
+                quic_fake_profile: QUIC_FAKE_PROFILE_DISABLED.to_string(),
+                quic_fake_host: String::new(),
                 host_autolearn_enabled: false,
                 host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
                 host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,

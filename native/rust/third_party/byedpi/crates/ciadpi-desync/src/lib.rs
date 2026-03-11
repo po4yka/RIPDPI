@@ -1,12 +1,13 @@
 #![forbid(unsafe_code)]
 
 use ciadpi_config::{
-    DesyncGroup, OffsetBase, OffsetExpr, OffsetProto, TcpChainStep, TcpChainStepKind, UdpChainStepKind,
+    DesyncGroup, OffsetBase, OffsetExpr, OffsetProto, QuicFakeProfile, TcpChainStep, TcpChainStepKind, UdpChainStepKind,
     FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ciadpi_packets::{
+    build_realistic_quic_initial, default_fake_quic_compat,
     change_tls_sni_seeded_like_c, duplicate_tls_session_id_like_c, http_marker_info, is_http, is_tls_client_hello,
-    mod_http_like_c, padencap_tls_like_c, part_tls_like_c, randomize_tls_seeded_like_c,
+    mod_http_like_c, padencap_tls_like_c, parse_quic_initial, part_tls_like_c, randomize_tls_seeded_like_c,
     randomize_tls_sni_seeded_like_c, second_level_domain_span, tls_marker_info, tune_tls_padding_size_like_c,
     HttpMarkerInfo, OracleRng, TlsMarkerInfo, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, DEFAULT_FAKE_UDP, IS_HTTP, IS_HTTPS,
 };
@@ -571,7 +572,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8) -> Vec<Des
         actions.push(DesyncAction::AttachDropSack);
     }
     if !chain.is_empty() {
-        let fake = udp_fake_payload(group);
+        let fake = udp_fake_payload(group, payload);
         for step in chain {
             if !matches!(step.kind, UdpChainStepKind::FakeBurst) || step.count <= 0 {
                 continue;
@@ -612,7 +613,21 @@ fn split_tcp_chain(chain: &[TcpChainStep]) -> Result<(Vec<OffsetExpr>, Vec<TcpCh
     Ok((tls_records, send_steps))
 }
 
-fn udp_fake_payload(group: &DesyncGroup) -> Vec<u8> {
+fn udp_fake_payload(group: &DesyncGroup, payload: &[u8]) -> Vec<u8> {
+    if group.quic_fake_profile != QuicFakeProfile::Disabled {
+        if let Some(quic) = parse_quic_initial(payload) {
+            match group.quic_fake_profile {
+                QuicFakeProfile::Disabled => {}
+                QuicFakeProfile::CompatDefault => return default_fake_quic_compat(),
+                QuicFakeProfile::RealisticInitial => {
+                    if let Some(fake) = build_realistic_quic_initial(quic.version, group.quic_fake_host.as_deref()) {
+                        return fake;
+                    }
+                }
+            }
+        }
+    }
+
     let mut fake = group.fake_data.clone().unwrap_or_else(|| DEFAULT_FAKE_UDP.to_vec());
     if let Some(offset) = group.fake_offset {
         if let Some(pos) = offset.absolute_positive().filter(|pos| (*pos as usize) < fake.len()) {
@@ -627,7 +642,10 @@ fn udp_fake_payload(group: &DesyncGroup) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ciadpi_config::{DesyncMode, OffsetBase, PartSpec, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind};
+    use ciadpi_config::{
+        DesyncMode, OffsetBase, PartSpec, QuicFakeProfile, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+    };
+    use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V2_VERSION};
 
     fn split_expr(pos: i64) -> OffsetExpr {
         OffsetExpr::absolute(pos).with_repeat_skip(1, 0)
@@ -1008,6 +1026,47 @@ mod tests {
                 DesyncAction::SetTtl(64),
                 DesyncAction::Write(b"payload".to_vec()),
                 DesyncAction::DetachDropSack,
+            ]
+        );
+    }
+
+    #[test]
+    fn plan_udp_uses_generated_quic_fake_initial_when_profile_is_active() {
+        let mut group = DesyncGroup::new(0);
+        group.ttl = Some(7);
+        group.quic_fake_profile = QuicFakeProfile::RealisticInitial;
+        group.quic_fake_host = Some("video.example.test".to_string());
+        group.udp_chain = vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1 }];
+        let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("source.example.test")).expect("input quic");
+
+        let actions = plan_udp(&group, &payload, 64);
+        let DesyncAction::Write(fake_packet) = &actions[1] else {
+            panic!("expected first fake write");
+        };
+        let parsed = parse_quic_initial(fake_packet).expect("parse generated fake");
+
+        assert_eq!(parsed.version, QUIC_V2_VERSION);
+        assert_eq!(parsed.host(), b"video.example.test");
+        assert_eq!(actions.last(), Some(&DesyncAction::Write(payload)));
+    }
+
+    #[test]
+    fn plan_udp_falls_back_to_raw_fake_payload_for_non_quic_input() {
+        let mut group = DesyncGroup::new(0);
+        group.quic_fake_profile = QuicFakeProfile::CompatDefault;
+        group.udp_chain = vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1 }];
+        group.fake_data = Some(b"udp-fake".to_vec());
+
+        let actions = plan_udp(&group, b"payload", 64);
+
+        assert_eq!(
+            actions,
+            vec![
+                DesyncAction::SetTtl(8),
+                DesyncAction::Write(b"udp-fake".to_vec()),
+                DesyncAction::RestoreDefaultTtl,
+                DesyncAction::SetTtl(64),
+                DesyncAction::Write(b"payload".to_vec()),
             ]
         );
     }

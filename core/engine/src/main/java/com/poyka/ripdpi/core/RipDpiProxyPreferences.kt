@@ -7,7 +7,10 @@ import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
+import com.poyka.ripdpi.data.effectiveQuicFakeHost
+import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
+import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
@@ -23,6 +26,8 @@ import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
+import com.poyka.ripdpi.data.normalizeQuicFakeHost
+import com.poyka.ripdpi.data.normalizeQuicFakeProfile
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.proto.AppSettings
@@ -98,6 +103,8 @@ class RipDpiProxyUIPreferences(
     quicInitialMode: String? = null,
     quicSupportV1: Boolean? = null,
     quicSupportV2: Boolean? = null,
+    quicFakeProfile: String? = null,
+    quicFakeHost: String? = null,
     hostAutolearnEnabled: Boolean? = null,
     hostAutolearnPenaltyTtlHours: Int? = null,
     hostAutolearnMaxHosts: Int? = null,
@@ -157,6 +164,8 @@ class RipDpiProxyUIPreferences(
     val quicInitialMode: String = normalizeQuicInitialMode(quicInitialMode.orEmpty().ifBlank { QuicInitialModeRouteAndCache })
     val quicSupportV1: Boolean = quicSupportV1 ?: true
     val quicSupportV2: Boolean = quicSupportV2 ?: true
+    val quicFakeProfile: String = normalizeQuicFakeProfile(quicFakeProfile.orEmpty().ifBlank { QuicFakeProfileDisabled })
+    val quicFakeHost: String = normalizeQuicFakeHost(quicFakeHost.orEmpty())
     val hostAutolearnEnabled: Boolean = hostAutolearnEnabled ?: false
     val hostAutolearnPenaltyTtlHours: Int =
         normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours ?: DefaultHostAutolearnPenaltyTtlHours)
@@ -219,6 +228,8 @@ class RipDpiProxyUIPreferences(
         quicInitialMode = settings.effectiveQuicInitialMode(),
         quicSupportV1 = settings.effectiveQuicSupportV1(),
         quicSupportV2 = settings.effectiveQuicSupportV2(),
+        quicFakeProfile = settings.effectiveQuicFakeProfile(),
+        quicFakeHost = settings.effectiveQuicFakeHost(),
         hostAutolearnEnabled = settings.hostAutolearnEnabled,
         hostAutolearnPenaltyTtlHours = settings.hostAutolearnPenaltyTtlHours,
         hostAutolearnMaxHosts = settings.hostAutolearnMaxHosts,
@@ -274,6 +285,8 @@ class RipDpiProxyUIPreferences(
                 quicInitialMode = quicInitialMode,
                 quicSupportV1 = quicSupportV1,
                 quicSupportV2 = quicSupportV2,
+                quicFakeProfile = quicFakeProfile,
+                quicFakeHost = quicFakeHost,
                 hostAutolearnEnabled = hostAutolearnEnabled,
                 hostAutolearnPenaltyTtlSecs = hostAutolearnPenaltyTtlHours * 60 * 60,
                 hostAutolearnMaxHosts = hostAutolearnMaxHosts,
@@ -403,6 +416,8 @@ private sealed interface NativeProxyConfig {
         val quicInitialMode: String,
         val quicSupportV1: Boolean,
         val quicSupportV2: Boolean,
+        val quicFakeProfile: String,
+        val quicFakeHost: String,
         val hostAutolearnEnabled: Boolean,
         val hostAutolearnPenaltyTtlSecs: Int,
         val hostAutolearnMaxHosts: Int,
