@@ -39,6 +39,7 @@ import com.poyka.ripdpi.ui.screens.customization.AboutRoute
 import com.poyka.ripdpi.ui.screens.customization.AppCustomizationRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
+import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
@@ -243,6 +244,11 @@ fun RipDpiNavHost(
                             restoreState = true
                         }
                     },
+                    onOpenHistory = {
+                        navController.navigate(Route.History.route) {
+                            launchSingleTop = true
+                        }
+                    },
                     viewModel = mainViewModel,
                 )
             }
@@ -259,9 +265,19 @@ fun RipDpiNavHost(
                     onSaveArchive = onSaveDiagnosticsArchive,
                     onShareSummary = onShareDiagnosticsSummary,
                     onSaveLogs = onSaveLogs,
+                    onOpenHistory = {
+                        navController.navigate(Route.History.route) {
+                            launchSingleTop = true
+                        }
+                    },
                     initialSection = diagnosticsInitialSection.value,
                     onInitialSectionHandled = { diagnosticsInitialSection.value = null },
                     viewModel = diagnosticsViewModel,
+                )
+            }
+            composable(Route.History.route) {
+                HistoryRoute(
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(Route.ModeEditor.route) {

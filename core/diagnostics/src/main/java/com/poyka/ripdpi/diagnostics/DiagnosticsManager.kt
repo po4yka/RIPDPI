@@ -4,7 +4,6 @@ import android.content.Context
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -123,7 +122,6 @@ class DefaultDiagnosticsManager
     override val exports: Flow<List<ExportRecordEntity>> = historyRepository.observeExportRecords()
 
     private var activeDiagnosticsBridge: NetworkDiagnosticsBridge? = null
-    private var activeUsageSession: BypassUsageSessionEntity? = null
     @Volatile
     private var initialized = false
 
@@ -134,7 +132,6 @@ class DefaultDiagnosticsManager
         initialized = true
         cleanupArchiveCache()
         importBundledProfiles()
-        startPassiveMonitor()
     }
 
     override suspend fun startScan(pathMode: ScanPathMode): String {
@@ -146,11 +143,7 @@ class DefaultDiagnosticsManager
         val serviceMode = serviceStateStore.status.value.second.name
         val contextSnapshot = diagnosticsContextProvider.captureContext()
         val approachSnapshot =
-            createApproachSnapshot(
-                settings = settings,
-                profile = profile,
-                context = contextSnapshot,
-            )
+            createStoredApproachSnapshot(json, settings, profile, contextSnapshot)
         historyRepository.upsertScanSession(
             ScanSessionEntity(
                 id = sessionId,
@@ -651,163 +644,6 @@ class DefaultDiagnosticsManager
         }
     }
 
-    private fun startPassiveMonitor() {
-        scope.launch {
-            while (true) {
-                val settings = appSettingsRepository.snapshot()
-                val status = serviceStateStore.status.value
-                val serviceTelemetry = serviceStateStore.telemetry.value
-                val runtimeSnapshot =
-                    if (status.first.name == "Running") {
-                        runCatching { networkMetadataProvider.captureSnapshot() }.getOrNull()
-                    } else {
-                        null
-                    }
-                syncUsageSession(
-                    settings = settings,
-                    serviceStatus = status.first,
-                    serviceMode = status.second,
-                    serviceTelemetry = serviceTelemetry,
-                    networkType = runtimeSnapshot?.transport ?: "unknown",
-                )
-                if (settings.diagnosticsMonitorEnabled && status.first.name == "Running") {
-                    val snapshot = runtimeSnapshot ?: networkMetadataProvider.captureSnapshot()
-                    val tunnelStats = serviceTelemetry.tunnelStats
-                    historyRepository.upsertSnapshot(
-                        NetworkSnapshotEntity(
-                            id = UUID.randomUUID().toString(),
-                            sessionId = null,
-                            snapshotKind = "passive",
-                            payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), snapshot),
-                            capturedAt = snapshot.capturedAt,
-                        ),
-                    )
-                    historyRepository.upsertContextSnapshot(
-                        DiagnosticContextEntity(
-                            id = UUID.randomUUID().toString(),
-                            sessionId = null,
-                            contextKind = "passive",
-                            payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), diagnosticsContextProvider.captureContext()),
-                            capturedAt = snapshot.capturedAt,
-                        ),
-                    )
-                    historyRepository.insertTelemetrySample(
-                        TelemetrySampleEntity(
-                            id = UUID.randomUUID().toString(),
-                            sessionId = null,
-                            activeMode = serviceStateStore.status.value.second.name,
-                            connectionState = serviceStateStore.status.value.first.name,
-                            networkType = snapshot.transport,
-                            publicIp = snapshot.publicIp,
-                            txPackets = tunnelStats.txPackets,
-                            txBytes = tunnelStats.txBytes,
-                            rxPackets = tunnelStats.rxPackets,
-                            rxBytes = tunnelStats.rxBytes,
-                            createdAt = snapshot.capturedAt,
-                        ),
-                    )
-                    persistServiceNativeEvents(serviceTelemetry)
-                    historyRepository.trimOldData(settings.diagnosticsHistoryRetentionDays)
-                }
-                delay(settingsDelaySeconds(settings = appSettingsRepository.snapshot()) * 1_000L)
-            }
-        }
-    }
-
-    private suspend fun syncUsageSession(
-        settings: com.poyka.ripdpi.proto.AppSettings,
-        serviceStatus: com.poyka.ripdpi.data.AppStatus,
-        serviceMode: Mode,
-        serviceTelemetry: com.poyka.ripdpi.services.ServiceTelemetrySnapshot,
-        networkType: String,
-    ) {
-        if (serviceStatus == com.poyka.ripdpi.data.AppStatus.Running) {
-            if (activeUsageSession == null) {
-                activeUsageSession = createUsageSession(settings = settings, serviceMode = serviceMode)
-                activeUsageSession?.let { historyRepository.upsertBypassUsageSession(it) }
-            }
-            updateActiveUsageSession(
-                serviceMode = serviceMode,
-                serviceTelemetry = serviceTelemetry,
-                networkType = networkType,
-            )
-        } else if (activeUsageSession != null) {
-            finalizeActiveUsageSession(serviceTelemetry = serviceTelemetry)
-        }
-    }
-
-    private suspend fun createUsageSession(
-        settings: com.poyka.ripdpi.proto.AppSettings,
-        serviceMode: Mode,
-    ): BypassUsageSessionEntity {
-        val profile =
-            settings.diagnosticsActiveProfileId
-                .takeIf { it.isNotBlank() }
-                ?.let { historyRepository.getProfile(it) }
-        val context = diagnosticsContextProvider.captureContext()
-        val approach = createApproachSnapshot(settings = settings, profile = profile, context = context)
-        return BypassUsageSessionEntity(
-            id = UUID.randomUUID().toString(),
-            startedAt = System.currentTimeMillis(),
-            finishedAt = null,
-            serviceMode = serviceMode.name,
-            approachProfileId = approach.profileId,
-            approachProfileName = approach.profileName,
-            strategyId = approach.strategyId,
-            strategyLabel = approach.strategyLabel,
-            strategyJson = approach.strategyJson,
-            networkType = "unknown",
-            txBytes = 0L,
-            rxBytes = 0L,
-            totalErrors = 0L,
-            routeChanges = 0L,
-            restartCount = context.service.restartCount,
-            endedReason = null,
-        )
-    }
-
-    private suspend fun updateActiveUsageSession(
-        serviceMode: Mode,
-        serviceTelemetry: com.poyka.ripdpi.services.ServiceTelemetrySnapshot,
-        networkType: String,
-    ) {
-        val current = activeUsageSession ?: return
-        val updated =
-            current.copy(
-                serviceMode = serviceMode.name,
-                networkType = networkType,
-                txBytes = serviceTelemetry.tunnelStats.txBytes,
-                rxBytes = serviceTelemetry.tunnelStats.rxBytes,
-                totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
-                routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
-                restartCount = serviceTelemetry.restartCount,
-            )
-        activeUsageSession = updated
-        historyRepository.upsertBypassUsageSession(updated)
-    }
-
-    private suspend fun finalizeActiveUsageSession(serviceTelemetry: com.poyka.ripdpi.services.ServiceTelemetrySnapshot) {
-        val current = activeUsageSession ?: return
-        val endedReason =
-            serviceTelemetry.lastFailureSender?.senderName?.let { "failed:$it" }
-                ?: "stopped"
-        historyRepository.upsertBypassUsageSession(
-            current.copy(
-                finishedAt = System.currentTimeMillis(),
-                txBytes = serviceTelemetry.tunnelStats.txBytes,
-                rxBytes = serviceTelemetry.tunnelStats.rxBytes,
-                totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
-                routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
-                restartCount = serviceTelemetry.restartCount,
-                endedReason = endedReason,
-            ),
-        )
-        activeUsageSession = null
-    }
-
-    private fun settingsDelaySeconds(settings: com.poyka.ripdpi.proto.AppSettings): Int =
-        settings.diagnosticsSampleIntervalSeconds.coerceIn(5, 300)
-
     private fun ensureArchiveDirectory(): File =
         File(context.cacheDir, DiagnosticsArchiveDirectory).apply {
             mkdirs()
@@ -1088,27 +924,6 @@ class DefaultDiagnosticsManager
             }
     }
 
-    private fun createApproachSnapshot(
-        settings: com.poyka.ripdpi.proto.AppSettings,
-        profile: DiagnosticProfileEntity?,
-        context: DiagnosticContextModel,
-    ): ApproachSnapshot {
-        val signature =
-            deriveBypassStrategySignature(
-                settings = settings,
-                routeGroup = context.service.routeGroup,
-                modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }),
-            )
-        val strategyJson = json.encodeToString(BypassStrategySignature.serializer(), signature)
-        return ApproachSnapshot(
-            profileId = profile?.id ?: settings.diagnosticsActiveProfileId.takeIf { it.isNotBlank() },
-            profileName = profile?.name ?: context.service.selectedProfileName,
-            strategyId = signature.stableId(),
-            strategyLabel = signature.displayLabel(),
-            strategyJson = strategyJson,
-        )
-    }
-
     private fun decodeScanReport(payload: String?): ScanReport? =
         payload?.takeIf { it.isNotBlank() }?.let {
             runCatching { json.decodeFromString(ScanReport.serializer(), it) }.getOrNull()
@@ -1255,14 +1070,6 @@ class DefaultDiagnosticsManager
         )
     }
 }
-
-private data class ApproachSnapshot(
-    val profileId: String?,
-    val profileName: String,
-    val strategyId: String,
-    val strategyLabel: String,
-    val strategyJson: String,
-)
 
 @Serializable
 internal data class DiagnosticsArchivePayload(

@@ -77,6 +77,7 @@ fun HomeRoute(
     modifier: Modifier = Modifier,
     onStartConfiguredMode: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    onOpenHistory: () -> Unit,
     viewModel: MainViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -92,6 +93,7 @@ fun HomeRoute(
             }
         },
         onOpenDiagnostics = onOpenDiagnostics,
+        onOpenHistory = onOpenHistory,
     )
 }
 
@@ -100,6 +102,7 @@ fun HomeScreen(
     uiState: MainUiState,
     onToggleConnection: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -169,6 +172,7 @@ fun HomeScreen(
                             onOpenDiagnostics = onOpenDiagnostics,
                         )
                     }
+                    HomeHistoryCard(onOpenHistory = onOpenHistory)
                 }
                 Column(
                     modifier = Modifier.weight(0.92f),
@@ -194,6 +198,7 @@ fun HomeScreen(
                     onOpenDiagnostics = onOpenDiagnostics,
                 )
             }
+            HomeHistoryCard(onOpenHistory = onOpenHistory)
 
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 Text(
@@ -243,6 +248,39 @@ private fun HomeApproachCard(
         Spacer(modifier = Modifier.height(spacing.sm))
         Text(
             text = stringResource(R.string.home_approach_cta),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+    }
+}
+
+@Composable
+private fun HomeHistoryCard(onOpenHistory: () -> Unit) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    RipDpiCard(
+        onClick = onOpenHistory,
+        variant = RipDpiCardVariant.Outlined,
+    ) {
+        Text(
+            text = stringResource(R.string.history_title),
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = colors.mutedForeground,
+        )
+        Text(
+            text = stringResource(R.string.home_history_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Text(
+            text = stringResource(R.string.home_history_body),
+            style = RipDpiThemeTokens.type.body,
+            color = colors.foreground,
+        )
+        Spacer(modifier = Modifier.height(spacing.sm))
+        Text(
+            text = stringResource(R.string.home_history_cta),
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,
         )
@@ -822,6 +860,7 @@ private fun HomeScreenDisconnectedPreview() {
             uiState = MainUiState(),
             onToggleConnection = {},
             onOpenDiagnostics = {},
+            onOpenHistory = {},
         )
     }
 }
@@ -846,6 +885,7 @@ private fun HomeScreenConnectedPreview() {
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
+            onOpenHistory = {},
         )
     }
 }
@@ -866,6 +906,7 @@ private fun HomeScreenErrorPreview() {
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
+            onOpenHistory = {},
         )
     }
 }

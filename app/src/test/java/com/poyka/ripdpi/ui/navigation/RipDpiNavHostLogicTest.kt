@@ -43,4 +43,10 @@ class RipDpiNavHostLogicTest {
             ),
         )
     }
+
+    @Test
+    fun `history route stays off the bottom navigation`() {
+        assertTrue(Route.all.contains(Route.History))
+        assertFalse(Route.topLevel.contains(Route.History))
+    }
 }
