@@ -459,6 +459,48 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `approaches detail humanizes compatibility quic fake profile without host`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-quic-compat",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "disabled",
+                            desyncMethod = "disorder",
+                            chainSummary = "udp: fake_burst(2)",
+                            protocolToggles = listOf("UDP"),
+                            tlsRecordSplitEnabled = false,
+                            quicFakeProfile = "compat_default",
+                            routeGroup = "2",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-quic-compat")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(signature.any { it.label == "QUIC fake profile" && it.value == "Zapret compatibility" })
+            assertFalse(signature.any { it.label == "QUIC fake host" })
+            collector.cancel()
+        }
+
+    @Test
     fun `snapshot detail shows wifi and cellular transport fields`() =
         runTest {
             val wifiDetail =

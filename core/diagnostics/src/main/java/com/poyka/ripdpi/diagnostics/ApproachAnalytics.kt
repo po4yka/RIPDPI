@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
+import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.TcpChainStepKind
@@ -14,7 +15,7 @@ import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.hasCustomFakeTlsProfile
 import com.poyka.ripdpi.data.legacyDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
-import com.poyka.ripdpi.data.tlsRecTcpChainStep
+import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -115,7 +116,7 @@ fun deriveBypassStrategySignature(
     val tcpSteps = settings.effectiveTcpChainSteps()
     val udpSteps = settings.effectiveUdpChainSteps()
     val primaryTcpStep = primaryTcpChainStep(tcpSteps)
-    val tlsRecStep = tlsRecTcpChainStep(tcpSteps)
+    val tlsRecStep = tlsPreludeTcpChainStep(tcpSteps)
     val protocols =
         buildList {
             if (settings.desyncHttp) add("HTTP")
@@ -158,7 +159,10 @@ fun deriveBypassStrategySignature(
         fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
         fakeTlsSize = settings.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
         quicFakeProfile = quicFakeProfile.takeIf { quicFakeProfileActive },
-        quicFakeHost = settings.effectiveQuicFakeHost().takeIf { quicFakeProfileActive && it.isNotBlank() },
+        quicFakeHost =
+            settings
+                .effectiveQuicFakeHost()
+                .takeIf { quicFakeProfileActive && quicFakeProfile == QuicFakeProfileRealisticInitial && it.isNotBlank() },
         fakeOffsetMarker =
             settings
                 .effectiveFakeOffsetMarker()

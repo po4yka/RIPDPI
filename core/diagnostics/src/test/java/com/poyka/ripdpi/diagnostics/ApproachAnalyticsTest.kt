@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
+import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.StrategyTcpStep
@@ -139,5 +140,46 @@ class ApproachAnalyticsTest {
 
         assertEquals(QuicFakeProfileRealisticInitial, signature.quicFakeProfile)
         assertEquals("video.example.test", signature.quicFakeHost)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature omits quic fake host for compatibility profile`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .setUdpFakeCount(2)
+                .setQuicFakeProfile(QuicFakeProfileCompatDefault)
+                .setQuicFakeHost("video.example.test")
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "3")
+
+        assertEquals(QuicFakeProfileCompatDefault, signature.quicFakeProfile)
+        assertNull(signature.quicFakeHost)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature omits quic fake profile in command line mode`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setEnableCmdSettings(true)
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .setUdpFakeCount(2)
+                .setQuicFakeProfile(QuicFakeProfileRealisticInitial)
+                .setQuicFakeHost("video.example.test")
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "7")
+
+        assertNull(signature.quicFakeProfile)
+        assertNull(signature.quicFakeHost)
     }
 }
