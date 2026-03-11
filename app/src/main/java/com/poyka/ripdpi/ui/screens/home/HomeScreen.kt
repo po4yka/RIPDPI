@@ -306,16 +306,22 @@ private fun HomeConnectionButton(
     val type = RipDpiThemeTokens.type
     val scheme = MaterialTheme.colorScheme
     val homeChrome = rememberHomeChromeMetrics()
-    val infiniteTransition = rememberInfiniteTransition()
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.96f,
-        targetValue = 1.04f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = 1_100, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-    )
+    val buttonScale =
+        if (state == ConnectionState.Connecting) {
+            val infiniteTransition = rememberInfiniteTransition()
+            val pulseScale by infiniteTransition.animateFloat(
+                initialValue = 0.96f,
+                targetValue = 1.04f,
+                animationSpec =
+                    infiniteRepeatable(
+                        animation = tween(durationMillis = 1_100, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
+            )
+            pulseScale
+        } else {
+            1f
+        }
 
     val containerColor =
         when (state) {
@@ -354,7 +360,6 @@ private fun HomeConnectionButton(
 
             ConnectionState.Error -> colors.destructive
         }
-    val buttonScale = if (state == ConnectionState.Connecting) pulseScale else 1f
     val icon =
         when (state) {
             ConnectionState.Connected -> RipDpiIcons.Connected

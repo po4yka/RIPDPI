@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.ktlint) apply false
+    alias(libs.plugins.roborazzi) apply false
 }
 
 tasks.register("staticAnalysis") {
@@ -18,4 +19,16 @@ tasks.register("staticAnalysis") {
         subprojects.flatMap { it.tasks.matching { t -> t.name == "lintDebug" } },
         subprojects.flatMap { it.tasks.matching { t -> t.name == "ktlintCheck" } },
     )
+}
+
+tasks.register("recordScreenshots") {
+    group = "verification"
+    description = "Records Roborazzi screenshot baselines for the app module"
+    dependsOn(":app:recordRoborazziDebug")
+}
+
+tasks.register("verifyScreenshots") {
+    group = "verification"
+    description = "Verifies Roborazzi screenshot baselines for the app module"
+    dependsOn(":app:verifyRoborazziDebug")
 }

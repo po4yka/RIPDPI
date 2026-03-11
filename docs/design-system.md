@@ -78,3 +78,20 @@ Reusable primitives must not override typography inline for branding. If a scree
 - Do not import raw Material icons into screens or components; add to `RipDpiIcons` first.
 - Do not add feature-local geometry to theme tokens.
 - Do not introduce a new screen scaffold without reusing an existing scaffold or documenting the exception here.
+
+## Screenshot Testing
+
+Roborazzi screenshot baselines live under `app/src/test/screenshots`.
+
+- Record baselines with `./gradlew :app:recordRoborazziDebug`
+- Verify baselines with `./gradlew :app:verifyRoborazziDebug`
+- Root shortcuts are available as `./gradlew recordScreenshots` and `./gradlew verifyScreenshots`
+
+The first curated suite covers:
+
+- `RipDpiDesignSystemScreenshotCatalog` in compact, dark-medium, and large-font variants
+- `RipDpiScreenPreviewCatalog` scenes for home, settings, and intro/auth
+
+The screenshot catalog intentionally excludes continuously animated or focus-driven samples such as
+pressed states and blinking text cursors. Those remain available in the richer preview catalog for
+manual inspection.
