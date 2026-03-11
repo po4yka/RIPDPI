@@ -72,7 +72,8 @@ extern "C" fn handle_signal(_signal: libc::c_int) {
 #[cfg(unix)]
 fn install_signal_handlers() -> io::Result<()> {
     for signal in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
-        let prev = unsafe { libc::signal(signal, handle_signal as libc::sighandler_t) };
+        let handler = handle_signal as *const () as libc::sighandler_t;
+        let prev = unsafe { libc::signal(signal, handler) };
         if prev == libc::SIG_ERR {
             return Err(io::Error::last_os_error());
         }
