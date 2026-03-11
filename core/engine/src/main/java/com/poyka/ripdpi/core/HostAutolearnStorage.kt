@@ -11,6 +11,8 @@ fun resolveHostAutolearnStoreFile(context: Context): File =
 
 fun resolveHostAutolearnStorePath(context: Context): String = resolveHostAutolearnStoreFile(context).absolutePath
 
+fun hasHostAutolearnStore(context: Context): Boolean = resolveHostAutolearnStoreFile(context).exists()
+
 fun clearHostAutolearnStore(context: Context): Boolean {
     val file = resolveHostAutolearnStoreFile(context)
     return !file.exists() || file.delete()
