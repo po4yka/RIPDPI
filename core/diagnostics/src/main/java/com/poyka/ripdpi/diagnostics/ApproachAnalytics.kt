@@ -162,7 +162,12 @@ fun deriveBypassStrategySignature(
             listOf("NONE")
         }
     val desyncMethod = legacyDesyncMethod(tcpSteps).ifEmpty { "none" }
-    val hasFakeStep = tcpSteps.any { step -> step.kind == TcpChainStepKind.Fake }
+    val hasFakeStep =
+        tcpSteps.any { step ->
+            step.kind == TcpChainStepKind.Fake ||
+                step.kind == TcpChainStepKind.FakeSplit ||
+                step.kind == TcpChainStepKind.FakeDisorder
+        }
     val fakeTlsProfileActive = hasFakeStep && settings.desyncHttps && settings.hasCustomFakeTlsProfile()
     val commandLineRawFakePayload = settings.enableCmdSettings && hasCommandLineRawFakePayload(settings.cmdArgs)
     val quicFakeProfile = settings.effectiveQuicFakeProfile()
@@ -261,7 +266,12 @@ fun deriveBypassStrategySignature(
         }.ifEmpty {
             listOf("NONE")
         }
-    val hasFakeStep = tcpSteps.any { step -> step.kind == TcpChainStepKind.Fake }
+    val hasFakeStep =
+        tcpSteps.any { step ->
+            step.kind == TcpChainStepKind.Fake ||
+                step.kind == TcpChainStepKind.FakeSplit ||
+                step.kind == TcpChainStepKind.FakeDisorder
+        }
     val hasCustomFakeTlsProfile =
         preferences.fakeTlsUseOriginal ||
             preferences.fakeTlsRandomize ||

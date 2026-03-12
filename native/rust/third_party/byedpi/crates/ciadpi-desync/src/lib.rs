@@ -320,6 +320,23 @@ pub fn build_hostfake_bytes(real_host: &[u8], template: Option<&str>, seed: u32)
     output
 }
 
+pub fn build_fake_region_bytes(fake: &FakePacketPlan, stream_offset: usize, len: usize) -> Vec<u8> {
+    if len == 0 {
+        return Vec::new();
+    }
+    let stream = fake.bytes.get(fake.fake_offset..).unwrap_or(&[]);
+    if stream.is_empty() {
+        return vec![0; len];
+    }
+
+    (0..len)
+        .map(|index| {
+            let offset = (stream_offset + index) % stream.len();
+            stream[offset]
+        })
+        .collect()
+}
+
 fn push_split_actions(actions: &mut Vec<DesyncAction>, bytes: Vec<u8>) {
     actions.push(DesyncAction::Write(bytes));
     actions.push(DesyncAction::AwaitWritable);
@@ -883,6 +900,21 @@ pub fn plan_tcp(
                     fake_ttl,
                 );
             }
+            TcpChainStepKind::FakeSplit => {
+                if pos <= lp || pos >= tampered.bytes.len() as i64 {
+                    planned_kind = TcpChainStepKind::Split;
+                }
+                push_split_actions(&mut actions, chunk);
+            }
+            TcpChainStepKind::FakeDisorder => {
+                if pos <= lp || pos >= tampered.bytes.len() as i64 {
+                    planned_kind = TcpChainStepKind::Disorder;
+                }
+                actions.push(DesyncAction::SetTtl(1));
+                actions.push(DesyncAction::Write(chunk));
+                actions.push(DesyncAction::AwaitWritable);
+                actions.push(DesyncAction::RestoreDefaultTtl);
+            }
             TcpChainStepKind::HostFake => {
                 let Some(span) = resolve_hostfake_span(&step, &tampered.bytes, lp as usize, pos as usize, seed) else {
                     planned_kind = TcpChainStepKind::Split;
@@ -977,7 +1009,7 @@ fn split_tcp_chain(chain: &[TcpChainStep]) -> Result<(Vec<TcpChainStep>, Vec<Tcp
     let mut send_steps = Vec::new();
     let mut saw_send_step = false;
 
-    for step in chain {
+    for (index, step) in chain.iter().enumerate() {
         if step.kind.is_tls_prelude() {
             if saw_send_step {
                 return Err(DesyncError);
@@ -985,6 +1017,11 @@ fn split_tcp_chain(chain: &[TcpChainStep]) -> Result<(Vec<TcpChainStep>, Vec<Tcp
             prelude_steps.push(step.clone());
         } else {
             saw_send_step = true;
+            if matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
+                && index + 1 != chain.len()
+            {
+                return Err(DesyncError);
+            }
             send_steps.push(step.clone());
         }
     }
@@ -1322,6 +1359,142 @@ mod tests {
                 DesyncAction::SetTtl(32),
                 DesyncAction::Write(b"o world".to_vec()),
             ]
+        );
+    }
+
+    #[test]
+    fn build_fake_region_bytes_repeats_fake_stream_from_offset() {
+        let fake = FakePacketPlan {
+            bytes: b"ABCDEFG".to_vec(),
+            fake_offset: 2,
+            proto: ProtoInfo::default(),
+        };
+
+        assert_eq!(build_fake_region_bytes(&fake, 0, 6), b"CDEFGC".to_vec());
+        assert_eq!(build_fake_region_bytes(&fake, 3, 5), b"FGCDE".to_vec());
+        assert_eq!(build_fake_region_bytes(&fake, 0, 0), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn build_fake_region_bytes_falls_back_to_zeroes_when_fake_stream_is_empty() {
+        let fake = FakePacketPlan {
+            bytes: b"ABC".to_vec(),
+            fake_offset: 3,
+            proto: ProtoInfo::default(),
+        };
+
+        assert_eq!(build_fake_region_bytes(&fake, 7, 4), vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn plan_tcp_fakedsplit_keeps_fake_step_when_split_is_valid() {
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeSplit, split_expr(4))];
+        let payload = b"abcdefgh";
+
+        let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakedsplit tcp");
+
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 4 }]);
+        assert_eq!(
+            plan.actions,
+            vec![
+                DesyncAction::Write(b"abcd".to_vec()),
+                DesyncAction::AwaitWritable,
+                DesyncAction::Write(b"efgh".to_vec()),
+            ]
+        );
+    }
+
+    #[test]
+    fn plan_tcp_fakedsplit_degrades_to_split_when_second_region_is_empty() {
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeSplit, split_expr(8))];
+        let payload = b"abcdefgh";
+
+        let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakedsplit tcp");
+
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 8 }]);
+    }
+
+    #[test]
+    fn plan_tcp_fakeddisorder_keeps_fake_step_when_split_is_valid() {
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeDisorder, split_expr(3))];
+        let payload = b"abcdef";
+
+        let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakeddisorder tcp");
+
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 3 }]);
+        assert_eq!(
+            plan.actions,
+            vec![
+                DesyncAction::SetTtl(1),
+                DesyncAction::Write(b"abc".to_vec()),
+                DesyncAction::AwaitWritable,
+                DesyncAction::RestoreDefaultTtl,
+                DesyncAction::Write(b"def".to_vec()),
+            ]
+        );
+    }
+
+    #[test]
+    fn plan_tcp_fakeddisorder_degrades_to_disorder_when_second_region_is_empty() {
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeDisorder, split_expr(6))];
+        let payload = b"abcdef";
+
+        let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakeddisorder tcp");
+
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Disorder, start: 0, end: 6 }]);
+    }
+
+    #[test]
+    fn plan_tcp_fake_approx_steps_support_adaptive_markers() {
+        let markers = http_marker_info(DEFAULT_FAKE_HTTP).expect("http markers");
+        let mut split_group = DesyncGroup::new(0);
+        split_group.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::FakeSplit, OffsetExpr::adaptive(OffsetBase::AutoHost))];
+        let mut disorder_group = DesyncGroup::new(0);
+        disorder_group.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::FakeDisorder, OffsetExpr::adaptive(OffsetBase::AutoHost))];
+
+        let split_plan = plan_tcp(
+            &split_group,
+            DEFAULT_FAKE_HTTP,
+            7,
+            64,
+            tcp_context_with_hint(
+                DEFAULT_FAKE_HTTP,
+                TcpSegmentHint {
+                    snd_mss: None,
+                    advmss: None,
+                    pmtu: Some(markers.host_start as i64 + 40),
+                    ip_header_overhead: 40,
+                },
+            ),
+        )
+        .expect("adaptive fakedsplit");
+        let disorder_plan = plan_tcp(
+            &disorder_group,
+            DEFAULT_FAKE_HTTP,
+            7,
+            64,
+            tcp_context_with_hint(
+                DEFAULT_FAKE_HTTP,
+                TcpSegmentHint {
+                    snd_mss: None,
+                    advmss: None,
+                    pmtu: Some(markers.host_start as i64 + 40),
+                    ip_header_overhead: 40,
+                },
+            ),
+        )
+        .expect("adaptive fakeddisorder");
+
+        assert_eq!(split_plan.steps[0], PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: markers.host_start as i64 });
+        assert_eq!(
+            disorder_plan.steps[0],
+            PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: markers.host_start as i64 },
         );
     }
 
