@@ -3,6 +3,9 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
+import com.poyka.ripdpi.data.displayLabel
 import com.poyka.ripdpi.data.formatOffsetExpressionLabel
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -10,8 +13,11 @@ import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.diagnostics.decodeSummary
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
@@ -32,6 +38,10 @@ import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
+import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
+import com.poyka.ripdpi.services.ActiveConnectionPolicy
+import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
+import com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -49,6 +59,55 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+
+private fun defaultRememberedNetworkPolicyStore(): RememberedNetworkPolicyStore {
+    val policies = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
+    return object : RememberedNetworkPolicyStore {
+        override fun observePolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> = policies
+
+        override suspend fun findValidatedMatch(
+            fingerprintHash: String,
+            mode: Mode,
+            now: Long,
+        ): RememberedNetworkPolicyEntity? = null
+
+        override suspend fun upsertObservedPolicy(
+            policy: RememberedNetworkPolicyJson,
+            source: String,
+            now: Long,
+        ): RememberedNetworkPolicyEntity =
+            error("Default DiagnosticsViewModel remembered network store does not support persistence")
+
+        override suspend fun rememberValidatedPolicy(
+            policy: RememberedNetworkPolicyJson,
+            source: String,
+            now: Long,
+        ): RememberedNetworkPolicyEntity =
+            error("Default DiagnosticsViewModel remembered network store does not support persistence")
+
+        override suspend fun recordApplied(
+            policy: RememberedNetworkPolicyEntity,
+            appliedAt: Long,
+        ): RememberedNetworkPolicyEntity = policy
+
+        override suspend fun recordSuccess(
+            policy: RememberedNetworkPolicyEntity,
+            validated: Boolean,
+            strategySignatureJson: String?,
+            completedAt: Long,
+        ): RememberedNetworkPolicyEntity = policy
+
+        override suspend fun recordFailure(
+            policy: RememberedNetworkPolicyEntity,
+            failedAt: Long,
+            allowSuppression: Boolean,
+        ): RememberedNetworkPolicyEntity = policy
+
+        override suspend fun clearAll() {
+            policies.value = emptyList()
+        }
+    }
+}
 
 enum class DiagnosticsSection {
     Overview,
@@ -216,6 +275,22 @@ data class DiagnosticsOverviewUiModel(
     val contextSummary: DiagnosticsContextGroupUiModel? = null,
     val metrics: List<DiagnosticsMetricUiModel> = emptyList(),
     val warnings: List<DiagnosticsEventUiModel> = emptyList(),
+    val rememberedNetworks: List<DiagnosticsRememberedNetworkUiModel> = emptyList(),
+)
+
+data class DiagnosticsRememberedNetworkUiModel(
+    val id: Long,
+    val title: String,
+    val subtitle: String,
+    val status: String,
+    val statusTone: DiagnosticsTone,
+    val source: String,
+    val strategyLabel: String,
+    val lastValidatedLabel: String? = null,
+    val lastAppliedLabel: String? = null,
+    val successCount: Int = 0,
+    val failureCount: Int = 0,
+    val isCurrentMatch: Boolean = false,
 )
 
 data class DiagnosticsScanUiModel(
@@ -359,6 +434,8 @@ class DiagnosticsViewModel
     constructor(
         private val diagnosticsManager: DiagnosticsManager,
         private val appSettingsRepository: AppSettingsRepository,
+        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore = defaultRememberedNetworkPolicyStore(),
+        private val activeConnectionPolicyStore: ActiveConnectionPolicyStore = DefaultActiveConnectionPolicyStore(),
     ) : ViewModel() {
         private val json = Json { ignoreUnknownKeys = true }
         private val timestampFormatter = SimpleDateFormat("MMM d, HH:mm", Locale.US)
@@ -393,6 +470,8 @@ class DiagnosticsViewModel
                 diagnosticsManager.telemetry,
                 diagnosticsManager.nativeEvents,
                 diagnosticsManager.exports,
+                rememberedNetworkPolicyStore.observePolicies(limit = 64),
+                activeConnectionPolicyStore.activePolicy,
                 selectedSectionRequest,
                 selectedProfileId,
                 selectedApproachMode,
@@ -421,22 +500,24 @@ class DiagnosticsViewModel
                 val telemetry = values[7] as List<TelemetrySampleEntity>
                 val nativeEvents = values[8] as List<NativeSessionEventEntity>
                 val exports = values[9] as List<ExportRecordEntity>
-                val selectedSectionRequest = values[10] as DiagnosticsSection
-                val selectedProfileId = values[11] as String?
-                val selectedApproachMode = values[12] as DiagnosticsApproachMode
-                val selectedProbe = values[13] as DiagnosticsProbeResultUiModel?
-                val selectedEventId = values[14] as String?
-                val sessionPathMode = values[15] as String?
-                val sessionStatus = values[16] as String?
-                val sessionSearch = values[17] as String
-                val eventSource = values[18] as String?
-                val eventSeverity = values[19] as String?
-                val eventSearch = values[20] as String
-                val eventAutoScroll = values[21] as Boolean
-                val sessionDetail = values[22] as DiagnosticsSessionDetailUiModel?
-                val approachDetail = values[23] as DiagnosticsApproachDetailUiModel?
-                val sensitiveSessionDetailsVisible = values[24] as Boolean
-                val archiveActionState = values[25] as ArchiveActionState
+                val rememberedPolicies = values[10] as List<RememberedNetworkPolicyEntity>
+                val activeConnectionPolicy = values[11] as ActiveConnectionPolicy?
+                val selectedSectionRequest = values[12] as DiagnosticsSection
+                val selectedProfileId = values[13] as String?
+                val selectedApproachMode = values[14] as DiagnosticsApproachMode
+                val selectedProbe = values[15] as DiagnosticsProbeResultUiModel?
+                val selectedEventId = values[16] as String?
+                val sessionPathMode = values[17] as String?
+                val sessionStatus = values[18] as String?
+                val sessionSearch = values[19] as String
+                val eventSource = values[20] as String?
+                val eventSeverity = values[21] as String?
+                val eventSearch = values[22] as String
+                val eventAutoScroll = values[23] as Boolean
+                val sessionDetail = values[24] as DiagnosticsSessionDetailUiModel?
+                val approachDetail = values[25] as DiagnosticsApproachDetailUiModel?
+                val sensitiveSessionDetailsVisible = values[26] as Boolean
+                val archiveActionState = values[27] as ArchiveActionState
 
                 buildUiState(
                     profiles = profiles,
@@ -449,6 +530,8 @@ class DiagnosticsViewModel
                     telemetry = telemetry,
                     nativeEvents = nativeEvents,
                     exports = exports,
+                    rememberedPolicies = rememberedPolicies,
+                    activeConnectionPolicy = activeConnectionPolicy,
                     selectedSectionRequest = selectedSectionRequest,
                     selectedProfileId = selectedProfileId,
                     selectedApproachMode = selectedApproachMode,
@@ -678,6 +761,8 @@ class DiagnosticsViewModel
             telemetry: List<TelemetrySampleEntity>,
             nativeEvents: List<NativeSessionEventEntity>,
             exports: List<ExportRecordEntity>,
+            rememberedPolicies: List<RememberedNetworkPolicyEntity>,
+            activeConnectionPolicy: ActiveConnectionPolicy?,
             selectedSectionRequest: DiagnosticsSection,
             selectedProfileId: String?,
             selectedApproachMode: DiagnosticsApproachMode,
@@ -754,6 +839,8 @@ class DiagnosticsViewModel
             val liveMetrics = buildLiveMetrics(currentTelemetry, nativeEvents)
             val liveTrends = buildLiveTrends(telemetry)
             val liveHighlights = buildLiveHighlights(currentTelemetry, nativeEvents)
+            val rememberedNetworkRows =
+                rememberedPolicies.map { it.toRememberedNetworkUiModel(activeConnectionPolicy) }
             val selectedApproachKind =
                 when (selectedApproachMode) {
                     DiagnosticsApproachMode.Profiles -> BypassApproachKind.Profile
@@ -823,6 +910,7 @@ class DiagnosticsViewModel
                                 }
                             },
                         warnings = warnings,
+                        rememberedNetworks = rememberedNetworkRows.take(6),
                     ),
                 scan =
                     DiagnosticsScanUiModel(
@@ -1237,6 +1325,11 @@ class DiagnosticsViewModel
         private fun decodeProbeDetails(detailJson: String): List<ProbeDetail> =
             runCatching { json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson) }.getOrElse { emptyList() }
 
+        private fun decodeStrategySignature(payload: String?): BypassStrategySignature? =
+            payload?.takeIf { it.isNotBlank() }?.let {
+                runCatching { json.decodeFromString(BypassStrategySignature.serializer(), it) }.getOrNull()
+            }
+
         private fun NetworkSnapshotEntity.toUiModel(showSensitiveDetails: Boolean): DiagnosticsNetworkSnapshotUiModel? {
             val snapshot = runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payloadJson) }.getOrNull() ?: return null
             return DiagnosticsNetworkSnapshotUiModel(
@@ -1624,6 +1717,33 @@ class DiagnosticsViewModel
                 details = probeResult.details.map { DiagnosticsFieldUiModel(it.key, it.value) },
             )
 
+        private fun RememberedNetworkPolicyEntity.toRememberedNetworkUiModel(
+            activeConnectionPolicy: ActiveConnectionPolicy?,
+        ): DiagnosticsRememberedNetworkUiModel {
+            val summary = decodeSummary(json)
+            val signature = decodeStrategySignature(strategySignatureJson)
+            val isCurrentMatch = activeConnectionPolicy?.matchedPolicy?.id == id
+            return DiagnosticsRememberedNetworkUiModel(
+                id = id,
+                title = summary?.displayLabel() ?: "Network ${fingerprintHash.take(12)}",
+                subtitle =
+                    listOf(
+                        mode.uppercase(Locale.US),
+                        source.displaySourceLabel(),
+                        if (isCurrentMatch) "Current match" else null,
+                    ).filterNotNull().joinToString(" · "),
+                status = status.displayStatusLabel(),
+                statusTone = status.statusTone(),
+                source = source.displaySourceLabel(),
+                strategyLabel = signature?.displayStrategyLabel() ?: "No strategy signature captured",
+                lastValidatedLabel = lastValidatedAt?.let(::formatTimestamp),
+                lastAppliedLabel = lastAppliedAt?.let(::formatTimestamp),
+                successCount = successCount,
+                failureCount = failureCount,
+                isCurrentMatch = isCurrentMatch,
+            )
+        }
+
         private fun NativeSessionEventEntity.toUiModel(): DiagnosticsEventUiModel =
             DiagnosticsEventUiModel(
                 id = id,
@@ -1660,6 +1780,26 @@ class DiagnosticsViewModel
                 else -> DiagnosticsTone.Neutral
             }
         }
+
+        private fun String.displayStatusLabel(): String =
+            when (lowercase(Locale.US)) {
+                "validated" -> "Validated"
+                "suppressed" -> "Suppressed"
+                else -> "Observed"
+            }
+
+        private fun String.statusTone(): DiagnosticsTone =
+            when (lowercase(Locale.US)) {
+                "validated" -> DiagnosticsTone.Positive
+                "suppressed" -> DiagnosticsTone.Warning
+                else -> DiagnosticsTone.Info
+            }
+
+        private fun String.displaySourceLabel(): String =
+            when (lowercase(Locale.US)) {
+                "strategy_probe" -> "Strategy probe"
+                else -> "Manual session"
+            }
 
         private fun BypassApproachSummary.toTone(): DiagnosticsTone =
             when {

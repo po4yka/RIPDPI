@@ -2838,6 +2838,7 @@ mod tests {
             host_autolearn_penalty_ttl_secs: ciadpi_config::HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: ciadpi_config::HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
+            network_scope_key: None,
         }
     }
 
@@ -3147,9 +3148,9 @@ mod tests {
         assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("parser_only"));
         assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("parser_unixeol"));
         assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("parser_methodeol"));
-    }
         assert_eq!(candidates.get(7).map(|candidate| candidate.id), Some("tlsrec_fakedsplit"));
         assert_eq!(candidates.get(8).map(|candidate| candidate.id), Some("tlsrec_fakeddisorder"));
+    }
 
     #[test]
     fn aggressive_parser_candidates_enable_only_expected_evasion() {

@@ -1199,6 +1199,7 @@ mod tests {
                 host_autolearn_penalty_ttl_secs,
                 host_autolearn_max_hosts,
                 host_autolearn_store_path,
+                network_scope_key: None,
             },
         )
     }
@@ -1265,6 +1266,7 @@ mod tests {
             host_autolearn_penalty_ttl_secs: 3_600,
             host_autolearn_max_hosts: 128,
             host_autolearn_store_path: Some("/tmp/host-autolearn-v1.json".to_string()),
+            network_scope_key: Some("scope-a".to_string()),
         });
 
         let config = runtime_config_from_payload(payload).expect("ui config");
@@ -1355,6 +1357,7 @@ mod tests {
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
+            network_scope_key: None,
         });
 
         let config = runtime_config_from_payload(payload).expect("hostfake ui config");
@@ -1579,6 +1582,7 @@ mod tests {
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
+            network_scope_key: None,
         }))
         .expect_err("port zero should be rejected");
 
@@ -1699,6 +1703,7 @@ mod tests {
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
+            network_scope_key: None,
         }))
         .expect_err("unknown quic mode should be rejected");
 
@@ -1767,6 +1772,7 @@ mod tests {
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
+            network_scope_key: None,
         }))
         .expect_err("unknown quic fake profile should be rejected");
 
@@ -1835,6 +1841,7 @@ mod tests {
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
+            network_scope_key: None,
         });
 
         let config = runtime_config_from_payload(payload).expect("ui config");
@@ -1912,6 +1919,7 @@ mod tests {
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
+            network_scope_key: None,
         }))
         .expect_err("missing autolearn path should be rejected");
 
@@ -2343,6 +2351,7 @@ mod tests {
                 host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
                 host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
                 host_autolearn_store_path: None,
+                network_scope_key: None,
             }).expect("valid payload");
 
             prop_assert_eq!(config.listen.listen_ip, IpAddr::from_str(&ip).expect("valid ip"));

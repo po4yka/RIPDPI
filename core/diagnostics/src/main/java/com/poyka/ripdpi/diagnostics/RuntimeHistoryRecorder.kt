@@ -3,13 +3,21 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
+import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
+import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
+import com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore
 import com.poyka.ripdpi.services.FailureReason
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
@@ -46,9 +54,12 @@ class DefaultRuntimeHistoryRecorder
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val historyRepository: DiagnosticsHistoryRepository,
+        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
+            DefaultRememberedNetworkPolicyStore(historyRepository),
         private val networkMetadataProvider: NetworkMetadataProvider,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val serviceStateStore: ServiceStateStore,
+        private val activeConnectionPolicyStore: ActiveConnectionPolicyStore = DefaultActiveConnectionPolicyStore(),
     ) : RuntimeHistoryRecorder {
         private companion object {
             private const val MaxPersistedEventKeys = 512
@@ -61,6 +72,7 @@ class DefaultRuntimeHistoryRecorder
         private val persistedEventKeys = LinkedHashSet<String>()
 
         private var activeUsageSession: BypassUsageSessionEntity? = null
+        private var activeRememberedPolicySession: ActiveRememberedPolicySession? = null
         private var samplingJob: Job? = null
 
         override fun start() {
@@ -245,6 +257,7 @@ class DefaultRuntimeHistoryRecorder
             )
         activeUsageSession = session
         historyRepository.upsertBypassUsageSession(session)
+        ensureActiveRememberedPolicySession(session)
     }
 
     private suspend fun createFailedUsageSession(
@@ -316,7 +329,7 @@ class DefaultRuntimeHistoryRecorder
     private suspend fun finalizeActiveUsageSession(serviceTelemetry: ServiceTelemetrySnapshot) {
         val current = activeUsageSession ?: return
         val finalizedAt = maxOf(System.currentTimeMillis(), serviceTelemetry.updatedAt)
-        historyRepository.upsertBypassUsageSession(
+        val finishedSession =
             current.copy(
                 finishedAt = finalizedAt,
                 updatedAt = finalizedAt,
@@ -344,9 +357,13 @@ class DefaultRuntimeHistoryRecorder
                             ?.lowercase(Locale.US)
                             ?.let { "failed:$it" }
                         ?: "stopped",
-            ),
+            )
+        maybeFinalizeRememberedPolicySession(finishedSession, finalizedAt)
+        historyRepository.upsertBypassUsageSession(
+            finishedSession,
         )
         activeUsageSession = null
+        activeRememberedPolicySession = null
     }
 
     private suspend fun persistSample(connectionSessionId: String) {
@@ -463,6 +480,77 @@ class DefaultRuntimeHistoryRecorder
             else -> "idle"
         }
     }
+
+    private suspend fun ensureActiveRememberedPolicySession(session: BypassUsageSessionEntity) {
+        val activePolicy = activeConnectionPolicyStore.activePolicy.value ?: run {
+            activeRememberedPolicySession = null
+            return
+        }
+        val entity =
+            if (activePolicy.usedRememberedPolicy) {
+                activePolicy.matchedPolicy?.let { rememberedNetworkPolicyStore.recordApplied(it, session.startedAt) }
+                    ?: return
+            } else {
+                rememberedNetworkPolicyStore.upsertObservedPolicy(
+                    policy = activePolicy.policy.copy(strategySignatureJson = session.strategyJson),
+                    source = RememberedNetworkPolicySourceManualSession,
+                    now = session.startedAt,
+                )
+            }
+        activeRememberedPolicySession =
+            ActiveRememberedPolicySession(
+                entity = entity,
+                usedRememberedPolicy = activePolicy.usedRememberedPolicy,
+                startedAt = session.startedAt,
+            )
+    }
+
+    private suspend fun maybeFinalizeRememberedPolicySession(
+        session: BypassUsageSessionEntity,
+        finalizedAt: Long,
+    ) {
+        val rememberedPolicySession = activeRememberedPolicySession ?: return
+        val transferBytes = session.txBytes + session.rxBytes
+        val durationMs = finalizedAt - rememberedPolicySession.startedAt
+        val proved =
+            session.failureMessage.isNullOrBlank() &&
+                durationMs >= RememberedNetworkPolicyProofDurationMs &&
+                transferBytes >= RememberedNetworkPolicyProofTransferBytes
+        val failed =
+            !session.failureMessage.isNullOrBlank() ||
+                session.endedReason?.startsWith("failed:") == true
+
+        when {
+            rememberedPolicySession.usedRememberedPolicy && failed && !proved ->
+                rememberedNetworkPolicyStore.recordFailure(
+                    policy = rememberedPolicySession.entity,
+                    failedAt = finalizedAt,
+                    allowSuppression = true,
+                )
+
+            rememberedPolicySession.usedRememberedPolicy && proved ->
+                rememberedNetworkPolicyStore.recordSuccess(
+                    policy = rememberedPolicySession.entity,
+                    validated = true,
+                    strategySignatureJson = session.strategyJson,
+                    completedAt = finalizedAt,
+                )
+
+            !rememberedPolicySession.usedRememberedPolicy && proved ->
+                rememberedNetworkPolicyStore.recordSuccess(
+                    policy = rememberedPolicySession.entity,
+                    validated = true,
+                    strategySignatureJson = session.strategyJson,
+                    completedAt = finalizedAt,
+                )
+        }
+    }
+
+    private data class ActiveRememberedPolicySession(
+        val entity: RememberedNetworkPolicyEntity,
+        val usedRememberedPolicy: Boolean,
+        val startedAt: Long,
+    )
 }
 
 @Module

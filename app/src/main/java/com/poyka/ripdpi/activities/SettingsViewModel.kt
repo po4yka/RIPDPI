@@ -81,6 +81,7 @@ import com.poyka.ripdpi.core.clearHostAutolearnStore
 import com.poyka.ripdpi.core.hasHostAutolearnStore
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackPreset
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.data.applyCuratedHostPack
 import com.poyka.ripdpi.hosts.HostPackCatalogBuildException
@@ -208,6 +209,8 @@ data class SettingsUiState(
     val hostAutolearnEnabled: Boolean = false,
     val hostAutolearnPenaltyTtlHours: Int = DefaultHostAutolearnPenaltyTtlHours,
     val hostAutolearnMaxHosts: Int = DefaultHostAutolearnMaxHosts,
+    val networkStrategyMemoryEnabled: Boolean = false,
+    val rememberedNetworkCount: Int = 0,
     val hostAutolearnRuntimeEnabled: Boolean = false,
     val hostAutolearnStorePresent: Boolean = false,
     val hostAutolearnLearnedHostCount: Int = 0,
@@ -252,6 +255,9 @@ data class SettingsUiState(
 
     val canForgetLearnedHosts: Boolean
         get() = !enableCmdSettings && hostAutolearnStorePresent
+
+    val canClearRememberedNetworks: Boolean
+        get() = !enableCmdSettings && rememberedNetworkCount > 0
 
     val canResetFakeTlsProfile: Boolean
         get() = !enableCmdSettings && hasCustomFakeTlsProfile
@@ -453,6 +459,7 @@ internal fun AppSettings.toUiState(
     serviceStatus: AppStatus = AppStatus.Halted,
     proxyTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy"),
     hostAutolearnStorePresent: Boolean = false,
+    rememberedNetworkCount: Int = 0,
 ): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
     val activeDns = activeDnsSettings()
@@ -569,6 +576,8 @@ internal fun AppSettings.toUiState(
         hostAutolearnEnabled = hostAutolearnEnabled,
         hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
         hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
+        networkStrategyMemoryEnabled = networkStrategyMemoryEnabled,
+        rememberedNetworkCount = rememberedNetworkCount,
         hostAutolearnRuntimeEnabled = proxyTelemetry.autolearnEnabled,
         hostAutolearnStorePresent = hostAutolearnStorePresent,
         hostAutolearnLearnedHostCount = proxyTelemetry.learnedHostCount,
@@ -619,6 +628,7 @@ class SettingsViewModel
     constructor(
         @param:ApplicationContext private val appContext: Context,
         private val appSettingsRepository: AppSettingsRepository,
+        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val hostPackCatalogRepository: HostPackCatalogRepository,
         private val launcherIconController: LauncherIconController,
         private val serviceStateStore: ServiceStateStore,
@@ -634,11 +644,13 @@ class SettingsViewModel
             appSettingsRepository.settings,
             serviceStateStore.telemetry,
             hostAutolearnStoreRefresh,
-        ) { settings, telemetry, _ ->
+            rememberedNetworkPolicyStore.observePolicies(limit = 64),
+        ) { settings, telemetry, _, rememberedPolicies ->
             settings.toUiState(
                 serviceStatus = telemetry.status,
                 proxyTelemetry = telemetry.proxyTelemetry,
                 hostAutolearnStorePresent = hasHostAutolearnStore(appContext),
+                rememberedNetworkCount = rememberedPolicies.size,
             )
         }
             .stateIn(
@@ -650,6 +662,7 @@ class SettingsViewModel
                         serviceStatus = serviceStateStore.telemetry.value.status,
                         proxyTelemetry = serviceStateStore.telemetry.value.proxyTelemetry,
                         hostAutolearnStorePresent = hasHostAutolearnStore(appContext),
+                        rememberedNetworkCount = 0,
                     ),
             )
 
@@ -1033,6 +1046,19 @@ class SettingsViewModel
                         )
                 }
             _effects.send(effect)
+        }
+    }
+
+    fun clearRememberedNetworks() {
+        viewModelScope.launch {
+            rememberedNetworkPolicyStore.clearAll()
+            _effects.send(
+                SettingsEffect.Notice(
+                    title = "Remembered networks cleared",
+                    message = "RIPDPI removed all stored per-network bypass policies. Current settings remain unchanged.",
+                    tone = SettingsNoticeTone.Info,
+                ),
+            )
         }
     }
 

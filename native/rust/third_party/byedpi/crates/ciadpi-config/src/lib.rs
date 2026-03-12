@@ -498,6 +498,7 @@ pub struct RuntimeConfig {
     pub host_autolearn_penalty_ttl_secs: i64,
     pub host_autolearn_max_hosts: usize,
     pub host_autolearn_store_path: Option<String>,
+    pub network_scope_key: Option<String>,
     pub groups: Vec<DesyncGroup>,
 }
 
@@ -558,6 +559,7 @@ impl Default for RuntimeConfig {
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
+            network_scope_key: None,
             groups: vec![DesyncGroup::new(0)],
         }
     }
