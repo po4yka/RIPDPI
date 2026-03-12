@@ -199,7 +199,9 @@ private enum class ActivationWindowDimension {
 
 private data class AdaptiveSplitPresetUiModel(
     val value: String,
-    val label: String,
+    val title: String,
+    val body: String,
+    val isRecommended: Boolean = false,
 )
 
 private data class AdvancedNotice(
@@ -405,31 +407,37 @@ private fun rememberAdaptiveSplitPresetOptions(
         add(
             AdaptiveSplitPresetUiModel(
                 value = AdaptiveSplitPresetManual,
-                label = stringResource(R.string.adaptive_split_preset_manual),
+                title = stringResource(R.string.adaptive_split_preset_manual),
+                body = stringResource(R.string.adaptive_split_preset_manual_body),
             ),
         )
         add(
             AdaptiveSplitPresetUiModel(
                 value = AdaptiveMarkerBalanced,
-                label = stringResource(R.string.adaptive_split_preset_balanced),
+                title = stringResource(R.string.adaptive_split_preset_balanced),
+                body = stringResource(R.string.adaptive_split_preset_balanced_body),
+                isRecommended = true,
             ),
         )
         add(
             AdaptiveSplitPresetUiModel(
                 value = AdaptiveMarkerHost,
-                label = stringResource(R.string.adaptive_split_preset_host),
+                title = stringResource(R.string.adaptive_split_preset_host),
+                body = stringResource(R.string.adaptive_split_preset_host_body),
             ),
         )
         add(
             AdaptiveSplitPresetUiModel(
                 value = AdaptiveMarkerEndHost,
-                label = stringResource(R.string.adaptive_split_preset_endhost),
+                title = stringResource(R.string.adaptive_split_preset_endhost),
+                body = stringResource(R.string.adaptive_split_preset_endhost_body),
             ),
         )
         add(
             AdaptiveSplitPresetUiModel(
                 value = AdaptiveMarkerSniExt,
-                label = stringResource(R.string.adaptive_split_preset_sniext),
+                title = stringResource(R.string.adaptive_split_preset_sniext),
+                body = stringResource(R.string.adaptive_split_preset_sniext_body),
             ),
         )
         if (includeCustom) {
@@ -437,7 +445,12 @@ private fun rememberAdaptiveSplitPresetOptions(
                 1,
                 AdaptiveSplitPresetUiModel(
                     value = AdaptiveSplitPresetCustom,
-                    label = stringResource(R.string.adaptive_split_preset_custom),
+                    title = stringResource(R.string.adaptive_split_preset_custom),
+                    body =
+                        stringResource(
+                            R.string.adaptive_split_preset_custom_body,
+                            formatOffsetExpressionLabel(uiState.splitMarker),
+                        ),
                 ),
             )
         }
@@ -1208,6 +1221,14 @@ fun AdvancedSettingsRoute(
                     )
             }
         },
+        onResetAdaptiveSplit = {
+            updatePrimarySplitMarker(
+                viewModel = viewModel,
+                uiState = uiState,
+                key = "splitMarker",
+                marker = manualSplitMarkerFallback(uiState),
+            )
+        },
         onResetActivationWindow = viewModel::resetActivationWindow,
         onResetFakePayloadLibrary = viewModel::resetFakePayloadLibrary,
         onResetFakeTlsProfile = viewModel::resetFakeTlsProfile,
@@ -1228,6 +1249,7 @@ private fun AdvancedSettingsScreen(
     onRefreshHostPackCatalog: () -> Unit,
     onForgetLearnedHosts: () -> Unit,
     onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -> Unit,
+    onResetAdaptiveSplit: () -> Unit,
     onResetActivationWindow: () -> Unit,
     onResetFakePayloadLibrary: () -> Unit,
     onResetFakeTlsProfile: () -> Unit,
@@ -1533,22 +1555,15 @@ private fun AdvancedSettingsScreen(
                     HorizontalDivider(color = colors.divider)
                     AdaptiveSplitProfileCard(
                         uiState = uiState,
+                        onResetAdaptiveSplit = onResetAdaptiveSplit,
                         modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                     )
                     HorizontalDivider(color = colors.divider)
-                    RipDpiDropdown(
-                        options =
-                            adaptiveSplitPresetOptions.map { option ->
-                                RipDpiDropdownOption(
-                                    value = option.value,
-                                    label = option.label,
-                                )
-                            },
-                        selectedValue = uiState.adaptiveSplitPreset,
-                        onValueSelected = { onOptionSelected(AdvancedOptionSetting.AdaptiveSplitPreset, it) },
-                        label = stringResource(R.string.adaptive_split_selector_title),
-                        helperText = stringResource(R.string.adaptive_split_selector_body),
+                    AdaptiveSplitPresetSelector(
+                        uiState = uiState,
+                        presets = adaptiveSplitPresetOptions,
                         enabled = visualEditorEnabled && uiState.adaptiveSplitVisualEditorSupported,
+                        onPresetSelected = { onOptionSelected(AdvancedOptionSetting.AdaptiveSplitPreset, it) },
                     )
                     if (!uiState.hasAdaptiveSplitPreset) {
                         HorizontalDivider(color = colors.divider)
@@ -3089,8 +3104,103 @@ private fun rememberActivationWindowStatus(uiState: SettingsUiState): Activation
     }
 
 @Composable
+private fun AdaptiveSplitPresetSelector(
+    uiState: SettingsUiState,
+    presets: List<AdaptiveSplitPresetUiModel>,
+    enabled: Boolean,
+    onPresetSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Text(
+            text = stringResource(R.string.adaptive_split_selector_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Text(
+            text = stringResource(R.string.adaptive_split_selector_body),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        presets.forEach { preset ->
+            AdaptiveSplitPresetCard(
+                preset = preset,
+                selected = uiState.adaptiveSplitPreset == preset.value,
+                enabled = enabled && preset.value != AdaptiveSplitPresetCustom,
+                onClick = { onPresetSelected(preset.value) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdaptiveSplitPresetCard(
+    preset: AdaptiveSplitPresetUiModel,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val badgeLabel =
+        when {
+            selected -> stringResource(R.string.adaptive_split_preset_selected)
+            preset.isRecommended -> stringResource(R.string.adaptive_split_preset_recommended)
+            preset.value == AdaptiveSplitPresetCustom -> stringResource(R.string.adaptive_split_preset_dsl_only)
+            else -> null
+        }
+    val badgeTone =
+        when {
+            selected -> StatusIndicatorTone.Active
+            preset.isRecommended -> StatusIndicatorTone.Idle
+            else -> StatusIndicatorTone.Idle
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = if (selected) RipDpiCardVariant.Tonal else RipDpiCardVariant.Outlined,
+        enabled = enabled,
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+            ) {
+                Text(
+                    text = preset.title,
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = RipDpiThemeTokens.colors.foreground,
+                )
+                Text(
+                    text = preset.body,
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
+            badgeLabel?.let {
+                StatusIndicator(
+                    label = it,
+                    tone = badgeTone,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun AdaptiveSplitProfileCard(
     uiState: SettingsUiState,
+    onResetAdaptiveSplit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -3113,6 +3223,16 @@ private fun AdaptiveSplitProfileCard(
         } else {
             stringResource(R.string.adaptive_split_target_legacy)
         }
+    val focusSummary =
+        when (uiState.adaptiveSplitPreset) {
+            AdaptiveSplitPresetManual -> stringResource(R.string.adaptive_split_focus_manual)
+            AdaptiveSplitPresetCustom -> stringResource(R.string.adaptive_split_focus_custom)
+            AdaptiveMarkerBalanced -> stringResource(R.string.adaptive_split_focus_balanced)
+            AdaptiveMarkerHost -> stringResource(R.string.adaptive_split_focus_host)
+            AdaptiveMarkerEndHost -> stringResource(R.string.adaptive_split_focus_endhost)
+            AdaptiveMarkerSniExt -> stringResource(R.string.adaptive_split_focus_sniext)
+            else -> stringResource(R.string.adaptive_split_focus_custom)
+        }
     val scopeSummary =
         when {
             uiState.enableCmdSettings -> stringResource(R.string.adaptive_split_scope_cli)
@@ -3121,6 +3241,15 @@ private fun AdaptiveSplitProfileCard(
             uiState.hasAdaptiveSplitPreset -> stringResource(R.string.adaptive_split_scope_active)
             else -> stringResource(R.string.adaptive_split_scope_manual)
         }
+    val protocolSummary =
+        when {
+            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled ->
+                stringResource(R.string.adaptive_split_protocol_http_https)
+            uiState.desyncHttpEnabled -> stringResource(R.string.adaptive_split_protocol_http)
+            uiState.desyncHttpsEnabled -> stringResource(R.string.adaptive_split_protocol_https)
+            else -> stringResource(R.string.adaptive_split_protocol_none)
+        }
+    val dslSummary = stringResource(R.string.adaptive_split_dsl_only_summary)
     val badges =
         buildList {
             add(
@@ -3139,6 +3268,12 @@ private fun AdaptiveSplitProfileCard(
             )
             if (uiState.hasCustomAdaptiveSplitPreset) {
                 add(stringResource(R.string.adaptive_split_badge_custom) to SummaryCapsuleTone.Info)
+            }
+            if (uiState.desyncHttpsEnabled) {
+                add(stringResource(R.string.adaptive_split_badge_https) to SummaryCapsuleTone.Info)
+            }
+            if (uiState.desyncHttpEnabled) {
+                add(stringResource(R.string.adaptive_split_badge_http) to SummaryCapsuleTone.Info)
             }
         }
 
@@ -3166,8 +3301,33 @@ private fun AdaptiveSplitProfileCard(
                 value = targetSummary,
             )
             ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_split_summary_label_focus),
+                value = focusSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_split_summary_label_protocols),
+                value = protocolSummary,
+            )
+            ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_split_summary_label_scope),
                 value = scopeSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_split_summary_label_dsl),
+                value = dslSummary,
+            )
+        }
+        Text(
+            text = stringResource(R.string.adaptive_split_editor_note),
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+        if (uiState.canResetAdaptiveSplitPreset) {
+            RipDpiButton(
+                text = stringResource(R.string.adaptive_split_reset_action),
+                onClick = onResetAdaptiveSplit,
+                variant = RipDpiButtonVariant.Outline,
+                modifier = Modifier.align(Alignment.End),
             )
         }
     }
@@ -4837,6 +4997,7 @@ private fun AdvancedSettingsScreenPreview() {
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
             onSaveActivationRange = { _, _, _ -> },
+            onResetAdaptiveSplit = {},
             onResetActivationWindow = {},
             onResetFakePayloadLibrary = {},
             onResetFakeTlsProfile = {},
@@ -4903,6 +5064,7 @@ private fun AdvancedSettingsScreenDarkPreview() {
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
             onSaveActivationRange = { _, _, _ -> },
+            onResetAdaptiveSplit = {},
             onResetActivationWindow = {},
             onResetFakePayloadLibrary = {},
             onResetFakeTlsProfile = {},

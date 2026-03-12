@@ -241,10 +241,13 @@ class SettingsUiStateTest {
         assertEquals(AdaptiveMarkerBalanced, balancedState.adaptiveSplitPreset)
         assertTrue(balancedState.hasAdaptiveSplitPreset)
         assertFalse(balancedState.hasCustomAdaptiveSplitPreset)
+        assertTrue(balancedState.canResetAdaptiveSplitPreset)
         assertEquals(AdaptiveSplitPresetCustom, customState.adaptiveSplitPreset)
         assertTrue(customState.hasAdaptiveSplitPreset)
         assertTrue(customState.hasCustomAdaptiveSplitPreset)
+        assertTrue(customState.canResetAdaptiveSplitPreset)
         assertFalse(hostfakeState.adaptiveSplitVisualEditorSupported)
+        assertFalse(hostfakeState.canResetAdaptiveSplitPreset)
     }
 
     @Test
