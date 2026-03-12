@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultFakeSni
+import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
@@ -45,6 +46,12 @@ class SettingsUiStateTest {
         assertFalse(state.isOob)
         assertEquals(FakeTlsSniModeFixed, state.fakeTlsSniMode)
         assertEquals(0, state.fakeTlsSize)
+        assertEquals(FakePayloadProfileCompatDefault, state.httpFakeProfile)
+        assertEquals(FakePayloadProfileCompatDefault, state.tlsFakeProfile)
+        assertEquals(FakePayloadProfileCompatDefault, state.udpFakeProfile)
+        assertFalse(state.hasCustomFakePayloadProfiles)
+        assertTrue(state.fakePayloadLibraryControlsRelevant)
+        assertTrue(state.showFakePayloadLibrary)
         assertFalse(state.fakeTlsControlsRelevant)
         assertFalse(state.hasCustomFakeTlsProfile)
         assertFalse(state.canResetFakeTlsProfile)

@@ -86,6 +86,9 @@ fn help_text() -> String {
     );
     text.push_str("    -O, --fake-offset <pos_t> Fake data start offset\n");
     text.push_str("    -l, --fake-data <f|:str>  Set custom fake packet\n");
+    text.push_str("        --fake-http-profile <id> Built-in HTTP fake payload: compat_default,iana_get,cloudflare_get\n");
+    text.push_str("        --fake-tls-profile <id> Built-in TLS fake payload: compat_default,iana_firefox,google_chrome,vk_chrome,sberbank_chrome,rutracker_kyber,bigsize_iana\n");
+    text.push_str("        --fake-udp-profile <id> Built-in UDP fake payload: compat_default,zero_256,zero_512,dns_query,stun_binding,wireguard_initiation,dht_get_peers\n");
     text.push_str("    -Q, --fake-tls-mod <flag> Modify fake TLS CH: rand,orig,rndsni,dupsid,padencap,msize=<int>\n");
     text.push_str("    -e, --oob-data <char>     Set custom OOB data\n");
     text.push_str("    -M, --mod-http <h,d,r>    Modify HTTP: hcsmix,dcsmix,rmspace\n");
@@ -127,6 +130,9 @@ fn canonical_option(option: &str) -> &str {
         "--ttl" | "-t" => "-t",
         "--fake-offset" | "-O" => "-O",
         "--fake-data" | "-l" => "-l",
+        "--fake-http-profile" => "--fake-http-profile",
+        "--fake-tls-profile" => "--fake-tls-profile",
+        "--fake-udp-profile" => "--fake-udp-profile",
         "--fake-tls-mod" | "-Q" => "-Q",
         "--fake-sni" | "-n" => "-n",
         "--oob-data" | "-e" => "-e",

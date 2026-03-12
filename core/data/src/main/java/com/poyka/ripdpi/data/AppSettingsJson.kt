@@ -66,6 +66,8 @@ internal data class AppSettingsSnapshot(
     val fakeTlsPadEncap: Boolean = defaultSettings.fakeTlsPadEncap,
     val fakeTlsSize: Int = defaultSettings.fakeTlsSize,
     val fakeTlsSniMode: String = defaultSettings.fakeTlsSniMode,
+    val httpFakeProfile: String = defaultSettings.httpFakeProfile,
+    val tlsFakeProfile: String = defaultSettings.tlsFakeProfile,
     val oobData: String = defaultSettings.oobData,
     val dropSack: Boolean = defaultSettings.dropSack,
     val desyncHttp: Boolean = defaultSettings.desyncHttp,
@@ -79,6 +81,7 @@ internal data class AppSettingsSnapshot(
     val tlsrecAtSni: Boolean = defaultSettings.tlsrecAtSni,
     val tlsrecMarker: String = defaultSettings.tlsrecMarker,
     val udpFakeCount: Int = defaultSettings.udpFakeCount,
+    val udpFakeProfile: String = defaultSettings.udpFakeProfile,
     val hostMixedCase: Boolean = defaultSettings.hostMixedCase,
     val domainMixedCase: Boolean = defaultSettings.domainMixedCase,
     val hostRemoveSpaces: Boolean = defaultSettings.hostRemoveSpaces,
@@ -134,6 +137,8 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         fakeTlsPadEncap = fakeTlsPadEncap,
         fakeTlsSize = fakeTlsSize,
         fakeTlsSniMode = effectiveFakeTlsSniMode(),
+        httpFakeProfile = effectiveHttpFakeProfile(),
+        tlsFakeProfile = effectiveTlsFakeProfile(),
         oobData = oobData,
         dropSack = dropSack,
         desyncHttp = desyncHttp,
@@ -147,6 +152,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         tlsrecAtSni = tlsrecAtSni,
         tlsrecMarker = tlsrecMarker,
         udpFakeCount = udpFakeCount,
+        udpFakeProfile = effectiveUdpFakeProfile(),
         hostMixedCase = hostMixedCase,
         domainMixedCase = domainMixedCase,
         hostRemoveSpaces = hostRemoveSpaces,
@@ -214,6 +220,8 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setFakeTlsPadEncap(fakeTlsPadEncap)
         .setFakeTlsSize(fakeTlsSize)
         .setFakeTlsSniMode(normalizeFakeTlsSniMode(fakeTlsSniMode))
+        .setHttpFakeProfile(normalizeHttpFakeProfile(httpFakeProfile))
+        .setTlsFakeProfile(normalizeTlsFakeProfile(tlsFakeProfile))
         .setOobData(oobData)
         .setDropSack(dropSack)
         .setDesyncHttp(desyncHttp)
@@ -227,6 +235,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setTlsrecAtSni(tlsrecAtSni)
         .setTlsrecMarker(tlsrecMarker)
         .setUdpFakeCount(udpFakeCount)
+        .setUdpFakeProfile(normalizeUdpFakeProfile(udpFakeProfile))
         .setHostMixedCase(hostMixedCase)
         .setDomainMixedCase(domainMixedCase)
         .setHostRemoveSpaces(hostRemoveSpaces)

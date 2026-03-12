@@ -2,6 +2,9 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
+import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -136,12 +139,14 @@ class NativeConfigContractSnapshotTest {
                 splitMarker = "host+2",
                 fakeTtl = 9,
                 fakeSni = "alt.example.org",
+                httpFakeProfile = HttpFakeProfileCloudflareGet,
                 fakeTlsUseOriginal = true,
                 fakeTlsRandomize = true,
                 fakeTlsDupSessionId = true,
                 fakeTlsPadEncap = true,
                 fakeTlsSize = -24,
                 fakeTlsSniMode = "randomized",
+                tlsFakeProfile = TlsFakeProfileGoogleChrome,
                 oobChar = "Z",
                 hostMixedCase = true,
                 domainMixedCase = true,
@@ -152,6 +157,7 @@ class NativeConfigContractSnapshotTest {
                 hosts = "example.org",
                 tcpFastOpen = true,
                 udpFakeCount = 4,
+                udpFakeProfile = UdpFakeProfileDnsQuery,
                 dropSack = true,
                 fakeOffsetMarker = "endhost-1",
                 quicInitialMode = "route",
@@ -205,12 +211,14 @@ class NativeConfigContractSnapshotTest {
                   ],
                   "fakeTtl": 9,
                   "fakeSni": "alt.example.org",
+                  "httpFakeProfile": "cloudflare_get",
                   "fakeTlsUseOriginal": true,
                   "fakeTlsRandomize": true,
                   "fakeTlsDupSessionId": true,
                   "fakeTlsPadEncap": true,
                   "fakeTlsSize": -24,
                   "fakeTlsSniMode": "randomized",
+                  "tlsFakeProfile": "google_chrome",
                   "oobChar": 90,
                   "hostMixedCase": true,
                   "domainMixedCase": true,
@@ -227,6 +235,7 @@ class NativeConfigContractSnapshotTest {
                       "count": 4
                     }
                   ],
+                  "udpFakeProfile": "dns_query",
                   "dropSack": true,
                   "fakeOffsetMarker": "endhost-1",
                   "quicInitialMode": "route",

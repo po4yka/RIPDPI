@@ -40,6 +40,8 @@ class AppSettingsJsonTest {
                 .setFakeTlsPadEncap(true)
                 .setFakeTlsSize(192)
                 .setFakeTlsSniMode(FakeTlsSniModeRandomized)
+                .setHttpFakeProfile(HttpFakeProfileCloudflareGet)
+                .setTlsFakeProfile(TlsFakeProfileGoogleChrome)
                 .setOobData("payload")
                 .setDropSack(true)
                 .setDesyncHttp(false)
@@ -53,6 +55,7 @@ class AppSettingsJsonTest {
                 .setTlsrecAtSni(true)
                 .setTlsrecMarker("sniext+2")
                 .setUdpFakeCount(5)
+                .setUdpFakeProfile(UdpFakeProfileDnsQuery)
                 .setHostMixedCase(true)
                 .setDomainMixedCase(true)
                 .setHostRemoveSpaces(true)
@@ -125,6 +128,9 @@ class AppSettingsJsonTest {
         assertEquals(AppSettingsSerializer.defaultValue.quicSupportV2, decoded.quicSupportV2)
         assertEquals(AppSettingsSerializer.defaultValue.quicFakeProfile, decoded.quicFakeProfile)
         assertEquals(AppSettingsSerializer.defaultValue.quicFakeHost, decoded.quicFakeHost)
+        assertEquals(AppSettingsSerializer.defaultValue.httpFakeProfile, decoded.httpFakeProfile)
+        assertEquals(AppSettingsSerializer.defaultValue.tlsFakeProfile, decoded.tlsFakeProfile)
+        assertEquals(AppSettingsSerializer.defaultValue.udpFakeProfile, decoded.udpFakeProfile)
     }
 
     @Test

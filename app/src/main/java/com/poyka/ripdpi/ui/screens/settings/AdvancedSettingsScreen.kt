@@ -49,6 +49,7 @@ import com.poyka.ripdpi.data.HostPackTargetWhitelist
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
+import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
@@ -153,10 +154,13 @@ private enum class AdvancedTextSetting {
 private enum class AdvancedOptionSetting {
     DesyncMethod,
     TlsPreludeMode,
+    HttpFakeProfile,
     FakeTlsBase,
     FakeTlsSniMode,
+    TlsFakeProfile,
     HostsMode,
     QuicInitialMode,
+    UdpFakeProfile,
     QuicFakeProfile,
 }
 
@@ -196,6 +200,35 @@ internal fun formatHostPackGeneratedAt(timestamp: String): String? =
 
 internal fun formatHostPackFetchedAt(timestampMillis: Long): String =
     hostPackTimestampFormatter.format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()))
+
+private fun formatHttpFakeProfileLabel(value: String): String =
+    when (value) {
+        "iana_get" -> "IANA GET"
+        "cloudflare_get" -> "Cloudflare GET"
+        else -> "Compatibility default"
+    }
+
+private fun formatTlsFakeProfileLabel(value: String): String =
+    when (value) {
+        "iana_firefox" -> "IANA Firefox"
+        "google_chrome" -> "Google Chrome"
+        "vk_chrome" -> "VK Chrome"
+        "sberbank_chrome" -> "Sberbank Chrome"
+        "rutracker_kyber" -> "Rutracker Kyber"
+        "bigsize_iana" -> "IANA bigsize"
+        else -> "Compatibility default"
+    }
+
+private fun formatUdpFakeProfileLabel(value: String): String =
+    when (value) {
+        "zero_256" -> "Zero blob 256"
+        "zero_512" -> "Zero blob 512"
+        "dns_query" -> "DNS query"
+        "stun_binding" -> "STUN binding"
+        "wireguard_initiation" -> "WireGuard initiation"
+        "dht_get_peers" -> "DHT get_peers"
+        else -> "Compatibility default"
+    }
 
 internal fun SettingsUiState.toTlsPreludeEditorStep(
     mode: String = tlsPreludeMode,
@@ -784,6 +817,15 @@ fun AdvancedSettingsRoute(
                     )
                 }
 
+                AdvancedOptionSetting.HttpFakeProfile -> {
+                    viewModel.updateSetting(
+                        key = "httpFakeProfile",
+                        value = value,
+                    ) {
+                        setHttpFakeProfile(value)
+                    }
+                }
+
                 AdvancedOptionSetting.FakeTlsBase -> {
                     val useOriginal = value == "original"
                     viewModel.updateSetting(
@@ -803,6 +845,15 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
+                AdvancedOptionSetting.TlsFakeProfile -> {
+                    viewModel.updateSetting(
+                        key = "tlsFakeProfile",
+                        value = value,
+                    ) {
+                        setTlsFakeProfile(value)
+                    }
+                }
+
                 AdvancedOptionSetting.HostsMode -> {
                     viewModel.updateSetting(
                         key = "hostsMode",
@@ -818,6 +869,15 @@ fun AdvancedSettingsRoute(
                         value = value,
                     ) {
                         setQuicInitialMode(value)
+                    }
+                }
+
+                AdvancedOptionSetting.UdpFakeProfile -> {
+                    viewModel.updateSetting(
+                        key = "udpFakeProfile",
+                        value = value,
+                    ) {
+                        setUdpFakeProfile(value)
                     }
                 }
 
@@ -860,6 +920,7 @@ private fun AdvancedSettingsScreen(
     val hostPackApplyControlsEnabled = hostPackApplyEnabled(uiState)
     val showHostFakeSection = uiState.showHostFakeProfile
     val showQuicFakeSection = uiState.showQuicFakeProfile
+    val showFakePayloadLibrary = uiState.showFakePayloadLibrary
     val showFakeTlsSection =
         uiState.desyncHttpsEnabled ||
             uiState.isFake ||
@@ -875,10 +936,20 @@ private fun AdvancedSettingsScreen(
             labelArrayRes = R.array.fake_tls_base_modes,
             valueArrayRes = R.array.fake_tls_base_modes_entries,
         )
+    val httpFakeProfileOptions =
+        rememberSettingsOptions(
+            labelArrayRes = R.array.http_fake_profiles,
+            valueArrayRes = R.array.http_fake_profiles_entries,
+        )
     val fakeTlsSniModeOptions =
         rememberSettingsOptions(
             labelArrayRes = R.array.fake_tls_sni_modes,
             valueArrayRes = R.array.fake_tls_sni_modes_entries,
+        )
+    val tlsFakeProfileOptions =
+        rememberSettingsOptions(
+            labelArrayRes = R.array.tls_fake_profiles,
+            valueArrayRes = R.array.tls_fake_profiles_entries,
         )
     val hostsOptions =
         rememberSettingsOptions(
@@ -889,6 +960,11 @@ private fun AdvancedSettingsScreen(
         rememberSettingsOptions(
             labelArrayRes = R.array.quic_initial_modes,
             valueArrayRes = R.array.quic_initial_modes_entries,
+        )
+    val udpFakeProfileOptions =
+        rememberSettingsOptions(
+            labelArrayRes = R.array.udp_fake_profiles,
+            valueArrayRes = R.array.udp_fake_profiles_entries,
         )
     var pendingHostPack by remember { mutableStateOf<HostPackPreset?>(null) }
     var selectedHostPackTargetMode by rememberSaveable { mutableStateOf(defaultHostPackTargetMode(uiState)) }
@@ -1193,6 +1269,58 @@ private fun AdvancedSettingsScreen(
                                 showDivider = true,
                             )
                         }
+                    }
+                    if (showFakePayloadLibrary) {
+                        Text(
+                            text = stringResource(R.string.fake_payload_library_section_title),
+                            style = RipDpiThemeTokens.type.bodyEmphasis,
+                            color = colors.foreground,
+                        )
+                        Text(
+                            text =
+                                if (uiState.fakePayloadLibraryControlsRelevant) {
+                                    stringResource(R.string.fake_payload_library_section_body)
+                                } else {
+                                    stringResource(R.string.fake_payload_library_inactive)
+                                },
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.mutedForeground,
+                        )
+                        FakePayloadLibraryCard(
+                            uiState = uiState,
+                            modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+                        )
+                        HorizontalDivider(color = colors.divider)
+                        AdvancedDropdownSetting(
+                            title = stringResource(R.string.http_fake_profile_title),
+                            description = stringResource(R.string.http_fake_profile_body),
+                            value = uiState.httpFakeProfile,
+                            options = httpFakeProfileOptions,
+                            setting = AdvancedOptionSetting.HttpFakeProfile,
+                            onSelected = onOptionSelected,
+                            enabled = visualEditorEnabled,
+                            showDivider = true,
+                        )
+                        AdvancedDropdownSetting(
+                            title = stringResource(R.string.tls_fake_profile_title),
+                            description = stringResource(R.string.tls_fake_profile_body),
+                            value = uiState.tlsFakeProfile,
+                            options = tlsFakeProfileOptions,
+                            setting = AdvancedOptionSetting.TlsFakeProfile,
+                            onSelected = onOptionSelected,
+                            enabled = visualEditorEnabled,
+                            showDivider = true,
+                        )
+                        AdvancedDropdownSetting(
+                            title = stringResource(R.string.udp_fake_profile_title),
+                            description = stringResource(R.string.udp_fake_profile_body),
+                            value = uiState.udpFakeProfile,
+                            options = udpFakeProfileOptions,
+                            setting = AdvancedOptionSetting.UdpFakeProfile,
+                            onSelected = onOptionSelected,
+                            enabled = visualEditorEnabled,
+                            showDivider = true,
+                        )
                     }
                     if (showFakeTlsSection) {
                         Text(
@@ -2758,6 +2886,100 @@ private fun rememberHostFakeStatus(uiState: SettingsUiState): HostFakeStatusCont
             HostFakeStatusContent(
                 label = stringResource(R.string.ripdpi_hostfake_available_title),
                 body = stringResource(R.string.ripdpi_hostfake_available_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+    }
+
+private data class FakePayloadLibraryStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
+@Composable
+private fun FakePayloadLibraryCard(
+    uiState: SettingsUiState,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val status = rememberFakePayloadLibraryStatus(uiState)
+    val scopeSummary =
+        when {
+            uiState.enableCmdSettings -> stringResource(R.string.fake_payload_library_scope_cli)
+            !uiState.fakePayloadLibraryControlsRelevant -> stringResource(R.string.fake_payload_library_scope_protocols_disabled)
+            else -> stringResource(R.string.fake_payload_library_scope_active)
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Elevated,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.fake_payload_library_summary_label_http),
+                value = formatHttpFakeProfileLabel(uiState.httpFakeProfile),
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.fake_payload_library_summary_label_tls),
+                value = formatTlsFakeProfileLabel(uiState.tlsFakeProfile),
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.fake_payload_library_summary_label_udp),
+                value = formatUdpFakeProfileLabel(uiState.udpFakeProfile),
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.fake_payload_library_summary_label_scope),
+                value = scopeSummary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun rememberFakePayloadLibraryStatus(uiState: SettingsUiState): FakePayloadLibraryStatusContent =
+    when {
+        uiState.enableCmdSettings ->
+            FakePayloadLibraryStatusContent(
+                label = stringResource(R.string.fake_payload_library_cli_title),
+                body = stringResource(R.string.fake_payload_library_cli_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        !uiState.fakePayloadLibraryControlsRelevant ->
+            FakePayloadLibraryStatusContent(
+                label = stringResource(R.string.fake_payload_library_protocols_disabled_title),
+                body = stringResource(R.string.fake_payload_library_protocols_disabled_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        uiState.isServiceRunning && uiState.hasCustomFakePayloadProfiles ->
+            FakePayloadLibraryStatusContent(
+                label = stringResource(R.string.fake_payload_library_restart_title),
+                body = stringResource(R.string.fake_payload_library_restart_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.hasCustomFakePayloadProfiles ->
+            FakePayloadLibraryStatusContent(
+                label = stringResource(R.string.fake_payload_library_custom_title),
+                body = stringResource(R.string.fake_payload_library_custom_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        else ->
+            FakePayloadLibraryStatusContent(
+                label = stringResource(R.string.fake_payload_library_default_title),
+                body = stringResource(R.string.fake_payload_library_default_body),
                 tone = StatusIndicatorTone.Idle,
             )
     }

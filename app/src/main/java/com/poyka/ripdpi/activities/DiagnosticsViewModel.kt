@@ -1303,6 +1303,18 @@ class DiagnosticsViewModel
                 signature.fakeTlsSize?.let {
                     add(DiagnosticsFieldUiModel("Fake TLS size", formatFakeTlsSize(it)))
                 }
+                signature.httpFakeProfile?.let {
+                    add(DiagnosticsFieldUiModel("HTTP fake profile", formatHttpFakeProfile(it)))
+                }
+                signature.tlsFakeProfile?.let {
+                    add(DiagnosticsFieldUiModel("TLS fake profile", formatTlsFakeProfile(it)))
+                }
+                signature.udpFakeProfile?.let {
+                    add(DiagnosticsFieldUiModel("UDP fake profile", formatUdpFakeProfile(it)))
+                }
+                signature.fakePayloadSource?.let {
+                    add(DiagnosticsFieldUiModel("Fake payload source", formatFakePayloadSource(it)))
+                }
                 signature.quicFakeProfile?.let {
                     add(DiagnosticsFieldUiModel("QUIC fake profile", formatQuicFakeProfile(it)))
                 }
@@ -1857,6 +1869,44 @@ class DiagnosticsViewModel
                 value > 0 -> "Exactly $value bytes"
                 value < 0 -> "Input minus ${-value} bytes"
                 else -> "Match input size"
+            }
+
+        private fun formatHttpFakeProfile(value: String): String =
+            when (value.lowercase(Locale.US)) {
+                "compat_default" -> "Compatibility default"
+                "iana_get" -> "IANA GET"
+                "cloudflare_get" -> "Cloudflare GET"
+                else -> value
+            }
+
+        private fun formatTlsFakeProfile(value: String): String =
+            when (value.lowercase(Locale.US)) {
+                "compat_default" -> "Compatibility default"
+                "iana_firefox" -> "IANA Firefox"
+                "google_chrome" -> "Google Chrome"
+                "vk_chrome" -> "VK Chrome"
+                "sberbank_chrome" -> "Sberbank Chrome"
+                "rutracker_kyber" -> "Rutracker Kyber"
+                "bigsize_iana" -> "IANA bigsize"
+                else -> value
+            }
+
+        private fun formatUdpFakeProfile(value: String): String =
+            when (value.lowercase(Locale.US)) {
+                "compat_default" -> "Compatibility default"
+                "zero_256" -> "Zero blob 256"
+                "zero_512" -> "Zero blob 512"
+                "dns_query" -> "DNS query"
+                "stun_binding" -> "STUN binding"
+                "wireguard_initiation" -> "WireGuard initiation"
+                "dht_get_peers" -> "DHT get_peers"
+                else -> value
+            }
+
+        private fun formatFakePayloadSource(value: String): String =
+            when (value.lowercase(Locale.US)) {
+                "custom_raw" -> "Custom raw fake payload"
+                else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
             }
 
         private fun formatQuicFakeProfile(value: String): String =

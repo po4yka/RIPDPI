@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
@@ -26,6 +27,7 @@ import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.effectiveHttpFakeProfile
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.effectiveQuicFakeHost
@@ -35,8 +37,10 @@ import com.poyka.ripdpi.data.effectiveQuicSupportV1
 import com.poyka.ripdpi.data.effectiveQuicSupportV2
 import com.poyka.ripdpi.data.effectiveSplitMarker
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.effectiveTlsFakeProfile
 import com.poyka.ripdpi.data.effectiveTlsRecordMarker
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
+import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.isTlsPrelude
@@ -118,12 +122,14 @@ data class SettingsUiState(
     val fakeTtl: Int = 8,
     val fakeSni: String = DefaultFakeSni,
     val fakeOffsetMarker: String = DefaultFakeOffsetMarker,
+    val httpFakeProfile: String = FakePayloadProfileCompatDefault,
     val fakeTlsUseOriginal: Boolean = false,
     val fakeTlsRandomize: Boolean = false,
     val fakeTlsDupSessionId: Boolean = false,
     val fakeTlsPadEncap: Boolean = false,
     val fakeTlsSize: Int = 0,
     val fakeTlsSniMode: String = FakeTlsSniModeFixed,
+    val tlsFakeProfile: String = FakePayloadProfileCompatDefault,
     val oobData: String = "a",
     val dropSack: Boolean = false,
     val desyncHttp: Boolean = true,
@@ -143,6 +149,7 @@ data class SettingsUiState(
     val quicInitialMode: String = QuicInitialModeRouteAndCache,
     val quicSupportV1: Boolean = true,
     val quicSupportV2: Boolean = true,
+    val udpFakeProfile: String = FakePayloadProfileCompatDefault,
     val quicFakeProfile: String = QuicFakeProfileDisabled,
     val quicFakeHost: String = "",
     val hostAutolearnEnabled: Boolean = false,
@@ -192,6 +199,18 @@ data class SettingsUiState(
 
     val canResetFakeTlsProfile: Boolean
         get() = !enableCmdSettings && hasCustomFakeTlsProfile
+
+    val hasCustomFakePayloadProfiles: Boolean
+        get() =
+            httpFakeProfile != FakePayloadProfileCompatDefault ||
+                tlsFakeProfile != FakePayloadProfileCompatDefault ||
+                udpFakeProfile != FakePayloadProfileCompatDefault
+
+    val fakePayloadLibraryControlsRelevant: Boolean
+        get() = desyncHttpEnabled || desyncHttpsEnabled || desyncUdpEnabled
+
+    val showFakePayloadLibrary: Boolean
+        get() = enableCmdSettings || fakePayloadLibraryControlsRelevant || hasCustomFakePayloadProfiles
 
     val fakeTlsControlsRelevant: Boolean
         get() = desyncHttpsEnabled && isFake
@@ -325,12 +344,14 @@ internal fun AppSettings.toUiState(
         fakeTtl = fakeTtl.takeIf { it > 0 } ?: 8,
         fakeSni = fakeSni.ifEmpty { DefaultFakeSni },
         fakeOffsetMarker = effectiveFakeOffsetMarker(),
+        httpFakeProfile = effectiveHttpFakeProfile(),
         fakeTlsUseOriginal = fakeTlsUseOriginal,
         fakeTlsRandomize = fakeTlsRandomize,
         fakeTlsDupSessionId = fakeTlsDupSessionId,
         fakeTlsPadEncap = fakeTlsPadEncap,
         fakeTlsSize = fakeTlsSize,
         fakeTlsSniMode = effectiveFakeTlsSniMode(),
+        tlsFakeProfile = effectiveTlsFakeProfile(),
         oobData = oobData.ifEmpty { "a" },
         dropSack = dropSack,
         desyncHttp = desyncHttp,
@@ -350,6 +371,7 @@ internal fun AppSettings.toUiState(
         quicInitialMode = effectiveQuicInitialMode(),
         quicSupportV1 = effectiveQuicSupportV1(),
         quicSupportV2 = effectiveQuicSupportV2(),
+        udpFakeProfile = effectiveUdpFakeProfile(),
         quicFakeProfile = effectiveQuicFakeProfile(),
         quicFakeHost = effectiveQuicFakeHost(),
         hostAutolearnEnabled = hostAutolearnEnabled,

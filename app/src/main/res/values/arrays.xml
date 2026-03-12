@@ -79,6 +79,17 @@
         <item name="original">original</item>
     </array>
 
+    <array name="http_fake_profiles">
+        <item name="compat_default">Compatibility default</item>
+        <item name="iana_get">IANA GET</item>
+        <item name="cloudflare_get">Cloudflare GET</item>
+    </array>
+    <array name="http_fake_profiles_entries">
+        <item name="compat_default">compat_default</item>
+        <item name="iana_get">iana_get</item>
+        <item name="cloudflare_get">cloudflare_get</item>
+    </array>
+
     <array name="fake_tls_sni_modes">
         <item name="fixed">Fixed</item>
         <item name="randomized">Randomized</item>
@@ -86,5 +97,43 @@
     <array name="fake_tls_sni_modes_entries">
         <item name="fixed">fixed</item>
         <item name="randomized">randomized</item>
+    </array>
+
+    <array name="tls_fake_profiles">
+        <item name="compat_default">Compatibility default</item>
+        <item name="iana_firefox">IANA Firefox</item>
+        <item name="google_chrome">Google Chrome</item>
+        <item name="vk_chrome">VK Chrome</item>
+        <item name="sberbank_chrome">Sberbank Chrome</item>
+        <item name="rutracker_kyber">Rutracker Kyber</item>
+        <item name="bigsize_iana">IANA bigsize</item>
+    </array>
+    <array name="tls_fake_profiles_entries">
+        <item name="compat_default">compat_default</item>
+        <item name="iana_firefox">iana_firefox</item>
+        <item name="google_chrome">google_chrome</item>
+        <item name="vk_chrome">vk_chrome</item>
+        <item name="sberbank_chrome">sberbank_chrome</item>
+        <item name="rutracker_kyber">rutracker_kyber</item>
+        <item name="bigsize_iana">bigsize_iana</item>
+    </array>
+
+    <array name="udp_fake_profiles">
+        <item name="compat_default">Compatibility default</item>
+        <item name="zero_256">Zero blob 256</item>
+        <item name="zero_512">Zero blob 512</item>
+        <item name="dns_query">DNS query</item>
+        <item name="stun_binding">STUN binding</item>
+        <item name="wireguard_initiation">WireGuard initiation</item>
+        <item name="dht_get_peers">DHT get_peers</item>
+    </array>
+    <array name="udp_fake_profiles_entries">
+        <item name="compat_default">compat_default</item>
+        <item name="zero_256">zero_256</item>
+        <item name="zero_512">zero_512</item>
+        <item name="dns_query">dns_query</item>
+        <item name="stun_binding">stun_binding</item>
+        <item name="wireguard_initiation">wireguard_initiation</item>
+        <item name="dht_get_peers">dht_get_peers</item>
     </array>
 </resources>

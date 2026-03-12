@@ -2,16 +2,20 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
+import com.poyka.ripdpi.data.effectiveHttpFakeProfile
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveQuicFakeHost
 import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.effectiveTlsFakeProfile
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
+import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.hasCustomFakeTlsProfile
 import com.poyka.ripdpi.data.legacyDesyncMethod
@@ -20,6 +24,7 @@ import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.utility.shellSplit
 import com.poyka.ripdpi.proto.AppSettings
 import java.security.MessageDigest
 import kotlinx.serialization.EncodeDefault
@@ -55,6 +60,10 @@ data class BypassStrategySignature(
     val fakeTlsBaseMode: String? = null,
     val fakeTlsMods: List<String> = emptyList(),
     val fakeTlsSize: Int? = null,
+    val httpFakeProfile: String? = null,
+    val tlsFakeProfile: String? = null,
+    val udpFakeProfile: String? = null,
+    val fakePayloadSource: String? = null,
     val quicFakeProfile: String? = null,
     val quicFakeHost: String? = null,
     val fakeOffsetMarker: String? = null,
@@ -108,6 +117,16 @@ data class BypassApproachDetail(
 
 private val strategyJson = Json { encodeDefaults = true }
 
+private fun hasCommandLineRawFakePayload(args: String): Boolean {
+    val tokens = shellSplit(args)
+    for ((index, token) in tokens.withIndex()) {
+        if ((token == "-l" || token == "--fake-data") && index + 1 < tokens.size) {
+            return true
+        }
+    }
+    return false
+}
+
 fun deriveBypassStrategySignature(
     settings: AppSettings,
     routeGroup: String?,
@@ -129,8 +148,12 @@ fun deriveBypassStrategySignature(
     val desyncMethod = legacyDesyncMethod(tcpSteps).ifEmpty { "none" }
     val hasFakeStep = tcpSteps.any { step -> step.kind == TcpChainStepKind.Fake }
     val fakeTlsProfileActive = hasFakeStep && settings.desyncHttps && settings.hasCustomFakeTlsProfile()
+    val commandLineRawFakePayload = settings.enableCmdSettings && hasCommandLineRawFakePayload(settings.cmdArgs)
     val quicFakeProfile = settings.effectiveQuicFakeProfile()
     val quicFakeProfileActive = !settings.enableCmdSettings && settings.desyncUdp && quicFakeProfile != QuicFakeProfileDisabled
+    val httpFakeProfile = settings.effectiveHttpFakeProfile()
+    val tlsFakeProfile = settings.effectiveTlsFakeProfile()
+    val udpFakeProfile = settings.effectiveUdpFakeProfile()
     val fakeTlsSniMode = settings.effectiveFakeTlsSniMode()
     val fakeTlsMods =
         buildList {
@@ -159,6 +182,10 @@ fun deriveBypassStrategySignature(
         fakeTlsBaseMode = if (fakeTlsProfileActive) if (settings.fakeTlsUseOriginal) "original" else "default" else null,
         fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
         fakeTlsSize = settings.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
+        httpFakeProfile = httpFakeProfile.takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault },
+        tlsFakeProfile = tlsFakeProfile.takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault },
+        udpFakeProfile = udpFakeProfile.takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault },
+        fakePayloadSource = "custom_raw".takeIf { commandLineRawFakePayload },
         quicFakeProfile = quicFakeProfile.takeIf { quicFakeProfileActive },
         quicFakeHost =
             settings
@@ -224,6 +251,9 @@ fun deriveBypassStrategySignature(
         fakeTlsBaseMode = if (fakeTlsProfileActive) if (preferences.fakeTlsUseOriginal) "original" else "default" else null,
         fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
         fakeTlsSize = preferences.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
+        httpFakeProfile = preferences.httpFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
+        tlsFakeProfile = preferences.tlsFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
+        udpFakeProfile = preferences.udpFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
         quicFakeProfile = preferences.quicFakeProfile.takeIf { quicFakeProfileActive },
         quicFakeHost =
             preferences

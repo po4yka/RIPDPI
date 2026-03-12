@@ -1,8 +1,11 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
+import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
+import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.StrategyTcpStep
 import org.junit.Assert.assertEquals
@@ -176,6 +179,45 @@ class ApproachAnalyticsTest {
 
         assertEquals(QuicFakeProfileRealisticInitial, signature.quicFakeProfile)
         assertEquals("video.example.test", signature.quicFakeHost)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature includes fake payload profiles when non-default`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setDesyncHttp(true)
+                .setDesyncHttps(true)
+                .setDesyncUdp(true)
+                .setHttpFakeProfile(HttpFakeProfileCloudflareGet)
+                .setTlsFakeProfile(TlsFakeProfileGoogleChrome)
+                .setUdpFakeProfile(UdpFakeProfileDnsQuery)
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "9")
+
+        assertEquals(HttpFakeProfileCloudflareGet, signature.httpFakeProfile)
+        assertEquals(TlsFakeProfileGoogleChrome, signature.tlsFakeProfile)
+        assertEquals(UdpFakeProfileDnsQuery, signature.udpFakeProfile)
+        assertNull(signature.fakePayloadSource)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature marks command-line raw fake payloads explicitly`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setEnableCmdSettings(true)
+                .setCmdArgs("--fake-data :HELLO")
+                .setHttpFakeProfile(HttpFakeProfileCloudflareGet)
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "10")
+
+        assertNull(signature.httpFakeProfile)
+        assertEquals("custom_raw", signature.fakePayloadSource)
     }
 
     @Test

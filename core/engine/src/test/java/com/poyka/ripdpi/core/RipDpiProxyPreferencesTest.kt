@@ -2,7 +2,10 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
+import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -40,14 +43,17 @@ class RipDpiProxyPreferencesTest {
                 hostsMode = RipDpiProxyUIPreferences.HostsMode.Blacklist,
                 hosts = "example.com",
                 fakeSni = "www.example.com",
+                httpFakeProfile = HttpFakeProfileCloudflareGet,
                 fakeTlsUseOriginal = true,
                 fakeTlsRandomize = true,
                 fakeTlsDupSessionId = true,
                 fakeTlsPadEncap = true,
                 fakeTlsSize = 192,
                 fakeTlsSniMode = FakeTlsSniModeRandomized,
+                tlsFakeProfile = TlsFakeProfileGoogleChrome,
                 quicFakeProfile = QuicFakeProfileRealisticInitial,
                 quicFakeHost = "video.example.test",
+                udpFakeProfile = UdpFakeProfileDnsQuery,
                 hostAutolearnEnabled = true,
                 hostAutolearnPenaltyTtlHours = 12,
                 hostAutolearnMaxHosts = 1024,
@@ -62,12 +68,14 @@ class RipDpiProxyPreferencesTest {
         assertEquals("blacklist", payload.string("hostsMode"))
         assertEquals("example.com", payload.string("hosts"))
         assertEquals("www.example.com", payload.string("fakeSni"))
+        assertEquals(HttpFakeProfileCloudflareGet, payload.string("httpFakeProfile"))
         assertEquals("true", payload.string("fakeTlsUseOriginal"))
         assertEquals("true", payload.string("fakeTlsRandomize"))
         assertEquals("true", payload.string("fakeTlsDupSessionId"))
         assertEquals("true", payload.string("fakeTlsPadEncap"))
         assertEquals(192, payload.int("fakeTlsSize"))
         assertEquals(FakeTlsSniModeRandomized, payload.string("fakeTlsSniMode"))
+        assertEquals(TlsFakeProfileGoogleChrome, payload.string("tlsFakeProfile"))
         assertEquals("1", payload.string("splitMarker"))
         assertEquals("disorder", payload.array("tcpChainSteps")[0].jsonObject.string("kind"))
         assertEquals("1", payload.array("tcpChainSteps")[0].jsonObject.string("marker"))
@@ -77,6 +85,7 @@ class RipDpiProxyPreferencesTest {
         assertEquals("route_and_cache", payload.string("quicInitialMode"))
         assertEquals("true", payload.string("quicSupportV1"))
         assertEquals("true", payload.string("quicSupportV2"))
+        assertEquals(UdpFakeProfileDnsQuery, payload.string("udpFakeProfile"))
         assertEquals(QuicFakeProfileRealisticInitial, payload.string("quicFakeProfile"))
         assertEquals("video.example.test", payload.string("quicFakeHost"))
         assertEquals("true", payload.string("hostAutolearnEnabled"))
@@ -169,6 +178,9 @@ class RipDpiProxyPreferencesTest {
                     ),
                 quicFakeProfile = QuicFakeProfileRealisticInitial,
                 quicFakeHost = "Video.Example.TEST.",
+                httpFakeProfile = HttpFakeProfileCloudflareGet,
+                tlsFakeProfile = TlsFakeProfileGoogleChrome,
+                udpFakeProfile = UdpFakeProfileDnsQuery,
                 hostAutolearnEnabled = true,
                 hostAutolearnPenaltyTtlHours = 6,
                 hostAutolearnMaxHosts = 512,
@@ -179,6 +191,9 @@ class RipDpiProxyPreferencesTest {
         assertEquals(original.chainSummary, decoded?.chainSummary)
         assertEquals(QuicFakeProfileRealisticInitial, decoded?.quicFakeProfile)
         assertEquals("video.example.test", decoded?.quicFakeHost)
+        assertEquals(HttpFakeProfileCloudflareGet, decoded?.httpFakeProfile)
+        assertEquals(TlsFakeProfileGoogleChrome, decoded?.tlsFakeProfile)
+        assertEquals(UdpFakeProfileDnsQuery, decoded?.udpFakeProfile)
         assertEquals(true, decoded?.hostAutolearnEnabled)
     }
 
