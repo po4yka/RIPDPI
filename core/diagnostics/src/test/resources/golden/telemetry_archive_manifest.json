@@ -39,6 +39,9 @@
     "fileName": "ripdpi-diagnostics-<timestamp>.zip",
     "globalEventCount": 1,
     "includedSessionId": "session-selected",
+    "logcatByteCount": 47,
+    "logcatCaptureScope": "app_visible_snapshot",
+    "logcatIncluded": true,
     "networkSummary": {
         "captivePortalDetected": false,
         "dnsServers": "redacted(1)",

@@ -21,6 +21,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
@@ -29,6 +31,7 @@ import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.IOException
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -39,6 +42,12 @@ import logcat.logcat
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject
+    lateinit var diagnosticsManager: DiagnosticsManager
+
+    @Inject
+    lateinit var logcatSnapshotCollector: LogcatSnapshotCollector
+
     private val viewModel: MainViewModel by viewModels()
     private val openHomeRequests = MutableStateFlow(false)
     private val openVpnPermissionRequests = MutableStateFlow(false)
@@ -48,19 +57,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_OPEN_HOME = "com.poyka.ripdpi.extra.OPEN_HOME"
         private const val EXTRA_START_CONFIGURED_MODE = "com.poyka.ripdpi.extra.START_CONFIGURED_MODE"
-
-        private fun collectLogs(): String? =
-            try {
-                Runtime
-                    .getRuntime()
-                    .exec("logcat *:D -d")
-                    .inputStream
-                    .bufferedReader()
-                    .use { it.readText() }
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR) { "Failed to collect logs\n${e.asLog()}" }
-                null
-            }
 
         fun createLaunchIntent(
             context: Context,
@@ -134,9 +130,9 @@ class MainActivity : ComponentActivity() {
     private val logsRegister =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             lifecycleScope.launch(Dispatchers.IO) {
-                val logs = collectLogs()
+                val logcatSnapshot = runCatching { logcatSnapshotCollector.capture() }.getOrNull()
 
-                if (logs == null) {
+                if (logcatSnapshot == null) {
                     withContext(Dispatchers.Main) {
                         Toast
                             .makeText(
@@ -155,7 +151,7 @@ class MainActivity : ComponentActivity() {
                     }
                 contentResolver.openOutputStream(uri)?.use { stream ->
                     try {
-                        stream.write(logs.toByteArray())
+                        stream.write(logcatSnapshot.content.toByteArray())
                     } catch (e: IOException) {
                         logcat(LogPriority.ERROR) { "Failed to save logs\n${e.asLog()}" }
                     }
@@ -222,6 +218,7 @@ class MainActivity : ComponentActivity() {
                     RipDpiNavHost(
                         startDestination = initialStartDestination,
                         onSaveLogs = { saveLogs() },
+                        onShareDebugBundle = { shareDebugBundle() },
                         onSaveDiagnosticsArchive = { filePath, fileName ->
                             saveDiagnosticsArchive(filePath = filePath, fileName = fileName)
                         },
@@ -289,8 +286,28 @@ class MainActivity : ComponentActivity() {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = "text/plain"
                 putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
-            }
+        }
         logsRegister.launch(intent)
+    }
+
+    private fun shareDebugBundle() {
+        lifecycleScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    diagnosticsManager.createArchive(null)
+                }
+            }.onSuccess { archive ->
+                shareDiagnosticsArchive(filePath = archive.absolutePath, fileName = archive.fileName)
+            }.onFailure { error ->
+                logcat(LogPriority.ERROR) { "Failed to prepare support bundle\n${error.asLog()}" }
+                Toast
+                    .makeText(
+                        this@MainActivity,
+                        R.string.debug_bundle_failed,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+            }
+        }
     }
 
     private fun saveDiagnosticsArchive(

@@ -792,6 +792,13 @@ class DiagnosticsManagerTest {
     fun `createArchive includes selected session and redacts human readable files`() =
         runTest {
             val cacheDir = Files.createTempDirectory("diagnostics-archive-selected").toFile()
+            val logcatContent = "03-12 10:00:00.000 I/RIPDPI: diagnostics ready\n"
+            val logcatSnapshot =
+                LogcatSnapshot(
+                    content = logcatContent,
+                    captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                    byteCount = logcatContent.toByteArray(Charsets.UTF_8).size,
+                )
             val history =
                 FakeDiagnosticsHistoryRepository().apply {
                     sessionsState.value =
@@ -840,6 +847,7 @@ class DiagnosticsManagerTest {
                     context = TestContext(cacheDir),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
+                    logcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = logcatSnapshot),
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
@@ -851,10 +859,13 @@ class DiagnosticsManagerTest {
             val entries = unzipEntries(archive.absolutePath)
 
             assertEquals("session-selected", archive.sessionId)
-            assertEquals(setOf("summary.txt", "report.json", "telemetry.csv", "manifest.json"), entries.keys)
+            assertEquals(setOf("summary.txt", "report.json", "logcat.txt", "telemetry.csv", "manifest.json"), entries.keys)
             assertTrue(entries.getValue("summary.txt").contains("selectedSession=session-selected"))
             assertTrue(entries.getValue("summary.txt").contains("publicIp=redacted"))
             assertTrue(entries.getValue("summary.txt").contains("dns=redacted(1)"))
+            assertTrue(entries.getValue("summary.txt").contains("logcatIncluded=true"))
+            assertTrue(entries.getValue("summary.txt").contains("logcatCaptureScope=app_visible_snapshot"))
+            assertTrue(entries.getValue("summary.txt").contains("logcatByteCount=${logcatSnapshot.byteCount}"))
             assertFalse(entries.getValue("summary.txt").contains("198.51.100.8"))
             assertFalse(entries.getValue("summary.txt").contains("192.0.2.10"))
             assertFalse(entries.getValue("summary.txt").contains("AS64500"))
@@ -867,6 +878,7 @@ class DiagnosticsManagerTest {
             assertTrue(entries.getValue("report.json").contains("\"sessionContexts\": ["))
             assertTrue(entries.getValue("report.json").contains("127.0.0.1:1080"))
             assertTrue(entries.getValue("report.json").contains("RIPDPI Lab"))
+            assertEquals(logcatSnapshot.content, entries.getValue("logcat.txt"))
             assertTrue(entries.getValue("telemetry.csv").contains("198.51.100.8"))
             assertTrue(entries.getValue("manifest.json").contains("\"includedSessionId\": \"session-selected\""))
             assertTrue(entries.getValue("manifest.json").contains("\"privacyMode\": \"split_output\""))
@@ -874,6 +886,9 @@ class DiagnosticsManagerTest {
             assertTrue(entries.getValue("manifest.json").contains("\"contextSnapshotCount\": 1"))
             assertTrue(entries.getValue("manifest.json").contains("\"proxyEndpoint\": \"redacted\""))
             assertTrue(entries.getValue("manifest.json").contains("\"ssid\": \"redacted\""))
+            assertTrue(entries.getValue("manifest.json").contains("\"logcatIncluded\": true"))
+            assertTrue(entries.getValue("manifest.json").contains("\"logcatCaptureScope\": \"app_visible_snapshot\""))
+            assertTrue(entries.getValue("manifest.json").contains("\"logcatByteCount\": ${logcatSnapshot.byteCount}"))
             assertFalse(entries.getValue("manifest.json").contains("198.51.100.8"))
             assertEquals("session-selected", history.exportsState.value.single().sessionId)
         }
@@ -918,6 +933,15 @@ class DiagnosticsManagerTest {
                     context = TestContext(cacheDir),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
+                    logcatSnapshotCollector =
+                        FakeLogcatSnapshotCollector(
+                            snapshot =
+                                LogcatSnapshot(
+                                    content = "03-12 10:00:00.000 I/RIPDPI: diagnostics ready\n",
+                                    captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                                    byteCount = "03-12 10:00:00.000 I/RIPDPI: diagnostics ready\n".toByteArray(Charsets.UTF_8).size,
+                                ),
+                        ),
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
@@ -937,6 +961,67 @@ class DiagnosticsManagerTest {
                 entries.getValue("manifest.json"),
                 ::scrubDiagnosticsJson,
             )
+        }
+
+    @Test
+    fun `createArchive still succeeds when logcat capture fails`() =
+        runTest {
+            val cacheDir = Files.createTempDirectory("diagnostics-archive-logcat-failure").toFile()
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-selected",
+                                profileId = "default",
+                                pathMode = "IN_PATH",
+                                summary = "Blocked DNS",
+                            ),
+                        )
+                    replaceProbeResults(
+                        "session-selected",
+                        listOf(
+                            ProbeResultEntity(
+                                id = "probe-1",
+                                sessionId = "session-selected",
+                                probeType = "dns",
+                                target = "blocked.example",
+                                outcome = "substituted",
+                                detailJson = "[]",
+                                createdAt = 30L,
+                            ),
+                        ),
+                    )
+                    upsertSnapshot(snapshot(id = "snapshot-selected", sessionId = "session-selected"))
+                    upsertContextSnapshot(context(id = "context-selected", sessionId = "session-selected"))
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(cacheDir),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    logcatSnapshotCollector =
+                        FakeLogcatSnapshotCollector(
+                            failure = IllegalStateException("logcat unavailable"),
+                        ),
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val archive = manager.createArchive("session-selected")
+            val entries = unzipEntries(archive.absolutePath)
+
+            assertEquals("session-selected", archive.sessionId)
+            assertFalse(entries.containsKey("logcat.txt"))
+            assertTrue(entries.getValue("summary.txt").contains("logcatIncluded=false"))
+            assertTrue(entries.getValue("summary.txt").contains("logcatCaptureScope=app_visible_snapshot"))
+            assertTrue(entries.getValue("summary.txt").contains("logcatByteCount=0"))
+            assertTrue(entries.getValue("manifest.json").contains("\"logcatIncluded\": false"))
+            assertTrue(entries.getValue("manifest.json").contains("\"logcatCaptureScope\": \"app_visible_snapshot\""))
+            assertTrue(entries.getValue("manifest.json").contains("\"logcatByteCount\": 0"))
         }
 
     @Test
@@ -1446,6 +1531,16 @@ private class FakeAppSettingsRepository(
 
     override suspend fun replace(settings: AppSettings) {
         state.value = settings
+    }
+}
+
+private class FakeLogcatSnapshotCollector(
+    private val snapshot: LogcatSnapshot? = null,
+    private val failure: Throwable? = null,
+) : LogcatSnapshotCollector() {
+    override suspend fun capture(): LogcatSnapshot? {
+        failure?.let { throw it }
+        return snapshot
     }
 }
 
