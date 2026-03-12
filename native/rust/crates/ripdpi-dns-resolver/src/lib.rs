@@ -83,6 +83,25 @@ pub enum EncryptedDnsTransport {
     Socks5 { host: String, port: u16 },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EncryptedDnsExchangeSuccess {
+    pub response_bytes: Vec<u8>,
+    pub endpoint_label: String,
+    pub latency_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EncryptedDnsErrorKind {
+    Bootstrap,
+    Connect,
+    Timeout,
+    Tls,
+    Http,
+    DnsCrypt,
+    Decode,
+    NoAnswer,
+}
+
 #[derive(Debug, Clone)]
 pub struct EncryptedDnsResolver {
     inner: Arc<ResolverInner>,
@@ -189,8 +208,12 @@ impl EncryptedDnsResolver {
         &self.inner.endpoint
     }
 
-    pub async fn exchange(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
-        match self.inner.endpoint.protocol {
+    pub async fn exchange_with_metadata(
+        &self,
+        query_bytes: &[u8],
+    ) -> Result<EncryptedDnsExchangeSuccess, EncryptedDnsError> {
+        let started = std::time::Instant::now();
+        let response_bytes = match self.inner.endpoint.protocol {
             EncryptedDnsProtocol::Doh => self.exchange_doh(query_bytes).await,
             EncryptedDnsProtocol::Dot => {
                 let resolver = self.clone();
@@ -206,15 +229,51 @@ impl EncryptedDnsResolver {
                     .await
                     .map_err(|err| EncryptedDnsError::TaskJoin(err.to_string()))?
             }
-        }
+        }?;
+
+        Ok(EncryptedDnsExchangeSuccess {
+            response_bytes,
+            endpoint_label: self.endpoint_label(),
+            latency_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
+        })
     }
 
-    pub fn exchange_blocking(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
-        match self.inner.endpoint.protocol {
+    pub async fn exchange(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+        self.exchange_with_metadata(query_bytes)
+            .await
+            .map(|success| success.response_bytes)
+    }
+
+    pub fn exchange_blocking_with_metadata(
+        &self,
+        query_bytes: &[u8],
+    ) -> Result<EncryptedDnsExchangeSuccess, EncryptedDnsError> {
+        let started = std::time::Instant::now();
+        let response_bytes = match self.inner.endpoint.protocol {
             EncryptedDnsProtocol::Doh => BLOCKING_RUNTIME.block_on(self.exchange_doh(query_bytes)),
             EncryptedDnsProtocol::Dot => self.exchange_dot_blocking(query_bytes),
             EncryptedDnsProtocol::DnsCrypt => self.exchange_dnscrypt_blocking(query_bytes),
-        }
+        }?;
+
+        Ok(EncryptedDnsExchangeSuccess {
+            response_bytes,
+            endpoint_label: self.endpoint_label(),
+            latency_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
+        })
+    }
+
+    pub fn exchange_blocking(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+        self.exchange_blocking_with_metadata(query_bytes)
+            .map(|success| success.response_bytes)
+    }
+
+    fn endpoint_label(&self) -> String {
+        self.inner
+            .endpoint
+            .doh_url
+            .clone()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| format!("{}:{}", self.inner.endpoint.host, self.inner.endpoint.port))
     }
 
     async fn exchange_doh(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
@@ -442,6 +501,30 @@ impl EncryptedDnsResolver {
         }
         consume_socks5_bind_address(&mut proxy_stream, header[3])?;
         Ok(proxy_stream)
+    }
+}
+
+impl EncryptedDnsError {
+    pub fn kind(&self) -> EncryptedDnsErrorKind {
+        match self {
+            EncryptedDnsError::MissingBootstrapIps => EncryptedDnsErrorKind::Bootstrap,
+            EncryptedDnsError::InvalidEndpoint(_)
+            | EncryptedDnsError::MissingHost
+            | EncryptedDnsError::MissingDohUrl
+            | EncryptedDnsError::InvalidUrl(_)
+            | EncryptedDnsError::InvalidDnsCryptPublicKey(_)
+            | EncryptedDnsError::MissingDnsCryptProviderName
+            | EncryptedDnsError::DnsParse(_) => EncryptedDnsErrorKind::Decode,
+            EncryptedDnsError::ClientBuild(_)
+            | EncryptedDnsError::Request(_)
+            | EncryptedDnsError::Socks5(_)
+            | EncryptedDnsError::TaskJoin(_) => EncryptedDnsErrorKind::Connect,
+            EncryptedDnsError::HttpStatus(_) => EncryptedDnsErrorKind::Http,
+            EncryptedDnsError::Tls(_) => EncryptedDnsErrorKind::Tls,
+            EncryptedDnsError::DnsCryptCertificate(_)
+            | EncryptedDnsError::DnsCryptVerification(_)
+            | EncryptedDnsError::DnsCryptDecrypt(_) => EncryptedDnsErrorKind::DnsCrypt,
+        }
     }
 }
 
@@ -875,6 +958,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn exchange_with_metadata_reports_endpoint_and_latency() {
+        let query = build_query("fixture.test");
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        let port = listener.local_addr().expect("local addr").port();
+        let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+        let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+        let server_config = Arc::new(
+            ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(vec![certificate_der.clone()], key_der)
+                .expect("server config"),
+        );
+        let response_body = build_response(&query, Ipv4Addr::new(198, 18, 0, 42));
+        let server_query = query.clone();
+        let server_response = response_body.clone();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept");
+            serve_https_doh(stream, server_config, &server_query, &server_response);
+        });
+
+        let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::Doh,
+                resolver_id: Some("fixture".to_string()),
+                host: "fixture.test".to_string(),
+                port,
+                tls_server_name: Some("fixture.test".to_string()),
+                bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                doh_url: Some(format!("https://fixture.test:{port}/dns-query")),
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            },
+            EncryptedDnsTransport::Direct,
+            DEFAULT_TIMEOUT,
+            vec![certificate_der],
+        )
+        .expect("resolver builds");
+
+        let success = resolver.exchange_with_metadata(&query).await.expect("exchange metadata");
+        assert_eq!(success.endpoint_label, format!("https://fixture.test:{port}/dns-query"));
+        assert!(success.latency_ms <= 4_000);
+        assert_eq!(extract_ip_answers(&success.response_bytes).expect("answers"), vec!["198.18.0.42".to_string()]);
+        server.join().expect("server joins");
+    }
+
+    #[tokio::test]
     async fn doh_exchange_supports_socks_transport() {
         let query = build_query("fixture.test");
         let answer_ip = Ipv4Addr::new(198, 18, 0, 10);
@@ -1130,6 +1260,23 @@ mod tests {
         let response = resolver.exchange_blocking(&expected_query).expect("blocking exchange");
         assert_eq!(response, expected_response);
         server.join().expect("server thread completes");
+    }
+
+    #[test]
+    fn error_kind_maps_common_failures() {
+        assert_eq!(EncryptedDnsError::MissingBootstrapIps.kind(), EncryptedDnsErrorKind::Bootstrap);
+        assert_eq!(
+            EncryptedDnsError::Tls("handshake failed".to_string()).kind(),
+            EncryptedDnsErrorKind::Tls,
+        );
+        assert_eq!(
+            EncryptedDnsError::DnsCryptDecrypt("bad nonce".to_string()).kind(),
+            EncryptedDnsErrorKind::DnsCrypt,
+        );
+        assert_eq!(
+            EncryptedDnsError::DnsParse("bad packet".to_string()).kind(),
+            EncryptedDnsErrorKind::Decode,
+        );
     }
 
     impl DnsCryptTestServer {

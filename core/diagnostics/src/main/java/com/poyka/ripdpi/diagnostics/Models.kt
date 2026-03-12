@@ -27,6 +27,7 @@ data class DomainTarget(
 data class DnsTarget(
     val domain: String,
     val udpServer: String? = null,
+    val encryptedResolverId: String? = null,
     val encryptedProtocol: String? = null,
     val encryptedHost: String? = null,
     val encryptedPort: Int? = null,
@@ -114,7 +115,20 @@ data class ScanReport(
     val finishedAt: Long,
     val summary: String,
     val results: List<ProbeResult> = emptyList(),
+    val resolverRecommendation: ResolverRecommendation? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
+)
+
+@Serializable
+data class ResolverRecommendation(
+    val triggerOutcome: String,
+    val selectedResolverId: String,
+    val selectedProtocol: String,
+    val selectedEndpoint: String,
+    val selectedBootstrapIps: List<String> = emptyList(),
+    val rationale: String,
+    val appliedTemporarily: Boolean = false,
+    val persistable: Boolean = false,
 )
 
 @Serializable
