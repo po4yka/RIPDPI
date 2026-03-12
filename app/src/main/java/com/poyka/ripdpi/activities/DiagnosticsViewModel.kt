@@ -1335,6 +1335,14 @@ class DiagnosticsViewModel
                 add(DiagnosticsFieldUiModel("Chain", signature.chainSummary))
                 add(DiagnosticsFieldUiModel("Desync", signature.desyncMethod))
                 add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
+                if (signature.httpParserEvasions.isNotEmpty()) {
+                    add(
+                        DiagnosticsFieldUiModel(
+                            "HTTP parser evasions",
+                            formatHttpParserEvasions(signature.httpParserEvasions),
+                        ),
+                    )
+                }
                 add(DiagnosticsFieldUiModel("TLS record split", signature.tlsRecordSplitEnabled.toString()))
                 signature.tlsRecordMarker?.let {
                     add(DiagnosticsFieldUiModel("TLS record marker", formatOffsetExpressionLabel(it)))
@@ -1964,6 +1972,18 @@ class DiagnosticsViewModel
                 "iana_get" -> "IANA GET"
                 "cloudflare_get" -> "Cloudflare GET"
                 else -> value
+            }
+
+        private fun formatHttpParserEvasions(values: List<String>): String =
+            values.joinToString(", ") { value ->
+                when (value.lowercase(Locale.US)) {
+                    "host_mixed_case" -> "Host mixed case"
+                    "domain_mixed_case" -> "Domain mixed case"
+                    "host_remove_spaces" -> "Host remove spaces"
+                    "method_eol" -> "Method EOL shift"
+                    "unix_eol" -> "Unix line endings"
+                    else -> value
+                }
             }
 
         private fun formatTlsFakeProfile(value: String): String =

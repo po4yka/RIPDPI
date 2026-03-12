@@ -99,6 +99,8 @@ internal data class AppSettingsSnapshot(
     val hostMixedCase: Boolean = defaultSettings.hostMixedCase,
     val domainMixedCase: Boolean = defaultSettings.domainMixedCase,
     val hostRemoveSpaces: Boolean = defaultSettings.hostRemoveSpaces,
+    val httpMethodEol: Boolean = defaultSettings.httpMethodEol,
+    val httpUnixEol: Boolean = defaultSettings.httpUnixEol,
     val onboardingComplete: Boolean = defaultSettings.onboardingComplete,
     val webrtcProtectionEnabled: Boolean = defaultSettings.webrtcProtectionEnabled,
     val biometricEnabled: Boolean = defaultSettings.biometricEnabled,
@@ -184,6 +186,8 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         hostMixedCase = hostMixedCase,
         domainMixedCase = domainMixedCase,
         hostRemoveSpaces = hostRemoveSpaces,
+        httpMethodEol = httpMethodEol,
+        httpUnixEol = httpUnixEol,
         onboardingComplete = onboardingComplete,
         webrtcProtectionEnabled = webrtcProtectionEnabled,
         biometricEnabled = biometricEnabled,
@@ -308,6 +312,8 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setHostMixedCase(hostMixedCase)
         .setDomainMixedCase(domainMixedCase)
         .setHostRemoveSpaces(hostRemoveSpaces)
+        .setHttpMethodEol(httpMethodEol)
+        .setHttpUnixEol(httpUnixEol)
         .setOnboardingComplete(onboardingComplete)
         .setWebrtcProtectionEnabled(webrtcProtectionEnabled)
         .setBiometricEnabled(biometricEnabled)

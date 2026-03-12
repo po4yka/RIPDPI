@@ -260,6 +260,167 @@ class DiagnosticsManagerTest {
         }
 
     @Test
+    fun `resolver recommendation prefers current provider when match count and latency tie`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                bridge.autoCompleteOnStart = false
+            }
+            val settings =
+                defaultAppSettings()
+                    .toBuilder()
+                    .setDnsMode("encrypted")
+                    .setDnsProviderId("google")
+                    .setEncryptedDnsProtocol("doh")
+                    .setEncryptedDnsHost("dns.google")
+                    .setEncryptedDnsPort(443)
+                    .setEncryptedDnsTlsServerName("dns.google")
+                    .addAllEncryptedDnsBootstrapIps(listOf("8.8.8.8", "8.8.4.4"))
+                    .setEncryptedDnsDohUrl("https://dns.google/dns-query")
+                    .build()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                    resolverOverrideStore = FakeResolverOverrideStore(),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.RAW_PATH)
+            bridgeFactory.bridge.enqueueProgress(
+                ScanProgress(
+                    sessionId = sessionId,
+                    phase = "done",
+                    completedSteps = 1,
+                    totalSteps = 1,
+                    message = "done",
+                    isFinished = true,
+                ),
+            )
+            bridgeFactory.bridge.enqueueReport(
+                ScanReport(
+                    sessionId = sessionId,
+                    profileId = "default",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                    summary = "Finished",
+                    results =
+                        listOf(
+                            dnsProbeResult(
+                                target = "blocked.example",
+                                outcome = "dns_substitution",
+                                resolverId = "cloudflare",
+                                latencyMs = 30,
+                            ),
+                            dnsProbeResult(
+                                target = "clean-cloudflare.example",
+                                outcome = "dns_match",
+                                resolverId = "cloudflare",
+                                latencyMs = 40,
+                            ),
+                            dnsProbeResult(
+                                target = "clean-google.example",
+                                outcome = "dns_match",
+                                resolverId = "google",
+                                endpoint = "https://dns.google/dns-query",
+                                bootstrapIps = "8.8.8.8|8.8.4.4",
+                                latencyMs = 40,
+                            ),
+                        ),
+                ),
+            )
+
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
+
+            val persisted = json.decodeFromString(ScanReport.serializer(), history.getScanSession(sessionId)?.reportJson.orEmpty())
+            assertEquals("google", persisted.resolverRecommendation?.selectedResolverId)
+        }
+
+    @Test
+    fun `strategy probe reports do not persist resolver recommendations`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                bridge.autoCompleteOnStart = false
+            }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.RAW_PATH)
+            bridgeFactory.bridge.enqueueProgress(
+                ScanProgress(
+                    sessionId = sessionId,
+                    phase = "done",
+                    completedSteps = 1,
+                    totalSteps = 1,
+                    message = "done",
+                    isFinished = true,
+                ),
+            )
+            bridgeFactory.bridge.enqueueReport(
+                ScanReport(
+                    sessionId = sessionId,
+                    profileId = "default",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                    summary = "Finished",
+                    results =
+                        listOf(
+                            dnsProbeResult(
+                                target = "blocked.example",
+                                outcome = "dns_substitution",
+                                resolverId = "cloudflare",
+                                latencyMs = 30,
+                            ),
+                            dnsProbeResult(
+                                target = "clean.example",
+                                outcome = "dns_match",
+                                resolverId = "cloudflare",
+                                latencyMs = 30,
+                            ),
+                        ),
+                    strategyProbeReport =
+                        StrategyProbeReport(
+                            suiteId = "quick_v1",
+                            tcpCandidates = emptyList(),
+                            quicCandidates = emptyList(),
+                            recommendation =
+                                StrategyProbeRecommendation(
+                                    tcpCandidateId = "tcp",
+                                    tcpCandidateLabel = "Manual TCP",
+                                    quicCandidateId = "quic",
+                                    quicCandidateLabel = "Manual QUIC",
+                                    rationale = "Prefer manual strategy work before DNS changes",
+                                    recommendedProxyConfigJson = """{"kind":"ui","listen_port":1080}""",
+                                ),
+                        ),
+                ),
+            )
+
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
+
+            val persisted = json.decodeFromString(ScanReport.serializer(), history.getScanSession(sessionId)?.reportJson.orEmpty())
+            assertEquals(null, persisted.resolverRecommendation)
+            assertEquals("quick_v1", persisted.strategyProbeReport?.suiteId)
+        }
+
+    @Test
     fun `automatic probing injects base ui config and stays raw path only`() =
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }

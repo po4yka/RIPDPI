@@ -1018,7 +1018,8 @@ mod tests {
     };
     use ciadpi_packets::{
         build_realistic_quic_initial, http_marker_info, parse_http, parse_quic_initial, parse_tls,
-        second_level_domain_span, tls_marker_info, HttpFakeProfile, TlsFakeProfile, UdpFakeProfile,
+        second_level_domain_span, tls_marker_info, HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, MH_METHODEOL,
+        MH_UNIXEOL,
         DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, QUIC_V2_VERSION,
     };
 
@@ -1387,6 +1388,32 @@ mod tests {
         assert!(plan.steps.is_empty());
         assert_eq!(plan.tampered, payload);
         assert_eq!(plan.actions, vec![DesyncAction::Write(payload.to_vec())]);
+    }
+
+    #[test]
+    fn plan_tcp_applies_extended_http_parser_evasions_only_to_http_requests() {
+        let mut group = DesyncGroup::new(0);
+        group.mod_http = MH_UNIXEOL | MH_METHODEOL;
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
+        let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\n\r\n";
+
+        let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan tcp");
+        let output = std::str::from_utf8(&plan.tampered).expect("tampered http");
+
+        assert!(output.starts_with("\r\nGET / HTTP/1.1\n"));
+        assert!(output.contains("\nUser-Agent: agent  \n\n"));
+    }
+
+    #[test]
+    fn plan_tcp_http_parser_evasion_fallback_keeps_payload_when_mutation_cannot_apply() {
+        let mut group = DesyncGroup::new(0);
+        group.mod_http = MH_UNIXEOL | MH_METHODEOL;
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
+        let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+
+        let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan tcp");
+
+        assert_eq!(plan.tampered, payload);
     }
 
     #[test]

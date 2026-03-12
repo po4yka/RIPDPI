@@ -131,4 +131,6 @@ message AppSettings {
   string encrypted_dns_doh_url = 101;
   string encrypted_dns_dnscrypt_provider_name = 102;
   string encrypted_dns_dnscrypt_public_key = 103;
+  bool http_method_eol = 104;
+  bool http_unix_eol = 105;
 }

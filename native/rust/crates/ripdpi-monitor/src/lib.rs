@@ -984,6 +984,8 @@ fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBo
 fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let baseline = sanitize_current_probe_config(base);
     let parser_only = build_parser_only_candidate(base);
+    let parser_unixeol = build_parser_unixeol_candidate(base);
+    let parser_methodeol = build_parser_methodeol_candidate(base);
     let split_host = build_split_host_candidate(base);
     let tlsrec_split_host = build_tlsrec_split_host_candidate(base);
     let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
@@ -993,6 +995,18 @@ fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     vec![
         StrategyCandidateSpec { id: "baseline_current", label: "Current strategy", family: "baseline", config: baseline },
         StrategyCandidateSpec { id: "parser_only", label: "Parser-only", family: "parser", config: parser_only },
+        StrategyCandidateSpec {
+            id: "parser_unixeol",
+            label: "Parser + Unix EOL",
+            family: "parser_aggressive",
+            config: parser_unixeol,
+        },
+        StrategyCandidateSpec {
+            id: "parser_methodeol",
+            label: "Parser + Method EOL",
+            family: "parser_aggressive",
+            config: parser_methodeol,
+        },
         StrategyCandidateSpec { id: "split_host", label: "Split Host", family: "split", config: split_host },
         StrategyCandidateSpec {
             id: "tlsrec_split_host",
@@ -1071,6 +1085,8 @@ fn strategy_probe_base(base: &ProxyUiConfig) -> ProxyUiConfig {
     config.host_mixed_case = false;
     config.domain_mixed_case = false;
     config.host_remove_spaces = false;
+    config.http_method_eol = false;
+    config.http_unix_eol = false;
     config.tls_record_split = false;
     config.tls_record_split_marker = None;
     config.tls_record_split_position = 0;
@@ -1090,6 +1106,18 @@ fn build_parser_only_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     config.host_mixed_case = true;
     config.domain_mixed_case = true;
     config.host_remove_spaces = true;
+    config
+}
+
+fn build_parser_unixeol_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = build_parser_only_candidate(base);
+    config.http_unix_eol = true;
+    config
+}
+
+fn build_parser_methodeol_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = build_parser_only_candidate(base);
+    config.http_method_eol = true;
     config
 }
 
@@ -2740,6 +2768,8 @@ mod tests {
             host_mixed_case: false,
             domain_mixed_case: false,
             host_remove_spaces: false,
+            http_method_eol: false,
+            http_unix_eol: false,
             tls_record_split: false,
             tls_record_split_marker: None,
             tls_record_split_position: 0,
@@ -3036,7 +3066,30 @@ mod tests {
         let candidates = build_tcp_candidates(&minimal_ui_config());
 
         assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_current"));
-        assert_eq!(candidates.len(), 7);
+        assert_eq!(candidates.len(), 9);
+        assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("parser_only"));
+        assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("parser_unixeol"));
+        assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("parser_methodeol"));
+    }
+
+    #[test]
+    fn aggressive_parser_candidates_enable_only_expected_evasion() {
+        let candidates = build_tcp_candidates(&minimal_ui_config());
+        let unixeol = candidates.iter().find(|candidate| candidate.id == "parser_unixeol").expect("unixeol candidate");
+        let methodeol =
+            candidates.iter().find(|candidate| candidate.id == "parser_methodeol").expect("methodeol candidate");
+
+        assert!(unixeol.config.host_mixed_case);
+        assert!(unixeol.config.domain_mixed_case);
+        assert!(unixeol.config.host_remove_spaces);
+        assert!(unixeol.config.http_unix_eol);
+        assert!(!unixeol.config.http_method_eol);
+
+        assert!(methodeol.config.host_mixed_case);
+        assert!(methodeol.config.domain_mixed_case);
+        assert!(methodeol.config.host_remove_spaces);
+        assert!(methodeol.config.http_method_eol);
+        assert!(!methodeol.config.http_unix_eol);
     }
 
     #[test]

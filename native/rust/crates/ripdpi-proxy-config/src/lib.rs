@@ -10,7 +10,8 @@ use ciadpi_config::{
     HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
 use ciadpi_packets::{
-    HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE,
+    HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL,
+    MH_SPACE, MH_UNIXEOL,
 };
 use serde::{Deserialize, Serialize};
 
@@ -132,6 +133,10 @@ pub struct ProxyUiConfig {
     pub host_mixed_case: bool,
     pub domain_mixed_case: bool,
     pub host_remove_spaces: bool,
+    #[serde(default)]
+    pub http_method_eol: bool,
+    #[serde(default)]
+    pub http_unix_eol: bool,
     pub tls_record_split: bool,
     #[serde(default)]
     pub tls_record_split_marker: Option<String>,
@@ -364,7 +369,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     };
     group.mod_http = (u32::from(payload.host_mixed_case) * MH_HMIX)
         | (u32::from(payload.domain_mixed_case) * MH_DMIX)
-        | (u32::from(payload.host_remove_spaces) * MH_SPACE);
+        | (u32::from(payload.host_remove_spaces) * MH_SPACE)
+        | (u32::from(payload.http_method_eol) * MH_METHODEOL)
+        | (u32::from(payload.http_unix_eol) * MH_UNIXEOL);
 
     if !payload.tcp_chain_steps.is_empty() {
         for step in &payload.tcp_chain_steps {
@@ -671,6 +678,8 @@ mod tests {
             host_mixed_case: false,
             domain_mixed_case: false,
             host_remove_spaces: false,
+            http_method_eol: false,
+            http_unix_eol: false,
             tls_record_split: false,
             tls_record_split_marker: None,
             tls_record_split_position: 0,
@@ -740,6 +749,20 @@ mod tests {
         assert_eq!(config.groups[0].http_fake_profile, HttpFakeProfile::CloudflareGet);
         assert_eq!(config.groups[0].tls_fake_profile, TlsFakeProfile::GoogleChrome);
         assert_eq!(config.groups[0].udp_fake_profile, UdpFakeProfile::DnsQuery);
+    }
+
+    #[test]
+    fn ui_payload_maps_extended_http_parser_evasions_into_mod_http() {
+        let mut ui = minimal_ui();
+        ui.host_mixed_case = true;
+        ui.domain_mixed_case = true;
+        ui.host_remove_spaces = true;
+        ui.http_method_eol = true;
+        ui.http_unix_eol = true;
+
+        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
+
+        assert_eq!(config.groups[0].mod_http, MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL);
     }
 
     #[test]

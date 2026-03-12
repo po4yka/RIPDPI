@@ -137,6 +137,26 @@ class RipDpiProxyPreferencesTest {
     }
 
     @Test
+    fun uiPreferencesEncodeExtendedHttpParserEvasions() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                hostMixedCase = true,
+                domainMixedCase = true,
+                hostRemoveSpaces = true,
+                httpMethodEol = true,
+                httpUnixEol = true,
+            )
+
+        val payload = preferences.toNativeConfigJson().parseJsonObject()
+
+        assertEquals("true", payload.string("hostMixedCase"))
+        assertEquals("true", payload.string("domainMixedCase"))
+        assertEquals("true", payload.string("hostRemoveSpaces"))
+        assertEquals("true", payload.string("httpMethodEol"))
+        assertEquals("true", payload.string("httpUnixEol"))
+    }
+
+    @Test
     fun uiPreferencesEncodeHostfakeChainOptions() {
         val preferences =
             RipDpiProxyUIPreferences(
@@ -288,6 +308,26 @@ class RipDpiProxyPreferencesTest {
 
         assertEquals(original.groupActivationFilter, decoded?.groupActivationFilter)
         assertEquals(original.tcpChainSteps.first().activationFilter, decoded?.tcpChainSteps?.first()?.activationFilter)
+    }
+
+    @Test
+    fun decodeUiPreferencesRoundTripsExtendedHttpParserEvasions() {
+        val original =
+            RipDpiProxyUIPreferences(
+                hostMixedCase = true,
+                domainMixedCase = true,
+                hostRemoveSpaces = true,
+                httpMethodEol = true,
+                httpUnixEol = true,
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals(true, decoded?.hostMixedCase)
+        assertEquals(true, decoded?.domainMixedCase)
+        assertEquals(true, decoded?.hostRemoveSpaces)
+        assertEquals(true, decoded?.httpMethodEol)
+        assertEquals(true, decoded?.httpUnixEol)
     }
 
     @Test

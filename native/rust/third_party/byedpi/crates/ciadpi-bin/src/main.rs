@@ -93,7 +93,7 @@ fn help_text() -> String {
     text.push_str("        --fake-udp-profile <id> Built-in UDP fake payload: compat_default,zero_256,zero_512,dns_query,stun_binding,wireguard_initiation,dht_get_peers\n");
     text.push_str("    -Q, --fake-tls-mod <flag> Modify fake TLS CH: rand,orig,rndsni,dupsid,padencap,msize=<int>\n");
     text.push_str("    -e, --oob-data <char>     Set custom OOB data\n");
-    text.push_str("    -M, --mod-http <h,d,r>    Modify HTTP: hcsmix,dcsmix,rmspace\n");
+    text.push_str("    -M, --mod-http <h,d,r,m,u> Modify HTTP: hcsmix,dcsmix,rmspace,methodeol,unixeol\n");
     text.push_str("    -r, --tlsrec <pos_t>      Make TLS record at position\n");
     text.push_str("    -m, --tlsminor <ver>      Change minor version of TLS\n");
     text.push_str("    -a, --udp-fake <count>    UDP fakes count, default 0\n");
