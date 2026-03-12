@@ -7,6 +7,7 @@ Android application for bypassing DPI (Deep Packet Inspection) and censorship wi
 - local proxy mode
 - local VPN redirection mode
 - encrypted DNS in VPN mode with DoH/DoT/DNSCrypt
+- advanced strategy controls with semantic markers, adaptive split placement, fake payload profiles, and automatic probing
 - integrated diagnostics and passive telemetry
 - in-repository Rust native modules
 
@@ -19,6 +20,7 @@ RIPDPI includes an integrated diagnostics screen for active DPI checks and passi
 Implemented diagnostic mechanisms:
 
 - Manual scans in `RAW_PATH` and `IN_PATH` modes
+- Automatic probing in `RAW_PATH` with a fixed candidate suite and manual recommendation output
 - DNS integrity checks across UDP DNS and encrypted resolvers (DoH/DoT/DNSCrypt)
 - Domain reachability checks with TLS and HTTP classification
 - TCP 16-20 KB cutoff detection with repeated fat-header requests
@@ -41,7 +43,22 @@ What the app does not record:
 
 ## Settings
 
-To bypass some blocks, you may need to change the settings. More information is in the [ByeDPI documentation](https://github.com/hufrea/byedpi/blob/v0.13/README.md).
+RIPDPI keeps the legacy ByeDPI CLI path, but the Android UI now exposes a broader typed strategy surface than the original command-line app.
+
+## Advanced Strategy Surface
+
+RIPDPI's current Android and native strategy stack includes:
+
+- semantic markers such as `host`, `endhost`, `midsld`, `sniext`, and `extlen`
+- adaptive markers such as `auto(balanced)` and `auto(host)` that resolve from live `TCP_INFO` hints
+- ordered TCP and UDP chain steps with per-step activation filters
+- richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
+- built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
+- host-targeted fake chunks (`hostfake`) and Linux/Android-focused `fakedsplit` / `fakeddisorder` approximations
+- per-host route learning, activation windows, and adaptive fake TTL for TCP fake sends
+- diagnostics-side automatic probing with a candidate scoreboard and manual recommendation
+
+Implementation details and the native call path are documented in [docs/native/byedpi.md](docs/native/byedpi.md).
 
 ## FAQ
 
@@ -58,6 +75,8 @@ To bypass some blocks, you may need to change the settings. More information is 
 ## Documentation
 
 - [Native integration and module usage](docs/native/README.md)
+- [Proxy engine and current native strategy surface](docs/native/byedpi.md)
+- [TUN-to-SOCKS native bridge](docs/native/hev-socks5-tunnel.md)
 - [Testing, E2E, golden contracts, and soak coverage](docs/testing.md)
 - [External projects analysis and feature ideas](docs/external-projects-analysis.md)
 
