@@ -13,6 +13,9 @@ import com.poyka.ripdpi.data.DefaultQuicFakeHost
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
+import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
+import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
+import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.AppStatus
@@ -36,6 +39,7 @@ import com.poyka.ripdpi.data.effectiveTlsRecordMarker
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
+import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.legacyDesyncMethod
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
@@ -122,6 +126,11 @@ data class SettingsUiState(
     val hostsWhitelist: String = "",
     val tlsrecEnabled: Boolean = false,
     val tlsrecMarker: String = DefaultTlsRecordMarker,
+    val tlsPreludeMode: String = "disabled",
+    val tlsPreludeStepCount: Int = 0,
+    val tlsRandRecFragmentCount: Int = DefaultTlsRandRecFragmentCount,
+    val tlsRandRecMinFragmentSize: Int = DefaultTlsRandRecMinFragmentSize,
+    val tlsRandRecMaxFragmentSize: Int = DefaultTlsRandRecMaxFragmentSize,
     val udpFakeCount: Int = 0,
     val quicInitialMode: String = QuicInitialModeRouteAndCache,
     val quicSupportV1: Boolean = true,
@@ -220,6 +229,18 @@ data class SettingsUiState(
     val showHostFakeProfile: Boolean
         get() = enableCmdSettings || hasHostFake || hostFakeControlsRelevant
 
+    val tlsPreludeControlsRelevant: Boolean
+        get() = desyncHttpsEnabled
+
+    val showTlsPreludeProfile: Boolean
+        get() = enableCmdSettings || tlsPreludeControlsRelevant || tlsPreludeStepCount > 0
+
+    val tlsPreludeUsesRandomRecords: Boolean
+        get() = tlsPreludeMode == TcpChainStepKind.TlsRandRec.wireName
+
+    val hasStackedTlsPreludeSteps: Boolean
+        get() = tlsPreludeStepCount > 1
+
     val hasCustomFakeTlsProfile: Boolean
         get() =
             fakeTlsUseOriginal ||
@@ -241,6 +262,7 @@ internal fun AppSettings.toUiState(
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
     val tcpChainSteps = effectiveTcpChainSteps()
     val udpChainSteps = effectiveUdpChainSteps()
+    val tlsPreludeSteps = tcpChainSteps.filter { it.kind.isTlsPrelude }
     val primaryTcpStep = primaryTcpChainStep(tcpChainSteps)
     val tlsRecStep = tlsPreludeTcpChainStep(tcpChainSteps)
     val normalizedDesyncMethod = legacyDesyncMethod(tcpChainSteps).ifEmpty { "none" }
@@ -303,6 +325,11 @@ internal fun AppSettings.toUiState(
         hostsWhitelist = hostsWhitelist,
         tlsrecEnabled = tlsRecStep != null,
         tlsrecMarker = tlsRecStep?.marker ?: effectiveTlsRecordMarker(),
+        tlsPreludeMode = tlsRecStep?.kind?.wireName ?: "disabled",
+        tlsPreludeStepCount = tlsPreludeSteps.size,
+        tlsRandRecFragmentCount = tlsRecStep?.fragmentCount?.takeIf { it > 0 } ?: DefaultTlsRandRecFragmentCount,
+        tlsRandRecMinFragmentSize = tlsRecStep?.minFragmentSize?.takeIf { it > 0 } ?: DefaultTlsRandRecMinFragmentSize,
+        tlsRandRecMaxFragmentSize = tlsRecStep?.maxFragmentSize?.takeIf { it > 0 } ?: DefaultTlsRandRecMaxFragmentSize,
         udpFakeCount = udpChainSteps.sumOf { it.count.coerceAtLeast(0) }.takeIf { it > 0 } ?: udpFakeCount,
         quicInitialMode = effectiveQuicInitialMode(),
         quicSupportV1 = effectiveQuicSupportV1(),
