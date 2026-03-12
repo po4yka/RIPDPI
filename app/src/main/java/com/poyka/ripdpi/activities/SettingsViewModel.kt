@@ -366,6 +366,9 @@ data class SettingsUiState(
     val hasCustomAdaptiveSplitPreset: Boolean
         get() = adaptiveSplitPreset == AdaptiveSplitPresetCustom
 
+    val canResetAdaptiveSplitPreset: Boolean
+        get() = !enableCmdSettings && hasAdaptiveSplitPreset && adaptiveSplitVisualEditorSupported
+
     val adaptiveSplitVisualEditorSupported: Boolean
         get() = primaryTcpChainStep(tcpChainSteps)?.kind?.supportsAdaptiveMarker != false
 }
