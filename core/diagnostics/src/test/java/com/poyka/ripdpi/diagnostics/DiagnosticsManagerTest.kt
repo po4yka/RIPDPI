@@ -27,9 +27,11 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.services.FailureReason
+import com.poyka.ripdpi.services.ResolverOverrideStore
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
 import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.services.TemporaryResolverOverride
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -135,6 +137,126 @@ class DiagnosticsManagerTest {
             assertEquals(ScanPathMode.IN_PATH, request.pathMode)
             assertEquals("10.0.0.2", request.proxyHost)
             assertEquals(2080, request.proxyPort)
+        }
+
+    @Test
+    fun `connectivity scan expands default dns targets to all built in resolvers`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                    resolverOverrideStore = FakeResolverOverrideStore(),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.RAW_PATH)
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
+
+            val request = json.decodeFromString(ScanRequest.serializer(), bridgeFactory.bridge.startedRequestJson!!)
+            assertEquals(4, request.dnsTargets.size)
+            assertTrue(request.dnsTargets.all { !it.encryptedResolverId.isNullOrBlank() })
+        }
+
+    @Test
+    fun `connectivity dns recommendation is persisted and temporarily applied on vpn plain dns`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                bridge.autoCompleteOnStart = false
+            }
+            val overrideStore = FakeResolverOverrideStore()
+            val appSettingsRepository =
+                FakeAppSettingsRepository(
+                    defaultAppSettings()
+                        .toBuilder()
+                        .setDnsMode("plain_udp")
+                        .setDnsIp("8.8.8.8")
+                        .build(),
+                )
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = appSettingsRepository,
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    resolverOverrideStore = overrideStore,
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.IN_PATH)
+            val pathMode = ScanPathMode.IN_PATH
+            bridgeFactory.bridge.enqueueProgress(
+                ScanProgress(
+                    sessionId = sessionId,
+                    phase = "done",
+                    completedSteps = 1,
+                    totalSteps = 1,
+                    message = "done",
+                    isFinished = true,
+                ),
+            )
+            bridgeFactory.bridge.enqueueReport(
+                ScanReport(
+                    sessionId = sessionId,
+                    profileId = "default",
+                    pathMode = pathMode,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                    summary = "Finished",
+                    results =
+                        listOf(
+                            dnsProbeResult(
+                                target = "blocked.example",
+                                outcome = "dns_substitution",
+                                resolverId = "cloudflare",
+                                latencyMs = 40,
+                            ),
+                            dnsProbeResult(
+                                target = "clean.example",
+                                outcome = "dns_match",
+                                resolverId = "cloudflare",
+                                latencyMs = 35,
+                            ),
+                            dnsProbeResult(
+                                target = "clean.example",
+                                outcome = "dns_match",
+                                resolverId = "google",
+                                endpoint = "https://dns.google/dns-query",
+                                bootstrapIps = "8.8.8.8|8.8.4.4",
+                                latencyMs = 60,
+                            ),
+                        ),
+                ),
+            )
+
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
+
+            val persisted = json.decodeFromString(ScanReport.serializer(), history.getScanSession(sessionId)?.reportJson.orEmpty())
+            assertEquals("cloudflare", persisted.resolverRecommendation?.selectedResolverId)
+            assertTrue(persisted.resolverRecommendation?.appliedTemporarily == true)
+            assertEquals("cloudflare", overrideStore.override.value?.resolverId)
+
+            manager.saveResolverRecommendation(sessionId)
+
+            val savedSettings = appSettingsRepository.snapshot()
+            assertEquals("encrypted", savedSettings.dnsMode)
+            assertEquals("cloudflare", savedSettings.dnsProviderId)
+            assertEquals("1.1.1.1", savedSettings.dnsIp)
+            assertEquals("doh", savedSettings.encryptedDnsProtocol)
+            assertEquals("cloudflare-dns.com", savedSettings.encryptedDnsHost)
+            assertEquals(443, savedSettings.encryptedDnsPort)
+            assertTrue(overrideStore.override.value == null)
         }
 
     @Test
@@ -1564,12 +1686,20 @@ private class FakeNetworkDiagnosticsBridge(
         scriptedProgress.addLast(DiagnosticsBridgeStep.Payload(value))
     }
 
+    fun enqueueProgress(progress: ScanProgress) {
+        enqueueProgress(json.encodeToString(ScanProgress.serializer(), progress))
+    }
+
     fun enqueueProgressFailure(error: Throwable) {
         scriptedProgress.addLast(DiagnosticsBridgeStep.Failure(error))
     }
 
     fun enqueueReport(value: String?) {
         scriptedReports.addLast(DiagnosticsBridgeStep.Payload(value))
+    }
+
+    fun enqueueReport(report: ScanReport) {
+        enqueueReport(json.encodeToString(ScanReport.serializer(), report))
     }
 
     fun enqueueReportFailure(error: Throwable) {
@@ -1610,6 +1740,42 @@ private fun <T> FaultSpec<T>.throwOrIgnore() {
         else -> throw faultThrowable(outcome, message)
     }
 }
+
+private class FakeResolverOverrideStore : ResolverOverrideStore {
+    private val state = MutableStateFlow<TemporaryResolverOverride?>(null)
+
+    override val override: StateFlow<TemporaryResolverOverride?> = state.asStateFlow()
+
+    override fun setTemporaryOverride(override: TemporaryResolverOverride) {
+        state.value = override
+    }
+
+    override fun clear() {
+        state.value = null
+    }
+}
+
+private fun dnsProbeResult(
+    target: String,
+    outcome: String,
+    resolverId: String,
+    endpoint: String = "https://cloudflare-dns.com/dns-query",
+    bootstrapIps: String = "1.1.1.1|1.0.0.1",
+    latencyMs: Long,
+): ProbeResult =
+    ProbeResult(
+        probeType = "dns_integrity",
+        target = target,
+        outcome = outcome,
+        details =
+            listOf(
+                ProbeDetail("encryptedResolverId", resolverId),
+                ProbeDetail("encryptedProtocol", "doh"),
+                ProbeDetail("encryptedEndpoint", endpoint),
+                ProbeDetail("encryptedBootstrapIps", bootstrapIps),
+                ProbeDetail("encryptedLatencyMs", latencyMs.toString()),
+            ),
+    )
 
 private class FakeServiceStateStore(
     initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,

@@ -27,7 +27,8 @@ use hs5t_config::Config;
 use hs5t_dns_cache::DnsCache;
 use hs5t_session::{Auth, TargetAddr, TcpSession, UdpSession};
 use ripdpi_dns_resolver::{
-    EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
+    EncryptedDnsEndpoint, EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol,
+    EncryptedDnsResolver, EncryptedDnsTransport,
 };
 
 use crate::classify::classify_ip_packet;
@@ -182,7 +183,8 @@ struct DnsResponse {
     src: SocketAddr,
     query: Vec<u8>,
     host: Option<String>,
-    upstream: Result<Vec<u8>, String>,
+    upstream: Result<EncryptedDnsExchangeSuccess, String>,
+    resolver_error_kind: Option<EncryptedDnsErrorKind>,
 }
 
 fn parse_mapdns_runtime(config: &Config) -> io::Result<Option<MapDnsRuntime>> {
@@ -399,15 +401,21 @@ fn handle_dns_result(
     response: DnsResponse,
 ) {
     match response.upstream {
-        Ok(upstream) => match dns_cache.rewrite_response(&response.query, &upstream) {
+        Ok(upstream) => match dns_cache.rewrite_response(&response.query, &upstream.response_bytes) {
             Ok(result) => {
-                stats.record_dns_success(&result.host, result.cache_hits, result.cache_misses);
+                stats.record_dns_success(
+                    &result.host,
+                    result.cache_hits,
+                    result.cache_misses,
+                    Some(&upstream.endpoint_label),
+                    Some(upstream.latency_ms),
+                );
                 let raw = build_udp_response(mapdns.intercept_addr, response.src, &result.response);
                 try_write_tun_packet(tun, stats, &raw, "dns");
             }
             Err(err) => {
                 let message = err.to_string();
-                stats.record_dns_failure(response.host.as_deref(), &message);
+                stats.record_dns_failure(response.host.as_deref(), &message, Some(&upstream.endpoint_label));
                 match dns_cache.servfail_response(&response.query) {
                     Ok(servfail) => {
                         let raw = build_udp_response(mapdns.intercept_addr, response.src, &servfail);
@@ -418,7 +426,12 @@ fn handle_dns_result(
             }
         },
         Err(err) => {
-            stats.record_dns_failure(response.host.as_deref(), &err);
+            let formatted_error =
+                response
+                    .resolver_error_kind
+                    .map(|kind| format!("{kind:?}: {err}"))
+                    .unwrap_or(err);
+            stats.record_dns_failure(response.host.as_deref(), &formatted_error, None);
             match dns_cache.servfail_response(&response.query) {
                 Ok(servfail) => {
                     let raw = build_udp_response(mapdns.intercept_addr, response.src, &servfail);
@@ -514,6 +527,12 @@ pub async fn io_loop_task(
 
     let mapdns_runtime = parse_mapdns_runtime(&config)?;
     dns_cache = parse_dns_cache(&config, dns_cache)?;
+    if let Some(mapdns) = config.mapdns.as_ref() {
+        stats.configure_resolver_fallback(
+            mapdns.resolver_fallback_active,
+            mapdns.resolver_fallback_reason.as_deref(),
+        );
+    }
     let mapdns_classify = mapdns_runtime.map(|value| {
         (
             match value.intercept_addr.ip() {
@@ -546,12 +565,24 @@ pub async fn io_loop_task(
                         let Some(request) = request else {
                             break;
                         };
-                        let upstream = resolver.exchange(&request.query).await.map_err(|err| err.to_string());
+                        let upstream =
+                            resolver
+                                .exchange_with_metadata(&request.query)
+                                .await
+                                .map_err(|err| {
+                                    let kind = err.kind();
+                                    (kind, err.to_string())
+                                });
+                        let (resolver_error_kind, upstream) = match upstream {
+                            Ok(success) => (None, Ok(success)),
+                            Err((kind, message)) => (Some(kind), Err(message)),
+                        };
                         if resp_tx.send(DnsResponse {
                             src: request.src,
                             query: request.query,
                             host: request.host,
                             upstream,
+                            resolver_error_kind,
                         }).await.is_err() {
                             break;
                         }
@@ -627,7 +658,11 @@ pub async fn io_loop_task(
                                 Ok(()) => {}
                                 Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {
                                     if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_ref()) {
-                                        stats.record_dns_failure(request.host.as_deref(), "dns worker queue full");
+                                        stats.record_dns_failure(
+                                            request.host.as_deref(),
+                                            "dns worker queue full",
+                                            None,
+                                        );
                                         match cache.servfail_response(&request.query) {
                                             Ok(servfail) => {
                                                 let raw =
@@ -640,7 +675,11 @@ pub async fn io_loop_task(
                                 }
                                 Err(tokio::sync::mpsc::error::TrySendError::Closed(request)) => {
                                     if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_ref()) {
-                                        stats.record_dns_failure(request.host.as_deref(), "dns worker unavailable");
+                                        stats.record_dns_failure(
+                                            request.host.as_deref(),
+                                            "dns worker unavailable",
+                                            None,
+                                        );
                                         match cache.servfail_response(&request.query) {
                                             Ok(servfail) => {
                                                 let raw =
@@ -658,7 +697,11 @@ pub async fn io_loop_task(
                             }
                         }
                         (Some(mapdns), Some(cache), None) => {
-                            stats.record_dns_failure(host.as_deref(), "encrypted DNS resolver is not configured");
+                            stats.record_dns_failure(
+                                host.as_deref(),
+                                "encrypted DNS resolver is not configured",
+                                None,
+                            );
                             match cache.servfail_response(&payload) {
                                 Ok(servfail) => {
                                     let raw = build_udp_response(mapdns.intercept_addr, src, &servfail);

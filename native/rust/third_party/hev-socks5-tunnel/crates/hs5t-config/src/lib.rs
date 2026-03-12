@@ -152,6 +152,9 @@ pub struct MapDnsConfig {
     pub doh_bootstrap_ips: Vec<String>,
     #[serde(default = "default_dns_query_timeout_ms")]
     pub dns_query_timeout_ms: u32,
+    #[serde(default)]
+    pub resolver_fallback_active: bool,
+    pub resolver_fallback_reason: Option<String>,
 }
 
 // ── MiscConfig ───────────────────────────────────────────────────────────────

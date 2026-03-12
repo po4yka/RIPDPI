@@ -7,7 +7,12 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.BuiltInDnsProviders
+import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.DnsProviderCloudflare
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -20,6 +25,9 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.services.DefaultResolverOverrideStore
+import com.poyka.ripdpi.services.ResolverOverrideStore
+import com.poyka.ripdpi.services.TemporaryResolverOverride
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.Binds
 import dagger.Module
@@ -78,6 +86,10 @@ interface DiagnosticsManager {
     suspend fun buildShareSummary(sessionId: String?): ShareSummary
 
     suspend fun createArchive(sessionId: String?): DiagnosticsArchive
+
+    suspend fun keepResolverRecommendationForSession(sessionId: String)
+
+    suspend fun saveResolverRecommendation(sessionId: String)
 }
 
 @Singleton
@@ -92,8 +104,9 @@ class DefaultDiagnosticsManager
         private val networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
         private val serviceStateStore: ServiceStateStore,
+        private val resolverOverrideStore: ResolverOverrideStore = DefaultResolverOverrideStore(),
     ) : DiagnosticsManager {
-        private companion object {
+    private companion object {
         private const val DiagnosticsArchiveDirectory = "diagnostics-archives"
         private const val DiagnosticsArchivePrefix = "ripdpi-diagnostics-"
         private const val ArchiveSchemaVersion = 5
@@ -104,6 +117,8 @@ class DefaultDiagnosticsManager
         private const val ArchiveTelemetryLimit = 120
         private const val ArchiveGlobalEventLimit = 80
         private const val ArchiveSnapshotLimit = 250
+        private const val FinishedReportPollAttempts = 5
+        private const val FinishedReportPollDelayMs = 100L
     }
 
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
@@ -148,6 +163,7 @@ class DefaultDiagnosticsManager
                 ScanKind.CONNECTIVITY ->
                     request.copy(
                         pathMode = pathMode,
+                        dnsTargets = expandConnectivityDnsTargets(request.dnsTargets),
                         proxyHost =
                             if (pathMode == ScanPathMode.IN_PATH) {
                                 settings.proxyIp.ifEmpty { "127.0.0.1" }
@@ -445,6 +461,13 @@ class DefaultDiagnosticsManager
                     }
                     latestTelemetry?.let { telemetry ->
                         appendLine("networkType=${telemetry.networkType}")
+                        appendLine("resolverId=${telemetry.resolverId ?: "unknown"}")
+                        appendLine("resolverProtocol=${telemetry.resolverProtocol ?: "unknown"}")
+                        appendLine("resolverEndpoint=${telemetry.resolverEndpoint ?: "unknown"}")
+                        appendLine("resolverLatencyMs=${telemetry.resolverLatencyMs ?: 0}")
+                        appendLine("dnsFailuresTotal=${telemetry.dnsFailuresTotal}")
+                        appendLine("resolverFallback=${telemetry.resolverFallbackReason ?: telemetry.resolverFallbackActive}")
+                        appendLine("networkHandoverClass=${telemetry.networkHandoverClass ?: "none"}")
                         appendLine("txBytes=${telemetry.txBytes}")
                         appendLine("rxBytes=${telemetry.rxBytes}")
                         appendLine("txPackets=${telemetry.txPackets}")
@@ -581,7 +604,11 @@ class DefaultDiagnosticsManager
                 zip.putNextEntry(ZipEntry("telemetry.csv"))
                 val csv =
                     buildString {
-                        appendLine("createdAt,activeMode,connectionState,networkType,publicIp,txPackets,txBytes,rxPackets,rxBytes")
+                        appendLine(
+                            "createdAt,activeMode,connectionState,networkType,publicIp,resolverId,resolverProtocol," +
+                                "resolverEndpoint,resolverLatencyMs,dnsFailuresTotal,resolverFallbackActive," +
+                                "resolverFallbackReason,networkHandoverClass,txPackets,txBytes,rxPackets,rxBytes",
+                        )
                         payload.telemetry.forEach { sample ->
                             appendLine(
                                 listOf(
@@ -590,6 +617,14 @@ class DefaultDiagnosticsManager
                                     sample.connectionState,
                                     sample.networkType,
                                     sample.publicIp.orEmpty(),
+                                    sample.resolverId.orEmpty(),
+                                    sample.resolverProtocol.orEmpty(),
+                                    sample.resolverEndpoint.orEmpty(),
+                                    sample.resolverLatencyMs ?: 0,
+                                    sample.dnsFailuresTotal,
+                                    sample.resolverFallbackActive,
+                                    sample.resolverFallbackReason.orEmpty(),
+                                    sample.networkHandoverClass.orEmpty(),
                                     sample.txPackets,
                                     sample.txBytes,
                                     sample.rxPackets,
@@ -646,6 +681,36 @@ class DefaultDiagnosticsManager
                 privacyMode = ArchivePrivacyMode,
             )
         }
+
+    override suspend fun keepResolverRecommendationForSession(sessionId: String) {
+        val recommendation = loadResolverRecommendation(sessionId) ?: return
+        installTemporaryResolverOverride(recommendation)
+    }
+
+    override suspend fun saveResolverRecommendation(sessionId: String) {
+        val recommendation = loadResolverRecommendation(sessionId) ?: return
+        val provider =
+            BuiltInDnsProviders.firstOrNull { it.providerId == recommendation.selectedResolverId }
+                ?: return
+        appSettingsRepository.update {
+            dnsMode = com.poyka.ripdpi.data.DnsModeEncrypted
+            dnsProviderId = provider.providerId
+            dnsIp = provider.primaryIp
+            dnsDohUrl = provider.dohUrl.orEmpty()
+            clearDnsDohBootstrapIps()
+            addAllDnsDohBootstrapIps(provider.bootstrapIps)
+            encryptedDnsProtocol = provider.protocol
+            encryptedDnsHost = provider.host
+            encryptedDnsPort = provider.port
+            encryptedDnsTlsServerName = provider.tlsServerName
+            clearEncryptedDnsBootstrapIps()
+            addAllEncryptedDnsBootstrapIps(provider.bootstrapIps)
+            encryptedDnsDohUrl = provider.dohUrl.orEmpty()
+            encryptedDnsDnscryptProviderName = provider.dnscryptProviderName.orEmpty()
+            encryptedDnsDnscryptPublicKey = provider.dnscryptPublicKey.orEmpty()
+        }
+        resolverOverrideStore.clear()
+    }
 
     private suspend fun importBundledProfiles() {
         val asset = context.assets.open("diagnostics/default_profiles.json").bufferedReader().use { it.readText() }
@@ -782,6 +847,13 @@ class DefaultDiagnosticsManager
             }
             telemetry.firstOrNull()?.let { sample ->
                 appendLine("networkType=${sample.networkType}")
+                appendLine("resolverId=${sample.resolverId ?: "unknown"}")
+                appendLine("resolverProtocol=${sample.resolverProtocol ?: "unknown"}")
+                appendLine("resolverEndpoint=${sample.resolverEndpoint ?: "unknown"}")
+                appendLine("resolverLatencyMs=${sample.resolverLatencyMs ?: 0}")
+                appendLine("dnsFailuresTotal=${sample.dnsFailuresTotal}")
+                appendLine("resolverFallbackReason=${sample.resolverFallbackReason ?: "none"}")
+                appendLine("networkHandoverClass=${sample.networkHandoverClass ?: "none"}")
                 appendLine("txBytes=${sample.txBytes}")
                 appendLine("rxBytes=${sample.rxBytes}")
             }
@@ -817,10 +889,12 @@ class DefaultDiagnosticsManager
             _activeScanProgress.value = progress
             if (progress != null && progress.isFinished) {
                 val report =
-                    bridge.takeReportJson()
+                    awaitFinishedReportJson(bridge)
                         ?.let { json.decodeFromString(ScanReport.serializer(), it) }
                         ?: throw IllegalStateException("Diagnostics scan completed without a report")
-                persistScanReport(enrichScanReport(report, settings))
+                val enrichedReport = enrichScanReport(report, settings)
+                val finalReport = maybeApplyTemporaryResolverOverride(enrichedReport, settings)
+                persistScanReport(finalReport)
                 historyRepository.upsertSnapshot(
                     NetworkSnapshotEntity(
                         id = UUID.randomUUID().toString(),
@@ -850,27 +924,205 @@ class DefaultDiagnosticsManager
         }
     }
 
+    private suspend fun awaitFinishedReportJson(bridge: NetworkDiagnosticsBridge): String? {
+        repeat(FinishedReportPollAttempts) { attempt ->
+            bridge.takeReportJson()?.let { return it }
+            if (attempt < FinishedReportPollAttempts - 1) {
+                delay(FinishedReportPollDelayMs)
+            }
+        }
+        return null
+    }
+
     private fun enrichScanReport(
         report: ScanReport,
         settings: com.poyka.ripdpi.proto.AppSettings,
     ): ScanReport {
-        val strategyProbe = report.strategyProbeReport ?: return report
-        val recommendation = strategyProbe.recommendation
-        val strategySignature =
-            decodeRipDpiProxyUiPreferences(recommendation.recommendedProxyConfigJson)
-                ?.let { preferences ->
-                    deriveBypassStrategySignature(
-                        preferences = preferences,
-                        routeGroup = null,
-                        modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }),
-                    )
-                }
-
-        return report.copy(
-            strategyProbeReport =
+        val strategyProbe =
+            report.strategyProbeReport?.let { strategyProbe ->
+                val recommendation = strategyProbe.recommendation
+                val strategySignature =
+                    decodeRipDpiProxyUiPreferences(recommendation.recommendedProxyConfigJson)
+                        ?.let { preferences ->
+                            deriveBypassStrategySignature(
+                                preferences = preferences,
+                                routeGroup = null,
+                                modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }),
+                            )
+                        }
                 strategyProbe.copy(
                     recommendation = recommendation.copy(strategySignature = strategySignature),
+                )
+            }
+        val resolverRecommendation =
+            if (report.strategyProbeReport == null) {
+                computeResolverRecommendation(report, settings)
+            } else {
+                null
+            }
+        return report.copy(
+            strategyProbeReport = strategyProbe,
+            resolverRecommendation = resolverRecommendation,
+        )
+    }
+
+    private suspend fun maybeApplyTemporaryResolverOverride(
+        report: ScanReport,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ): ScanReport {
+        val recommendation = report.resolverRecommendation ?: return report
+        val (status, mode) = serviceStateStore.status.value
+        if (
+            report.strategyProbeReport != null ||
+            mode != Mode.VPN ||
+            status != com.poyka.ripdpi.data.AppStatus.Running ||
+            settings.activeDnsSettings().mode != DnsModePlainUdp
+        ) {
+            return report
+        }
+        installTemporaryResolverOverride(recommendation)
+        return report.copy(
+            resolverRecommendation = recommendation.copy(appliedTemporarily = true),
+        )
+    }
+
+    private fun computeResolverRecommendation(
+        report: ScanReport,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ): ResolverRecommendation? {
+        val dnsResults = report.results.filter { it.probeType == "dns_integrity" }
+        if (dnsResults.isEmpty()) {
+            return null
+        }
+        val triggerOutcome =
+            dnsResults
+                .firstOrNull { it.outcome == "dns_substitution" || it.outcome == "udp_blocked" }
+                ?.outcome
+                ?: return null
+
+        val builtInProviders = BuiltInDnsProviders.associateBy { it.providerId }
+        data class Candidate(
+            val providerId: String,
+            val protocol: String,
+            val endpoint: String,
+            val bootstrapIps: List<String>,
+            val matchCount: Int,
+            val averageLatencyMs: Long?,
+        )
+
+        val candidates =
+            dnsResults
+                .mapNotNull { result ->
+                    val details = result.details.associate { it.key to it.value }
+                    val providerId = details["encryptedResolverId"].orEmpty()
+                    val provider = builtInProviders[providerId] ?: return@mapNotNull null
+                    providerId to (result to details)
+                }.groupBy({ it.first }, { it.second })
+                .mapNotNull { (providerId, entries) ->
+                    val provider = builtInProviders[providerId] ?: return@mapNotNull null
+                    val matchEntries = entries.filter { it.first.outcome == "dns_match" }
+                    if (matchEntries.isEmpty()) {
+                        return@mapNotNull null
+                    }
+                    Candidate(
+                        providerId = providerId,
+                        protocol = matchEntries.first().second["encryptedProtocol"].orEmpty().ifBlank {
+                            provider.protocol
+                        },
+                        endpoint = matchEntries.first().second["encryptedEndpoint"].orEmpty().ifBlank {
+                            provider.dohUrl ?: "${provider.host}:${provider.port}"
+                        },
+                        bootstrapIps =
+                            matchEntries.first().second["encryptedBootstrapIps"]
+                                ?.split('|')
+                                ?.filter { it.isNotBlank() }
+                                ?.takeIf { it.isNotEmpty() }
+                                ?: provider.bootstrapIps,
+                        matchCount = matchEntries.size,
+                        averageLatencyMs =
+                            matchEntries
+                                .mapNotNull { (_, details) -> details["encryptedLatencyMs"]?.toLongOrNull() }
+                                .takeIf { it.isNotEmpty() }
+                                ?.average()
+                                ?.toLong(),
+                    )
+                }
+        if (candidates.isEmpty()) {
+            return null
+        }
+
+        val currentProvider = settings.activeDnsSettings().providerId
+        val selected =
+            candidates.minWithOrNull(
+                compareBy<Candidate>(
+                    { -it.matchCount },
+                    { it.averageLatencyMs ?: Long.MAX_VALUE },
+                    { if (it.providerId == currentProvider) 0 else 1 },
+                    { if (it.providerId == DnsProviderCloudflare) 0 else 1 },
                 ),
+            ) ?: return null
+
+        val provider = builtInProviders.getValue(selected.providerId)
+        return ResolverRecommendation(
+            triggerOutcome = triggerOutcome,
+            selectedResolverId = selected.providerId,
+            selectedProtocol = selected.protocol,
+            selectedEndpoint = selected.endpoint,
+            selectedBootstrapIps = selected.bootstrapIps,
+            rationale =
+                "UDP DNS showed $triggerOutcome while ${provider.displayName} returned matching encrypted answers " +
+                    "on ${selected.matchCount} probe(s) with ${selected.averageLatencyMs ?: 0} ms average latency.",
+            appliedTemporarily = false,
+            persistable = true,
+        )
+    }
+
+    private fun expandConnectivityDnsTargets(targets: List<DnsTarget>): List<DnsTarget> =
+        targets.flatMap { target ->
+            if (
+                target.encryptedResolverId != null ||
+                target.encryptedProtocol != null ||
+                target.encryptedHost != null ||
+                target.encryptedDohUrl != null ||
+                target.encryptedBootstrapIps.isNotEmpty()
+            ) {
+                listOf(target)
+            } else {
+                BuiltInDnsProviders.map { provider ->
+                    target.copy(
+                        encryptedResolverId = provider.providerId,
+                        encryptedProtocol = EncryptedDnsProtocolDoh,
+                        encryptedHost = provider.host,
+                        encryptedPort = provider.port,
+                        encryptedTlsServerName = provider.tlsServerName,
+                        encryptedBootstrapIps = provider.bootstrapIps,
+                        encryptedDohUrl = provider.dohUrl,
+                    )
+                }
+            }
+        }
+
+    private suspend fun loadResolverRecommendation(sessionId: String): ResolverRecommendation? =
+        historyRepository.getScanSession(sessionId)?.reportJson?.let(::decodeScanReport)?.resolverRecommendation
+
+    private fun installTemporaryResolverOverride(recommendation: ResolverRecommendation) {
+        val provider =
+            BuiltInDnsProviders.firstOrNull { it.providerId == recommendation.selectedResolverId }
+                ?: return
+        resolverOverrideStore.setTemporaryOverride(
+            TemporaryResolverOverride(
+                resolverId = provider.providerId,
+                protocol = provider.protocol,
+                host = provider.host,
+                port = provider.port,
+                tlsServerName = provider.tlsServerName,
+                bootstrapIps = provider.bootstrapIps,
+                dohUrl = provider.dohUrl.orEmpty(),
+                dnscryptProviderName = provider.dnscryptProviderName.orEmpty(),
+                dnscryptPublicKey = provider.dnscryptPublicKey.orEmpty(),
+                reason = recommendation.rationale,
+                appliedAt = System.currentTimeMillis(),
+            ),
         )
     }
 

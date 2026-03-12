@@ -106,7 +106,20 @@ class RuntimeHistoryRecorderTest {
                                     ),
                                 ),
                         ),
-                    tunnelTelemetry = NativeRuntimeSnapshot(source = "tunnel", state = "running", health = "healthy"),
+                    tunnelTelemetry =
+                        NativeRuntimeSnapshot(
+                            source = "tunnel",
+                            state = "running",
+                            health = "healthy",
+                            resolverId = "cloudflare",
+                            resolverProtocol = "doh",
+                            resolverEndpoint = "https://cloudflare-dns.com/dns-query",
+                            resolverLatencyMs = 38,
+                            dnsFailuresTotal = 2,
+                            resolverFallbackActive = true,
+                            resolverFallbackReason = "UDP DNS showed dns_substitution",
+                            networkHandoverClass = "transport_switch",
+                        ),
                     serviceStartedAt = System.currentTimeMillis(),
                     restartCount = 1,
                     updatedAt = System.currentTimeMillis(),
@@ -137,10 +150,19 @@ class RuntimeHistoryRecorderTest {
             }
 
             val session = history.usageSessionsState.value.single()
+            val telemetrySample = history.telemetryState.value.single()
             assertEquals("Running", session.connectionState)
             assertEquals("VPN", session.serviceMode)
             assertEquals(1_024L, session.txBytes)
             assertEquals(2_048L, session.rxBytes)
+            assertEquals("cloudflare", telemetrySample.resolverId)
+            assertEquals("doh", telemetrySample.resolverProtocol)
+            assertEquals("https://cloudflare-dns.com/dns-query", telemetrySample.resolverEndpoint)
+            assertEquals(38L, telemetrySample.resolverLatencyMs)
+            assertEquals(2, telemetrySample.dnsFailuresTotal)
+            assertTrue(telemetrySample.resolverFallbackActive)
+            assertEquals("UDP DNS showed dns_substitution", telemetrySample.resolverFallbackReason)
+            assertEquals("transport_switch", telemetrySample.networkHandoverClass)
             assertEquals(1, history.nativeEventsState.value.size)
             assertTrue(history.snapshotsState.value.all { it.connectionSessionId == session.id })
             assertTrue(history.contextsState.value.all { it.connectionSessionId == session.id })
