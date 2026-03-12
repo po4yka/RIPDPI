@@ -233,6 +233,7 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
             domain: manifest.fixture_domain.clone(),
             udp_server: Some(format!("127.0.0.1:{}", manifest.dns_udp_port)),
             doh_url: Some(format!("http://127.0.0.1:{}/dns-query", manifest.dns_http_port)),
+            doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
             expected_ips: vec![manifest.dns_answer_ipv4.clone()],
         }],
         tcp_targets: vec![TcpTarget {

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.StrategyChainSet
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 data class ConfigDraft(
     val mode: Mode = Mode.VPN,
     val dnsIp: String = "1.1.1.1",
+    val dnsSummary: String = "DoH · Cloudflare",
     val proxyIp: String = "127.0.0.1",
     val proxyPort: String = "1080",
     val maxConnections: String = "512",
@@ -108,7 +110,8 @@ internal const val ConfigFieldStrategyChain = "strategyChain"
 internal fun AppSettings.toConfigDraft(): ConfigDraft =
     ConfigDraft(
         mode = Mode.fromString(ripdpiMode.ifEmpty { "vpn" }),
-        dnsIp = dnsIp.ifEmpty { "1.1.1.1" },
+        dnsIp = activeDnsSettings().dnsIp,
+        dnsSummary = activeDnsSettings().summary(),
         proxyIp = proxyIp.ifEmpty { "127.0.0.1" },
         proxyPort = (proxyPort.takeIf { it > 0 } ?: 1080).toString(),
         maxConnections = (maxConnections.takeIf { it > 0 } ?: 512).toString(),
@@ -156,10 +159,6 @@ internal fun buildConfigPresets(currentDraft: ConfigDraft): List<ConfigPreset> {
 
 internal fun validateConfigDraft(draft: ConfigDraft): Map<String, String> =
     buildMap {
-        if (draft.mode == Mode.VPN && !checkNotLocalIp(draft.dnsIp)) {
-            put(ConfigFieldDnsIp, "invalid_dns_ip")
-        }
-
         if (!checkIp(draft.proxyIp)) {
             put(ConfigFieldProxyIp, "invalid_proxy_ip")
         }

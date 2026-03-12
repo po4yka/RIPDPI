@@ -1,7 +1,13 @@
 {
   "activeSessions": 1,
   "capturedAt": 0,
+  "dnsCacheHits": 0,
+  "dnsCacheMisses": 0,
+  "dnsFailuresTotal": 0,
+  "dnsQueriesTotal": 0,
   "health": "degraded",
+  "lastDnsError": null,
+  "lastDnsHost": null,
   "lastError": "boom",
   "lastHost": null,
   "lastRouteGroup": null,
@@ -27,6 +33,7 @@
       "source": "tunnel"
     }
   ],
+  "resolverId": null,
   "routeChanges": 0,
   "source": "tunnel",
   "state": "running",

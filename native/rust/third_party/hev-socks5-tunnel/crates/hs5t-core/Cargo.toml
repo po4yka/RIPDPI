@@ -9,6 +9,7 @@ hs5t-config = { path = "../hs5t-config" }
 hs5t-tunnel = { path = "../hs5t-tunnel" }
 hs5t-dns-cache = { path = "../hs5t-dns-cache" }
 hs5t-session = { path = "../hs5t-session" }
+ripdpi-dns-resolver = { workspace = true }
 smoltcp = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }

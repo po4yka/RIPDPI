@@ -20,6 +20,9 @@ import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DnsModeDoh
+import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
@@ -27,6 +30,8 @@ import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.effectiveHttpFakeProfile
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
@@ -45,6 +50,7 @@ import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.legacyDesyncMethod
+import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.primaryTcpChainStep
@@ -102,6 +108,11 @@ data class SettingsUiState(
     val themedAppIconEnabled: Boolean = true,
     val ripdpiMode: String = "vpn",
     val dnsIp: String = "1.1.1.1",
+    val dnsMode: String = "doh",
+    val dnsProviderId: String = "cloudflare",
+    val dnsDohUrl: String = "https://cloudflare-dns.com/dns-query",
+    val dnsDohBootstrapIps: List<String> = listOf("1.1.1.1", "1.0.0.1"),
+    val dnsSummary: String = "DoH · Cloudflare",
     val ipv6Enable: Boolean = false,
     val enableCmdSettings: Boolean = false,
     val cmdArgs: String = "",
@@ -307,6 +318,7 @@ internal fun AppSettings.toUiState(
     hostAutolearnStorePresent: Boolean = false,
 ): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
+    val activeDns = activeDnsSettings()
     val tcpChainSteps = effectiveTcpChainSteps()
     val udpChainSteps = effectiveUdpChainSteps()
     val tlsPreludeSteps = tcpChainSteps.filter { it.kind.isTlsPrelude }
@@ -335,7 +347,12 @@ internal fun AppSettings.toUiState(
         themedAppIconEnabled =
             LauncherIconManager.normalizeIconStyle(appIconStyle) == LauncherIconManager.ThemedIconStyle,
         ripdpiMode = normalizedMode,
-        dnsIp = dnsIp.ifEmpty { "1.1.1.1" },
+        dnsIp = activeDns.dnsIp,
+        dnsMode = activeDns.mode,
+        dnsProviderId = activeDns.providerId,
+        dnsDohUrl = activeDns.dohUrl,
+        dnsDohBootstrapIps = activeDns.dohBootstrapIps,
+        dnsSummary = activeDns.summary(),
         ipv6Enable = ipv6Enable,
         enableCmdSettings = enableCmdSettings,
         cmdArgs = cmdArgs,
@@ -492,6 +509,52 @@ class SettingsViewModel
             effect = SettingsEffect.SettingChanged(key = key, value = value),
             transform = transform,
         )
+    }
+
+    fun selectBuiltInDnsProvider(providerId: String) {
+        val resolver = dnsProviderById(providerId) ?: return
+        updateSetting(
+            key = "dnsProviderId",
+            value = providerId,
+        ) {
+            setDnsMode(DnsModeDoh)
+            setDnsProviderId(resolver.providerId)
+            setDnsIp(resolver.primaryIp)
+            setDnsDohUrl(resolver.dohUrl)
+            clearDnsDohBootstrapIps()
+            addAllDnsDohBootstrapIps(resolver.bootstrapIps)
+        }
+    }
+
+    fun setPlainDnsServer(dnsIp: String) {
+        updateSetting(
+            key = "dnsIp",
+            value = dnsIp,
+        ) {
+            setDnsMode(DnsModePlainUdp)
+            setDnsProviderId(DnsProviderCustom)
+            setDnsIp(dnsIp)
+            setDnsDohUrl("")
+            clearDnsDohBootstrapIps()
+        }
+    }
+
+    fun setCustomDohResolver(
+        dohUrl: String,
+        bootstrapIps: List<String>,
+    ) {
+        val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
+        updateSetting(
+            key = "dnsDohUrl",
+            value = dohUrl,
+        ) {
+            setDnsMode(DnsModeDoh)
+            setDnsProviderId(DnsProviderCustom)
+            setDnsDohUrl(dohUrl.trim())
+            setDnsIp(normalizedBootstrapIps.firstOrNull().orEmpty())
+            clearDnsDohBootstrapIps()
+            addAllDnsDohBootstrapIps(normalizedBootstrapIps)
+        }
     }
 
     fun setWebRtcProtectionEnabled(enabled: Boolean) {

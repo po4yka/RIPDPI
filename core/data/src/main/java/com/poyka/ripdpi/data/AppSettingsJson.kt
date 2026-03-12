@@ -41,6 +41,10 @@ internal data class AppSettingsSnapshot(
     val appTheme: String = defaultSettings.appTheme,
     val mode: Mode = Mode.fromString(defaultSettings.ripdpiMode),
     val dnsIp: String = defaultSettings.dnsIp,
+    val dnsMode: String = "",
+    val dnsProviderId: String = "",
+    val dnsDohUrl: String = "",
+    val dnsDohBootstrapIps: List<String> = emptyList(),
     val ipv6Enabled: Boolean = defaultSettings.ipv6Enable,
     val enableCommandLineSettings: Boolean = defaultSettings.enableCmdSettings,
     val commandLineArgs: String = defaultSettings.cmdArgs,
@@ -108,10 +112,15 @@ fun AppSettings.toJson(): String = appSettingsJson.encodeToString(toSnapshot())
 fun appSettingsFromJson(payload: String): AppSettings = appSettingsJson.decodeFromString<AppSettingsSnapshot>(payload).toAppSettings()
 
 private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
-    AppSettingsSnapshot(
+    activeDnsSettings().let { activeDns ->
+        AppSettingsSnapshot(
         appTheme = appTheme,
         mode = Mode.fromString(ripdpiMode.ifEmpty { defaultSettings.ripdpiMode }),
-        dnsIp = dnsIp,
+        dnsIp = activeDns.dnsIp,
+        dnsMode = activeDns.mode,
+        dnsProviderId = activeDns.providerId,
+        dnsDohUrl = activeDns.dohUrl,
+        dnsDohBootstrapIps = activeDns.dohBootstrapIps,
         ipv6Enabled = ipv6Enable,
         enableCommandLineSettings = enableCmdSettings,
         commandLineArgs = cmdArgs,
@@ -183,18 +192,33 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         hostAutolearnEnabled = hostAutolearnEnabled,
         hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
         hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
-    )
+        )
+    }
 
 private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
     require(formatVersion == AppSettingsJsonFormatVersion) {
         "Unsupported app settings format version: $formatVersion"
     }
 
+    val activeDns =
+        activeDnsSettings(
+            dnsMode = dnsMode,
+            dnsProviderId = dnsProviderId,
+            dnsIp = dnsIp,
+            dnsDohUrl = dnsDohUrl,
+            dnsDohBootstrapIps = dnsDohBootstrapIps,
+        )
+
     return AppSettings
         .newBuilder()
         .setAppTheme(appTheme)
         .setRipdpiMode(mode.preferenceValue)
-        .setDnsIp(dnsIp)
+        .setDnsIp(activeDns.dnsIp)
+        .setDnsMode(activeDns.mode)
+        .setDnsProviderId(activeDns.providerId)
+        .setDnsDohUrl(activeDns.dohUrl)
+        .clearDnsDohBootstrapIps()
+        .addAllDnsDohBootstrapIps(activeDns.dohBootstrapIps)
         .setIpv6Enable(ipv6Enabled)
         .setEnableCmdSettings(enableCommandLineSettings)
         .setCmdArgs(commandLineArgs)
