@@ -15,7 +15,7 @@ import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.DnsModeDoh
+import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
@@ -258,20 +258,51 @@ class RipDpiVpnService : LifecycleVpnService() {
         val settings = appSettingsRepository.snapshot()
         val port = if (settings.proxyPort > 0) settings.proxyPort else 1080
         val activeDns = settings.activeDnsSettings()
-        val dns = if (activeDns.mode == DnsModeDoh) MAPDNS_ADDRESS else activeDns.dnsIp
+        val dns = if (activeDns.mode == DnsModeEncrypted) MAPDNS_ADDRESS else activeDns.dnsIp
         val ipv6 = settings.ipv6Enable
         val config =
             Tun2SocksConfig(
                 socks5Port = port,
-                mapdnsAddress = if (activeDns.mode == DnsModeDoh) MAPDNS_ADDRESS else null,
-                mapdnsPort = if (activeDns.mode == DnsModeDoh) MAPDNS_PORT else null,
-                mapdnsNetwork = if (activeDns.mode == DnsModeDoh) MAPDNS_NETWORK else null,
-                mapdnsNetmask = if (activeDns.mode == DnsModeDoh) MAPDNS_NETMASK else null,
-                mapdnsCacheSize = if (activeDns.mode == DnsModeDoh) MAPDNS_CACHE_SIZE else null,
-                dohResolverId = if (activeDns.mode == DnsModeDoh) activeDns.providerId else null,
-                dohUrl = if (activeDns.mode == DnsModeDoh) activeDns.dohUrl else null,
-                dohBootstrapIps = if (activeDns.mode == DnsModeDoh) activeDns.dohBootstrapIps else emptyList(),
-                dnsQueryTimeoutMs = if (activeDns.mode == DnsModeDoh) DNS_QUERY_TIMEOUT_MS else null,
+                mapdnsAddress = if (activeDns.mode == DnsModeEncrypted) MAPDNS_ADDRESS else null,
+                mapdnsPort = if (activeDns.mode == DnsModeEncrypted) MAPDNS_PORT else null,
+                mapdnsNetwork = if (activeDns.mode == DnsModeEncrypted) MAPDNS_NETWORK else null,
+                mapdnsNetmask = if (activeDns.mode == DnsModeEncrypted) MAPDNS_NETMASK else null,
+                mapdnsCacheSize = if (activeDns.mode == DnsModeEncrypted) MAPDNS_CACHE_SIZE else null,
+                encryptedDnsResolverId = if (activeDns.mode == DnsModeEncrypted) activeDns.providerId else null,
+                encryptedDnsProtocol = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsProtocol else null,
+                encryptedDnsHost = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsHost else null,
+                encryptedDnsPort = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsPort else null,
+                encryptedDnsTlsServerName =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        activeDns.encryptedDnsTlsServerName
+                    } else {
+                        null
+                    },
+                encryptedDnsBootstrapIps =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        activeDns.encryptedDnsBootstrapIps
+                    } else {
+                        emptyList()
+                    },
+                encryptedDnsDohUrl =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        activeDns.encryptedDnsDohUrl
+                    } else {
+                        null
+                    },
+                encryptedDnsDnscryptProviderName =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        activeDns.encryptedDnsDnscryptProviderName
+                    } else {
+                        null
+                    },
+                encryptedDnsDnscryptPublicKey =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        activeDns.encryptedDnsDnscryptPublicKey
+                    } else {
+                        null
+                    },
+                dnsQueryTimeoutMs = if (activeDns.mode == DnsModeEncrypted) DNS_QUERY_TIMEOUT_MS else null,
             )
 
         val session = vpnTunnelSessionProvider.establish(this, dns, ipv6)
