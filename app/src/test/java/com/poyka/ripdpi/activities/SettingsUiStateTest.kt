@@ -2,6 +2,8 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
+import com.poyka.ripdpi.data.AdaptiveMarkerEndHost
+import com.poyka.ripdpi.data.AdaptiveMarkerHost
 import com.poyka.ripdpi.data.AdaptiveMarkerMethod
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
@@ -248,6 +250,78 @@ class SettingsUiStateTest {
         assertTrue(customState.canResetAdaptiveSplitPreset)
         assertFalse(hostfakeState.adaptiveSplitVisualEditorSupported)
         assertFalse(hostfakeState.canResetAdaptiveSplitPreset)
+    }
+
+    @Test
+    fun `adaptive split visual editor follows first non tls tcp step`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setSplitMarker(AdaptiveMarkerBalanced)
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrec")
+                        .setMarker("host+1")
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("split")
+                        .setMarker(AdaptiveMarkerEndHost)
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertEquals(AdaptiveMarkerEndHost, state.splitMarker)
+        assertEquals(AdaptiveMarkerEndHost, state.adaptiveSplitPreset)
+        assertTrue(state.hasAdaptiveSplitPreset)
+        assertFalse(state.hasCustomAdaptiveSplitPreset)
+        assertTrue(state.adaptiveSplitVisualEditorSupported)
+    }
+
+    @Test
+    fun `manual adaptive split state does not expose reset`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("split")
+                        .setMarker("host+2")
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertEquals("host+2", state.splitMarker)
+        assertEquals(AdaptiveSplitPresetManual, state.adaptiveSplitPreset)
+        assertFalse(state.hasAdaptiveSplitPreset)
+        assertFalse(state.hasCustomAdaptiveSplitPreset)
+        assertFalse(state.canResetAdaptiveSplitPreset)
+        assertTrue(state.adaptiveSplitVisualEditorSupported)
+    }
+
+    @Test
+    fun `command line mode keeps adaptive split preset visible but disables reset`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setEnableCmdSettings(true)
+                .setDesyncMethod("split")
+                .setSplitMarker(AdaptiveMarkerHost)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.enableCmdSettings)
+        assertEquals(AdaptiveMarkerHost, state.adaptiveSplitPreset)
+        assertTrue(state.hasAdaptiveSplitPreset)
+        assertFalse(state.hasCustomAdaptiveSplitPreset)
+        assertFalse(state.canResetAdaptiveSplitPreset)
+        assertTrue(state.adaptiveSplitVisualEditorSupported)
     }
 
     @Test
