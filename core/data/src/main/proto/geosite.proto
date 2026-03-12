@@ -1,0 +1,24 @@
+syntax = "proto3";
+option java_package = "com.poyka.ripdpi.proto";
+option java_multiple_files = true;
+
+message GeositeDomain {
+  enum Type {
+    PLAIN = 0;
+    REGEX = 1;
+    ROOT_DOMAIN = 2;
+    FULL = 3;
+  }
+
+  Type type = 1;
+  string value = 2;
+}
+
+message GeositeEntry {
+  string country_code = 1;
+  repeated GeositeDomain domain = 2;
+}
+
+message GeositeCatalog {
+  repeated GeositeEntry entry = 1;
+}

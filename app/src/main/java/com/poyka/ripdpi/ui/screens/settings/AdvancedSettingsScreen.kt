@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
@@ -40,6 +41,11 @@ import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
+import com.poyka.ripdpi.data.HostPackApplyModeMerge
+import com.poyka.ripdpi.data.HostPackApplyModeReplace
+import com.poyka.ripdpi.data.HostPackPreset
+import com.poyka.ripdpi.data.HostPackTargetBlacklist
+import com.poyka.ripdpi.data.HostPackTargetWhitelist
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
@@ -48,6 +54,9 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.HostPackCatalog
+import com.poyka.ripdpi.data.HostPackCatalogSnapshot
+import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
@@ -62,9 +71,11 @@ import com.poyka.ripdpi.data.replaceTlsPreludeTcpChainSteps
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
@@ -80,9 +91,14 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.flow.collect
 
 internal const val TlsPreludeModeDisabled = "disabled"
+internal const val HostPackApplyDialogDefaultMode = HostPackApplyModeMerge
 
 private enum class AdvancedToggleSetting {
     UseCommandLine,
@@ -149,6 +165,37 @@ private data class AdvancedNotice(
     val message: String,
     val tone: WarningBannerTone,
 )
+
+internal fun defaultHostPackTargetMode(uiState: SettingsUiState): String =
+    if (uiState.hostsMode == HostPackTargetWhitelist) {
+        HostPackTargetWhitelist
+    } else {
+        HostPackTargetBlacklist
+    }
+
+internal fun hostPackApplyEnabled(uiState: SettingsUiState): Boolean = !uiState.enableCmdSettings
+
+internal fun hostPackRefreshEnabled(hostPackCatalog: HostPackCatalogUiState): Boolean = !hostPackCatalog.isRefreshing
+
+internal fun hostPackSourceSummary(preset: HostPackPreset): String =
+    preset.sources.joinToString(separator = " · ") { source ->
+        buildString {
+            append(source.name)
+            append(" @ ")
+            append(source.commit?.take(7) ?: source.ref)
+        }
+    }
+
+private val hostPackTimestampFormatter =
+    DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.US)
+
+internal fun formatHostPackGeneratedAt(timestamp: String): String? =
+    runCatching {
+        hostPackTimestampFormatter.format(Instant.parse(timestamp).atZone(ZoneId.systemDefault()))
+    }.getOrNull()
+
+internal fun formatHostPackFetchedAt(timestampMillis: Long): String =
+    hostPackTimestampFormatter.format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()))
 
 internal fun SettingsUiState.toTlsPreludeEditorStep(
     mode: String = tlsPreludeMode,
@@ -235,6 +282,7 @@ fun AdvancedSettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val hostPackCatalog by viewModel.hostPackCatalog.collectAsStateWithLifecycle()
     var notice by remember { mutableStateOf<AdvancedNotice?>(null) }
 
     LaunchedEffect(viewModel) {
@@ -257,6 +305,7 @@ fun AdvancedSettingsRoute(
 
     AdvancedSettingsScreen(
         uiState = uiState,
+        hostPackCatalog = hostPackCatalog,
         notice = notice,
         onBack = onBack,
         onToggleChanged = { setting, enabled ->
@@ -782,6 +831,8 @@ fun AdvancedSettingsRoute(
                 }
             }
         },
+        onApplyHostPackPreset = viewModel::applyHostPackPreset,
+        onRefreshHostPackCatalog = viewModel::refreshHostPackCatalog,
         onForgetLearnedHosts = viewModel::forgetLearnedHosts,
         onResetFakeTlsProfile = viewModel::resetFakeTlsProfile,
         modifier = modifier,
@@ -791,11 +842,14 @@ fun AdvancedSettingsRoute(
 @Composable
 private fun AdvancedSettingsScreen(
     uiState: SettingsUiState,
+    hostPackCatalog: HostPackCatalogUiState,
     notice: AdvancedNotice?,
     onBack: () -> Unit,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
+    onApplyHostPackPreset: (HostPackPreset, String, String) -> Unit,
+    onRefreshHostPackCatalog: () -> Unit,
     onForgetLearnedHosts: () -> Unit,
     onResetFakeTlsProfile: () -> Unit,
     modifier: Modifier = Modifier,
@@ -803,6 +857,7 @@ private fun AdvancedSettingsScreen(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val visualEditorEnabled = !uiState.enableCmdSettings
+    val hostPackApplyControlsEnabled = hostPackApplyEnabled(uiState)
     val showHostFakeSection = uiState.showHostFakeProfile
     val showQuicFakeSection = uiState.showQuicFakeProfile
     val showFakeTlsSection =
@@ -835,6 +890,29 @@ private fun AdvancedSettingsScreen(
             labelArrayRes = R.array.quic_initial_modes,
             valueArrayRes = R.array.quic_initial_modes_entries,
         )
+    var pendingHostPack by remember { mutableStateOf<HostPackPreset?>(null) }
+    var selectedHostPackTargetMode by rememberSaveable { mutableStateOf(defaultHostPackTargetMode(uiState)) }
+    var selectedHostPackApplyMode by rememberSaveable { mutableStateOf(HostPackApplyDialogDefaultMode) }
+
+    pendingHostPack?.let { preset ->
+        HostPackApplyDialog(
+            preset = preset,
+            targetMode = selectedHostPackTargetMode,
+            applyMode = selectedHostPackApplyMode,
+            onTargetModeChanged = { selectedHostPackTargetMode = it },
+            onApplyModeChanged = { selectedHostPackApplyMode = it },
+            onDismiss = { pendingHostPack = null },
+            onApply = {
+                onApplyHostPackPreset(
+                    preset,
+                    selectedHostPackTargetMode,
+                    selectedHostPackApplyMode,
+                )
+                pendingHostPack = null
+            },
+        )
+    }
+
     RipDpiSettingsScaffold(
         modifier =
             modifier
@@ -1568,50 +1646,384 @@ private fun AdvancedSettingsScreen(
 
         item(key = "advanced_hosts") {
             SettingsSection(title = stringResource(R.string.ripdpi_hosts_mode_setting)) {
-                RipDpiCard {
-                    AdvancedDropdownSetting(
-                        title = stringResource(R.string.ripdpi_hosts_mode_setting),
-                        value = uiState.hostsMode,
-                        enabled = visualEditorEnabled,
-                        options = hostsOptions,
-                        setting = AdvancedOptionSetting.HostsMode,
-                        onSelected = onOptionSelected,
-                        showDivider = uiState.hostsMode != "disable",
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                    HostPackCatalogStatusCard(
+                        hostPackCatalog = hostPackCatalog,
+                        onRefreshCatalog = onRefreshHostPackCatalog,
                     )
-                    when (uiState.hostsMode) {
-                        "blacklist" -> {
-                            AdvancedTextSetting(
-                                title = stringResource(R.string.ripdpi_hosts_blacklist_setting),
-                                value = uiState.hostsBlacklist,
-                                enabled = visualEditorEnabled,
-                                multiline = true,
-                                disabledMessage =
-                                    stringResource(
-                                        R.string.advanced_settings_visual_controls_disabled,
-                                    ),
-                                setting = AdvancedTextSetting.HostsBlacklist,
-                                onConfirm = onTextConfirmed,
+                    RipDpiCard {
+                        if (hostPackCatalog.presets.isNotEmpty()) {
+                            HostPackPresetSelector(
+                                presets = hostPackCatalog.presets,
+                                enabled = hostPackApplyControlsEnabled,
+                                selectedPresetId = pendingHostPack?.id,
+                                onPresetSelected = { preset ->
+                                    selectedHostPackTargetMode = defaultHostPackTargetMode(uiState)
+                                    selectedHostPackApplyMode = HostPackApplyDialogDefaultMode
+                                    pendingHostPack = preset
+                                },
                             )
+                            if (!hostPackApplyControlsEnabled) {
+                                Text(
+                                    text = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                                    style = RipDpiThemeTokens.type.caption,
+                                    color = colors.mutedForeground,
+                                )
+                            }
+                            Text(
+                                text = stringResource(R.string.host_pack_semantics_note),
+                                style = RipDpiThemeTokens.type.caption,
+                                color = colors.mutedForeground,
+                            )
+                            HorizontalDivider(color = colors.divider)
                         }
+                        AdvancedDropdownSetting(
+                            title = stringResource(R.string.ripdpi_hosts_mode_setting),
+                            value = uiState.hostsMode,
+                            enabled = visualEditorEnabled,
+                            options = hostsOptions,
+                            setting = AdvancedOptionSetting.HostsMode,
+                            onSelected = onOptionSelected,
+                            showDivider = uiState.hostsMode != "disable",
+                        )
+                        when (uiState.hostsMode) {
+                            "blacklist" -> {
+                                AdvancedTextSetting(
+                                    title = stringResource(R.string.ripdpi_hosts_blacklist_setting),
+                                    value = uiState.hostsBlacklist,
+                                    enabled = visualEditorEnabled,
+                                    multiline = true,
+                                    disabledMessage =
+                                        stringResource(
+                                            R.string.advanced_settings_visual_controls_disabled,
+                                        ),
+                                    setting = AdvancedTextSetting.HostsBlacklist,
+                                    onConfirm = onTextConfirmed,
+                                )
+                            }
 
-                        "whitelist" -> {
-                            AdvancedTextSetting(
-                                title = stringResource(R.string.ripdpi_hosts_whitelist_setting),
-                                value = uiState.hostsWhitelist,
-                                enabled = visualEditorEnabled,
-                                multiline = true,
-                                disabledMessage =
-                                    stringResource(
-                                        R.string.advanced_settings_visual_controls_disabled,
-                                    ),
-                                setting = AdvancedTextSetting.HostsWhitelist,
-                                onConfirm = onTextConfirmed,
-                            )
+                            "whitelist" -> {
+                                AdvancedTextSetting(
+                                    title = stringResource(R.string.ripdpi_hosts_whitelist_setting),
+                                    value = uiState.hostsWhitelist,
+                                    enabled = visualEditorEnabled,
+                                    multiline = true,
+                                    disabledMessage =
+                                        stringResource(
+                                            R.string.advanced_settings_visual_controls_disabled,
+                                        ),
+                                    setting = AdvancedTextSetting.HostsWhitelist,
+                                    onConfirm = onTextConfirmed,
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+private data class HostPackCatalogStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
+@Composable
+private fun HostPackCatalogStatusCard(
+    hostPackCatalog: HostPackCatalogUiState,
+    onRefreshCatalog: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val status = rememberHostPackCatalogStatus(hostPackCatalog)
+    val generatedAt =
+        remember(hostPackCatalog.snapshot.catalog.generatedAt) {
+            formatHostPackGeneratedAt(hostPackCatalog.snapshot.catalog.generatedAt)
+        }
+    val lastFetchedAt =
+        remember(hostPackCatalog.snapshot.lastFetchedAtEpochMillis) {
+            hostPackCatalog.snapshot.lastFetchedAtEpochMillis?.let(::formatHostPackFetchedAt)
+        }
+    val downloadedBadge = stringResource(R.string.host_pack_badge_downloaded)
+    val bundledBadge = stringResource(R.string.host_pack_badge_bundled)
+    val packCountBadge = stringResource(R.string.host_pack_packs_badge, hostPackCatalog.snapshot.packs.size)
+    val verifiedBadge = stringResource(R.string.host_pack_badge_checksum_verified)
+    val offlineBadge = stringResource(R.string.host_pack_badge_offline_snapshot)
+    val badges =
+        remember(
+            hostPackCatalog.snapshot.source,
+            hostPackCatalog.snapshot.packs.size,
+            hostPackCatalog.snapshot.lastFetchedAtEpochMillis,
+            downloadedBadge,
+            bundledBadge,
+            packCountBadge,
+            verifiedBadge,
+            offlineBadge,
+        ) {
+            buildList {
+                add(
+                    if (hostPackCatalog.snapshot.source == HostPackCatalogSourceDownloaded) {
+                        downloadedBadge to SummaryCapsuleTone.Active
+                    } else {
+                        bundledBadge to SummaryCapsuleTone.Info
+                    },
+                )
+                add(packCountBadge to SummaryCapsuleTone.Neutral)
+                add(
+                    if (hostPackCatalog.snapshot.lastFetchedAtEpochMillis != null) {
+                        verifiedBadge to SummaryCapsuleTone.Active
+                    } else {
+                        offlineBadge to SummaryCapsuleTone.Neutral
+                    },
+                )
+            }
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Tonal,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        SummaryCapsuleFlow(items = badges)
+        generatedAt?.let {
+            ProfileSummaryLine(
+                label = stringResource(R.string.host_pack_snapshot_built_label),
+                value = it,
+            )
+        }
+        ProfileSummaryLine(
+            label = stringResource(R.string.host_pack_last_fetch_label),
+            value = lastFetchedAt ?: stringResource(R.string.host_pack_last_fetch_never),
+        )
+        Text(
+            text = stringResource(R.string.host_pack_refresh_source_hint),
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            RipDpiButton(
+                text =
+                    if (hostPackCatalog.isRefreshing) {
+                        stringResource(R.string.host_pack_refresh_in_progress)
+                    } else {
+                        stringResource(R.string.host_pack_refresh_action)
+                    },
+                onClick = onRefreshCatalog,
+                enabled = hostPackRefreshEnabled(hostPackCatalog),
+                loading = hostPackCatalog.isRefreshing,
+                variant = RipDpiButtonVariant.Outline,
+            )
+        }
+    }
+}
+
+@Composable
+private fun rememberHostPackCatalogStatus(hostPackCatalog: HostPackCatalogUiState): HostPackCatalogStatusContent =
+    when {
+        hostPackCatalog.isRefreshing ->
+            HostPackCatalogStatusContent(
+                label = stringResource(R.string.host_pack_refresh_status_title),
+                body = stringResource(R.string.host_pack_refresh_status_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        hostPackCatalog.snapshot.source == HostPackCatalogSourceDownloaded ->
+            HostPackCatalogStatusContent(
+                label = stringResource(R.string.host_pack_downloaded_status_title),
+                body = stringResource(R.string.host_pack_downloaded_status_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        else ->
+            HostPackCatalogStatusContent(
+                label = stringResource(R.string.host_pack_bundled_status_title),
+                body = stringResource(R.string.host_pack_bundled_status_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+    }
+
+@Composable
+private fun HostPackPresetSelector(
+    presets: List<HostPackPreset>,
+    enabled: Boolean,
+    selectedPresetId: String?,
+    onPresetSelected: (HostPackPreset) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Text(
+            text = stringResource(R.string.host_pack_presets_title),
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Text(
+            text = stringResource(R.string.host_pack_presets_body),
+            style = type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        presets.forEach { preset ->
+            HostPackPresetCard(
+                preset = preset,
+                enabled = enabled,
+                selected = selectedPresetId == preset.id,
+                onClick = { onPresetSelected(preset) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun HostPackPresetCard(
+    preset: HostPackPreset,
+    enabled: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val sourceSummary = hostPackSourceSummary(preset)
+    val description =
+        if (sourceSummary.isBlank()) {
+            preset.description
+        } else {
+            stringResource(R.string.host_pack_preset_body, preset.description, sourceSummary)
+        }
+
+    PresetCard(
+        title = preset.title,
+        description = description,
+        modifier = modifier,
+        badgeText = stringResource(R.string.host_pack_hosts_badge, preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size),
+        selected = selected,
+        enabled = enabled,
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun HostPackApplyDialog(
+    preset: HostPackPreset,
+    targetMode: String,
+    applyMode: String,
+    onTargetModeChanged: (String) -> Unit,
+    onApplyModeChanged: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onApply: () -> Unit,
+) {
+    val targetOptions =
+        listOf(
+            RipDpiDropdownOption(
+                value = HostPackTargetBlacklist,
+                label = stringResource(R.string.host_pack_target_blacklist),
+            ),
+            RipDpiDropdownOption(
+                value = HostPackTargetWhitelist,
+                label = stringResource(R.string.host_pack_target_whitelist),
+            ),
+        )
+    val applyModeOptions =
+        listOf(
+            RipDpiDropdownOption(
+                value = HostPackApplyModeMerge,
+                label = stringResource(R.string.host_pack_apply_merge),
+            ),
+            RipDpiDropdownOption(
+                value = HostPackApplyModeReplace,
+                label = stringResource(R.string.host_pack_apply_replace),
+            ),
+        )
+    val sourceSummary = hostPackSourceSummary(preset)
+    val summary =
+        if (sourceSummary.isBlank()) {
+            stringResource(R.string.host_pack_apply_summary_hosts_only, preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size)
+        } else {
+            stringResource(
+                R.string.host_pack_apply_summary,
+                preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size,
+                sourceSummary,
+            )
+        }
+
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.host_pack_apply_dialog_title, preset.title),
+        message = stringResource(R.string.host_pack_apply_dialog_message),
+        dismissLabel = stringResource(R.string.host_pack_apply_dismiss),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.host_pack_apply_confirm),
+        onConfirm = onApply,
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
+        ) {
+            Text(
+                text = summary,
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+            HostPackDialogDropdown(
+                title = stringResource(R.string.host_pack_target_title),
+                value = targetMode,
+                options = targetOptions,
+                onSelected = onTargetModeChanged,
+            )
+            HostPackDialogDropdown(
+                title = stringResource(R.string.host_pack_action_title),
+                value = applyMode,
+                options = applyModeOptions,
+                onSelected = onApplyModeChanged,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HostPackDialogDropdown(
+    title: String,
+    value: String,
+    options: List<RipDpiDropdownOption<String>>,
+    onSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        Text(
+            text = title,
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        RipDpiDropdown(
+            options = options,
+            selectedValue = value,
+            onValueSelected = onSelected,
+        )
     }
 }
 
@@ -2946,6 +3358,52 @@ private fun hostAutolearnLastUpdate(uiState: SettingsUiState): String? {
     return listOfNotNull(action, host, group).joinToString(" · ")
 }
 
+private fun previewHostPackPresets(): List<HostPackPreset> =
+    listOf(
+        HostPackPreset(
+            id = "youtube",
+            title = "YouTube",
+            description = "Video playback, embeds, and CDN endpoints from public geosite lists.",
+            hostCount = 178,
+            hosts = listOf("youtube.com", "ytimg.com"),
+        ),
+        HostPackPreset(
+            id = "telegram",
+            title = "Telegram",
+            description = "Messenger, CDN, and share links bundled from public geosite sources.",
+            hostCount = 20,
+            hosts = listOf("telegram.org", "t.me"),
+        ),
+        HostPackPreset(
+            id = "discord",
+            title = "Discord",
+            description = "App, media, invite, and attachment domains from public geosite lists.",
+            hostCount = 28,
+            hosts = listOf("discord.com", "discord.gg"),
+        ),
+    )
+
+private fun previewHostPackCatalog(
+    source: String,
+    lastFetchedAtEpochMillis: Long? = null,
+): HostPackCatalogUiState =
+    HostPackCatalogUiState(
+        snapshot =
+            HostPackCatalogSnapshot(
+                catalog =
+                    HostPackCatalog(
+                        generatedAt = "2026-03-12T09:00:00Z",
+                        packs = previewHostPackPresets(),
+                    ),
+                source = source,
+                lastFetchedAtEpochMillis = lastFetchedAtEpochMillis,
+                verifiedChecksumSha256 =
+                    lastFetchedAtEpochMillis?.let {
+                        "96b19c3ec2011e4e5ec87dd54b3c209f1e0efaa36fe8b5dd275129b032a01438"
+                    },
+            ),
+    )
+
 @Preview(showBackground = true)
 @Composable
 private fun AdvancedSettingsScreenPreview() {
@@ -2987,11 +3445,14 @@ private fun AdvancedSettingsScreenPreview() {
                     hostAutolearnLastAction = "host_promoted",
                     serviceStatus = com.poyka.ripdpi.data.AppStatus.Running,
                 ),
+            hostPackCatalog = previewHostPackCatalog(source = "bundled"),
             notice = null,
             onBack = {},
             onToggleChanged = { _, _ -> },
             onTextConfirmed = { _, _ -> },
             onOptionSelected = { _, _ -> },
+            onApplyHostPackPreset = { _, _, _ -> },
+            onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
             onResetFakeTlsProfile = {},
         )
@@ -3043,11 +3504,18 @@ private fun AdvancedSettingsScreenDarkPreview() {
                     domainMixedCase = true,
                     hostRemoveSpaces = false,
                 ),
+            hostPackCatalog =
+                previewHostPackCatalog(
+                    source = HostPackCatalogSourceDownloaded,
+                    lastFetchedAtEpochMillis = 1_741_765_600_000,
+                ),
             notice = null,
             onBack = {},
             onToggleChanged = { _, _ -> },
             onTextConfirmed = { _, _ -> },
             onOptionSelected = { _, _ -> },
+            onApplyHostPackPreset = { _, _, _ -> },
+            onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
             onResetFakeTlsProfile = {},
         )

@@ -82,6 +82,8 @@ dependencies {
 
     implementation(libs.logcat)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.retrofit)
+    implementation(libs.okhttp)
 
     testImplementation(libs.bundles.unit.test)
     androidTestImplementation(libs.androidx.test.core.ktx)

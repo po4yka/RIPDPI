@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "output": "app/src/main/assets/host-packs/catalog.json",
+  "packs": [
+    {
+      "id": "youtube",
+      "title": "YouTube",
+      "description": "Video playback, embeds, and CDN endpoints from public geosite lists.",
+      "source": {
+        "name": "runetfreedom/russia-blocked-geosite",
+        "repo": "runetfreedom/russia-blocked-geosite",
+        "ref": "release",
+        "path": "youtube.txt",
+        "rawUrl": "https://raw.githubusercontent.com/runetfreedom/russia-blocked-geosite/release/youtube.txt"
+      }
+    },
+    {
+      "id": "telegram",
+      "title": "Telegram",
+      "description": "Messenger, CDN, and share links bundled from public geosite sources.",
+      "source": {
+        "name": "v2fly/domain-list-community",
+        "repo": "v2fly/domain-list-community",
+        "ref": "master",
+        "path": "data/telegram",
+        "rawUrl": "https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/telegram"
+      }
+    },
+    {
+      "id": "discord",
+      "title": "Discord",
+      "description": "App, media, invite, and attachment domains from public geosite lists.",
+      "source": {
+        "name": "runetfreedom/russia-blocked-geosite",
+        "repo": "runetfreedom/russia-blocked-geosite",
+        "ref": "release",
+        "path": "discord.txt",
+        "rawUrl": "https://raw.githubusercontent.com/runetfreedom/russia-blocked-geosite/release/discord.txt"
+      }
+    }
+  ]
+}
