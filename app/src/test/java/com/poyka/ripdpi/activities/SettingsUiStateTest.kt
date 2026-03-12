@@ -18,7 +18,10 @@ import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.proto.StrategyTcpStep
+import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -151,6 +154,8 @@ class SettingsUiStateTest {
         assertEquals("endhost+8", state.primaryHostFakeStep?.marker)
         assertEquals("midsld", state.primaryHostFakeStep?.midhostMarker)
         assertEquals("googlevideo.com", state.primaryHostFakeStep?.fakeHostTemplate)
+        assertFalse(state.httpFakeProfileActiveInStrategy)
+        assertFalse(state.tlsFakeProfileActiveInStrategy)
         assertFalse(state.fakeTlsControlsRelevant)
         assertEquals("tcp: hostfake(endhost+8 midhost=midsld host=googlevideo.com)", state.chainSummary)
     }
@@ -244,6 +249,31 @@ class SettingsUiStateTest {
 
         assertTrue(state.hasCustomFakePayloadProfiles)
         assertTrue(state.canResetFakePayloadLibrary)
+    }
+
+    @Test
+    fun `command line mode keeps fake payload library visible but reset disabled`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setEnableCmdSettings(true)
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(false)
+                .setHttpFakeProfile(HttpFakeProfileCloudflareGet)
+                .setTlsFakeProfile(TlsFakeProfileGoogleChrome)
+                .setUdpFakeProfile(UdpFakeProfileDnsQuery)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.enableCmdSettings)
+        assertTrue(state.hasCustomFakePayloadProfiles)
+        assertTrue(state.showFakePayloadLibrary)
+        assertFalse(state.canResetFakePayloadLibrary)
+        assertFalse(state.httpFakeProfileActiveInStrategy)
+        assertFalse(state.tlsFakeProfileActiveInStrategy)
+        assertFalse(state.udpFakeProfileActiveInStrategy)
     }
 
     @Test
