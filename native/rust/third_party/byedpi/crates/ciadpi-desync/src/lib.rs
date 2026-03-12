@@ -1417,6 +1417,26 @@ mod tests {
     }
 
     #[test]
+    fn plan_tcp_ignores_http_parser_evasions_for_non_http_payloads() {
+        let mut group = DesyncGroup::new(0);
+        group.mod_http = MH_UNIXEOL | MH_METHODEOL;
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
+        let payload = b"\x16\x03\x01\x00\x10not-http-payload";
+
+        let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan tcp");
+
+        assert_eq!(plan.tampered, payload);
+        assert_eq!(
+            plan.actions,
+            vec![
+                DesyncAction::Write(payload[..5].to_vec()),
+                DesyncAction::AwaitWritable,
+                DesyncAction::Write(payload[5..].to_vec()),
+            ]
+        );
+    }
+
+    #[test]
     fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
         let mut group = DesyncGroup::new(0);
         group.tcp_chain = vec![

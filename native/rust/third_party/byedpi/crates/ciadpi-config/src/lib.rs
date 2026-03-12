@@ -1857,6 +1857,15 @@ mod tests {
     }
 
     #[test]
+    fn parse_cli_rejects_unknown_extended_http_parser_evasion_letter() {
+        let args = vec!["--mod-http".to_string(), "h,u,x".to_string()];
+
+        let err = parse_cli(&args, &StartupEnv::default()).expect_err("unknown modifier should fail");
+
+        assert!(err.to_string().contains("--mod-http"));
+    }
+
+    #[test]
     fn parse_numeric_addr_ipv6_bracket_forms() {
         let (ip, port) = parse_numeric_addr("[::1]:8080").unwrap();
         assert_eq!(ip, IpAddr::from_str("::1").unwrap());
