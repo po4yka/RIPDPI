@@ -21,16 +21,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
-import com.poyka.ripdpi.data.DnsModeDoh
+import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderCustom
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -39,8 +41,6 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
-import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
@@ -53,7 +53,11 @@ import java.net.URI
 
 internal data class DnsResolverOption(
     val providerId: String,
+    val protocol: String,
     val address: String,
+    val host: String,
+    val port: Int,
+    val tlsServerName: String,
     val dohUrl: String,
     val bootstrapIps: List<String>,
     @param:StringRes val titleRes: Int,
@@ -64,7 +68,11 @@ private val resolverOptions =
     listOf(
         DnsResolverOption(
             providerId = DnsProviderCloudflare,
+            protocol = EncryptedDnsProtocolDoh,
             address = "1.1.1.1",
+            host = "cloudflare-dns.com",
+            port = 443,
+            tlsServerName = "cloudflare-dns.com",
             dohUrl = "https://cloudflare-dns.com/dns-query",
             bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
             titleRes = R.string.dns_resolver_cloudflare_title,
@@ -72,7 +80,11 @@ private val resolverOptions =
         ),
         DnsResolverOption(
             providerId = "google",
+            protocol = EncryptedDnsProtocolDoh,
             address = "8.8.8.8",
+            host = "dns.google",
+            port = 443,
+            tlsServerName = "dns.google",
             dohUrl = "https://dns.google/dns-query",
             bootstrapIps = listOf("8.8.8.8", "8.8.4.4"),
             titleRes = R.string.dns_resolver_google_title,
@@ -80,7 +92,11 @@ private val resolverOptions =
         ),
         DnsResolverOption(
             providerId = "quad9",
+            protocol = EncryptedDnsProtocolDoh,
             address = "9.9.9.9",
+            host = "dns.quad9.net",
+            port = 443,
+            tlsServerName = "dns.quad9.net",
             dohUrl = "https://dns.quad9.net/dns-query",
             bootstrapIps = listOf("9.9.9.9", "149.112.112.112"),
             titleRes = R.string.dns_resolver_quad9_title,
@@ -88,7 +104,11 @@ private val resolverOptions =
         ),
         DnsResolverOption(
             providerId = "adguard",
+            protocol = EncryptedDnsProtocolDoh,
             address = "94.140.14.14",
+            host = "dns.adguard-dns.com",
+            port = 443,
+            tlsServerName = "dns.adguard-dns.com",
             dohUrl = "https://dns.adguard-dns.com/dns-query",
             bootstrapIps = listOf("94.140.14.14", "94.140.15.15"),
             titleRes = R.string.dns_resolver_adguard_title,
@@ -108,13 +128,29 @@ fun DnsSettingsRoute(
         uiState = uiState,
         onBack = onBack,
         onModeSelected = { mode ->
-            if (mode == DnsModeDoh) {
-                val providerId =
-                    resolverOptions.firstOrNull { it.providerId == uiState.dnsProviderId }?.providerId
-                        ?: DnsProviderCloudflare
-                viewModel.selectBuiltInDnsProvider(providerId)
+            if (mode == DnsModeEncrypted) {
+                if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh && uiState.dnsProviderId != DnsProviderCustom) {
+                    viewModel.selectBuiltInDnsProvider(uiState.dnsProviderId)
+                } else {
+                    viewModel.setEncryptedDnsProtocol(
+                        uiState.encryptedDnsProtocol.ifBlank { EncryptedDnsProtocolDoh },
+                    )
+                }
             } else {
                 viewModel.setPlainDnsServer(uiState.dnsIp)
+            }
+        },
+        onProtocolSelected = { protocol ->
+            when (protocol) {
+                EncryptedDnsProtocolDoh -> {
+                    val providerId =
+                        resolverOptions.firstOrNull { it.providerId == uiState.dnsProviderId }?.providerId
+                            ?: DnsProviderCloudflare
+                    viewModel.selectBuiltInDnsProvider(providerId)
+                }
+                else -> {
+                    viewModel.setEncryptedDnsProtocol(protocol)
+                }
             }
         },
         onResolverSelected = { resolver ->
@@ -122,6 +158,12 @@ fun DnsSettingsRoute(
         },
         onSaveCustomDoh = { dohUrl, bootstrapIps ->
             viewModel.setCustomDohResolver(dohUrl, bootstrapIps)
+        },
+        onSaveCustomDot = { host, port, tlsServerName, bootstrapIps ->
+            viewModel.setCustomDotResolver(host, port, tlsServerName, bootstrapIps)
+        },
+        onSaveCustomDnsCrypt = { host, port, providerName, publicKey, bootstrapIps ->
+            viewModel.setCustomDnsCryptResolver(host, port, providerName, publicKey, bootstrapIps)
         },
         onSavePlainDns = { dnsAddress ->
             viewModel.setPlainDnsServer(dnsAddress)
@@ -143,8 +185,11 @@ internal fun DnsSettingsScreen(
     uiState: SettingsUiState,
     onBack: () -> Unit,
     onModeSelected: (String) -> Unit,
+    onProtocolSelected: (String) -> Unit,
     onResolverSelected: (DnsResolverOption) -> Unit,
     onSaveCustomDoh: (String, List<String>) -> Unit,
+    onSaveCustomDot: (String, Int, String, List<String>) -> Unit,
+    onSaveCustomDnsCrypt: (String, Int, String, String, List<String>) -> Unit,
     onSavePlainDns: (String) -> Unit,
     onIpv6Changed: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -152,54 +197,120 @@ internal fun DnsSettingsScreen(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
-    val activeDns = uiState.dnsIp.trim().ifEmpty { "1.1.1.1" }
     val selectedResolver =
-        remember(uiState.dnsProviderId) {
-            resolverOptions.firstOrNull { it.providerId == uiState.dnsProviderId }
+        remember(uiState.dnsProviderId, uiState.encryptedDnsProtocol) {
+            resolverOptions.firstOrNull {
+                uiState.dnsMode == DnsModeEncrypted &&
+                    uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh &&
+                    it.providerId == uiState.dnsProviderId
+            }
         }
-    var customDnsInput by rememberSaveable(activeDns, uiState.dnsMode) {
-        mutableStateOf(if (uiState.dnsMode == DnsModePlainUdp) activeDns else "")
+
+    var plainDnsInput by rememberSaveable(uiState.dnsIp, uiState.dnsMode) {
+        mutableStateOf(if (uiState.dnsMode == DnsModePlainUdp) uiState.dnsIp else "")
     }
-    var customDohUrl by rememberSaveable(uiState.dnsDohUrl, uiState.dnsMode) {
-        mutableStateOf(if (uiState.dnsMode == DnsModeDoh) uiState.dnsDohUrl else "")
+    var customDohUrl by rememberSaveable(uiState.encryptedDnsDohUrl, uiState.encryptedDnsProtocol) {
+        mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh) uiState.encryptedDnsDohUrl else "")
     }
-    var customBootstrapInput by rememberSaveable(uiState.dnsDohBootstrapIps, uiState.dnsMode) {
+    var customDotHost by rememberSaveable(uiState.encryptedDnsHost, uiState.encryptedDnsProtocol) {
+        mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot) uiState.encryptedDnsHost else "")
+    }
+    var customDnsCryptHost by rememberSaveable(uiState.encryptedDnsHost, uiState.encryptedDnsProtocol) {
+        mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) uiState.encryptedDnsHost else "")
+    }
+    var portInput by rememberSaveable(uiState.encryptedDnsPort, uiState.encryptedDnsProtocol) {
+        val value =
+            if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot || uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) {
+                uiState.encryptedDnsPort.takeIf { it > 0 }?.toString().orEmpty()
+            } else {
+                ""
+            }
+        mutableStateOf(value)
+    }
+    var tlsServerNameInput by rememberSaveable(uiState.encryptedDnsTlsServerName, uiState.encryptedDnsProtocol) {
+        mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot) uiState.encryptedDnsTlsServerName else "")
+    }
+    var bootstrapInput by rememberSaveable(uiState.encryptedDnsBootstrapIps, uiState.encryptedDnsProtocol) {
         mutableStateOf(
-            if (uiState.dnsMode == DnsModeDoh) {
-                uiState.dnsDohBootstrapIps.joinToString(separator = ", ")
+            if (uiState.dnsMode == DnsModeEncrypted) {
+                uiState.encryptedDnsBootstrapIps.joinToString(separator = ", ")
             } else {
                 ""
             },
         )
     }
-    val trimmedPlainDns = customDnsInput.trim()
-    val plainDnsValid = trimmedPlainDns.isNotEmpty() && checkNotLocalIp(trimmedPlainDns)
-    val plainDnsDirty = trimmedPlainDns != activeDns || uiState.dnsMode != DnsModePlainUdp
-    val plainDnsError =
-        if (trimmedPlainDns.isNotEmpty() && !plainDnsValid) {
-            stringResource(R.string.config_error_invalid_dns)
-        } else {
-            null
-        }
-    val trimmedCustomDohUrl = customDohUrl.trim()
-    val normalizedBootstrapIps = parseBootstrapIps(customBootstrapInput)
+    var dnscryptProviderInput by rememberSaveable(uiState.encryptedDnsDnscryptProviderName, uiState.encryptedDnsProtocol) {
+        mutableStateOf(
+            if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) {
+                uiState.encryptedDnsDnscryptProviderName
+            } else {
+                ""
+            },
+        )
+    }
+    var dnscryptPublicKeyInput by rememberSaveable(uiState.encryptedDnsDnscryptPublicKey, uiState.encryptedDnsProtocol) {
+        mutableStateOf(
+            if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) {
+                uiState.encryptedDnsDnscryptPublicKey
+            } else {
+                ""
+            },
+        )
+    }
+
+    val trimmedPlainDns = plainDnsInput.trim()
+    val normalizedBootstrapIps = parseBootstrapIps(bootstrapInput)
     val bootstrapIpsValid = normalizedBootstrapIps.isNotEmpty() && normalizedBootstrapIps.all(::checkNotLocalIp)
-    val customDohValid = isValidHttpsUrl(trimmedCustomDohUrl) && bootstrapIpsValid
+
+    val plainDnsValid = trimmedPlainDns.isNotEmpty() && checkNotLocalIp(trimmedPlainDns)
+    val plainDnsDirty = uiState.dnsMode != DnsModePlainUdp || trimmedPlainDns != uiState.dnsIp
+
+    val trimmedDohUrl = customDohUrl.trim()
+    val customDohValid = isValidHttpsUrl(trimmedDohUrl) && bootstrapIpsValid
     val customDohDirty =
-        trimmedCustomDohUrl != uiState.dnsDohUrl ||
-            normalizedBootstrapIps != uiState.dnsDohBootstrapIps ||
-            uiState.dnsMode != DnsModeDoh ||
-            uiState.dnsProviderId != "custom"
-    val customDohError =
-        when {
-            trimmedCustomDohUrl.isNotEmpty() && !isValidHttpsUrl(trimmedCustomDohUrl) -> {
-                stringResource(R.string.dns_custom_doh_url_error)
-            }
-            customBootstrapInput.isNotBlank() && !bootstrapIpsValid -> {
-                stringResource(R.string.dns_custom_bootstrap_error)
-            }
-            else -> null
-        }
+        uiState.dnsMode != DnsModeEncrypted ||
+            uiState.encryptedDnsProtocol != EncryptedDnsProtocolDoh ||
+            uiState.dnsProviderId != DnsProviderCustom ||
+            trimmedDohUrl != uiState.encryptedDnsDohUrl ||
+            normalizedBootstrapIps != uiState.encryptedDnsBootstrapIps
+
+    val trimmedDotHost = customDotHost.trim()
+    val trimmedDotTlsServerName = tlsServerNameInput.trim()
+    val dotPort = portInput.toIntOrNull() ?: 0
+    val customDotValid =
+        trimmedDotHost.isNotEmpty() &&
+            dotPort in 1..65535 &&
+            trimmedDotTlsServerName.isNotEmpty() &&
+            bootstrapIpsValid
+    val customDotDirty =
+        uiState.dnsMode != DnsModeEncrypted ||
+            uiState.encryptedDnsProtocol != EncryptedDnsProtocolDot ||
+            uiState.dnsProviderId != DnsProviderCustom ||
+            trimmedDotHost != uiState.encryptedDnsHost ||
+            dotPort != uiState.encryptedDnsPort ||
+            trimmedDotTlsServerName != uiState.encryptedDnsTlsServerName ||
+            normalizedBootstrapIps != uiState.encryptedDnsBootstrapIps
+
+    val trimmedDnsCryptHost = customDnsCryptHost.trim()
+    val dnscryptPort = portInput.toIntOrNull() ?: 0
+    val trimmedDnsCryptProvider = dnscryptProviderInput.trim()
+    val trimmedDnsCryptPublicKey = dnscryptPublicKeyInput.trim()
+    val dnscryptPublicKeyValid = trimmedDnsCryptPublicKey.matches(Regex("^[0-9a-fA-F]{64}$"))
+    val customDnsCryptValid =
+        trimmedDnsCryptHost.isNotEmpty() &&
+            dnscryptPort in 1..65535 &&
+            trimmedDnsCryptProvider.isNotEmpty() &&
+            dnscryptPublicKeyValid &&
+            bootstrapIpsValid
+    val customDnsCryptDirty =
+        uiState.dnsMode != DnsModeEncrypted ||
+            uiState.encryptedDnsProtocol != EncryptedDnsProtocolDnsCrypt ||
+            uiState.dnsProviderId != DnsProviderCustom ||
+            trimmedDnsCryptHost != uiState.encryptedDnsHost ||
+            dnscryptPort != uiState.encryptedDnsPort ||
+            trimmedDnsCryptProvider != uiState.encryptedDnsDnscryptProviderName ||
+            trimmedDnsCryptPublicKey != uiState.encryptedDnsDnscryptPublicKey ||
+            normalizedBootstrapIps != uiState.encryptedDnsBootstrapIps
 
     RipDpiContentScreenScaffold(
         modifier =
@@ -232,29 +343,19 @@ internal fun DnsSettingsScreen(
                 style = type.sectionTitle,
                 color = colors.mutedForeground,
             )
-            StatusIndicator(
-                label =
-                    if (selectedResolver == null) {
-                        stringResource(R.string.dns_resolver_custom_active)
-                    } else {
-                        stringResource(R.string.dns_resolver_active)
-                    },
-                tone = StatusIndicatorTone.Active,
-            )
             Text(
                 text =
                     selectedResolver?.let { stringResource(it.titleRes) }
-                        ?: stringResource(R.string.dns_custom_title),
+                        ?: if (uiState.dnsMode == DnsModeEncrypted) {
+                            stringResource(R.string.dns_custom_title)
+                        } else {
+                            stringResource(R.string.dns_mode_plain)
+                        },
                 style = type.screenTitle,
                 color = colors.foreground,
             )
             Text(
-                text =
-                    if (uiState.dnsMode == DnsModeDoh) {
-                        uiState.dnsSummary
-                    } else {
-                        activeDns
-                    },
+                text = uiState.dnsSummary,
                 style = type.monoValue,
                 color = colors.foreground,
             )
@@ -279,9 +380,9 @@ internal fun DnsSettingsScreen(
                 ) {
                     RipDpiButton(
                         text = stringResource(R.string.dns_mode_doh),
-                        onClick = { onModeSelected(DnsModeDoh) },
+                        onClick = { onModeSelected(DnsModeEncrypted) },
                         variant =
-                            if (uiState.dnsMode == DnsModeDoh) {
+                            if (uiState.dnsMode == DnsModeEncrypted) {
                                 RipDpiButtonVariant.Primary
                             } else {
                                 RipDpiButtonVariant.Outline
@@ -308,15 +409,53 @@ internal fun DnsSettingsScreen(
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-            SettingsCategoryHeader(title = stringResource(R.string.dns_resolvers_section))
+        if (uiState.dnsMode == DnsModeEncrypted) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                resolverOptions.forEach { resolver ->
-                    DnsResolverCard(
-                        resolver = resolver,
-                        selected = uiState.dnsMode == DnsModeDoh && resolver.providerId == uiState.dnsProviderId,
-                        onClick = { onResolverSelected(resolver) },
+                SettingsCategoryHeader(title = stringResource(R.string.dns_protocol_section))
+                RipDpiCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                    ) {
+                        ProtocolButton(
+                            title = stringResource(R.string.dns_protocol_doh),
+                            selected = uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh,
+                            onClick = { onProtocolSelected(EncryptedDnsProtocolDoh) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        ProtocolButton(
+                            title = stringResource(R.string.dns_protocol_dot),
+                            selected = uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot,
+                            onClick = { onProtocolSelected(EncryptedDnsProtocolDot) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        ProtocolButton(
+                            title = stringResource(R.string.dns_protocol_dnscrypt),
+                            selected = uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt,
+                            onClick = { onProtocolSelected(EncryptedDnsProtocolDnsCrypt) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.dns_protocol_helper),
+                        style = type.body,
+                        color = colors.mutedForeground,
                     )
+                }
+            }
+        }
+
+        if (uiState.dnsMode == DnsModeEncrypted && uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                SettingsCategoryHeader(title = stringResource(R.string.dns_resolvers_section))
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                    resolverOptions.forEach { resolver ->
+                        DnsResolverCard(
+                            resolver = resolver,
+                            selected = resolver.providerId == uiState.dnsProviderId,
+                            onClick = { onResolverSelected(resolver) },
+                        )
+                    }
                 }
             }
         }
@@ -324,116 +463,113 @@ internal fun DnsSettingsScreen(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
             SettingsCategoryHeader(title = stringResource(R.string.dns_custom_section))
             RipDpiCard {
-                Text(
-                    text =
-                        if (uiState.dnsMode == DnsModeDoh) {
-                            stringResource(R.string.dns_custom_doh_title)
-                        } else {
-                            stringResource(R.string.dns_custom_title)
-                        },
-                    style = type.bodyEmphasis,
-                    color = colors.foreground,
-                )
-                Text(
-                    text =
-                        if (uiState.dnsMode == DnsModeDoh) {
-                            stringResource(R.string.dns_custom_doh_body)
-                        } else {
-                            stringResource(R.string.dns_custom_body)
-                        },
-                    style = type.body,
-                    color = colors.mutedForeground,
-                )
-                if (uiState.dnsMode == DnsModeDoh) {
-                    RipDpiTextField(
-                        value = customDohUrl,
-                        onValueChange = { customDohUrl = it },
-                        label = stringResource(R.string.dns_custom_doh_url_label),
-                        placeholder = "https://resolver.example/dns-query",
-                        helperText = stringResource(R.string.dns_custom_doh_url_helper),
-                        errorText = customDohError,
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Uri,
-                                imeAction = ImeAction.Next,
-                            ),
-                    )
-                    RipDpiTextField(
-                        value = customBootstrapInput,
-                        onValueChange = { customBootstrapInput = it },
-                        label = stringResource(R.string.dns_custom_bootstrap_label),
-                        placeholder = "1.1.1.1, 1.0.0.1",
-                        helperText = stringResource(R.string.dns_custom_bootstrap_helper),
-                        errorText = customDohError,
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Ascii,
-                                imeAction = ImeAction.Done,
-                            ),
-                        keyboardActions =
-                            KeyboardActions(
-                                onDone = {
-                                    if (customDohValid && customDohDirty) {
-                                        onSaveCustomDoh(trimmedCustomDohUrl, normalizedBootstrapIps)
-                                    }
+                when (uiState.dnsMode) {
+                    DnsModePlainUdp -> {
+                        Text(
+                            text = stringResource(R.string.dns_custom_title),
+                            style = type.bodyEmphasis,
+                            color = colors.foreground,
+                        )
+                        Text(
+                            text = stringResource(R.string.dns_custom_body),
+                            style = type.body,
+                            color = colors.mutedForeground,
+                        )
+                        RipDpiTextField(
+                            value = plainDnsInput,
+                            onValueChange = { plainDnsInput = it },
+                            label = stringResource(R.string.dbs_ip_setting),
+                            placeholder = stringResource(R.string.config_placeholder_dns),
+                            helperText =
+                                if (uiState.isVpn) {
+                                    stringResource(R.string.config_dns_helper)
+                                } else {
+                                    stringResource(R.string.config_dns_disabled_helper)
                                 },
-                            ),
-                    )
-                    RipDpiButton(
-                        text = stringResource(R.string.config_save),
-                        onClick = { onSaveCustomDoh(trimmedCustomDohUrl, normalizedBootstrapIps) },
-                        enabled = customDohValid && customDohDirty,
-                        variant =
-                            if (uiState.dnsProviderId == DnsProviderCustom) {
-                                RipDpiButtonVariant.Primary
-                            } else {
-                                RipDpiButtonVariant.Outline
-                            },
-                        trailingIcon = RipDpiIcons.Check,
-                    )
-                } else {
-                    RipDpiTextField(
-                        value = customDnsInput,
-                        onValueChange = { customDnsInput = it },
-                        label = stringResource(R.string.dbs_ip_setting),
-                        placeholder = stringResource(R.string.config_placeholder_dns),
-                        helperText =
-                            if (uiState.isVpn) {
-                                stringResource(R.string.config_dns_helper)
-                            } else {
-                                stringResource(R.string.config_dns_disabled_helper)
-                            },
-                        errorText = plainDnsError,
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Ascii,
-                                imeAction = ImeAction.Done,
-                            ),
-                        keyboardActions =
-                            KeyboardActions(
-                                onDone = {
-                                    if (plainDnsValid && plainDnsDirty) {
-                                        onSavePlainDns(trimmedPlainDns)
-                                    }
+                            errorText =
+                                if (plainDnsInput.isNotBlank() && !plainDnsValid) {
+                                    stringResource(R.string.config_error_invalid_dns)
+                                } else {
+                                    null
                                 },
-                            ),
-                    )
-                    RipDpiButton(
-                        text = stringResource(R.string.config_save),
-                        onClick = { onSavePlainDns(trimmedPlainDns) },
-                        enabled = plainDnsValid && plainDnsDirty,
-                        variant = RipDpiButtonVariant.Primary,
-                        trailingIcon = RipDpiIcons.Check,
-                    )
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Ascii,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            keyboardActions =
+                                KeyboardActions(
+                                    onDone = {
+                                        if (plainDnsValid && plainDnsDirty) {
+                                            onSavePlainDns(trimmedPlainDns)
+                                        }
+                                    },
+                                ),
+                        )
+                        RipDpiButton(
+                            text = stringResource(R.string.config_save),
+                            onClick = { onSavePlainDns(trimmedPlainDns) },
+                            enabled = plainDnsValid && plainDnsDirty,
+                            trailingIcon = RipDpiIcons.Check,
+                        )
+                    }
+
+                    DnsModeEncrypted -> {
+                        CustomEncryptedDnsSection(
+                            uiState = uiState,
+                            dohUrl = customDohUrl,
+                            onDohUrlChange = { customDohUrl = it },
+                            dotHost = customDotHost,
+                            onDotHostChange = { customDotHost = it },
+                            dnscryptHost = customDnsCryptHost,
+                            onDnscryptHostChange = { customDnsCryptHost = it },
+                            portInput = portInput,
+                            onPortInputChange = { portInput = it },
+                            tlsServerNameInput = tlsServerNameInput,
+                            onTlsServerNameChange = { tlsServerNameInput = it },
+                            bootstrapInput = bootstrapInput,
+                            onBootstrapInputChange = { bootstrapInput = it },
+                            dnscryptProviderInput = dnscryptProviderInput,
+                            onDnscryptProviderChange = { dnscryptProviderInput = it },
+                            dnscryptPublicKeyInput = dnscryptPublicKeyInput,
+                            onDnscryptPublicKeyChange = { dnscryptPublicKeyInput = it },
+                            customDohValid = customDohValid,
+                            customDohDirty = customDohDirty,
+                            customDotValid = customDotValid,
+                            customDotDirty = customDotDirty,
+                            customDnsCryptValid = customDnsCryptValid,
+                            customDnsCryptDirty = customDnsCryptDirty,
+                            dnscryptPublicKeyValid = dnscryptPublicKeyValid,
+                            bootstrapIpsValid = bootstrapIpsValid,
+                            onSaveCustomDoh = { onSaveCustomDoh(trimmedDohUrl, normalizedBootstrapIps) },
+                            onSaveCustomDot = {
+                                onSaveCustomDot(
+                                    trimmedDotHost,
+                                    dotPort,
+                                    trimmedDotTlsServerName,
+                                    normalizedBootstrapIps,
+                                )
+                            },
+                            onSaveCustomDnsCrypt = {
+                                onSaveCustomDnsCrypt(
+                                    trimmedDnsCryptHost,
+                                    dnscryptPort,
+                                    trimmedDnsCryptProvider,
+                                    trimmedDnsCryptPublicKey,
+                                    normalizedBootstrapIps,
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-            SettingsCategoryHeader(title = stringResource(R.string.config_network_section))
+            SettingsCategoryHeader(title = stringResource(R.string.protocol_ipv6_title))
             RipDpiCard {
                 SettingsRow(
-                    title = stringResource(R.string.ipv6_setting),
+                    title = stringResource(R.string.protocol_ipv6_title),
                     subtitle = stringResource(R.string.dns_ipv6_helper),
                     checked = uiState.ipv6Enable,
                     onCheckedChange = onIpv6Changed,
@@ -443,88 +579,362 @@ internal fun DnsSettingsScreen(
     }
 }
 
-private fun parseBootstrapIps(input: String): List<String> =
-    input
-        .split(',', '\n', ' ')
-        .map { it.trim() }
-        .filter { it.isNotEmpty() }
-        .distinct()
+@Composable
+private fun ProtocolButton(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    RipDpiButton(
+        text = title,
+        onClick = onClick,
+        variant = if (selected) RipDpiButtonVariant.Primary else RipDpiButtonVariant.Outline,
+        modifier = modifier,
+    )
+}
 
-private fun isValidHttpsUrl(value: String): Boolean =
-    runCatching {
-        val parsed = URI(value)
-        parsed.scheme.equals("https", ignoreCase = true) && !parsed.host.isNullOrBlank()
-    }.getOrDefault(false)
+@Composable
+private fun CustomEncryptedDnsSection(
+    uiState: SettingsUiState,
+    dohUrl: String,
+    onDohUrlChange: (String) -> Unit,
+    dotHost: String,
+    onDotHostChange: (String) -> Unit,
+    dnscryptHost: String,
+    onDnscryptHostChange: (String) -> Unit,
+    portInput: String,
+    onPortInputChange: (String) -> Unit,
+    tlsServerNameInput: String,
+    onTlsServerNameChange: (String) -> Unit,
+    bootstrapInput: String,
+    onBootstrapInputChange: (String) -> Unit,
+    dnscryptProviderInput: String,
+    onDnscryptProviderChange: (String) -> Unit,
+    dnscryptPublicKeyInput: String,
+    onDnscryptPublicKeyChange: (String) -> Unit,
+    customDohValid: Boolean,
+    customDohDirty: Boolean,
+    customDotValid: Boolean,
+    customDotDirty: Boolean,
+    customDnsCryptValid: Boolean,
+    customDnsCryptDirty: Boolean,
+    dnscryptPublicKeyValid: Boolean,
+    bootstrapIpsValid: Boolean,
+    onSaveCustomDoh: () -> Unit,
+    onSaveCustomDot: () -> Unit,
+    onSaveCustomDnsCrypt: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    when (uiState.encryptedDnsProtocol) {
+        EncryptedDnsProtocolDot -> {
+            Text(
+                text = stringResource(R.string.dns_custom_dot_title),
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.dns_custom_dot_body),
+                style = type.body,
+                color = colors.mutedForeground,
+            )
+            CommonEndpointFields(
+                host = dotHost,
+                onHostChange = onDotHostChange,
+                portInput = portInput,
+                onPortInputChange = onPortInputChange,
+                bootstrapInput = bootstrapInput,
+                onBootstrapInputChange = onBootstrapInputChange,
+                hostLabel = stringResource(R.string.dns_custom_host_label),
+                hostHelper = stringResource(R.string.dns_custom_dot_host_helper),
+                bootstrapError = if (bootstrapInput.isNotBlank() && !bootstrapIpsValid) stringResource(R.string.dns_custom_bootstrap_error) else null,
+            )
+            RipDpiTextField(
+                value = tlsServerNameInput,
+                onValueChange = onTlsServerNameChange,
+                label = stringResource(R.string.dns_custom_tls_server_name_label),
+                placeholder = "resolver.example",
+                helperText = stringResource(R.string.dns_custom_dot_tls_helper),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Ascii,
+                        imeAction = ImeAction.Done,
+                    ),
+                keyboardActions =
+                    KeyboardActions(
+                        onDone = {
+                            if (customDotValid && customDotDirty) {
+                                onSaveCustomDot()
+                            }
+                        },
+                    ),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.config_save),
+                onClick = onSaveCustomDot,
+                enabled = customDotValid && customDotDirty,
+                trailingIcon = RipDpiIcons.Check,
+            )
+        }
+
+        EncryptedDnsProtocolDnsCrypt -> {
+            Text(
+                text = stringResource(R.string.dns_custom_dnscrypt_title),
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.dns_custom_dnscrypt_body),
+                style = type.body,
+                color = colors.mutedForeground,
+            )
+            CommonEndpointFields(
+                host = dnscryptHost,
+                onHostChange = onDnscryptHostChange,
+                portInput = portInput,
+                onPortInputChange = onPortInputChange,
+                bootstrapInput = bootstrapInput,
+                onBootstrapInputChange = onBootstrapInputChange,
+                hostLabel = stringResource(R.string.dns_custom_host_label),
+                hostHelper = stringResource(R.string.dns_custom_dnscrypt_host_helper),
+                bootstrapError = if (bootstrapInput.isNotBlank() && !bootstrapIpsValid) stringResource(R.string.dns_custom_bootstrap_error) else null,
+            )
+            RipDpiTextField(
+                value = dnscryptProviderInput,
+                onValueChange = onDnscryptProviderChange,
+                label = stringResource(R.string.dns_custom_dnscrypt_provider_label),
+                placeholder = "2.dnscrypt-cert.resolver.example",
+                helperText = stringResource(R.string.dns_custom_dnscrypt_provider_helper),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Ascii,
+                        imeAction = ImeAction.Next,
+                    ),
+            )
+            RipDpiTextField(
+                value = dnscryptPublicKeyInput,
+                onValueChange = onDnscryptPublicKeyChange,
+                label = stringResource(R.string.dns_custom_dnscrypt_public_key_label),
+                placeholder = "0123abcd...",
+                helperText = stringResource(R.string.dns_custom_dnscrypt_public_key_helper),
+                errorText =
+                    if (dnscryptPublicKeyInput.isNotBlank() && !dnscryptPublicKeyValid) {
+                        stringResource(R.string.dns_custom_dnscrypt_public_key_error)
+                    } else {
+                        null
+                    },
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Ascii,
+                        imeAction = ImeAction.Done,
+                    ),
+                keyboardActions =
+                    KeyboardActions(
+                        onDone = {
+                            if (customDnsCryptValid && customDnsCryptDirty) {
+                                onSaveCustomDnsCrypt()
+                            }
+                        },
+                    ),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.config_save),
+                onClick = onSaveCustomDnsCrypt,
+                enabled = customDnsCryptValid && customDnsCryptDirty,
+                trailingIcon = RipDpiIcons.Check,
+            )
+        }
+
+        else -> {
+            Text(
+                text = stringResource(R.string.dns_custom_doh_title),
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.dns_custom_doh_body),
+                style = type.body,
+                color = colors.mutedForeground,
+            )
+            RipDpiTextField(
+                value = dohUrl,
+                onValueChange = onDohUrlChange,
+                label = stringResource(R.string.dns_custom_doh_url_label),
+                placeholder = "https://resolver.example/dns-query",
+                helperText = stringResource(R.string.dns_custom_doh_url_helper),
+                errorText =
+                    if (dohUrl.isNotBlank() && !isValidHttpsUrl(dohUrl.trim())) {
+                        stringResource(R.string.dns_custom_doh_url_error)
+                    } else {
+                        null
+                    },
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Next,
+                    ),
+            )
+            RipDpiTextField(
+                value = bootstrapInput,
+                onValueChange = onBootstrapInputChange,
+                label = stringResource(R.string.dns_custom_bootstrap_label),
+                placeholder = "1.1.1.1, 1.0.0.1",
+                helperText = stringResource(R.string.dns_custom_bootstrap_helper),
+                errorText =
+                    if (bootstrapInput.isNotBlank() && !bootstrapIpsValid) {
+                        stringResource(R.string.dns_custom_bootstrap_error)
+                    } else {
+                        null
+                    },
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Ascii,
+                        imeAction = ImeAction.Done,
+                    ),
+                keyboardActions =
+                    KeyboardActions(
+                        onDone = {
+                            if (customDohValid && customDohDirty) {
+                                onSaveCustomDoh()
+                            }
+                        },
+                    ),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.config_save),
+                onClick = onSaveCustomDoh,
+                enabled = customDohValid && customDohDirty,
+                variant =
+                    if (uiState.dnsProviderId == DnsProviderCustom) {
+                        RipDpiButtonVariant.Primary
+                    } else {
+                        RipDpiButtonVariant.Outline
+                    },
+                trailingIcon = RipDpiIcons.Check,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CommonEndpointFields(
+    host: String,
+    onHostChange: (String) -> Unit,
+    portInput: String,
+    onPortInputChange: (String) -> Unit,
+    bootstrapInput: String,
+    onBootstrapInputChange: (String) -> Unit,
+    hostLabel: String,
+    hostHelper: String,
+    bootstrapError: String?,
+) {
+    RipDpiTextField(
+        value = host,
+        onValueChange = onHostChange,
+        label = hostLabel,
+        placeholder = "resolver.example",
+        helperText = hostHelper,
+        keyboardOptions =
+            KeyboardOptions(
+                keyboardType = KeyboardType.Ascii,
+                imeAction = ImeAction.Next,
+            ),
+    )
+    RipDpiTextField(
+        value = portInput,
+        onValueChange = onPortInputChange,
+        label = stringResource(R.string.dns_custom_port_label),
+        placeholder = "443",
+        helperText = stringResource(R.string.dns_custom_port_helper),
+        keyboardOptions =
+            KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Next,
+            ),
+    )
+    RipDpiTextField(
+        value = bootstrapInput,
+        onValueChange = onBootstrapInputChange,
+        label = stringResource(R.string.dns_custom_bootstrap_label),
+        placeholder = "1.1.1.1, 1.0.0.1",
+        helperText = stringResource(R.string.dns_custom_bootstrap_helper),
+        errorText = bootstrapError,
+        keyboardOptions =
+            KeyboardOptions(
+                keyboardType = KeyboardType.Ascii,
+                imeAction = ImeAction.Next,
+            ),
+    )
+}
 
 @Composable
 private fun DnsResolverCard(
     resolver: DnsResolverOption,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    val spacing = RipDpiThemeTokens.spacing
-
     RipDpiCard(
-        modifier = modifier,
-        variant = if (selected) RipDpiCardVariant.Tonal else RipDpiCardVariant.Outlined,
+        variant = if (selected) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
         onClick = onClick,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = stringResource(resolver.titleRes),
-                    style = type.bodyEmphasis,
-                    color = colors.foreground,
-                )
-                Text(
-                    text = stringResource(resolver.descriptionRes),
-                    style = type.body,
-                    color = colors.mutedForeground,
-                )
-            }
-            if (selected) {
-                StatusIndicator(
-                    label = stringResource(R.string.dns_resolver_active),
-                    tone = StatusIndicatorTone.Active,
-                )
-            }
-        }
         Text(
-            text = resolver.address,
-            style = type.monoValue,
-            color = if (selected) colors.foreground else colors.mutedForeground,
+            text = stringResource(resolver.titleRes),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Text(
+            text = stringResource(resolver.descriptionRes),
+            style = RipDpiThemeTokens.type.body,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        Text(
+            text = resolver.dohUrl,
+            style = RipDpiThemeTokens.type.monoValue,
+            color = RipDpiThemeTokens.colors.foreground,
         )
     }
 }
 
+private fun parseBootstrapIps(value: String): List<String> =
+    value
+        .split(',', ' ', '\n', '\t')
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+        .distinct()
+
+private fun isValidHttpsUrl(value: String): Boolean =
+    runCatching {
+        val uri = URI(value)
+        uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank()
+    }.getOrDefault(false)
+
 @Preview(showBackground = true)
 @Composable
-private fun DnsSettingsScreenPreview() {
+private fun DnsSettingsEncryptedPreview() {
     RipDpiTheme {
         DnsSettingsScreen(
             uiState =
                 SettingsUiState(
-                    dnsIp = "8.8.8.8",
-                    dnsMode = DnsModeDoh,
-                    dnsProviderId = "google",
-                    dnsSummary = "DoH · Google Public DNS",
-                    ipv6Enable = true,
+                    ripdpiMode = Mode.VPN.preferenceValue,
+                    dnsMode = DnsModeEncrypted,
+                    dnsProviderId = DnsProviderCloudflare,
+                    dnsSummary = "Encrypted DNS · Cloudflare (DoH)",
+                    encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                    encryptedDnsHost = "cloudflare-dns.com",
+                    encryptedDnsPort = 443,
+                    encryptedDnsTlsServerName = "cloudflare-dns.com",
+                    encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                    encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
                     isVpn = true,
-                    selectedMode = Mode.VPN,
                 ),
             onBack = {},
             onModeSelected = {},
+            onProtocolSelected = {},
             onResolverSelected = {},
             onSaveCustomDoh = { _, _ -> },
+            onSaveCustomDot = { _, _, _, _ -> },
+            onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
             onSavePlainDns = {},
             onIpv6Changed = {},
         )
@@ -533,24 +943,25 @@ private fun DnsSettingsScreenPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun DnsSettingsScreenDarkPreview() {
-    RipDpiTheme(themePreference = "dark") {
+private fun DnsSettingsPlainPreview() {
+    RipDpiTheme {
         DnsSettingsScreen(
             uiState =
                 SettingsUiState(
-                    ripdpiMode = "proxy",
-                    dnsIp = "76.76.2.0",
+                    ripdpiMode = Mode.VPN.preferenceValue,
                     dnsMode = DnsModePlainUdp,
                     dnsProviderId = DnsProviderCustom,
-                    dnsSummary = "Plain DNS · 76.76.2.0",
-                    ipv6Enable = false,
-                    isVpn = false,
-                    selectedMode = Mode.Proxy,
+                    dnsIp = "9.9.9.9",
+                    dnsSummary = "Plain DNS · 9.9.9.9",
+                    isVpn = true,
                 ),
             onBack = {},
             onModeSelected = {},
+            onProtocolSelected = {},
             onResolverSelected = {},
             onSaveCustomDoh = { _, _ -> },
+            onSaveCustomDot = { _, _, _, _ -> },
+            onSaveCustomDnsCrypt = { _, _, _, _, _ -> },
             onSavePlainDns = {},
             onIpv6Changed = {},
         )

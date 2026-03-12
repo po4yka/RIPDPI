@@ -34,6 +34,7 @@
     }
   ],
   "resolverId": null,
+  "resolverProtocol": null,
   "routeChanges": 0,
   "source": "tunnel",
   "state": "running",

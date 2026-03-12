@@ -55,10 +55,21 @@ struct TunnelConfigPayload {
     mapdns_network: Option<String>,
     mapdns_netmask: Option<String>,
     mapdns_cache_size: Option<u32>,
+    encrypted_dns_resolver_id: Option<String>,
+    encrypted_dns_protocol: Option<String>,
+    encrypted_dns_host: Option<String>,
+    encrypted_dns_port: Option<u16>,
+    encrypted_dns_tls_server_name: Option<String>,
+    encrypted_dns_doh_url: Option<String>,
+    encrypted_dns_dnscrypt_provider_name: Option<String>,
+    encrypted_dns_dnscrypt_public_key: Option<String>,
+    // Deprecated compatibility fields kept for older payloads.
     doh_resolver_id: Option<String>,
     doh_url: Option<String>,
     #[serde(default)]
     doh_bootstrap_ips: Vec<String>,
+    #[serde(default)]
+    encrypted_dns_bootstrap_ips: Vec<String>,
     dns_query_timeout_ms: Option<u32>,
     task_stack_size: u32,
     tcp_buffer_size: Option<u32>,
@@ -106,6 +117,7 @@ struct NativeRuntimeSnapshot {
     listener_address: Option<String>,
     upstream_address: Option<String>,
     resolver_id: Option<String>,
+    resolver_protocol: Option<String>,
     last_target: Option<String>,
     last_host: Option<String>,
     last_error: Option<String>,
@@ -176,6 +188,7 @@ impl TunnelTelemetryState {
         traffic_stats: (u64, u64, u64, u64),
         dns_stats: DnsStatsSnapshot,
         resolver_id: Option<String>,
+        resolver_protocol: Option<String>,
     ) -> NativeRuntimeSnapshot {
         NativeRuntimeSnapshot {
             source: "tunnel".to_string(),
@@ -197,6 +210,7 @@ impl TunnelTelemetryState {
             listener_address: None,
             upstream_address: self.upstream_address.lock().ok().and_then(|guard| guard.clone()),
             resolver_id,
+            resolver_protocol,
             last_target: None,
             last_host: dns_stats.last_host,
             last_error: self.last_error.lock().ok().and_then(|guard| guard.clone()),
@@ -546,7 +560,8 @@ fn telemetry_session(env: &mut JNIEnv, handle: jlong) -> jni::sys::jstring {
         stats_snapshots_for_state(&state)
     };
     let resolver_id = session.config.mapdns.as_ref().and_then(|mapdns| mapdns.resolver_id.clone());
-    match serde_json::to_string(&session.telemetry.snapshot(traffic_stats, dns_stats, resolver_id)) {
+    let resolver_protocol = session.config.mapdns.as_ref().and_then(mapdns_resolver_protocol);
+    match serde_json::to_string(&session.telemetry.snapshot(traffic_stats, dns_stats, resolver_id, resolver_protocol)) {
         Ok(value) => env.new_string(value).map(jni::objects::JString::into_raw).unwrap_or(std::ptr::null_mut()),
         Err(err) => {
             throw_runtime_exception(env, err.to_string());
@@ -613,7 +628,15 @@ fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config, String> {
         network: payload.mapdns_network,
         netmask: payload.mapdns_netmask,
         cache_size: payload.mapdns_cache_size.unwrap_or(10_000),
-        resolver_id: payload.doh_resolver_id,
+        resolver_id: payload.encrypted_dns_resolver_id.or(payload.doh_resolver_id),
+        encrypted_dns_protocol: payload.encrypted_dns_protocol,
+        encrypted_dns_host: payload.encrypted_dns_host,
+        encrypted_dns_port: payload.encrypted_dns_port,
+        encrypted_dns_tls_server_name: payload.encrypted_dns_tls_server_name,
+        encrypted_dns_bootstrap_ips: payload.encrypted_dns_bootstrap_ips,
+        encrypted_dns_doh_url: payload.encrypted_dns_doh_url,
+        encrypted_dns_dnscrypt_provider_name: payload.encrypted_dns_dnscrypt_provider_name,
+        encrypted_dns_dnscrypt_public_key: payload.encrypted_dns_dnscrypt_public_key,
         doh_url: payload.doh_url,
         doh_bootstrap_ips: payload.doh_bootstrap_ips,
         dns_query_timeout_ms: payload.dns_query_timeout_ms.unwrap_or(4_000),
@@ -704,6 +727,13 @@ fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<(), &'static 
 
 fn now_ms() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+}
+
+fn mapdns_resolver_protocol(mapdns: &MapDnsConfig) -> Option<String> {
+    mapdns
+        .encrypted_dns_protocol
+        .clone()
+        .or_else(|| mapdns.doh_url.as_ref().map(|_| "doh".to_string()))
 }
 
 trait BlankCheck {
@@ -828,9 +858,18 @@ mod tests {
                     mapdns_network,
                     mapdns_netmask,
                     mapdns_cache_size,
+                    encrypted_dns_resolver_id: None,
+                    encrypted_dns_protocol: None,
+                    encrypted_dns_host: None,
+                    encrypted_dns_port: None,
+                    encrypted_dns_tls_server_name: None,
+                    encrypted_dns_doh_url: None,
+                    encrypted_dns_dnscrypt_provider_name: None,
+                    encrypted_dns_dnscrypt_public_key: None,
                     doh_resolver_id: None,
                     doh_url: None,
                     doh_bootstrap_ips: Vec::new(),
+                    encrypted_dns_bootstrap_ips: Vec::new(),
                     dns_query_timeout_ms: None,
                     task_stack_size,
                     tcp_buffer_size,
@@ -936,9 +975,18 @@ mod tests {
                     mapdns_network,
                     mapdns_netmask,
                     mapdns_cache_size,
+                    encrypted_dns_resolver_id: None,
+                    encrypted_dns_protocol: None,
+                    encrypted_dns_host: None,
+                    encrypted_dns_port: None,
+                    encrypted_dns_tls_server_name: None,
+                    encrypted_dns_doh_url: None,
+                    encrypted_dns_dnscrypt_provider_name: None,
+                    encrypted_dns_dnscrypt_public_key: None,
                     doh_resolver_id: None,
                     doh_url: None,
                     doh_bootstrap_ips: Vec::new(),
+                    encrypted_dns_bootstrap_ips: Vec::new(),
                     dns_query_timeout_ms: None,
                     task_stack_size,
                     tcp_buffer_size,
@@ -973,9 +1021,18 @@ mod tests {
             mapdns_network: None,
             mapdns_netmask: None,
             mapdns_cache_size: None,
+            encrypted_dns_resolver_id: None,
+            encrypted_dns_protocol: None,
+            encrypted_dns_host: None,
+            encrypted_dns_port: None,
+            encrypted_dns_tls_server_name: None,
+            encrypted_dns_doh_url: None,
+            encrypted_dns_dnscrypt_provider_name: None,
+            encrypted_dns_dnscrypt_public_key: None,
             doh_resolver_id: None,
             doh_url: None,
             doh_bootstrap_ips: Vec::new(),
+            encrypted_dns_bootstrap_ips: Vec::new(),
             dns_query_timeout_ms: None,
             task_stack_size: 81_920,
             tcp_buffer_size: None,
@@ -1100,7 +1157,7 @@ mod tests {
         state.record_error("boom".to_string());
         state.mark_stop_requested();
 
-        let first = state.snapshot((7, 70, 8, 80), DnsStatsSnapshot::default(), None);
+        let first = state.snapshot((7, 70, 8, 80), DnsStatsSnapshot::default(), None, None);
         assert_eq!(first.state, "running");
         assert_eq!(first.health, "degraded");
         assert_eq!(first.active_sessions, 1);
@@ -1112,13 +1169,13 @@ mod tests {
         assert_eq!(first.tunnel_stats.rx_bytes, 80);
         assert_eq!(first.native_events.len(), 3);
 
-        let second = state.snapshot((9, 90, 10, 100), DnsStatsSnapshot::default(), None);
+        let second = state.snapshot((9, 90, 10, 100), DnsStatsSnapshot::default(), None, None);
         assert!(second.native_events.is_empty());
         assert_eq!(second.total_errors, 1);
         assert_eq!(second.tunnel_stats.tx_packets, 9);
 
         state.mark_stopped();
-        let stopped = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None);
+        let stopped = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
         assert_eq!(stopped.state, "idle");
         assert_eq!(stopped.active_sessions, 0);
         assert_eq!(stopped.native_events.len(), 1);
@@ -1126,7 +1183,7 @@ mod tests {
 
     #[test]
     fn tunnel_telemetry_and_stats_match_goldens() {
-        let ready = TunnelTelemetryState::new().snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None);
+        let ready = TunnelTelemetryState::new().snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
         assert_tunnel_snapshot_golden("tunnel_ready", &ready);
         assert_tunnel_stats_golden("tunnel_ready_stats", (0, 0, 0, 0));
 
@@ -1135,15 +1192,15 @@ mod tests {
         state.record_error("boom".to_string());
         state.mark_stop_requested();
 
-        let running = state.snapshot((7, 70, 8, 80), DnsStatsSnapshot::default(), None);
+        let running = state.snapshot((7, 70, 8, 80), DnsStatsSnapshot::default(), None, None);
         assert_tunnel_snapshot_golden("tunnel_running_degraded_first_poll", &running);
         assert_tunnel_stats_golden("tunnel_running_stats", (7, 70, 8, 80));
 
-        let drained = state.snapshot((9, 90, 10, 100), DnsStatsSnapshot::default(), None);
+        let drained = state.snapshot((9, 90, 10, 100), DnsStatsSnapshot::default(), None, None);
         assert_tunnel_snapshot_golden("tunnel_running_degraded_second_poll", &drained);
 
         state.mark_stopped();
-        let stopped = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None);
+        let stopped = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
         assert_tunnel_snapshot_golden("tunnel_stopped", &stopped);
     }
 
@@ -1266,7 +1323,8 @@ mod tests {
             let state = session.state.lock().expect("tunnel state lock");
             let (traffic, dns) = stats_snapshots_for_state(&state);
             let resolver_id = session.config.mapdns.as_ref().and_then(|mapdns| mapdns.resolver_id.clone());
-            Ok(session.telemetry.snapshot(traffic, dns, resolver_id))
+            let resolver_protocol = session.config.mapdns.as_ref().and_then(mapdns_resolver_protocol);
+            Ok(session.telemetry.snapshot(traffic, dns, resolver_id, resolver_protocol))
         }
 
         fn destroy(&mut self) -> Result<(), &'static str> {

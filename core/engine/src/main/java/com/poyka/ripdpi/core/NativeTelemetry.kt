@@ -24,6 +24,7 @@ data class NativeRuntimeSnapshot(
     val listenerAddress: String? = null,
     val upstreamAddress: String? = null,
     val resolverId: String? = null,
+    val resolverProtocol: String? = null,
     val lastTarget: String? = null,
     val lastHost: String? = null,
     val lastError: String? = null,
