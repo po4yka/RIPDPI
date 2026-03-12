@@ -66,7 +66,7 @@ data class ActiveDnsSettings(
         get() = encryptedDnsBootstrapIps
 
     val providerDisplayName: String
-        get() = dnsProviderById(providerId)?.displayName ?: "Custom"
+        get() = dnsProviderById(providerId)?.displayName ?: "Custom resolver"
 
     fun summary(): String =
         if (isEncrypted) {

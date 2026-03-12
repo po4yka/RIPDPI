@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 data class ConfigDraft(
     val mode: Mode = Mode.VPN,
     val dnsIp: String = "1.1.1.1",
-    val dnsSummary: String = "DoH · Cloudflare",
+    val dnsSummary: String = "Encrypted DNS · Cloudflare (DoH)",
     val proxyIp: String = "127.0.0.1",
     val proxyPort: String = "1080",
     val maxConnections: String = "512",
