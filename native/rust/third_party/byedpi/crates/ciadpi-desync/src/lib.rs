@@ -9,7 +9,8 @@ use ciadpi_packets::{
     change_tls_sni_seeded_like_c, duplicate_tls_session_id_like_c, http_marker_info, is_http, is_tls_client_hello,
     mod_http_like_c, padencap_tls_like_c, parse_quic_initial, randomize_tls_seeded_like_c,
     randomize_tls_sni_seeded_like_c, second_level_domain_span, tls_marker_info, tune_tls_padding_size_like_c,
-    HttpMarkerInfo, OracleRng, TlsMarkerInfo, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, DEFAULT_FAKE_UDP, IS_HTTP, IS_HTTPS,
+    udp_fake_profile_bytes, HttpMarkerInfo, OracleRng, TlsMarkerInfo, IS_HTTP, IS_HTTPS, http_fake_profile_bytes,
+    tls_fake_profile_bytes,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -558,9 +559,9 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
     let base = if let Some(fake) = &group.fake_data {
         fake.clone()
     } else if info.kind == IS_HTTP {
-        DEFAULT_FAKE_HTTP.to_vec()
+        http_fake_profile_bytes(group.http_fake_profile).to_vec()
     } else {
-        DEFAULT_FAKE_TLS.to_vec()
+        tls_fake_profile_bytes(group.tls_fake_profile).to_vec()
     };
 
     let fake_tls_target = normalize_fake_tls_size(group.fake_tls_size, input.len());
@@ -778,7 +779,10 @@ fn udp_fake_payload(group: &DesyncGroup, payload: &[u8]) -> Vec<u8> {
         }
     }
 
-    let mut fake = group.fake_data.clone().unwrap_or_else(|| DEFAULT_FAKE_UDP.to_vec());
+    let mut fake = group
+        .fake_data
+        .clone()
+        .unwrap_or_else(|| udp_fake_profile_bytes(group.udp_fake_profile).to_vec());
     if let Some(offset) = group.fake_offset {
         if let Some(pos) = offset.absolute_positive().filter(|pos| (*pos as usize) < fake.len()) {
             fake = fake[pos as usize..].to_vec();
@@ -795,7 +799,10 @@ mod tests {
     use ciadpi_config::{
         DesyncMode, OffsetBase, PartSpec, QuicFakeProfile, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
     };
-    use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V2_VERSION};
+    use ciadpi_packets::{
+        build_realistic_quic_initial, parse_http, parse_quic_initial, parse_tls, HttpFakeProfile, TlsFakeProfile,
+        UdpFakeProfile, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, QUIC_V2_VERSION,
+    };
 
     fn split_expr(pos: i64) -> OffsetExpr {
         OffsetExpr::absolute(pos).with_repeat_skip(1, 0)
@@ -1332,5 +1339,42 @@ mod tests {
                 DesyncAction::Write(b"payload".to_vec()),
             ]
         );
+    }
+
+    #[test]
+    fn build_fake_packet_uses_selected_http_profile_when_no_raw_fake_is_set() {
+        let mut group = DesyncGroup::new(0);
+        group.http_fake_profile = HttpFakeProfile::CloudflareGet;
+
+        let fake = build_fake_packet(&group, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n", 7).expect("http fake");
+        let parsed = parse_http(&fake.bytes).expect("parse fake http");
+
+        assert_eq!(parsed.host, b"www.cloudflare.com");
+    }
+
+    #[test]
+    fn build_fake_packet_uses_selected_tls_profile_when_no_raw_fake_is_set() {
+        let mut group = DesyncGroup::new(0);
+        group.tls_fake_profile = TlsFakeProfile::GoogleChrome;
+
+        let fake = build_fake_packet(&group, DEFAULT_FAKE_TLS, 7).expect("tls fake");
+        let parsed = parse_tls(&fake.bytes).expect("parse fake tls");
+
+        assert_eq!(parsed, b"www.google.com");
+    }
+
+    #[test]
+    fn plan_udp_uses_selected_udp_profile_when_no_raw_fake_is_set() {
+        let mut group = DesyncGroup::new(0);
+        group.udp_fake_profile = UdpFakeProfile::DnsQuery;
+        group.udp_chain = vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 1 }];
+
+        let actions = plan_udp(&group, b"payload", 64);
+
+        let DesyncAction::Write(fake_packet) = &actions[1] else {
+            panic!("expected fake packet write");
+        };
+        assert_eq!(fake_packet.len(), 38);
+        assert_eq!(&fake_packet[12..19], b"\x06update");
     }
 }

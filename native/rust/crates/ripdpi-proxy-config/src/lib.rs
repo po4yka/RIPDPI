@@ -2,11 +2,15 @@ use std::net::IpAddr;
 use std::str::FromStr;
 
 use ciadpi_config::{
-    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv,
-    TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND,
-    FM_RNDSNI, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+    parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
+    parse_udp_fake_profile as parse_udp_fake_profile_id, DesyncGroup, DesyncMode, OffsetExpr, PartSpec, QuicFakeProfile,
+    QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+    FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
-use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE};
+use ciadpi_packets::{
+    HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE,
+};
 use serde::{Deserialize, Serialize};
 
 const HOSTS_DISABLE: &str = "disable";
@@ -18,6 +22,7 @@ const TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE: i32 = 96;
 pub const FAKE_TLS_SNI_MODE_FIXED: &str = "fixed";
 pub const FAKE_TLS_SNI_MODE_RANDOMIZED: &str = "randomized";
 pub const QUIC_FAKE_PROFILE_DISABLED: &str = "disabled";
+pub const FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT: &str = "compat_default";
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum ProxyConfigError {
@@ -80,6 +85,8 @@ pub struct ProxyUiConfig {
     pub split_at_host: bool,
     pub fake_ttl: i32,
     pub fake_sni: String,
+    #[serde(default = "default_fake_payload_profile")]
+    pub http_fake_profile: String,
     #[serde(default)]
     pub fake_tls_use_original: bool,
     #[serde(default)]
@@ -92,6 +99,8 @@ pub struct ProxyUiConfig {
     pub fake_tls_size: i32,
     #[serde(default = "default_fake_tls_sni_mode")]
     pub fake_tls_sni_mode: String,
+    #[serde(default = "default_fake_payload_profile")]
+    pub tls_fake_profile: String,
     pub oob_char: u8,
     pub host_mixed_case: bool,
     pub domain_mixed_case: bool,
@@ -109,6 +118,8 @@ pub struct ProxyUiConfig {
     pub udp_fake_count: i32,
     #[serde(default)]
     pub udp_chain_steps: Vec<ProxyUiUdpChainStep>,
+    #[serde(default = "default_fake_payload_profile")]
+    pub udp_fake_profile: String,
     pub drop_sack: bool,
     #[serde(default)]
     pub fake_offset_marker: Option<String>,
@@ -143,6 +154,10 @@ fn default_fake_tls_sni_mode() -> String {
 
 fn default_quic_fake_profile() -> String {
     QUIC_FAKE_PROFILE_DISABLED.to_string()
+}
+
+fn default_fake_payload_profile() -> String {
+    FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT.to_string()
 }
 
 fn default_host_autolearn_penalty_ttl_secs() -> i64 {
@@ -257,6 +272,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         group.ttl =
             Some(u8::try_from(payload.fake_ttl).map_err(|_| ProxyConfigError::InvalidConfig("Invalid fakeTtl".to_string()))?);
     }
+    group.http_fake_profile = parse_http_fake_profile(&payload.http_fake_profile)?;
+    group.tls_fake_profile = parse_tls_fake_profile(&payload.tls_fake_profile)?;
+    group.udp_fake_profile = parse_udp_fake_profile(&payload.udp_fake_profile)?;
     group.drop_sack = payload.drop_sack;
     group.proto = (u32::from(payload.desync_http) * IS_HTTP)
         | (u32::from(payload.desync_https) * IS_HTTPS)
@@ -459,6 +477,18 @@ pub fn parse_quic_fake_profile(value: &str) -> Result<QuicFakeProfile, ProxyConf
     }
 }
 
+pub fn parse_http_fake_profile(value: &str) -> Result<HttpFakeProfile, ProxyConfigError> {
+    parse_http_fake_profile_id(value).map_err(|_| ProxyConfigError::InvalidConfig(format!("Unknown httpFakeProfile: {value}")))
+}
+
+pub fn parse_tls_fake_profile(value: &str) -> Result<TlsFakeProfile, ProxyConfigError> {
+    parse_tls_fake_profile_id(value).map_err(|_| ProxyConfigError::InvalidConfig(format!("Unknown tlsFakeProfile: {value}")))
+}
+
+pub fn parse_udp_fake_profile(value: &str) -> Result<UdpFakeProfile, ProxyConfigError> {
+    parse_udp_fake_profile_id(value).map_err(|_| ProxyConfigError::InvalidConfig(format!("Unknown udpFakeProfile: {value}")))
+}
+
 pub fn parse_desync_mode(value: &str) -> Result<DesyncMode, ProxyConfigError> {
     match value {
         "none" => Ok(DesyncMode::None),
@@ -524,12 +554,14 @@ mod tests {
             split_at_host: false,
             fake_ttl: 8,
             fake_sni: "www.wikipedia.org".to_string(),
+            http_fake_profile: FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT.to_string(),
             fake_tls_use_original: false,
             fake_tls_randomize: false,
             fake_tls_dup_session_id: false,
             fake_tls_pad_encap: false,
             fake_tls_size: 0,
             fake_tls_sni_mode: FAKE_TLS_SNI_MODE_FIXED.to_string(),
+            tls_fake_profile: FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT.to_string(),
             oob_char: b'a',
             host_mixed_case: false,
             domain_mixed_case: false,
@@ -543,6 +575,7 @@ mod tests {
             tcp_fast_open: false,
             udp_fake_count: 0,
             udp_chain_steps: Vec::new(),
+            udp_fake_profile: FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT.to_string(),
             drop_sack: false,
             fake_offset_marker: Some("0".to_string()),
             fake_offset: 0,
@@ -576,10 +609,27 @@ mod tests {
 
         let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
 
+        assert_eq!(config.groups[0].http_fake_profile, HttpFakeProfile::CompatDefault);
+        assert_eq!(config.groups[0].tls_fake_profile, TlsFakeProfile::CompatDefault);
+        assert_eq!(config.groups[0].udp_fake_profile, UdpFakeProfile::CompatDefault);
         assert_eq!(config.groups[0].quic_fake_profile, QuicFakeProfile::RealisticInitial);
         assert_eq!(config.groups[0].quic_fake_host.as_deref(), Some("example.com"));
         assert_eq!(config.groups[0].tcp_chain[0].kind, TcpChainStepKind::HostFake);
         assert_eq!(config.groups[0].udp_chain[0].count, 3);
+    }
+
+    #[test]
+    fn ui_payload_parses_fake_payload_profiles() {
+        let mut ui = minimal_ui();
+        ui.http_fake_profile = "cloudflare_get".to_string();
+        ui.tls_fake_profile = "google_chrome".to_string();
+        ui.udp_fake_profile = "dns_query".to_string();
+
+        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
+
+        assert_eq!(config.groups[0].http_fake_profile, HttpFakeProfile::CloudflareGet);
+        assert_eq!(config.groups[0].tls_fake_profile, TlsFakeProfile::GoogleChrome);
+        assert_eq!(config.groups[0].udp_fake_profile, UdpFakeProfile::DnsQuery);
     }
 
     #[test]
@@ -600,5 +650,15 @@ mod tests {
         let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("invalid quic profile");
 
         assert!(err.to_string().contains("quicFakeProfile"));
+    }
+
+    #[test]
+    fn invalid_http_fake_profile_is_rejected() {
+        let mut ui = minimal_ui();
+        ui.http_fake_profile = "bogus".to_string();
+
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("invalid http profile");
+
+        assert!(err.to_string().contains("httpFakeProfile"));
     }
 }
