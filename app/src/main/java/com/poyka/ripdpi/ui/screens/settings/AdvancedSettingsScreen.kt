@@ -510,7 +510,7 @@ private fun rememberAdaptiveFakeTtlModeOptions(
                             uiState.adaptiveFakeTtlDelta,
                         ),
                     badgeLabel = stringResource(R.string.adaptive_fake_ttl_mode_custom_badge),
-                    badgeTone = StatusIndicatorTone.Info,
+                    badgeTone = StatusIndicatorTone.Warning,
                 ),
             )
         }

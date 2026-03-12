@@ -7,6 +7,10 @@ import com.poyka.ripdpi.data.AdaptiveMarkerHost
 import com.poyka.ripdpi.data.AdaptiveMarkerMethod
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
@@ -72,6 +76,16 @@ class SettingsUiStateTest {
         assertFalse(state.fakeTlsControlsRelevant)
         assertFalse(state.hasCustomFakeTlsProfile)
         assertFalse(state.canResetFakeTlsProfile)
+        assertFalse(state.adaptiveFakeTtlEnabled)
+        assertEquals(DefaultAdaptiveFakeTtlDelta, state.adaptiveFakeTtlDelta)
+        assertEquals(DefaultAdaptiveFakeTtlMin, state.adaptiveFakeTtlMin)
+        assertEquals(DefaultAdaptiveFakeTtlMax, state.adaptiveFakeTtlMax)
+        assertEquals(DefaultAdaptiveFakeTtlFallback, state.adaptiveFakeTtlFallback)
+        assertEquals(AdaptiveFakeTtlModeFixed, state.adaptiveFakeTtlMode)
+        assertFalse(state.hasAdaptiveFakeTtl)
+        assertFalse(state.hasCustomAdaptiveFakeTtl)
+        assertFalse(state.showAdaptiveFakeTtlProfile)
+        assertFalse(state.canResetAdaptiveFakeTtlProfile)
         assertTrue(state.desyncHttpEnabled)
         assertTrue(state.desyncHttpsEnabled)
         assertFalse(state.desyncUdpEnabled)
@@ -452,6 +466,89 @@ class SettingsUiStateTest {
 
         assertTrue(state.hasCustomFakePayloadProfiles)
         assertTrue(state.canResetFakePayloadLibrary)
+    }
+
+    @Test
+    fun `adaptive fake ttl becomes visible and resettable for fake transport`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncMethod("fake")
+                .setAdaptiveFakeTtlEnabled(true)
+                .setAdaptiveFakeTtlDelta(DefaultAdaptiveFakeTtlDelta)
+                .setAdaptiveFakeTtlMin(3)
+                .setAdaptiveFakeTtlMax(12)
+                .setAdaptiveFakeTtlFallback(11)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.fakeTtlControlsRelevant)
+        assertTrue(state.showAdaptiveFakeTtlProfile)
+        assertEquals(AdaptiveFakeTtlModeAdaptive, state.adaptiveFakeTtlMode)
+        assertTrue(state.hasAdaptiveFakeTtl)
+        assertFalse(state.hasCustomAdaptiveFakeTtl)
+        assertTrue(state.canResetAdaptiveFakeTtlProfile)
+    }
+
+    @Test
+    fun `custom adaptive fake ttl mode is preserved from stored delta`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncMethod("fake")
+                .setAdaptiveFakeTtlEnabled(true)
+                .setAdaptiveFakeTtlDelta(2)
+                .setAdaptiveFakeTtlMin(4)
+                .setAdaptiveFakeTtlMax(16)
+                .setAdaptiveFakeTtlFallback(10)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertEquals(AdaptiveFakeTtlModeCustom, state.adaptiveFakeTtlMode)
+        assertTrue(state.hasAdaptiveFakeTtl)
+        assertTrue(state.hasCustomAdaptiveFakeTtl)
+        assertTrue(state.showAdaptiveFakeTtlProfile)
+        assertTrue(state.canResetAdaptiveFakeTtlProfile)
+    }
+
+    @Test
+    fun `saved adaptive fake ttl stays visible when fake transport is off`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncMethod("none")
+                .setAdaptiveFakeTtlEnabled(true)
+                .setAdaptiveFakeTtlDelta(DefaultAdaptiveFakeTtlDelta)
+                .setAdaptiveFakeTtlFallback(9)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.fakeTtlControlsRelevant)
+        assertTrue(state.hasAdaptiveFakeTtl)
+        assertTrue(state.showAdaptiveFakeTtlProfile)
+        assertTrue(state.canResetAdaptiveFakeTtlProfile)
+    }
+
+    @Test
+    fun `command line mode keeps adaptive fake ttl visible but disables reset`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setEnableCmdSettings(true)
+                .setDesyncMethod("fake")
+                .setAdaptiveFakeTtlEnabled(true)
+                .setAdaptiveFakeTtlDelta(3)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.enableCmdSettings)
+        assertTrue(state.showAdaptiveFakeTtlProfile)
+        assertEquals(AdaptiveFakeTtlModeCustom, state.adaptiveFakeTtlMode)
+        assertFalse(state.canResetAdaptiveFakeTtlProfile)
     }
 
     @Test

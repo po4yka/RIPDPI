@@ -99,10 +99,10 @@ class RipDpiProxyPreferencesTest {
         assertEquals(QuicFakeProfileRealisticInitial, payload.string("quicFakeProfile"))
         assertEquals("video.example.test", payload.string("quicFakeHost"))
         assertEquals("true", payload.string("adaptiveFakeTtlEnabled"))
-        assertEquals(-1, payload.int("adaptiveFakeTtlDelta"))
-        assertEquals(3, payload.int("adaptiveFakeTtlMin"))
-        assertEquals(12, payload.int("adaptiveFakeTtlMax"))
         assertEquals(9, payload.int("adaptiveFakeTtlFallback"))
+        assertEquals(null, payload["adaptiveFakeTtlDelta"]?.jsonPrimitive?.contentOrNull)
+        assertEquals(null, payload["adaptiveFakeTtlMin"]?.jsonPrimitive?.contentOrNull)
+        assertEquals(null, payload["adaptiveFakeTtlMax"]?.jsonPrimitive?.contentOrNull)
         assertEquals("true", payload.string("hostAutolearnEnabled"))
         assertEquals(43_200, payload.int("hostAutolearnPenaltyTtlSecs"))
         assertEquals(1024, payload.int("hostAutolearnMaxHosts"))
@@ -255,10 +255,17 @@ class RipDpiProxyPreferencesTest {
 
     @Test
     fun uiPreferencesAdaptiveFakeTtlDefaultsUseUiBias() {
-        val payload = RipDpiProxyUIPreferences(adaptiveFakeTtlEnabled = true).toNativeConfigJson().parseJsonObject()
+        val json = RipDpiProxyUIPreferences(adaptiveFakeTtlEnabled = true).toNativeConfigJson()
+        val payload = json.parseJsonObject()
+        val decoded = decodeRipDpiProxyUiPreferences(json)
 
         assertEquals("true", payload.string("adaptiveFakeTtlEnabled"))
-        assertEquals(DefaultAdaptiveFakeTtlDelta, payload.int("adaptiveFakeTtlDelta"))
+        assertEquals(null, payload["adaptiveFakeTtlDelta"]?.jsonPrimitive?.contentOrNull)
+        assertEquals(null, payload["adaptiveFakeTtlMin"]?.jsonPrimitive?.contentOrNull)
+        assertEquals(null, payload["adaptiveFakeTtlMax"]?.jsonPrimitive?.contentOrNull)
+        assertEquals(null, payload["adaptiveFakeTtlFallback"]?.jsonPrimitive?.contentOrNull)
+        assertEquals(true, decoded?.adaptiveFakeTtlEnabled)
+        assertEquals(DefaultAdaptiveFakeTtlDelta, decoded?.adaptiveFakeTtlDelta)
     }
 
     @Test

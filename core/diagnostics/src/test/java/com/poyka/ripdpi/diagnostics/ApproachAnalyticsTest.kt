@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AdaptiveMarkerMethod
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
@@ -122,6 +123,73 @@ class ApproachAnalyticsTest {
         val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "13")
 
         assertTrue(signature.httpParserEvasions.isEmpty())
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature includes adaptive fake ttl fields`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setDesyncMethod("fake")
+                .setAdaptiveFakeTtlEnabled(true)
+                .setAdaptiveFakeTtlDelta(DefaultAdaptiveFakeTtlDelta)
+                .setAdaptiveFakeTtlMin(3)
+                .setAdaptiveFakeTtlMax(12)
+                .setAdaptiveFakeTtlFallback(9)
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "17")
+
+        assertEquals("adaptive", signature.fakeTtlMode)
+        assertEquals("3-12", signature.adaptiveFakeTtlWindow)
+        assertEquals(9, signature.adaptiveFakeTtlFallback)
+        assertNull(signature.adaptiveFakeTtlBias)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature includes adaptive fake ttl custom bias`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setDesyncMethod("fake")
+                .setAdaptiveFakeTtlEnabled(true)
+                .setAdaptiveFakeTtlDelta(2)
+                .setAdaptiveFakeTtlMin(4)
+                .setAdaptiveFakeTtlMax(16)
+                .setAdaptiveFakeTtlFallback(11)
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "18")
+
+        assertEquals("adaptive_custom", signature.fakeTtlMode)
+        assertEquals("4-16", signature.adaptiveFakeTtlWindow)
+        assertEquals(11, signature.adaptiveFakeTtlFallback)
+        assertEquals(2, signature.adaptiveFakeTtlBias)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature omits adaptive fake ttl fields in command line mode`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setEnableCmdSettings(true)
+                .setDesyncMethod("fake")
+                .setAdaptiveFakeTtlEnabled(true)
+                .setAdaptiveFakeTtlDelta(2)
+                .setAdaptiveFakeTtlMin(4)
+                .setAdaptiveFakeTtlMax(16)
+                .setAdaptiveFakeTtlFallback(11)
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "19")
+
+        assertNull(signature.fakeTtlMode)
+        assertNull(signature.adaptiveFakeTtlWindow)
+        assertNull(signature.adaptiveFakeTtlFallback)
+        assertNull(signature.adaptiveFakeTtlBias)
     }
 
     @Test
