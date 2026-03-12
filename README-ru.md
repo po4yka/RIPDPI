@@ -6,6 +6,7 @@
 
 - local proxy mode
 - local VPN redirection mode
+- шифрованным DNS в VPN-режиме через DoH/DoT/DNSCrypt
 - встроенной диагностикой и пассивной telemetry
 - in-repository Rust native modules
 
@@ -18,10 +19,11 @@ RIPDPI локально запускает SOCKS5-прокси на основе
 Реализованные механизмы диагностики:
 
 - Ручные сканы в режимах `RAW_PATH` и `IN_PATH`
-- Проверка целостности DNS через сравнение UDP DNS и DoH
+- Проверка целостности DNS через UDP DNS и шифрованные резолверы (DoH/DoT/DNSCrypt)
 - Проверка доступности доменов с классификацией TLS и HTTP
 - Детект блокировки на пороге 16-20 КБ через fat-header requests
 - Поиск обхода через whitelist SNI для заблокированных TLS-path
+- Рекомендации по резолверу с временным session override и сохранением в настройки DNS
 - Пассивная native-телеметрия во время работы proxy или VPN service
 - Экспорт bundle с `summary.txt`, `report.json`, `telemetry.csv` и `manifest.json`
 
@@ -29,7 +31,7 @@ RIPDPI локально запускает SOCKS5-прокси на основе
 
 - Android network snapshot: transport, capabilities, DNS, MTU, локальные адреса, public IP/ASN, captive portal, validation state
 - Native-телеметрию proxy runtime: lifecycle listener-а, принятых клиентов, выбор и переключение route, native-ошибки
-- Native-телеметрию tunnel runtime: lifecycle туннеля, счётчики пакетов и байтов, native-ошибки
+- Native-телеметрию tunnel runtime: lifecycle туннеля, счётчики пакетов и байтов, resolver id/protocol/endpoint, DNS latency и failure counters, fallback reason, network handover class
 
 Что приложение не сохраняет:
 
@@ -45,7 +47,7 @@ RIPDPI локально запускает SOCKS5-прокси на основе
 
 **Приложение требует root?** Нет.
 
-**Это VPN?** Нет. Приложение использует VPN-режим Android для локального перенаправления трафика. Оно не шифрует трафик и не скрывает ваш IP-адрес.
+**Это VPN?** Нет. Приложение использует VPN-режим Android для локального перенаправления трафика. Оно не шифрует обычный пользовательский трафик и не скрывает ваш IP-адрес. При включенном encrypted DNS шифруются только DNS-запросы через DoH/DoT/DNSCrypt.
 
 **Как использовать вместе с AdGuard?**
 
@@ -141,6 +143,7 @@ Workflow может сохранять golden diffs, Android reports, fixture lo
 - `native/rust/crates/ripdpi-android`: JNI bridge прокси и поверхность proxy runtime telemetry
 - `native/rust/crates/hs5t-android`: JNI bridge TUN-to-SOCKS и поверхность tunnel telemetry
 - `native/rust/crates/ripdpi-monitor`: активные diagnostics scans и passive diagnostics events
+- `native/rust/crates/ripdpi-dns-resolver`: общий encrypted DNS resolver для диагностики и VPN mode
 - `native/rust/crates/ripdpi-runtime`: общий proxy runtime layer, используемый `libripdpi.so`
 - `native/rust/crates/android-support`: Android logging и JNI support helpers
 

@@ -16,6 +16,8 @@ The same shared library now also carries two additional responsibilities:
 - Active diagnostics scans through the linked `ripdpi-monitor` crate
 - Passive proxy runtime telemetry for the long-running SOCKS5 listener
 
+The diagnostics path also links the shared `ripdpi-dns-resolver` crate, so encrypted DNS probing and resolver recommendation logic stay in native code rather than Kotlin.
+
 That means `libripdpi.so` is no longer only the proxy engine. It is also the diagnostics entry point used by the Diagnostics screen.
 
 ## App Call Chain
@@ -75,11 +77,12 @@ That behavior matches the old JNI C wrapper, even though the naming comes from t
 The diagnostics path linked into `libripdpi.so` currently implements:
 
 - `RAW_PATH` and `IN_PATH` scan transports
-- UDP DNS vs DoH comparison
+- UDP DNS integrity checks against encrypted resolvers (DoH/DoT/DNSCrypt)
 - HTTPS reachability checks with TLS 1.3 and TLS 1.2 split probing
 - HTTP block-page classification
 - TCP 16-20 KB cutoff detection with repeated fat-header `HEAD` requests
 - Whitelist SNI retry search
+- Built-in encrypted resolver sweep and ranking for connectivity scans
 
 Results are returned as typed outcomes and probe details rather than log-line parsing.
 

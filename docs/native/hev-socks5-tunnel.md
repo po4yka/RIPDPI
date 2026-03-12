@@ -4,6 +4,8 @@
 
 `hev-socks5-tunnel` is used only in VPN mode. It takes the Android TUN file descriptor, reads packets from it, and forwards traffic to the local SOCKS5 proxy started by `libripdpi.so`.
 
+When encrypted DNS is enabled, the tunnel also intercepts DNS with a mapped-DNS listener (`198.18.0.53` over the synthetic `198.18.0.0/15` pool), resolves those queries through the shared encrypted resolver, and rewrites follow-up traffic back to the real upstream IPv4 targets before opening SOCKS sessions.
+
 The built shared library is `libhev-socks5-tunnel.so`.
 
 ## App Call Chain
@@ -29,7 +31,7 @@ Relevant sources:
 | `hs5t_core::run_tunnel` | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-core/src/lib.rs` | `jniStart(handle, tunFd)` worker thread | Used | Runs the tunnel runtime from the in-memory config and Android TUN fd. |
 | `CancellationToken::cancel` | `tokio-util` | `jniStop(handle)` | Used | Requests tunnel shutdown from another thread. |
 | `Stats::snapshot` | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-core/src/stats.rs` | `jniGetStats(handle)` | Used | Returns packet and byte counters. |
-| tunnel telemetry snapshot assembly | `native/rust/crates/hs5t-android/src/lib.rs` | `jniGetTelemetry(handle)` | Used | Returns tunnel lifecycle, counters, last error, and a bounded drained event ring. |
+| tunnel telemetry snapshot assembly | `native/rust/crates/hs5t-android/src/lib.rs` | `jniGetTelemetry(handle)` | Used | Returns tunnel lifecycle, counters, last error, resolver endpoint/latency/fallback fields, and a bounded drained event ring. |
 
 ## JNI Surface Exposed to Kotlin
 
@@ -72,6 +74,7 @@ The Rust crate graph is centered on:
 
 - RIPDPI now starts the tunnel with an in-memory JSON config payload and an already established Android TUN fd.
 - The config still points the tunnel to the local SOCKS5 proxy on `127.0.0.1:$port`.
+- In encrypted DNS mode the config also enables `mapdns` on `198.18.0.53:53` with a synthetic `198.18.0.0/15` address pool and passes the active encrypted resolver definition into native code.
 - `libhev-socks5-tunnel.so` therefore still depends on `libripdpi.so` already being active.
 - `RipDpiVpnService` polls tunnel telemetry while the VPN is running and merges it with proxy telemetry from `libripdpi.so`.
 
@@ -84,6 +87,10 @@ While the VPN service is running, `Tun2SocksTunnel.telemetry()` calls `jniGetTel
 - cumulative native error count
 - upstream SOCKS5 address
 - packet and byte counters mirrored from `Stats::snapshot`
+- DNS query counters, cache hits/misses, and DNS failure count
+- active resolver id/protocol/endpoint plus last-query latency and rolling average
+- resolver fallback active flag and fallback reason when diagnostics or service policy installs a temporary override
+- derived network handover class from the Android service layer
 - last native error
 - a bounded drained event ring
 
