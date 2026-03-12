@@ -147,6 +147,8 @@ fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences
         hostMixedCase = ui.hostMixedCase,
         domainMixedCase = ui.domainMixedCase,
         hostRemoveSpaces = ui.hostRemoveSpaces,
+        httpMethodEol = ui.httpMethodEol,
+        httpUnixEol = ui.httpUnixEol,
         tlsRecordSplit = ui.tlsRecordSplit,
         tlsRecordSplitMarker = ui.tlsRecordSplitMarker,
         hostsMode = RipDpiProxyUIPreferences.HostsMode.fromName(ui.hostsMode),
@@ -226,6 +228,8 @@ class RipDpiProxyUIPreferences(
     hostMixedCase: Boolean? = null,
     domainMixedCase: Boolean? = null,
     hostRemoveSpaces: Boolean? = null,
+    httpMethodEol: Boolean? = null,
+    httpUnixEol: Boolean? = null,
     tlsRecordSplit: Boolean? = null,
     tlsRecordSplitMarker: String? = null,
     hostsMode: HostsMode? = null,
@@ -281,6 +285,8 @@ class RipDpiProxyUIPreferences(
     val hostMixedCase: Boolean = hostMixedCase ?: false
     val domainMixedCase: Boolean = domainMixedCase ?: false
     val hostRemoveSpaces: Boolean = hostRemoveSpaces ?: false
+    val httpMethodEol: Boolean = httpMethodEol ?: false
+    val httpUnixEol: Boolean = httpUnixEol ?: false
     val tlsRecordSplit: Boolean = tlsRecordSplit ?: false
     val tlsRecordSplitMarker: String = normalizeOffsetExpression(tlsRecordSplitMarker.orEmpty(), DefaultTlsRecordMarker)
     val hostsMode: HostsMode =
@@ -351,6 +357,8 @@ class RipDpiProxyUIPreferences(
         hostMixedCase = settings.hostMixedCase,
         domainMixedCase = settings.domainMixedCase,
         hostRemoveSpaces = settings.hostRemoveSpaces,
+        httpMethodEol = settings.httpMethodEol,
+        httpUnixEol = settings.httpUnixEol,
         tlsRecordSplit = settings.tlsrecEnabled,
         tlsRecordSplitMarker = settings.effectiveTlsRecordMarker(),
         hostsMode =
@@ -423,6 +431,8 @@ class RipDpiProxyUIPreferences(
                 hostMixedCase = hostMixedCase,
                 domainMixedCase = domainMixedCase,
                 hostRemoveSpaces = hostRemoveSpaces,
+                httpMethodEol = httpMethodEol,
+                httpUnixEol = httpUnixEol,
                 tlsRecordSplit = tlsRecordSplit,
                 tlsRecordSplitMarker = tlsRecordSplitMarker,
                 hostsMode = hostsMode.wireName,
@@ -569,6 +579,8 @@ private sealed interface NativeProxyConfig {
         val hostMixedCase: Boolean,
         val domainMixedCase: Boolean,
         val hostRemoveSpaces: Boolean,
+        val httpMethodEol: Boolean,
+        val httpUnixEol: Boolean,
         val tlsRecordSplit: Boolean,
         val tlsRecordSplitMarker: String,
         val hostsMode: String,

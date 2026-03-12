@@ -137,6 +137,8 @@ private enum class AdvancedToggleSetting {
     HostMixedCase,
     DomainMixedCase,
     HostRemoveSpaces,
+    HttpMethodEol,
+    HttpUnixEol,
     TlsrecEnabled,
     QuicSupportV1,
     QuicSupportV2,
@@ -697,6 +699,24 @@ fun AdvancedSettingsRoute(
                         value = enabled.toString(),
                     ) {
                         setHostRemoveSpaces(enabled)
+                    }
+                }
+
+                AdvancedToggleSetting.HttpMethodEol -> {
+                    viewModel.updateSetting(
+                        key = "httpMethodEol",
+                        value = enabled.toString(),
+                    ) {
+                        setHttpMethodEol(enabled)
+                    }
+                }
+
+                AdvancedToggleSetting.HttpUnixEol -> {
+                    viewModel.updateSetting(
+                        key = "httpUnixEol",
+                        value = enabled.toString(),
+                    ) {
+                        setHttpUnixEol(enabled)
                     }
                 }
 
@@ -2165,6 +2185,12 @@ private fun AdvancedSettingsScreen(
         item(key = "advanced_http") {
             SettingsSection(title = stringResource(R.string.desync_http_category)) {
                 RipDpiCard {
+                    Text(
+                        text = stringResource(R.string.ripdpi_http_parser_safe_group_body),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.mutedForeground,
+                    )
+                    HorizontalDivider(color = colors.divider)
                     SettingsRow(
                         title = stringResource(R.string.ripdpi_host_mixed_case_setting),
                         checked = uiState.hostMixedCase,
@@ -2183,6 +2209,29 @@ private fun AdvancedSettingsScreen(
                         title = stringResource(R.string.ripdpi_host_remove_spaces_setting),
                         checked = uiState.hostRemoveSpaces,
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostRemoveSpaces, it) },
+                        enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                    )
+                }
+                RipDpiCard(
+                    modifier = Modifier.padding(top = spacing.sm),
+                ) {
+                    Text(
+                        text = stringResource(R.string.ripdpi_http_parser_aggressive_group_body),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.mutedForeground,
+                    )
+                    HorizontalDivider(color = colors.divider)
+                    SettingsRow(
+                        title = stringResource(R.string.ripdpi_http_method_eol_setting),
+                        checked = uiState.httpMethodEol,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpMethodEol, it) },
+                        enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                        showDivider = true,
+                    )
+                    SettingsRow(
+                        title = stringResource(R.string.ripdpi_http_unix_eol_setting),
+                        checked = uiState.httpUnixEol,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpUnixEol, it) },
                         enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
                     )
                 }

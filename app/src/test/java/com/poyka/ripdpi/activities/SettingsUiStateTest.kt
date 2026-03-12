@@ -75,6 +75,8 @@ class SettingsUiStateTest {
         assertTrue(state.desyncHttpEnabled)
         assertTrue(state.desyncHttpsEnabled)
         assertFalse(state.desyncUdpEnabled)
+        assertFalse(state.httpMethodEol)
+        assertFalse(state.httpUnixEol)
         assertEquals(QuicFakeProfileDisabled, state.quicFakeProfile)
         assertEquals("", state.quicFakeHost)
         assertFalse(state.quicFakeProfileActive)
@@ -142,6 +144,27 @@ class SettingsUiStateTest {
         assertTrue(state.tlsFakeProfileActiveInStrategy)
         assertFalse(state.udpFakeProfileActiveInStrategy)
         assertTrue(state.desyncEnabled)
+    }
+
+    @Test
+    fun `aggressive http parser evasions round trip into ui state`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setHostMixedCase(true)
+                .setDomainMixedCase(true)
+                .setHostRemoveSpaces(true)
+                .setHttpMethodEol(true)
+                .setHttpUnixEol(true)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.hostMixedCase)
+        assertTrue(state.domainMixedCase)
+        assertTrue(state.hostRemoveSpaces)
+        assertTrue(state.httpMethodEol)
+        assertTrue(state.httpUnixEol)
     }
 
     @Test

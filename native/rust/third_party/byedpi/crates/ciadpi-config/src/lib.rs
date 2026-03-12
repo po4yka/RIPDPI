@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use ciadpi_packets::{
     HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP, MH_DMIX, MH_HMIX,
-    MH_SPACE,
+    MH_METHODEOL, MH_SPACE, MH_UNIXEOL,
 };
 
 pub const VERSION: &str = "17.3";
@@ -1400,6 +1400,8 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                         Some('r') => group!().mod_http |= MH_SPACE,
                         Some('h') => group!().mod_http |= MH_HMIX,
                         Some('d') => group!().mod_http |= MH_DMIX,
+                        Some('m') => group!().mod_http |= MH_METHODEOL,
+                        Some('u') => group!().mod_http |= MH_UNIXEOL,
                         _ => return Err(ConfigError::invalid(arg, Some(value))),
                     }
                 }
@@ -1837,6 +1839,21 @@ mod tests {
         assert_eq!(group.http_fake_profile, HttpFakeProfile::CloudflareGet);
         assert_eq!(group.tls_fake_profile, TlsFakeProfile::GoogleChrome);
         assert_eq!(group.udp_fake_profile, UdpFakeProfile::DnsQuery);
+    }
+
+    #[test]
+    fn parse_cli_reads_extended_http_parser_evasions() {
+        let args = vec!["--mod-http".to_string(), "h,d,r,m,u".to_string()];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+        let group = &config.groups[0];
+
+        assert_eq!(
+            group.mod_http,
+            MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL
+        );
     }
 
     #[test]

@@ -85,6 +85,46 @@ class ApproachAnalyticsTest {
     }
 
     @Test
+    fun `deriveBypassStrategySignature groups active http parser evasions`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setHostMixedCase(true)
+                .setDomainMixedCase(true)
+                .setHostRemoveSpaces(true)
+                .setHttpUnixEol(true)
+                .setHttpMethodEol(true)
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "12")
+
+        assertEquals(
+            listOf("host_mixed_case", "domain_mixed_case", "host_remove_spaces", "unix_eol", "method_eol"),
+            signature.httpParserEvasions,
+        )
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature omits http parser evasions in command line mode`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setEnableCmdSettings(true)
+                .setHostMixedCase(true)
+                .setDomainMixedCase(true)
+                .setHostRemoveSpaces(true)
+                .setHttpUnixEol(true)
+                .setHttpMethodEol(true)
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "13")
+
+        assertTrue(signature.httpParserEvasions.isEmpty())
+    }
+
+    @Test
     fun `deriveBypassStrategySignature preserves hostfake chain without fake tls profile`() {
         val settings =
             AppSettings

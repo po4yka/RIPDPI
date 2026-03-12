@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
+import com.poyka.ripdpi.data.activeHttpParserEvasions
 import com.poyka.ripdpi.data.effectiveGroupActivationFilter
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.effectiveHttpFakeProfile
@@ -53,6 +54,7 @@ data class BypassStrategySignature(
     val desyncMethod: String,
     val chainSummary: String,
     val protocolToggles: List<String>,
+    val httpParserEvasions: List<String> = emptyList(),
     val tlsRecordSplitEnabled: Boolean,
     val tlsRecordMarker: String? = null,
     val splitMarker: String? = null,
@@ -168,6 +170,11 @@ fun deriveBypassStrategySignature(
         }
     val activationFilter = settings.effectiveGroupActivationFilter()
     val activationFiltersActive = !settings.enableCmdSettings
+    val httpParserEvasions =
+        settings
+            .activeHttpParserEvasions()
+            .takeIf { !settings.enableCmdSettings }
+            .orEmpty()
 
     return BypassStrategySignature(
         mode = mode,
@@ -181,6 +188,7 @@ fun deriveBypassStrategySignature(
         desyncMethod = desyncMethod,
         chainSummary = formatChainSummary(tcpSteps, udpSteps),
         protocolToggles = protocols,
+        httpParserEvasions = httpParserEvasions,
         tlsRecordSplitEnabled = tlsRecStep != null,
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
@@ -245,6 +253,14 @@ fun deriveBypassStrategySignature(
             if (preferences.fakeTlsDupSessionId) add("dupsid")
             if (preferences.fakeTlsPadEncap) add("padencap")
         }
+    val httpParserEvasions =
+        activeHttpParserEvasions(
+            hostMixedCase = preferences.hostMixedCase,
+            domainMixedCase = preferences.domainMixedCase,
+            hostRemoveSpaces = preferences.hostRemoveSpaces,
+            httpMethodEol = preferences.httpMethodEol,
+            httpUnixEol = preferences.httpUnixEol,
+        )
 
     return BypassStrategySignature(
         mode = modeOverride.name,
@@ -253,6 +269,7 @@ fun deriveBypassStrategySignature(
         desyncMethod = preferences.desyncMethod.wireName,
         chainSummary = preferences.chainSummary,
         protocolToggles = protocols,
+        httpParserEvasions = httpParserEvasions,
         tlsRecordSplitEnabled = tlsRecStep != null,
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
