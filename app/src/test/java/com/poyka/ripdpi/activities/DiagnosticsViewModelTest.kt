@@ -266,6 +266,12 @@ class DiagnosticsViewModelTest {
                     sessionsState.value =
                         listOf(
                             session(
+                                id = "default-session",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "Connectivity run",
+                            ),
+                            session(
                                 id = "probe-session",
                                 profileId = "automatic-probing",
                                 pathMode = "RAW_PATH",
@@ -283,11 +289,15 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            val strategyProbe = viewModel.uiState.value.scan.strategyProbeReport
+            val scan = viewModel.uiState.value.scan
+            val strategyProbe = scan.strategyProbeReport
             assertNotNull(strategyProbe)
+            assertEquals("automatic-probing", scan.selectedProfile?.id)
+            assertEquals("probe-session", scan.latestSession?.id)
             assertEquals("TLS record + hostfake + QUIC realistic burst", strategyProbe?.recommendation?.headline)
             assertEquals(2, strategyProbe?.families?.size)
             assertEquals("TCP candidates", strategyProbe?.families?.first()?.title)
+            assertTrue(strategyProbe?.families?.first()?.candidates?.first()?.recommended == true)
             assertTrue(
                 strategyProbe
                     ?.recommendation
