@@ -21,6 +21,8 @@ These run through Gradle on the host JVM and cover the Android-facing logic with
   - merged service telemetry golden contracts
 - `core:diagnostics`
   - diagnostics manager orchestration
+  - resolver recommendation ranking and temporary encrypted-DNS override flow
+  - runtime-history persistence of resolver telemetry
   - export/archive contents
   - persisted passive-monitor and native-event golden contracts
 
@@ -71,6 +73,7 @@ RIPDPI includes a repo-owned local fixture binary that exposes:
 - UDP echo
 - TLS echo
 - DNS responders
+- RFC8484 DNS-over-HTTPS endpoints
 - SOCKS5 relay
 - deterministic fault injection control endpoints
 
@@ -148,6 +151,7 @@ Semantic fields remain strict:
 - event order
 - level and message text
 - route group and target metadata
+- resolver metadata, fallback state, and handover classification
 
 ## Linux TUN E2E and soak
 

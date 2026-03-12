@@ -54,17 +54,19 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Repository | [celzero/rethink-app](https://github.com/celzero/rethink-app) |
 | Description | Android firewall + DNS changer with per-app rules and encrypted DNS |
 | Language | Kotlin, Golang |
-| Last analyzed | 2026-03-11 |
+| Last analyzed | 2026-03-12 (status refreshed after encrypted DNS, resolver telemetry, and diagnostics-driven resolver selection landed in RIPDPI) |
 
 **Ideas extracted:**
 
 | # | Idea | Status | Notes |
 |---|------|--------|-------|
-| 1 | DNS encryption (DoH/DoT/DNSCrypt) as first defense layer | NEW | RIPDPI diagnostics compare UDP DNS vs DoH for integrity checks, but don't offer encrypted DNS as a bypass layer. DNS manipulation is often the first blocking technique ISPs deploy -- offering built-in DoH/DoT would cover this attack surface. |
-| 2 | Per-application network controls and state-aware firewall rules | NEW | rethink-app allows users to set network rules per app (block WiFi, allow cellular, etc.). RIPDPI applies desync uniformly. Per-app routing could let users exempt trusted apps or apply different desync strategies per app. |
-| 3 | Kotlin + Golang (`firestack`) network stack integration pattern | REFERENCE | Interesting architectural parallel. rethink-app uses Golang via gomobile for its network stack, while RIPDPI uses Rust via JNI. Both solve the same problem (high-performance native networking on Android) differently. Golang offers easier concurrency; Rust offers better memory safety guarantees. No action needed, but useful reference if evaluating alternative native approaches. |
-| 4 | Encrypted Client Hello (ECH) for hiding TLS SNI | NEW | ECH encrypts the SNI field in TLS ClientHello, making SNI-based blocking impossible. rethink-app supports ECH via its DNS stack. This is a protocol-level solution that complements RIPDPI's packet-level desync -- if the server supports ECH, no desync is needed for SNI hiding. |
-| 5 | Domain/IP category-based filtering | NEW | rethink-app categorizes domains (ads, trackers, malware, social media) and applies rules by category. RIPDPI uses host/IP whitelist/blacklist. Category-based rules would let users say "apply desync to all social media" rather than listing individual domains. |
+| 1 | DNS encryption (DoH/DoT/DNSCrypt) as first defense layer | IMPLEMENTED | RIPDPI now ships a shared native encrypted DNS resolver reused by diagnostics and VPN mode. VPN sessions can switch to mapped-DNS interception with DoH/DoT/DNSCrypt, while connectivity diagnostics can validate and recommend encrypted resolvers before escalating to stronger packet-level bypass. Built-in auto-selection is DoH-first in v1; custom DoT and DNSCrypt are supported manually. |
+| 2 | Per-application network controls and state-aware firewall rules | NOT IMPLEMENTED | rethink-app allows users to set network rules per app (block WiFi, allow cellular, etc.). RIPDPI still applies desync uniformly. Per-app routing remains a plausible next step if the app needs coarse exemptions or app-specific strategies. |
+| 3 | Kotlin + Golang (`firestack`) network stack integration pattern | REFERENCE | The useful lesson was architectural, not language-specific: keep the network data plane native and let Android orchestrate it. RIPDPI kept its Rust + JNI stack, but followed the same "thin Android wrapper over native networking core" direction rather than moving resolver logic into Kotlin. |
+| 4 | Encrypted Client Hello (ECH) for hiding TLS SNI | NOT IMPLEMENTED | ECH remains attractive as a protocol-level complement to desync, but RIPDPI's current encrypted DNS stack does not make third-party app traffic use ECH. The current implementation preserves encrypted DNS and resolver metadata; it does not add an ECH-capable client path. |
+| 5 | Domain/IP category-based filtering | NOT IMPLEMENTED | rethink-app categorizes domains (ads, trackers, malware, social media) and applies rules by category. RIPDPI still works in terms of host/IP lists and bypass strategies rather than category policy. |
+| 6 | Resolver and transport telemetry expansion through existing polled snapshots | IMPLEMENTED | RIPDPI expanded the existing native JSON snapshot model instead of adding callback-heavy JNI. Tunnel/runtime telemetry now carries resolver endpoint, query latency, rolling average, failure count, fallback state/reason, and network handover classification, and that data is persisted into diagnostics history and archive output. |
+| 7 | Diagnostics-driven resolver selection before stronger bypass escalation | IMPLEMENTED | Connectivity diagnostics now expand built-in encrypted resolvers, rank them by `dns_match` count and latency, and can apply a temporary session-local encrypted DNS override when VPN is running on plain UDP DNS. The diagnostics UI surfaces this recommendation ahead of strategy probing, with `Keep for this session` and `Save as DNS setting` actions. |
 
 ---
 
@@ -132,7 +134,9 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Fake payload profile library | Yes | -- | -- | -- | IMPLEMENTED |
 | Diagnostic-first mode | -- | -- | Yes | -- | IMPLEMENTED |
 | Lua/scripting for strategies | Yes | -- | -- | -- | NOT IMPLEMENTED |
-| DNS encryption (DoH/DoT) | -- | Yes | -- | -- | NOT IMPLEMENTED |
+| DNS encryption (DoH/DoT/DNSCrypt) | -- | Yes | -- | -- | IMPLEMENTED |
+| Polled resolver telemetry expansion | -- | Yes | -- | -- | IMPLEMENTED |
+| Diagnostics-driven DNS selection | -- | Yes | Partial | -- | IMPLEMENTED |
 | Per-app network rules | -- | Yes | -- | -- | NOT IMPLEMENTED |
 | ECH support | -- | Yes | -- | -- | NOT IMPLEMENTED |
 | Category-based filtering | -- | Yes | -- | -- | NOT IMPLEMENTED |
@@ -143,15 +147,14 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 
 ### Priority Ideas (high impact, feasible)
 
-1. **DNS encryption (DoH/DoT)** -- covers the most common first-layer blocking; complements existing packet-level bypass
-2. **ECH support** -- protocol-level SNI hiding eliminates need for desync when server supports it; future-proof
-3. **Granular error classification** -- distinguish RST/abort/MITM/SNI-block for better auto-strategy selection; incremental improvement to existing `auto_level` and automatic probing
-4. **Auto segmentation** -- now that semantic markers, multi-step chains, hostfake, and QUIC-aware UDP routing are implemented, the next zapret2-inspired improvement is automatically choosing split locations/sizes instead of requiring explicit markers
+1. **ECH support** -- protocol-level SNI hiding still complements the new encrypted DNS stack and could eliminate desync for servers that support it
+2. **Per-app desync routing / policy controls** -- rethink-app's strongest still-missing product idea; useful for exempting trusted apps or limiting bypass to selected traffic
+3. **Granular error classification** -- distinguish RST/abort/MITM/SNI-block for better auto-strategy selection; incremental improvement to existing diagnostics and automatic probing
+4. **Auto segmentation** -- now that semantic markers, multi-step chains, hostfake, QUIC-aware UDP routing, and encrypted DNS fallback are implemented, the next zapret2-inspired improvement is automatically choosing split locations/sizes instead of requiring explicit markers
 5. **Deeper range-aware activation filters** -- RIPDPI still lacks zapret2-style packet-count, data-volume, and sequence-aware activation rules that could make chains more selective per flow stage
 
 ### Exploratory Ideas (interesting but larger scope)
 
 - Lua/scripting engine for user-defined strategies
-- Per-app desync routing
 - Category-based domain filtering
 - Deeper zapret2-style range filters (sequence/data-volume aware activation)

@@ -6,6 +6,7 @@ Android application for bypassing DPI (Deep Packet Inspection) and censorship wi
 
 - local proxy mode
 - local VPN redirection mode
+- encrypted DNS in VPN mode with DoH/DoT/DNSCrypt
 - integrated diagnostics and passive telemetry
 - in-repository Rust native modules
 
@@ -18,10 +19,11 @@ RIPDPI includes an integrated diagnostics screen for active DPI checks and passi
 Implemented diagnostic mechanisms:
 
 - Manual scans in `RAW_PATH` and `IN_PATH` modes
-- DNS integrity checks with UDP DNS and DoH comparison
+- DNS integrity checks across UDP DNS and encrypted resolvers (DoH/DoT/DNSCrypt)
 - Domain reachability checks with TLS and HTTP classification
 - TCP 16-20 KB cutoff detection with repeated fat-header requests
 - Whitelist SNI retry detection for blocked TLS paths
+- Resolver recommendations with temporary session overrides and save-to-settings actions
 - Passive native telemetry while proxy or VPN service is running
 - Export bundles with `summary.txt`, `report.json`, `telemetry.csv`, and `manifest.json`
 
@@ -29,7 +31,7 @@ What the app records:
 
 - Android network snapshot: transport, capabilities, DNS, MTU, local addresses, public IP/ASN, captive portal, validation state
 - Native proxy runtime telemetry: listener lifecycle, accepted clients, route selection and route advances, native errors
-- Native tunnel runtime telemetry: tunnel lifecycle, packet and byte counters, native errors
+- Native tunnel runtime telemetry: tunnel lifecycle, packet and byte counters, resolver id/protocol/endpoint, DNS latency and failure counters, fallback reason, network handover class
 
 What the app does not record:
 
@@ -45,7 +47,7 @@ To bypass some blocks, you may need to change the settings. More information is 
 
 **Does the application require root?** No.
 
-**Is this a VPN?** No. It uses Android's VPN mode to redirect traffic locally. It does not encrypt traffic or hide your IP address.
+**Is this a VPN?** No. It uses Android's VPN mode to redirect traffic locally. It does not encrypt general app traffic or hide your IP address. When encrypted DNS is enabled, only DNS lookups are sent through DoH/DoT/DNSCrypt.
 
 **How to use with AdGuard?**
 
@@ -141,6 +143,7 @@ To enable signed release builds, configure these repository secrets:
 - `native/rust/crates/ripdpi-android`: proxy JNI bridge and proxy runtime telemetry surface
 - `native/rust/crates/hs5t-android`: TUN-to-SOCKS JNI bridge and tunnel telemetry surface
 - `native/rust/crates/ripdpi-monitor`: active diagnostics scans and passive diagnostics events
+- `native/rust/crates/ripdpi-dns-resolver`: shared encrypted DNS resolver used by diagnostics and VPN mode
 - `native/rust/crates/ripdpi-runtime`: shared proxy runtime layer used by `libripdpi.so`
 - `native/rust/crates/android-support`: Android logging and JNI support helpers
 
