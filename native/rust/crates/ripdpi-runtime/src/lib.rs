@@ -3,6 +3,9 @@ use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
+use ripdpi_failure_classifier::ClassifiedFailure;
+use ripdpi_proxy_config::ProxyRuntimeContext;
+
 pub mod adaptive_fake_ttl;
 pub mod adaptive_tuning;
 pub mod platform;
@@ -23,6 +26,10 @@ pub trait RuntimeTelemetrySink: Send + Sync {
 
     fn on_route_selected(&self, target: SocketAddr, group_index: usize, host: Option<&str>, phase: &'static str);
 
+    fn on_failure_classified(&self, target: SocketAddr, failure: &ClassifiedFailure, host: Option<&str>);
+
+    fn on_upstream_connected(&self, _upstream_addr: SocketAddr, _rtt_ms: Option<u64>) {}
+
     fn on_route_advanced(
         &self,
         target: SocketAddr,
@@ -41,6 +48,7 @@ pub trait RuntimeTelemetrySink: Send + Sync {
 pub struct EmbeddedProxyControl {
     shutdown: Arc<AtomicBool>,
     telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
+    runtime_context: Option<ProxyRuntimeContext>,
 }
 
 impl std::fmt::Debug for EmbeddedProxyControl {
@@ -49,6 +57,7 @@ impl std::fmt::Debug for EmbeddedProxyControl {
             .debug_struct("EmbeddedProxyControl")
             .field("shutdown_requested", &self.shutdown_requested())
             .field("has_telemetry_sink", &self.telemetry.is_some())
+            .field("has_runtime_context", &self.runtime_context.is_some())
             .finish()
     }
 }
@@ -61,7 +70,14 @@ impl Default for EmbeddedProxyControl {
 
 impl EmbeddedProxyControl {
     pub fn new(telemetry: Option<Arc<dyn RuntimeTelemetrySink>>) -> Self {
-        Self { shutdown: Arc::new(AtomicBool::new(false)), telemetry }
+        Self::new_with_context(telemetry, None)
+    }
+
+    pub fn new_with_context(
+        telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
+        runtime_context: Option<ProxyRuntimeContext>,
+    ) -> Self {
+        Self { shutdown: Arc::new(AtomicBool::new(false)), telemetry, runtime_context }
     }
 
     pub fn request_shutdown(&self) {
@@ -78,6 +94,10 @@ impl EmbeddedProxyControl {
 
     pub fn telemetry_sink(&self) -> Option<Arc<dyn RuntimeTelemetrySink>> {
         self.telemetry.clone()
+    }
+
+    pub fn runtime_context(&self) -> Option<ProxyRuntimeContext> {
+        self.runtime_context.clone()
     }
 }
 
@@ -139,6 +159,8 @@ mod tests {
             _phase: &'static str,
         ) {
         }
+
+        fn on_failure_classified(&self, _target: SocketAddr, _failure: &ClassifiedFailure, _host: Option<&str>) {}
 
         fn on_route_advanced(
             &self,

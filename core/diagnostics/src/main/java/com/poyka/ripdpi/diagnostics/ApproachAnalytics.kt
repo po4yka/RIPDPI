@@ -23,11 +23,13 @@ import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveTlsFakeProfile
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpFakeProfile
+import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.formatNumericRange
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.hasCustomFakeTlsProfile
 import com.poyka.ripdpi.data.legacyDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
+import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
@@ -58,6 +60,10 @@ data class BypassStrategySignature(
     val hostAutolearn: String,
     val desyncMethod: String,
     val chainSummary: String,
+    val tcpStrategyFamily: String? = null,
+    val quicStrategyFamily: String? = null,
+    val dnsStrategyFamily: String? = null,
+    val dnsStrategyLabel: String? = null,
     val protocolToggles: List<String>,
     val httpParserEvasions: List<String> = emptyList(),
     val tlsRecordSplitEnabled: Boolean,
@@ -191,6 +197,7 @@ fun deriveBypassStrategySignature(
             .activeHttpParserEvasions()
             .takeIf { !settings.enableCmdSettings }
             .orEmpty()
+    val laneFamilies = settings.deriveStrategyLaneFamilies()
 
     return BypassStrategySignature(
         mode = mode,
@@ -203,6 +210,10 @@ fun deriveBypassStrategySignature(
             },
         desyncMethod = desyncMethod,
         chainSummary = formatChainSummary(tcpSteps, udpSteps),
+        tcpStrategyFamily = laneFamilies.tcpStrategyFamily,
+        quicStrategyFamily = laneFamilies.quicStrategyFamily,
+        dnsStrategyFamily = laneFamilies.dnsStrategyFamily,
+        dnsStrategyLabel = laneFamilies.dnsStrategyLabel,
         protocolToggles = protocols,
         httpParserEvasions = httpParserEvasions,
         tlsRecordSplitEnabled = tlsRecStep != null,
@@ -291,6 +302,13 @@ fun deriveBypassStrategySignature(
             if (preferences.fakeTlsDupSessionId) add("dupsid")
             if (preferences.fakeTlsPadEncap) add("padencap")
         }
+    val laneFamilies =
+        deriveStrategyLaneFamilies(
+            tcpSteps = tcpSteps,
+            desyncUdp = preferences.desyncUdp,
+            quicInitialMode = preferences.quicInitialMode,
+            quicFakeProfile = preferences.quicFakeProfile,
+        )
     val httpParserEvasions =
         activeHttpParserEvasions(
             hostMixedCase = preferences.hostMixedCase,
@@ -306,6 +324,10 @@ fun deriveBypassStrategySignature(
         hostAutolearn = if (preferences.hostAutolearnEnabled) "enabled" else "disabled",
         desyncMethod = preferences.desyncMethod.wireName,
         chainSummary = preferences.chainSummary,
+        tcpStrategyFamily = laneFamilies.tcpStrategyFamily,
+        quicStrategyFamily = laneFamilies.quicStrategyFamily,
+        dnsStrategyFamily = laneFamilies.dnsStrategyFamily,
+        dnsStrategyLabel = laneFamilies.dnsStrategyLabel,
         protocolToggles = protocols,
         httpParserEvasions = httpParserEvasions,
         tlsRecordSplitEnabled = tlsRecStep != null,
@@ -371,6 +393,16 @@ fun BypassStrategySignature.displayLabel(): String =
                 else -> "Autolearn off"
             },
         )
+        val lanes =
+            listOfNotNull(
+                tcpStrategyFamily?.let { "TCP ${strategyLaneFamilyLabel(it)}" },
+                quicStrategyFamily?.let { "QUIC ${strategyLaneFamilyLabel(it)}" },
+                dnsStrategyLabel?.let { "DNS $it" },
+            )
+        if (lanes.isNotEmpty()) {
+            append(" · ")
+            append(lanes.joinToString(" / "))
+        }
         if (tlsRecordSplitEnabled) {
             append(" · TLS split")
         }

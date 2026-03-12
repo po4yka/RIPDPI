@@ -51,5 +51,28 @@
         "suiteId": "quick_v1"
       }
     }
+  },
+  {
+    "id": "automatic-audit",
+    "name": "Automatic audit",
+    "version": 1,
+    "request": {
+      "profileId": "automatic-audit",
+      "displayName": "Automatic audit",
+      "pathMode": "RAW_PATH",
+      "kind": "STRATEGY_PROBE",
+      "domainTargets": [
+        { "host": "www.youtube.com" },
+        { "host": "discord.com" },
+        { "host": "proton.me" }
+      ],
+      "quicTargets": [
+        { "host": "www.youtube.com" },
+        { "host": "discord.com" }
+      ],
+      "strategyProbe": {
+        "suiteId": "full_matrix_v1"
+      }
+    }
   }
 ]

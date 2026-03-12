@@ -3,9 +3,8 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use ciadpi_config::{
-    dump_cache_entries, load_cache_entries, parse_cli, parse_hosts_spec, parse_ipset_spec, FilterSet,
-    OffsetExpr, ParseResult, StartupEnv, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
-    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    dump_cache_entries, load_cache_entries, parse_cli, parse_hosts_spec, parse_ipset_spec, FilterSet, OffsetExpr,
+    ParseResult, StartupEnv, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
     HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
 use serde_json::Value;
@@ -278,12 +277,7 @@ fn parse_args_host_autolearn_defaults_store_file_when_enabled() {
 #[test]
 fn fake_tls_mod_parser_accepts_richer_tokens() {
     let config = parse_runtime(
-        &[
-            "--fake-tls-mod",
-            "rand,orig,rndsni,dupsid,padencap,msize=144",
-            "--fake-sni",
-            "docs.example.test",
-        ],
+        &["--fake-tls-mod", "rand,orig,rndsni,dupsid,padencap,msize=144", "--fake-sni", "docs.example.test"],
         StartupEnv::default(),
     );
     let group = &config.groups[0];
@@ -295,11 +289,8 @@ fn fake_tls_mod_parser_accepts_richer_tokens() {
 
 #[test]
 fn fake_tls_mod_parser_rejects_unknown_tokens() {
-    let err = parse_cli(
-        &["--fake-tls-mod".to_string(), "rand,bogus".to_string()],
-        &StartupEnv::default(),
-    )
-    .expect_err("invalid fake tls mod token should fail");
+    let err = parse_cli(&["--fake-tls-mod".to_string(), "rand,bogus".to_string()], &StartupEnv::default())
+        .expect_err("invalid fake tls mod token should fail");
 
     assert!(err.to_string().contains("--fake-tls-mod"));
 }

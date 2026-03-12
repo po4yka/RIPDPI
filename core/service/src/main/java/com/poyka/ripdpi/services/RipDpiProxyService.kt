@@ -45,6 +45,12 @@ class RipDpiProxyService : LifecycleService() {
     lateinit var serviceStateStore: ServiceStateStore
 
     @Inject
+    lateinit var networkFingerprintProvider: NetworkFingerprintProvider
+
+    @Inject
+    lateinit var telemetryFingerprintHasher: TelemetryFingerprintHasher
+
+    @Inject
     lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore
 
     @Inject
@@ -269,6 +275,21 @@ class RipDpiProxyService : LifecycleService() {
         logcat { "Proxy status changed from $status to $newStatus" }
 
         status = newStatus
+        val currentTelemetry = serviceStateStore.telemetry.value
+        val proxyTelemetry =
+            if (newStatus == ServiceStatus.Connected) {
+                NativeRuntimeSnapshot.idle(source = "proxy")
+            } else {
+                currentTelemetry.proxyTelemetry
+            }
+        val tunnelTelemetry =
+            if (newStatus == ServiceStatus.Connected) {
+                NativeRuntimeSnapshot.idle(source = "tunnel")
+            } else {
+                currentTelemetry.tunnelTelemetry
+            }
+        val (winningTcpStrategyFamily, winningQuicStrategyFamily, winningDnsStrategyFamily) =
+            currentWinningFamilies(currentTelemetry.runtimeFieldTelemetry)
 
         val appStatus =
             when (newStatus) {
@@ -276,9 +297,10 @@ class RipDpiProxyService : LifecycleService() {
                     AppStatus.Running
                 }
 
-                ServiceStatus.Disconnected,
                 ServiceStatus.Failed,
-                -> {
+                -> AppStatus.Halted
+
+                ServiceStatus.Disconnected -> {
                     proxyJob = null
                     proxy = null
                     AppStatus.Halted
@@ -289,9 +311,21 @@ class RipDpiProxyService : LifecycleService() {
             ServiceTelemetrySnapshot(
                 mode = Mode.Proxy,
                 status = appStatus,
-                tunnelStats = com.poyka.ripdpi.core.TunnelStats(),
-                proxyTelemetry = NativeRuntimeSnapshot.idle(source = "proxy"),
-                tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
+                tunnelStats = proxyTelemetry.tunnelStats,
+                proxyTelemetry = proxyTelemetry,
+                tunnelTelemetry = tunnelTelemetry,
+                runtimeFieldTelemetry =
+                    deriveRuntimeFieldTelemetry(
+                        telemetryNetworkFingerprintHash =
+                            currentTelemetryFingerprintHash(currentTelemetry.runtimeFieldTelemetry),
+                        winningTcpStrategyFamily = winningTcpStrategyFamily,
+                        winningQuicStrategyFamily = winningQuicStrategyFamily,
+                        winningDnsStrategyFamily = winningDnsStrategyFamily,
+                        proxyTelemetry = proxyTelemetry,
+                        tunnelTelemetry = tunnelTelemetry,
+                        tunnelRecoveryRetryCount = 0,
+                        failureReason = failureReason,
+                    ),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -312,6 +346,8 @@ class RipDpiProxyService : LifecycleService() {
                     val proxyTelemetry =
                         runCatching { proxy?.pollTelemetry() }.getOrNull()
                             ?: NativeRuntimeSnapshot.idle(source = "proxy")
+                    val (winningTcpStrategyFamily, winningQuicStrategyFamily, winningDnsStrategyFamily) =
+                        currentWinningFamilies(serviceStateStore.telemetry.value.runtimeFieldTelemetry)
                     serviceStateStore.updateTelemetry(
                         ServiceTelemetrySnapshot(
                             mode = Mode.Proxy,
@@ -319,6 +355,19 @@ class RipDpiProxyService : LifecycleService() {
                             tunnelStats = proxyTelemetry.tunnelStats,
                             proxyTelemetry = proxyTelemetry,
                             tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
+                            runtimeFieldTelemetry =
+                                deriveRuntimeFieldTelemetry(
+                                    telemetryNetworkFingerprintHash =
+                                        currentTelemetryFingerprintHash(
+                                            serviceStateStore.telemetry.value.runtimeFieldTelemetry,
+                                        ),
+                                    winningTcpStrategyFamily = winningTcpStrategyFamily,
+                                    winningQuicStrategyFamily = winningQuicStrategyFamily,
+                                    winningDnsStrategyFamily = winningDnsStrategyFamily,
+                                    proxyTelemetry = proxyTelemetry,
+                                    tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
+                                    tunnelRecoveryRetryCount = 0,
+                                ),
                             updatedAt = maxOf(System.currentTimeMillis(), proxyTelemetry.capturedAt),
                         ),
                     )
@@ -326,6 +375,27 @@ class RipDpiProxyService : LifecycleService() {
                 }
             }
     }
+
+    private fun currentWinningFamilies(fallback: RuntimeFieldTelemetry): Triple<String?, String?, String?> {
+        val activePolicy = activeConnectionPolicyStore.activePolicy.value?.policy
+        return if (activePolicy != null) {
+            Triple(
+                activePolicy.winningTcpStrategyFamily,
+                activePolicy.winningQuicStrategyFamily,
+                activePolicy.winningDnsStrategyFamily,
+            )
+        } else {
+            Triple(
+                fallback.winningTcpStrategyFamily,
+                fallback.winningQuicStrategyFamily,
+                fallback.winningDnsStrategyFamily,
+            )
+        }
+    }
+
+    private fun currentTelemetryFingerprintHash(fallback: RuntimeFieldTelemetry): String? =
+        telemetryFingerprintHasher.hash(networkFingerprintProvider.capture())
+            ?: fallback.telemetryNetworkFingerprintHash
 
     private fun createNotification(): Notification =
         createConnectionNotification(

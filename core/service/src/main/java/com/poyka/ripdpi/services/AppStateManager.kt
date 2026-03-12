@@ -58,6 +58,7 @@ data class ServiceTelemetrySnapshot(
     val tunnelStats: TunnelStats = TunnelStats(),
     val proxyTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy"),
     val tunnelTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel"),
+    val runtimeFieldTelemetry: RuntimeFieldTelemetry = RuntimeFieldTelemetry(),
     val serviceStartedAt: Long? = null,
     val restartCount: Int = 0,
     val lastFailureSender: Sender? = null,
@@ -119,12 +120,29 @@ class DefaultServiceStateStore
         }
 
         override fun emitFailed(sender: Sender, reason: FailureReason) {
-            _events.tryEmit(ServiceEvent.Failed(sender, reason))
+            val currentTelemetry = _telemetry.value
             _telemetry.value =
-                _telemetry.value.copy(
+                currentTelemetry.copy(
+                    runtimeFieldTelemetry =
+                        deriveRuntimeFieldTelemetry(
+                            telemetryNetworkFingerprintHash =
+                                currentTelemetry.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
+                            winningTcpStrategyFamily =
+                                currentTelemetry.runtimeFieldTelemetry.winningTcpStrategyFamily,
+                            winningQuicStrategyFamily =
+                                currentTelemetry.runtimeFieldTelemetry.winningQuicStrategyFamily,
+                            winningDnsStrategyFamily =
+                                currentTelemetry.runtimeFieldTelemetry.winningDnsStrategyFamily,
+                            proxyTelemetry = currentTelemetry.proxyTelemetry,
+                            tunnelTelemetry = currentTelemetry.tunnelTelemetry,
+                            tunnelRecoveryRetryCount =
+                                currentTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
+                            failureReason = reason,
+                        ),
                     lastFailureSender = sender,
                     lastFailureAt = System.currentTimeMillis(),
                 )
+            _events.tryEmit(ServiceEvent.Failed(sender, reason))
         }
 
         override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {

@@ -14,10 +14,17 @@ use ciadpi_packets::{
 pub const VERSION: &str = "17.3";
 
 pub const DETECT_HTTP_LOCAT: u32 = 1;
-pub const DETECT_TLS_ERR: u32 = 2;
-pub const DETECT_TORST: u32 = 8;
+pub const DETECT_TLS_HANDSHAKE_FAILURE: u32 = 2;
 pub const DETECT_RECONN: u32 = 16;
 pub const DETECT_CONNECT: u32 = 32;
+pub const DETECT_TCP_RESET: u32 = 64;
+pub const DETECT_SILENT_DROP: u32 = 128;
+pub const DETECT_TLS_ALERT: u32 = 256;
+pub const DETECT_HTTP_BLOCKPAGE: u32 = 512;
+pub const DETECT_DNS_TAMPER: u32 = 1024;
+pub const DETECT_QUIC_BREAKAGE: u32 = 2048;
+pub const DETECT_TLS_ERR: u32 = DETECT_TLS_HANDSHAKE_FAILURE | DETECT_TLS_ALERT;
+pub const DETECT_TORST: u32 = DETECT_TCP_RESET | DETECT_SILENT_DROP;
 
 pub const AUTO_RECONN: u32 = 1;
 pub const AUTO_NOPOST: u32 = 2;
@@ -400,7 +407,11 @@ impl DesyncGroup {
             return self.udp_chain.clone();
         }
         if self.udp_fake_count > 0 {
-            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: self.udp_fake_count, activation_filter: None }]
+            vec![UdpChainStep {
+                kind: UdpChainStepKind::FakeBurst,
+                count: self.udp_fake_count,
+                activation_filter: None,
+            }]
         } else {
             Vec::new()
         }
@@ -766,28 +777,33 @@ pub fn parse_auto_ttl_spec(spec: &str) -> Result<AutoTtlConfig, ConfigError> {
     let trimmed = spec.trim();
     let (delta_raw, range_raw) =
         trimmed.split_once(',').ok_or_else(|| ConfigError::invalid("--auto-ttl", Some(spec)))?;
-    let delta = delta_raw
-        .trim()
-        .parse::<i8>()
-        .map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;
-    let (min_raw, max_raw) =
-        range_raw.split_once('-').ok_or_else(|| ConfigError::invalid("--auto-ttl", Some(spec)))?;
-    let min_ttl = min_raw
-        .trim()
-        .parse::<u16>()
-        .map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;
-    let max_ttl = max_raw
-        .trim()
-        .parse::<u16>()
-        .map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;
+    let delta = delta_raw.trim().parse::<i8>().map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;
+    let (min_raw, max_raw) = range_raw.split_once('-').ok_or_else(|| ConfigError::invalid("--auto-ttl", Some(spec)))?;
+    let min_ttl = min_raw.trim().parse::<u16>().map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;
+    let max_ttl = max_raw.trim().parse::<u16>().map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;
     if min_ttl == 0 || max_ttl == 0 || min_ttl > max_ttl || max_ttl > 255 {
         return Err(ConfigError::invalid("--auto-ttl", Some(spec)));
     }
-    Ok(AutoTtlConfig {
-        delta,
-        min_ttl: min_ttl as u8,
-        max_ttl: max_ttl as u8,
-    })
+    Ok(AutoTtlConfig { delta, min_ttl: min_ttl as u8, max_ttl: max_ttl as u8 })
+}
+
+fn parse_auto_detect_token(token: &str) -> Option<u32> {
+    match token.trim().to_ascii_lowercase().as_str() {
+        "t" | "torst" => Some(DETECT_TORST),
+        "tcp_reset" => Some(DETECT_TCP_RESET),
+        "silent_drop" => Some(DETECT_SILENT_DROP),
+        "r" | "redirect" => Some(DETECT_HTTP_LOCAT),
+        "http_blockpage" => Some(DETECT_HTTP_BLOCKPAGE),
+        "a" | "s" | "ssl_err" => Some(DETECT_TLS_ERR),
+        "tls_handshake_failure" => Some(DETECT_TLS_HANDSHAKE_FAILURE),
+        "tls_alert" => Some(DETECT_TLS_ALERT),
+        "k" | "reconn" => Some(DETECT_RECONN),
+        "c" | "connect" => Some(DETECT_CONNECT),
+        "dns_tamper" => Some(DETECT_DNS_TAMPER),
+        "quic_breakage" => Some(DETECT_QUIC_BREAKAGE),
+        "n" | "none" => Some(0),
+        _ => None,
+    }
 }
 
 pub fn parse_hosts_spec(spec: &str) -> Result<Vec<String>, ConfigError> {
@@ -916,7 +932,12 @@ pub fn file_or_inline_bytes(spec: &str) -> Result<Vec<u8>, ConfigError> {
     Ok(data)
 }
 
-fn apply_fake_tls_mod_token(group: &mut DesyncGroup, token: &str, arg: &str, raw_value: &str) -> Result<(), ConfigError> {
+fn apply_fake_tls_mod_token(
+    group: &mut DesyncGroup,
+    token: &str,
+    arg: &str,
+    raw_value: &str,
+) -> Result<(), ConfigError> {
     let token = token.trim();
     if token.is_empty() {
         return Err(ConfigError::invalid(arg, Some(raw_value)));
@@ -1274,22 +1295,17 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 add_group(&mut config.groups)?;
                 current_group_index = config.groups.len() - 1;
                 for token in value.split(',') {
-                    match token.as_bytes().first().copied() {
-                        Some(b't') => group!().detect |= DETECT_TORST,
-                        Some(b'r') => group!().detect |= DETECT_HTTP_LOCAT,
-                        Some(b'a') | Some(b's') => group!().detect |= DETECT_TLS_ERR,
-                        Some(b'k') => group!().detect |= DETECT_RECONN,
-                        Some(b'c') => group!().detect |= DETECT_CONNECT,
-                        Some(b'n') => {}
-                        Some(b'p') => {
-                            let (_, pri) =
-                                token.split_once('=').ok_or_else(|| ConfigError::invalid("--auto", Some(token)))?;
-                            let pri = pri.parse::<f32>().map_err(|_| ConfigError::invalid("--auto", Some(token)))?;
-                            if let Some(prev) = config.groups.get_mut(current_group_index - 1) {
-                                prev.pri = pri as i32;
-                            }
+                    if token.starts_with("p=") {
+                        let (_, pri) = token.split_once('=').ok_or_else(|| ConfigError::invalid("--auto", Some(token)))?;
+                        let pri = pri.parse::<f32>().map_err(|_| ConfigError::invalid("--auto", Some(token)))?;
+                        if let Some(prev) = config.groups.get_mut(current_group_index - 1) {
+                            prev.pri = pri as i32;
                         }
-                        _ => return Err(ConfigError::invalid("--auto", Some(token))),
+                        continue;
+                    }
+                    match parse_auto_detect_token(token) {
+                        Some(bits) => group!().detect |= bits,
+                        None => return Err(ConfigError::invalid("--auto", Some(token))),
                     }
                 }
                 if group!().detect != 0 {
@@ -1789,22 +1805,8 @@ mod tests {
 
     #[test]
     fn parse_auto_ttl_spec_validates_bounds() {
-        assert_eq!(
-            parse_auto_ttl_spec("-1,3-12").unwrap(),
-            AutoTtlConfig {
-                delta: -1,
-                min_ttl: 3,
-                max_ttl: 12,
-            }
-        );
-        assert_eq!(
-            parse_auto_ttl_spec("0,8-8").unwrap(),
-            AutoTtlConfig {
-                delta: 0,
-                min_ttl: 8,
-                max_ttl: 8,
-            }
-        );
+        assert_eq!(parse_auto_ttl_spec("-1,3-12").unwrap(), AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 });
+        assert_eq!(parse_auto_ttl_spec("0,8-8").unwrap(), AutoTtlConfig { delta: 0, min_ttl: 8, max_ttl: 8 });
 
         for value in ["", "-1", "-1,3", "-1,0-12", "-1,12-3", "-1,3-256", "x,3-12"] {
             assert!(parse_auto_ttl_spec(value).is_err(), "{value} should fail");
@@ -1836,12 +1838,7 @@ mod tests {
 
     #[test]
     fn parse_cli_reads_auto_ttl_and_fixed_ttl_fallback() {
-        let args = vec![
-            "--ttl".to_string(),
-            "9".to_string(),
-            "--auto-ttl".to_string(),
-            "-1,3-12".to_string(),
-        ];
+        let args = vec!["--ttl".to_string(), "9".to_string(), "--auto-ttl".to_string(), "-1,3-12".to_string()];
 
         let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
             panic!("expected runnable config");
@@ -1849,14 +1846,7 @@ mod tests {
         let group = &config.groups[0];
 
         assert_eq!(group.ttl, Some(9));
-        assert_eq!(
-            group.auto_ttl,
-            Some(AutoTtlConfig {
-                delta: -1,
-                min_ttl: 3,
-                max_ttl: 12,
-            })
-        );
+        assert_eq!(group.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }));
     }
 
     #[test]
@@ -1946,10 +1936,7 @@ mod tests {
         };
         let group = &config.groups[0];
 
-        assert_eq!(
-            group.mod_http,
-            MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL
-        );
+        assert_eq!(group.mod_http, MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL);
     }
 
     #[test]

@@ -7,14 +7,19 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
 use ciadpi_config::RuntimeConfig;
+use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
 use ripdpi_dns_resolver::{
     extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
 };
+use ripdpi_failure_classifier::{
+    classify_quic_probe, confirm_dns_tampering, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
+};
 use ripdpi_proxy_config::{
-    parse_proxy_config_json, runtime_config_from_ui, ProxyConfigPayload, ProxyUiActivationFilter, ProxyUiConfig,
-    ProxyUiTcpChainStep, ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
+    parse_proxy_config_json, runtime_config_from_ui, ProxyConfigPayload, ProxyEncryptedDnsContext,
+    ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig, ProxyUiNumericRange, ProxyUiTcpChainStep,
+    ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
+    ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
 };
 use ripdpi_runtime::{runtime, EmbeddedProxyControl};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
@@ -36,6 +41,11 @@ const MAX_HTTP_BYTES: usize = 64 * 1024;
 const FAT_HEADER_REQUESTS: usize = 16;
 const FAT_HEADER_THRESHOLD_BYTES: usize = 16 * 1024;
 const MAX_PASSIVE_EVENTS: usize = 256;
+const STRATEGY_PROBE_SUITE_QUICK_V1: &str = "quick_v1";
+const STRATEGY_PROBE_SUITE_FULL_MATRIX_V1: &str = "full_matrix_v1";
+const HTTP_FAKE_PROFILE_CLOUDFLARE_GET: &str = "cloudflare_get";
+const TLS_FAKE_PROFILE_GOOGLE_CHROME: &str = "google_chrome";
+const UDP_FAKE_PROFILE_DNS_QUERY: &str = "dns_query";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -214,6 +224,10 @@ pub struct StrategyProbeCandidateSummary {
     pub weighted_success_score: usize,
     pub total_weight: usize,
     pub quality_score: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy_config_json: Option<String>,
+    #[serde(default)]
+    pub notes: Vec<String>,
     pub average_latency_ms: Option<u64>,
     pub skipped: bool,
 }
@@ -435,6 +449,15 @@ struct StrategyCandidateSpec {
     label: &'static str,
     family: &'static str,
     config: ProxyUiConfig,
+    notes: Vec<&'static str>,
+    preserve_adaptive_fake_ttl: bool,
+    warmup: CandidateWarmup,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CandidateWarmup {
+    None,
+    AdaptiveFakeTtl,
 }
 
 #[derive(Debug)]
@@ -493,10 +516,10 @@ struct TemporaryProxyRuntime {
 }
 
 impl TemporaryProxyRuntime {
-    fn start(config: RuntimeConfig) -> Result<Self, String> {
+    fn start(config: RuntimeConfig, runtime_context: Option<ProxyRuntimeContext>) -> Result<Self, String> {
         let listener = runtime::create_listener(&config).map_err(|err| err.to_string())?;
         let addr = listener.local_addr().map_err(|err| err.to_string())?;
-        let control = Arc::new(EmbeddedProxyControl::default());
+        let control = Arc::new(EmbeddedProxyControl::new_with_context(None, runtime_context));
         let worker_control = control.clone();
         let handle = thread::spawn(move || {
             runtime::run_proxy_with_embedded_control(config, listener, worker_control).map_err(|err| err.to_string())
@@ -529,7 +552,7 @@ fn default_quic_port() -> u16 {
 }
 
 fn default_strategy_probe_suite() -> String {
-    "quick_v1".to_string()
+    STRATEGY_PROBE_SUITE_QUICK_V1.to_string()
 }
 
 fn default_scan_kind() -> ScanKind {
@@ -561,7 +584,7 @@ fn validate_scan_request(request: &ScanRequest) -> Result<(), String> {
                 .ok_or_else(|| "strategy_probe scan requires baseProxyConfigJson".to_string())?;
             let payload = parse_proxy_config_json(base_config_json).map_err(|err| err.to_string())?;
             match payload {
-                ProxyConfigPayload::Ui(_) => Ok(()),
+                ProxyConfigPayload::Ui { .. } => Ok(()),
                 ProxyConfigPayload::CommandLine { .. } => {
                     Err("strategy_probe scans only support UI proxy config".to_string())
                 }
@@ -570,7 +593,12 @@ fn validate_scan_request(request: &ScanRequest) -> Result<(), String> {
     }
 }
 
-fn run_connectivity_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBool>, session_id: String, request: ScanRequest) {
+fn run_connectivity_scan(
+    shared: Arc<Mutex<SharedState>>,
+    cancel: Arc<AtomicBool>,
+    session_id: String,
+    request: ScanRequest,
+) {
     let started_at = now_ms();
     let total_steps = (request.dns_targets.len() + request.domain_targets.len() + request.tcp_targets.len()).max(1);
     let transport = transport_for_request(&request);
@@ -731,30 +759,15 @@ fn persist_cancelled_report(
     );
 }
 
-fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBool>, session_id: String, request: ScanRequest) {
+fn run_strategy_probe_scan(
+    shared: Arc<Mutex<SharedState>>,
+    cancel: Arc<AtomicBool>,
+    session_id: String,
+    request: ScanRequest,
+) {
     let started_at = now_ms();
     let strategy_probe = request.strategy_probe.clone().expect("validated strategy_probe request");
-    let total_steps = 10usize;
-    let mut completed_steps = 0usize;
     let mut results = Vec::new();
-
-    set_progress(
-        &shared,
-        ScanProgress {
-            session_id: session_id.clone(),
-            phase: "starting".to_string(),
-            completed_steps,
-            total_steps,
-            message: format!("Preparing {}", request.display_name),
-            is_finished: false,
-        },
-    );
-    push_event(
-        &shared,
-        "strategy_probe",
-        "info",
-        format!("Starting {} suite={} in {:?}", request.display_name, strategy_probe.suite_id, request.path_mode),
-    );
 
     let Some(base_proxy_config_json) = strategy_probe.base_proxy_config_json.as_deref() else {
         let report = ScanReport {
@@ -771,8 +784,8 @@ fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBo
         return;
     };
 
-    let base_payload = match parse_proxy_config_json(base_proxy_config_json).map_err(|err| err.to_string()) {
-        Ok(ProxyConfigPayload::Ui(ui)) => ui,
+    let (base_payload, runtime_context) = match parse_proxy_config_json(base_proxy_config_json).map_err(|err| err.to_string()) {
+        Ok(ProxyConfigPayload::Ui { config, runtime_context }) => (config, runtime_context),
         Ok(ProxyConfigPayload::CommandLine { .. }) => {
             let report = ScanReport {
                 session_id,
@@ -803,32 +816,187 @@ fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBo
         }
     };
 
-    if strategy_probe.suite_id != "quick_v1" {
+    let suite = match build_strategy_probe_suite(&strategy_probe.suite_id, &base_payload) {
+        Ok(suite) => suite,
+        Err(message) => {
+            let report = ScanReport {
+                session_id,
+                profile_id: request.profile_id,
+                path_mode: request.path_mode,
+                started_at,
+                finished_at: now_ms(),
+                summary: message,
+                results,
+                strategy_probe_report: None,
+            };
+            set_report(&shared, report);
+            return;
+        }
+    };
+    let total_steps = suite.total_steps();
+    let mut completed_steps = 0usize;
+
+    set_progress(
+        &shared,
+        ScanProgress {
+            session_id: session_id.clone(),
+            phase: "starting".to_string(),
+            completed_steps,
+            total_steps,
+            message: format!("Preparing {}", request.display_name),
+            is_finished: false,
+        },
+    );
+    push_event(
+        &shared,
+        "strategy_probe",
+        "info",
+        format!("Starting {} suite={} in {:?}", request.display_name, strategy_probe.suite_id, request.path_mode),
+    );
+
+    let StrategyProbeSuite {
+        suite_id,
+        tcp_candidates: tcp_specs,
+        quic_candidates: preview_quic_specs,
+        short_circuit_hostfake,
+        short_circuit_quic_burst,
+    } = suite;
+
+    if let Some(baseline) = detect_strategy_probe_dns_tampering(&request.domain_targets, runtime_context.as_ref()) {
+        push_event(
+            &shared,
+            "strategy_probe",
+            "warn",
+            format!(
+                "Baseline classified as {} with {}",
+                baseline.failure.class.as_str(),
+                baseline.failure.action.as_str(),
+            ),
+        );
+        results.extend(baseline.results);
+        results.push(classified_failure_probe_result("Current strategy", &baseline.failure));
+
+        let tcp_candidates = tcp_specs
+            .iter()
+            .map(|spec| {
+                skipped_candidate_summary(
+                    spec,
+                    request.domain_targets.len() * 2,
+                    3,
+                    "DNS tampering detected before fallback; TCP strategy escalation skipped",
+                )
+            })
+            .collect::<Vec<_>>();
+        let quic_specs =
+            filter_quic_candidates_for_failure(preview_quic_specs.clone(), Some(FailureClass::QuicBreakage));
+        let quic_candidates = quic_specs
+            .iter()
+            .map(|spec| {
+                skipped_candidate_summary(
+                    spec,
+                    request.quic_targets.len(),
+                    2,
+                    "DNS tampering detected before fallback; QUIC strategy escalation skipped",
+                )
+            })
+            .collect::<Vec<_>>();
+        let fallback_quic = quic_specs.first().or_else(|| preview_quic_specs.first()).expect("quic candidate");
+        let recommendation = StrategyProbeRecommendation {
+            tcp_candidate_id: tcp_specs.first().expect("tcp candidate").id.to_string(),
+            tcp_candidate_label: tcp_specs.first().expect("tcp candidate").label.to_string(),
+            quic_candidate_id: fallback_quic.id.to_string(),
+            quic_candidate_label: fallback_quic.label.to_string(),
+            rationale: format!(
+                "{} classified before fallback; keep current strategy and prefer resolver override",
+                baseline.failure.class.as_str(),
+            ),
+            recommended_proxy_config_json: strategy_probe_config_json(&base_payload),
+        };
+        let strategy_probe_report = StrategyProbeReport {
+            suite_id: strategy_probe.suite_id,
+            tcp_candidates,
+            quic_candidates,
+            recommendation: recommendation.clone(),
+        };
         let report = ScanReport {
-            session_id,
+            session_id: session_id.clone(),
             profile_id: request.profile_id,
             path_mode: request.path_mode,
             started_at,
             finished_at: now_ms(),
-            summary: format!("Unsupported automatic probing suite: {}", strategy_probe.suite_id),
+            summary: "DNS tampering classified before fallback; resolver override recommended".to_string(),
             results,
-            strategy_probe_report: None,
+            strategy_probe_report: Some(strategy_probe_report),
         };
         set_report(&shared, report);
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id,
+                phase: "finished".to_string(),
+                completed_steps: total_steps,
+                total_steps,
+                message: "Automatic probing finished".to_string(),
+                is_finished: true,
+            },
+        );
         return;
     }
 
     let mut tcp_candidates = Vec::new();
     let mut hostfake_family_succeeded = false;
-    for spec in build_tcp_candidates(&base_payload) {
+    let baseline_spec = tcp_specs.first().expect("tcp candidate");
+    set_progress(
+        &shared,
+        ScanProgress {
+            session_id: session_id.clone(),
+            phase: "tcp".to_string(),
+            completed_steps,
+            total_steps,
+            message: format!("Testing {}", baseline_spec.label),
+            is_finished: false,
+        },
+    );
+    push_event(
+        &shared,
+        "strategy_probe",
+        "info",
+        format!("Testing TCP candidate {}", baseline_spec.label),
+    );
+    let baseline_execution = execute_tcp_candidate(baseline_spec, &request.domain_targets, runtime_context.as_ref());
+    let baseline_failure = classify_strategy_probe_baseline_results(&baseline_execution.results);
+    results.extend(baseline_execution.results);
+    if let Some(failure) = &baseline_failure {
+        push_event(
+            &shared,
+            "strategy_probe",
+            "warn",
+            format!(
+                "Baseline classified as {} with {}",
+                failure.class.as_str(),
+                failure.action.as_str(),
+            ),
+        );
+        results.push(classified_failure_probe_result(baseline_spec.label, failure));
+    }
+    if baseline_execution.summary.family == "hostfake"
+        && baseline_execution.summary.succeeded_targets == baseline_execution.summary.total_targets
+    {
+        hostfake_family_succeeded = true;
+    }
+    tcp_candidates.push(baseline_execution.summary);
+    completed_steps += 1;
+
+    let ordered_tcp_specs = reorder_tcp_candidates_for_failure(&tcp_specs, baseline_failure.as_ref().map(|value| value.class));
+    for spec in ordered_tcp_specs.iter().skip(1) {
         if cancel.load(Ordering::Relaxed) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
             return;
         }
 
-        if spec.family == "hostfake" && hostfake_family_succeeded {
+        if short_circuit_hostfake && spec.family == "hostfake" && hostfake_family_succeeded {
             tcp_candidates.push(skipped_candidate_summary(
-                &spec,
+                spec,
                 request.domain_targets.len() * 2,
                 6,
                 "Earlier hostfake candidate already achieved full success",
@@ -860,9 +1028,11 @@ fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBo
             },
         );
         push_event(&shared, "strategy_probe", "info", format!("Testing TCP candidate {}", spec.label));
-        let execution = execute_tcp_candidate(&spec, &request.domain_targets);
+        let execution = execute_tcp_candidate(spec, &request.domain_targets, runtime_context.as_ref());
         results.extend(execution.results);
-        if execution.summary.family == "hostfake" && execution.summary.succeeded_targets == execution.summary.total_targets {
+        if execution.summary.family == "hostfake"
+            && execution.summary.succeeded_targets == execution.summary.total_targets
+        {
             hostfake_family_succeeded = true;
         }
         tcp_candidates.push(execution.summary);
@@ -870,22 +1040,26 @@ fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBo
     }
 
     let winning_tcp = winning_candidate_index(&tcp_candidates).unwrap_or(0);
-    let tcp_winner_spec = build_tcp_candidates(&base_payload)
-        .into_iter()
+    let tcp_winner_spec = tcp_specs
+        .iter()
         .find(|spec| spec.id == tcp_candidates[winning_tcp].id)
-        .unwrap_or_else(|| build_tcp_candidates(&base_payload).into_iter().next().expect("tcp candidates"));
+        .unwrap_or_else(|| tcp_specs.first().expect("tcp candidates"));
 
     let mut quic_candidates = Vec::new();
     let mut quic_family_succeeded = false;
-    for spec in build_quic_candidates(&tcp_winner_spec.config) {
+    let quic_specs = filter_quic_candidates_for_failure(
+        build_quic_candidates_for_suite(suite_id, &tcp_winner_spec.config).unwrap_or_else(|_| preview_quic_specs.clone()),
+        baseline_failure.as_ref().map(|value| value.class),
+    );
+    for spec in &quic_specs {
         if cancel.load(Ordering::Relaxed) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
             return;
         }
 
-        if spec.family == "quic_burst" && quic_family_succeeded {
+        if short_circuit_quic_burst && spec.family == "quic_burst" && quic_family_succeeded {
             quic_candidates.push(skipped_candidate_summary(
-                &spec,
+                spec,
                 request.quic_targets.len(),
                 2,
                 "Earlier QUIC burst candidate already achieved full success",
@@ -917,7 +1091,7 @@ fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBo
             },
         );
         push_event(&shared, "strategy_probe", "info", format!("Testing QUIC candidate {}", spec.label));
-        let execution = execute_quic_candidate(&spec, &request.quic_targets);
+        let execution = execute_quic_candidate(spec, &request.quic_targets, runtime_context.as_ref());
         results.extend(execution.results);
         if execution.summary.family == "quic_burst"
             && execution.summary.succeeded_targets == execution.summary.total_targets
@@ -929,13 +1103,34 @@ fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBo
         completed_steps += 1;
     }
 
+    if let Some(quic_failure) = classify_strategy_probe_baseline_results(
+        &results
+            .iter()
+            .filter(|result| result.probe_type == "strategy_quic")
+            .cloned()
+            .collect::<Vec<_>>(),
+    )
+    .filter(|failure| failure.class == FailureClass::QuicBreakage)
+    {
+        push_event(
+            &shared,
+            "strategy_probe",
+            "warn",
+            format!(
+                "QUIC classified as {} with {}",
+                quic_failure.class.as_str(),
+                quic_failure.action.as_str(),
+            ),
+        );
+        results.push(classified_failure_probe_result("QUIC strategy family", &quic_failure));
+    }
+
     let winning_quic = winning_candidate_index(&quic_candidates).unwrap_or(0);
-    let quic_winner_spec = build_quic_candidates(&tcp_winner_spec.config)
-        .into_iter()
+    let quic_winner_spec = quic_specs
+        .iter()
         .find(|spec| spec.id == quic_candidates[winning_quic].id)
-        .unwrap_or_else(|| build_quic_candidates(&tcp_winner_spec.config).into_iter().next().expect("quic candidates"));
-    let recommended_proxy_config_json =
-        serde_json::to_string(&ProxyConfigPayload::Ui(quic_winner_spec.config.clone())).expect("serialize recommended ui config");
+        .unwrap_or_else(|| quic_specs.first().expect("quic candidates"));
+    let recommended_proxy_config_json = strategy_probe_config_json(&quic_winner_spec.config);
     let recommendation = StrategyProbeRecommendation {
         tcp_candidate_id: tcp_candidates[winning_tcp].id.clone(),
         tcp_candidate_label: tcp_candidates[winning_tcp].label.clone(),
@@ -949,6 +1144,7 @@ fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBo
         ),
         recommended_proxy_config_json,
     };
+    let summary = build_strategy_probe_summary(suite_id, &tcp_candidates, &quic_candidates, &recommendation);
     let strategy_probe_report = StrategyProbeReport {
         suite_id: strategy_probe.suite_id,
         tcp_candidates,
@@ -961,10 +1157,7 @@ fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBo
         path_mode: request.path_mode,
         started_at,
         finished_at: now_ms(),
-        summary: format!(
-            "Recommended {} with {}",
-            recommendation.tcp_candidate_label, recommendation.quic_candidate_label
-        ),
+        summary,
         results,
         strategy_probe_report: Some(strategy_probe_report),
     };
@@ -984,6 +1177,404 @@ fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBo
     );
 }
 
+struct StrategyProbeSuite {
+    suite_id: &'static str,
+    tcp_candidates: Vec<StrategyCandidateSpec>,
+    quic_candidates: Vec<StrategyCandidateSpec>,
+    short_circuit_hostfake: bool,
+    short_circuit_quic_burst: bool,
+}
+
+impl StrategyProbeSuite {
+    fn total_steps(&self) -> usize {
+        self.tcp_candidates.len() + self.quic_candidates.len()
+    }
+}
+
+struct StrategyProbeBaseline {
+    failure: ClassifiedFailure,
+    results: Vec<ProbeResult>,
+}
+
+fn strategy_probe_config_json(config: &ProxyUiConfig) -> String {
+    serde_json::to_string(&ProxyConfigPayload::Ui {
+        config: config.clone(),
+        runtime_context: None,
+    })
+    .expect("serialize ui proxy config")
+}
+
+fn default_runtime_encrypted_dns_context() -> ProxyEncryptedDnsContext {
+    ProxyEncryptedDnsContext {
+        resolver_id: Some("cloudflare".to_string()),
+        protocol: "doh".to_string(),
+        host: DEFAULT_DOH_HOST.to_string(),
+        port: DEFAULT_DOH_PORT,
+        tls_server_name: Some(DEFAULT_DOH_HOST.to_string()),
+        bootstrap_ips: DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect(),
+        doh_url: Some(DEFAULT_DOH_URL.to_string()),
+        dnscrypt_provider_name: None,
+        dnscrypt_public_key: None,
+    }
+}
+
+fn strategy_probe_encrypted_dns_context(runtime_context: Option<&ProxyRuntimeContext>) -> ProxyEncryptedDnsContext {
+    runtime_context
+        .and_then(|value| value.encrypted_dns.clone())
+        .unwrap_or_else(default_runtime_encrypted_dns_context)
+}
+
+fn strategy_probe_encrypted_dns_endpoint(context: &ProxyEncryptedDnsContext) -> Result<EncryptedDnsEndpoint, String> {
+    Ok(EncryptedDnsEndpoint {
+        protocol: encrypted_dns_protocol(Some(context.protocol.as_str())),
+        resolver_id: context.resolver_id.clone(),
+        host: context.host.clone(),
+        port: context.port,
+        tls_server_name: context.tls_server_name.clone(),
+        bootstrap_ips: parse_bootstrap_ips(&context.bootstrap_ips)?,
+        doh_url: context.doh_url.clone(),
+        dnscrypt_provider_name: context.dnscrypt_provider_name.clone(),
+        dnscrypt_public_key: context.dnscrypt_public_key.clone(),
+    })
+}
+
+fn strategy_probe_encrypted_dns_label(context: &ProxyEncryptedDnsContext) -> String {
+    context
+        .doh_url
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| format!("{}:{}", context.host, context.port))
+}
+
+fn detect_strategy_probe_dns_tampering(
+    targets: &[DomainTarget],
+    runtime_context: Option<&ProxyRuntimeContext>,
+) -> Option<StrategyProbeBaseline> {
+    if targets.is_empty() {
+        return None;
+    }
+
+    let resolver_context = strategy_probe_encrypted_dns_context(runtime_context);
+    let resolver_endpoint = strategy_probe_encrypted_dns_endpoint(&resolver_context).ok()?;
+    let resolver_label = strategy_probe_encrypted_dns_label(&resolver_context);
+    let mut results = Vec::new();
+    let mut classified = None;
+
+    for target in targets {
+        if target.host.parse::<IpAddr>().is_ok() || target.host.eq_ignore_ascii_case("localhost") {
+            continue;
+        }
+        let system_started = std::time::Instant::now();
+        let system_targets = match domain_connect_target(target) {
+            TargetAddress::Ip(ip) => vec![SocketAddr::new(ip, target.https_port.unwrap_or(443))],
+            TargetAddress::Host(host) => {
+                resolve_addresses(&TargetAddress::Host(host), target.https_port.unwrap_or(443)).unwrap_or_default()
+            }
+        };
+        let system_latency_ms = system_started.elapsed().as_millis().to_string();
+        if system_targets.is_empty() {
+            continue;
+        }
+
+        let encrypted_started = std::time::Instant::now();
+        let encrypted_result = resolve_via_encrypted_dns(&target.host, resolver_endpoint.clone(), &TransportConfig::Direct);
+        let encrypted_latency_ms = encrypted_started.elapsed().as_millis().to_string();
+        let encrypted_addresses = encrypted_result
+            .as_ref()
+            .ok()
+            .into_iter()
+            .flat_map(|value| value.iter())
+            .cloned()
+            .collect::<Vec<_>>();
+        let encrypted_ips = encrypted_addresses
+            .iter()
+            .filter_map(|value| value.parse::<IpAddr>().ok())
+            .collect::<Vec<_>>();
+        let system_ips = system_targets.iter().map(SocketAddr::ip).collect::<Vec<_>>();
+        let substitution = system_ips.iter().all(|ip| !encrypted_ips.iter().any(|answer| answer == ip));
+        let outcome = if substitution { "dns_substitution" } else { "dns_match" };
+        results.push(ProbeResult {
+            probe_type: "dns_integrity".to_string(),
+            target: target.host.clone(),
+            outcome: outcome.to_string(),
+            details: vec![
+                ProbeDetail {
+                    key: "udpAddresses".to_string(),
+                    value: system_targets.iter().map(ToString::to_string).collect::<Vec<_>>().join("|"),
+                },
+                ProbeDetail { key: "udpLatencyMs".to_string(), value: system_latency_ms },
+                ProbeDetail {
+                    key: "encryptedResolverId".to_string(),
+                    value: resolver_context.resolver_id.clone().unwrap_or_default(),
+                },
+                ProbeDetail {
+                    key: "encryptedProtocol".to_string(),
+                    value: resolver_context.protocol.clone(),
+                },
+                ProbeDetail {
+                    key: "encryptedEndpoint".to_string(),
+                    value: resolver_label.clone(),
+                },
+                ProbeDetail {
+                    key: "encryptedBootstrapIps".to_string(),
+                    value: resolver_context.bootstrap_ips.join("|"),
+                },
+                ProbeDetail {
+                    key: "encryptedAddresses".to_string(),
+                    value: if encrypted_addresses.is_empty() {
+                        encrypted_result.as_ref().err().cloned().unwrap_or_else(|| "[]".to_string())
+                    } else {
+                        encrypted_addresses.join("|")
+                    },
+                },
+                ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms },
+            ],
+        });
+        if substitution && classified.is_none() {
+            for system_ip in &system_ips {
+                if let Some(failure) = confirm_dns_tampering(&target.host, *system_ip, &encrypted_ips, &resolver_label) {
+                    classified = Some(failure);
+                    break;
+                }
+            }
+        }
+    }
+
+    classified.map(|failure| StrategyProbeBaseline { failure, results })
+}
+
+fn failure_detail_value<'a>(result: &'a ProbeResult, key: &str) -> Option<&'a str> {
+    result.details.iter().find_map(|detail| (detail.key == key).then_some(detail.value.as_str()))
+}
+
+fn classify_transport_failure_text(text: &str, stage: FailureStage) -> Option<ClassifiedFailure> {
+    let normalized = text.trim().to_ascii_lowercase();
+    if normalized.is_empty() || normalized == "none" {
+        return None;
+    }
+    if normalized.contains("alert") {
+        return Some(ClassifiedFailure::new(
+            FailureClass::TlsAlert,
+            stage,
+            FailureAction::RetryWithMatchingGroup,
+            text,
+        ));
+    }
+    if normalized.contains("reset")
+        || normalized.contains("broken pipe")
+        || normalized.contains("aborted")
+        || normalized.contains("unexpected eof")
+    {
+        return Some(ClassifiedFailure::new(
+            FailureClass::TcpReset,
+            stage,
+            FailureAction::RetryWithMatchingGroup,
+            text,
+        ));
+    }
+    if normalized.contains("timed out") || normalized.contains("timeout") || normalized.contains("would block") {
+        return Some(ClassifiedFailure::new(
+            FailureClass::SilentDrop,
+            stage,
+            FailureAction::RetryWithMatchingGroup,
+            text,
+        ));
+    }
+    None
+}
+
+fn classify_strategy_probe_result(result: &ProbeResult) -> Option<ClassifiedFailure> {
+    match (result.probe_type.as_str(), result.outcome.as_str()) {
+        ("strategy_http", "http_blockpage") => Some(ClassifiedFailure::new(
+            FailureClass::HttpBlockpage,
+            FailureStage::HttpResponse,
+            FailureAction::RetryWithMatchingGroup,
+            "HTTP blockpage observed during baseline candidate",
+        )),
+        ("strategy_http", "http_unreachable") => failure_detail_value(result, "error")
+            .and_then(|value| classify_transport_failure_text(value, FailureStage::FirstResponse)),
+        ("strategy_https", "tls_handshake_failed") => {
+            let error = failure_detail_value(result, "tlsError").unwrap_or("tls_handshake_failed");
+            Some(
+                classify_transport_failure_text(error, FailureStage::TlsHandshake).unwrap_or_else(|| {
+                    ClassifiedFailure::new(
+                        FailureClass::TlsHandshakeFailure,
+                        FailureStage::TlsHandshake,
+                        FailureAction::RetryWithMatchingGroup,
+                        error,
+                    )
+                }),
+            )
+        }
+        ("strategy_quic", outcome) => {
+            let error = failure_detail_value(result, "error").filter(|value| *value != "none");
+            classify_quic_probe(outcome, error)
+        }
+        _ => None,
+    }
+}
+
+fn strategy_probe_failure_weight(result: &ProbeResult) -> usize {
+    match result.probe_type.as_str() {
+        "strategy_https" | "strategy_quic" => 2,
+        _ => 1,
+    }
+}
+
+fn strategy_probe_failure_priority(class: FailureClass) -> usize {
+    match class {
+        FailureClass::HttpBlockpage => 5,
+        FailureClass::TcpReset => 4,
+        FailureClass::SilentDrop => 3,
+        FailureClass::TlsAlert => 2,
+        FailureClass::TlsHandshakeFailure => 1,
+        FailureClass::QuicBreakage => 1,
+        _ => 0,
+    }
+}
+
+fn classify_strategy_probe_baseline_results(results: &[ProbeResult]) -> Option<ClassifiedFailure> {
+    let mut aggregated = Vec::<(FailureClass, usize, ClassifiedFailure)>::new();
+    for result in results {
+        let Some(failure) = classify_strategy_probe_result(result) else {
+            continue;
+        };
+        let weight = strategy_probe_failure_weight(result);
+        if let Some(entry) = aggregated.iter_mut().find(|entry| entry.0 == failure.class) {
+            entry.1 += weight;
+        } else {
+            aggregated.push((failure.class, weight, failure));
+        }
+    }
+    aggregated
+        .into_iter()
+        .max_by_key(|(class, weight, _)| (*weight, strategy_probe_failure_priority(*class)))
+        .map(|(_, _, failure)| failure)
+}
+
+fn classified_failure_probe_result(target: &str, failure: &ClassifiedFailure) -> ProbeResult {
+    let evidence =
+        std::iter::once(failure.evidence.summary.as_str())
+            .chain(failure.evidence.tags.iter().map(String::as_str))
+            .collect::<Vec<_>>()
+            .join(" | ");
+    ProbeResult {
+        probe_type: "strategy_failure_classification".to_string(),
+        target: target.to_string(),
+        outcome: failure.class.as_str().to_string(),
+        details: vec![
+            ProbeDetail { key: "failureClass".to_string(), value: failure.class.as_str().to_string() },
+            ProbeDetail { key: "failureStage".to_string(), value: failure.stage.as_str().to_string() },
+            ProbeDetail { key: "failureEvidence".to_string(), value: evidence },
+            ProbeDetail { key: "fallbackDecision".to_string(), value: failure.action.as_str().to_string() },
+        ],
+    }
+}
+
+fn reorder_tcp_candidates_for_failure(
+    candidates: &[StrategyCandidateSpec],
+    failure_class: Option<FailureClass>,
+) -> Vec<StrategyCandidateSpec> {
+    let preferred_ids: &[&str] = match failure_class {
+        Some(FailureClass::HttpBlockpage) => &["baseline_current", "parser_only", "parser_unixeol", "split_host"],
+        Some(FailureClass::TcpReset) => &["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake_split"],
+        Some(FailureClass::SilentDrop) => &["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake", "tlsrec_hostfake_split"],
+        Some(FailureClass::TlsAlert) => &["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake"],
+        _ => &[],
+    };
+    let mut ordered = Vec::with_capacity(candidates.len());
+    for id in preferred_ids {
+        if let Some(candidate) = candidates.iter().find(|candidate| candidate.id == *id) {
+            ordered.push(candidate.clone());
+        }
+    }
+    for candidate in candidates {
+        if !ordered.iter().any(|existing| existing.id == candidate.id) {
+            ordered.push(candidate.clone());
+        }
+    }
+    ordered
+}
+
+fn filter_quic_candidates_for_failure(
+    candidates: Vec<StrategyCandidateSpec>,
+    failure_class: Option<FailureClass>,
+) -> Vec<StrategyCandidateSpec> {
+    if !matches!(failure_class, Some(FailureClass::QuicBreakage)) {
+        return candidates;
+    }
+    let allowed = ["quic_disabled", "quic_compat_burst", "quic_realistic_burst"];
+    candidates
+        .into_iter()
+        .filter(|candidate| allowed.iter().any(|id| candidate.id == *id))
+        .collect()
+}
+
+fn build_strategy_probe_suite(suite_id: &str, base: &ProxyUiConfig) -> Result<StrategyProbeSuite, String> {
+    match suite_id {
+        STRATEGY_PROBE_SUITE_QUICK_V1 => Ok(StrategyProbeSuite {
+            suite_id: STRATEGY_PROBE_SUITE_QUICK_V1,
+            tcp_candidates: build_tcp_candidates(base),
+            quic_candidates: build_quic_candidates(base),
+            short_circuit_hostfake: true,
+            short_circuit_quic_burst: true,
+        }),
+        STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 => Ok(StrategyProbeSuite {
+            suite_id: STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+            tcp_candidates: build_full_matrix_tcp_candidates(base),
+            quic_candidates: build_quic_candidates(base),
+            short_circuit_hostfake: false,
+            short_circuit_quic_burst: false,
+        }),
+        _ => Err(format!("Unsupported automatic probing suite: {suite_id}")),
+    }
+}
+
+fn build_quic_candidates_for_suite(
+    suite_id: &str,
+    base_tcp: &ProxyUiConfig,
+) -> Result<Vec<StrategyCandidateSpec>, String> {
+    match suite_id {
+        STRATEGY_PROBE_SUITE_QUICK_V1 | STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 => Ok(build_quic_candidates(base_tcp)),
+        _ => Err(format!("Unsupported automatic probing suite: {suite_id}")),
+    }
+}
+
+fn build_strategy_probe_summary(
+    suite_id: &str,
+    tcp_candidates: &[StrategyProbeCandidateSummary],
+    quic_candidates: &[StrategyProbeCandidateSummary],
+    recommendation: &StrategyProbeRecommendation,
+) -> String {
+    if suite_id != STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 {
+        return format!(
+            "Recommended {} with {}",
+            recommendation.tcp_candidate_label, recommendation.quic_candidate_label
+        );
+    }
+    let mut worked = 0usize;
+    let mut partial = 0usize;
+    let mut failed = 0usize;
+    let mut not_applicable = 0usize;
+    for candidate in tcp_candidates.iter().chain(quic_candidates.iter()) {
+        match candidate.outcome.as_str() {
+            "success" => worked += 1,
+            "partial" => partial += 1,
+            "not_applicable" => not_applicable += 1,
+            _ => failed += 1,
+        }
+    }
+    format!(
+        "Recommended {} + {}. Worked {} · partial {} · failed {} · not applicable {}",
+        recommendation.tcp_candidate_label,
+        recommendation.quic_candidate_label,
+        worked,
+        partial,
+        failed,
+        not_applicable,
+    )
+}
+
 fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let baseline = sanitize_current_probe_config(base);
     let parser_only = build_parser_only_candidate(base);
@@ -998,81 +1589,93 @@ fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let tlsrec_hostfake_split = build_tlsrec_hostfake_candidate(base, true);
 
     vec![
-        StrategyCandidateSpec { id: "baseline_current", label: "Current strategy", family: "baseline", config: baseline },
-        StrategyCandidateSpec { id: "parser_only", label: "Parser-only", family: "parser", config: parser_only },
-        StrategyCandidateSpec {
-            id: "parser_unixeol",
-            label: "Parser + Unix EOL",
-            family: "parser_aggressive",
-            config: parser_unixeol,
-        },
-        StrategyCandidateSpec {
-            id: "parser_methodeol",
-            label: "Parser + Method EOL",
-            family: "parser_aggressive",
-            config: parser_methodeol,
-        },
-        StrategyCandidateSpec { id: "split_host", label: "Split Host", family: "split", config: split_host },
-        StrategyCandidateSpec {
-            id: "tlsrec_split_host",
-            label: "TLS record + split host",
-            family: "tlsrec_split",
-            config: tlsrec_split_host,
-        },
-        StrategyCandidateSpec {
-            id: "tlsrec_fake_rich",
-            label: "TLS record + rich fake",
-            family: "tlsrec_fake",
-            config: tlsrec_fake_rich,
-        },
-        StrategyCandidateSpec {
-            id: "tlsrec_fakedsplit",
-            label: "TLS record + fakedsplit",
-            family: "fake_approx",
-            config: tlsrec_fakedsplit,
-        },
-        StrategyCandidateSpec {
-            id: "tlsrec_fakeddisorder",
-            label: "TLS record + fakeddisorder",
-            family: "fake_approx",
-            config: tlsrec_fakeddisorder,
-        },
-        StrategyCandidateSpec {
-            id: "tlsrec_hostfake",
-            label: "TLS record + hostfake",
-            family: "hostfake",
-            config: tlsrec_hostfake,
-        },
-        StrategyCandidateSpec {
-            id: "tlsrec_hostfake_split",
-            label: "TLS record + hostfake split",
-            family: "hostfake",
-            config: tlsrec_hostfake_split,
-        },
+        candidate_spec("baseline_current", "Current strategy", "baseline", baseline),
+        candidate_spec("parser_only", "Parser-only", "parser", parser_only),
+        candidate_spec("parser_unixeol", "Parser + Unix EOL", "parser_aggressive", parser_unixeol),
+        candidate_spec("parser_methodeol", "Parser + Method EOL", "parser_aggressive", parser_methodeol),
+        candidate_spec("split_host", "Split Host", "split", split_host),
+        candidate_spec("tlsrec_split_host", "TLS record + split host", "tlsrec_split", tlsrec_split_host),
+        candidate_spec_with_notes(
+            "tlsrec_fake_rich",
+            "TLS record + rich fake",
+            "tlsrec_fake",
+            tlsrec_fake_rich,
+            vec!["Randomized fake TLS material with original ClientHello framing"],
+        ),
+        candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
+        candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
+        candidate_spec("tlsrec_hostfake", "TLS record + hostfake", "hostfake", tlsrec_hostfake),
+        candidate_spec_with_notes(
+            "tlsrec_hostfake_split",
+            "TLS record + hostfake split",
+            "hostfake",
+            tlsrec_hostfake_split,
+            vec!["Adds a follow-up split after hostfake midhost reconstruction"],
+        ),
     ]
+}
+
+fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
+    let mut candidates = build_tcp_candidates(base);
+    candidates.extend([
+        build_activation_window_split_spec(base),
+        build_activation_window_hostfake_spec(base),
+        build_adaptive_fake_ttl_spec(base),
+        build_fake_payload_library_spec(base),
+    ]);
+    candidates
 }
 
 fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     vec![
-        StrategyCandidateSpec {
-            id: "quic_disabled",
-            label: "QUIC disabled",
-            family: "quic_disabled",
-            config: build_quic_candidate(base_tcp, false, "disabled"),
-        },
-        StrategyCandidateSpec {
-            id: "quic_compat_burst",
-            label: "QUIC compat burst",
-            family: "quic_burst",
-            config: build_quic_candidate(base_tcp, true, "compat_default"),
-        },
-        StrategyCandidateSpec {
-            id: "quic_realistic_burst",
-            label: "QUIC realistic burst",
-            family: "quic_burst",
-            config: build_quic_candidate(base_tcp, true, "realistic_initial"),
-        },
+        candidate_spec(
+            "quic_disabled",
+            "QUIC disabled",
+            "quic_disabled",
+            build_quic_candidate(base_tcp, false, "disabled"),
+        ),
+        candidate_spec_with_notes(
+            "quic_compat_burst",
+            "QUIC compat burst",
+            "quic_burst",
+            build_quic_candidate(base_tcp, true, "compat_default"),
+            vec!["Uses Zapret-style compatibility QUIC fake packets"],
+        ),
+        candidate_spec_with_notes(
+            "quic_realistic_burst",
+            "QUIC realistic burst",
+            "quic_burst",
+            build_quic_candidate(base_tcp, true, "realistic_initial"),
+            vec!["Uses realistic QUIC Initial packets with the target SNI"],
+        ),
     ]
+}
+
+fn candidate_spec(
+    id: &'static str,
+    label: &'static str,
+    family: &'static str,
+    config: ProxyUiConfig,
+) -> StrategyCandidateSpec {
+    candidate_spec_with_notes(id, label, family, config, Vec::new())
+}
+
+fn candidate_spec_with_notes(
+    id: &'static str,
+    label: &'static str,
+    family: &'static str,
+    config: ProxyUiConfig,
+    notes: Vec<&'static str>,
+) -> StrategyCandidateSpec {
+    StrategyCandidateSpec {
+        id,
+        label,
+        family,
+        config,
+        notes,
+        preserve_adaptive_fake_ttl: false,
+        warmup: CandidateWarmup::None,
+    }
 }
 
 fn sanitize_current_probe_config(base: &ProxyUiConfig) -> ProxyUiConfig {
@@ -1208,6 +1811,73 @@ fn build_quic_candidate(base_tcp: &ProxyUiConfig, enabled: bool, profile: &str) 
     config
 }
 
+fn build_activation_window_split_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
+    let mut config = build_split_host_candidate(base);
+    config.group_activation_filter = default_audit_activation_filter();
+    candidate_spec_with_notes(
+        "activation_window_split",
+        "Activation window + split host",
+        "activation_window",
+        config,
+        vec!["Limits split-host attempts to the first packets in a flow"],
+    )
+}
+
+fn build_activation_window_hostfake_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
+    let mut config = build_tlsrec_hostfake_candidate(base, false);
+    config.group_activation_filter = default_audit_activation_filter();
+    candidate_spec_with_notes(
+        "activation_window_hostfake",
+        "Activation window + hostfake",
+        "activation_window",
+        config,
+        vec!["Applies hostfake only inside a narrow activation window"],
+    )
+}
+
+fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
+    let mut config = build_tlsrec_fake_rich_candidate(base);
+    config.adaptive_fake_ttl_enabled = true;
+    config.adaptive_fake_ttl_delta = ADAPTIVE_FAKE_TTL_DEFAULT_DELTA;
+    config.adaptive_fake_ttl_min = ADAPTIVE_FAKE_TTL_DEFAULT_MIN;
+    config.adaptive_fake_ttl_max = ADAPTIVE_FAKE_TTL_DEFAULT_MAX;
+    config.adaptive_fake_ttl_fallback = ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK;
+    StrategyCandidateSpec {
+        id: "adaptive_fake_ttl",
+        label: "Adaptive fake TTL",
+        family: "adaptive_fake_ttl",
+        config,
+        notes: vec![
+            "Runs an unscored warm-up pass before measured probes",
+            "Keeps adaptive fake TTL enabled during candidate execution",
+        ],
+        preserve_adaptive_fake_ttl: true,
+        warmup: CandidateWarmup::AdaptiveFakeTtl,
+    }
+}
+
+fn build_fake_payload_library_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
+    let mut config = build_tlsrec_fake_rich_candidate(base);
+    config.http_fake_profile = HTTP_FAKE_PROFILE_CLOUDFLARE_GET.to_string();
+    config.tls_fake_profile = TLS_FAKE_PROFILE_GOOGLE_CHROME.to_string();
+    config.udp_fake_profile = UDP_FAKE_PROFILE_DNS_QUERY.to_string();
+    candidate_spec_with_notes(
+        "library_fake_payloads",
+        "Library fake payload presets",
+        "fake_payload_library",
+        config,
+        vec!["Uses bundled Cloudflare GET, Chrome TLS, and DNS query fake payload profiles"],
+    )
+}
+
+fn default_audit_activation_filter() -> ProxyUiActivationFilter {
+    ProxyUiActivationFilter {
+        round: Some(ProxyUiNumericRange { start: Some(1), end: Some(2) }),
+        payload_size: Some(ProxyUiNumericRange { start: Some(64), end: Some(512) }),
+        stream_bytes: Some(ProxyUiNumericRange { start: Some(0), end: Some(2047) }),
+    }
+}
+
 fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
     ProxyUiTcpChainStep {
         kind: kind.to_string(),
@@ -1221,10 +1891,18 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
     }
 }
 
-fn execute_tcp_candidate(spec: &StrategyCandidateSpec, targets: &[DomainTarget]) -> CandidateExecution {
-    match probe_runtime_transport(&spec.config) {
+fn execute_tcp_candidate(
+    spec: &StrategyCandidateSpec,
+    targets: &[DomainTarget],
+    runtime_context: Option<&ProxyRuntimeContext>,
+) -> CandidateExecution {
+    if targets.is_empty() {
+        return not_applicable_candidate_execution(spec, 0, 3, "No HTTP or HTTPS targets configured");
+    }
+    match probe_runtime_transport(spec, runtime_context) {
         Ok(runtime) => {
             let transport = runtime.transport();
+            run_candidate_warmup(spec, &transport, targets);
             let mut score = CandidateScore::default();
             for target in targets {
                 score.add(run_http_strategy_probe(&transport, target, spec));
@@ -1237,8 +1915,15 @@ fn execute_tcp_candidate(spec: &StrategyCandidateSpec, targets: &[DomainTarget])
     }
 }
 
-fn execute_quic_candidate(spec: &StrategyCandidateSpec, targets: &[QuicTarget]) -> CandidateExecution {
-    match probe_runtime_transport(&spec.config) {
+fn execute_quic_candidate(
+    spec: &StrategyCandidateSpec,
+    targets: &[QuicTarget],
+    runtime_context: Option<&ProxyRuntimeContext>,
+) -> CandidateExecution {
+    if targets.is_empty() {
+        return not_applicable_candidate_execution(spec, 0, 2, "No QUIC targets configured");
+    }
+    match probe_runtime_transport(spec, runtime_context) {
         Ok(runtime) => {
             let transport = runtime.transport();
             let mut score = CandidateScore::default();
@@ -1252,14 +1937,48 @@ fn execute_quic_candidate(spec: &StrategyCandidateSpec, targets: &[QuicTarget]) 
     }
 }
 
-fn probe_runtime_transport(config: &ProxyUiConfig) -> Result<TemporaryProxyRuntime, String> {
-    let mut runtime_config = config.clone();
+fn probe_runtime_transport(
+    spec: &StrategyCandidateSpec,
+    runtime_context: Option<&ProxyRuntimeContext>,
+) -> Result<TemporaryProxyRuntime, String> {
+    let mut runtime_config = spec.config.clone();
     runtime_config.ip = "127.0.0.1".to_string();
     runtime_config.port = 0;
     runtime_config.host_autolearn_enabled = false;
     runtime_config.host_autolearn_store_path = None;
-    freeze_adaptive_fake_ttl_for_probe(&mut runtime_config);
-    TemporaryProxyRuntime::start(runtime_config_from_ui(runtime_config).map_err(|err| err.to_string())?)
+    if !spec.preserve_adaptive_fake_ttl {
+        freeze_adaptive_fake_ttl_for_probe(&mut runtime_config);
+    }
+    TemporaryProxyRuntime::start(
+        runtime_config_from_ui(runtime_config).map_err(|err| err.to_string())?,
+        runtime_context.cloned(),
+    )
+}
+
+fn run_candidate_warmup(spec: &StrategyCandidateSpec, transport: &TransportConfig, targets: &[DomainTarget]) {
+    if spec.warmup != CandidateWarmup::AdaptiveFakeTtl {
+        return;
+    }
+    for target in targets {
+        let http_port = target.http_port.unwrap_or(80);
+        let https_port = target.https_port.unwrap_or(443);
+        let _ = try_http_request(
+            &domain_connect_target(target),
+            http_port,
+            transport,
+            &target.host,
+            &target.http_path,
+            false,
+        );
+        let _ = try_tls_handshake(
+            &domain_connect_target(target),
+            https_port,
+            transport,
+            &target.host,
+            true,
+            TlsClientProfile::Tls13Only,
+        );
+    }
 }
 
 fn freeze_adaptive_fake_ttl_for_probe(runtime_config: &mut ProxyUiConfig) {
@@ -1279,7 +1998,11 @@ fn freeze_adaptive_fake_ttl_for_probe(runtime_config: &mut ProxyUiConfig) {
     runtime_config.adaptive_fake_ttl_enabled = false;
 }
 
-fn build_candidate_execution(spec: &StrategyCandidateSpec, score: CandidateScore, quality_floor: usize) -> CandidateExecution {
+fn build_candidate_execution(
+    spec: &StrategyCandidateSpec,
+    score: CandidateScore,
+    quality_floor: usize,
+) -> CandidateExecution {
     let outcome = if score.is_full_success() {
         "success"
     } else if score.succeeded_targets > 0 && score.quality_score >= quality_floor {
@@ -1287,10 +2010,7 @@ fn build_candidate_execution(spec: &StrategyCandidateSpec, score: CandidateScore
     } else {
         "failed"
     };
-    let rationale = format!(
-        "{} of {} targets succeeded",
-        score.succeeded_targets, score.total_targets
-    );
+    let rationale = format!("{} of {} targets succeeded", score.succeeded_targets, score.total_targets);
     CandidateExecution {
         summary: StrategyProbeCandidateSummary {
             id: spec.id.to_string(),
@@ -1303,6 +2023,8 @@ fn build_candidate_execution(spec: &StrategyCandidateSpec, score: CandidateScore
             weighted_success_score: score.weighted_success_score,
             total_weight: score.total_weight,
             quality_score: score.quality_score,
+            proxy_config_json: candidate_proxy_config_json(spec),
+            notes: candidate_notes(spec, &[]),
             average_latency_ms: score.average_latency_ms(),
             skipped: false,
         },
@@ -1328,6 +2050,35 @@ fn failed_candidate_execution(
             weighted_success_score: 0,
             total_weight: total_targets * total_weight_per_target,
             quality_score: 0,
+            proxy_config_json: candidate_proxy_config_json(spec),
+            notes: candidate_notes(spec, &[]),
+            average_latency_ms: None,
+            skipped: false,
+        },
+        results: Vec::new(),
+    }
+}
+
+fn not_applicable_candidate_execution(
+    spec: &StrategyCandidateSpec,
+    total_targets: usize,
+    total_weight_per_target: usize,
+    rationale: &str,
+) -> CandidateExecution {
+    CandidateExecution {
+        summary: StrategyProbeCandidateSummary {
+            id: spec.id.to_string(),
+            label: spec.label.to_string(),
+            family: spec.family.to_string(),
+            outcome: "not_applicable".to_string(),
+            rationale: rationale.to_string(),
+            succeeded_targets: 0,
+            total_targets,
+            weighted_success_score: 0,
+            total_weight: total_targets * total_weight_per_target,
+            quality_score: 0,
+            proxy_config_json: candidate_proxy_config_json(spec),
+            notes: candidate_notes(spec, &[rationale]),
             average_latency_ms: None,
             skipped: false,
         },
@@ -1352,16 +2103,30 @@ fn skipped_candidate_summary(
         weighted_success_score: 0,
         total_weight: total_targets * total_weight_per_target,
         quality_score: 0,
+        proxy_config_json: candidate_proxy_config_json(spec),
+        notes: candidate_notes(spec, &[rationale]),
         average_latency_ms: None,
         skipped: true,
     }
+}
+
+fn candidate_proxy_config_json(spec: &StrategyCandidateSpec) -> Option<String> {
+    serde_json::to_string(&ProxyConfigPayload::Ui {
+        config: spec.config.clone(),
+        runtime_context: None,
+    })
+    .ok()
+}
+
+fn candidate_notes(spec: &StrategyCandidateSpec, extra_notes: &[&str]) -> Vec<String> {
+    spec.notes.iter().copied().chain(extra_notes.iter().copied()).map(str::to_string).collect()
 }
 
 fn winning_candidate_index(candidates: &[StrategyProbeCandidateSummary]) -> Option<usize> {
     candidates
         .iter()
         .enumerate()
-        .filter(|(_, candidate)| !candidate.skipped)
+        .filter(|(_, candidate)| !candidate.skipped && candidate.outcome != "not_applicable")
         .max_by_key(|(index, candidate)| {
             (
                 candidate.weighted_success_score,
@@ -1373,10 +2138,15 @@ fn winning_candidate_index(candidates: &[StrategyProbeCandidateSummary]) -> Opti
         .map(|(index, _)| index)
 }
 
-fn run_http_strategy_probe(transport: &TransportConfig, target: &DomainTarget, candidate: &StrategyCandidateSpec) -> ProbeSample {
+fn run_http_strategy_probe(
+    transport: &TransportConfig,
+    target: &DomainTarget,
+    candidate: &StrategyCandidateSpec,
+) -> ProbeSample {
     let started = now_ms();
     let http_port = target.http_port.unwrap_or(80);
-    let observation = try_http_request(&domain_connect_target(target), http_port, transport, &target.host, &target.http_path, false);
+    let observation =
+        try_http_request(&domain_connect_target(target), http_port, transport, &target.host, &target.http_path, false);
     let latency_ms = now_ms().saturating_sub(started);
     let outcome = if is_blockpage(&observation) {
         "http_blockpage".to_string()
@@ -1392,20 +2162,35 @@ fn run_http_strategy_probe(transport: &TransportConfig, target: &DomainTarget, c
             outcome: outcome.clone(),
             details: vec![
                 ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
+                ProbeDetail { key: "candidateLabel".to_string(), value: candidate.label.to_string() },
+                ProbeDetail { key: "candidateFamily".to_string(), value: candidate.family.to_string() },
                 ProbeDetail { key: "protocol".to_string(), value: "HTTP".to_string() },
                 ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
                 ProbeDetail { key: "status".to_string(), value: observation.status },
-                ProbeDetail { key: "error".to_string(), value: observation.error.unwrap_or_else(|| "none".to_string()) },
+                ProbeDetail {
+                    key: "error".to_string(),
+                    value: observation.error.unwrap_or_else(|| "none".to_string()),
+                },
             ],
         },
         success: outcome == "http_ok",
         weight: 1,
-        quality: if outcome == "http_ok" { 3 } else if outcome == "http_blockpage" { 1 } else { 0 },
+        quality: if outcome == "http_ok" {
+            3
+        } else if outcome == "http_blockpage" {
+            1
+        } else {
+            0
+        },
         latency_ms,
     }
 }
 
-fn run_https_strategy_probe(transport: &TransportConfig, target: &DomainTarget, candidate: &StrategyCandidateSpec) -> ProbeSample {
+fn run_https_strategy_probe(
+    transport: &TransportConfig,
+    target: &DomainTarget,
+    candidate: &StrategyCandidateSpec,
+) -> ProbeSample {
     let started = now_ms();
     let https_port = target.https_port.unwrap_or(443);
     let tls13 = try_tls_handshake(
@@ -1441,6 +2226,8 @@ fn run_https_strategy_probe(transport: &TransportConfig, target: &DomainTarget, 
             outcome: outcome.clone(),
             details: vec![
                 ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
+                ProbeDetail { key: "candidateLabel".to_string(), value: candidate.label.to_string() },
+                ProbeDetail { key: "candidateFamily".to_string(), value: candidate.family.to_string() },
                 ProbeDetail { key: "protocol".to_string(), value: "HTTPS".to_string() },
                 ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
                 ProbeDetail { key: "tls13Status".to_string(), value: tls13.status },
@@ -1462,17 +2249,25 @@ fn run_https_strategy_probe(transport: &TransportConfig, target: &DomainTarget, 
     }
 }
 
-fn run_quic_strategy_probe(transport: &TransportConfig, target: &QuicTarget, candidate: &StrategyCandidateSpec) -> ProbeSample {
+fn run_quic_strategy_probe(
+    transport: &TransportConfig,
+    target: &QuicTarget,
+    candidate: &StrategyCandidateSpec,
+) -> ProbeSample {
     let started = now_ms();
     let connect_target = quic_connect_target(target);
     let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str())).unwrap_or_default();
     let response = relay_udp_payload(&connect_target, target.port, transport, &payload);
     let latency_ms = now_ms().saturating_sub(started);
-    let outcome = match response {
-        Ok(bytes) if parse_quic_initial(&bytes).is_some() => "quic_initial_response".to_string(),
-        Ok(bytes) if !bytes.is_empty() => "quic_response".to_string(),
-        Ok(_) => "quic_empty".to_string(),
-        Err(err) => err,
+    let (outcome, status, error) = match response {
+        Ok(bytes) if parse_quic_initial(&bytes).is_some() => {
+            ("quic_initial_response".to_string(), "quic_initial_response".to_string(), "none".to_string())
+        }
+        Ok(bytes) if !bytes.is_empty() => {
+            ("quic_response".to_string(), "quic_response".to_string(), "none".to_string())
+        }
+        Ok(_) => ("quic_empty".to_string(), "quic_empty".to_string(), "none".to_string()),
+        Err(err) => (err.clone(), "quic_error".to_string(), err),
     };
     ProbeSample {
         result: ProbeResult {
@@ -1481,9 +2276,13 @@ fn run_quic_strategy_probe(transport: &TransportConfig, target: &QuicTarget, can
             outcome: outcome.clone(),
             details: vec![
                 ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
+                ProbeDetail { key: "candidateLabel".to_string(), value: candidate.label.to_string() },
+                ProbeDetail { key: "candidateFamily".to_string(), value: candidate.family.to_string() },
                 ProbeDetail { key: "protocol".to_string(), value: "QUIC".to_string() },
                 ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
                 ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
+                ProbeDetail { key: "status".to_string(), value: status },
+                ProbeDetail { key: "error".to_string(), value: error },
             ],
         },
         success: matches!(outcome.as_str(), "quic_initial_response" | "quic_response"),
@@ -1503,10 +2302,8 @@ fn relay_udp_payload(
     transport: &TransportConfig,
     payload: &[u8],
 ) -> Result<Vec<u8>, String> {
-    let destination = resolve_addresses(target, port)?
-        .into_iter()
-        .next()
-        .ok_or_else(|| "no_socket_addrs".to_string())?;
+    let destination =
+        resolve_addresses(target, port)?.into_iter().next().ok_or_else(|| "no_socket_addrs".to_string())?;
     match transport {
         TransportConfig::Direct => relay_udp_direct(&destination.to_string(), payload),
         TransportConfig::Socks5 { host, port } => relay_udp_via_socks5(host, *port, destination, payload),
@@ -1573,33 +2370,28 @@ fn parse_url_host(value: &str) -> Option<String> {
 
 fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(EncryptedDnsEndpoint, Vec<String>), String> {
     let protocol = encrypted_dns_protocol(target.encrypted_protocol.as_deref());
-    let bootstrap_strings =
-        if target.encrypted_bootstrap_ips.is_empty() {
-            if target.doh_bootstrap_ips.is_empty() && target.doh_url.is_none() {
-                DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect::<Vec<_>>()
-            } else {
-                target.doh_bootstrap_ips.clone()
-            }
+    let bootstrap_strings = if target.encrypted_bootstrap_ips.is_empty() {
+        if target.doh_bootstrap_ips.is_empty() && target.doh_url.is_none() {
+            DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect::<Vec<_>>()
         } else {
-            target.encrypted_bootstrap_ips.clone()
-        };
+            target.doh_bootstrap_ips.clone()
+        }
+    } else {
+        target.encrypted_bootstrap_ips.clone()
+    };
     let doh_url = target
         .encrypted_doh_url
         .clone()
         .or_else(|| target.doh_url.clone())
         .or_else(|| (protocol == EncryptedDnsProtocol::Doh).then(|| DEFAULT_DOH_URL.to_string()));
     let host =
-        target
-            .encrypted_host
-            .clone()
-            .or_else(|| doh_url.as_deref().and_then(parse_url_host))
-            .unwrap_or_else(|| {
-                if protocol == EncryptedDnsProtocol::Doh {
-                    DEFAULT_DOH_HOST.to_string()
-                } else {
-                    String::new()
-                }
-            });
+        target.encrypted_host.clone().or_else(|| doh_url.as_deref().and_then(parse_url_host)).unwrap_or_else(|| {
+            if protocol == EncryptedDnsProtocol::Doh {
+                DEFAULT_DOH_HOST.to_string()
+            } else {
+                String::new()
+            }
+        });
     let port = target.encrypted_port.unwrap_or(match protocol {
         EncryptedDnsProtocol::Doh => DEFAULT_DOH_PORT,
         EncryptedDnsProtocol::Dot => 853,
@@ -1609,10 +2401,7 @@ fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(EncryptedDns
     Ok((
         EncryptedDnsEndpoint {
             protocol,
-            resolver_id: target
-                .encrypted_resolver_id
-                .clone()
-                .or_else(|| Some(protocol.as_str().to_string())),
+            resolver_id: target.encrypted_resolver_id.clone().or_else(|| Some(protocol.as_str().to_string())),
             host,
             port,
             tls_server_name: target.encrypted_tls_server_name.clone(),
@@ -2048,10 +2837,7 @@ fn resolve_via_encrypted_dns(
 ) -> Result<Vec<String>, String> {
     let transport = match transport {
         TransportConfig::Direct => EncryptedDnsTransport::Direct,
-        TransportConfig::Socks5 { host, port } => EncryptedDnsTransport::Socks5 {
-            host: host.clone(),
-            port: *port,
-        },
+        TransportConfig::Socks5 { host, port } => EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port },
     };
     let resolver = EncryptedDnsResolver::new(endpoint, transport).map_err(|err| err.to_string())?;
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
@@ -2061,10 +2847,7 @@ fn resolve_via_encrypted_dns(
 }
 
 fn parse_bootstrap_ips(values: &[String]) -> Result<Vec<IpAddr>, String> {
-    values
-        .iter()
-        .map(|value| value.parse::<IpAddr>().map_err(|err| err.to_string()))
-        .collect()
+    values.iter().map(|value| value.parse::<IpAddr>().map_err(|err| err.to_string())).collect()
 }
 
 fn try_http_request(
@@ -2864,7 +3647,11 @@ mod tests {
             strategy_probe: Some(StrategyProbeRequest {
                 suite_id: "quick_v1".to_string(),
                 base_proxy_config_json: Some(
-                    serde_json::to_string(&ProxyConfigPayload::Ui(base_ui)).expect("serialize probe ui config"),
+                    serde_json::to_string(&ProxyConfigPayload::Ui {
+                        config: base_ui,
+                        runtime_context: None,
+                    })
+                    .expect("serialize probe ui config"),
                 ),
             }),
         }
@@ -3129,6 +3916,7 @@ mod tests {
             base_proxy_config_json: Some(
                 serde_json::to_string(&ProxyConfigPayload::CommandLine {
                     args: vec!["ciadpi".to_string(), "--split".to_string()],
+                    runtime_context: None,
                 })
                 .expect("serialize command line payload"),
             ),
@@ -3175,7 +3963,8 @@ mod tests {
     #[test]
     fn parser_only_candidate_keeps_aggressive_http_evasions_disabled() {
         let candidates = build_tcp_candidates(&minimal_ui_config());
-        let parser_only = candidates.iter().find(|candidate| candidate.id == "parser_only").expect("parser_only candidate");
+        let parser_only =
+            candidates.iter().find(|candidate| candidate.id == "parser_only").expect("parser_only candidate");
 
         assert!(parser_only.config.host_mixed_case);
         assert!(parser_only.config.domain_mixed_case);
@@ -3196,7 +3985,10 @@ mod tests {
         let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
 
         assert_eq!(report.profile_id, "automatic-probing");
-        assert_eq!(strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()), Some("baseline_current"));
+        assert_eq!(
+            strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()),
+            Some("baseline_current")
+        );
         assert_eq!(
             strategy_probe.recommendation.tcp_candidate_id,
             strategy_probe.tcp_candidates.iter().find(|candidate| !candidate.skipped).expect("tcp winner").id

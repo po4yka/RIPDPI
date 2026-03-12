@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.RememberedNetworkPolicySuppressionDurationMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.strategyFamily
+import com.poyka.ripdpi.data.toActiveDnsSettings
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -201,6 +203,8 @@ class DefaultRememberedNetworkPolicyStore
                                 json.encodeToString(com.poyka.ripdpi.data.VpnDnsPolicyJson.serializer(), it)
                             },
                         strategySignatureJson = policy.strategySignatureJson,
+                        winningTcpStrategyFamily = policy.winningTcpStrategyFamily,
+                        winningQuicStrategyFamily = policy.winningQuicStrategyFamily,
                         source = source,
                         status = status,
                         successCount = if (status == RememberedNetworkPolicyStatusValidated) 1 else 0,
@@ -221,6 +225,8 @@ class DefaultRememberedNetworkPolicyStore
                                 json.encodeToString(com.poyka.ripdpi.data.VpnDnsPolicyJson.serializer(), it)
                             },
                         strategySignatureJson = policy.strategySignatureJson ?: existing.strategySignatureJson,
+                        winningTcpStrategyFamily = policy.winningTcpStrategyFamily ?: existing.winningTcpStrategyFamily,
+                        winningQuicStrategyFamily = policy.winningQuicStrategyFamily ?: existing.winningQuicStrategyFamily,
                         source = source,
                         status = status,
                         successCount =
@@ -252,7 +258,9 @@ class DefaultRememberedNetworkPolicyStore
                 policy.vpnDnsPolicy?.let {
                     json.encodeToString(com.poyka.ripdpi.data.VpnDnsPolicyJson.serializer(), it)
                 } &&
-                strategySignatureJson == policy.strategySignatureJson
+                strategySignatureJson == policy.strategySignatureJson &&
+                winningTcpStrategyFamily == policy.winningTcpStrategyFamily &&
+                winningQuicStrategyFamily == policy.winningQuicStrategyFamily
     }
 
 fun RememberedNetworkPolicyEntity.decodeSummary(json: Json = Json { ignoreUnknownKeys = true }): NetworkFingerprintSummary? =
@@ -275,6 +283,9 @@ fun RememberedNetworkPolicyEntity.toPolicyJson(
         proxyConfigJson = proxyConfigJson,
         vpnDnsPolicy = dnsPolicy,
         strategySignatureJson = strategySignatureJson,
+        winningTcpStrategyFamily = winningTcpStrategyFamily,
+        winningQuicStrategyFamily = winningQuicStrategyFamily,
+        winningDnsStrategyFamily = dnsPolicy?.toActiveDnsSettings()?.strategyFamily(),
     )
 }
 

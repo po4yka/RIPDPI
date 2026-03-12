@@ -6,7 +6,10 @@ import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.core.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
+import com.poyka.ripdpi.core.stripRipDpiRuntimeContext
+import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.BuiltInDnsProviders
 import com.poyka.ripdpi.data.DnsModePlainUdp
@@ -16,6 +19,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySourceStrategyProbe
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.strategyFamily
+import com.poyka.ripdpi.data.strategyLabel
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -30,6 +35,9 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.diagnostics.retryCount
+import com.poyka.ripdpi.data.diagnostics.rttBand
+import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.services.DefaultResolverOverrideStore
 import com.poyka.ripdpi.services.NetworkFingerprintProvider
@@ -123,9 +131,10 @@ class DefaultDiagnosticsManager
     private companion object {
         private const val DiagnosticsArchiveDirectory = "diagnostics-archives"
         private const val DiagnosticsArchivePrefix = "ripdpi-diagnostics-"
-        private const val ArchiveSchemaVersion = 5
+        private const val ArchiveSchemaVersion = 7
         private const val ArchivePrivacyMode = "split_output"
         private const val ArchiveScopeHybrid = "hybrid"
+        private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
         private const val MaxArchiveFiles = 5
         private const val MaxArchiveAgeMs = 3L * 24L * 60L * 60L * 1000L
         private const val ArchiveTelemetryLimit = 120
@@ -203,6 +212,7 @@ class DefaultDiagnosticsManager
                         RipDpiProxyUIPreferences(
                             settings = settings,
                             hostAutolearnStorePath = resolveHostAutolearnStorePath(context),
+                            runtimeContext = settings.activeDnsSettings().toRipDpiRuntimeContext(),
                         ).toNativeConfigJson()
                     request.copy(
                         pathMode = ScanPathMode.RAW_PATH,
@@ -475,6 +485,11 @@ class DefaultDiagnosticsManager
                     }
                     latestTelemetry?.let { telemetry ->
                         appendLine("networkType=${telemetry.networkType}")
+                        appendLine("failureClass=${telemetry.failureClass ?: "none"}")
+                        appendLine("winningStrategyFamily=${telemetry.winningStrategyFamily() ?: "none"}")
+                        appendLine("telemetryNetworkFingerprintHash=${telemetry.telemetryNetworkFingerprintHash ?: "none"}")
+                        appendLine("rttBand=${telemetry.rttBand()}")
+                        appendLine("retryCount=${telemetry.retryCount()}")
                         appendLine("resolverId=${telemetry.resolverId ?: "unknown"}")
                         appendLine("resolverProtocol=${telemetry.resolverProtocol ?: "unknown"}")
                         appendLine("resolverEndpoint=${telemetry.resolverEndpoint ?: "unknown"}")
@@ -535,6 +550,7 @@ class DefaultDiagnosticsManager
                     ?.let { historyRepository.getScanSession(it) }
                     ?: sessions.firstOrNull { it.reportJson != null }
                     ?: sessions.firstOrNull()
+            val primaryReport = decodeScanReport(primarySession?.reportJson)
             val primaryResults = primarySession?.id?.let { historyRepository.getProbeResults(it) }.orEmpty()
             val primarySnapshots = primarySession?.id?.let { id -> snapshots.filter { it.sessionId == id } }.orEmpty()
             val primaryContexts = primarySession?.id?.let { id -> contexts.filter { it.sessionId == id } }.orEmpty()
@@ -595,6 +611,21 @@ class DefaultDiagnosticsManager
                     ?.let { payloadJson ->
                         runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payloadJson) }.getOrNull()
                     }
+            val includedFiles =
+                buildList {
+                    add("summary.txt")
+                    add("manifest.json")
+                    add("report.json")
+                    add("strategy-matrix.json")
+                    add("probe-results.csv")
+                    add("native-events.csv")
+                    add("telemetry.csv")
+                    add("network-snapshots.json")
+                    add("diagnostic-context.json")
+                    if (logcatSnapshot != null) {
+                        add("logcat.txt")
+                    }
+                }
             ZipOutputStream(target.outputStream().buffered()).use { zip ->
                 zip.putNextEntry(ZipEntry("summary.txt"))
                 val summary =
@@ -617,6 +648,51 @@ class DefaultDiagnosticsManager
                 zip.write(reportJson.toByteArray())
                 zip.closeEntry()
 
+                zip.putNextEntry(ZipEntry("strategy-matrix.json"))
+                val strategyMatrixJson =
+                    json.encodeToString(
+                        StrategyMatrixArchivePayload.serializer(),
+                        StrategyMatrixArchivePayload(
+                            sessionId = primarySession?.id,
+                            profileId = primarySession?.profileId,
+                            strategyProbeReport = primaryReport?.strategyProbeReport,
+                        ),
+                    )
+                zip.write(strategyMatrixJson.toByteArray())
+                zip.closeEntry()
+
+                zip.putNextEntry(ZipEntry("probe-results.csv"))
+                zip.write(buildProbeResultsCsv(primaryResults).toByteArray())
+                zip.closeEntry()
+
+                zip.putNextEntry(ZipEntry("native-events.csv"))
+                zip.write(buildNativeEventsCsv(primaryEvents = primaryEvents, globalEvents = globalEvents).toByteArray())
+                zip.closeEntry()
+
+                zip.putNextEntry(ZipEntry("network-snapshots.json"))
+                val snapshotsJson =
+                    json.encodeToString(
+                        DiagnosticsArchiveSnapshotPayload.serializer(),
+                        DiagnosticsArchiveSnapshotPayload(
+                            sessionSnapshots = primarySnapshots,
+                            latestPassiveSnapshot = latestPassiveSnapshot,
+                        ),
+                    )
+                zip.write(snapshotsJson.toByteArray())
+                zip.closeEntry()
+
+                zip.putNextEntry(ZipEntry("diagnostic-context.json"))
+                val contextsJson =
+                    json.encodeToString(
+                        DiagnosticsArchiveContextPayload.serializer(),
+                        DiagnosticsArchiveContextPayload(
+                            sessionContexts = primaryContexts,
+                            latestPassiveContext = latestPassiveContext,
+                        ),
+                    )
+                zip.write(contextsJson.toByteArray())
+                zip.closeEntry()
+
                 logcatSnapshot?.let { snapshot ->
                     zip.putNextEntry(ZipEntry("logcat.txt"))
                     zip.write(snapshot.content.toByteArray())
@@ -627,7 +703,10 @@ class DefaultDiagnosticsManager
                 val csv =
                     buildString {
                         appendLine(
-                            "createdAt,activeMode,connectionState,networkType,publicIp,resolverId,resolverProtocol," +
+                            "createdAt,activeMode,connectionState,networkType,publicIp,failureClass," +
+                                "telemetryNetworkFingerprintHash,winningTcpStrategyFamily,winningQuicStrategyFamily," +
+                                "winningStrategyFamily,proxyRttBand,resolverRttBand,rttBand,proxyRouteRetryCount," +
+                                "tunnelRecoveryRetryCount,retryCount,resolverId,resolverProtocol," +
                                 "resolverEndpoint,resolverLatencyMs,dnsFailuresTotal,resolverFallbackActive," +
                                 "resolverFallbackReason,networkHandoverClass,txPackets,txBytes,rxPackets,rxBytes",
                         )
@@ -639,6 +718,17 @@ class DefaultDiagnosticsManager
                                     sample.connectionState,
                                     sample.networkType,
                                     sample.publicIp.orEmpty(),
+                                    sample.failureClass.orEmpty(),
+                                    sample.telemetryNetworkFingerprintHash.orEmpty(),
+                                    sample.winningTcpStrategyFamily.orEmpty(),
+                                    sample.winningQuicStrategyFamily.orEmpty(),
+                                    sample.winningStrategyFamily().orEmpty(),
+                                    sample.proxyRttBand,
+                                    sample.resolverRttBand,
+                                    sample.rttBand(),
+                                    sample.proxyRouteRetryCount,
+                                    sample.tunnelRecoveryRetryCount,
+                                    sample.retryCount(),
                                     sample.resolverId.orEmpty(),
                                     sample.resolverProtocol.orEmpty(),
                                     sample.resolverEndpoint.orEmpty(),
@@ -679,6 +769,8 @@ class DefaultDiagnosticsManager
                             selectedApproach = selectedApproachSummary,
                             networkSummary = latestSnapshotModel?.toRedactedSummary(),
                             contextSummary = (sessionContextModel ?: latestContextModel)?.toRedactedSummary(),
+                            latestTelemetrySummary = payload.telemetry.firstOrNull()?.toArchiveTelemetrySummary(),
+                            includedFiles = includedFiles,
                             logcatIncluded = logcatSnapshot != null,
                             logcatCaptureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
                             logcatByteCount = logcatSnapshot?.byteCount ?: 0,
@@ -817,6 +909,11 @@ class DefaultDiagnosticsManager
                 appendLine("serviceMode=${it.serviceMode ?: "unknown"}")
                 appendLine("status=${it.status}")
                 appendLine("summary=${it.summary}")
+                decodeScanReport(it.reportJson)?.strategyProbeReport?.let { strategyProbe ->
+                    appendLine("strategySuite=${strategyProbe.suiteId}")
+                    appendLine("strategyTcpCandidates=${strategyProbe.tcpCandidates.size}")
+                    appendLine("strategyQuicCandidates=${strategyProbe.quicCandidates.size}")
+                }
             }
             selectedApproach?.let {
                 appendLine("approach=${it.displayName}")
@@ -876,6 +973,11 @@ class DefaultDiagnosticsManager
             }
             telemetry.firstOrNull()?.let { sample ->
                 appendLine("networkType=${sample.networkType}")
+                appendLine("failureClass=${sample.failureClass ?: "none"}")
+                appendLine("winningStrategyFamily=${sample.winningStrategyFamily() ?: "none"}")
+                appendLine("telemetryNetworkFingerprintHash=${sample.telemetryNetworkFingerprintHash ?: "none"}")
+                appendLine("rttBand=${sample.rttBand()}")
+                appendLine("retryCount=${sample.retryCount()}")
                 appendLine("resolverId=${sample.resolverId ?: "unknown"}")
                 appendLine("resolverProtocol=${sample.resolverProtocol ?: "unknown"}")
                 appendLine("resolverEndpoint=${sample.resolverEndpoint ?: "unknown"}")
@@ -901,6 +1003,68 @@ class DefaultDiagnosticsManager
                     }
             }
         }.trim()
+
+    private fun buildProbeResultsCsv(results: List<ProbeResultEntity>): String =
+        buildString {
+            appendLine("sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson")
+            results.forEach { result ->
+                appendLine(
+                    listOf(
+                        csvField(result.sessionId),
+                        csvField(result.probeType),
+                        csvField(result.target),
+                        csvField(result.outcome),
+                        csvField(result.probeRetryCount(json)?.toString().orEmpty()),
+                        csvField(result.createdAt),
+                        csvField(result.detailJson),
+                    ).joinToString(","),
+                )
+            }
+        }
+
+    private fun buildNativeEventsCsv(
+        primaryEvents: List<NativeSessionEventEntity>,
+        globalEvents: List<NativeSessionEventEntity>,
+    ): String =
+        buildString {
+            appendLine("scope,sessionId,source,level,message,createdAt")
+            primaryEvents.forEach { event ->
+                appendLine(
+                    listOf(
+                        csvField("session"),
+                        csvField(event.sessionId.orEmpty()),
+                        csvField(event.source),
+                        csvField(event.level),
+                        csvField(event.message),
+                        csvField(event.createdAt),
+                    ).joinToString(","),
+                )
+            }
+            globalEvents.forEach { event ->
+                appendLine(
+                    listOf(
+                        csvField("global"),
+                        csvField(event.sessionId.orEmpty()),
+                        csvField(event.source),
+                        csvField(event.level),
+                        csvField(event.message),
+                        csvField(event.createdAt),
+                    ).joinToString(","),
+                )
+            }
+        }
+
+    private fun csvField(value: Any?): String =
+        buildString {
+            append('"')
+            append(value?.toString().orEmpty().replace("\"", "\"\""))
+            append('"')
+        }
+
+    private fun ProbeResultEntity.probeRetryCount(json: Json): Int? =
+        runCatching {
+            json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
+        }.getOrNull()?.let(::deriveProbeRetryCount)
 
     private suspend fun pollScanResult(
         sessionId: String,
@@ -968,9 +1132,13 @@ class DefaultDiagnosticsManager
         report: ScanReport,
         settings: com.poyka.ripdpi.proto.AppSettings,
     ): ScanReport {
+        val activeDns = settings.activeDnsSettings()
         val strategyProbe =
             report.strategyProbeReport?.let { strategyProbe ->
                 val recommendation = strategyProbe.recommendation
+                val laneFamilies =
+                    decodeRipDpiProxyUiPreferences(recommendation.recommendedProxyConfigJson)
+                        ?.deriveStrategyLaneFamilies(activeDns = activeDns)
                 val strategySignature =
                     decodeRipDpiProxyUiPreferences(recommendation.recommendedProxyConfigJson)
                         ?.let { preferences ->
@@ -979,9 +1147,23 @@ class DefaultDiagnosticsManager
                                 routeGroup = null,
                                 modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }),
                             )
-                        }
+                        }?.copy(
+                            dnsStrategyFamily = activeDns.strategyFamily(),
+                            dnsStrategyLabel = activeDns.strategyLabel(),
+                        )
+                val winningTcpCandidate =
+                    strategyProbe.tcpCandidates.firstOrNull { it.id == recommendation.tcpCandidateId }
+                val winningQuicCandidate =
+                    strategyProbe.quicCandidates.firstOrNull { it.id == recommendation.quicCandidateId }
                 strategyProbe.copy(
-                    recommendation = recommendation.copy(strategySignature = strategySignature),
+                    recommendation =
+                        recommendation.copy(
+                            tcpCandidateFamily = winningTcpCandidate?.family ?: laneFamilies?.tcpStrategyFamily,
+                            quicCandidateFamily = winningQuicCandidate?.family ?: laneFamilies?.quicStrategyFamily,
+                            dnsStrategyFamily = activeDns.strategyFamily(),
+                            dnsStrategyLabel = activeDns.strategyLabel(),
+                            strategySignature = strategySignature,
+                        ),
                 )
             }
         val resolverRecommendation =
@@ -1171,40 +1353,44 @@ class DefaultDiagnosticsManager
     }
 
     private suspend fun persistScanReport(report: ScanReport) {
+        val normalizedReport =
+            report.copy(
+                results = report.results.map { result -> result.withDerivedProbeRetryCount() },
+            )
         val existing = historyRepository.getScanSession(report.sessionId)
         historyRepository.upsertScanSession(
             ScanSessionEntity(
-                id = report.sessionId,
-                profileId = report.profileId,
+                id = normalizedReport.sessionId,
+                profileId = normalizedReport.profileId,
                 approachProfileId = existing?.approachProfileId,
                 approachProfileName = existing?.approachProfileName,
                 strategyId = existing?.strategyId,
                 strategyLabel = existing?.strategyLabel,
                 strategyJson = existing?.strategyJson,
-                pathMode = report.pathMode.name,
+                pathMode = normalizedReport.pathMode.name,
                 serviceMode = serviceStateStore.status.value.second.name,
                 status = "completed",
-                summary = report.summary,
-                reportJson = json.encodeToString(ScanReport.serializer(), report),
-                startedAt = report.startedAt,
-                finishedAt = report.finishedAt,
+                summary = normalizedReport.summary,
+                reportJson = json.encodeToString(ScanReport.serializer(), normalizedReport),
+                startedAt = normalizedReport.startedAt,
+                finishedAt = normalizedReport.finishedAt,
             ),
         )
         historyRepository.replaceProbeResults(
-            report.sessionId,
-            report.results.map { result ->
+            normalizedReport.sessionId,
+            normalizedReport.results.map { result ->
                 ProbeResultEntity(
                     id = UUID.randomUUID().toString(),
-                    sessionId = report.sessionId,
+                    sessionId = normalizedReport.sessionId,
                     probeType = result.probeType,
                     target = result.target,
                     outcome = result.outcome,
                     detailJson = json.encodeToString(ListSerializer(ProbeDetail.serializer()), result.details),
-                    createdAt = report.finishedAt,
+                    createdAt = normalizedReport.finishedAt,
                 )
             },
         )
-        bridgeEventsToHistory(report)
+        bridgeEventsToHistory(normalizedReport)
     }
 
     private suspend fun rememberStrategyProbeRecommendation(
@@ -1215,6 +1401,9 @@ class DefaultDiagnosticsManager
             return
         }
         val strategyProbe = report.strategyProbeReport ?: return
+        if (strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1) {
+            return
+        }
         val recommendedCandidateIds =
             setOf(
                 strategyProbe.recommendation.tcpCandidateId,
@@ -1227,17 +1416,26 @@ class DefaultDiagnosticsManager
         if (!hasWinningTarget) {
             return
         }
+        val winningTcpStrategyFamily =
+            strategyProbe.tcpCandidates.firstOrNull { it.id == strategyProbe.recommendation.tcpCandidateId }?.family
+        val winningQuicStrategyFamily =
+            strategyProbe.quicCandidates.firstOrNull { it.id == strategyProbe.recommendation.quicCandidateId }?.family
+        val winningDnsStrategyFamily =
+            strategyProbe.recommendation.dnsStrategyFamily ?: settings.activeDnsSettings().strategyFamily()
         val fingerprint = networkFingerprintProvider.capture() ?: return
         val networkScopeKey = fingerprint.scopeKey()
         val normalizedProxyConfigJson =
-            RipDpiProxyJsonPreferences(
-                configJson = strategyProbe.recommendation.recommendedProxyConfigJson,
-                hostAutolearnStorePath =
-                    settings
-                        .takeIf { it.hostAutolearnEnabled }
-                        ?.let { resolveHostAutolearnStorePath(context) },
-                networkScopeKey = networkScopeKey,
-            ).toNativeConfigJson()
+            stripRipDpiRuntimeContext(
+                RipDpiProxyJsonPreferences(
+                    configJson = strategyProbe.recommendation.recommendedProxyConfigJson,
+                    hostAutolearnStorePath =
+                        settings
+                            .takeIf { it.hostAutolearnEnabled }
+                            ?.let { resolveHostAutolearnStorePath(context) },
+                    networkScopeKey = networkScopeKey,
+                    runtimeContext = settings.activeDnsSettings().toRipDpiRuntimeContext(),
+                ).toNativeConfigJson(),
+            )
         val mode = Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue })
         val dnsPolicy =
             if (mode == Mode.VPN) {
@@ -1257,6 +1455,9 @@ class DefaultDiagnosticsManager
                         strategyProbe.recommendation.strategySignature?.let {
                             json.encodeToString(BypassStrategySignature.serializer(), it)
                         },
+                    winningTcpStrategyFamily = winningTcpStrategyFamily,
+                    winningQuicStrategyFamily = winningQuicStrategyFamily,
+                    winningDnsStrategyFamily = winningDnsStrategyFamily,
                 ),
             source = RememberedNetworkPolicySourceStrategyProbe,
             now = report.finishedAt,
@@ -1482,6 +1683,40 @@ internal data class DiagnosticsArchivePayload(
 )
 
 @Serializable
+internal data class StrategyMatrixArchivePayload(
+    val sessionId: String?,
+    val profileId: String?,
+    val strategyProbeReport: StrategyProbeReport? = null,
+)
+
+@Serializable
+internal data class DiagnosticsArchiveSnapshotPayload(
+    val sessionSnapshots: List<NetworkSnapshotEntity>,
+    val latestPassiveSnapshot: NetworkSnapshotEntity?,
+)
+
+@Serializable
+internal data class DiagnosticsArchiveContextPayload(
+    val sessionContexts: List<DiagnosticContextEntity>,
+    val latestPassiveContext: DiagnosticContextEntity?,
+)
+
+private fun TelemetrySampleEntity.toArchiveTelemetrySummary(): ArchiveTelemetrySummary =
+    ArchiveTelemetrySummary(
+        failureClass = failureClass,
+        telemetryNetworkFingerprintHash = telemetryNetworkFingerprintHash,
+        winningTcpStrategyFamily = winningTcpStrategyFamily,
+        winningQuicStrategyFamily = winningQuicStrategyFamily,
+        winningStrategyFamily = winningStrategyFamily(),
+        proxyRttBand = proxyRttBand,
+        resolverRttBand = resolverRttBand,
+        rttBand = rttBand(),
+        proxyRouteRetryCount = proxyRouteRetryCount,
+        tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+        retryCount = retryCount(),
+    )
+
+@Serializable
 internal data class DiagnosticsArchiveManifest(
     val fileName: String,
     val createdAt: Long,
@@ -1499,9 +1734,26 @@ internal data class DiagnosticsArchiveManifest(
     val selectedApproach: BypassApproachSummary?,
     val networkSummary: RedactedNetworkSummary?,
     val contextSummary: RedactedDiagnosticContextSummary?,
+    val latestTelemetrySummary: ArchiveTelemetrySummary? = null,
+    val includedFiles: List<String>,
     val logcatIncluded: Boolean,
     val logcatCaptureScope: String,
     val logcatByteCount: Int,
+)
+
+@Serializable
+internal data class ArchiveTelemetrySummary(
+    val failureClass: String? = null,
+    val telemetryNetworkFingerprintHash: String? = null,
+    val winningTcpStrategyFamily: String? = null,
+    val winningQuicStrategyFamily: String? = null,
+    val winningStrategyFamily: String? = null,
+    val proxyRttBand: String = "unknown",
+    val resolverRttBand: String = "unknown",
+    val rttBand: String = "unknown",
+    val proxyRouteRetryCount: Long = 0,
+    val tunnelRecoveryRetryCount: Long = 0,
+    val retryCount: Long = 0,
 )
 
 @Serializable

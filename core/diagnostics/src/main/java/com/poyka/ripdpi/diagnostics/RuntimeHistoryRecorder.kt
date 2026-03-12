@@ -101,86 +101,107 @@ class DefaultRuntimeHistoryRecorder
             }
         }
 
-    private suspend fun handleStatusChange(
-        status: AppStatus,
-        mode: Mode,
-    ) {
-        if (status == AppStatus.Running) {
-            stateMutex.withLock {
-                ensureActiveUsageSession(mode = mode)
+        private suspend fun handleStatusChange(
+            status: AppStatus,
+            mode: Mode,
+        ) {
+            if (status == AppStatus.Running) {
+                stateMutex.withLock {
+                    ensureActiveUsageSession(mode = mode)
+                }
+                startSampling()
+                return
             }
-            startSampling()
-            return
+
+            stopSampling()
+            stateMutex.withLock {
+                finalizeActiveUsageSession(serviceStateStore.telemetry.value)
+            }
         }
 
-        stopSampling()
-        stateMutex.withLock {
-            finalizeActiveUsageSession(serviceStateStore.telemetry.value)
-        }
-    }
+        private suspend fun handleTelemetryUpdate(telemetry: ServiceTelemetrySnapshot) {
+            stateMutex.withLock {
+                if (serviceStateStore.status.value.first == AppStatus.Running) {
+                    ensureActiveUsageSession(mode = serviceStateStore.status.value.second)
+                    updateActiveUsageSession(
+                        serviceMode = serviceStateStore.status.value.second,
+                        serviceTelemetry = telemetry,
+                        networkType = activeUsageSession?.networkType ?: "unknown",
+                        publicIp = activeUsageSession?.publicIp,
+                    )
+                }
 
-    private suspend fun handleTelemetryUpdate(telemetry: ServiceTelemetrySnapshot) {
-        stateMutex.withLock {
-            if (serviceStateStore.status.value.first == AppStatus.Running) {
-                ensureActiveUsageSession(mode = serviceStateStore.status.value.second)
-                updateActiveUsageSession(
-                    serviceMode = serviceStateStore.status.value.second,
+                persistRuntimeEvents(
                     serviceTelemetry = telemetry,
-                    networkType = activeUsageSession?.networkType ?: "unknown",
-                    publicIp = activeUsageSession?.publicIp,
+                    connectionSessionId = activeUsageSession?.id,
                 )
             }
+        }
 
-            persistRuntimeEvents(
-                serviceTelemetry = telemetry,
-                connectionSessionId = activeUsageSession?.id,
+        private suspend fun handleFailure(
+            sender: Sender,
+            reason: FailureReason,
+        ) {
+            val timestamp = System.currentTimeMillis()
+            val failureMessage = reason.displayMessage
+            val telemetry = serviceStateStore.telemetry.value
+            val snapshot = runCatching { networkMetadataProvider.captureSnapshot() }.getOrNull()
+            val connectionSessionId =
+                stateMutex.withLock {
+                    val current = activeUsageSession
+                    if (current == null) {
+                        createFailedUsageSession(
+                            sender = sender,
+                            failureMessage = failureMessage,
+                            timestamp = timestamp,
+                            serviceTelemetry = telemetry,
+                            snapshot = snapshot,
+                        )
+                    } else {
+                        val updated =
+                            applyRuntimeFieldTelemetry(
+                                current.copy(
+                                    updatedAt = timestamp,
+                                    connectionState = "Failed",
+                                    health = "degraded",
+                                    networkType = snapshot?.transport ?: current.networkType,
+                                    publicIp = snapshot?.publicIp ?: current.publicIp,
+                                    txBytes = telemetry.tunnelStats.txBytes,
+                                    rxBytes = telemetry.tunnelStats.rxBytes,
+                                    totalErrors = telemetry.proxyTelemetry.totalErrors + telemetry.tunnelTelemetry.totalErrors,
+                                    routeChanges = telemetry.proxyTelemetry.routeChanges + telemetry.tunnelTelemetry.routeChanges,
+                                    restartCount = telemetry.restartCount,
+                                    endedReason = "failed:${sender.senderName.lowercase(Locale.US)}",
+                                    failureMessage = failureMessage,
+                                ),
+                                telemetry.runtimeFieldTelemetry,
+                            )
+                        activeUsageSession = updated
+                        historyRepository.upsertBypassUsageSession(updated)
+                        updated.id
+                    }
+                }
+
+            persistTerminalTelemetrySample(
+                connectionSessionId = connectionSessionId,
+                snapshot = snapshot,
+                telemetry = telemetry,
+                createdAt = timestamp,
+            )
+
+            persistRuntimeEvent(
+                event =
+                    NativeSessionEventEntity(
+                        id = UUID.randomUUID().toString(),
+                        sessionId = null,
+                        connectionSessionId = connectionSessionId,
+                        source = sender.senderName.lowercase(Locale.US),
+                        level = "error",
+                        message = failureMessage,
+                        createdAt = timestamp,
+                    ),
             )
         }
-    }
-
-    private suspend fun handleFailure(
-        sender: Sender,
-        reason: FailureReason,
-    ) {
-        val timestamp = System.currentTimeMillis()
-        val failureMessage = reason.displayMessage
-        val connectionSessionId =
-            stateMutex.withLock {
-                val current = activeUsageSession
-                if (current == null) {
-                    createFailedUsageSession(
-                        sender = sender,
-                        failureMessage = failureMessage,
-                        timestamp = timestamp,
-                    )
-                } else {
-                    val updated =
-                        current.copy(
-                            updatedAt = timestamp,
-                            connectionState = "Failed",
-                            health = "degraded",
-                            endedReason = "failed:${sender.senderName.lowercase(Locale.US)}",
-                            failureMessage = failureMessage,
-                        )
-                    activeUsageSession = updated
-                    historyRepository.upsertBypassUsageSession(updated)
-                    updated.id
-                }
-            }
-
-        persistRuntimeEvent(
-            event =
-                NativeSessionEventEntity(
-                    id = UUID.randomUUID().toString(),
-                    sessionId = null,
-                    connectionSessionId = connectionSessionId,
-                    source = sender.senderName.lowercase(Locale.US),
-                    level = "error",
-                    message = failureMessage,
-                    createdAt = timestamp,
-                ),
-        )
-    }
 
     private fun startSampling() {
         if (samplingJob?.isActive == true) {
@@ -232,28 +253,31 @@ class DefaultRuntimeHistoryRecorder
         val telemetry = serviceStateStore.telemetry.value
         val startedAt = maxOf(System.currentTimeMillis(), telemetry.updatedAt)
         val session =
-            BypassUsageSessionEntity(
-                id = UUID.randomUUID().toString(),
-                startedAt = startedAt,
-                finishedAt = null,
-                updatedAt = startedAt,
-                serviceMode = mode.name,
-                connectionState = AppStatus.Running.name,
-                health = deriveConnectionHealth(telemetry),
-                approachProfileId = approach.profileId,
-                approachProfileName = approach.profileName,
-                strategyId = approach.strategyId,
-                strategyLabel = approach.strategyLabel,
-                strategyJson = approach.strategyJson,
-                networkType = snapshot?.transport ?: "unknown",
-                publicIp = snapshot?.publicIp,
-                txBytes = telemetry.tunnelStats.txBytes,
-                rxBytes = telemetry.tunnelStats.rxBytes,
-                totalErrors = telemetry.proxyTelemetry.totalErrors + telemetry.tunnelTelemetry.totalErrors,
-                routeChanges = telemetry.proxyTelemetry.routeChanges + telemetry.tunnelTelemetry.routeChanges,
-                restartCount = context.service.restartCount,
-                endedReason = null,
-                failureMessage = null,
+            applyRuntimeFieldTelemetry(
+                BypassUsageSessionEntity(
+                    id = UUID.randomUUID().toString(),
+                    startedAt = startedAt,
+                    finishedAt = null,
+                    updatedAt = startedAt,
+                    serviceMode = mode.name,
+                    connectionState = AppStatus.Running.name,
+                    health = deriveConnectionHealth(telemetry),
+                    approachProfileId = approach.profileId,
+                    approachProfileName = approach.profileName,
+                    strategyId = approach.strategyId,
+                    strategyLabel = approach.strategyLabel,
+                    strategyJson = approach.strategyJson,
+                    networkType = snapshot?.transport ?: "unknown",
+                    publicIp = snapshot?.publicIp,
+                    txBytes = telemetry.tunnelStats.txBytes,
+                    rxBytes = telemetry.tunnelStats.rxBytes,
+                    totalErrors = telemetry.proxyTelemetry.totalErrors + telemetry.tunnelTelemetry.totalErrors,
+                    routeChanges = telemetry.proxyTelemetry.routeChanges + telemetry.tunnelTelemetry.routeChanges,
+                    restartCount = context.service.restartCount,
+                    endedReason = null,
+                    failureMessage = null,
+                ),
+                telemetry.runtimeFieldTelemetry,
             )
         activeUsageSession = session
         historyRepository.upsertBypassUsageSession(session)
@@ -264,6 +288,8 @@ class DefaultRuntimeHistoryRecorder
         sender: Sender,
         failureMessage: String,
         timestamp: Long,
+        serviceTelemetry: ServiceTelemetrySnapshot,
+        snapshot: NetworkSnapshotModel?,
     ): String {
         val settings = appSettingsRepository.snapshot()
         val profile =
@@ -272,30 +298,32 @@ class DefaultRuntimeHistoryRecorder
                 ?.let { historyRepository.getProfile(it) }
         val context = diagnosticsContextProvider.captureContext()
         val approach = createStoredApproachSnapshot(json, settings, profile, context)
-        val snapshot = runCatching { networkMetadataProvider.captureSnapshot() }.getOrNull()
         val session =
-            BypassUsageSessionEntity(
-                id = UUID.randomUUID().toString(),
-                startedAt = timestamp,
-                finishedAt = timestamp,
-                updatedAt = timestamp,
-                serviceMode = serviceStateStore.status.value.second.name,
-                connectionState = "Failed",
-                health = "degraded",
-                approachProfileId = approach.profileId,
-                approachProfileName = approach.profileName,
-                strategyId = approach.strategyId,
-                strategyLabel = approach.strategyLabel,
-                strategyJson = approach.strategyJson,
-                networkType = snapshot?.transport ?: "unknown",
-                publicIp = snapshot?.publicIp,
-                txBytes = serviceStateStore.telemetry.value.tunnelStats.txBytes,
-                rxBytes = serviceStateStore.telemetry.value.tunnelStats.rxBytes,
-                totalErrors = 0L,
-                routeChanges = 0L,
-                restartCount = context.service.restartCount,
-                endedReason = "failed:${sender.senderName.lowercase(Locale.US)}",
-                failureMessage = failureMessage,
+            applyRuntimeFieldTelemetry(
+                BypassUsageSessionEntity(
+                    id = UUID.randomUUID().toString(),
+                    startedAt = timestamp,
+                    finishedAt = timestamp,
+                    updatedAt = timestamp,
+                    serviceMode = serviceStateStore.status.value.second.name,
+                    connectionState = "Failed",
+                    health = "degraded",
+                    approachProfileId = approach.profileId,
+                    approachProfileName = approach.profileName,
+                    strategyId = approach.strategyId,
+                    strategyLabel = approach.strategyLabel,
+                    strategyJson = approach.strategyJson,
+                    networkType = snapshot?.transport ?: "unknown",
+                    publicIp = snapshot?.publicIp,
+                    txBytes = serviceTelemetry.tunnelStats.txBytes,
+                    rxBytes = serviceTelemetry.tunnelStats.rxBytes,
+                    totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
+                    routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
+                    restartCount = context.service.restartCount,
+                    endedReason = "failed:${sender.senderName.lowercase(Locale.US)}",
+                    failureMessage = failureMessage,
+                ),
+                serviceTelemetry.runtimeFieldTelemetry,
             )
         historyRepository.upsertBypassUsageSession(session)
         return session.id
@@ -309,18 +337,21 @@ class DefaultRuntimeHistoryRecorder
     ) {
         val current = activeUsageSession ?: return
         val updated =
-            current.copy(
-                updatedAt = maxOf(System.currentTimeMillis(), serviceTelemetry.updatedAt),
-                serviceMode = serviceMode.name,
-                connectionState = serviceTelemetry.status.name,
-                health = deriveConnectionHealth(serviceTelemetry),
-                networkType = networkType,
-                publicIp = publicIp ?: current.publicIp,
-                txBytes = serviceTelemetry.tunnelStats.txBytes,
-                rxBytes = serviceTelemetry.tunnelStats.rxBytes,
-                totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
-                routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
-                restartCount = serviceTelemetry.restartCount,
+            applyRuntimeFieldTelemetry(
+                current.copy(
+                    updatedAt = maxOf(System.currentTimeMillis(), serviceTelemetry.updatedAt),
+                    serviceMode = serviceMode.name,
+                    connectionState = serviceTelemetry.status.name,
+                    health = deriveConnectionHealth(serviceTelemetry),
+                    networkType = networkType,
+                    publicIp = publicIp ?: current.publicIp,
+                    txBytes = serviceTelemetry.tunnelStats.txBytes,
+                    rxBytes = serviceTelemetry.tunnelStats.rxBytes,
+                    totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
+                    routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
+                    restartCount = serviceTelemetry.restartCount,
+                ),
+                serviceTelemetry.runtimeFieldTelemetry,
             )
         activeUsageSession = updated
         historyRepository.upsertBypassUsageSession(updated)
@@ -330,33 +361,36 @@ class DefaultRuntimeHistoryRecorder
         val current = activeUsageSession ?: return
         val finalizedAt = maxOf(System.currentTimeMillis(), serviceTelemetry.updatedAt)
         val finishedSession =
-            current.copy(
-                finishedAt = finalizedAt,
-                updatedAt = finalizedAt,
-                connectionState =
-                    if (current.failureMessage.isNullOrBlank()) {
-                        "Stopped"
-                    } else {
-                        "Failed"
-                    },
-                health =
-                    if (current.failureMessage.isNullOrBlank()) {
-                        current.health
-                    } else {
-                        "degraded"
-                    },
-                txBytes = serviceTelemetry.tunnelStats.txBytes,
-                rxBytes = serviceTelemetry.tunnelStats.rxBytes,
-                totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
-                routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
-                restartCount = serviceTelemetry.restartCount,
-                endedReason =
-                    current.endedReason
-                        ?: serviceTelemetry.lastFailureSender
-                            ?.senderName
-                            ?.lowercase(Locale.US)
-                            ?.let { "failed:$it" }
-                        ?: "stopped",
+            applyRuntimeFieldTelemetry(
+                current.copy(
+                    finishedAt = finalizedAt,
+                    updatedAt = finalizedAt,
+                    connectionState =
+                        if (current.failureMessage.isNullOrBlank()) {
+                            "Stopped"
+                        } else {
+                            "Failed"
+                        },
+                    health =
+                        if (current.failureMessage.isNullOrBlank()) {
+                            current.health
+                        } else {
+                            "degraded"
+                        },
+                    txBytes = serviceTelemetry.tunnelStats.txBytes,
+                    rxBytes = serviceTelemetry.tunnelStats.rxBytes,
+                    totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
+                    routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
+                    restartCount = serviceTelemetry.restartCount,
+                    endedReason =
+                        current.endedReason
+                            ?: serviceTelemetry.lastFailureSender
+                                ?.senderName
+                                ?.lowercase(Locale.US)
+                                ?.let { "failed:$it" }
+                            ?: "stopped",
+                ),
+                serviceTelemetry.runtimeFieldTelemetry,
             )
         maybeFinalizeRememberedPolicySession(finishedSession, finalizedAt)
         historyRepository.upsertBypassUsageSession(
@@ -392,26 +426,11 @@ class DefaultRuntimeHistoryRecorder
             ),
         )
         historyRepository.insertTelemetrySample(
-            TelemetrySampleEntity(
-                id = UUID.randomUUID().toString(),
-                sessionId = null,
+            buildTelemetrySampleEntity(
                 connectionSessionId = connectionSessionId,
-                activeMode = serviceStateStore.status.value.second.name,
-                connectionState = serviceStateStore.status.value.first.name,
                 networkType = snapshot.transport,
                 publicIp = snapshot.publicIp,
-                resolverId = telemetry.tunnelTelemetry.resolverId,
-                resolverProtocol = telemetry.tunnelTelemetry.resolverProtocol,
-                resolverEndpoint = telemetry.tunnelTelemetry.resolverEndpoint,
-                resolverLatencyMs = telemetry.tunnelTelemetry.resolverLatencyMs,
-                dnsFailuresTotal = telemetry.tunnelTelemetry.dnsFailuresTotal,
-                resolverFallbackActive = telemetry.tunnelTelemetry.resolverFallbackActive,
-                resolverFallbackReason = telemetry.tunnelTelemetry.resolverFallbackReason,
-                networkHandoverClass = telemetry.tunnelTelemetry.networkHandoverClass,
-                txPackets = telemetry.tunnelStats.txPackets,
-                txBytes = telemetry.tunnelStats.txBytes,
-                rxPackets = telemetry.tunnelStats.rxPackets,
-                rxBytes = telemetry.tunnelStats.rxBytes,
+                telemetry = telemetry,
                 createdAt = snapshot.capturedAt,
             ),
         )
@@ -455,6 +474,80 @@ class DefaultRuntimeHistoryRecorder
         trimPersistedEventKeys()
         historyRepository.insertNativeSessionEvent(event)
     }
+
+        private suspend fun persistTerminalTelemetrySample(
+            connectionSessionId: String,
+            snapshot: NetworkSnapshotModel?,
+            telemetry: ServiceTelemetrySnapshot,
+            createdAt: Long,
+        ) {
+            val networkType = snapshot?.transport ?: activeUsageSession?.networkType ?: "unknown"
+            val publicIp = snapshot?.publicIp ?: activeUsageSession?.publicIp
+            historyRepository.insertTelemetrySample(
+                buildTelemetrySampleEntity(
+                    connectionSessionId = connectionSessionId,
+                    networkType = networkType,
+                    publicIp = publicIp,
+                    telemetry = telemetry,
+                    createdAt = createdAt,
+                    connectionStateOverride = "Failed",
+                ),
+            )
+        }
+
+        private fun buildTelemetrySampleEntity(
+            connectionSessionId: String,
+            networkType: String,
+            publicIp: String?,
+            telemetry: ServiceTelemetrySnapshot,
+            createdAt: Long,
+            connectionStateOverride: String? = null,
+        ): TelemetrySampleEntity =
+            TelemetrySampleEntity(
+                id = UUID.randomUUID().toString(),
+                sessionId = null,
+                connectionSessionId = connectionSessionId,
+                activeMode = telemetry.mode?.name ?: serviceStateStore.status.value.second.name,
+                connectionState = connectionStateOverride ?: telemetry.status.name,
+                networkType = networkType,
+                publicIp = publicIp,
+                failureClass = telemetry.runtimeFieldTelemetry.failureClass?.wireValue,
+                telemetryNetworkFingerprintHash = telemetry.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
+                winningTcpStrategyFamily = telemetry.runtimeFieldTelemetry.winningTcpStrategyFamily,
+                winningQuicStrategyFamily = telemetry.runtimeFieldTelemetry.winningQuicStrategyFamily,
+                proxyRttBand = telemetry.runtimeFieldTelemetry.proxyRttBand.wireValue,
+                resolverRttBand = telemetry.runtimeFieldTelemetry.resolverRttBand.wireValue,
+                proxyRouteRetryCount = telemetry.runtimeFieldTelemetry.proxyRouteRetryCount,
+                tunnelRecoveryRetryCount = telemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
+                resolverId = telemetry.tunnelTelemetry.resolverId,
+                resolverProtocol = telemetry.tunnelTelemetry.resolverProtocol,
+                resolverEndpoint = telemetry.tunnelTelemetry.resolverEndpoint,
+                resolverLatencyMs = telemetry.tunnelTelemetry.resolverLatencyMs,
+                dnsFailuresTotal = telemetry.tunnelTelemetry.dnsFailuresTotal,
+                resolverFallbackActive = telemetry.tunnelTelemetry.resolverFallbackActive,
+                resolverFallbackReason = telemetry.tunnelTelemetry.resolverFallbackReason,
+                networkHandoverClass = telemetry.tunnelTelemetry.networkHandoverClass,
+                txPackets = telemetry.tunnelStats.txPackets,
+                txBytes = telemetry.tunnelStats.txBytes,
+                rxPackets = telemetry.tunnelStats.rxPackets,
+                rxBytes = telemetry.tunnelStats.rxBytes,
+                createdAt = createdAt,
+            )
+
+        private fun applyRuntimeFieldTelemetry(
+            session: BypassUsageSessionEntity,
+            runtimeFieldTelemetry: com.poyka.ripdpi.services.RuntimeFieldTelemetry,
+        ): BypassUsageSessionEntity =
+            session.copy(
+                failureClass = runtimeFieldTelemetry.failureClass?.wireValue,
+                telemetryNetworkFingerprintHash = runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
+                winningTcpStrategyFamily = runtimeFieldTelemetry.winningTcpStrategyFamily,
+                winningQuicStrategyFamily = runtimeFieldTelemetry.winningQuicStrategyFamily,
+                proxyRttBand = runtimeFieldTelemetry.proxyRttBand.wireValue,
+                resolverRttBand = runtimeFieldTelemetry.resolverRttBand.wireValue,
+                proxyRouteRetryCount = runtimeFieldTelemetry.proxyRouteRetryCount,
+                tunnelRecoveryRetryCount = runtimeFieldTelemetry.tunnelRecoveryRetryCount,
+            )
 
     private fun trimPersistedEventKeys() {
         while (persistedEventKeys.size > MaxPersistedEventKeys) {

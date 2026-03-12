@@ -12,7 +12,9 @@ import com.poyka.ripdpi.core.testing.faultThrowable
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
@@ -28,6 +30,7 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.services.FailureReason
+import com.poyka.ripdpi.services.NetworkFingerprintProvider
 import com.poyka.ripdpi.services.ResolverOverrideStore
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
@@ -35,6 +38,7 @@ import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.services.TemporaryResolverOverride
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.QuicTarget
+import kotlinx.serialization.builtins.ListSerializer
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
@@ -647,9 +651,122 @@ class DiagnosticsManagerTest {
 
             val persisted = json.decodeFromString(ScanReport.serializer(), history.getScanSession(sessionId)?.reportJson.orEmpty())
             val signature = persisted.strategyProbeReport?.recommendation?.strategySignature
+            val recommendation = persisted.strategyProbeReport?.recommendation
 
             assertTrue(signature?.chainSummary.orEmpty().contains("hostfake(endhost+8", ignoreCase = true))
             assertEquals("realistic_initial", signature?.quicFakeProfile)
+            assertEquals("hostfake", recommendation?.tcpCandidateFamily)
+            assertEquals("quic_burst", recommendation?.quicCandidateFamily)
+            assertTrue(recommendation?.dnsStrategyFamily.orEmpty().startsWith("dns_"))
+            assertTrue(signature?.dnsStrategyLabel?.isNotBlank() == true)
+        }
+
+    @Test
+    fun `automatic probing remembers winning tcp and quic strategy families`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                bridge.autoCompleteOnStart = false
+            }
+            val settings =
+                defaultAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-probing")
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.RAW_PATH)
+            bridgeFactory.bridge.enqueueReport(
+                json.encodeToString(
+                    ScanReport.serializer(),
+                    ScanReport(
+                        sessionId = sessionId,
+                        profileId = "automatic-probing",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        startedAt = 10L,
+                        finishedAt = 20L,
+                        summary = "Recommended families",
+                        results = emptyList(),
+                        strategyProbeReport =
+                            StrategyProbeReport(
+                                suiteId = "quick_v1",
+                                tcpCandidates =
+                                    listOf(
+                                        StrategyProbeCandidateSummary(
+                                            id = "tcp-hostfake",
+                                            label = "TCP hostfake",
+                                            family = "hostfake",
+                                            outcome = "success",
+                                            rationale = "Won TCP",
+                                            succeededTargets = 2,
+                                            totalTargets = 2,
+                                            weightedSuccessScore = 4,
+                                            totalWeight = 4,
+                                            qualityScore = 8,
+                                        ),
+                                    ),
+                                quicCandidates =
+                                    listOf(
+                                        StrategyProbeCandidateSummary(
+                                            id = "quic-burst",
+                                            label = "QUIC burst",
+                                            family = "quic_burst",
+                                            outcome = "success",
+                                            rationale = "Won QUIC",
+                                            succeededTargets = 1,
+                                            totalTargets = 1,
+                                            weightedSuccessScore = 2,
+                                            totalWeight = 2,
+                                            qualityScore = 4,
+                                        ),
+                                    ),
+                                recommendation =
+                                    StrategyProbeRecommendation(
+                                        tcpCandidateId = "tcp-hostfake",
+                                        tcpCandidateLabel = "TCP hostfake",
+                                        quicCandidateId = "quic-burst",
+                                        quicCandidateLabel = "QUIC burst",
+                                        rationale = "Best pair",
+                                        recommendedProxyConfigJson =
+                                            RipDpiProxyUIPreferences(
+                                                desyncUdp = true,
+                                            ).toNativeConfigJson(),
+                                    ),
+                            ),
+                    ),
+                ),
+            )
+            bridgeFactory.bridge.enqueueProgress(
+                json.encodeToString(
+                    ScanProgress.serializer(),
+                    ScanProgress(
+                        sessionId = sessionId,
+                        phase = "finished",
+                        completedSteps = 1,
+                        totalSteps = 1,
+                        message = "done",
+                        isFinished = true,
+                    ),
+                ),
+            )
+
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
+
+            val remembered = history.rememberedPoliciesState.value.single()
+            assertEquals("hostfake", remembered.winningTcpStrategyFamily)
+            assertEquals("quic_burst", remembered.winningQuicStrategyFamily)
         }
 
     @Test
@@ -819,7 +936,13 @@ class DiagnosticsManagerTest {
                                 probeType = "dns",
                                 target = "blocked.example",
                                 outcome = "substituted",
-                                detailJson = "[]",
+                                detailJson =
+                                    json.encodeToString(
+                                        ListSerializer(ProbeDetail.serializer()),
+                                        listOf(
+                                            ProbeDetail("attempts", "baseline:fail|fallback:ok"),
+                                        ),
+                                    ),
                                 createdAt = 30L,
                             ),
                         ),
@@ -859,7 +982,21 @@ class DiagnosticsManagerTest {
             val entries = unzipEntries(archive.absolutePath)
 
             assertEquals("session-selected", archive.sessionId)
-            assertEquals(setOf("summary.txt", "report.json", "logcat.txt", "telemetry.csv", "manifest.json"), entries.keys)
+            assertEquals(
+                setOf(
+                    "summary.txt",
+                    "manifest.json",
+                    "report.json",
+                    "strategy-matrix.json",
+                    "probe-results.csv",
+                    "native-events.csv",
+                    "telemetry.csv",
+                    "network-snapshots.json",
+                    "diagnostic-context.json",
+                    "logcat.txt",
+                ),
+                entries.keys,
+            )
             assertTrue(entries.getValue("summary.txt").contains("selectedSession=session-selected"))
             assertTrue(entries.getValue("summary.txt").contains("publicIp=redacted"))
             assertTrue(entries.getValue("summary.txt").contains("dns=redacted(1)"))
@@ -878,9 +1015,19 @@ class DiagnosticsManagerTest {
             assertTrue(entries.getValue("report.json").contains("\"sessionContexts\": ["))
             assertTrue(entries.getValue("report.json").contains("127.0.0.1:1080"))
             assertTrue(entries.getValue("report.json").contains("RIPDPI Lab"))
+            assertTrue(entries.getValue("strategy-matrix.json").contains("\"sessionId\": \"session-selected\""))
+            assertTrue(entries.getValue("strategy-matrix.json").contains("\"profileId\": \"default\""))
+            assertFalse(entries.getValue("strategy-matrix.json").contains("strategyProbeReport"))
+            assertTrue(entries.getValue("probe-results.csv").contains("\"session-selected\",\"dns\",\"blocked.example\",\"substituted\""))
+            assertTrue(entries.getValue("probe-results.csv").contains("probeRetryCount"))
+            assertTrue(entries.getValue("probe-results.csv").contains("\"1\""))
+            assertTrue(entries.getValue("native-events.csv").contains("\"global\""))
+            assertTrue(entries.getValue("network-snapshots.json").contains("\"latestPassiveSnapshot\""))
+            assertTrue(entries.getValue("diagnostic-context.json").contains("\"latestPassiveContext\""))
             assertEquals(logcatSnapshot.content, entries.getValue("logcat.txt"))
             assertTrue(entries.getValue("telemetry.csv").contains("198.51.100.8"))
             assertTrue(entries.getValue("manifest.json").contains("\"includedSessionId\": \"session-selected\""))
+            assertTrue(entries.getValue("manifest.json").contains("\"includedFiles\": ["))
             assertTrue(entries.getValue("manifest.json").contains("\"privacyMode\": \"split_output\""))
             assertTrue(entries.getValue("manifest.json").contains("\"publicIp\": \"redacted\""))
             assertTrue(entries.getValue("manifest.json").contains("\"contextSnapshotCount\": 1"))
@@ -1789,6 +1936,23 @@ private class FakeNetworkMetadataProvider : NetworkMetadataProvider {
         )
 }
 
+private class FakeNetworkFingerprintProvider : NetworkFingerprintProvider {
+    override fun capture(): NetworkFingerprint =
+        NetworkFingerprint(
+            transport = "wifi",
+            networkValidated = true,
+            captivePortalDetected = false,
+            privateDnsMode = "system",
+            dnsServers = listOf("1.1.1.1"),
+            wifi =
+                WifiNetworkIdentityTuple(
+                    ssid = "ripdpi-lab",
+                    bssid = "aa:bb:cc:dd:ee:ff",
+                    gateway = "192.0.2.1",
+                ),
+        )
+}
+
 private class FakeDiagnosticsContextProvider : DiagnosticsContextProvider {
     override suspend fun captureContext(): DiagnosticContextModel = captureContextForTest()
 
@@ -2235,6 +2399,14 @@ private fun sample(
         connectionState = "Running",
         networkType = "wifi",
         publicIp = publicIp,
+        failureClass = "dns_interference",
+        telemetryNetworkFingerprintHash = "v1:samplehash",
+        winningTcpStrategyFamily = "hostfake",
+        winningQuicStrategyFamily = "quic_burst",
+        proxyRttBand = "50_99",
+        resolverRttBand = "lt50",
+        proxyRouteRetryCount = 2,
+        tunnelRecoveryRetryCount = 1,
         txPackets = 12,
         txBytes = 2048,
         rxPackets = 18,

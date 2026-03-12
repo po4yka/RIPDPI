@@ -11,6 +11,7 @@ workspace = true
 ciadpi-config = { workspace = true }
 ciadpi-packets = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime = { workspace = true }
 serde = { workspace = true }
