@@ -34,11 +34,17 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
+import com.poyka.ripdpi.activities.AdaptiveSplitPresetCustom
+import com.poyka.ripdpi.activities.AdaptiveSplitPresetManual
 import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
+import com.poyka.ripdpi.data.AdaptiveMarkerEndHost
+import com.poyka.ripdpi.data.AdaptiveMarkerHost
+import com.poyka.ripdpi.data.AdaptiveMarkerSniExt
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
@@ -67,6 +73,8 @@ import com.poyka.ripdpi.data.QuicInitialModeDisabled
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.isValidOffsetExpression
+import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
+import com.poyka.ripdpi.data.formatOffsetExpressionLabel
 import com.poyka.ripdpi.data.formatNumericRange
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.normalizeActivationFilter
@@ -75,9 +83,12 @@ import com.poyka.ripdpi.data.normalizePayloadSizeRange
 import com.poyka.ripdpi.data.normalizeRoundRange
 import com.poyka.ripdpi.data.normalizeStreamBytesRange
 import com.poyka.ripdpi.data.parseStrategyChainDsl
+import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.replaceTlsPreludeTcpChainSteps
+import com.poyka.ripdpi.data.rewritePrimaryTcpMarker
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.data.supportsAdaptiveMarker
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
@@ -168,6 +179,7 @@ private enum class AdvancedTextSetting {
 
 private enum class AdvancedOptionSetting {
     DesyncMethod,
+    AdaptiveSplitPreset,
     TlsPreludeMode,
     HttpFakeProfile,
     FakeTlsBase,
@@ -184,6 +196,11 @@ private enum class ActivationWindowDimension {
     PayloadSize,
     StreamBytes,
 }
+
+private data class AdaptiveSplitPresetUiModel(
+    val value: String,
+    val label: String,
+)
 
 private data class AdvancedNotice(
     val title: String,
@@ -343,6 +360,88 @@ private fun updateGroupActivationFilter(
         setGroupActivationFilterCompat(normalized)
     }
 }
+
+private fun manualSplitMarkerFallback(uiState: SettingsUiState): String =
+    uiState.splitMarker.takeUnless(::isAdaptiveOffsetExpression) ?: DefaultSplitMarker
+
+private fun updatePrimarySplitMarker(
+    viewModel: SettingsViewModel,
+    uiState: SettingsUiState,
+    key: String,
+    marker: String,
+) {
+    val normalized = normalizeOffsetExpression(marker, DefaultSplitMarker)
+    val explicitChains = uiState.settings.tcpChainStepsCount > 0
+    val primaryStep = primaryTcpChainStep(uiState.tcpChainSteps)
+    if (explicitChains && primaryStep != null) {
+        if (!primaryStep.kind.supportsAdaptiveMarker) {
+            return
+        }
+        viewModel.updateSetting(
+            key = key,
+            value = normalized,
+        ) {
+            setStrategyChains(
+                tcpSteps = rewritePrimaryTcpMarker(uiState.tcpChainSteps, normalized),
+                udpSteps = uiState.udpChainSteps,
+            )
+        }
+        return
+    }
+    viewModel.updateSetting(
+        key = key,
+        value = normalized,
+    ) {
+        setSplitMarker(normalized)
+    }
+}
+
+@Composable
+private fun rememberAdaptiveSplitPresetOptions(
+    uiState: SettingsUiState,
+    includeCustom: Boolean = uiState.hasCustomAdaptiveSplitPreset,
+): List<AdaptiveSplitPresetUiModel> =
+    buildList {
+        add(
+            AdaptiveSplitPresetUiModel(
+                value = AdaptiveSplitPresetManual,
+                label = stringResource(R.string.adaptive_split_preset_manual),
+            ),
+        )
+        add(
+            AdaptiveSplitPresetUiModel(
+                value = AdaptiveMarkerBalanced,
+                label = stringResource(R.string.adaptive_split_preset_balanced),
+            ),
+        )
+        add(
+            AdaptiveSplitPresetUiModel(
+                value = AdaptiveMarkerHost,
+                label = stringResource(R.string.adaptive_split_preset_host),
+            ),
+        )
+        add(
+            AdaptiveSplitPresetUiModel(
+                value = AdaptiveMarkerEndHost,
+                label = stringResource(R.string.adaptive_split_preset_endhost),
+            ),
+        )
+        add(
+            AdaptiveSplitPresetUiModel(
+                value = AdaptiveMarkerSniExt,
+                label = stringResource(R.string.adaptive_split_preset_sniext),
+            ),
+        )
+        if (includeCustom) {
+            add(
+                1,
+                AdaptiveSplitPresetUiModel(
+                    value = AdaptiveSplitPresetCustom,
+                    label = stringResource(R.string.adaptive_split_preset_custom),
+                ),
+            )
+        }
+    }
 
 private fun parseOptionalRangeValue(value: String): Long? = value.trim().takeIf { it.isNotEmpty() }?.toLongOrNull()
 
@@ -783,12 +882,12 @@ fun AdvancedSettingsRoute(
 
                 AdvancedTextSetting.SplitMarker -> {
                     val marker = normalizeOffsetExpression(value, DefaultSplitMarker)
-                    viewModel.updateSetting(
+                    updatePrimarySplitMarker(
+                        viewModel = viewModel,
+                        uiState = uiState,
                         key = "splitMarker",
-                        value = marker,
-                    ) {
-                        setSplitMarker(marker)
-                    }
+                        marker = marker,
+                    )
                 }
 
                 AdvancedTextSetting.FakeTtl -> {
@@ -962,6 +1061,27 @@ fun AdvancedSettingsRoute(
                         value = value,
                     ) {
                         setDesyncMethod(value)
+                    }
+                }
+
+                AdvancedOptionSetting.AdaptiveSplitPreset -> {
+                    when (value) {
+                        AdaptiveSplitPresetCustom -> Unit
+                        AdaptiveSplitPresetManual ->
+                            updatePrimarySplitMarker(
+                                viewModel = viewModel,
+                                uiState = uiState,
+                                key = "splitMarker",
+                                marker = manualSplitMarkerFallback(uiState),
+                            )
+
+                        else ->
+                            updatePrimarySplitMarker(
+                                viewModel = viewModel,
+                                uiState = uiState,
+                                key = "splitMarker",
+                                marker = value,
+                            )
                     }
                 }
 
@@ -1165,6 +1285,7 @@ private fun AdvancedSettingsScreen(
             labelArrayRes = R.array.udp_fake_profiles,
             valueArrayRes = R.array.udp_fake_profiles_entries,
         )
+    val adaptiveSplitPresetOptions = rememberAdaptiveSplitPresetOptions(uiState)
     var pendingHostPack by remember { mutableStateOf<HostPackPreset?>(null) }
     var selectedHostPackTargetMode by rememberSaveable { mutableStateOf(defaultHostPackTargetMode(uiState)) }
     var selectedHostPackApplyMode by rememberSaveable { mutableStateOf(HostPackApplyDialogDefaultMode) }
@@ -1410,6 +1531,49 @@ private fun AdvancedSettingsScreen(
                         color = colors.mutedForeground,
                     )
                     HorizontalDivider(color = colors.divider)
+                    AdaptiveSplitProfileCard(
+                        uiState = uiState,
+                        modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+                    )
+                    HorizontalDivider(color = colors.divider)
+                    RipDpiDropdown(
+                        options =
+                            adaptiveSplitPresetOptions.map { option ->
+                                RipDpiDropdownOption(
+                                    value = option.value,
+                                    label = option.label,
+                                )
+                            },
+                        selectedValue = uiState.adaptiveSplitPreset,
+                        onValueSelected = { onOptionSelected(AdvancedOptionSetting.AdaptiveSplitPreset, it) },
+                        label = stringResource(R.string.adaptive_split_selector_title),
+                        helperText = stringResource(R.string.adaptive_split_selector_body),
+                        enabled = visualEditorEnabled && uiState.adaptiveSplitVisualEditorSupported,
+                    )
+                    if (!uiState.hasAdaptiveSplitPreset) {
+                        HorizontalDivider(color = colors.divider)
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.ripdpi_split_marker_setting),
+                            description = stringResource(R.string.config_split_marker_helper),
+                            value = uiState.splitMarker,
+                            placeholder = stringResource(R.string.config_placeholder_split_marker),
+                            enabled = visualEditorEnabled && uiState.adaptiveSplitVisualEditorSupported,
+                            validator = { it.isBlank() || (isValidOffsetExpression(it) && !isAdaptiveOffsetExpression(it)) },
+                            invalidMessage = stringResource(R.string.config_error_invalid_marker),
+                            disabledMessage =
+                                if (uiState.adaptiveSplitVisualEditorSupported) {
+                                    stringResource(R.string.advanced_settings_visual_controls_disabled)
+                                } else {
+                                    stringResource(R.string.adaptive_split_hostfake_disabled)
+                                },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                            setting = AdvancedTextSetting.SplitMarker,
+                            onConfirm = onTextConfirmed,
+                            showDivider = true,
+                        )
+                    } else {
+                        HorizontalDivider(color = colors.divider)
+                    }
                     AdvancedTextSetting(
                         title = stringResource(R.string.config_chain_editor_label),
                         description = stringResource(R.string.config_chain_editor_helper),
@@ -1458,7 +1622,9 @@ private fun AdvancedSettingsScreen(
                                 value = uiState.fakeOffsetMarker,
                                 placeholder = stringResource(R.string.config_placeholder_fake_offset_marker),
                                 enabled = visualEditorEnabled,
-                                validator = { it.isBlank() || isValidOffsetExpression(it) },
+                                validator = {
+                                    it.isBlank() || (isValidOffsetExpression(it) && !isAdaptiveOffsetExpression(it))
+                                },
                                 invalidMessage = stringResource(R.string.config_error_invalid_marker),
                                 disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                                 keyboardOptions =
@@ -2756,6 +2922,12 @@ private data class ActivationWindowStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+private data class AdaptiveSplitStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
 @Composable
 private fun ActivationWindowProfileCard(
     uiState: SettingsUiState,
@@ -2912,6 +3084,144 @@ private fun rememberActivationWindowStatus(uiState: SettingsUiState): Activation
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_default_title),
                 body = stringResource(R.string.activation_window_default_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+    }
+
+@Composable
+private fun AdaptiveSplitProfileCard(
+    uiState: SettingsUiState,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val status = rememberAdaptiveSplitStatus(uiState)
+    val profileSummary =
+        when (uiState.adaptiveSplitPreset) {
+            AdaptiveSplitPresetManual -> stringResource(R.string.adaptive_split_profile_manual)
+            AdaptiveSplitPresetCustom ->
+                stringResource(
+                    R.string.adaptive_split_profile_custom,
+                    formatOffsetExpressionLabel(uiState.splitMarker),
+                )
+            else -> formatOffsetExpressionLabel(uiState.splitMarker)
+        }
+    val targetSummary =
+        if (uiState.settings.tcpChainStepsCount > 0 && primaryTcpChainStep(uiState.tcpChainSteps) != null) {
+            stringResource(R.string.adaptive_split_target_chain_step)
+        } else {
+            stringResource(R.string.adaptive_split_target_legacy)
+        }
+    val scopeSummary =
+        when {
+            uiState.enableCmdSettings -> stringResource(R.string.adaptive_split_scope_cli)
+            !uiState.desyncEnabled -> stringResource(R.string.adaptive_split_scope_disabled)
+            !uiState.adaptiveSplitVisualEditorSupported -> stringResource(R.string.adaptive_split_scope_hostfake)
+            uiState.hasAdaptiveSplitPreset -> stringResource(R.string.adaptive_split_scope_active)
+            else -> stringResource(R.string.adaptive_split_scope_manual)
+        }
+    val badges =
+        buildList {
+            add(
+                (
+                    if (uiState.hasAdaptiveSplitPreset) {
+                        stringResource(R.string.adaptive_split_badge_adaptive)
+                    } else {
+                        stringResource(R.string.adaptive_split_badge_manual)
+                    }
+                ) to
+                    if (uiState.hasAdaptiveSplitPreset) {
+                        SummaryCapsuleTone.Active
+                    } else {
+                        SummaryCapsuleTone.Neutral
+                    },
+            )
+            if (uiState.hasCustomAdaptiveSplitPreset) {
+                add(stringResource(R.string.adaptive_split_badge_custom) to SummaryCapsuleTone.Info)
+            }
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Elevated,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        SummaryCapsuleFlow(items = badges)
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_split_summary_label_profile),
+                value = profileSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_split_summary_label_target),
+                value = targetSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_split_summary_label_scope),
+                value = scopeSummary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun rememberAdaptiveSplitStatus(uiState: SettingsUiState): AdaptiveSplitStatusContent =
+    when {
+        uiState.enableCmdSettings ->
+            AdaptiveSplitStatusContent(
+                label = stringResource(R.string.adaptive_split_cli_title),
+                body = stringResource(R.string.adaptive_split_cli_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        !uiState.adaptiveSplitVisualEditorSupported ->
+            AdaptiveSplitStatusContent(
+                label = stringResource(R.string.adaptive_split_hostfake_title),
+                body = stringResource(R.string.adaptive_split_hostfake_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        !uiState.desyncEnabled && uiState.hasAdaptiveSplitPreset ->
+            AdaptiveSplitStatusContent(
+                label = stringResource(R.string.adaptive_split_saved_title),
+                body = stringResource(R.string.adaptive_split_saved_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        !uiState.desyncEnabled ->
+            AdaptiveSplitStatusContent(
+                label = stringResource(R.string.adaptive_split_off_title),
+                body = stringResource(R.string.adaptive_split_off_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        uiState.isServiceRunning && uiState.hasAdaptiveSplitPreset ->
+            AdaptiveSplitStatusContent(
+                label = stringResource(R.string.adaptive_split_restart_title),
+                body = stringResource(R.string.adaptive_split_restart_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.hasAdaptiveSplitPreset ->
+            AdaptiveSplitStatusContent(
+                label = stringResource(R.string.adaptive_split_ready_title),
+                body = stringResource(R.string.adaptive_split_ready_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        else ->
+            AdaptiveSplitStatusContent(
+                label = stringResource(R.string.adaptive_split_manual_title),
+                body = stringResource(R.string.adaptive_split_manual_body),
                 tone = StatusIndicatorTone.Idle,
             )
     }

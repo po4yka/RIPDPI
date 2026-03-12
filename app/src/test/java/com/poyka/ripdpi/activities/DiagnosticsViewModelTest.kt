@@ -26,6 +26,7 @@ import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.QuicTarget
+import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
@@ -443,6 +444,83 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `resolver recommendation is surfaced in scan state and actions delegate to manager`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = "default",
+                                name = "Default",
+                                source = "bundled",
+                                version = 1,
+                                requestJson = "{}",
+                                updatedAt = 1L,
+                            ),
+                        )
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "resolver-session",
+                                profileId = "default",
+                                pathMode = "IN_PATH",
+                                summary = "DNS override recommended",
+                                reportJson =
+                                    json.encodeToString(
+                                        ScanReport.serializer(),
+                                        scanReport(
+                                            id = "resolver-session",
+                                            profileId = "default",
+                                            pathMode = ScanPathMode.IN_PATH,
+                                            summary = "DNS override recommended",
+                                            probes =
+                                                listOf(
+                                                    com.poyka.ripdpi.diagnostics.ProbeResult(
+                                                        probeType = "dns_integrity",
+                                                        target = "blocked.example",
+                                                        outcome = "dns_substitution",
+                                                    ),
+                                                ),
+                                        ).copy(
+                                            resolverRecommendation =
+                                                ResolverRecommendation(
+                                                    triggerOutcome = "dns_substitution",
+                                                    selectedResolverId = "cloudflare",
+                                                    selectedProtocol = "doh",
+                                                    selectedEndpoint = "https://cloudflare-dns.com/dns-query",
+                                                    selectedBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                                                    rationale = "Encrypted DNS stayed clean while UDP DNS was substituted.",
+                                                    appliedTemporarily = true,
+                                                    persistable = true,
+                                                ),
+                                        ),
+                                    ),
+                            ),
+                        )
+                }
+
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val recommendation = viewModel.uiState.value.scan.resolverRecommendation
+            assertNotNull(recommendation)
+            assertEquals("Switch DNS to Cloudflare", recommendation?.headline)
+            assertTrue(recommendation?.appliedTemporarily == true)
+            assertTrue(recommendation?.persistable == true)
+            assertTrue(recommendation?.fields?.any { it.label == "Protocol" && it.value == "DOH" } == true)
+
+            viewModel.keepResolverRecommendationForSession()
+            viewModel.saveResolverRecommendation()
+            advanceUntilIdle()
+
+            assertEquals("resolver-session", manager.keptResolverRecommendationSessionId)
+            assertEquals("resolver-session", manager.savedResolverRecommendationSessionId)
+            collector.cancel()
+        }
+
+    @Test
     fun `automatic probing promotes recommended candidates to the top of each family`() =
         runTest {
             val manager =
@@ -821,6 +899,50 @@ class DiagnosticsViewModelTest {
             assertTrue(signature.any { it.label == "Activation round" && it.value == "2-4" })
             assertTrue(signature.any { it.label == "Activation payload size" && it.value == "64-512" })
             assertTrue(signature.any { it.label == "Activation stream bytes" && it.value == "0-2047" })
+            collector.cancel()
+        }
+
+    @Test
+    fun `approaches detail humanizes adaptive markers`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-adaptive",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "disabled",
+                            desyncMethod = "split",
+                            chainSummary = "tcp: split(adaptive balanced)",
+                            protocolToggles = listOf("HTTP", "HTTPS"),
+                            tlsRecordSplitEnabled = true,
+                            tlsRecordMarker = "auto(sniext)",
+                            splitMarker = "auto(balanced)",
+                            routeGroup = "13",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-adaptive")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(signature.any { it.label == "Chain" && it.value.contains("adaptive balanced") })
+            assertTrue(signature.any { it.label == "TLS record marker" && it.value == "adaptive TLS SNI extension" })
+            assertTrue(signature.any { it.label == "Split marker" && it.value == "adaptive balanced" })
             collector.cancel()
         }
 
@@ -1459,6 +1581,8 @@ private class FakeDiagnosticsManager(
     var initializeCalls = 0
     var lastArchiveSessionId: String? = null
     var lastActiveProfileId: String? = null
+    var keptResolverRecommendationSessionId: String? = null
+    var savedResolverRecommendationSessionId: String? = null
     var strategySignatureOverride: BypassStrategySignature? = null
 
     override val activeScanProgress: StateFlow<ScanProgress?> = _progressState.asStateFlow()
@@ -1541,6 +1665,14 @@ private class FakeDiagnosticsManager(
             schemaVersion = 2,
             privacyMode = "split_output",
         )
+    }
+
+    override suspend fun keepResolverRecommendationForSession(sessionId: String) {
+        keptResolverRecommendationSessionId = sessionId
+    }
+
+    override suspend fun saveResolverRecommendation(sessionId: String) {
+        savedResolverRecommendationSessionId = sessionId
     }
 }
 

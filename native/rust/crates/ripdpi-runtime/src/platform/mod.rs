@@ -2,6 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
+use ciadpi_desync::TcpSegmentHint;
 use socket2::{Domain, Protocol, Socket, Type};
 
 #[cfg(target_os = "linux")]
@@ -109,4 +110,14 @@ pub fn wait_tcp_stage(stream: &TcpStream, wait_send: bool, await_interval: Durat
 #[cfg(not(target_os = "linux"))]
 pub fn wait_tcp_stage(_stream: &TcpStream, _wait_send: bool, _await_interval: Duration) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(target_os = "linux")]
+pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>> {
+    linux::tcp_segment_hint(stream)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn tcp_segment_hint(_stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>> {
+    Ok(None)
 }

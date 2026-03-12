@@ -1,17 +1,16 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
+import com.poyka.ripdpi.data.AdaptiveMarkerMethod
+import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
+import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.NumericRangeModel
+import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
-import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
-import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
-import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -20,6 +19,9 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.jsonObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
 
 class RipDpiProxyPreferencesTest {
     @Test
@@ -286,6 +288,27 @@ class RipDpiProxyPreferencesTest {
 
         assertEquals(original.groupActivationFilter, decoded?.groupActivationFilter)
         assertEquals(original.tcpChainSteps.first().activationFilter, decoded?.tcpChainSteps?.first()?.activationFilter)
+    }
+
+    @Test
+    fun decodeUiPreferencesRoundTripsAdaptiveMarkersUnchanged() {
+        val original =
+            RipDpiProxyUIPreferences(
+                splitMarker = AdaptiveMarkerBalanced,
+                tcpChainSteps =
+                    listOf(
+                        TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                        TcpChainStepModel(TcpChainStepKind.Split, AdaptiveMarkerMethod),
+                    ),
+            )
+
+        val payload = original.toNativeConfigJson().parseJsonObject()
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals(AdaptiveMarkerBalanced, payload.string("splitMarker"))
+        assertEquals(AdaptiveMarkerMethod, payload.array("tcpChainSteps")[1].jsonObject.string("marker"))
+        assertEquals(AdaptiveMarkerBalanced, decoded?.splitMarker)
+        assertEquals(AdaptiveMarkerMethod, decoded?.tcpChainSteps?.get(1)?.marker)
     }
 }
 

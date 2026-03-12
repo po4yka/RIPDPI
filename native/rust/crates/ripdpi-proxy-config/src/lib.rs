@@ -370,6 +370,11 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         for step in &payload.tcp_chain_steps {
             let kind = parse_tcp_chain_step_kind(&step.kind)?;
             let offset = parse_offset_expr_field(Some(step.marker.as_str()), || "0".to_string(), "tcpChainSteps")?;
+            if kind == TcpChainStepKind::HostFake && offset.base.is_adaptive() {
+                return Err(ProxyConfigError::InvalidConfig(
+                    "Adaptive markers are not supported for tcpChainSteps kind=hostfake".to_string(),
+                ));
+            }
             let midhost_offset = step
                 .midhost_marker
                 .as_deref()
@@ -378,6 +383,11 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 .map(ciadpi_config::parse_offset_expr)
                 .transpose()
                 .map_err(|_| ProxyConfigError::InvalidConfig("Invalid tcpChainSteps midhostMarker".to_string()))?;
+            if kind == TcpChainStepKind::HostFake && midhost_offset.is_some_and(|value| value.base.is_adaptive()) {
+                return Err(ProxyConfigError::InvalidConfig(
+                    "Adaptive markers are not supported for tcpChainSteps midhostMarker".to_string(),
+                ));
+            }
             let fake_host_template = step
                 .fake_host_template
                 .as_deref()
@@ -472,11 +482,17 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
 
     if has_fake_step {
         let fake_tls_sni_mode = normalize_fake_tls_sni_mode(&payload.fake_tls_sni_mode);
-        group.fake_offset = Some(parse_offset_expr_field(
+        let fake_offset = parse_offset_expr_field(
             payload.fake_offset_marker.as_deref(),
             || payload.fake_offset.to_string(),
             "fakeOffsetMarker",
-        )?);
+        )?;
+        if fake_offset.base.is_adaptive() {
+            return Err(ProxyConfigError::InvalidConfig(
+                "Adaptive markers are not supported for fakeOffsetMarker".to_string(),
+            ));
+        }
+        group.fake_offset = Some(fake_offset);
         if payload.fake_tls_use_original {
             group.fake_mod |= FM_ORIG;
         }
@@ -754,5 +770,54 @@ mod tests {
         let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("invalid http profile");
 
         assert!(err.to_string().contains("httpFakeProfile"));
+    }
+
+    #[test]
+    fn adaptive_hostfake_marker_is_rejected() {
+        let mut ui = minimal_ui();
+        ui.tcp_chain_steps.push(ProxyUiTcpChainStep {
+            kind: "hostfake".to_string(),
+            marker: "auto(host)".to_string(),
+            midhost_marker: None,
+            fake_host_template: None,
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            activation_filter: ProxyUiActivationFilter::default(),
+        });
+
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("adaptive hostfake marker");
+
+        assert!(err.to_string().contains("hostfake"));
+    }
+
+    #[test]
+    fn adaptive_hostfake_midhost_marker_is_rejected() {
+        let mut ui = minimal_ui();
+        ui.tcp_chain_steps.push(ProxyUiTcpChainStep {
+            kind: "hostfake".to_string(),
+            marker: "endhost+8".to_string(),
+            midhost_marker: Some("auto(midsld)".to_string()),
+            fake_host_template: None,
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            activation_filter: ProxyUiActivationFilter::default(),
+        });
+
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("adaptive hostfake midhost");
+
+        assert!(err.to_string().contains("midhostMarker"));
+    }
+
+    #[test]
+    fn adaptive_fake_offset_marker_is_rejected() {
+        let mut ui = minimal_ui();
+        ui.desync_method = "fake".to_string();
+        ui.fake_offset_marker = Some("auto(host)".to_string());
+
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("adaptive fake offset");
+
+        assert!(err.to_string().contains("fakeOffsetMarker"));
     }
 }

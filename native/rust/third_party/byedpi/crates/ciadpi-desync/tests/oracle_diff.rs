@@ -50,6 +50,7 @@ fn tcp_context(payload: &[u8]) -> ActivationContext {
         stream_start: 0,
         stream_end: payload.len().saturating_sub(1) as i64,
         transport: ActivationTransport::Tcp,
+        tcp_segment_hint: None,
     }
 }
 
@@ -60,6 +61,7 @@ fn udp_context(payload: &[u8]) -> ActivationContext {
         stream_start: 0,
         stream_end: payload.len().saturating_sub(1) as i64,
         transport: ActivationTransport::Udp,
+        tcp_segment_hint: None,
     }
 }
 

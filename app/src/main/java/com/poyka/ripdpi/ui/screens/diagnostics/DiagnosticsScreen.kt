@@ -63,6 +63,7 @@ import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsNetworkSnapshotUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
@@ -149,6 +150,8 @@ fun DiagnosticsRoute(
         onRunRawScan = viewModel::startRawScan,
         onRunInPathScan = viewModel::startInPathScan,
         onCancelScan = viewModel::cancelScan,
+        onKeepResolverRecommendation = viewModel::keepResolverRecommendationForSession,
+        onSaveResolverRecommendation = viewModel::saveResolverRecommendation,
         onSelectSession = viewModel::selectSession,
         onDismissSessionDetail = viewModel::dismissSessionDetail,
         onSelectApproachMode = viewModel::selectApproachMode,
@@ -184,6 +187,8 @@ fun DiagnosticsScreen(
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
+    onKeepResolverRecommendation: (String?) -> Unit,
+    onSaveResolverRecommendation: (String?) -> Unit,
     onSelectSession: (String) -> Unit,
     onDismissSessionDetail: () -> Unit,
     onSelectApproachMode: (DiagnosticsApproachMode) -> Unit,
@@ -269,6 +274,8 @@ fun DiagnosticsScreen(
                                 onRunRawScan = onRunRawScan,
                                 onRunInPathScan = onRunInPathScan,
                                 onCancelScan = onCancelScan,
+                                onKeepResolverRecommendation = onKeepResolverRecommendation,
+                                onSaveResolverRecommendation = onSaveResolverRecommendation,
                                 onSelectProbe = onSelectProbe,
                             )
 
@@ -653,6 +660,8 @@ private fun ScanSection(
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
+    onKeepResolverRecommendation: (String?) -> Unit,
+    onSaveResolverRecommendation: (String?) -> Unit,
     onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -741,6 +750,15 @@ private fun ScanSection(
                 SessionRow(session = session, onClick = {})
             }
         }
+        uiState.scan.resolverRecommendation?.let { recommendation ->
+            item {
+                ResolverRecommendationCard(
+                    recommendation = recommendation,
+                    onKeepForSession = { onKeepResolverRecommendation(uiState.scan.latestSession?.id) },
+                    onSaveAsSetting = { onSaveResolverRecommendation(uiState.scan.latestSession?.id) },
+                )
+            }
+        }
         uiState.scan.strategyProbeReport?.let { report ->
             item {
                 StrategyProbeReportCard(report = report)
@@ -787,6 +805,56 @@ private fun DiagnosticsProfileCard(
         selected = selected,
         onClick = onClick,
     )
+}
+
+@Composable
+private fun ResolverRecommendationCard(
+    recommendation: DiagnosticsResolverRecommendationUiModel,
+    onKeepForSession: () -> Unit,
+    onSaveAsSetting: () -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+        StatusIndicator(
+            label = if (recommendation.appliedTemporarily) "Temporary DNS override active" else "Encrypted DNS recommended",
+            tone = if (recommendation.appliedTemporarily) StatusIndicatorTone.Active else StatusIndicatorTone.Warning,
+        )
+        Text(
+            text = recommendation.headline,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Text(
+            text = recommendation.rationale,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        recommendation.fields.forEach { field ->
+            SettingsRow(
+                title = field.label,
+                value = field.value,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            RipDpiButton(
+                text = "Keep for this session",
+                onClick = onKeepForSession,
+                variant = RipDpiButtonVariant.Secondary,
+                modifier = Modifier.weight(1f),
+            )
+            if (recommendation.persistable) {
+                RipDpiButton(
+                    text = "Save as DNS setting",
+                    onClick = onSaveAsSetting,
+                    variant = RipDpiButtonVariant.Primary,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
 }
 
 @Composable
