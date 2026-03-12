@@ -26,7 +26,9 @@ use tracing::{debug, error, info, warn};
 use hs5t_config::Config;
 use hs5t_dns_cache::DnsCache;
 use hs5t_session::{Auth, TargetAddr, TcpSession, UdpSession};
-use ripdpi_dns_resolver::{DohEndpoint, DohResolver, DohTransport};
+use ripdpi_dns_resolver::{
+    EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
+};
 
 use crate::classify::classify_ip_packet;
 use crate::{ActiveSessions, IpClass, SessionEntry, Stats, TunDevice};
@@ -253,33 +255,81 @@ fn parse_dns_cache(config: &Config, dns_cache: Option<DnsCache>) -> io::Result<O
     Ok(Some(DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, cache_size)))
 }
 
-fn build_doh_resolver(config: &Config) -> io::Result<Option<DohResolver>> {
+fn parse_encrypted_dns_protocol(value: &str) -> Option<EncryptedDnsProtocol> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "dot" => Some(EncryptedDnsProtocol::Dot),
+        "dnscrypt" => Some(EncryptedDnsProtocol::DnsCrypt),
+        "doh" => Some(EncryptedDnsProtocol::Doh),
+        _ => None,
+    }
+}
+
+fn parse_url_host(value: &str) -> Option<String> {
+    let (_, rest) = value.split_once("://")?;
+    let authority = rest.split('/').next()?;
+    let host = authority
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .split(':')
+        .next()
+        .unwrap_or_default()
+        .trim();
+    (!host.is_empty()).then(|| host.to_string())
+}
+
+fn build_encrypted_dns_resolver(config: &Config) -> io::Result<Option<EncryptedDnsResolver>> {
     let Some(mapdns) = &config.mapdns else {
         return Ok(None);
     };
-    let Some(doh_url) = &mapdns.doh_url else {
+
+    let protocol = mapdns
+        .encrypted_dns_protocol
+        .as_deref()
+        .and_then(parse_encrypted_dns_protocol)
+        .or_else(|| mapdns.doh_url.as_deref().map(|_| EncryptedDnsProtocol::Doh));
+    let Some(protocol) = protocol else {
         return Ok(None);
     };
 
-    let bootstrap_ips = mapdns
-        .doh_bootstrap_ips
+    let bootstrap_values =
+        if mapdns.encrypted_dns_bootstrap_ips.is_empty() {
+            &mapdns.doh_bootstrap_ips
+        } else {
+            &mapdns.encrypted_dns_bootstrap_ips
+        };
+    let bootstrap_ips = bootstrap_values
         .iter()
         .map(|value| {
             IpAddr::from_str(value).map_err(|err| {
                 io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    format!("invalid mapdns.doh_bootstrap_ips entry '{value}': {err}"),
+                    format!("invalid encrypted DNS bootstrap entry '{value}': {err}"),
                 )
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    let resolver = DohResolver::with_timeout(
-        DohEndpoint {
-            url: doh_url.clone(),
+    let doh_url = mapdns
+        .encrypted_dns_doh_url
+        .clone()
+        .or_else(|| mapdns.doh_url.clone());
+    let host = mapdns
+        .encrypted_dns_host
+        .clone()
+        .unwrap_or_else(|| doh_url.as_deref().and_then(parse_url_host).unwrap_or_default());
+    let resolver = EncryptedDnsResolver::with_timeout(
+        EncryptedDnsEndpoint {
+            protocol,
+            resolver_id: mapdns.resolver_id.clone(),
+            host,
+            port: mapdns.encrypted_dns_port.unwrap_or_default(),
+            tls_server_name: mapdns.encrypted_dns_tls_server_name.clone(),
             bootstrap_ips,
+            doh_url,
+            dnscrypt_provider_name: mapdns.encrypted_dns_dnscrypt_provider_name.clone(),
+            dnscrypt_public_key: mapdns.encrypted_dns_dnscrypt_public_key.clone(),
         },
-        DohTransport::Direct,
+        EncryptedDnsTransport::Direct,
         Duration::from_millis(u64::from(mapdns.dns_query_timeout_ms)),
     )
     .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))?;
@@ -484,7 +534,7 @@ pub async fn io_loop_task(
 
     // Channel for UDP session tasks to return raw IP packets to write to TUN.
     let (udp_tx, mut udp_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(256);
-    let (mut dns_req_tx, mut dns_resp_rx) = if let Some(resolver) = build_doh_resolver(&config)? {
+    let (mut dns_req_tx, mut dns_resp_rx) = if let Some(resolver) = build_encrypted_dns_resolver(&config)? {
         let (req_tx, mut req_rx) = tokio::sync::mpsc::channel::<DnsRequest>(DNS_QUEUE_CAPACITY);
         let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(DNS_QUEUE_CAPACITY);
         let worker_cancel = cancel.child_token();
@@ -608,7 +658,7 @@ pub async fn io_loop_task(
                             }
                         }
                         (Some(mapdns), Some(cache), None) => {
-                            stats.record_dns_failure(host.as_deref(), "DoH resolver is not configured");
+                            stats.record_dns_failure(host.as_deref(), "encrypted DNS resolver is not configured");
                             match cache.servfail_response(&payload) {
                                 Ok(servfail) => {
                                     let raw = build_udp_response(mapdns.intercept_addr, src, &servfail);

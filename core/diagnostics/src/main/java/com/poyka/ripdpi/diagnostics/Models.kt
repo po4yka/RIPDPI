@@ -27,7 +27,16 @@ data class DomainTarget(
 data class DnsTarget(
     val domain: String,
     val udpServer: String? = null,
+    val encryptedProtocol: String? = null,
+    val encryptedHost: String? = null,
+    val encryptedPort: Int? = null,
+    val encryptedTlsServerName: String? = null,
+    val encryptedBootstrapIps: List<String> = emptyList(),
+    val encryptedDohUrl: String? = null,
+    val encryptedDnscryptProviderName: String? = null,
+    val encryptedDnscryptPublicKey: String? = null,
     val dohUrl: String? = null,
+    val dohBootstrapIps: List<String> = emptyList(),
     val expectedIps: List<String> = emptyList(),
 )
 

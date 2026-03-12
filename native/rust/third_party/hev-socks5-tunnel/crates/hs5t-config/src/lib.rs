@@ -137,6 +137,16 @@ pub struct MapDnsConfig {
     #[serde(default = "default_mapdns_cache_size")]
     pub cache_size: u32,
     pub resolver_id: Option<String>,
+    pub encrypted_dns_protocol: Option<String>,
+    pub encrypted_dns_host: Option<String>,
+    pub encrypted_dns_port: Option<u16>,
+    pub encrypted_dns_tls_server_name: Option<String>,
+    #[serde(default)]
+    pub encrypted_dns_bootstrap_ips: Vec<String>,
+    pub encrypted_dns_doh_url: Option<String>,
+    pub encrypted_dns_dnscrypt_provider_name: Option<String>,
+    pub encrypted_dns_dnscrypt_public_key: Option<String>,
+    // Deprecated compatibility fields kept for older snapshots and tests.
     pub doh_url: Option<String>,
     #[serde(default)]
     pub doh_bootstrap_ips: Vec<String>,

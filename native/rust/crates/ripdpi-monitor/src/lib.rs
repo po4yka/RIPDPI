@@ -9,10 +9,12 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
 use ciadpi_config::RuntimeConfig;
-use ripdpi_dns_resolver::{extract_ip_answers, DohEndpoint, DohResolver, DohTransport};
+use ripdpi_dns_resolver::{
+    extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
+};
 use ripdpi_proxy_config::{
-    parse_proxy_config_json, runtime_config_from_ui, ProxyConfigPayload, ProxyUiConfig, ProxyUiTcpChainStep,
-    ProxyUiUdpChainStep,
+    parse_proxy_config_json, runtime_config_from_ui, ProxyConfigPayload, ProxyUiActivationFilter, ProxyUiConfig,
+    ProxyUiTcpChainStep, ProxyUiUdpChainStep,
 };
 use ripdpi_runtime::{process, runtime};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
@@ -26,6 +28,8 @@ use serde::{Deserialize, Serialize};
 const DEFAULT_DNS_SERVER: &str = "1.1.1.1:53";
 const DEFAULT_DOH_URL: &str = "https://cloudflare-dns.com/dns-query";
 const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["1.1.1.1", "1.0.0.1"];
+const DEFAULT_DOH_HOST: &str = "cloudflare-dns.com";
+const DEFAULT_DOH_PORT: u16 = 443;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(4);
 const IO_TIMEOUT: Duration = Duration::from_millis(1200);
 const MAX_HTTP_BYTES: usize = 64 * 1024;
@@ -67,6 +71,22 @@ pub struct DnsTarget {
     pub domain: String,
     #[serde(default)]
     pub udp_server: Option<String>,
+    #[serde(default)]
+    pub encrypted_protocol: Option<String>,
+    #[serde(default)]
+    pub encrypted_host: Option<String>,
+    #[serde(default)]
+    pub encrypted_port: Option<u16>,
+    #[serde(default)]
+    pub encrypted_tls_server_name: Option<String>,
+    #[serde(default)]
+    pub encrypted_bootstrap_ips: Vec<String>,
+    #[serde(default)]
+    pub encrypted_doh_url: Option<String>,
+    #[serde(default)]
+    pub encrypted_dnscrypt_provider_name: Option<String>,
+    #[serde(default)]
+    pub encrypted_dnscrypt_public_key: Option<String>,
     #[serde(default)]
     pub doh_url: Option<String>,
     #[serde(default)]
@@ -1107,6 +1127,7 @@ fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: bool) -> Pr
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
+            activation_filter: ProxyUiActivationFilter::default(),
         },
     ];
     if with_split {
@@ -1121,7 +1142,11 @@ fn build_quic_candidate(base_tcp: &ProxyUiConfig, enabled: bool, profile: &str) 
     config.desync_udp = enabled;
     config.udp_fake_count = if enabled { 4 } else { 0 };
     config.udp_chain_steps = if enabled {
-        vec![ProxyUiUdpChainStep { kind: "fake_burst".to_string(), count: 4 }]
+        vec![ProxyUiUdpChainStep {
+            kind: "fake_burst".to_string(),
+            count: 4,
+            activation_filter: ProxyUiActivationFilter::default(),
+        }]
     } else {
         Vec::new()
     };
@@ -1139,6 +1164,7 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
+        activation_filter: ProxyUiActivationFilter::default(),
     }
 }
 
@@ -1451,20 +1477,99 @@ fn transport_for_request(request: &ScanRequest) -> TransportConfig {
     }
 }
 
+fn encrypted_dns_protocol(value: Option<&str>) -> EncryptedDnsProtocol {
+    match value.unwrap_or_default().trim().to_ascii_lowercase().as_str() {
+        "dot" => EncryptedDnsProtocol::Dot,
+        "dnscrypt" => EncryptedDnsProtocol::DnsCrypt,
+        _ => EncryptedDnsProtocol::Doh,
+    }
+}
+
+fn parse_url_host(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    let (_, remainder) = trimmed.split_once("://")?;
+    let authority = remainder.split('/').next()?;
+    if authority.is_empty() {
+        return None;
+    }
+    let host_port = authority.rsplit_once('@').map_or(authority, |(_, suffix)| suffix);
+    if host_port.starts_with('[') {
+        let end = host_port.find(']')?;
+        return Some(host_port[1..end].to_string());
+    }
+    host_port.split(':').next().map(ToOwned::to_owned)
+}
+
+fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(EncryptedDnsEndpoint, Vec<String>), String> {
+    let protocol = encrypted_dns_protocol(target.encrypted_protocol.as_deref());
+    let bootstrap_strings =
+        if target.encrypted_bootstrap_ips.is_empty() {
+            if target.doh_bootstrap_ips.is_empty() && target.doh_url.is_none() {
+                DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect::<Vec<_>>()
+            } else {
+                target.doh_bootstrap_ips.clone()
+            }
+        } else {
+            target.encrypted_bootstrap_ips.clone()
+        };
+    let doh_url = target
+        .encrypted_doh_url
+        .clone()
+        .or_else(|| target.doh_url.clone())
+        .or_else(|| (protocol == EncryptedDnsProtocol::Doh).then(|| DEFAULT_DOH_URL.to_string()));
+    let host =
+        target
+            .encrypted_host
+            .clone()
+            .or_else(|| doh_url.as_deref().and_then(parse_url_host))
+            .unwrap_or_else(|| {
+                if protocol == EncryptedDnsProtocol::Doh {
+                    DEFAULT_DOH_HOST.to_string()
+                } else {
+                    String::new()
+                }
+            });
+    let port = target.encrypted_port.unwrap_or(match protocol {
+        EncryptedDnsProtocol::Doh => DEFAULT_DOH_PORT,
+        EncryptedDnsProtocol::Dot => 853,
+        EncryptedDnsProtocol::DnsCrypt => 443,
+    });
+
+    Ok((
+        EncryptedDnsEndpoint {
+            protocol,
+            resolver_id: Some(protocol.as_str().to_string()),
+            host,
+            port,
+            tls_server_name: target.encrypted_tls_server_name.clone(),
+            bootstrap_ips: parse_bootstrap_ips(&bootstrap_strings)?,
+            doh_url,
+            dnscrypt_provider_name: target.encrypted_dnscrypt_provider_name.clone(),
+            dnscrypt_public_key: target.encrypted_dnscrypt_public_key.clone(),
+        },
+        bootstrap_strings,
+    ))
+}
+
 fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
     let udp_server = target.udp_server.clone().unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());
-    let doh_url = target.doh_url.clone().unwrap_or_else(|| DEFAULT_DOH_URL.to_string());
-    let doh_bootstrap_ips = if target.doh_bootstrap_ips.is_empty() && target.doh_url.is_none() {
-        DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect::<Vec<_>>()
-    } else {
-        target.doh_bootstrap_ips.clone()
+    let (encrypted_endpoint, encrypted_bootstrap_ips) = match encrypted_dns_endpoint_for_target(target) {
+        Ok(value) => value,
+        Err(err) => {
+            return ProbeResult {
+                probe_type: "dns_integrity".to_string(),
+                target: target.domain.clone(),
+                outcome: "dns_unavailable".to_string(),
+                details: vec![ProbeDetail { key: "encryptedDnsError".to_string(), value: err }],
+            };
+        }
     };
     let udp_result = resolve_via_udp(&target.domain, &udp_server, transport);
-    let doh_result = resolve_via_doh(&target.domain, &doh_url, &doh_bootstrap_ips, transport);
+    let encrypted_result = resolve_via_encrypted_dns(&target.domain, encrypted_endpoint.clone(), transport);
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
 
-    let outcome = match (&udp_result, &doh_result) {
-        (Ok(udp_ips), Ok(doh_ips)) if ip_set(udp_ips) == ip_set(doh_ips) => {
+    let outcome = match (&udp_result, &encrypted_result) {
+        (Ok(udp_ips), Ok(encrypted_ips)) if ip_set(udp_ips) == ip_set(encrypted_ips) => {
             if !expected.is_empty() && ip_set(udp_ips) != expected {
                 "dns_expected_mismatch".to_string()
             } else {
@@ -1472,7 +1577,7 @@ fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &Sc
             }
         }
         (Ok(_), Ok(_)) => "dns_substitution".to_string(),
-        (Ok(_), Err(_)) => "doh_blocked".to_string(),
+        (Ok(_), Err(_)) => "encrypted_dns_blocked".to_string(),
         (Err(_), Ok(_)) => {
             if matches!(path_mode, ScanPathMode::InPath) {
                 "udp_skipped_or_blocked".to_string()
@@ -1490,9 +1595,19 @@ fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &Sc
         details: vec![
             ProbeDetail { key: "udpServer".to_string(), value: udp_server },
             ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(&udp_result) },
-            ProbeDetail { key: "dohUrl".to_string(), value: doh_url },
-            ProbeDetail { key: "dohBootstrapIps".to_string(), value: doh_bootstrap_ips.join("|") },
-            ProbeDetail { key: "dohAddresses".to_string(), value: format_result_set(&doh_result) },
+            ProbeDetail {
+                key: "encryptedProtocol".to_string(),
+                value: encrypted_endpoint.protocol.as_str().to_string(),
+            },
+            ProbeDetail {
+                key: "encryptedEndpoint".to_string(),
+                value: encrypted_endpoint
+                    .doh_url
+                    .clone()
+                    .unwrap_or_else(|| format!("{}:{}", encrypted_endpoint.host, encrypted_endpoint.port)),
+            },
+            ProbeDetail { key: "encryptedBootstrapIps".to_string(), value: encrypted_bootstrap_ips.join("|") },
+            ProbeDetail { key: "encryptedAddresses".to_string(), value: format_result_set(&encrypted_result) },
             ProbeDetail {
                 key: "expected".to_string(),
                 value: if expected.is_empty() {
@@ -1842,24 +1957,19 @@ fn resolve_via_udp(domain: &str, server: &str, transport: &TransportConfig) -> R
     parse_dns_response(&response, query_id)
 }
 
-fn resolve_via_doh(
+fn resolve_via_encrypted_dns(
     domain: &str,
-    doh_url: &str,
-    doh_bootstrap_ips: &[String],
+    endpoint: EncryptedDnsEndpoint,
     transport: &TransportConfig,
 ) -> Result<Vec<String>, String> {
-    let endpoint = DohEndpoint {
-        url: doh_url.to_string(),
-        bootstrap_ips: parse_bootstrap_ips(doh_bootstrap_ips)?,
-    };
     let transport = match transport {
-        TransportConfig::Direct => DohTransport::Direct,
-        TransportConfig::Socks5 { host, port } => DohTransport::Socks5 {
+        TransportConfig::Direct => EncryptedDnsTransport::Direct,
+        TransportConfig::Socks5 { host, port } => EncryptedDnsTransport::Socks5 {
             host: host.clone(),
             port: *port,
         },
     };
-    let resolver = DohResolver::new(endpoint, transport).map_err(|err| err.to_string())?;
+    let resolver = EncryptedDnsResolver::new(endpoint, transport).map_err(|err| err.to_string())?;
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
     let packet = build_dns_query(domain, query_id)?;
     let response = resolver.exchange_blocking(&packet).map_err(|err| err.to_string())?;
@@ -2598,6 +2708,7 @@ mod tests {
             desync_method: "disorder".to_string(),
             split_marker: Some("host+1".to_string()),
             tcp_chain_steps: Vec::new(),
+            group_activation_filter: ProxyUiActivationFilter::default(),
             split_position: 0,
             split_at_host: false,
             fake_ttl: 8,
@@ -2674,6 +2785,14 @@ mod tests {
         let target = DnsTarget {
             domain: "blocked.example".to_string(),
             udp_server: Some(udp.addr()),
+            encrypted_protocol: None,
+            encrypted_host: None,
+            encrypted_port: None,
+            encrypted_tls_server_name: None,
+            encrypted_bootstrap_ips: Vec::new(),
+            encrypted_doh_url: None,
+            encrypted_dnscrypt_provider_name: None,
+            encrypted_dnscrypt_public_key: None,
             doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
             doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
             expected_ips: vec![],
@@ -2689,13 +2808,21 @@ mod tests {
         let target = DnsTarget {
             domain: "blocked.example".to_string(),
             udp_server: Some(udp.addr()),
+            encrypted_protocol: None,
+            encrypted_host: None,
+            encrypted_port: None,
+            encrypted_tls_server_name: None,
+            encrypted_bootstrap_ips: Vec::new(),
+            encrypted_doh_url: None,
+            encrypted_dnscrypt_provider_name: None,
+            encrypted_dnscrypt_public_key: None,
             doh_url: Some("http://127.0.0.1:9/dns-query".to_string()),
             doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
             expected_ips: vec![],
         };
 
         let result = run_dns_probe(&target, &TransportConfig::Direct, &ScanPathMode::RawPath);
-        assert_eq!(result.outcome, "doh_blocked");
+        assert_eq!(result.outcome, "encrypted_dns_blocked");
     }
 
     #[test]
@@ -2706,6 +2833,14 @@ mod tests {
         let target = DnsTarget {
             domain: "blocked.example".to_string(),
             udp_server: Some(udp.addr()),
+            encrypted_protocol: None,
+            encrypted_host: None,
+            encrypted_port: None,
+            encrypted_tls_server_name: None,
+            encrypted_bootstrap_ips: Vec::new(),
+            encrypted_doh_url: None,
+            encrypted_dnscrypt_provider_name: None,
+            encrypted_dnscrypt_public_key: None,
             doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
             doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
             expected_ips: vec![],

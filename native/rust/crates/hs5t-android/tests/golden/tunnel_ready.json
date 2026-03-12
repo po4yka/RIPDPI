@@ -15,6 +15,7 @@
   "listenerAddress": null,
   "nativeEvents": [],
   "resolverId": null,
+  "resolverProtocol": null,
   "routeChanges": 0,
   "source": "tunnel",
   "state": "idle",

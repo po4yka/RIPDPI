@@ -8,12 +8,18 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+crypto_box = { workspace = true }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
 hickory-proto = { workspace = true }
 once_cell = { workspace = true }
+rand = { workspace = true }
 reqwest = { workspace = true }
+rustls = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 url = { workspace = true }
+webpki-roots = { workspace = true }
 
 [dev-dependencies]
 local-network-fixture = { workspace = true }
