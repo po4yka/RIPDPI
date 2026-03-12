@@ -61,6 +61,7 @@ import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.primaryTcpChainStep
+import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.core.clearHostAutolearnStore
 import com.poyka.ripdpi.core.hasHostAutolearnStore
@@ -230,6 +231,9 @@ data class SettingsUiState(
     val canResetFakePayloadLibrary: Boolean
         get() = !enableCmdSettings && hasCustomFakePayloadProfiles
 
+    val canResetActivationWindow: Boolean
+        get() = !enableCmdSettings && hasCustomActivationWindow
+
     val hasCustomFakePayloadProfiles: Boolean
         get() =
             httpFakeProfile != FakePayloadProfileCompatDefault ||
@@ -319,6 +323,20 @@ data class SettingsUiState(
 
     val hasCustomActivationWindow: Boolean
         get() = formatActivationFilterSummary(groupActivationFilter).isNotBlank()
+
+    val stepActivationFilterCount: Int
+        get() =
+            tcpChainSteps.count { !it.activationFilter.isEmpty } +
+                udpChainSteps.count { !it.activationFilter.isEmpty }
+
+    val hasStepActivationFilters: Boolean
+        get() = stepActivationFilterCount > 0
+
+    val activationWindowControlsRelevant: Boolean
+        get() = desyncEnabled
+
+    val showActivationWindowProfile: Boolean
+        get() = enableCmdSettings || activationWindowControlsRelevant || hasCustomActivationWindow || hasStepActivationFilters
 
     val activationWindowSummary: String
         get() = formatActivationFilterSummary(groupActivationFilter).ifBlank { "Always active" }
@@ -948,6 +966,29 @@ class SettingsViewModel
                     SettingsEffect.Notice(
                         title = "Fake payload presets reset",
                         message = "RIPDPI will use the compatibility fake payload defaults for HTTP, TLS, and UDP on the next start.",
+                        tone = SettingsNoticeTone.Info,
+                    )
+            }
+            _effects.send(effect)
+        }
+    }
+
+    fun resetActivationWindow() {
+        viewModelScope.launch {
+            appSettingsRepository.update {
+                setGroupActivationFilterCompat(ActivationFilterModel())
+            }
+            val effect =
+                if (serviceStateStore.status.value.first == AppStatus.Running) {
+                    SettingsEffect.Notice(
+                        title = "Activation window reset for next start",
+                        message = "The active desync group is back to always-on gating. Restart RIPDPI to remove the saved activation window from the running session.",
+                        tone = SettingsNoticeTone.Info,
+                    )
+                } else {
+                    SettingsEffect.Notice(
+                        title = "Activation window reset",
+                        message = "RIPDPI will stop gating the active desync group by round, payload size, or stream-byte position on the next start.",
                         tone = SettingsNoticeTone.Info,
                     )
                 }
