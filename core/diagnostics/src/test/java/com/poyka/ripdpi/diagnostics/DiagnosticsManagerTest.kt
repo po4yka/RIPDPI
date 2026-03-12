@@ -348,7 +348,7 @@ class DiagnosticsManagerTest {
         }
 
     @Test
-    fun `strategy probe reports do not persist resolver recommendations`() =
+    fun `strategy probe reports preserve resolver recommendations when dns tampering is detected`() =
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
@@ -421,7 +421,7 @@ class DiagnosticsManagerTest {
             waitForCompletion(history, sessionId, minNativeEvents = 0)
 
             val persisted = json.decodeFromString(ScanReport.serializer(), history.getScanSession(sessionId)?.reportJson.orEmpty())
-            assertEquals(null, persisted.resolverRecommendation)
+            assertEquals("cloudflare", persisted.resolverRecommendation?.selectedResolverId)
             assertEquals("quick_v1", persisted.strategyProbeReport?.suiteId)
         }
 
@@ -767,6 +767,121 @@ class DiagnosticsManagerTest {
             val remembered = history.rememberedPoliciesState.value.single()
             assertEquals("hostfake", remembered.winningTcpStrategyFamily)
             assertEquals("quic_burst", remembered.winningQuicStrategyFamily)
+        }
+
+    @Test
+    fun `automatic audit does not remember winning strategy families`() =
+        runTest {
+            val profileId = "automatic-audit"
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    seedStrategyProbeProfile(
+                        json = json,
+                        profileId = profileId,
+                        name = "Automatic audit",
+                        suiteId = "full_matrix_v1",
+                    )
+                }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                bridge.autoCompleteOnStart = false
+            }
+            val settings =
+                defaultAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId(profileId)
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.RAW_PATH)
+            bridgeFactory.bridge.enqueueReport(
+                json.encodeToString(
+                    ScanReport.serializer(),
+                    ScanReport(
+                        sessionId = sessionId,
+                        profileId = profileId,
+                        pathMode = ScanPathMode.RAW_PATH,
+                        startedAt = 10L,
+                        finishedAt = 20L,
+                        summary = "Audit completed",
+                        results = emptyList(),
+                        strategyProbeReport =
+                            StrategyProbeReport(
+                                suiteId = "full_matrix_v1",
+                                tcpCandidates =
+                                    listOf(
+                                        StrategyProbeCandidateSummary(
+                                            id = "tlsrec-hostfake",
+                                            label = "TLS record + hostfake",
+                                            family = "hostfake",
+                                            outcome = "success",
+                                            rationale = "Recovered HTTPS",
+                                            succeededTargets = 3,
+                                            totalTargets = 3,
+                                            weightedSuccessScore = 6,
+                                            totalWeight = 6,
+                                            qualityScore = 10,
+                                        ),
+                                    ),
+                                quicCandidates =
+                                    listOf(
+                                        StrategyProbeCandidateSummary(
+                                            id = "quic-realistic",
+                                            label = "QUIC realistic burst",
+                                            family = "quic_burst",
+                                            outcome = "success",
+                                            rationale = "Recovered QUIC",
+                                            succeededTargets = 1,
+                                            totalTargets = 1,
+                                            weightedSuccessScore = 2,
+                                            totalWeight = 2,
+                                            qualityScore = 4,
+                                        ),
+                                    ),
+                                recommendation =
+                                    StrategyProbeRecommendation(
+                                        tcpCandidateId = "tlsrec-hostfake",
+                                        tcpCandidateLabel = "TLS record + hostfake",
+                                        quicCandidateId = "quic-realistic",
+                                        quicCandidateLabel = "QUIC realistic burst",
+                                        rationale = "Best combined recovery",
+                                        recommendedProxyConfigJson =
+                                            RipDpiProxyUIPreferences(
+                                                desyncUdp = true,
+                                            ).toNativeConfigJson(),
+                                    ),
+                            ),
+                    ),
+                ),
+            )
+            bridgeFactory.bridge.enqueueProgress(
+                json.encodeToString(
+                    ScanProgress.serializer(),
+                    ScanProgress(
+                        sessionId = sessionId,
+                        phase = "finished",
+                        completedSteps = 1,
+                        totalSteps = 1,
+                        message = "done",
+                        isFinished = true,
+                    ),
+                ),
+            )
+
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
+
+            assertTrue(history.rememberedPoliciesState.value.isEmpty())
         }
 
     @Test
@@ -1870,25 +1985,30 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
             )
     }
 
-    fun seedStrategyProbeProfile(json: Json) {
+    fun seedStrategyProbeProfile(
+        json: Json,
+        profileId: String = "automatic-probing",
+        name: String = "Automatic probing",
+        suiteId: String = "quick_v1",
+    ) {
         profilesState.value =
             listOf(
                 DiagnosticProfileEntity(
-                    id = "automatic-probing",
-                    name = "Automatic probing",
+                    id = profileId,
+                    name = name,
                     source = "bundled",
                     version = 1,
                     requestJson =
                         json.encodeToString(
                             ScanRequest.serializer(),
                             ScanRequest(
-                                profileId = "automatic-probing",
-                                displayName = "Automatic probing",
+                                profileId = profileId,
+                                displayName = name,
                                 pathMode = ScanPathMode.RAW_PATH,
                                 kind = ScanKind.STRATEGY_PROBE,
                                 domainTargets = listOf(DomainTarget(host = "example.org")),
                                 quicTargets = listOf(QuicTarget(host = "example.org")),
-                                strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
+                                strategyProbe = StrategyProbeRequest(suiteId = suiteId),
                             ),
                         ),
                     updatedAt = 1L,

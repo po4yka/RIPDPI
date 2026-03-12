@@ -977,8 +977,8 @@ class DefaultDiagnosticsManager
             telemetry.firstOrNull()?.let { sample ->
                 appendLine("networkType=${sample.networkType}")
                 appendLine("failureClass=${sample.failureClass ?: "none"}")
-                appendLine("lastFailureClass=${sample.lastFailureClass ?: \"none\"}")
-                appendLine("lastFallbackAction=${sample.lastFallbackAction ?: \"none\"}")
+                appendLine("lastFailureClass=${sample.lastFailureClass ?: "none"}")
+                appendLine("lastFallbackAction=${sample.lastFallbackAction ?: "none"}")
                 appendLine("winningStrategyFamily=${sample.winningStrategyFamily() ?: "none"}")
                 appendLine("telemetryNetworkFingerprintHash=${sample.telemetryNetworkFingerprintHash ?: "none"}")
                 appendLine("rttBand=${sample.rttBand()}")
@@ -1171,12 +1171,7 @@ class DefaultDiagnosticsManager
                         ),
                 )
             }
-        val resolverRecommendation =
-            if (report.strategyProbeReport == null) {
-                computeResolverRecommendation(report, settings)
-            } else {
-                null
-            }
+        val resolverRecommendation = computeResolverRecommendation(report, settings)
         return report.copy(
             strategyProbeReport = strategyProbe,
             resolverRecommendation = resolverRecommendation,
@@ -1223,6 +1218,7 @@ class DefaultDiagnosticsManager
             val protocol: String,
             val endpoint: String,
             val bootstrapIps: List<String>,
+            val healthyCount: Int,
             val matchCount: Int,
             val averageLatencyMs: Long?,
         )
@@ -1237,27 +1233,36 @@ class DefaultDiagnosticsManager
                 }.groupBy({ it.first }, { it.second })
                 .mapNotNull { (providerId, entries) ->
                     val provider = builtInProviders[providerId] ?: return@mapNotNull null
-                    val matchEntries = entries.filter { it.first.outcome == "dns_match" }
-                    if (matchEntries.isEmpty()) {
+                    val healthyEntries =
+                        entries.filter { (result, details) ->
+                            result.outcome == "dns_match" ||
+                                result.outcome == "dns_substitution" ||
+                                details["encryptedAddresses"].orEmpty().isNotBlank() &&
+                                !details["encryptedAddresses"].orEmpty().startsWith("error:")
+                        }
+                    if (healthyEntries.isEmpty()) {
                         return@mapNotNull null
                     }
+                    val matchEntries = healthyEntries.filter { it.first.outcome == "dns_match" }
+                    val selectedDetails = (matchEntries.firstOrNull() ?: healthyEntries.first()).second
                     Candidate(
                         providerId = providerId,
-                        protocol = matchEntries.first().second["encryptedProtocol"].orEmpty().ifBlank {
+                        protocol = selectedDetails["encryptedProtocol"].orEmpty().ifBlank {
                             provider.protocol
                         },
-                        endpoint = matchEntries.first().second["encryptedEndpoint"].orEmpty().ifBlank {
+                        endpoint = selectedDetails["encryptedEndpoint"].orEmpty().ifBlank {
                             provider.dohUrl ?: "${provider.host}:${provider.port}"
                         },
                         bootstrapIps =
-                            matchEntries.first().second["encryptedBootstrapIps"]
+                            selectedDetails["encryptedBootstrapIps"]
                                 ?.split('|')
                                 ?.filter { it.isNotBlank() }
                                 ?.takeIf { it.isNotEmpty() }
                                 ?: provider.bootstrapIps,
+                        healthyCount = healthyEntries.size,
                         matchCount = matchEntries.size,
                         averageLatencyMs =
-                            matchEntries
+                            (matchEntries.ifEmpty { healthyEntries })
                                 .mapNotNull { (_, details) -> details["encryptedLatencyMs"]?.toLongOrNull() }
                                 .takeIf { it.isNotEmpty() }
                                 ?.average()
@@ -1272,10 +1277,12 @@ class DefaultDiagnosticsManager
         val selected =
             candidates.minWithOrNull(
                 compareBy<Candidate>(
+                    { if (it.matchCount > 0) 0 else 1 },
                     { -it.matchCount },
                     { it.averageLatencyMs ?: Long.MAX_VALUE },
                     { if (it.providerId == currentProvider) 0 else 1 },
                     { if (it.providerId == DnsProviderCloudflare) 0 else 1 },
+                    { -it.healthyCount },
                 ),
             ) ?: return null
 
@@ -1287,8 +1294,13 @@ class DefaultDiagnosticsManager
             selectedEndpoint = selected.endpoint,
             selectedBootstrapIps = selected.bootstrapIps,
             rationale =
-                "UDP DNS showed $triggerOutcome while ${provider.displayName} returned matching encrypted answers " +
-                    "on ${selected.matchCount} probe(s) with ${selected.averageLatencyMs ?: 0} ms average latency.",
+                if (selected.matchCount > 0) {
+                    "UDP DNS showed $triggerOutcome while ${provider.displayName} returned matching encrypted answers " +
+                        "on ${selected.matchCount} probe(s) with ${selected.averageLatencyMs ?: 0} ms average latency."
+                } else {
+                    "System DNS showed $triggerOutcome while ${provider.displayName} returned usable encrypted answers " +
+                        "on ${selected.healthyCount} probe(s) with ${selected.averageLatencyMs ?: 0} ms average latency."
+                },
             appliedTemporarily = false,
             persistable = true,
         )
@@ -1709,6 +1721,8 @@ internal data class DiagnosticsArchiveContextPayload(
 private fun TelemetrySampleEntity.toArchiveTelemetrySummary(): ArchiveTelemetrySummary =
     ArchiveTelemetrySummary(
         failureClass = failureClass,
+        lastFailureClass = lastFailureClass,
+        lastFallbackAction = lastFallbackAction,
         telemetryNetworkFingerprintHash = telemetryNetworkFingerprintHash,
         winningTcpStrategyFamily = winningTcpStrategyFamily,
         winningQuicStrategyFamily = winningQuicStrategyFamily,
@@ -1721,8 +1735,6 @@ private fun TelemetrySampleEntity.toArchiveTelemetrySummary(): ArchiveTelemetryS
         retryCount = retryCount(),
     )
 
-        lastFailureClass = lastFailureClass,
-        lastFallbackAction = lastFallbackAction,
 @Serializable
 internal data class DiagnosticsArchiveManifest(
     val fileName: String,
@@ -1751,6 +1763,8 @@ internal data class DiagnosticsArchiveManifest(
 @Serializable
 internal data class ArchiveTelemetrySummary(
     val failureClass: String? = null,
+    val lastFailureClass: String? = null,
+    val lastFallbackAction: String? = null,
     val telemetryNetworkFingerprintHash: String? = null,
     val winningTcpStrategyFamily: String? = null,
     val winningQuicStrategyFamily: String? = null,
@@ -1763,8 +1777,6 @@ internal data class ArchiveTelemetrySummary(
     val retryCount: Long = 0,
 )
 
-    val lastFailureClass: String? = null,
-    val lastFallbackAction: String? = null,
 @Serializable
 internal data class RedactedNetworkSummary(
     val transport: String,

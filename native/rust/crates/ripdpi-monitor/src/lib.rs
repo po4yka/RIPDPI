@@ -3941,6 +3941,91 @@ mod tests {
     }
 
     #[test]
+    fn http_blockpage_reorders_tcp_candidates_toward_parser_families() {
+        let ordered = reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::HttpBlockpage));
+        let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
+
+        assert_eq!(ids, vec!["baseline_current", "parser_only", "parser_unixeol", "split_host"]);
+    }
+
+    #[test]
+    fn tcp_reset_reorders_tcp_candidates_toward_split_families() {
+        let ordered = reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::TcpReset));
+        let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
+
+        assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake_split"]);
+    }
+
+    #[test]
+    fn silent_drop_reorders_tcp_candidates_toward_fake_tls_families() {
+        let ordered = reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::SilentDrop));
+        let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
+
+        assert_eq!(ids, vec!["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake", "tlsrec_hostfake_split"]);
+    }
+
+    #[test]
+    fn tls_alert_reorders_tcp_candidates_away_from_fake_heavy_paths() {
+        let ordered = reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::TlsAlert));
+        let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
+
+        assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake"]);
+    }
+
+    #[test]
+    fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
+        let doh = HttpTextServer::start_dns_message("198.51.100.11");
+        let runtime_context =
+            ProxyRuntimeContext {
+                encrypted_dns: Some(ProxyEncryptedDnsContext {
+                    resolver_id: Some("doh".to_string()),
+                    protocol: "doh".to_string(),
+                    host: "127.0.0.1".to_string(),
+                    port: doh.port(),
+                    tls_server_name: None,
+                    bootstrap_ips: vec!["127.0.0.1".to_string()],
+                    doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
+                    dnscrypt_provider_name: None,
+                    dnscrypt_public_key: None,
+                }),
+            };
+
+        let baseline =
+            detect_strategy_probe_dns_tampering(
+                &[DomainTarget {
+                    host: "blocked.example".to_string(),
+                    connect_ip: Some("203.0.113.10".to_string()),
+                    https_port: Some(443),
+                    http_port: Some(80),
+                    http_path: "/".to_string(),
+                }],
+                Some(&runtime_context),
+            )
+                .expect("dns tampering");
+
+        assert_eq!(baseline.failure.class, FailureClass::DnsTampering);
+        assert_eq!(baseline.failure.action, FailureAction::ResolverOverrideRecommended);
+        assert_eq!(baseline.results.first().map(|result| result.outcome.as_str()), Some("dns_substitution"));
+    }
+
+    #[test]
+    fn quic_probe_failures_are_surfaced_as_quic_breakage() {
+        let failure =
+            classify_strategy_probe_baseline_results(&[
+                ProbeResult {
+                    probe_type: "strategy_quic".to_string(),
+                    target: "Current QUIC strategy".to_string(),
+                    outcome: "quic_empty".to_string(),
+                    details: vec![ProbeDetail { key: "error".to_string(), value: "none".to_string() }],
+                },
+            ])
+                .expect("quic failure");
+
+        assert_eq!(failure.class, FailureClass::QuicBreakage);
+        assert_eq!(failure.action, FailureAction::DiagnosticsOnly);
+    }
+
+    #[test]
     fn aggressive_parser_candidates_enable_only_expected_evasion() {
         let candidates = build_tcp_candidates(&minimal_ui_config());
         let unixeol = candidates.iter().find(|candidate| candidate.id == "parser_unixeol").expect("unixeol candidate");
