@@ -134,9 +134,8 @@ internal fun SettingsScreen(
                                 R.string.settings_connectivity_dns_body_proxy
                             },
                         ),
-                    value = uiState.dnsIp,
+                    value = uiState.dnsSummary,
                     onClick = onOpenDnsSettings,
-                    monospaceValue = true,
                     showDivider = true,
                 )
                 SettingsRow(

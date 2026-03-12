@@ -399,6 +399,10 @@ fn build_tunnel_config(manifest: &FixtureManifest, tun_name: &str) -> Config {
             network: Some(MAPDNS_IP.to_string()),
             netmask: Some("255.255.255.255".to_string()),
             cache_size: 128,
+            resolver_id: Some("fixture".to_string()),
+            doh_url: Some(format!("http://fixture.test:{}/dns-query", manifest.dns_http_port)),
+            doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
+            dns_query_timeout_ms: 2_000,
         }),
         misc: MiscConfig { max_session_count: 128, ..MiscConfig::default() },
     }

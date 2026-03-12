@@ -122,6 +122,9 @@ fn default_mapdns_port() -> u16 {
 fn default_mapdns_cache_size() -> u32 {
     10000
 }
+fn default_dns_query_timeout_ms() -> u32 {
+    4000
+}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -133,6 +136,12 @@ pub struct MapDnsConfig {
     pub netmask: Option<String>,
     #[serde(default = "default_mapdns_cache_size")]
     pub cache_size: u32,
+    pub resolver_id: Option<String>,
+    pub doh_url: Option<String>,
+    #[serde(default)]
+    pub doh_bootstrap_ips: Vec<String>,
+    #[serde(default = "default_dns_query_timeout_ms")]
+    pub dns_query_timeout_ms: u32,
 }
 
 // ── MiscConfig ───────────────────────────────────────────────────────────────

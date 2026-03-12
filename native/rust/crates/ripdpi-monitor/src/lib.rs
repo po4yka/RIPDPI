@@ -9,6 +9,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
 use ciadpi_config::RuntimeConfig;
+use ripdpi_dns_resolver::{extract_ip_answers, DohEndpoint, DohResolver, DohTransport};
 use ripdpi_proxy_config::{
     parse_proxy_config_json, runtime_config_from_ui, ProxyConfigPayload, ProxyUiConfig, ProxyUiTcpChainStep,
     ProxyUiUdpChainStep,
@@ -21,10 +22,10 @@ use rustls::{
     StreamOwned,
 };
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 const DEFAULT_DNS_SERVER: &str = "1.1.1.1:53";
 const DEFAULT_DOH_URL: &str = "https://cloudflare-dns.com/dns-query";
+const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["1.1.1.1", "1.0.0.1"];
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(4);
 const IO_TIMEOUT: Duration = Duration::from_millis(1200);
 const MAX_HTTP_BYTES: usize = 64 * 1024;
@@ -68,6 +69,8 @@ pub struct DnsTarget {
     pub udp_server: Option<String>,
     #[serde(default)]
     pub doh_url: Option<String>,
+    #[serde(default)]
+    pub doh_bootstrap_ips: Vec<String>,
     #[serde(default)]
     pub expected_ips: Vec<String>,
 }
@@ -1451,8 +1454,13 @@ fn transport_for_request(request: &ScanRequest) -> TransportConfig {
 fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
     let udp_server = target.udp_server.clone().unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());
     let doh_url = target.doh_url.clone().unwrap_or_else(|| DEFAULT_DOH_URL.to_string());
+    let doh_bootstrap_ips = if target.doh_bootstrap_ips.is_empty() && target.doh_url.is_none() {
+        DEFAULT_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect::<Vec<_>>()
+    } else {
+        target.doh_bootstrap_ips.clone()
+    };
     let udp_result = resolve_via_udp(&target.domain, &udp_server, transport);
-    let doh_result = resolve_via_doh(&target.domain, &doh_url, transport);
+    let doh_result = resolve_via_doh(&target.domain, &doh_url, &doh_bootstrap_ips, transport);
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
 
     let outcome = match (&udp_result, &doh_result) {
@@ -1483,6 +1491,7 @@ fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &Sc
             ProbeDetail { key: "udpServer".to_string(), value: udp_server },
             ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(&udp_result) },
             ProbeDetail { key: "dohUrl".to_string(), value: doh_url },
+            ProbeDetail { key: "dohBootstrapIps".to_string(), value: doh_bootstrap_ips.join("|") },
             ProbeDetail { key: "dohAddresses".to_string(), value: format_result_set(&doh_result) },
             ProbeDetail {
                 key: "expected".to_string(),
@@ -1833,36 +1842,35 @@ fn resolve_via_udp(domain: &str, server: &str, transport: &TransportConfig) -> R
     parse_dns_response(&response, query_id)
 }
 
-fn resolve_via_doh(domain: &str, doh_url: &str, transport: &TransportConfig) -> Result<Vec<String>, String> {
-    let url = Url::parse(doh_url).map_err(|err| err.to_string())?;
-    let mut path = url.path().to_string();
-    if path.is_empty() {
-        path.push('/');
-    }
-    if let Some(query) = url.query() {
-        path.push('?');
-        path.push_str(query);
-        path.push('&');
-    } else {
-        path.push('?');
-    }
-    path.push_str(&format!("name={domain}&type=A"));
-    let secure = url.scheme() == "https";
-    let host = url.host_str().ok_or_else(|| "DoH URL missing host".to_string())?.to_string();
-    let port = url.port_or_known_default().ok_or_else(|| "DoH URL missing port".to_string())?;
-    let target = TargetAddress::Host(host.clone());
-    let response = execute_http_request(&target, port, transport, &host, &path, secure)?;
-    let payload: DnsJsonResponse = serde_json::from_slice(&response.body).map_err(|err| err.to_string())?;
-    let mut ips = Vec::new();
-    for answer in payload.answers {
-        if answer.record_type == 1 && answer.data.parse::<IpAddr>().is_ok() {
-            ips.push(answer.data);
-        }
-    }
-    if ips.is_empty() {
-        return Err("doh_empty".to_string());
-    }
-    Ok(ips)
+fn resolve_via_doh(
+    domain: &str,
+    doh_url: &str,
+    doh_bootstrap_ips: &[String],
+    transport: &TransportConfig,
+) -> Result<Vec<String>, String> {
+    let endpoint = DohEndpoint {
+        url: doh_url.to_string(),
+        bootstrap_ips: parse_bootstrap_ips(doh_bootstrap_ips)?,
+    };
+    let transport = match transport {
+        TransportConfig::Direct => DohTransport::Direct,
+        TransportConfig::Socks5 { host, port } => DohTransport::Socks5 {
+            host: host.clone(),
+            port: *port,
+        },
+    };
+    let resolver = DohResolver::new(endpoint, transport).map_err(|err| err.to_string())?;
+    let query_id = ((now_ms() & 0xffff) as u16).max(1);
+    let packet = build_dns_query(domain, query_id)?;
+    let response = resolver.exchange_blocking(&packet).map_err(|err| err.to_string())?;
+    extract_ip_answers(&response).map_err(|err| err.to_string())
+}
+
+fn parse_bootstrap_ips(values: &[String]) -> Result<Vec<IpAddr>, String> {
+    values
+        .iter()
+        .map(|value| value.parse::<IpAddr>().map_err(|err| err.to_string()))
+        .collect()
 }
 
 fn try_http_request(
@@ -2564,19 +2572,6 @@ impl ServerCertVerifier for NoCertificateVerification {
     }
 }
 
-#[derive(Debug, Deserialize)]
-struct DnsJsonResponse {
-    #[serde(rename = "Answer", default)]
-    answers: Vec<DnsJsonAnswer>,
-}
-
-#[derive(Debug, Deserialize)]
-struct DnsJsonAnswer {
-    #[serde(rename = "type")]
-    record_type: u16,
-    data: String,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2675,11 +2670,12 @@ mod tests {
     #[test]
     fn dns_probe_reports_substitution_when_udp_and_doh_differ() {
         let udp = UdpDnsServer::start("203.0.113.10");
-        let doh = HttpTextServer::start_json(r#"{"Answer":[{"type":1,"data":"198.51.100.77"}]}"#);
+        let doh = HttpTextServer::start_dns_message("198.51.100.77");
         let target = DnsTarget {
             domain: "blocked.example".to_string(),
             udp_server: Some(udp.addr()),
             doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
+            doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
             expected_ips: vec![],
         };
 
@@ -2694,6 +2690,7 @@ mod tests {
             domain: "blocked.example".to_string(),
             udp_server: Some(udp.addr()),
             doh_url: Some("http://127.0.0.1:9/dns-query".to_string()),
+            doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
             expected_ips: vec![],
         };
 
@@ -2704,12 +2701,13 @@ mod tests {
     #[test]
     fn dns_probe_reports_match_over_socks5_udp_and_doh() {
         let udp = UdpDnsServer::start("203.0.113.10");
-        let doh = HttpTextServer::start_json(r#"{"Answer":[{"type":1,"data":"203.0.113.10"}]}"#);
+        let doh = HttpTextServer::start_dns_message("203.0.113.10");
         let proxy = Socks5RelayServer::start();
         let target = DnsTarget {
             domain: "blocked.example".to_string(),
             udp_server: Some(udp.addr()),
             doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
+            doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
             expected_ips: vec![],
         };
 
@@ -3279,15 +3277,18 @@ mod tests {
             })
         }
 
-        fn start_json(body: &str) -> Self {
-            let body = body.to_string();
-            Self::start(move |_request| {
-                format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/dns-json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                    body.len(),
-                    body
-                )
-                .into_bytes()
+        fn start_dns_message(answer_ip: &str) -> Self {
+            let answer_ip: Ipv4Addr = answer_ip.parse().expect("valid DoH answer IP");
+            Self::start(move |mut request| {
+                let body = read_http_body(&mut request);
+                let response_body = build_udp_dns_answer(&body, answer_ip).expect("build DNS answer");
+                let headers = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    response_body.len()
+                );
+                let mut response = headers.into_bytes();
+                response.extend_from_slice(&response_body);
+                response
             })
         }
 
@@ -3307,7 +3308,7 @@ mod tests {
                         Ok((mut stream, _)) => {
                             let handler = handler.clone();
                             thread::spawn(move || {
-                                let request = read_until_marker(&mut stream, b"\r\n\r\n");
+                                let request = read_http_request(&mut stream);
                                 let response = handler(request);
                                 let _ = stream.write_all(&response);
                                 let _ = stream.flush();
@@ -3581,6 +3582,50 @@ mod tests {
             }
         }
         buf
+    }
+
+    fn read_http_request(stream: &mut impl Read) -> Vec<u8> {
+        let mut request = read_until_marker(stream, b"\r\n\r\n");
+        let header_len = request
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+            .map(|offset| offset + 4)
+            .unwrap_or(request.len());
+        let header_text = String::from_utf8_lossy(&request[..header_len]).into_owned();
+        let content_length = header_text
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                name.eq_ignore_ascii_case("content-length").then(|| value.trim().parse::<usize>().ok()).flatten()
+            })
+            .unwrap_or(0);
+        let mut body = vec![0u8; content_length];
+        if content_length > 0 {
+            stream.read_exact(&mut body).expect("read http body");
+            request.extend_from_slice(&body);
+        }
+        request
+    }
+
+    fn read_http_body(request: &mut Vec<u8>) -> Vec<u8> {
+        let header_len = request
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+            .map(|offset| offset + 4)
+            .unwrap_or(request.len());
+        let header_text = String::from_utf8_lossy(&request[..header_len]).into_owned();
+        let content_length = header_text
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                name.eq_ignore_ascii_case("content-length").then(|| value.trim().parse::<usize>().ok()).flatten()
+            })
+            .unwrap_or(0);
+        let body = request.split_off(header_len);
+        if body.len() != content_length {
+            panic!("unexpected DoH request body length: expected {content_length}, got {}", body.len());
+        }
+        body
     }
 
     fn build_udp_dns_answer(request: &[u8], answer_ip: Ipv4Addr) -> Result<Vec<u8>, String> {

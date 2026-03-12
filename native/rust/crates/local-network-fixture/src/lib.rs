@@ -612,9 +612,15 @@ fn start_dns_http_server(
     faults: FaultController,
     answer_ip: String,
 ) -> io::Result<JoinHandle<()>> {
-    start_http_server(bind_host, port, stop, move |request, peer, local| {
+    start_http_server(bind_host, port, stop, events.clone(), move |request, peer, local| {
         let path = request.path.clone();
-        let query = request.query_param("name").unwrap_or_else(|| "unknown".to_string());
+        let binary_query =
+            request.method.eq_ignore_ascii_case("POST") && request.path == "/dns-query" && !request.body.is_empty();
+        let query = if binary_query {
+            parse_dns_question_name(&request.body).unwrap_or_else(|| "unknown".to_string())
+        } else {
+            request.query_param("name").unwrap_or_else(|| "unknown".to_string())
+        };
         events.record(event("dns_http", "http", peer, local, &format!("{path}?name={query}"), request.raw.len(), None));
         if let Some(fault) = faults.take_matching(FixtureFaultTarget::DnsHttp, |outcome| {
             matches!(
@@ -634,15 +640,44 @@ fn start_dns_http_server(
             return match fault.outcome {
                 FixtureFaultOutcome::DnsTimeout => {
                     thread::sleep(Duration::from_millis(fault.delay_ms.unwrap_or(1_500)));
-                    HttpResponse::json("{}".to_string())
+                    if binary_query {
+                        HttpResponse::dns_message(Vec::new())
+                    } else {
+                        HttpResponse::json("{}".to_string())
+                    }
                 }
-                FixtureFaultOutcome::DnsNxDomain => HttpResponse::json(r#"{"Status":3,"Answer":[]}"#.to_string()),
-                FixtureFaultOutcome::DnsServFail => HttpResponse::json(r#"{"Status":2,"Answer":[]}"#.to_string()),
+                FixtureFaultOutcome::DnsNxDomain => {
+                    if binary_query {
+                        match build_udp_dns_error_response(&request.body, 3) {
+                            Ok(body) => HttpResponse::dns_message(body),
+                            Err(err) => HttpResponse::bad_request(&err),
+                        }
+                    } else {
+                        HttpResponse::json(r#"{"Status":3,"Answer":[]}"#.to_string())
+                    }
+                }
+                FixtureFaultOutcome::DnsServFail => {
+                    if binary_query {
+                        match build_udp_dns_error_response(&request.body, 2) {
+                            Ok(body) => HttpResponse::dns_message(body),
+                            Err(err) => HttpResponse::bad_request(&err),
+                        }
+                    } else {
+                        HttpResponse::json(r#"{"Status":2,"Answer":[]}"#.to_string())
+                    }
+                }
                 _ => HttpResponse::not_found(),
             };
         }
-        let body = format!(r#"{{"Answer":[{{"type":1,"data":"{answer_ip}"}}]}}"#);
-        HttpResponse::json(body)
+        if binary_query {
+            match build_udp_dns_answer(&request.body, answer_ip.parse().unwrap_or(Ipv4Addr::new(198, 18, 0, 10))) {
+                Ok(body) => HttpResponse::dns_message(body),
+                Err(err) => HttpResponse::bad_request(&err),
+            }
+        } else {
+            let body = format!(r#"{{"Answer":[{{"type":1,"data":"{answer_ip}"}}]}}"#);
+            HttpResponse::json(body)
+        }
     })
 }
 
@@ -654,7 +689,7 @@ fn start_control_server(
     faults: FaultController,
     manifest: FixtureManifest,
 ) -> io::Result<JoinHandle<()>> {
-    start_http_server(bind_host, port, stop, move |request, peer, local| {
+    start_http_server(bind_host, port, stop, events.clone(), move |request, peer, local| {
         match (request.method.as_str(), request.path.as_str()) {
             ("GET", "/health") => HttpResponse::text("ok"),
             ("GET", "/manifest") => {
@@ -699,7 +734,13 @@ fn start_control_server(
     })
 }
 
-fn start_http_server<F>(bind_host: String, port: u16, stop: Arc<AtomicBool>, handler: F) -> io::Result<JoinHandle<()>>
+fn start_http_server<F>(
+    bind_host: String,
+    port: u16,
+    stop: Arc<AtomicBool>,
+    events: EventLog,
+    handler: F,
+) -> io::Result<JoinHandle<()>>
 where
     F: Fn(HttpRequest, SocketAddr, Option<SocketAddr>) -> HttpResponse + Send + Sync + 'static,
 {
@@ -711,12 +752,25 @@ where
             match listener.accept() {
                 Ok((mut stream, peer)) => {
                     let handler = handler.clone();
+                    let events = events.clone();
                     thread::spawn(move || {
                         let local = stream.local_addr().ok();
                         let request = parse_http_request(&mut stream);
-                        let response = request
-                            .map(|request| handler(request, peer, local))
-                            .unwrap_or_else(|_| HttpResponse::not_found());
+                        let response = match request {
+                            Ok(request) => handler(request, peer, local),
+                            Err(err) => {
+                                events.record(event(
+                                    "http_error",
+                                    "http",
+                                    peer,
+                                    local,
+                                    &err.to_string(),
+                                    0,
+                                    None,
+                                ));
+                                HttpResponse::not_found()
+                            }
+                        };
                         let _ = stream.write_all(&response.to_bytes());
                         let _ = stream.flush();
                         let _ = stream.shutdown(Shutdown::Both);
@@ -792,15 +846,42 @@ fn start_socks5_server(
                         let local = stream.local_addr().ok();
                         let _ = stream.set_read_timeout(Some(SOCKS_IO_TIMEOUT));
                         let _ = stream.set_write_timeout(Some(SOCKS_IO_TIMEOUT));
-                        if read_socks_greeting(&mut stream).is_err() {
+                        if let Err(err) = read_socks_greeting(&mut stream) {
+                            events.record(event(
+                                "socks5_error",
+                                "tcp",
+                                peer,
+                                local,
+                                &format!("greeting:{err}"),
+                                0,
+                                None,
+                            ));
                             return;
                         }
-                        if stream.write_all(&[0x05, 0x00]).is_err() {
+                        if let Err(err) = stream.write_all(&[0x05, 0x00]) {
+                            events.record(event(
+                                "socks5_error",
+                                "tcp",
+                                peer,
+                                local,
+                                &format!("greeting_reply:{err}"),
+                                0,
+                                None,
+                            ));
                             return;
                         }
 
                         let mut header = [0u8; 4];
-                        if stream.read_exact(&mut header).is_err() {
+                        if let Err(err) = read_exact_with_retry(&mut stream, &mut header) {
+                            events.record(event(
+                                "socks5_error",
+                                "tcp",
+                                peer,
+                                local,
+                                &format!("header:{err}"),
+                                0,
+                                None,
+                            ));
                             return;
                         }
 
@@ -808,11 +889,31 @@ fn start_socks5_server(
                             0x01 => {
                                 let target = match read_socks_target(&mut stream, header[3]) {
                                     Ok(target) => target,
-                                    Err(_) => return,
+                                    Err(err) => {
+                                        events.record(event(
+                                            "socks5_error",
+                                            "tcp",
+                                            peer,
+                                            local,
+                                            &format!("target:{err}"),
+                                            0,
+                                            None,
+                                        ));
+                                        return;
+                                    }
                                 };
                                 let mapped =
                                     map_target(target, &config).and_then(|target| resolve_socket_addr(&target));
                                 let Some(mapped) = mapped.ok() else {
+                                    events.record(event(
+                                        "socks5_error",
+                                        "tcp",
+                                        peer,
+                                        local,
+                                        "mapped_target_unavailable",
+                                        0,
+                                        None,
+                                    ));
                                     let _ = stream.write_all(&encode_socks_reply_failure());
                                     return;
                                 };
@@ -834,8 +935,7 @@ fn start_socks5_server(
                                 events.record(event("socks5_relay", "tcp", peer, local, &mapped.to_string(), 0, None));
                                 match TcpStream::connect_timeout(&mapped, SOCKS_IO_TIMEOUT) {
                                     Ok(upstream) => {
-                                        let reply_addr = upstream.local_addr().unwrap_or(mapped);
-                                        let _ = stream.write_all(&encode_socks_reply(reply_addr));
+                                        let _ = stream.write_all(&encode_socks_reply(mapped));
                                         relay_bidirectional(stream, upstream);
                                     }
                                     Err(_) => {
@@ -886,10 +986,10 @@ enum SocksTarget {
 
 fn read_socks_greeting(stream: &mut TcpStream) -> io::Result<()> {
     let mut header = [0u8; 2];
-    stream.read_exact(&mut header)?;
+    read_exact_with_retry(stream, &mut header)?;
     let methods_len = header[1] as usize;
     let mut methods = vec![0u8; methods_len];
-    stream.read_exact(&mut methods)?;
+    read_exact_with_retry(stream, &mut methods)?;
     Ok(())
 }
 
@@ -897,17 +997,17 @@ fn consume_socks_addr(stream: &mut TcpStream, atyp: u8) -> io::Result<()> {
     match atyp {
         0x01 => {
             let mut buf = [0u8; 6];
-            stream.read_exact(&mut buf)
+            read_exact_with_retry(stream, &mut buf)
         }
         0x04 => {
             let mut buf = [0u8; 18];
-            stream.read_exact(&mut buf)
+            read_exact_with_retry(stream, &mut buf)
         }
         0x03 => {
             let mut len = [0u8; 1];
-            stream.read_exact(&mut len)?;
+            read_exact_with_retry(stream, &mut len)?;
             let mut buf = vec![0u8; len[0] as usize + 2];
-            stream.read_exact(&mut buf)
+            read_exact_with_retry(stream, &mut buf)
         }
         _ => Err(io::Error::new(ErrorKind::InvalidData, "unsupported atyp")),
     }
@@ -918,28 +1018,49 @@ fn read_socks_target(stream: &mut TcpStream, atyp: u8) -> io::Result<SocksTarget
         0x01 => {
             let mut addr = [0u8; 4];
             let mut port = [0u8; 2];
-            stream.read_exact(&mut addr)?;
-            stream.read_exact(&mut port)?;
+            read_exact_with_retry(stream, &mut addr)?;
+            read_exact_with_retry(stream, &mut port)?;
             Ok(SocksTarget::Socket(SocketAddr::new(IpAddr::V4(Ipv4Addr::from(addr)), u16::from_be_bytes(port))))
         }
         0x03 => {
             let mut len = [0u8; 1];
-            stream.read_exact(&mut len)?;
+            read_exact_with_retry(stream, &mut len)?;
             let mut domain = vec![0u8; len[0] as usize];
             let mut port = [0u8; 2];
-            stream.read_exact(&mut domain)?;
-            stream.read_exact(&mut port)?;
+            read_exact_with_retry(stream, &mut domain)?;
+            read_exact_with_retry(stream, &mut port)?;
             Ok(SocksTarget::Domain(String::from_utf8_lossy(&domain).to_string(), u16::from_be_bytes(port)))
         }
         0x04 => {
             let mut addr = [0u8; 16];
             let mut port = [0u8; 2];
-            stream.read_exact(&mut addr)?;
-            stream.read_exact(&mut port)?;
+            read_exact_with_retry(stream, &mut addr)?;
+            read_exact_with_retry(stream, &mut port)?;
             Ok(SocksTarget::Socket(SocketAddr::new(IpAddr::from(addr), u16::from_be_bytes(port))))
         }
         _ => Err(io::Error::new(ErrorKind::InvalidData, "unsupported atyp")),
     }
+}
+
+fn read_exact_with_retry(stream: &mut TcpStream, mut buf: &mut [u8]) -> io::Result<()> {
+    let deadline = std::time::Instant::now() + SOCKS_IO_TIMEOUT;
+    while !buf.is_empty() {
+        match stream.read(buf) {
+            Ok(0) => return Err(io::Error::new(ErrorKind::UnexpectedEof, "unexpected EOF")),
+            Ok(read) => {
+                let (_, rest) = buf.split_at_mut(read);
+                buf = rest;
+            }
+            Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
+                if std::time::Instant::now() >= deadline {
+                    return Err(err);
+                }
+                thread::sleep(IO_POLL_DELAY);
+            }
+            Err(err) => return Err(err),
+        }
+    }
+    Ok(())
 }
 
 fn map_target(target: SocksTarget, config: &FixtureConfig) -> io::Result<SocksTarget> {
@@ -997,6 +1118,10 @@ fn encode_socks_reply_failure() -> Vec<u8> {
 }
 
 fn relay_bidirectional(client: TcpStream, upstream: TcpStream) {
+    let _ = client.set_read_timeout(None);
+    let _ = client.set_write_timeout(None);
+    let _ = upstream.set_read_timeout(None);
+    let _ = upstream.set_write_timeout(None);
     let mut client_reader = match client.try_clone() {
         Ok(stream) => stream,
         Err(_) => return,
@@ -1087,6 +1212,10 @@ impl HttpResponse {
         Self { status_line: "HTTP/1.1 200 OK", content_type: "application/json", body: body.into_bytes() }
     }
 
+    fn dns_message(body: Vec<u8>) -> Self {
+        Self { status_line: "HTTP/1.1 200 OK", content_type: "application/dns-message", body }
+    }
+
     fn text(body: &str) -> Self {
         Self {
             status_line: "HTTP/1.1 200 OK",
@@ -1131,7 +1260,7 @@ fn parse_http_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
     let mut parts = first_line.split_whitespace();
     let method = parts.next().unwrap_or("GET").to_string();
     let target = parts.next().unwrap_or("/");
-    let (path, query) = target.split_once('?').unwrap_or((target, ""));
+    let (path, query) = normalize_http_target(target);
     let content_length = request
         .lines()
         .find_map(|line| {
@@ -1145,6 +1274,17 @@ fn parse_http_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
         raw.extend_from_slice(&body);
     }
     Ok(HttpRequest { method, path: path.to_string(), query: query.to_string(), body, raw })
+}
+
+fn normalize_http_target(target: &str) -> (&str, &str) {
+    let normalized = if let Some((_, rest)) = target.split_once("://") {
+        let slash = rest.find('/').map(|offset| offset + 1).unwrap_or(rest.len());
+        let suffix = &rest[slash..];
+        if suffix.is_empty() { "/" } else { suffix }
+    } else {
+        target
+    };
+    normalized.split_once('?').unwrap_or((normalized, ""))
 }
 
 fn read_until_marker(stream: &mut impl Read, marker: &[u8]) -> Vec<u8> {
