@@ -236,6 +236,7 @@ data class SettingsUiState(
     val isFake: Boolean = false,
     val usesFakeTransport: Boolean = false,
     val hasHostFake: Boolean = false,
+    val hasDisoob: Boolean = false,
     val isOob: Boolean = false,
     val desyncHttpEnabled: Boolean = true,
     val desyncHttpsEnabled: Boolean = true,
@@ -292,7 +293,7 @@ data class SettingsUiState(
         get() = desyncHttpsEnabled && isFake
 
     val fakeTtlControlsRelevant: Boolean
-        get() = usesFakeTransport || isOob
+        get() = usesFakeTransport || hasDisoob
 
     val adaptiveFakeTtlMode: String
         get() =
@@ -468,6 +469,7 @@ internal fun AppSettings.toUiState(
     val isFake = tcpChainSteps.any { it.kind == TcpChainStepKind.Fake }
     val usesFakeTransport = tcpChainSteps.any { it.kind == TcpChainStepKind.Fake || it.kind == TcpChainStepKind.HostFake }
     val hasHostFake = tcpChainSteps.any { it.kind == TcpChainStepKind.HostFake }
+    val hasDisoob = tcpChainSteps.any { it.kind == TcpChainStepKind.Disoob }
     val isOob = tcpChainSteps.any { it.kind == TcpChainStepKind.Oob || it.kind == TcpChainStepKind.Disoob }
 
     val desyncAllUnchecked = !desyncHttp && !desyncHttps && !desyncUdp
@@ -590,6 +592,7 @@ internal fun AppSettings.toUiState(
         isFake = isFake,
         usesFakeTransport = usesFakeTransport,
         hasHostFake = hasHostFake,
+        hasDisoob = hasDisoob,
         isOob = isOob,
         desyncHttpEnabled = desyncHttpEnabled,
         desyncHttpsEnabled = desyncHttpsEnabled,
