@@ -8,7 +8,7 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.NativeRuntimeSnapshot
-import com.poyka.ripdpi.core.ProxyPreferencesResolver
+import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.Tun2SocksConfig
@@ -25,6 +25,7 @@ import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.poyka.ripdpi.utility.createConnectionNotification
@@ -46,7 +47,7 @@ class RipDpiVpnService : LifecycleVpnService() {
     lateinit var appSettingsRepository: AppSettingsRepository
 
     @Inject
-    lateinit var proxyPreferencesResolver: ProxyPreferencesResolver
+    lateinit var connectionPolicyResolver: ConnectionPolicyResolver
 
     @Inject
     lateinit var ripDpiProxyFactory: RipDpiProxyFactory
@@ -65,6 +66,12 @@ class RipDpiVpnService : LifecycleVpnService() {
 
     @Inject
     lateinit var resolverOverrideStore: ResolverOverrideStore
+
+    @Inject
+    lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore
+
+    @Inject
+    lateinit var rememberedNetworkPolicyStore: RememberedNetworkPolicyStore
 
     private var ripDpiProxy: RipDpiProxyRuntime? = null
     private var tun2SocksBridge: Tun2SocksBridge? = null
@@ -136,20 +143,38 @@ class RipDpiVpnService : LifecycleVpnService() {
         }
 
         startForeground()
+        var matchedRememberedPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity? = null
         try {
-            val settings = appSettingsRepository.snapshot()
-            val resolution = resolveEffectiveDns(settings, resolverOverrideStore.override.value)
+            val resolution =
+                connectionPolicyResolver.resolve(
+                    mode = Mode.VPN,
+                    resolverOverride = resolverOverrideStore.override.value,
+                )
+            matchedRememberedPolicy = resolution.matchedNetworkPolicy
+            resolution.appliedPolicy?.let { policy ->
+                activeConnectionPolicyStore.set(
+                    ActiveConnectionPolicy(
+                        mode = Mode.VPN,
+                        policy = policy,
+                        matchedPolicy = resolution.matchedNetworkPolicy,
+                        usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
+                    ),
+                )
+            }
             mutex.withLock {
-                startProxy()
+                startProxy(resolution.proxyPreferences)
                 startTun2Socks(
                     activeDns = resolution.activeDns,
-                    overrideReason = resolution.override?.reason,
+                    overrideReason = resolution.resolverFallbackReason,
                 )
             }
             updateStatus(ServiceStatus.Connected)
             startTelemetryUpdates()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start VPN\n${e.asLog()}" }
+            matchedRememberedPolicy?.let { policy ->
+                rememberedNetworkPolicyStore.recordFailure(policy)
+            }
             val reason = classifyFailureReason(e, isTunnelContext = true)
             updateStatus(ServiceStatus.Failed, reason)
             stop()
@@ -195,6 +220,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                 currentDnsSignature = null
                 lastNetworkFingerprint = null
                 resolverOverrideStore.clear()
+                activeConnectionPolicyStore.clear()
             }
         }
 
@@ -204,7 +230,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         stopSelf()
     }
 
-    private suspend fun startProxy() {
+    private suspend fun startProxy(preferences: RipDpiProxyPreferences) {
         logcat(LogPriority.INFO) { "Starting proxy" }
 
         if (proxyJob != null) {
@@ -212,7 +238,6 @@ class RipDpiVpnService : LifecycleVpnService() {
             throw IllegalStateException("Proxy fields not null")
         }
 
-        val preferences = proxyPreferencesResolver.resolve()
         val proxyInstance = ripDpiProxyFactory.create()
         ripDpiProxy = proxyInstance
 
@@ -500,19 +525,16 @@ class RipDpiVpnService : LifecycleVpnService() {
     }
 
     private suspend fun refreshEffectiveResolverIfNeeded() {
-        val settings = appSettingsRepository.snapshot()
-        val currentOverride = resolverOverrideStore.override.value
-        val plan =
-            planResolverRefresh(
-                settings = settings,
-                override = currentOverride,
-                currentSignature = currentDnsSignature,
-                tunnelRunning = tunSession != null,
+        val resolution =
+            connectionPolicyResolver.resolve(
+                mode = Mode.VPN,
+                resolverOverride = resolverOverrideStore.override.value,
             )
-        if (plan.resolution.shouldClearOverride) {
+        if (resolution.settings.activeDnsSettings() == resolution.activeDns && resolverOverrideStore.override.value != null) {
             resolverOverrideStore.clear()
         }
-        if (!plan.requiresTunnelRebuild) {
+        val signature = dnsSignature(resolution.activeDns, resolution.resolverFallbackReason)
+        if (tunSession == null || currentDnsSignature == signature) {
             return
         }
 
@@ -520,24 +542,22 @@ class RipDpiVpnService : LifecycleVpnService() {
             if (status != ServiceStatus.Connected || tunSession == null) {
                 return
             }
-            val latestSettings = appSettingsRepository.snapshot()
-            val latestPlan =
-                planResolverRefresh(
-                    settings = latestSettings,
-                    override = resolverOverrideStore.override.value,
-                    currentSignature = currentDnsSignature,
-                    tunnelRunning = tunSession != null,
+            val latestResolution =
+                connectionPolicyResolver.resolve(
+                    mode = Mode.VPN,
+                    resolverOverride = resolverOverrideStore.override.value,
                 )
-            if (latestPlan.resolution.shouldClearOverride) {
+            if (latestResolution.settings.activeDnsSettings() == latestResolution.activeDns && resolverOverrideStore.override.value != null) {
                 resolverOverrideStore.clear()
             }
-            if (!latestPlan.requiresTunnelRebuild) {
+            val latestSignature = dnsSignature(latestResolution.activeDns, latestResolution.resolverFallbackReason)
+            if (currentDnsSignature == latestSignature) {
                 return
             }
             stopTun2Socks()
             startTun2Socks(
-                activeDns = latestPlan.resolution.activeDns,
-                overrideReason = latestPlan.resolution.override?.reason,
+                activeDns = latestResolution.activeDns,
+                overrideReason = latestResolution.resolverFallbackReason,
             )
         }
     }

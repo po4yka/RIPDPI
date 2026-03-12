@@ -193,7 +193,28 @@ fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences
         hostAutolearnPenaltyTtlHours = ui.hostAutolearnPenaltyTtlSecs / 3600,
         hostAutolearnMaxHosts = ui.hostAutolearnMaxHosts,
         hostAutolearnStorePath = ui.hostAutolearnStorePath,
+        networkScopeKey = ui.networkScopeKey,
     )
+}
+
+class RipDpiProxyJsonPreferences(
+    private val configJson: String,
+    private val hostAutolearnStorePath: String? = null,
+    private val networkScopeKey: String? = null,
+) : RipDpiProxyPreferences {
+    override fun toNativeConfigJson(): String =
+        when (val payload = NativeProxyJson.decodeFromString<NativeProxyConfig>(configJson)) {
+            is NativeProxyConfig.CommandLine ->
+                NativeProxyJson.encodeToString<NativeProxyConfig>(payload)
+
+            is NativeProxyConfig.Ui ->
+                requireNotNull(decodeRipDpiProxyUiPreferences(configJson)) {
+                    "Unable to decode proxy UI preferences"
+                }.copyWith(
+                    hostAutolearnStorePath = hostAutolearnStorePath ?: payload.hostAutolearnStorePath,
+                    networkScopeKey = networkScopeKey ?: payload.networkScopeKey,
+                ).toNativeConfigJson()
+        }
 }
 
 class RipDpiProxyCmdPreferences(
@@ -271,6 +292,7 @@ class RipDpiProxyUIPreferences(
     hostAutolearnPenaltyTtlHours: Int? = null,
     hostAutolearnMaxHosts: Int? = null,
     hostAutolearnStorePath: String? = null,
+    networkScopeKey: String? = null,
 ) : RipDpiProxyPreferences {
     val ip: String = ip ?: "127.0.0.1"
     val port: Int = port ?: 1080
@@ -356,11 +378,13 @@ class RipDpiProxyUIPreferences(
         hostAutolearnStorePath
             ?.trim()
             ?.takeIf { it.isNotEmpty() && this.hostAutolearnEnabled }
+    val networkScopeKey: String? = networkScopeKey?.trim()?.takeIf { it.isNotEmpty() }
     val chainSummary: String = formatChainSummary(this.tcpChainSteps, this.udpChainSteps)
 
     constructor(
         settings: AppSettings,
         hostAutolearnStorePath: String? = null,
+        networkScopeKey: String? = null,
     ) : this(
         ip = settings.proxyIp.ifEmpty { null },
         port = settings.proxyPort.takeIf { it > 0 },
@@ -426,6 +450,7 @@ class RipDpiProxyUIPreferences(
         hostAutolearnPenaltyTtlHours = settings.hostAutolearnPenaltyTtlHours,
         hostAutolearnMaxHosts = settings.hostAutolearnMaxHosts,
         hostAutolearnStorePath = hostAutolearnStorePath,
+        networkScopeKey = networkScopeKey,
     )
 
     override fun toNativeConfigJson(): String =
@@ -503,7 +528,69 @@ class RipDpiProxyUIPreferences(
                 hostAutolearnPenaltyTtlSecs = hostAutolearnPenaltyTtlHours * 60 * 60,
                 hostAutolearnMaxHosts = hostAutolearnMaxHosts,
                 hostAutolearnStorePath = hostAutolearnStorePath,
+                networkScopeKey = networkScopeKey,
             ),
+        )
+
+    fun copyWith(
+        hostAutolearnStorePath: String? = this.hostAutolearnStorePath,
+        networkScopeKey: String? = this.networkScopeKey,
+    ): RipDpiProxyUIPreferences =
+        RipDpiProxyUIPreferences(
+            ip = ip,
+            port = port,
+            maxConnections = maxConnections,
+            bufferSize = bufferSize,
+            defaultTtl = if (customTtl) defaultTtl else null,
+            noDomain = noDomain,
+            desyncHttp = desyncHttp,
+            desyncHttps = desyncHttps,
+            desyncUdp = desyncUdp,
+            desyncMethod = desyncMethod,
+            splitMarker = splitMarker,
+            groupActivationFilter = groupActivationFilter,
+            tcpChainSteps = tcpChainSteps,
+            fakeTtl = fakeTtl,
+            adaptiveFakeTtlEnabled = adaptiveFakeTtlEnabled,
+            adaptiveFakeTtlDelta = adaptiveFakeTtlDelta,
+            adaptiveFakeTtlMin = adaptiveFakeTtlMin,
+            adaptiveFakeTtlMax = adaptiveFakeTtlMax,
+            adaptiveFakeTtlFallback = adaptiveFakeTtlFallback,
+            fakeSni = fakeSni,
+            httpFakeProfile = httpFakeProfile,
+            fakeTlsUseOriginal = fakeTlsUseOriginal,
+            fakeTlsRandomize = fakeTlsRandomize,
+            fakeTlsDupSessionId = fakeTlsDupSessionId,
+            fakeTlsPadEncap = fakeTlsPadEncap,
+            fakeTlsSize = fakeTlsSize,
+            fakeTlsSniMode = fakeTlsSniMode,
+            tlsFakeProfile = tlsFakeProfile,
+            oobChar = oobChar.toInt().toChar().toString(),
+            hostMixedCase = hostMixedCase,
+            domainMixedCase = domainMixedCase,
+            hostRemoveSpaces = hostRemoveSpaces,
+            httpMethodEol = httpMethodEol,
+            httpUnixEol = httpUnixEol,
+            tlsRecordSplit = tlsRecordSplit,
+            tlsRecordSplitMarker = tlsRecordSplitMarker,
+            hostsMode = hostsMode,
+            hosts = hosts,
+            tcpFastOpen = tcpFastOpen,
+            udpFakeCount = udpFakeCount,
+            udpFakeProfile = udpFakeProfile,
+            dropSack = dropSack,
+            fakeOffsetMarker = fakeOffsetMarker,
+            udpChainSteps = udpChainSteps,
+            quicInitialMode = quicInitialMode,
+            quicSupportV1 = quicSupportV1,
+            quicSupportV2 = quicSupportV2,
+            quicFakeProfile = quicFakeProfile,
+            quicFakeHost = quicFakeHost,
+            hostAutolearnEnabled = hostAutolearnEnabled,
+            hostAutolearnPenaltyTtlHours = hostAutolearnPenaltyTtlHours,
+            hostAutolearnMaxHosts = hostAutolearnMaxHosts,
+            hostAutolearnStorePath = hostAutolearnStorePath,
+            networkScopeKey = networkScopeKey,
         )
 
     enum class DesyncMethod {
@@ -650,6 +737,7 @@ private sealed interface NativeProxyConfig {
         val hostAutolearnPenaltyTtlSecs: Int,
         val hostAutolearnMaxHosts: Int,
         val hostAutolearnStorePath: String?,
+        val networkScopeKey: String?,
     ) : NativeProxyConfig
 }
 

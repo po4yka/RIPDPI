@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
+use std::sync::LazyLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -15,6 +16,10 @@ use ciadpi_packets::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+const HOST_AUTOLEARN_STORE_VERSION: u32 = 2;
+const DEFAULT_NETWORK_SCOPE_KEY: &str = "default";
+static EMPTY_LEARNED_HOSTS: LazyLock<BTreeMap<String, LearnedHostRecord>> = LazyLock::new(BTreeMap::new);
 
 #[derive(Debug, Clone)]
 pub struct ConnectionRoute {
@@ -53,10 +58,17 @@ struct LearnedHostRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+struct LearnedNetworkScopeStore {
+    #[serde(default)]
+    hosts: BTreeMap<String, LearnedHostRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 struct LearnedHostStore {
     version: u32,
     fingerprint: String,
-    hosts: BTreeMap<String, LearnedHostRecord>,
+    #[serde(default)]
+    scopes: BTreeMap<String, LearnedNetworkScopeStore>,
 }
 
 #[derive(Debug, Clone)]
@@ -99,14 +111,14 @@ pub struct RuntimeCache {
     records: Vec<CacheRecord>,
     groups: Vec<GroupPolicy>,
     order: Vec<usize>,
-    learned_hosts: BTreeMap<String, LearnedHostRecord>,
+    learned_hosts_by_scope: BTreeMap<String, BTreeMap<String, LearnedHostRecord>>,
     autolearn_events: VecDeque<HostAutolearnEvent>,
 }
 
 impl RuntimeCache {
     pub fn load(config: &RuntimeConfig) -> Self {
         let mut records = Vec::new();
-        let mut learned_hosts = BTreeMap::new();
+        let mut learned_hosts_by_scope = BTreeMap::new();
         let mut autolearn_events = VecDeque::new();
         for (group_index, group) in config.groups.iter().enumerate() {
             let Some(path) = group.cache_file.as_deref() else {
@@ -127,7 +139,7 @@ impl RuntimeCache {
         let order = (0..config.groups.len()).collect();
         if config.host_autolearn_enabled {
             match load_learned_host_store(config) {
-                Ok(hosts) => learned_hosts = hosts,
+                Ok(hosts) => learned_hosts_by_scope = hosts,
                 Err(LoadLearnedHostStoreError::Invalidated) => autolearn_events.push_back(HostAutolearnEvent {
                     action: "store_reset",
                     host: None,
@@ -136,7 +148,7 @@ impl RuntimeCache {
                 Err(LoadLearnedHostStoreError::Io) => {}
             }
         }
-        Self { records, groups, order, learned_hosts, autolearn_events }
+        Self { records, groups, order, learned_hosts_by_scope, autolearn_events }
     }
 
     pub fn lookup_and_prune(&mut self, config: &RuntimeConfig, dest: SocketAddr) -> Option<ConnectionRoute> {
@@ -289,7 +301,7 @@ impl RuntimeCache {
         allow_unknown_payload: bool,
         transport: TransportProtocol,
     ) -> Option<ConnectionRoute> {
-        let record = self.learned_hosts.get(host)?;
+        let record = self.learned_hosts(config).get(host)?;
         if let Some(route) =
             self.preferred_host_candidate(config, record, dest, payload, allow_unknown_payload, transport, 0, true, false)
         {
@@ -324,7 +336,7 @@ impl RuntimeCache {
         trigger: u32,
         can_reconnect: bool,
     ) -> Option<ConnectionRoute> {
-        let record = self.learned_hosts.get(host)?;
+        let record = self.learned_hosts(config).get(host)?;
         let mut attempted_mask = route.attempted_mask | config.groups[route.group_index].bit;
         if let Some(route) = self.preferred_host_candidate(
             config,
@@ -437,11 +449,11 @@ impl RuntimeCache {
     pub fn autolearn_state(&self, config: &RuntimeConfig) -> (bool, usize, usize) {
         let now_ms = now_millis();
         let penalized = self
-            .learned_hosts
+            .learned_hosts(config)
             .values()
             .filter(|record| host_has_active_penalty(record, now_ms))
             .count();
-        (config.host_autolearn_enabled, self.learned_hosts.len(), penalized)
+        (config.host_autolearn_enabled, self.learned_hosts(config).len(), penalized)
     }
 
     fn ordered_indices(&self) -> &[usize] {
@@ -472,6 +484,18 @@ impl RuntimeCache {
         }
     }
 
+    fn learned_hosts(&self, config: &RuntimeConfig) -> &BTreeMap<String, LearnedHostRecord> {
+        self.learned_hosts_by_scope
+            .get(network_scope_key(config))
+            .unwrap_or(&EMPTY_LEARNED_HOSTS)
+    }
+
+    fn learned_hosts_mut(&mut self, config: &RuntimeConfig) -> &mut BTreeMap<String, LearnedHostRecord> {
+        self.learned_hosts_by_scope
+            .entry(network_scope_key(config).to_owned())
+            .or_default()
+    }
+
     fn note_host_failure(&mut self, config: &RuntimeConfig, host: &str, group_index: usize) -> io::Result<()> {
         if !config.host_autolearn_enabled {
             return Ok(());
@@ -480,7 +504,7 @@ impl RuntimeCache {
             return Ok(());
         };
         let now_ms = now_millis();
-        let record = self.learned_hosts.entry(host.clone()).or_default();
+        let record = self.learned_hosts_mut(config).entry(host.clone()).or_default();
         let stats = record.group_stats.entry(group_index).or_default();
         stats.failure_count = stats.failure_count.saturating_add(1);
         stats.last_failure_at_ms = now_ms;
@@ -503,7 +527,7 @@ impl RuntimeCache {
             return Ok(());
         }
         let now_ms = now_millis();
-        let record = self.learned_hosts.entry(host.to_owned()).or_default();
+        let record = self.learned_hosts_mut(config).entry(host.to_owned()).or_default();
         let stats = record.group_stats.entry(group_index).or_default();
         stats.success_count = stats.success_count.saturating_add(1);
         stats.last_success_at_ms = now_ms;
@@ -522,18 +546,19 @@ impl RuntimeCache {
 
     fn enforce_autolearn_limit(&mut self, config: &RuntimeConfig, now_ms: u64) {
         let max_hosts = config.host_autolearn_max_hosts.max(1);
-        while self.learned_hosts.len() > max_hosts {
-            let Some((host, _)) = self
-                .learned_hosts
-                .iter()
-                .filter(|(_, record)| !host_has_active_penalty(record, now_ms))
-                .min_by_key(|(_, record)| record.updated_at_ms)
-                .or_else(|| self.learned_hosts.iter().min_by_key(|(_, record)| record.updated_at_ms))
-                .map(|(host, record)| (host.clone(), record.clone()))
-            else {
+        while self.learned_hosts(config).len() > max_hosts {
+            let host_to_remove = {
+                let hosts = self.learned_hosts(config);
+                hosts.iter()
+                    .filter(|(_, record)| !host_has_active_penalty(record, now_ms))
+                    .min_by_key(|(_, record)| record.updated_at_ms)
+                    .or_else(|| hosts.iter().min_by_key(|(_, record)| record.updated_at_ms))
+                    .map(|(host, _)| host.clone())
+            };
+            let Some(host) = host_to_remove else {
                 break;
             };
-            self.learned_hosts.remove(&host);
+            self.learned_hosts_mut(config).remove(&host);
         }
     }
 
@@ -545,9 +570,13 @@ impl RuntimeCache {
             return Ok(());
         };
         let store = LearnedHostStore {
-            version: 1,
+            version: HOST_AUTOLEARN_STORE_VERSION,
             fingerprint: config_fingerprint(config),
-            hosts: self.learned_hosts.clone(),
+            scopes: self
+                .learned_hosts_by_scope
+                .iter()
+                .map(|(scope, hosts)| (scope.clone(), LearnedNetworkScopeStore { hosts: hosts.clone() }))
+                .collect(),
         };
         let payload = serde_json::to_vec_pretty(&store)
             .map_err(|err| io::Error::other(format!("failed to serialize host autolearn store: {err}")))?;
@@ -753,7 +782,9 @@ enum LoadLearnedHostStoreError {
     Io,
 }
 
-fn load_learned_host_store(config: &RuntimeConfig) -> Result<BTreeMap<String, LearnedHostRecord>, LoadLearnedHostStoreError> {
+fn load_learned_host_store(
+    config: &RuntimeConfig,
+) -> Result<BTreeMap<String, BTreeMap<String, LearnedHostRecord>>, LoadLearnedHostStoreError> {
     let Some(path) = config.host_autolearn_store_path.as_deref() else {
         return Ok(BTreeMap::new());
     };
@@ -763,20 +794,30 @@ fn load_learned_host_store(config: &RuntimeConfig) -> Result<BTreeMap<String, Le
     }
     let payload = fs::read(path).map_err(|_| LoadLearnedHostStoreError::Io)?;
     let store = serde_json::from_slice::<LearnedHostStore>(&payload).map_err(|_| LoadLearnedHostStoreError::Invalidated)?;
-    if store.version != 1 || store.fingerprint != config_fingerprint(config) {
+    if store.version != HOST_AUTOLEARN_STORE_VERSION || store.fingerprint != config_fingerprint(config) {
         return Err(LoadLearnedHostStoreError::Invalidated);
     }
     Ok(store
-        .hosts
+        .scopes
         .into_iter()
-        .filter_map(|(host, mut record)| {
-            let Some(normalized_host) = normalize_learned_host(&host) else {
-                return None;
-            };
-            record.preferred_groups.retain(|group_index| *group_index < config.groups.len());
-            record.group_stats.retain(|group_index, _| *group_index < config.groups.len());
-            (!record.preferred_groups.is_empty() || !record.group_stats.is_empty()).then_some((normalized_host, record))
+        .map(|(scope, scope_store)| {
+            let hosts =
+                scope_store
+                    .hosts
+                    .into_iter()
+                    .filter_map(|(host, mut record)| {
+                        let Some(normalized_host) = normalize_learned_host(&host) else {
+                            return None;
+                        };
+                        record.preferred_groups.retain(|group_index| *group_index < config.groups.len());
+                        record.group_stats.retain(|group_index, _| *group_index < config.groups.len());
+                        (!record.preferred_groups.is_empty() || !record.group_stats.is_empty())
+                            .then_some((normalized_host, record))
+                    })
+                    .collect::<BTreeMap<_, _>>();
+            (scope, hosts)
         })
+        .filter(|(_, hosts)| !hosts.is_empty())
         .collect())
 }
 
@@ -812,6 +853,15 @@ fn config_fingerprint(config: &RuntimeConfig) -> String {
     hasher.update(format!("{:?}", config.groups).as_bytes());
     hasher.update(format!("|{}", config.groups.len()).as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+fn network_scope_key(config: &RuntimeConfig) -> &str {
+    config
+        .network_scope_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_NETWORK_SCOPE_KEY)
 }
 
 fn atomic_write(path: &Path, payload: &[u8]) -> io::Result<()> {
@@ -878,6 +928,7 @@ fn next_temp_file_nonce() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[allow(dead_code)]
     mod rust_packet_seeds {
@@ -918,7 +969,7 @@ mod tests {
             }],
             groups: vec![GroupPolicy { detect: 0, fail_count: 0, pri: 0 }],
             order: vec![0],
-            learned_hosts: std::collections::BTreeMap::new(),
+            learned_hosts_by_scope: std::collections::BTreeMap::new(),
             autolearn_events: std::collections::VecDeque::new(),
         };
 
@@ -1185,7 +1236,7 @@ mod tests {
             )
             .expect("promote fallback winner");
 
-        let learned = cache.learned_hosts.get("example.org").expect("learned host");
+        let learned = cache.learned_hosts(&config).get("example.org").expect("learned host");
         assert_eq!(learned.preferred_groups.first().copied(), Some(2));
     }
 
@@ -1211,7 +1262,7 @@ mod tests {
         assert_eq!(penalized_route.group_index, 0);
 
         cache
-            .learned_hosts
+            .learned_hosts_mut(&config)
             .get_mut("example.org")
             .and_then(|record| record.group_stats.get_mut(&1))
             .expect("penalized stats")
@@ -1242,7 +1293,7 @@ mod tests {
         config.groups.push(DesyncGroup::new(1));
         let mut cache = RuntimeCache::load(&config);
 
-        assert!(cache.learned_hosts.is_empty());
+        assert!(cache.learned_hosts(&config).is_empty());
         let events = cache.drain_autolearn_events();
         assert!(events.iter().any(|event| event.action == "store_reset"));
     }
@@ -1262,7 +1313,7 @@ mod tests {
             )
             .expect("learn first host");
         cache
-            .learned_hosts
+            .learned_hosts_mut(&config)
             .get_mut("first.example")
             .expect("first host")
             .updated_at_ms = 1;
@@ -1275,7 +1326,70 @@ mod tests {
             )
             .expect("learn second host");
 
-        assert!(!cache.learned_hosts.contains_key("first.example"));
-        assert!(cache.learned_hosts.contains_key("second.example"));
+        assert!(!cache.learned_hosts(&config).contains_key("first.example"));
+        assert!(cache.learned_hosts(&config).contains_key("second.example"));
+    }
+
+    #[test]
+    fn host_autolearn_is_scoped_by_network_scope_key() {
+        let mut config_a = autolearn_config(1, 32);
+        let path = config_a.host_autolearn_store_path.clone().expect("store path");
+        config_a.network_scope_key = Some("scope-a".to_string());
+        let dest = sample_dest(443);
+
+        let mut cache_a = RuntimeCache::load(&config_a);
+        cache_a
+            .note_route_success(
+                &config_a,
+                dest,
+                &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+                Some("alpha.example"),
+            )
+            .expect("learn scope a host");
+
+        let mut config_b = autolearn_config(1, 32);
+        config_b.host_autolearn_store_path = Some(path);
+        config_b.network_scope_key = Some("scope-b".to_string());
+        let mut cache_b = RuntimeCache::load(&config_b);
+        assert!(cache_b.learned_hosts(&config_b).is_empty());
+        cache_b
+            .note_route_success(
+                &config_b,
+                dest,
+                &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+                Some("beta.example"),
+            )
+            .expect("learn scope b host");
+
+        let reloaded_a = RuntimeCache::load(&config_a);
+        assert!(reloaded_a.learned_hosts(&config_a).contains_key("alpha.example"));
+        assert!(!reloaded_a.learned_hosts(&config_a).contains_key("beta.example"));
+
+        let reloaded_b = RuntimeCache::load(&config_b);
+        assert!(reloaded_b.learned_hosts(&config_b).contains_key("beta.example"));
+        assert!(!reloaded_b.learned_hosts(&config_b).contains_key("alpha.example"));
+    }
+
+    #[test]
+    fn legacy_v1_host_autolearn_store_is_invalidated() {
+        let config = autolearn_config(1, 32);
+        let path = config.host_autolearn_store_path.clone().expect("store path");
+        let payload = json!({
+            "version": 1,
+            "fingerprint": config_fingerprint(&config),
+            "hosts": {
+                "example.org": {
+                    "preferred_groups": [0],
+                    "group_stats": {},
+                    "updated_at_ms": 1
+                }
+            }
+        });
+        fs::write(&path, serde_json::to_vec_pretty(&payload).expect("serialize legacy payload")).expect("write legacy store");
+
+        let mut cache = RuntimeCache::load(&config);
+
+        assert!(cache.learned_hosts(&config).is_empty());
+        assert!(cache.drain_autolearn_events().iter().any(|event| event.action == "store_reset"));
     }
 }

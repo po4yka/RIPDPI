@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics
 import android.content.Context
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
+import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
@@ -12,20 +13,26 @@ import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
+import com.poyka.ripdpi.data.RememberedNetworkPolicySourceStrategyProbe
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.toVpnDnsPolicyJson
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.services.DefaultResolverOverrideStore
+import com.poyka.ripdpi.services.NetworkFingerprintProvider
 import com.poyka.ripdpi.services.ResolverOverrideStore
 import com.poyka.ripdpi.services.TemporaryResolverOverride
 import com.poyka.ripdpi.services.ServiceStateStore
@@ -99,7 +106,13 @@ class DefaultDiagnosticsManager
         @ApplicationContext private val context: Context,
         private val appSettingsRepository: AppSettingsRepository,
         private val historyRepository: DiagnosticsHistoryRepository,
+        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
+            DefaultRememberedNetworkPolicyStore(historyRepository),
         private val networkMetadataProvider: NetworkMetadataProvider,
+        private val networkFingerprintProvider: NetworkFingerprintProvider =
+            object : NetworkFingerprintProvider {
+                override fun capture() = null
+            },
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
@@ -895,6 +908,7 @@ class DefaultDiagnosticsManager
                 val enrichedReport = enrichScanReport(report, settings)
                 val finalReport = maybeApplyTemporaryResolverOverride(enrichedReport, settings)
                 persistScanReport(finalReport)
+                rememberStrategyProbeRecommendation(finalReport, settings)
                 historyRepository.upsertSnapshot(
                     NetworkSnapshotEntity(
                         id = UUID.randomUUID().toString(),
@@ -1175,6 +1189,62 @@ class DefaultDiagnosticsManager
             },
         )
         bridgeEventsToHistory(report)
+    }
+
+    private suspend fun rememberStrategyProbeRecommendation(
+        report: ScanReport,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ) {
+        if (!settings.networkStrategyMemoryEnabled || settings.enableCmdSettings) {
+            return
+        }
+        val strategyProbe = report.strategyProbeReport ?: return
+        val recommendedCandidateIds =
+            setOf(
+                strategyProbe.recommendation.tcpCandidateId,
+                strategyProbe.recommendation.quicCandidateId,
+            )
+        val hasWinningTarget =
+            (strategyProbe.tcpCandidates + strategyProbe.quicCandidates).any { candidate ->
+                candidate.id in recommendedCandidateIds && candidate.succeededTargets > 0
+            }
+        if (!hasWinningTarget) {
+            return
+        }
+        val fingerprint = networkFingerprintProvider.capture() ?: return
+        val networkScopeKey = fingerprint.scopeKey()
+        val normalizedProxyConfigJson =
+            RipDpiProxyJsonPreferences(
+                configJson = strategyProbe.recommendation.recommendedProxyConfigJson,
+                hostAutolearnStorePath =
+                    settings
+                        .takeIf { it.hostAutolearnEnabled }
+                        ?.let { resolveHostAutolearnStorePath(context) },
+                networkScopeKey = networkScopeKey,
+            ).toNativeConfigJson()
+        val mode = Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue })
+        val dnsPolicy =
+            if (mode == Mode.VPN) {
+                settings.activeDnsSettings().toVpnDnsPolicyJson()
+            } else {
+                null
+            }
+        rememberedNetworkPolicyStore.rememberValidatedPolicy(
+            policy =
+                RememberedNetworkPolicyJson(
+                    fingerprintHash = networkScopeKey,
+                    mode = mode.preferenceValue,
+                    summary = fingerprint.summary(),
+                    proxyConfigJson = normalizedProxyConfigJson,
+                    vpnDnsPolicy = dnsPolicy,
+                    strategySignatureJson =
+                        strategyProbe.recommendation.strategySignature?.let {
+                            json.encodeToString(BypassStrategySignature.serializer(), it)
+                        },
+                ),
+            source = RememberedNetworkPolicySourceStrategyProbe,
+            now = report.finishedAt,
+        )
     }
 
     private suspend fun persistNativeEvents(

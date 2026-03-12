@@ -138,4 +138,5 @@ message AppSettings {
   int32 adaptive_fake_ttl_min = 108;
   int32 adaptive_fake_ttl_max = 109;
   int32 adaptive_fake_ttl_fallback = 110;
+  bool network_strategy_memory_enabled = 111;
 }

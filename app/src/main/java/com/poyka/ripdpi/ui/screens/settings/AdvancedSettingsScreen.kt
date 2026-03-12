@@ -150,6 +150,7 @@ private enum class AdvancedToggleSetting {
     QuicSupportV1,
     QuicSupportV2,
     HostAutolearnEnabled,
+    NetworkStrategyMemoryEnabled,
 }
 
 private enum class AdvancedTextSetting {
@@ -814,6 +815,15 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
+                AdvancedToggleSetting.NetworkStrategyMemoryEnabled -> {
+                    viewModel.updateSetting(
+                        key = "networkStrategyMemoryEnabled",
+                        value = enabled.toString(),
+                    ) {
+                        setNetworkStrategyMemoryEnabled(enabled)
+                    }
+                }
+
             }
         },
         onTextConfirmed = { setting, value ->
@@ -1330,6 +1340,7 @@ fun AdvancedSettingsRoute(
         onApplyHostPackPreset = viewModel::applyHostPackPreset,
         onRefreshHostPackCatalog = viewModel::refreshHostPackCatalog,
         onForgetLearnedHosts = viewModel::forgetLearnedHosts,
+        onClearRememberedNetworks = viewModel::clearRememberedNetworks,
         onSaveActivationRange = { dimension, start, end ->
             when (dimension) {
                 ActivationWindowDimension.Round ->
@@ -1395,6 +1406,7 @@ private fun AdvancedSettingsScreen(
     onApplyHostPackPreset: (HostPackPreset, String, String) -> Unit,
     onRefreshHostPackCatalog: () -> Unit,
     onForgetLearnedHosts: () -> Unit,
+    onClearRememberedNetworks: () -> Unit,
     onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -> Unit,
     onResetAdaptiveSplit: () -> Unit,
     onResetAdaptiveFakeTtlProfile: () -> Unit,
@@ -2374,6 +2386,47 @@ private fun AdvancedSettingsScreen(
                     }
                     Text(
                         text = hostAutolearnResetHint(uiState),
+                        style = RipDpiThemeTokens.type.caption,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
+
+        item(key = "advanced_network_strategy_memory") {
+            SettingsSection(title = stringResource(R.string.network_strategy_memory_section_title)) {
+                RipDpiCard {
+                    SettingsRow(
+                        title = stringResource(R.string.network_strategy_memory_enabled_title),
+                        subtitle = stringResource(R.string.network_strategy_memory_enabled_body),
+                        checked = uiState.networkStrategyMemoryEnabled,
+                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NetworkStrategyMemoryEnabled, it) },
+                        enabled = visualEditorEnabled,
+                        showDivider = true,
+                    )
+                    Text(
+                        text =
+                            stringResource(
+                                R.string.network_strategy_memory_count_summary,
+                                uiState.rememberedNetworkCount,
+                            ),
+                        style = RipDpiThemeTokens.type.caption,
+                        color = colors.mutedForeground,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        RipDpiButton(
+                            text = stringResource(R.string.network_strategy_memory_clear_action),
+                            onClick = onClearRememberedNetworks,
+                            enabled = uiState.canClearRememberedNetworks,
+                            variant = RipDpiButtonVariant.Outline,
+                            trailingIcon = RipDpiIcons.Close,
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.network_strategy_memory_helper),
                         style = RipDpiThemeTokens.type.caption,
                         color = colors.mutedForeground,
                     )
@@ -5831,6 +5884,7 @@ private fun AdvancedSettingsScreenPreview() {
             onApplyHostPackPreset = { _, _, _ -> },
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
+            onClearRememberedNetworks = {},
             onSaveActivationRange = { _, _, _ -> },
             onResetAdaptiveSplit = {},
             onResetAdaptiveFakeTtlProfile = {},
@@ -5900,6 +5954,7 @@ private fun AdvancedSettingsScreenDarkPreview() {
             onApplyHostPackPreset = { _, _, _ -> },
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
+            onClearRememberedNetworks = {},
             onSaveActivationRange = { _, _, _ -> },
             onResetAdaptiveSplit = {},
             onResetAdaptiveFakeTtlProfile = {},

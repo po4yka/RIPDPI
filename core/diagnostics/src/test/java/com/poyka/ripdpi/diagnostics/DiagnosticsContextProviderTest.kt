@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
@@ -74,6 +75,9 @@ class DiagnosticsContextProviderTest {
                     override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> =
                         MutableStateFlow(emptyList())
 
+                    override fun observeRememberedNetworkPolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
+                        MutableStateFlow(emptyList())
+
                     override suspend fun getProfile(id: String): DiagnosticProfileEntity? =
                         DiagnosticProfileEntity(
                             id = "default",
@@ -89,6 +93,17 @@ class DiagnosticsContextProviderTest {
                     override suspend fun getScanSession(sessionId: String): ScanSessionEntity? = null
 
                     override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? = null
+
+                    override suspend fun getRememberedNetworkPolicy(
+                        fingerprintHash: String,
+                        mode: String,
+                    ): RememberedNetworkPolicyEntity? = null
+
+                    override suspend fun findValidatedRememberedNetworkPolicy(
+                        fingerprintHash: String,
+                        mode: String,
+                        now: Long,
+                    ): RememberedNetworkPolicyEntity? = null
 
                     override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> = emptyList()
 
@@ -112,7 +127,13 @@ class DiagnosticsContextProviderTest {
 
                     override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) = Unit
 
+                    override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long = policy.id
+
                     override suspend fun trimOldData(retentionDays: Int) = Unit
+
+                    override suspend fun clearRememberedNetworkPolicies() = Unit
+
+                    override suspend fun pruneRememberedNetworkPolicies() = Unit
                 }
             val settingsRepository =
                 object : AppSettingsRepository {

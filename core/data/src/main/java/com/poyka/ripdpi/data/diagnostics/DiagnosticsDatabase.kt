@@ -233,6 +233,45 @@ data class BypassUsageSessionEntity(
     val failureMessage: String? = null,
 )
 
+@Entity(
+    tableName = "remembered_network_policies",
+    indices = [
+        Index(
+            name = "index_remembered_network_policies_fingerprintHash_mode",
+            value = ["fingerprintHash", "mode"],
+            unique = true,
+        ),
+        Index(
+            name = "index_remembered_network_policies_updatedAt",
+            value = ["updatedAt"],
+        ),
+        Index(
+            name = "index_remembered_network_policies_mode_status_suppressedUntil",
+            value = ["mode", "status", "suppressedUntil"],
+        ),
+    ],
+)
+@Serializable
+data class RememberedNetworkPolicyEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val fingerprintHash: String,
+    val mode: String,
+    val summaryJson: String,
+    val proxyConfigJson: String,
+    val vpnDnsPolicyJson: String? = null,
+    val strategySignatureJson: String? = null,
+    val source: String,
+    val status: String,
+    val successCount: Int = 0,
+    val failureCount: Int = 0,
+    val consecutiveFailureCount: Int = 0,
+    val firstObservedAt: Long,
+    val lastValidatedAt: Long? = null,
+    val lastAppliedAt: Long? = null,
+    val suppressedUntil: Long? = null,
+    val updatedAt: Long,
+)
+
 @Dao
 interface DiagnosticsDao {
     @Query("SELECT * FROM diagnostic_profiles ORDER BY updatedAt DESC")
@@ -377,6 +416,60 @@ interface DiagnosticsDao {
     @Query("DELETE FROM bypass_usage_sessions WHERE finishedAt IS NOT NULL AND finishedAt < :threshold")
     suspend fun deleteBypassUsageSessionsOlderThan(threshold: Long)
 
+    @Query("SELECT * FROM remembered_network_policies ORDER BY updatedAt DESC LIMIT :limit")
+    fun observeRememberedNetworkPolicies(limit: Int = 64): Flow<List<RememberedNetworkPolicyEntity>>
+
+    @Query(
+        """
+        SELECT * FROM remembered_network_policies
+        WHERE fingerprintHash = :fingerprintHash AND mode = :mode
+        LIMIT 1
+        """,
+    )
+    suspend fun getRememberedNetworkPolicy(
+        fingerprintHash: String,
+        mode: String,
+    ): RememberedNetworkPolicyEntity?
+
+    @Query(
+        """
+        SELECT * FROM remembered_network_policies
+        WHERE fingerprintHash = :fingerprintHash
+            AND mode = :mode
+            AND status = :validatedStatus
+            AND (suppressedUntil IS NULL OR suppressedUntil <= :now)
+        ORDER BY COALESCE(lastValidatedAt, 0) DESC, updatedAt DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun findValidatedRememberedNetworkPolicy(
+        fingerprintHash: String,
+        mode: String,
+        validatedStatus: String,
+        now: Long,
+    ): RememberedNetworkPolicyEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long
+
+    @Query("DELETE FROM remembered_network_policies")
+    suspend fun clearRememberedNetworkPolicies()
+
+    @Query("DELETE FROM remembered_network_policies WHERE updatedAt < :threshold")
+    suspend fun deleteRememberedNetworkPoliciesOlderThan(threshold: Long)
+
+    @Query(
+        """
+        DELETE FROM remembered_network_policies
+        WHERE id NOT IN (
+            SELECT id FROM remembered_network_policies
+            ORDER BY updatedAt DESC
+            LIMIT :retainCount
+        )
+        """,
+    )
+    suspend fun trimRememberedNetworkPoliciesToCount(retainCount: Int)
+
     @Query("DELETE FROM probe_results WHERE createdAt < :threshold")
     suspend fun deleteProbeResultsOlderThan(threshold: Long)
 
@@ -396,8 +489,9 @@ interface DiagnosticsDao {
         NativeSessionEventEntity::class,
         ExportRecordEntity::class,
         BypassUsageSessionEntity::class,
+        RememberedNetworkPolicyEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -441,6 +535,8 @@ interface DiagnosticsHistoryRepository {
 
     fun observeBypassUsageSessions(limit: Int = 100): Flow<List<BypassUsageSessionEntity>>
 
+    fun observeRememberedNetworkPolicies(limit: Int = 64): Flow<List<RememberedNetworkPolicyEntity>>
+
     suspend fun getProfile(id: String): DiagnosticProfileEntity?
 
     suspend fun getPackVersion(packId: String): TargetPackVersionEntity?
@@ -448,6 +544,17 @@ interface DiagnosticsHistoryRepository {
     suspend fun getScanSession(sessionId: String): ScanSessionEntity?
 
     suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity?
+
+    suspend fun getRememberedNetworkPolicy(
+        fingerprintHash: String,
+        mode: String,
+    ): RememberedNetworkPolicyEntity?
+
+    suspend fun findValidatedRememberedNetworkPolicy(
+        fingerprintHash: String,
+        mode: String,
+        now: Long = System.currentTimeMillis(),
+    ): RememberedNetworkPolicyEntity?
 
     suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity>
 
@@ -473,6 +580,12 @@ interface DiagnosticsHistoryRepository {
     suspend fun insertExportRecord(record: ExportRecordEntity)
 
     suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity)
+
+    suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long
+
+    suspend fun clearRememberedNetworkPolicies()
+
+    suspend fun pruneRememberedNetworkPolicies()
 
     suspend fun trimOldData(retentionDays: Int)
 }
@@ -542,6 +655,9 @@ class RoomDiagnosticsHistoryRepository
     override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> =
         dao.observeBypassUsageSessions(limit)
 
+    override fun observeRememberedNetworkPolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
+        dao.observeRememberedNetworkPolicies(limit)
+
     override suspend fun getProfile(id: String): DiagnosticProfileEntity? = dao.getProfile(id)
 
     override suspend fun getPackVersion(packId: String): TargetPackVersionEntity? =
@@ -552,6 +668,27 @@ class RoomDiagnosticsHistoryRepository
 
     override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? =
         dao.getBypassUsageSession(sessionId)
+
+    override suspend fun getRememberedNetworkPolicy(
+        fingerprintHash: String,
+        mode: String,
+    ): RememberedNetworkPolicyEntity? =
+        dao.getRememberedNetworkPolicy(
+            fingerprintHash = fingerprintHash,
+            mode = mode,
+        )
+
+    override suspend fun findValidatedRememberedNetworkPolicy(
+        fingerprintHash: String,
+        mode: String,
+        now: Long,
+    ): RememberedNetworkPolicyEntity? =
+        dao.findValidatedRememberedNetworkPolicy(
+            fingerprintHash = fingerprintHash,
+            mode = mode,
+            validatedStatus = com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated,
+            now = now,
+        )
 
     override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> =
         dao.getProbeResults(sessionId)
@@ -600,6 +737,20 @@ class RoomDiagnosticsHistoryRepository
 
     override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) {
         dao.upsertBypassUsageSession(session)
+    }
+
+    override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long =
+        dao.upsertRememberedNetworkPolicy(policy)
+
+    override suspend fun clearRememberedNetworkPolicies() {
+        dao.clearRememberedNetworkPolicies()
+    }
+
+    override suspend fun pruneRememberedNetworkPolicies() {
+        val staleThreshold =
+            System.currentTimeMillis() - com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionMaxAgeMs
+        dao.deleteRememberedNetworkPoliciesOlderThan(staleThreshold)
+        dao.trimRememberedNetworkPoliciesToCount(com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit)
     }
 
     override suspend fun trimOldData(retentionDays: Int) {
@@ -732,6 +883,53 @@ internal val DiagnosticsDatabaseMigration4To5 =
         }
     }
 
+internal val DiagnosticsDatabaseMigration5To6 =
+    object : Migration(5, 6) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS remembered_network_policies (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    fingerprintHash TEXT NOT NULL,
+                    mode TEXT NOT NULL,
+                    summaryJson TEXT NOT NULL,
+                    proxyConfigJson TEXT NOT NULL,
+                    vpnDnsPolicyJson TEXT,
+                    strategySignatureJson TEXT,
+                    source TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    successCount INTEGER NOT NULL,
+                    failureCount INTEGER NOT NULL,
+                    consecutiveFailureCount INTEGER NOT NULL,
+                    firstObservedAt INTEGER NOT NULL,
+                    lastValidatedAt INTEGER,
+                    lastAppliedAt INTEGER,
+                    suppressedUntil INTEGER,
+                    updatedAt INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS index_remembered_network_policies_fingerprintHash_mode
+                ON remembered_network_policies(fingerprintHash, mode)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_remembered_network_policies_updatedAt
+                ON remembered_network_policies(updatedAt)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_remembered_network_policies_mode_status_suppressedUntil
+                ON remembered_network_policies(mode, status, suppressedUntil)
+                """.trimIndent(),
+            )
+        }
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DiagnosticsHistoryRepositoryModule {
@@ -754,7 +952,11 @@ object DiagnosticsDatabaseModule {
             context,
             DiagnosticsDatabase::class.java,
             "diagnostics.db",
-        ).addMigrations(DiagnosticsDatabaseMigration3To4, DiagnosticsDatabaseMigration4To5).build()
+        ).addMigrations(
+            DiagnosticsDatabaseMigration3To4,
+            DiagnosticsDatabaseMigration4To5,
+            DiagnosticsDatabaseMigration5To6,
+        ).build()
 
     @Provides
     @Singleton

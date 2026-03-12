@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
@@ -214,6 +215,7 @@ private class InMemoryDiagnosticsHistoryRepository : DiagnosticsHistoryRepositor
     val nativeEventsState = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
     val usageSessionsState = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
+    val rememberedPoliciesState = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
 
     override fun observeProfiles(): Flow<List<DiagnosticProfileEntity>> = profilesState
 
@@ -255,6 +257,8 @@ private class InMemoryDiagnosticsHistoryRepository : DiagnosticsHistoryRepositor
 
     override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> = usageSessionsState
 
+    override fun observeRememberedNetworkPolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> = rememberedPoliciesState
+
     override suspend fun getProfile(id: String): DiagnosticProfileEntity? = profilesState.value.firstOrNull { it.id == id }
 
     override suspend fun getPackVersion(packId: String): TargetPackVersionEntity? = null
@@ -263,6 +267,24 @@ private class InMemoryDiagnosticsHistoryRepository : DiagnosticsHistoryRepositor
 
     override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? =
         usageSessionsState.value.firstOrNull { it.id == sessionId }
+
+    override suspend fun getRememberedNetworkPolicy(
+        fingerprintHash: String,
+        mode: String,
+    ): RememberedNetworkPolicyEntity? =
+        rememberedPoliciesState.value.firstOrNull { it.fingerprintHash == fingerprintHash && it.mode == mode }
+
+    override suspend fun findValidatedRememberedNetworkPolicy(
+        fingerprintHash: String,
+        mode: String,
+        now: Long,
+    ): RememberedNetworkPolicyEntity? =
+        rememberedPoliciesState.value.firstOrNull { policy ->
+            policy.fingerprintHash == fingerprintHash &&
+                policy.mode == mode &&
+                policy.status == com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated &&
+                (policy.suppressedUntil?.let { it <= now } != false)
+        }
 
     override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> = emptyList()
 
@@ -304,6 +326,23 @@ private class InMemoryDiagnosticsHistoryRepository : DiagnosticsHistoryRepositor
     override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) {
         usageSessionsState.value = usageSessionsState.value.filterNot { it.id == session.id } + session
     }
+
+    override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long {
+        val persisted =
+            if (policy.id == 0L) {
+                policy.copy(id = (rememberedPoliciesState.value.maxOfOrNull { it.id } ?: 0L) + 1L)
+            } else {
+                policy
+            }
+        rememberedPoliciesState.value = rememberedPoliciesState.value.filterNot { it.id == persisted.id } + persisted
+        return persisted.id
+    }
+
+    override suspend fun clearRememberedNetworkPolicies() {
+        rememberedPoliciesState.value = emptyList()
+    }
+
+    override suspend fun pruneRememberedNetworkPolicies() = Unit
 
     override suspend fun trimOldData(retentionDays: Int) = Unit
 }
