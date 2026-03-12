@@ -1219,6 +1219,96 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `approaches detail humanizes adaptive fake ttl profile`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-adaptive-fake-ttl",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "disabled",
+                            desyncMethod = "fake",
+                            chainSummary = "tcp: fake(host)",
+                            protocolToggles = listOf("HTTP", "HTTPS"),
+                            tlsRecordSplitEnabled = false,
+                            fakeTtlMode = "adaptive_custom",
+                            adaptiveFakeTtlWindow = "4-16",
+                            adaptiveFakeTtlFallback = 11,
+                            adaptiveFakeTtlBias = 2,
+                            routeGroup = "20",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-adaptive-fake-ttl")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(signature.any { it.label == "Fake TTL mode" && it.value == "Custom adaptive TTL" })
+            assertTrue(signature.any { it.label == "Adaptive fake TTL window" && it.value == "4-16" })
+            assertTrue(signature.any { it.label == "Adaptive fake TTL fallback" && it.value == "11" })
+            assertTrue(signature.any { it.label == "Adaptive fake TTL bias" && it.value == "Prefer higher TTLs first (+2)" })
+            collector.cancel()
+        }
+
+    @Test
+    fun `approaches detail omits adaptive fake ttl fields in command line mode`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-adaptive-fake-ttl-cli",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "command line",
+                            hostAutolearn = "command line",
+                            desyncMethod = "fake",
+                            chainSummary = "tcp: fake(host)",
+                            protocolToggles = listOf("HTTP", "HTTPS"),
+                            tlsRecordSplitEnabled = false,
+                            routeGroup = "21",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-adaptive-fake-ttl-cli")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertFalse(signature.any { it.label == "Fake TTL mode" })
+            assertFalse(signature.any { it.label == "Adaptive fake TTL window" })
+            assertFalse(signature.any { it.label == "Adaptive fake TTL fallback" })
+            assertFalse(signature.any { it.label == "Adaptive fake TTL bias" })
+            collector.cancel()
+        }
+
+    @Test
     fun `approaches detail prefers custom raw fake payload source over library labels`() =
         runTest {
             val manager =
