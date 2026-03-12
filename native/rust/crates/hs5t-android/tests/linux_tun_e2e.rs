@@ -18,7 +18,9 @@ static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 const E2E_ROUTE_CIDR: &str = "198.18.0.0/15";
 const TUN_IPV4: &str = "10.77.0.1/24";
-const MAPDNS_IP: &str = "198.18.0.1";
+const MAPDNS_ADDRESS: &str = "198.18.0.53";
+const MAPDNS_NETWORK: &str = "198.18.0.0";
+const MAPDNS_NETMASK: &str = "255.254.0.0";
 
 #[test]
 #[ignore = "requires Linux CAP_NET_ADMIN and RIPDPI_RUN_TUN_E2E=1"]
@@ -45,7 +47,7 @@ fn linux_tun_tcp_udp_and_mapdns_round_trip() {
 
     tcp_round_trip(fixture.manifest().fixture_ipv4.as_str(), fixture.manifest().tcp_echo_port);
     udp_round_trip(fixture.manifest().fixture_ipv4.as_str(), fixture.manifest().udp_echo_port);
-    mapdns_round_trip(MAPDNS_IP);
+    mapdns_round_trip(MAPDNS_ADDRESS, fixture.manifest().tcp_echo_port);
 
     let snapshot = stats.snapshot();
     assert!(snapshot.0 > 0, "expected tx packets > 0, got {snapshot:?}");
@@ -90,11 +92,15 @@ fn build_tunnel_config(fixture: &FixtureStack, tun_name: &str) -> Config {
             mark: None,
         },
         mapdns: Some(MapDnsConfig {
-            address: MAPDNS_IP.to_string(),
+            address: MAPDNS_ADDRESS.to_string(),
             port: 53,
-            network: Some(MAPDNS_IP.to_string()),
-            netmask: Some("255.255.255.255".to_string()),
+            network: Some(MAPDNS_NETWORK.to_string()),
+            netmask: Some(MAPDNS_NETMASK.to_string()),
             cache_size: 128,
+            resolver_id: Some("fixture".to_string()),
+            doh_url: Some(format!("http://fixture.test:{}/dns-query", fixture.manifest().dns_http_port)),
+            doh_bootstrap_ips: vec!["127.0.0.1".to_string()],
+            dns_query_timeout_ms: 2_000,
         }),
         misc: MiscConfig { max_session_count: 128, ..MiscConfig::default() },
     }
@@ -119,7 +125,7 @@ fn udp_round_trip(host: &str, port: u16) {
     assert_eq!(&buf[..read], b"tun udp");
 }
 
-fn mapdns_round_trip(host: &str) {
+fn mapdns_round_trip(host: &str, tcp_port: u16) {
     let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).expect("bind dns client");
     socket.set_read_timeout(Some(Duration::from_secs(5))).expect("set dns timeout");
     socket.connect((host, 53)).expect("connect mapdns");
@@ -127,10 +133,18 @@ fn mapdns_round_trip(host: &str) {
     let mut buf = [0u8; 512];
     let read = socket.recv(&mut buf).expect("receive dns response");
     let answers = parse_a_answers(&buf[..read]);
-    assert!(
-        answers.iter().any(|ip| ip.octets()[0] == 198 && ip.octets()[1] == 18),
-        "expected mapdns response in 198.18.0.0/15, got {answers:?}"
-    );
+    let synthetic_ip =
+        answers
+            .into_iter()
+            .find(|ip| ip.octets()[0] == 198 && ip.octets()[1] == 18)
+            .expect("expected mapdns response in 198.18.0.0/15");
+
+    let mut stream = TcpStream::connect((synthetic_ip, tcp_port)).expect("connect to synthetic target through tunnel");
+    stream.set_read_timeout(Some(Duration::from_secs(5))).expect("set synthetic tcp timeout");
+    stream.write_all(b"mapdns").expect("write synthetic tcp payload");
+    let mut echoed = [0u8; 6];
+    stream.read_exact(&mut echoed).expect("read synthetic tcp echo");
+    assert_eq!(&echoed, b"mapdns");
 }
 
 fn wait_for_tunnel_path(host: &str, port: u16) {

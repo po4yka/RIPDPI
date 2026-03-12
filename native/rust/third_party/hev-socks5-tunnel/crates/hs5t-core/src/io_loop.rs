@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::task::{Context, Poll, Waker};
@@ -25,6 +26,7 @@ use tracing::{debug, error, info, warn};
 use hs5t_config::Config;
 use hs5t_dns_cache::DnsCache;
 use hs5t_session::{Auth, TargetAddr, TcpSession, UdpSession};
+use ripdpi_dns_resolver::{DohEndpoint, DohResolver, DohTransport};
 
 use crate::classify::classify_ip_packet;
 use crate::{ActiveSessions, IpClass, SessionEntry, Stats, TunDevice};
@@ -42,6 +44,7 @@ const PUMP_CHUNK: usize = 4096;
 
 /// Default poll delay when smoltcp has no pending timers.
 const DEFAULT_POLL_DELAY_MS: u64 = 50;
+const DNS_QUEUE_CAPACITY: usize = 256;
 
 // ── No-op waker ───────────────────────────────────────────────────────────────
 
@@ -157,6 +160,244 @@ fn proxy_addr(config: &Config) -> io::Result<SocketAddr> {
     Ok(SocketAddr::new(ip, config.socks5.port))
 }
 
+#[derive(Debug, Clone, Copy)]
+struct MapDnsRuntime {
+    intercept_addr: SocketAddr,
+    synthetic_net: u32,
+    synthetic_mask: u32,
+    intercept_port: u16,
+}
+
+#[derive(Debug, Clone)]
+struct DnsRequest {
+    src: SocketAddr,
+    query: Vec<u8>,
+    host: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct DnsResponse {
+    src: SocketAddr,
+    query: Vec<u8>,
+    host: Option<String>,
+    upstream: Result<Vec<u8>, String>,
+}
+
+fn parse_mapdns_runtime(config: &Config) -> io::Result<Option<MapDnsRuntime>> {
+    let Some(mapdns) = &config.mapdns else {
+        return Ok(None);
+    };
+
+    let intercept_ip = mapdns.address.parse::<Ipv4Addr>().map_err(|err| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("invalid mapdns.address '{}': {err}", mapdns.address),
+        )
+    })?;
+    let synthetic_net = mapdns
+        .network
+        .as_deref()
+        .unwrap_or(mapdns.address.as_str())
+        .parse::<Ipv4Addr>()
+        .map(u32::from)
+        .map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "invalid mapdns.network '{}': {err}",
+                    mapdns.network.as_deref().unwrap_or(mapdns.address.as_str())
+                ),
+            )
+        })?;
+    let synthetic_mask = mapdns
+        .netmask
+        .as_deref()
+        .unwrap_or("255.254.0.0")
+        .parse::<Ipv4Addr>()
+        .map(u32::from)
+        .map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("invalid mapdns.netmask '{}': {err}", mapdns.netmask.as_deref().unwrap_or("255.254.0.0")),
+            )
+        })?;
+
+    Ok(Some(MapDnsRuntime {
+        intercept_addr: SocketAddr::new(IpAddr::V4(intercept_ip), mapdns.port),
+        synthetic_net,
+        synthetic_mask,
+        intercept_port: mapdns.port,
+    }))
+}
+
+fn parse_dns_cache(config: &Config, dns_cache: Option<DnsCache>) -> io::Result<Option<DnsCache>> {
+    if dns_cache.is_some() {
+        return Ok(dns_cache);
+    }
+
+    let Some(runtime) = parse_mapdns_runtime(config)? else {
+        return Ok(None);
+    };
+    let cache_size = config
+        .mapdns
+        .as_ref()
+        .map(|value| value.cache_size as usize)
+        .unwrap_or_default();
+    if cache_size == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "mapdns.cache_size must be greater than zero",
+        ));
+    }
+
+    Ok(Some(DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, cache_size)))
+}
+
+fn build_doh_resolver(config: &Config) -> io::Result<Option<DohResolver>> {
+    let Some(mapdns) = &config.mapdns else {
+        return Ok(None);
+    };
+    let Some(doh_url) = &mapdns.doh_url else {
+        return Ok(None);
+    };
+
+    let bootstrap_ips = mapdns
+        .doh_bootstrap_ips
+        .iter()
+        .map(|value| {
+            IpAddr::from_str(value).map_err(|err| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("invalid mapdns.doh_bootstrap_ips entry '{value}': {err}"),
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let resolver = DohResolver::with_timeout(
+        DohEndpoint {
+            url: doh_url.clone(),
+            bootstrap_ips,
+        },
+        DohTransport::Direct,
+        Duration::from_millis(u64::from(mapdns.dns_query_timeout_ms)),
+    )
+    .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))?;
+
+    Ok(Some(resolver))
+}
+
+fn dns_query_name(packet: &[u8]) -> Option<String> {
+    if packet.len() < 12 {
+        return None;
+    }
+    if u16::from_be_bytes([packet[4], packet[5]]) == 0 {
+        return None;
+    }
+
+    let mut offset = 12usize;
+    let mut labels = Vec::new();
+    loop {
+        let length = *packet.get(offset)? as usize;
+        offset += 1;
+        if length == 0 {
+            break;
+        }
+        if length & 0b1100_0000 != 0 {
+            return None;
+        }
+        let label = packet.get(offset..offset + length)?;
+        labels.push(std::str::from_utf8(label).ok()?.to_string());
+        offset += length;
+    }
+    if labels.is_empty() {
+        None
+    } else {
+        Some(labels.join("."))
+    }
+}
+
+fn try_write_tun_packet(
+    tun: &AsyncFd<std::fs::File>,
+    stats: &Arc<Stats>,
+    raw: &[u8],
+    context: &str,
+) {
+    if raw.is_empty() {
+        return;
+    }
+
+    match tun.try_io(Interest::WRITABLE, |inner| {
+        let mut f = inner;
+        f.write_all(raw)
+    }) {
+        Ok(()) => {
+            stats.rx_packets.fetch_add(1, Ordering::Relaxed);
+            stats.rx_bytes.fetch_add(raw.len() as u64, Ordering::Relaxed);
+        }
+        Err(err) => {
+            debug!("{context} response write dropped: {err:?}");
+        }
+    }
+}
+
+fn handle_dns_result(
+    tun: &AsyncFd<std::fs::File>,
+    stats: &Arc<Stats>,
+    mapdns: MapDnsRuntime,
+    dns_cache: &mut DnsCache,
+    response: DnsResponse,
+) {
+    match response.upstream {
+        Ok(upstream) => match dns_cache.rewrite_response(&response.query, &upstream) {
+            Ok(result) => {
+                stats.record_dns_success(&result.host, result.cache_hits, result.cache_misses);
+                let raw = build_udp_response(mapdns.intercept_addr, response.src, &result.response);
+                try_write_tun_packet(tun, stats, &raw, "dns");
+            }
+            Err(err) => {
+                let message = err.to_string();
+                stats.record_dns_failure(response.host.as_deref(), &message);
+                match dns_cache.servfail_response(&response.query) {
+                    Ok(servfail) => {
+                        let raw = build_udp_response(mapdns.intercept_addr, response.src, &servfail);
+                        try_write_tun_packet(tun, stats, &raw, "dns-servfail");
+                    }
+                    Err(servfail_err) => debug!("failed to synthesize SERVFAIL after rewrite error: {servfail_err}"),
+                }
+            }
+        },
+        Err(err) => {
+            stats.record_dns_failure(response.host.as_deref(), &err);
+            match dns_cache.servfail_response(&response.query) {
+                Ok(servfail) => {
+                    let raw = build_udp_response(mapdns.intercept_addr, response.src, &servfail);
+                    try_write_tun_packet(tun, stats, &raw, "dns-servfail");
+                }
+                Err(servfail_err) => debug!("failed to synthesize SERVFAIL after upstream failure: {servfail_err}"),
+            }
+        }
+    }
+}
+
+fn resolve_mapped_target(
+    stats: &Arc<Stats>,
+    dns_cache: &mut Option<DnsCache>,
+    dst: SocketAddr,
+) -> SocketAddr {
+    let Some(cache) = dns_cache.as_mut() else {
+        return dst;
+    };
+    let IpAddr::V4(v4) = dst.ip() else {
+        return dst;
+    };
+    let Some(entry) = cache.lookup(u32::from(v4)) else {
+        return dst;
+    };
+    stats.record_last_host(Some(&entry.host));
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::from(entry.real_ip)), dst.port())
+}
+
 // ── UDP session helper ────────────────────────────────────────────────────────
 
 /// Spawn a fire-and-forget UDP relay task.
@@ -172,17 +413,13 @@ fn spawn_udp_session(
     payload: Vec<u8>,
     cancel: CancellationToken,
     udp_tx: tokio::sync::mpsc::Sender<Vec<u8>>,
-    stats: &Arc<Stats>,
 ) {
-    let stats = Arc::clone(stats);
     tokio::spawn(async move {
         let session = UdpSession::new(proxy_addr, auth);
         match session.relay_once(dst, &payload, cancel).await {
             Ok(Some((resp_payload, from))) => {
                 let raw = build_udp_response(from, src, &resp_payload);
                 if !raw.is_empty() {
-                    stats.rx_packets.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    stats.rx_bytes.fetch_add(raw.len() as u64, std::sync::atomic::Ordering::Relaxed);
                     let _ = udp_tx.send(raw).await;
                 }
             }
@@ -225,14 +462,18 @@ pub async fn io_loop_task(
     let proxy_sockaddr = proxy_addr(&config)?;
     let auth = make_auth(&config);
 
-    // Mapdns parameters (Decision B).
-    let (mapdns_net, mapdns_mask, mapdns_port, mapdns_active) = if let Some(m) = &config.mapdns {
-        let net = m.address.parse::<Ipv4Addr>().map(u32::from).unwrap_or(0xC612_0000);
-        let mask = m.netmask.as_deref().and_then(|s| s.parse::<Ipv4Addr>().ok()).map(u32::from).unwrap_or(0xFFFE_0000);
-        (net, mask, m.port, m.cache_size > 0)
-    } else {
-        (0, 0, 53, false)
-    };
+    let mapdns_runtime = parse_mapdns_runtime(&config)?;
+    dns_cache = parse_dns_cache(&config, dns_cache)?;
+    let mapdns_classify = mapdns_runtime.map(|value| {
+        (
+            match value.intercept_addr.ip() {
+                IpAddr::V4(v4) => u32::from(v4),
+                IpAddr::V6(_) => unreachable!("mapdns runtime only supports IPv4"),
+            },
+            u32::MAX,
+            value.intercept_port,
+        )
+    });
 
     let max_sessions = config.misc.max_session_count as usize;
 
@@ -243,6 +484,35 @@ pub async fn io_loop_task(
 
     // Channel for UDP session tasks to return raw IP packets to write to TUN.
     let (udp_tx, mut udp_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(256);
+    let (mut dns_req_tx, mut dns_resp_rx) = if let Some(resolver) = build_doh_resolver(&config)? {
+        let (req_tx, mut req_rx) = tokio::sync::mpsc::channel::<DnsRequest>(DNS_QUEUE_CAPACITY);
+        let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(DNS_QUEUE_CAPACITY);
+        let worker_cancel = cancel.child_token();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = worker_cancel.cancelled() => break,
+                    request = req_rx.recv() => {
+                        let Some(request) = request else {
+                            break;
+                        };
+                        let upstream = resolver.exchange(&request.query).await.map_err(|err| err.to_string());
+                        if resp_tx.send(DnsResponse {
+                            src: request.src,
+                            query: request.query,
+                            host: request.host,
+                            upstream,
+                        }).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+        (Some(req_tx), Some(resp_rx))
+    } else {
+        (None, None)
+    };
 
     // Read buffer — sized for max MTU + overhead.
     let mtu = config.tunnel.mtu as usize;
@@ -275,7 +545,7 @@ pub async fn io_loop_task(
             let pkt = &buf[..n];
 
             // Decision B: classify before handing to smoltcp.
-            match classify_ip_packet(pkt, mapdns_net, mapdns_mask, mapdns_port) {
+            match classify_ip_packet(pkt, mapdns_classify) {
                 IpClass::TcpOrOther => {
                     // On-demand LISTEN socket creation for new TCP flows.
                     if is_tcp_syn(pkt) {
@@ -298,59 +568,94 @@ pub async fn io_loop_task(
                     device.rx_queue.push_back(pkt.to_vec());
                 }
 
-                IpClass::UdpDns { src, payload } if mapdns_active => {
-                    // Decision B: DNS intercept — handle via DnsCache.
-                    if let Some(cache) = dns_cache.as_mut() {
-                        let mut req = payload.clone();
-                        let mut res = vec![0u8; 512];
-                        match cache.handle(&mut req, &mut res) {
-                            Ok(n) => {
-                                let mapdns_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(mapdns_net)), mapdns_port);
-                                let resp_pkt = build_udp_response(mapdns_addr, src, &res[..n]);
-                                if !resp_pkt.is_empty() {
-                                    // Best-effort write — silently ignore errors.
-                                    if let Err(e) = tun.try_io(Interest::WRITABLE, |inner| {
-                                        let mut f = inner;
-                                        f.write_all(&resp_pkt)
-                                    }) {
-                                        debug!("DNS response write would-block (dropped): {:?}", e);
+                IpClass::UdpDns { src, payload } => {
+                    let host = dns_query_name(&payload);
+                    match (&mapdns_runtime, dns_cache.as_ref(), dns_req_tx.as_ref()) {
+                        (Some(_), Some(_), Some(request_tx)) => {
+                            let request = DnsRequest { src, query: payload, host };
+                            match request_tx.try_send(request) {
+                                Ok(()) => {}
+                                Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {
+                                    if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_ref()) {
+                                        stats.record_dns_failure(request.host.as_deref(), "dns worker queue full");
+                                        match cache.servfail_response(&request.query) {
+                                            Ok(servfail) => {
+                                                let raw =
+                                                    build_udp_response(mapdns.intercept_addr, request.src, &servfail);
+                                                try_write_tun_packet(tun, &stats, &raw, "dns-servfail");
+                                            }
+                                            Err(err) => debug!("failed to synthesize queue-full SERVFAIL: {err}"),
+                                        }
                                     }
                                 }
+                                Err(tokio::sync::mpsc::error::TrySendError::Closed(request)) => {
+                                    if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_ref()) {
+                                        stats.record_dns_failure(request.host.as_deref(), "dns worker unavailable");
+                                        match cache.servfail_response(&request.query) {
+                                            Ok(servfail) => {
+                                                let raw =
+                                                    build_udp_response(mapdns.intercept_addr, request.src, &servfail);
+                                                try_write_tun_packet(tun, &stats, &raw, "dns-servfail");
+                                            }
+                                            Err(err) => {
+                                                debug!("failed to synthesize unavailable-worker SERVFAIL: {err}")
+                                            }
+                                        }
+                                    }
+                                    dns_req_tx = None;
+                                    dns_resp_rx = None;
+                                }
                             }
-                            Err(e) => {
-                                debug!("DnsCache::handle error: {:?} (packet dropped)", e);
+                        }
+                        (Some(mapdns), Some(cache), None) => {
+                            stats.record_dns_failure(host.as_deref(), "DoH resolver is not configured");
+                            match cache.servfail_response(&payload) {
+                                Ok(servfail) => {
+                                    let raw = build_udp_response(mapdns.intercept_addr, src, &servfail);
+                                    try_write_tun_packet(tun, &stats, &raw, "dns-servfail");
+                                }
+                                Err(err) => debug!("failed to synthesize missing-resolver SERVFAIL: {err}"),
                             }
+                        }
+                        _ => {
+                            debug!("DNS intercept hit without mapdns runtime; dropping packet");
                         }
                     }
                 }
 
-                IpClass::UdpDns { src, payload } => {
-                    // mapdns_active is false: relay as regular UDP toward port 53.
-                    let dns_dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(mapdns_net)), mapdns_port);
-                    spawn_udp_session(
-                        proxy_sockaddr,
-                        auth.clone(),
-                        src,
-                        dns_dst,
-                        payload,
-                        cancel.child_token(),
-                        udp_tx.clone(),
-                        &stats,
-                    );
-                }
-
                 IpClass::Udp { src, dst, payload } => {
+                    let resolved_dst = resolve_mapped_target(&stats, &mut dns_cache, dst);
                     spawn_udp_session(
                         proxy_sockaddr,
                         auth.clone(),
                         src,
-                        dst,
+                        resolved_dst,
                         payload,
                         cancel.child_token(),
                         udp_tx.clone(),
-                        &stats,
                     );
                 }
+            }
+        }
+
+        if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_mut()) {
+            loop {
+                let dns_response = match dns_resp_rx.as_mut() {
+                    Some(receiver) => match receiver.try_recv() {
+                        Ok(response) => Some(response),
+                        Err(tokio::sync::mpsc::error::TryRecvError::Empty) => None,
+                        Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                            dns_req_tx = None;
+                            dns_resp_rx = None;
+                            None
+                        }
+                    },
+                    None => None,
+                };
+                let Some(response) = dns_response else {
+                    break;
+                };
+                handle_dns_result(tun, &stats, mapdns, cache, response);
             }
         }
 
@@ -383,7 +688,8 @@ pub async fn io_loop_task(
                 let port = socket_set.get_mut::<TcpSocket>(handle).local_endpoint().map(|e| e.port).unwrap_or(0);
                 pending_listens.remove(&port);
 
-                let target = TargetAddr::Ip(remote_addr);
+                let resolved_remote = resolve_mapped_target(&stats, &mut dns_cache, remote_addr);
+                let target = TargetAddr::Ip(resolved_remote);
                 let (smoltcp_side, session_side) = tokio::io::duplex(DUPLEX_BUF);
                 let child_cancel = cancel.child_token();
                 let session_inst = TcpSession::new(proxy_sockaddr, auth.clone(), target);
@@ -395,7 +701,7 @@ pub async fn io_loop_task(
 
                 let entry = SessionEntry { smoltcp_side, cancel: child_cancel, handle: jh };
                 sessions.insert(handle, entry);
-                info!("TCP session spawned: remote={}", remote_addr);
+                info!("TCP session spawned: remote={}", resolved_remote);
             }
         }
 
@@ -512,18 +818,35 @@ pub async fn io_loop_task(
 
         // Drain any UDP response packets that arrived between loop iterations.
         while let Ok(raw_pkt) = udp_rx.try_recv() {
-            if let Err(e) = tun.try_io(Interest::WRITABLE, |inner| {
-                let mut f = inner;
-                f.write_all(&raw_pkt)
-            }) {
-                debug!("UDP response TUN write error: {:?}", e);
-            }
+            try_write_tun_packet(tun, &stats, &raw_pkt, "udp");
         }
 
         tokio::select! {
             _ = tun.readable() => {},
             _ = tokio::time::sleep(smol_delay) => {},
-            _ = udp_rx.recv() => {}, // wake up when a UDP response is ready
+            raw_pkt = udp_rx.recv() => {
+                if let Some(raw_pkt) = raw_pkt {
+                    try_write_tun_packet(tun, &stats, &raw_pkt, "udp");
+                }
+            }
+            dns_result = async {
+                match dns_resp_rx.as_mut() {
+                    Some(receiver) => receiver.recv().await,
+                    None => None,
+                }
+            }, if dns_resp_rx.is_some() => {
+                match dns_result {
+                    Some(response) => {
+                        if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache.as_mut()) {
+                            handle_dns_result(tun, &stats, mapdns, cache, response);
+                        }
+                    }
+                    None => {
+                        dns_req_tx = None;
+                        dns_resp_rx = None;
+                    }
+                }
+            }
             _ = cancel.cancelled() => {
                 info!("io_loop cancelled — shutting down");
                 break;

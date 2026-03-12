@@ -11,7 +11,7 @@ use android_support::{
     HandleRegistry, JNI_VERSION,
 };
 use hs5t_config::{Config, MapDnsConfig, MiscConfig, Socks5Config, TunnelConfig};
-use hs5t_core::Stats;
+use hs5t_core::{DnsStatsSnapshot, Stats};
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
 use jni::{JNIEnv, JavaVM};
@@ -55,6 +55,11 @@ struct TunnelConfigPayload {
     mapdns_network: Option<String>,
     mapdns_netmask: Option<String>,
     mapdns_cache_size: Option<u32>,
+    doh_resolver_id: Option<String>,
+    doh_url: Option<String>,
+    #[serde(default)]
+    doh_bootstrap_ips: Vec<String>,
+    dns_query_timeout_ms: Option<u32>,
     task_stack_size: u32,
     tcp_buffer_size: Option<u32>,
     udp_recv_buffer_size: Option<u32>,
@@ -100,9 +105,16 @@ struct NativeRuntimeSnapshot {
     last_route_group: Option<i32>,
     listener_address: Option<String>,
     upstream_address: Option<String>,
+    resolver_id: Option<String>,
     last_target: Option<String>,
     last_host: Option<String>,
     last_error: Option<String>,
+    dns_queries_total: u64,
+    dns_cache_hits: u64,
+    dns_cache_misses: u64,
+    dns_failures_total: u64,
+    last_dns_host: Option<String>,
+    last_dns_error: Option<String>,
     tunnel_stats: TunnelStatsSnapshot,
     native_events: Vec<NativeRuntimeEvent>,
     captured_at: u64,
@@ -159,7 +171,12 @@ impl TunnelTelemetryState {
         self.push_event("tunnel", "warn", format!("tunnel error: {error}"));
     }
 
-    fn snapshot(&self, stats: (u64, u64, u64, u64)) -> NativeRuntimeSnapshot {
+    fn snapshot(
+        &self,
+        traffic_stats: (u64, u64, u64, u64),
+        dns_stats: DnsStatsSnapshot,
+        resolver_id: Option<String>,
+    ) -> NativeRuntimeSnapshot {
         NativeRuntimeSnapshot {
             source: "tunnel".to_string(),
             state: if self.running.load(Ordering::Relaxed) { "running".to_string() } else { "idle".to_string() },
@@ -179,14 +196,21 @@ impl TunnelTelemetryState {
             last_route_group: None,
             listener_address: None,
             upstream_address: self.upstream_address.lock().ok().and_then(|guard| guard.clone()),
+            resolver_id,
             last_target: None,
-            last_host: None,
+            last_host: dns_stats.last_host,
             last_error: self.last_error.lock().ok().and_then(|guard| guard.clone()),
+            dns_queries_total: dns_stats.dns_queries_total,
+            dns_cache_hits: dns_stats.dns_cache_hits,
+            dns_cache_misses: dns_stats.dns_cache_misses,
+            dns_failures_total: dns_stats.dns_failures_total,
+            last_dns_host: dns_stats.last_dns_host,
+            last_dns_error: dns_stats.last_dns_error,
             tunnel_stats: TunnelStatsSnapshot {
-                tx_packets: stats.0,
-                tx_bytes: stats.1,
-                rx_packets: stats.2,
-                rx_bytes: stats.3,
+                tx_packets: traffic_stats.0,
+                tx_bytes: traffic_stats.1,
+                rx_packets: traffic_stats.2,
+                rx_bytes: traffic_stats.3,
             },
             native_events: self.drain_events(),
             captured_at: now_ms(),
@@ -493,7 +517,7 @@ fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
 
     let snapshot = {
         let state = session.state.lock().expect("tunnel session poisoned");
-        stats_snapshot_for_state(&state)
+        stats_snapshots_for_state(&state).0
     };
 
     match env.new_long_array(4) {
@@ -517,11 +541,12 @@ fn telemetry_session(env: &mut JNIEnv, handle: jlong) -> jni::sys::jstring {
             return std::ptr::null_mut();
         }
     };
-    let stats = {
+    let (traffic_stats, dns_stats) = {
         let state = session.state.lock().expect("tunnel session poisoned");
-        stats_snapshot_for_state(&state)
+        stats_snapshots_for_state(&state)
     };
-    match serde_json::to_string(&session.telemetry.snapshot(stats)) {
+    let resolver_id = session.config.mapdns.as_ref().and_then(|mapdns| mapdns.resolver_id.clone());
+    match serde_json::to_string(&session.telemetry.snapshot(traffic_stats, dns_stats, resolver_id)) {
         Ok(value) => env.new_string(value).map(jni::objects::JString::into_raw).unwrap_or(std::ptr::null_mut()),
         Err(err) => {
             throw_runtime_exception(env, err.to_string());
@@ -588,6 +613,10 @@ fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config, String> {
         network: payload.mapdns_network,
         netmask: payload.mapdns_netmask,
         cache_size: payload.mapdns_cache_size.unwrap_or(10_000),
+        resolver_id: payload.doh_resolver_id,
+        doh_url: payload.doh_url,
+        doh_bootstrap_ips: payload.doh_bootstrap_ips,
+        dns_query_timeout_ms: payload.dns_query_timeout_ms.unwrap_or(4_000),
     });
 
     Ok(Config {
@@ -658,10 +687,10 @@ fn take_running_tunnel(
     }
 }
 
-fn stats_snapshot_for_state(state: &TunnelSessionState) -> (u64, u64, u64, u64) {
+fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u64, u64, u64), DnsStatsSnapshot) {
     match state {
-        TunnelSessionState::Ready => (0, 0, 0, 0),
-        TunnelSessionState::Running { stats, .. } => stats.snapshot(),
+        TunnelSessionState::Ready => ((0, 0, 0, 0), DnsStatsSnapshot::default()),
+        TunnelSessionState::Running { stats, .. } => (stats.snapshot(), stats.dns_snapshot()),
     }
 }
 
@@ -799,6 +828,10 @@ mod tests {
                     mapdns_network,
                     mapdns_netmask,
                     mapdns_cache_size,
+                    doh_resolver_id: None,
+                    doh_url: None,
+                    doh_bootstrap_ips: Vec::new(),
+                    dns_query_timeout_ms: None,
                     task_stack_size,
                     tcp_buffer_size,
                     udp_recv_buffer_size,
@@ -903,6 +936,10 @@ mod tests {
                     mapdns_network,
                     mapdns_netmask,
                     mapdns_cache_size,
+                    doh_resolver_id: None,
+                    doh_url: None,
+                    doh_bootstrap_ips: Vec::new(),
+                    dns_query_timeout_ms: None,
                     task_stack_size,
                     tcp_buffer_size,
                     udp_recv_buffer_size,
@@ -936,6 +973,10 @@ mod tests {
             mapdns_network: None,
             mapdns_netmask: None,
             mapdns_cache_size: None,
+            doh_resolver_id: None,
+            doh_url: None,
+            doh_bootstrap_ips: Vec::new(),
+            dns_query_timeout_ms: None,
             task_stack_size: 81_920,
             tcp_buffer_size: None,
             udp_recv_buffer_size: None,
@@ -1031,7 +1072,7 @@ mod tests {
 
     #[test]
     fn tunnel_stats_when_ready_are_zero() {
-        assert_eq!(stats_snapshot_for_state(&TunnelSessionState::Ready), (0, 0, 0, 0));
+        assert_eq!(stats_snapshots_for_state(&TunnelSessionState::Ready).0, (0, 0, 0, 0));
     }
 
     #[test]
@@ -1059,7 +1100,7 @@ mod tests {
         state.record_error("boom".to_string());
         state.mark_stop_requested();
 
-        let first = state.snapshot((7, 70, 8, 80));
+        let first = state.snapshot((7, 70, 8, 80), DnsStatsSnapshot::default(), None);
         assert_eq!(first.state, "running");
         assert_eq!(first.health, "degraded");
         assert_eq!(first.active_sessions, 1);
@@ -1071,13 +1112,13 @@ mod tests {
         assert_eq!(first.tunnel_stats.rx_bytes, 80);
         assert_eq!(first.native_events.len(), 3);
 
-        let second = state.snapshot((9, 90, 10, 100));
+        let second = state.snapshot((9, 90, 10, 100), DnsStatsSnapshot::default(), None);
         assert!(second.native_events.is_empty());
         assert_eq!(second.total_errors, 1);
         assert_eq!(second.tunnel_stats.tx_packets, 9);
 
         state.mark_stopped();
-        let stopped = state.snapshot((0, 0, 0, 0));
+        let stopped = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None);
         assert_eq!(stopped.state, "idle");
         assert_eq!(stopped.active_sessions, 0);
         assert_eq!(stopped.native_events.len(), 1);
@@ -1085,7 +1126,7 @@ mod tests {
 
     #[test]
     fn tunnel_telemetry_and_stats_match_goldens() {
-        let ready = TunnelTelemetryState::new().snapshot((0, 0, 0, 0));
+        let ready = TunnelTelemetryState::new().snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None);
         assert_tunnel_snapshot_golden("tunnel_ready", &ready);
         assert_tunnel_stats_golden("tunnel_ready_stats", (0, 0, 0, 0));
 
@@ -1094,15 +1135,15 @@ mod tests {
         state.record_error("boom".to_string());
         state.mark_stop_requested();
 
-        let running = state.snapshot((7, 70, 8, 80));
+        let running = state.snapshot((7, 70, 8, 80), DnsStatsSnapshot::default(), None);
         assert_tunnel_snapshot_golden("tunnel_running_degraded_first_poll", &running);
         assert_tunnel_stats_golden("tunnel_running_stats", (7, 70, 8, 80));
 
-        let drained = state.snapshot((9, 90, 10, 100));
+        let drained = state.snapshot((9, 90, 10, 100), DnsStatsSnapshot::default(), None);
         assert_tunnel_snapshot_golden("tunnel_running_degraded_second_poll", &drained);
 
         state.mark_stopped();
-        let stopped = state.snapshot((0, 0, 0, 0));
+        let stopped = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None);
         assert_tunnel_snapshot_golden("tunnel_stopped", &stopped);
     }
 
@@ -1217,13 +1258,15 @@ mod tests {
         fn stats(&self) -> Result<(u64, u64, u64, u64), &'static str> {
             let session = lookup_tunnel_session(self.tracked_handle())?;
             let state = session.state.lock().expect("tunnel state lock");
-            Ok(stats_snapshot_for_state(&state))
+            Ok(stats_snapshots_for_state(&state).0)
         }
 
         fn telemetry(&self) -> Result<NativeRuntimeSnapshot, &'static str> {
             let session = lookup_tunnel_session(self.tracked_handle())?;
             let state = session.state.lock().expect("tunnel state lock");
-            Ok(session.telemetry.snapshot(stats_snapshot_for_state(&state)))
+            let (traffic, dns) = stats_snapshots_for_state(&state);
+            let resolver_id = session.config.mapdns.as_ref().and_then(|mapdns| mapdns.resolver_id.clone());
+            Ok(session.telemetry.snapshot(traffic, dns, resolver_id))
         }
 
         fn destroy(&mut self) -> Result<(), &'static str> {

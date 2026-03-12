@@ -15,11 +15,13 @@ import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DnsModeDoh
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStatus
+import com.poyka.ripdpi.data.activeDnsSettings
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.poyka.ripdpi.utility.createConnectionNotification
@@ -71,6 +73,12 @@ class RipDpiVpnService : LifecycleVpnService() {
     companion object {
         private const val FOREGROUND_SERVICE_ID: Int = 1
         private const val NOTIFICATION_CHANNEL_ID: String = "RIPDPIVpn"
+        private const val MAPDNS_ADDRESS = "198.18.0.53"
+        private const val MAPDNS_NETWORK = "198.18.0.0"
+        private const val MAPDNS_NETMASK = "255.254.0.0"
+        private const val MAPDNS_PORT = 53
+        private const val MAPDNS_CACHE_SIZE = 10_000
+        private const val DNS_QUERY_TIMEOUT_MS = 4_000
     }
 
     override fun onCreate() {
@@ -249,11 +257,21 @@ class RipDpiVpnService : LifecycleVpnService() {
 
         val settings = appSettingsRepository.snapshot()
         val port = if (settings.proxyPort > 0) settings.proxyPort else 1080
-        val dns = settings.dnsIp.ifEmpty { "1.1.1.1" }
+        val activeDns = settings.activeDnsSettings()
+        val dns = if (activeDns.mode == DnsModeDoh) MAPDNS_ADDRESS else activeDns.dnsIp
         val ipv6 = settings.ipv6Enable
         val config =
             Tun2SocksConfig(
                 socks5Port = port,
+                mapdnsAddress = if (activeDns.mode == DnsModeDoh) MAPDNS_ADDRESS else null,
+                mapdnsPort = if (activeDns.mode == DnsModeDoh) MAPDNS_PORT else null,
+                mapdnsNetwork = if (activeDns.mode == DnsModeDoh) MAPDNS_NETWORK else null,
+                mapdnsNetmask = if (activeDns.mode == DnsModeDoh) MAPDNS_NETMASK else null,
+                mapdnsCacheSize = if (activeDns.mode == DnsModeDoh) MAPDNS_CACHE_SIZE else null,
+                dohResolverId = if (activeDns.mode == DnsModeDoh) activeDns.providerId else null,
+                dohUrl = if (activeDns.mode == DnsModeDoh) activeDns.dohUrl else null,
+                dohBootstrapIps = if (activeDns.mode == DnsModeDoh) activeDns.dohBootstrapIps else emptyList(),
+                dnsQueryTimeoutMs = if (activeDns.mode == DnsModeDoh) DNS_QUERY_TIMEOUT_MS else null,
             )
 
         val session = vpnTunnelSessionProvider.establish(this, dns, ipv6)

@@ -15,6 +15,10 @@ class AppSettingsJsonTest {
                 .setAppTheme("dark")
                 .setRipdpiMode("proxy")
                 .setDnsIp("9.9.9.9")
+                .setDnsMode(DnsModeDoh)
+                .setDnsProviderId(DnsProviderQuad9)
+                .setDnsDohUrl("https://dns.quad9.net/dns-query")
+                .addAllDnsDohBootstrapIps(listOf("9.9.9.9", "149.112.112.112"))
                 .setIpv6Enable(true)
                 .setEnableCmdSettings(true)
                 .setCmdArgs("--dpi-desync=fake")
@@ -149,8 +153,29 @@ class AppSettingsJsonTest {
 
         assertEquals("proxy", decoded.ripdpiMode)
         assertEquals("8.8.4.4", decoded.dnsIp)
+        assertEquals(DnsModePlainUdp, decoded.dnsMode)
+        assertEquals(DnsProviderCustom, decoded.dnsProviderId)
         assertEquals(AppSettingsSerializer.defaultValue.proxyPort, decoded.proxyPort)
         assertEquals(AppSettingsSerializer.defaultValue.desyncMethod, decoded.desyncMethod)
+    }
+
+    @Test
+    fun `legacy built in dns ip migrates to doh resolver`() {
+        val decoded =
+            appSettingsFromJson(
+                """
+                {
+                  "formatVersion": 1,
+                  "dnsIp": "8.8.8.8"
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals("8.8.8.8", decoded.dnsIp)
+        assertEquals(DnsModeDoh, decoded.dnsMode)
+        assertEquals(DnsProviderGoogle, decoded.dnsProviderId)
+        assertEquals("https://dns.google/dns-query", decoded.dnsDohUrl)
+        assertEquals(listOf("8.8.8.8", "8.8.4.4"), decoded.dnsDohBootstrapIpsList)
     }
 
     @Test

@@ -261,21 +261,27 @@ fun ModeEditorScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                     SettingsCategoryHeader(title = stringResource(R.string.config_network_section))
                     RipDpiCard {
-                        RipDpiTextField(
-                            value = draft.dnsIp,
-                            onValueChange = onDnsIpChanged,
-                            label = stringResource(R.string.dbs_ip_setting),
-                            placeholder = stringResource(R.string.config_placeholder_dns),
-                            helperText =
+                        Text(
+                            text = stringResource(R.string.title_dns_settings),
+                            style = RipDpiThemeTokens.type.bodyEmphasis,
+                            color = colors.foreground,
+                        )
+                        Text(
+                            text = draft.dnsSummary,
+                            style = RipDpiThemeTokens.type.monoValue,
+                            color = colors.foreground,
+                        )
+                        Text(
+                            text =
                                 stringResource(
                                     if (draft.mode == Mode.VPN) {
-                                        R.string.config_dns_helper
+                                        R.string.config_dns_summary_enabled
                                     } else {
-                                        R.string.config_dns_disabled_helper
+                                        R.string.config_dns_summary_disabled
                                     },
                                 ),
-                            errorText = validationMessage(uiState.validationErrors[ConfigFieldDnsIp]),
-                            enabled = draft.mode == Mode.VPN,
+                            style = RipDpiThemeTokens.type.body,
+                            color = colors.mutedForeground,
                         )
                         RipDpiTextField(
                             value = draft.proxyIp,

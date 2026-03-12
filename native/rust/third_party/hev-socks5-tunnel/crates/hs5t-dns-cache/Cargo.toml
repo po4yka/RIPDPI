@@ -5,6 +5,7 @@ edition = "2021"
 description = "LRU DNS cache with SOCKS5 mapped DNS support"
 
 [dependencies]
+hickory-proto = { workspace = true }
 lru = { workspace = true }
 thiserror = { workspace = true }
 
