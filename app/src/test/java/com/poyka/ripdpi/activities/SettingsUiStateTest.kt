@@ -492,6 +492,39 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `adaptive fake ttl stays hidden for plain oob`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncMethod("oob")
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.isOob)
+        assertFalse(state.usesFakeTransport)
+        assertFalse(state.hasDisoob)
+        assertFalse(state.fakeTtlControlsRelevant)
+        assertFalse(state.showAdaptiveFakeTtlProfile)
+    }
+
+    @Test
+    fun `adaptive fake ttl stays relevant for disoob`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncMethod("disoob")
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.isOob)
+        assertTrue(state.hasDisoob)
+        assertTrue(state.fakeTtlControlsRelevant)
+        assertTrue(state.showAdaptiveFakeTtlProfile)
+    }
+
+    @Test
     fun `custom adaptive fake ttl mode is preserved from stored delta`() {
         val settings =
             defaults
