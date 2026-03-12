@@ -42,6 +42,8 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setDesyncHttps(true)
             .setTlsrecMarker(DefaultTlsRecordMarker)
             .setUdpFakeProfile(FakePayloadProfileCompatDefault)
+            .setHttpMethodEol(false)
+            .setHttpUnixEol(false)
             .setHostsMode("disable")
             .setQuicInitialMode(QuicInitialModeRouteAndCache)
             .setQuicSupportV1(true)

@@ -1078,6 +1078,101 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `approaches detail humanizes grouped http parser evasions`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-http-parser-evasions",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "disabled",
+                            desyncMethod = "disorder",
+                            chainSummary = "tcp: disorder(1)",
+                            protocolToggles = listOf("HTTP", "HTTPS"),
+                            tlsRecordSplitEnabled = false,
+                            httpParserEvasions =
+                                listOf(
+                                    "host_mixed_case",
+                                    "domain_mixed_case",
+                                    "host_remove_spaces",
+                                    "unix_eol",
+                                    "method_eol",
+                                ),
+                            routeGroup = "14",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-http-parser-evasions")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(
+                signature.any {
+                    it.label == "HTTP parser evasions" &&
+                        it.value ==
+                        "Host mixed case, Domain mixed case, Host remove spaces, Unix line endings, Method EOL shift"
+                },
+            )
+            collector.cancel()
+        }
+
+    @Test
+    fun `approaches detail omits http parser evasions when command line mode is active`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-http-parser-evasions-cli",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "command line",
+                            hostAutolearn = "command line",
+                            desyncMethod = "disorder",
+                            chainSummary = "tcp: disorder(1)",
+                            protocolToggles = listOf("HTTP", "HTTPS"),
+                            tlsRecordSplitEnabled = false,
+                            httpParserEvasions = emptyList(),
+                            routeGroup = "15",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-http-parser-evasions-cli")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertFalse(signature.any { it.label == "HTTP parser evasions" })
+            collector.cancel()
+        }
+
+    @Test
     fun `approaches detail prefers custom raw fake payload source over library labels`() =
         runTest {
             val manager =

@@ -23,6 +23,8 @@ pub const IS_IPV4: u32 = 16;
 pub const MH_HMIX: u32 = 1;
 pub const MH_SPACE: u32 = 2;
 pub const MH_DMIX: u32 = 4;
+pub const MH_UNIXEOL: u32 = 8;
+pub const MH_METHODEOL: u32 = 16;
 
 const TLS_RECORD_HEADER_LEN: usize = 5;
 const QUIC_INITIAL_MIN_LEN: usize = 128;
@@ -146,6 +148,22 @@ struct HttpParts {
     host_start: usize,
     host_end: usize,
     port: u16,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HttpHeaderLine {
+    start: usize,
+    end: usize,
+    value_start: usize,
+}
+
+#[derive(Debug, Clone)]
+struct HttpRequestLayout {
+    method_start: usize,
+    request_line_end: usize,
+    header_lines: Vec<HttpHeaderLine>,
+    user_agent_index: Option<usize>,
+    body_start: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -397,6 +415,48 @@ fn parse_http_parts(buffer: &[u8]) -> Option<HttpParts> {
     }
 
     Some(HttpParts { method_start, header_name_start, host_start, host_end, port })
+}
+
+fn next_http_line_bounds(buffer: &[u8], start: usize) -> Option<(usize, usize)> {
+    let line_feed = buffer[start..].iter().position(|&byte| byte == b'\n')? + start;
+    let line_end = if line_feed > start && buffer[line_feed - 1] == b'\r' { line_feed - 1 } else { line_feed };
+    Some((line_end, line_feed + 1))
+}
+
+fn parse_http_request_layout(buffer: &[u8]) -> Option<HttpRequestLayout> {
+    let method_start = http_method_start(buffer)?;
+    let (request_line_end, mut cursor) = next_http_line_bounds(buffer, method_start)?;
+    let mut header_lines = Vec::new();
+    let mut user_agent_index = None;
+
+    loop {
+        let (line_end, next_start) = next_http_line_bounds(buffer, cursor)?;
+        if line_end == cursor {
+            return Some(HttpRequestLayout {
+                method_start,
+                request_line_end,
+                header_lines,
+                user_agent_index,
+                body_start: next_start,
+            });
+        }
+
+        let raw_line = &buffer[cursor..line_end];
+        let colon = raw_line.iter().position(|&byte| byte == b':')?;
+        let mut value_start = cursor + colon + 1;
+        while value_start < line_end && matches!(buffer[value_start], b' ' | b'\t') {
+            value_start += 1;
+        }
+        if raw_line[..colon].eq_ignore_ascii_case(b"user-agent") {
+            user_agent_index = Some(header_lines.len());
+        }
+        header_lines.push(HttpHeaderLine {
+            start: cursor,
+            end: line_end,
+            value_start,
+        });
+        cursor = next_start;
+    }
 }
 
 pub fn second_level_domain_span(host: &[u8]) -> Option<(usize, usize)> {
@@ -1032,28 +1092,36 @@ pub fn tls_session_id_mismatch(req: &[u8], resp: &[u8]) -> bool {
 }
 
 pub fn mod_http_like_c(input: &[u8], flags: u32) -> PacketMutation {
-    let Some(parts) = parse_http_parts(input) else {
-        return PacketMutation { rc: -1, bytes: input.to_vec() };
-    };
-
-    let mut output = input.to_vec();
-    if flags & MH_HMIX != 0 && parts.header_name_start + 3 < output.len() {
+    fn apply_host_mixed_case(input: &[u8]) -> Option<Vec<u8>> {
+        let parts = parse_http_parts(input)?;
+        if parts.header_name_start + 3 >= input.len() {
+            return None;
+        }
+        let mut output = input.to_vec();
         output[parts.header_name_start] = output[parts.header_name_start].to_ascii_lowercase();
         output[parts.header_name_start + 1] = output[parts.header_name_start + 1].to_ascii_uppercase();
         output[parts.header_name_start + 3] = output[parts.header_name_start + 3].to_ascii_uppercase();
+        Some(output)
     }
-    if flags & MH_DMIX != 0 {
+
+    fn apply_domain_mixed_case(input: &[u8]) -> Option<Vec<u8>> {
+        let parts = parse_http_parts(input)?;
+        let mut output = input.to_vec();
         for idx in (parts.host_start..parts.host_end).step_by(2) {
             output[idx] = output[idx].to_ascii_uppercase();
         }
+        Some(output)
     }
-    if flags & MH_SPACE != 0 {
+
+    fn apply_host_remove_spaces(input: &[u8]) -> Option<Vec<u8>> {
+        let parts = parse_http_parts(input)?;
+        let mut output = input.to_vec();
         let mut hlen = parts.host_end - parts.host_start;
         while parts.host_start + hlen < output.len() && !output[parts.host_start + hlen].is_ascii_whitespace() {
             hlen += 1;
         }
         if parts.host_start + hlen >= output.len() {
-            return PacketMutation { rc: -1, bytes: input.to_vec() };
+            return None;
         }
         let header_value_start = parts.header_name_start + 5;
         let space_count = parts.host_start.saturating_sub(header_value_start);
@@ -1061,9 +1129,99 @@ pub fn mod_http_like_c(input: &[u8], flags: u32) -> PacketMutation {
         for byte in &mut output[header_value_start + hlen..header_value_start + hlen + space_count] {
             *byte = b'\t';
         }
+        Some(output)
     }
 
-    PacketMutation { rc: 0, bytes: output }
+    fn reconstruct_http_request(
+        input: &[u8],
+        layout: &HttpRequestLayout,
+        line_ending: &[u8],
+        user_agent_padding: usize,
+    ) -> Vec<u8> {
+        let mut output = Vec::with_capacity(input.len() + user_agent_padding);
+        output.extend_from_slice(&input[layout.method_start..layout.request_line_end]);
+        output.extend_from_slice(line_ending);
+        for (index, line) in layout.header_lines.iter().enumerate() {
+            output.extend_from_slice(&input[line.start..line.end]);
+            if layout.user_agent_index == Some(index) && user_agent_padding > 0 {
+                output.extend(std::iter::repeat_n(b' ', user_agent_padding));
+            }
+            output.extend_from_slice(line_ending);
+        }
+        output.extend_from_slice(line_ending);
+        output.extend_from_slice(&input[layout.body_start..]);
+        output
+    }
+
+    fn apply_http_unix_eol(input: &[u8]) -> Option<Vec<u8>> {
+        let layout = parse_http_request_layout(input)?;
+        let candidate = reconstruct_http_request(input, &layout, b"\n", 0);
+        if candidate.len() > input.len() {
+            return None;
+        }
+        let padding = input.len().saturating_sub(candidate.len());
+        let output = if padding == 0 {
+            candidate
+        } else if layout.user_agent_index.is_some() {
+            reconstruct_http_request(input, &layout, b"\n", padding)
+        } else {
+            return None;
+        };
+        (output.len() == input.len() && output != input).then_some(output)
+    }
+
+    fn apply_http_method_eol(input: &[u8]) -> Option<Vec<u8>> {
+        let layout = parse_http_request_layout(input)?;
+        let user_agent = layout.user_agent_index.and_then(|index| layout.header_lines.get(index)).copied()?;
+        if user_agent.end < user_agent.value_start + 2 {
+            return None;
+        }
+
+        let mut output = Vec::with_capacity(input.len() + 2);
+        output.extend_from_slice(b"\r\n");
+        output.extend_from_slice(input);
+        output.drain(user_agent.end..user_agent.end + 2);
+        Some(output)
+    }
+
+    let mut output = input.to_vec();
+    let mut modified = false;
+
+    if flags & MH_HMIX != 0 {
+        if let Some(next) = apply_host_mixed_case(&output) {
+            modified |= next != output;
+            output = next;
+        }
+    }
+    if flags & MH_DMIX != 0 {
+        if let Some(next) = apply_domain_mixed_case(&output) {
+            modified |= next != output;
+            output = next;
+        }
+    }
+    if flags & MH_SPACE != 0 {
+        if let Some(next) = apply_host_remove_spaces(&output) {
+            modified |= next != output;
+            output = next;
+        }
+    }
+    if flags & MH_UNIXEOL != 0 {
+        if let Some(next) = apply_http_unix_eol(&output) {
+            modified |= next != output;
+            output = next;
+        }
+    }
+    if flags & MH_METHODEOL != 0 {
+        if let Some(next) = apply_http_method_eol(&output) {
+            modified |= next != output;
+            output = next;
+        }
+    }
+
+    PacketMutation {
+        rc: if modified { 0 } else { -1 },
+        bytes: if modified { output } else { input.to_vec() },
+    }
 }
 
 pub fn part_tls_like_c(input: &[u8], pos: isize) -> PacketMutation {
@@ -1597,6 +1755,49 @@ mod tests {
 
         assert_eq!(mutation.rc, 0);
         assert!(output.contains("\r\nhOsT: ExAmPlE.CoM\r\n"));
+    }
+
+    #[test]
+    fn mod_http_like_c_applies_unix_eol_with_user_agent_padding() {
+        let input = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\n\r\n";
+        let mutation = mod_http_like_c(input, MH_UNIXEOL);
+        let output = std::str::from_utf8(&mutation.bytes).expect("http mutation utf8");
+
+        assert_eq!(mutation.rc, 0);
+        assert_eq!(mutation.bytes.len(), input.len());
+        assert_eq!(output, "GET / HTTP/1.1\nHost: example.com\nUser-Agent: agent    \n\n");
+    }
+
+    #[test]
+    fn mod_http_like_c_applies_method_eol_and_trims_user_agent() {
+        let input = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\n\r\n";
+        let mutation = mod_http_like_c(input, MH_METHODEOL);
+        let output = std::str::from_utf8(&mutation.bytes).expect("http mutation utf8");
+
+        assert_eq!(mutation.rc, 0);
+        assert_eq!(mutation.bytes.len(), input.len());
+        assert_eq!(output, "\r\nGET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: age\r\n\r\n");
+    }
+
+    #[test]
+    fn mod_http_like_c_best_effort_skips_eol_mutations_without_user_agent() {
+        let input = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let mutation = mod_http_like_c(input, MH_UNIXEOL | MH_METHODEOL);
+
+        assert_eq!(mutation.rc, -1);
+        assert_eq!(mutation.bytes, input);
+    }
+
+    #[test]
+    fn mod_http_like_c_keeps_pipeline_order_for_safe_and_aggressive_mutations() {
+        let input = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\n\r\n";
+        let mutation = mod_http_like_c(input, MH_HMIX | MH_DMIX | MH_SPACE | MH_UNIXEOL | MH_METHODEOL);
+        let output = std::str::from_utf8(&mutation.bytes).expect("http mutation utf8");
+
+        assert_eq!(mutation.rc, 0);
+        assert!(output.starts_with("\r\nGET / HTTP/1.1\n"));
+        assert!(output.contains("\nhOsT:ExAmPlE.CoM\t\n"));
+        assert!(output.contains("\nUser-Agent: agent  \n\n"));
     }
 
     #[test]

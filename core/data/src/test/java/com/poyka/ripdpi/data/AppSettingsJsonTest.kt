@@ -69,6 +69,8 @@ class AppSettingsJsonTest {
                 .setHostMixedCase(true)
                 .setDomainMixedCase(true)
                 .setHostRemoveSpaces(true)
+                .setHttpMethodEol(true)
+                .setHttpUnixEol(true)
                 .setOnboardingComplete(true)
                 .setWebrtcProtectionEnabled(true)
                 .setBiometricEnabled(true)
@@ -177,6 +179,8 @@ class AppSettingsJsonTest {
         assertEquals(AppSettingsSerializer.defaultValue.httpFakeProfile, decoded.httpFakeProfile)
         assertEquals(AppSettingsSerializer.defaultValue.tlsFakeProfile, decoded.tlsFakeProfile)
         assertEquals(AppSettingsSerializer.defaultValue.udpFakeProfile, decoded.udpFakeProfile)
+        assertEquals(AppSettingsSerializer.defaultValue.httpMethodEol, decoded.httpMethodEol)
+        assertEquals(AppSettingsSerializer.defaultValue.httpUnixEol, decoded.httpUnixEol)
     }
 
     @Test
