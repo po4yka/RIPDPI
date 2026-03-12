@@ -108,6 +108,8 @@ class RuntimeHistoryRecorderTest {
                             state = "running",
                             health = "healthy",
                             routeChanges = 2,
+                            lastFailureClass = "http_blockpage",
+                            lastFallbackAction = "retry_with_matching_group",
                             nativeEvents =
                                 listOf(
                                     NativeRuntimeEvent(
@@ -195,6 +197,8 @@ class RuntimeHistoryRecorderTest {
             assertEquals("UDP DNS showed dns_substitution", telemetrySample.resolverFallbackReason)
             assertEquals("transport_switch", telemetrySample.networkHandoverClass)
             assertEquals("dns_interference", telemetrySample.failureClass)
+            assertEquals("http_blockpage", telemetrySample.lastFailureClass)
+            assertEquals("retry_with_matching_group", telemetrySample.lastFallbackAction)
             assertEquals("v1:abc123", telemetrySample.telemetryNetworkFingerprintHash)
             assertEquals("hostfake", telemetrySample.winningTcpStrategyFamily)
             assertEquals("quic_burst", telemetrySample.winningQuicStrategyFamily)
