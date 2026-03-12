@@ -23,7 +23,7 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Repository | [bol-van/zapret2](https://github.com/bol-van/zapret2) |
 | Description | DPI circumvention tool for Linux/OpenWRT/FreeBSD with nfqueue/tproxy |
 | Language | C, Lua |
-| Last analyzed | 2026-03-12 (commit: HEAD at time of analysis, status refreshed after RIPDPI hostfake/autolearn/QUIC-fake/probing ports) |
+| Last analyzed | 2026-03-12 (commit: HEAD at time of analysis, status refreshed after activation windows, adaptive split placement, HTTP parser evasions, adaptive fake TTL, and fake approximation ports) |
 
 **Ideas extracted:**
 
@@ -40,11 +40,13 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | 9 | QUIC fake Initial profiles (`compat_default`, `realistic_initial`) | IMPLEMENTED | RIPDPI now generates QUIC fake payloads for UDP `fake_burst` using either a zapret-compatible compatibility blob or a realistic IETF QUIC Initial built from the production QUIC Initial encoder with optional fake host override. |
 | 10 | Built-in fake payload profile library for HTTP/TLS/UDP | IMPLEMENTED | RIPDPI no longer relies on a single default HTTP/TLS/UDP fake payload. It now ships a curated built-in profile library, selectable through CLI, Android settings, JNI/native config, and diagnostics, while still preserving raw custom fake payloads as the highest-priority override. |
 | 11 | Blockcheck-style automatic probing and recommendation flow | IMPLEMENTED | RIPDPI diagnostics now includes a separate `Automatic probing` profile that runs a fixed raw-path candidate suite across HTTP, HTTPS, and QUIC, scores TCP and QUIC candidates separately, and returns a manual recommendation plus scoreboard rather than silently changing user settings. |
-| 12 | Range-based filtering (packet count, data size, sequence offset) | PARTIAL | RIPDPI now has richer chain composition, host-aware TCP/UDP routing, fake profile selection, and probing, but its activation filters are still closer to rounds/protocol/port/host routing than zapret2's deeper per-flow/sequence/data-volume controls. |
+| 12 | Range-based filtering (packet count, data size, sequence offset) | IMPLEMENTED | RIPDPI now has structured activation windows at both group and per-step levels across TCP and UDP. The model uses round, payload-size, and outbound stream-byte ranges instead of raw TCP sequence numbers, but it covers the practical selectivity surface that maps cleanly into RIPDPI's proxy architecture. |
 | 13 | Lua-based runtime scripting engine | NOT IMPLEMENTED | RIPDPI intentionally chose typed Rust/Kotlin structures over a Lua runtime. This keeps the Android/JNI surface smaller and safer, but it means users cannot define arbitrary runtime packet logic the way zapret2 can. |
 | 14 | Multi-instance processing pipeline architecture | NOT IMPLEMENTED | RIPDPI still uses its current local proxy/VPN routing model rather than independent parallel desync instances in the zapret2 sense. |
-| 15 | Automatic segmentation without manual MSS configuration | NOT IMPLEMENTED | Marker-aware chains improve split targeting, but RIPDPI still relies on explicit split markers rather than inferred MSS/MTU-aware auto-segmentation. |
+| 15 | Automatic segmentation without manual MSS configuration | IMPLEMENTED | RIPDPI now supports adaptive `auto(...)` markers that use live `TCP_INFO` segment hints (`snd_mss`, `advmss`, `pmtu`) plus semantic HTTP/TLS markers to pick concrete split boundaries per payload. The feature stays marker-driven and TCP-only in v1, but it eliminates the need for manual split placement in common cases. |
 | 16 | Partial `fakedsplit` / `fakeddisorder` approximations | IMPLEMENTED (PARTIAL) | RIPDPI now ships `fakedsplit` and `fakeddisorder` TCP chain steps as Linux/Android-focused approximations built on the existing fake-send/retransmission primitive. They intentionally do not reproduce zapret2's raw sequence-overlap parity, but they approximate fake/retransmission ambiguity with the existing fake payload library, fake TLS mutations, fake offset, and adaptive fake TTL pipeline. |
+| 17 | Aggressive HTTP parser evasions (`http_methodeol`, `http_unixeol`) | IMPLEMENTED | RIPDPI now ships zapret-style Method-EOL and Unix-EOL HTTP request mutations on top of the existing Host/domain/space tweaks. They are exposed as explicit aggressive Android toggles, included in diagnostics signatures, and exercised by dedicated automatic-probing candidates instead of being silently folded into the safe parser profile. |
+| 18 | Adaptive fake TTL (`autottl`) | IMPLEMENTED (PARTIAL) | RIPDPI now supports a hybrid `auto_ttl` design: native config and CLI parity, runtime-scoped host/address keyed learning, deterministic candidate search, Android UI/diagnostics, and reuse across fake packets, `hostfake`, and `disoob`. It does not yet compute zapret2-style TTL from observed reply-hop counts, so the current implementation is a practical approximation rather than full parity. |
 
 ---
 
@@ -120,10 +122,12 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Semantic marker offsets | Yes | -- | -- | Partial | IMPLEMENTED |
 | Ordered multi-step strategy chains | Yes | -- | -- | Partial | IMPLEMENTED |
 | Fake packets (TTL/MD5) | Yes | -- | -- | -- | IMPLEMENTED |
+| Adaptive fake TTL / autottl | Yes | -- | -- | -- | IMPLEMENTED (PARTIAL) |
 | TLS record splitting | Yes | -- | -- | -- | IMPLEMENTED |
 | Host-targeted fake chunks | Yes | -- | -- | -- | IMPLEMENTED |
 | TLS version spoofing | -- | -- | -- | Yes | IMPLEMENTED |
 | HTTP header manipulation | Yes | -- | -- | -- | IMPLEMENTED |
+| Aggressive HTTP parser evasions | Yes | -- | -- | -- | IMPLEMENTED |
 | Auto-detect & group switching | Yes | -- | -- | -- | IMPLEMENTED |
 | Host autolearn / autohostlist | Yes | -- | -- | -- | IMPLEMENTED |
 | TCP cutoff detection | -- | -- | Yes | -- | IMPLEMENTED |
@@ -141,7 +145,7 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Per-app network rules | -- | Yes | -- | -- | NOT IMPLEMENTED |
 | ECH support | -- | Yes | -- | -- | NOT IMPLEMENTED |
 | Category-based filtering | -- | Yes | -- | -- | NOT IMPLEMENTED |
-| Auto MSS/segmentation | Yes | -- | -- | -- | NOT IMPLEMENTED |
+| Auto MSS/segmentation | Yes | -- | -- | -- | IMPLEMENTED |
 | Partial fakedsplit/fakeddisorder approximations | Yes | -- | -- | -- | IMPLEMENTED (PARTIAL) |
 | Multi-fragment random split | -- | -- | -- | Yes | IMPLEMENTED |
 | Granular error classification | -- | -- | Yes | -- | PARTIAL |
@@ -152,11 +156,20 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 1. **ECH support** -- protocol-level SNI hiding still complements the new encrypted DNS stack and could eliminate desync for servers that support it
 2. **Per-app desync routing / policy controls** -- rethink-app's strongest still-missing product idea; useful for exempting trusted apps or limiting bypass to selected traffic
 3. **Granular error classification** -- distinguish RST/abort/MITM/SNI-block for better auto-strategy selection; incremental improvement to existing diagnostics and automatic probing
-4. **Auto segmentation** -- now that semantic markers, multi-step chains, hostfake, QUIC-aware UDP routing, and encrypted DNS fallback are implemented, the next zapret2-inspired improvement is automatically choosing split locations/sizes instead of requiring explicit markers
-5. **Deeper range-aware activation filters** -- RIPDPI still lacks zapret2-style packet-count, data-volume, and sequence-aware activation rules that could make chains more selective per flow stage
+4. **True reply-TTL-backed autottl parity** -- the current adaptive fake TTL implementation is practical and product-ready, but it still learns by runtime outcomes rather than deriving hop-count-aware TTL from observed replies the way zapret2 can on raw packet paths
+5. **Additional UDP-specific evasions** -- zapret2 still has niche UDP mutations like `udplen`, `dht_dn`, and related protocol-shaped tricks that fit RIPDPI's proxy architecture better than raw sequence hacks and could complement the current QUIC fake-profile path
+
+### RIPDPI-native Ports Landed Since The Initial Analysis
+
+- semantic markers and ordered TCP/UDP chain DSL
+- host-targeted fake chunks plus partial `fakedsplit` / `fakeddisorder`
+- richer fake TLS mutation controls and built-in fake payload profile libraries
+- QUIC fake Initial profiles
+- host autolearn and diagnostics-side automatic probing
+- activation windows, adaptive split placement, aggressive HTTP parser evasions, and adaptive fake TTL
 
 ### Exploratory Ideas (interesting but larger scope)
 
 - Lua/scripting engine for user-defined strategies
 - Category-based domain filtering
-- Deeper zapret2-style range filters (sequence/data-volume aware activation)
+- More niche zapret2 UDP/protocol-specific mutations beyond QUIC

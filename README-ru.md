@@ -7,6 +7,7 @@
 - local proxy mode
 - local VPN redirection mode
 - шифрованным DNS в VPN-режиме через DoH/DoT/DNSCrypt
+- расширенной стратегической настройкой: semantic markers, adaptive split placement, fake payload profiles и automatic probing
 - встроенной диагностикой и пассивной telemetry
 - in-repository Rust native modules
 
@@ -19,6 +20,7 @@ RIPDPI локально запускает SOCKS5-прокси на основе
 Реализованные механизмы диагностики:
 
 - Ручные сканы в режимах `RAW_PATH` и `IN_PATH`
+- `Automatic probing` в режиме `RAW_PATH` с фиксированным набором кандидатов и ручной рекомендацией
 - Проверка целостности DNS через UDP DNS и шифрованные резолверы (DoH/DoT/DNSCrypt)
 - Проверка доступности доменов с классификацией TLS и HTTP
 - Детект блокировки на пороге 16-20 КБ через fat-header requests
@@ -41,7 +43,22 @@ RIPDPI локально запускает SOCKS5-прокси на основе
 
 ## Настройки
 
-Для обхода некоторых блокировок может потребоваться изменить настройки. Подробнее в [документации ByeDPI](https://github.com/hufrea/byedpi/blob/v0.13/README.md).
+RIPDPI сохраняет совместимость с legacy ByeDPI CLI, но Android UI теперь покрывает заметно более широкий typed strategy surface, чем исходный command-line путь.
+
+## Расширенные стратегии
+
+Текущий Android/native strategy stack включает:
+
+- semantic markers: `host`, `endhost`, `midsld`, `sniext`, `extlen`
+- adaptive markers вида `auto(balanced)` и `auto(host)`, которые резолвятся по live `TCP_INFO`
+- ordered TCP/UDP chain steps и per-step activation filters
+- richer fake TLS mutations: `orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning
+- built-in fake payload profile library для HTTP, TLS, UDP и QUIC Initial
+- host-targeted fake chunks (`hostfake`) и Linux/Android-focused приближения `fakedsplit` / `fakeddisorder`
+- per-host route learning, activation windows и adaptive fake TTL для TCP fake sends
+- diagnostics-side automatic probing с candidate scoreboard и ручной рекомендацией
+
+Подробности по native call path и текущей strategy surface: [docs/native/byedpi.md](docs/native/byedpi.md).
 
 ## FAQ
 
@@ -58,6 +75,8 @@ RIPDPI локально запускает SOCKS5-прокси на основе
 ## Документация
 
 - [Native integration и использование модулей](docs/native/README.md)
+- [Proxy engine и текущая native strategy surface](docs/native/byedpi.md)
+- [TUN-to-SOCKS native bridge](docs/native/hev-socks5-tunnel.md)
 - [Тесты, E2E, golden contracts и soak coverage](docs/testing.md)
 - [Анализ внешних проектов и идеи для развития](docs/external-projects-analysis.md)
 

@@ -13,6 +13,7 @@ These run through Gradle on the host JVM and cover the Android-facing logic with
   - config contract snapshots
   - state-machine tests
   - fault-injection tests
+  - advanced strategy JSON coverage for markers, fake payload profiles, activation windows, adaptive fake TTL, and UI/native bridge parity
   - native telemetry golden contracts
 - `core:service`
   - service state store
@@ -21,10 +22,13 @@ These run through Gradle on the host JVM and cover the Android-facing logic with
   - merged service telemetry golden contracts
 - `core:diagnostics`
   - diagnostics manager orchestration
+  - automatic probing profile wiring and recommendation persistence
   - resolver recommendation ranking and temporary encrypted-DNS override flow
   - runtime-history persistence of resolver telemetry
   - export/archive contents
   - persisted passive-monitor and native-event golden contracts
+- `app`
+  - settings and diagnostics ViewModel coverage for chain DSL, fake payload/fake TLS controls, adaptive split placement, activation windows, adaptive fake TTL, and automatic probing presentation
 
 Main command:
 
@@ -47,6 +51,9 @@ The Rust workspace contains several test styles:
 
 - unit tests for JNI adapters and helpers
 - property-based and fuzz-style parsing coverage with `proptest`
+- config and planner coverage for semantic markers, adaptive `auto(...)` markers, activation filters, fake payload profile selection, QUIC fake Initial profiles, and HTTP parser evasions
+- runtime policy coverage for host autolearn, route advancement, and adaptive fake TTL learning
+- diagnostics monitor coverage for automatic probing candidate catalogs and recommendation assembly
 - state-machine coverage for proxy and tunnel session registries
 - deterministic fault-injection tests
 - telemetry/logging golden tests
@@ -151,6 +158,7 @@ Semantic fields remain strict:
 - event order
 - level and message text
 - route group and target metadata
+- strategy signature and recommendation metadata
 - resolver metadata, fallback state, and handover classification
 
 ## Linux TUN E2E and soak
