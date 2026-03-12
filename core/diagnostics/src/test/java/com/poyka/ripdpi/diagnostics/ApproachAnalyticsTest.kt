@@ -6,7 +6,9 @@ import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
+import com.poyka.ripdpi.proto.ActivationFilter
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.proto.NumericRange
 import com.poyka.ripdpi.proto.StrategyTcpStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -259,5 +261,27 @@ class ApproachAnalyticsTest {
 
         assertNull(signature.quicFakeProfile)
         assertNull(signature.quicFakeHost)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature includes activation filter ranges`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setGroupActivationFilter(
+                    ActivationFilter
+                        .newBuilder()
+                        .setRound(NumericRange.newBuilder().setStart(2).setEnd(4))
+                        .setPayloadSize(NumericRange.newBuilder().setStart(64).setEnd(512))
+                        .setStreamBytes(NumericRange.newBuilder().setStart(0).setEnd(2047))
+                        .build(),
+                ).build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "8")
+
+        assertEquals("2-4", signature.activationRound)
+        assertEquals("64-512", signature.activationPayloadSize)
+        assertEquals("0-2047", signature.activationStreamBytes)
     }
 }

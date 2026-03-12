@@ -2,6 +2,17 @@ syntax = "proto3";
 option java_package = "com.poyka.ripdpi.proto";
 option java_multiple_files = true;
 
+message NumericRange {
+  int64 start = 1; // -1 means unset
+  int64 end = 2;   // -1 means unset
+}
+
+message ActivationFilter {
+  NumericRange round = 1;
+  NumericRange payload_size = 2;
+  NumericRange stream_bytes = 3;
+}
+
 message StrategyTcpStep {
   string kind = 1;
   string marker = 2;
@@ -10,11 +21,13 @@ message StrategyTcpStep {
   int32 fragment_count = 5;
   int32 min_fragment_size = 6;
   int32 max_fragment_size = 7;
+  ActivationFilter activation_filter = 8;
 }
 
 message StrategyUdpStep {
   string kind = 1;
   int32 count = 2;
+  ActivationFilter activation_filter = 3;
 }
 
 message AppSettings {
@@ -105,8 +118,17 @@ message AppSettings {
   string http_fake_profile = 88; // "compat_default" | "iana_get" | "cloudflare_get"
   string tls_fake_profile = 89; // "compat_default" | "iana_firefox" | "google_chrome" | "vk_chrome" | "sberbank_chrome" | "rutracker_kyber" | "bigsize_iana"
   string udp_fake_profile = 90; // "compat_default" | "zero_256" | "zero_512" | "dns_query" | "stun_binding" | "wireguard_initiation" | "dht_get_peers"
-  string dns_mode = 91; // "plain_udp" | "doh"
+  string dns_mode = 91; // "plain_udp" | "encrypted"
   string dns_provider_id = 92; // "cloudflare" | "google" | "quad9" | "adguard" | "custom"
-  string dns_doh_url = 93;
-  repeated string dns_doh_bootstrap_ips = 94;
+  string dns_doh_url = 93; // deprecated compatibility field
+  repeated string dns_doh_bootstrap_ips = 94; // deprecated compatibility field
+  ActivationFilter group_activation_filter = 95;
+  string encrypted_dns_protocol = 96; // "doh" | "dot" | "dnscrypt"
+  string encrypted_dns_host = 97;
+  int32 encrypted_dns_port = 98;
+  string encrypted_dns_tls_server_name = 99;
+  repeated string encrypted_dns_bootstrap_ips = 100;
+  string encrypted_dns_doh_url = 101;
+  string encrypted_dns_dnscrypt_provider_name = 102;
+  string encrypted_dns_dnscrypt_public_key = 103;
 }
