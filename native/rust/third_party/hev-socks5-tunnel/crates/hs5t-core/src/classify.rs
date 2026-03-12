@@ -42,11 +42,7 @@ pub fn classify_ip_packet(pkt: &[u8], mapdns: Option<(u32, u32, u16)>) -> IpClas
 
     let payload_start = ihl + 8;
     let payload_end = (ihl + udp_length).min(pkt.len());
-    let payload = if payload_end > payload_start {
-        pkt[payload_start..payload_end].to_vec()
-    } else {
-        Vec::new()
-    };
+    let payload = if payload_end > payload_start { pkt[payload_start..payload_end].to_vec() } else { Vec::new() };
 
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(src_ip)), src_port);
     let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(dst_ip)), dst_port);

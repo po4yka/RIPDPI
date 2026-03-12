@@ -154,6 +154,14 @@ data class TelemetrySampleEntity(
     val connectionState: String,
     val networkType: String,
     val publicIp: String?,
+    val failureClass: String? = null,
+    val telemetryNetworkFingerprintHash: String? = null,
+    val winningTcpStrategyFamily: String? = null,
+    val winningQuicStrategyFamily: String? = null,
+    val proxyRttBand: String = "unknown",
+    val resolverRttBand: String = "unknown",
+    val proxyRouteRetryCount: Long = 0,
+    val tunnelRecoveryRetryCount: Long = 0,
     val resolverId: String? = null,
     val resolverProtocol: String? = null,
     val resolverEndpoint: String? = null,
@@ -224,6 +232,14 @@ data class BypassUsageSessionEntity(
     val strategyJson: String,
     val networkType: String,
     val publicIp: String? = null,
+    val failureClass: String? = null,
+    val telemetryNetworkFingerprintHash: String? = null,
+    val winningTcpStrategyFamily: String? = null,
+    val winningQuicStrategyFamily: String? = null,
+    val proxyRttBand: String = "unknown",
+    val resolverRttBand: String = "unknown",
+    val proxyRouteRetryCount: Long = 0,
+    val tunnelRecoveryRetryCount: Long = 0,
     val txBytes: Long,
     val rxBytes: Long,
     val totalErrors: Long,
@@ -260,6 +276,8 @@ data class RememberedNetworkPolicyEntity(
     val proxyConfigJson: String,
     val vpnDnsPolicyJson: String? = null,
     val strategySignatureJson: String? = null,
+    val winningTcpStrategyFamily: String? = null,
+    val winningQuicStrategyFamily: String? = null,
     val source: String,
     val status: String,
     val successCount: Int = 0,
@@ -491,7 +509,7 @@ interface DiagnosticsDao {
         BypassUsageSessionEntity::class,
         RememberedNetworkPolicyEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -930,6 +948,32 @@ internal val DiagnosticsDatabaseMigration5To6 =
         }
     }
 
+internal val DiagnosticsDatabaseMigration6To7 =
+    object : Migration(6, 7) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN failureClass TEXT")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN telemetryNetworkFingerprintHash TEXT")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN winningTcpStrategyFamily TEXT")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN winningQuicStrategyFamily TEXT")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN proxyRttBand TEXT NOT NULL DEFAULT 'unknown'")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN resolverRttBand TEXT NOT NULL DEFAULT 'unknown'")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN proxyRouteRetryCount INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN tunnelRecoveryRetryCount INTEGER NOT NULL DEFAULT 0")
+
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN failureClass TEXT")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN telemetryNetworkFingerprintHash TEXT")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN winningTcpStrategyFamily TEXT")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN winningQuicStrategyFamily TEXT")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN proxyRttBand TEXT NOT NULL DEFAULT 'unknown'")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN resolverRttBand TEXT NOT NULL DEFAULT 'unknown'")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN proxyRouteRetryCount INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN tunnelRecoveryRetryCount INTEGER NOT NULL DEFAULT 0")
+
+            database.execSQL("ALTER TABLE remembered_network_policies ADD COLUMN winningTcpStrategyFamily TEXT")
+            database.execSQL("ALTER TABLE remembered_network_policies ADD COLUMN winningQuicStrategyFamily TEXT")
+        }
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DiagnosticsHistoryRepositoryModule {
@@ -956,6 +1000,7 @@ object DiagnosticsDatabaseModule {
             DiagnosticsDatabaseMigration3To4,
             DiagnosticsDatabaseMigration4To5,
             DiagnosticsDatabaseMigration5To6,
+            DiagnosticsDatabaseMigration6To7,
         ).build()
 
     @Provides

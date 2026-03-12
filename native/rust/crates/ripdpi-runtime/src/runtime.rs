@@ -4,7 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, Tc
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use crate::adaptive_tuning::AdaptivePlannerResolver;
@@ -16,8 +16,9 @@ use crate::runtime_policy::{
 };
 use crate::{current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
 use ciadpi_config::{
-    DesyncGroup, QuicInitialMode, RuntimeConfig, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR,
-    DETECT_TORST,
+    DesyncGroup, QuicInitialMode, RuntimeConfig, TcpChainStepKind, DETECT_CONNECT, DETECT_DNS_TAMPER,
+    DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT,
+    DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
 use ciadpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes, plan_tcp, plan_udp,
@@ -31,6 +32,12 @@ use ciadpi_session::{
 };
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token};
+use ripdpi_dns_resolver::{extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport};
+use ripdpi_failure_classifier::{
+    classify_http_blockpage, classify_redirect_failure, classify_tls_alert, classify_tls_handshake_failure,
+    classify_transport_error, confirm_dns_tampering, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
+};
+use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
 const LISTENER: Token = Token(0);
@@ -46,6 +53,7 @@ struct RuntimeState {
     adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
     active_clients: Arc<AtomicUsize>,
     telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
+    runtime_context: Option<ProxyRuntimeContext>,
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +104,7 @@ fn run_proxy_with_listener_internal(
         adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry),
+        runtime_context: control.as_ref().and_then(|value| value.runtime_context()),
     };
     let _cleanup = RuntimeCleanup { config: state.config.clone(), cache: state.cache.clone() };
     listener.set_nonblocking(true)?;
@@ -716,36 +725,12 @@ fn connect_target_with_route(
         match connect_target_via_group(target, state, route.group_index) {
             Ok(stream) => return Ok((stream, route)),
             Err(err) => {
-                let next = {
-                    note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
-                    let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-                    let next = cache.advance_route(
-                        &state.config,
-                        &route,
-                        RouteAdvance {
-                            dest: target,
-                            payload,
-                            transport: TransportProtocol::Tcp,
-                            trigger: DETECT_CONNECT,
-                            can_reconnect: true,
-                            host: host.clone(),
-                        },
-                    )?;
-                    flush_autolearn_updates(state, &mut cache);
-                    next
-                };
+                let failure = classify_transport_error(FailureStage::Connect, &err);
+                emit_failure_classified(state, target, &failure, host.as_deref());
+                let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure)?;
                 let Some(next) = next else {
                     return Err(err);
                 };
-                if let Some(telemetry) = &state.telemetry {
-                    telemetry.on_route_advanced(
-                        target,
-                        route.group_index,
-                        next.group_index,
-                        DETECT_CONNECT,
-                        host.as_deref(),
-                    );
-                }
                 route = next;
             }
         }
@@ -762,6 +747,208 @@ fn flush_autolearn_updates(state: &RuntimeState, cache: &mut RuntimeCache) {
     for event in cache.drain_autolearn_events() {
         telemetry.on_host_autolearn_event(event.action, event.host.as_deref(), event.group_index);
     }
+}
+
+fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
+    match failure.class {
+        FailureClass::DnsTampering => DETECT_DNS_TAMPER,
+        FailureClass::TcpReset => DETECT_TCP_RESET,
+        FailureClass::SilentDrop => DETECT_SILENT_DROP,
+        FailureClass::TlsAlert => DETECT_TLS_ALERT,
+        FailureClass::HttpBlockpage => DETECT_HTTP_BLOCKPAGE,
+        FailureClass::QuicBreakage => 0,
+        FailureClass::Redirect => DETECT_HTTP_LOCAT,
+        FailureClass::TlsHandshakeFailure => DETECT_TLS_HANDSHAKE_FAILURE,
+        FailureClass::ConnectFailure => DETECT_CONNECT,
+        FailureClass::Unknown => 0,
+    }
+}
+
+fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
+    matches!(
+        failure.class,
+        FailureClass::TcpReset
+            | FailureClass::SilentDrop
+            | FailureClass::TlsAlert
+            | FailureClass::HttpBlockpage
+            | FailureClass::Redirect
+            | FailureClass::TlsHandshakeFailure
+    )
+}
+
+fn emit_failure_classified(
+    state: &RuntimeState,
+    target: SocketAddr,
+    failure: &ClassifiedFailure,
+    host: Option<&str>,
+) {
+    if let Some(telemetry) = &state.telemetry {
+        telemetry.on_failure_classified(target, failure, host);
+    }
+}
+
+fn advance_route_for_failure(
+    state: &RuntimeState,
+    target: SocketAddr,
+    route: &ConnectionRoute,
+    host: Option<String>,
+    payload: Option<&[u8]>,
+    failure: &ClassifiedFailure,
+) -> io::Result<Option<ConnectionRoute>> {
+    let trigger = failure_trigger_mask(failure);
+    if failure.action != FailureAction::RetryWithMatchingGroup || trigger == 0 || !runtime_supports_trigger(state, trigger)? {
+        return Ok(None);
+    }
+
+    let penalize = failure_penalizes_strategy(failure);
+    if penalize {
+        if let Some(payload) = payload {
+            note_adaptive_tcp_failure(state, target, route.group_index, host.as_deref(), payload)?;
+        }
+        note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
+    }
+
+    let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
+    let next = cache.advance_route(
+        &state.config,
+        route,
+        RouteAdvance {
+            dest: target,
+            payload,
+            transport: TransportProtocol::Tcp,
+            trigger,
+            can_reconnect: true,
+            host: host.clone(),
+            penalize_strategy_failure: penalize,
+        },
+    )?;
+    flush_autolearn_updates(state, &mut cache);
+    if let (Some(telemetry), Some(next_route)) = (&state.telemetry, next.as_ref()) {
+        telemetry.on_route_advanced(target, route.group_index, next_route.group_index, trigger, host.as_deref());
+    }
+    Ok(next)
+}
+
+fn classify_response_failure(
+    state: &RuntimeState,
+    target: SocketAddr,
+    request: &[u8],
+    response: &[u8],
+    host: Option<&str>,
+) -> Option<ClassifiedFailure> {
+    if response.starts_with(b"HTTP/1.") && ciadpi_packets::is_tls_client_hello(request) {
+        if let Some(host) = host {
+            if let Some(dns_tampering) = confirm_dns_tampering_for_host(state, host, target.ip()) {
+                return Some(dns_tampering);
+            }
+        }
+    }
+
+    if matches!(detect_response_trigger(request, response), Some(TriggerEvent::Redirect)) {
+        return Some(classify_redirect_failure("HTTP redirect during first response"));
+    }
+    if let Some(alert) = classify_tls_alert(response) {
+        return Some(alert);
+    }
+    if let Some(blockpage) = classify_http_blockpage(response) {
+        return Some(blockpage);
+    }
+    if matches!(detect_response_trigger(request, response), Some(TriggerEvent::SslErr)) {
+        return Some(classify_tls_handshake_failure("TLS handshake failed before ServerHello"));
+    }
+    None
+}
+
+fn confirm_dns_tampering_for_host(state: &RuntimeState, host: &str, target_ip: IpAddr) -> Option<ClassifiedFailure> {
+    let resolver_context =
+        state
+            .runtime_context
+            .as_ref()
+            .and_then(|context| context.encrypted_dns.as_ref())
+            .cloned()
+            .or_else(default_encrypted_dns_context);
+    let resolver_context = resolver_context?;
+    let resolver = EncryptedDnsResolver::new(
+        encrypted_dns_endpoint(&resolver_context)?,
+        EncryptedDnsTransport::Direct,
+    )
+    .ok()?;
+    let query_id = ((SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_nanos() as u64) & 0xffff) as u16;
+    let query = build_dns_query(host, query_id.max(1)).ok()?;
+    let response = resolver.exchange_blocking(&query).ok()?;
+    let answers = extract_ip_answers(&response)
+        .ok()?
+        .into_iter()
+        .filter_map(|answer| answer.parse::<IpAddr>().ok())
+        .collect::<Vec<_>>();
+    confirm_dns_tampering(host, target_ip, &answers, &encrypted_dns_label(&resolver_context))
+}
+
+fn encrypted_dns_endpoint(context: &ProxyEncryptedDnsContext) -> Option<EncryptedDnsEndpoint> {
+    let protocol = match context.protocol.trim().to_ascii_lowercase().as_str() {
+        "dot" => EncryptedDnsProtocol::Dot,
+        "dnscrypt" => EncryptedDnsProtocol::DnsCrypt,
+        _ => EncryptedDnsProtocol::Doh,
+    };
+    let bootstrap_ips =
+        context.bootstrap_ips.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect::<Vec<_>>();
+    if bootstrap_ips.is_empty() {
+        return None;
+    }
+    Some(EncryptedDnsEndpoint {
+        protocol,
+        resolver_id: context.resolver_id.clone(),
+        host: context.host.clone(),
+        port: context.port,
+        tls_server_name: context.tls_server_name.clone(),
+        bootstrap_ips,
+        doh_url: context.doh_url.clone(),
+        dnscrypt_provider_name: context.dnscrypt_provider_name.clone(),
+        dnscrypt_public_key: context.dnscrypt_public_key.clone(),
+    })
+}
+
+fn encrypted_dns_label(context: &ProxyEncryptedDnsContext) -> String {
+    context
+        .doh_url
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| format!("{}:{}", context.host, context.port))
+}
+
+fn default_encrypted_dns_context() -> Option<ProxyEncryptedDnsContext> {
+    Some(ProxyEncryptedDnsContext {
+        resolver_id: Some("cloudflare".to_string()),
+        protocol: "doh".to_string(),
+        host: "cloudflare-dns.com".to_string(),
+        port: 443,
+        tls_server_name: Some("cloudflare-dns.com".to_string()),
+        bootstrap_ips: vec!["1.1.1.1".to_string(), "1.0.0.1".to_string()],
+        doh_url: Some("https://cloudflare-dns.com/dns-query".to_string()),
+        dnscrypt_provider_name: None,
+        dnscrypt_public_key: None,
+    })
+}
+
+fn build_dns_query(domain: &str, query_id: u16) -> Result<Vec<u8>, io::Error> {
+    let mut packet = Vec::with_capacity(512);
+    packet.extend(query_id.to_be_bytes());
+    packet.extend(0x0100u16.to_be_bytes());
+    packet.extend(1u16.to_be_bytes());
+    packet.extend(0u16.to_be_bytes());
+    packet.extend(0u16.to_be_bytes());
+    packet.extend(0u16.to_be_bytes());
+    for label in domain.split('.') {
+        if label.is_empty() || label.len() > 63 {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid dns name"));
+        }
+        packet.push(label.len() as u8);
+        packet.extend(label.as_bytes());
+    }
+    packet.push(0);
+    packet.extend(1u16.to_be_bytes());
+    packet.extend(1u16.to_be_bytes());
+    Ok(packet)
 }
 
 fn note_route_success(
@@ -917,6 +1104,11 @@ fn connect_target_via_group(target: SocketAddr, state: &RuntimeState, group_inde
 
     if group.drop_sack {
         platform::attach_drop_sack(&stream)?;
+    }
+    if let Some(telemetry) = &state.telemetry {
+        let upstream_addr = stream.peer_addr().unwrap_or(target);
+        let upstream_rtt_ms = platform::tcp_round_trip_time_ms(&stream).ok().flatten();
+        telemetry.on_upstream_connected(upstream_addr, upstream_rtt_ms);
     }
     Ok(stream)
 }
@@ -1143,6 +1335,7 @@ fn expire_udp_flows(
                     trigger: DETECT_CONNECT,
                     can_reconnect: true,
                     host: entry.host.clone(),
+                    penalize_strategy_failure: false,
                 },
             )?;
             flush_autolearn_updates(state, &mut cache);
@@ -1330,56 +1523,25 @@ fn relay(
                     host.as_deref(),
                     target,
                 ) {
-                    if !runtime_supports_trigger(state, DETECT_TORST)? {
-                        return Err(err);
-                    }
-                    let next = {
-                        note_adaptive_tcp_failure(
-                            state,
-                            target,
-                            route.group_index,
-                            host.as_deref(),
-                            &original_request,
-                        )?;
-                        note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
-                        let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-                        let next = cache.advance_route(
-                            &state.config,
-                            &route,
-                            RouteAdvance {
-                                dest: target,
-                                payload: Some(&original_request),
-                                transport: TransportProtocol::Tcp,
-                                trigger: DETECT_TORST,
-                                can_reconnect: true,
-                                host: host.clone(),
-                            },
-                        )?;
-                        flush_autolearn_updates(state, &mut cache);
-                        next
-                    };
+                    let failure = classify_transport_error(FailureStage::FirstWrite, &err);
+                    emit_failure_classified(state, target, &failure, host.as_deref());
+                    let next =
+                        advance_route_for_failure(state, target, &route, host.clone(), Some(&original_request), &failure)?;
                     let Some(next) = next else {
                         return Err(err);
                     };
-                    if let Some(telemetry) = &state.telemetry {
-                        telemetry.on_route_advanced(
-                            target,
-                            route.group_index,
-                            next.group_index,
-                            DETECT_TORST,
-                            host.as_deref(),
-                        );
-                    }
                     route = next;
                     upstream = reconnect_target(target, state, route.clone(), host.clone(), Some(&original_request))?.0;
                     continue;
                 }
 
                 match read_first_response(
+                    state,
+                    target,
+                    host.as_deref(),
                     &mut upstream,
                     &state.config,
                     &original_request,
-                    runtime_supports_trigger(state, DETECT_TORST)?,
                 )? {
                     FirstResponse::Forward(bytes) => {
                         session_state.observe_inbound(&bytes);
@@ -1399,50 +1561,34 @@ fn relay(
                         break;
                     }
                     FirstResponse::NoData => break,
-                    FirstResponse::Trigger(trigger) => {
-                        let next = {
-                            note_adaptive_tcp_failure(
-                                state,
-                                target,
-                                route.group_index,
-                                host.as_deref(),
-                                &original_request,
-                            )?;
-                            note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
-                            let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-                            let next = cache.advance_route(
-                                &state.config,
-                                &route,
-                                RouteAdvance {
-                                    dest: target,
-                                    payload: Some(&original_request),
-                                    transport: TransportProtocol::Tcp,
-                                    trigger: trigger_flag(trigger),
-                                    can_reconnect: true,
-                                    host: host.clone(),
-                                },
-                            )?;
-                            flush_autolearn_updates(state, &mut cache);
-                            next
-                        };
-                        let Some(next) = next else {
-                            return Err(io::Error::new(
-                                io::ErrorKind::ConnectionReset,
-                                "auto trigger exhausted all candidate groups",
-                            ));
-                        };
-                        if let Some(telemetry) = &state.telemetry {
-                            telemetry.on_route_advanced(
-                                target,
-                                route.group_index,
-                                next.group_index,
-                                trigger_flag(trigger),
-                                host.as_deref(),
-                            );
+                    FirstResponse::Failure { failure, response_bytes } => {
+                        emit_failure_classified(state, target, &failure, host.as_deref());
+                        let next = advance_route_for_failure(
+                            state,
+                            target,
+                            &route,
+                            host.clone(),
+                            Some(&original_request),
+                            &failure,
+                        )?;
+                        if let Some(next) = next {
+                            route = next;
+                            upstream =
+                                reconnect_target(target, state, route.clone(), host.clone(), Some(&original_request))?.0;
+                            continue;
                         }
-                        route = next;
-                        upstream =
-                            reconnect_target(target, state, route.clone(), host.clone(), Some(&original_request))?.0;
+                        if failure.action == FailureAction::ResolverOverrideRecommended {
+                            return Err(io::Error::new(io::ErrorKind::ConnectionReset, failure.evidence.summary));
+                        }
+                        if let Some(bytes) = response_bytes {
+                            session_state.observe_inbound(&bytes);
+                            client.write_all(&bytes)?;
+                            break;
+                        }
+                        if failure.class == FailureClass::SilentDrop {
+                            break;
+                        }
+                        return Err(io::Error::new(io::ErrorKind::ConnectionReset, failure.evidence.summary));
                     }
                 }
             }
@@ -1532,8 +1678,12 @@ fn activation_context_from_progress(
 
 fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
     Ok(runtime_supports_trigger(state, DETECT_HTTP_LOCAT)?
-        || runtime_supports_trigger(state, DETECT_TLS_ERR)?
-        || runtime_supports_trigger(state, DETECT_TORST)?
+        || runtime_supports_trigger(state, DETECT_HTTP_BLOCKPAGE)?
+        || runtime_supports_trigger(state, DETECT_TLS_HANDSHAKE_FAILURE)?
+        || runtime_supports_trigger(state, DETECT_TLS_ALERT)?
+        || runtime_supports_trigger(state, DETECT_TCP_RESET)?
+        || runtime_supports_trigger(state, DETECT_SILENT_DROP)?
+        || runtime_supports_trigger(state, DETECT_DNS_TAMPER)?
         || state.config.host_autolearn_enabled)
 }
 
@@ -1557,10 +1707,12 @@ fn read_optional_first_request(
 }
 
 fn read_first_response(
+    state: &RuntimeState,
+    target: SocketAddr,
+    host: Option<&str>,
     upstream: &mut TcpStream,
     config: &RuntimeConfig,
     request: &[u8],
-    torst_enabled: bool,
 ) -> io::Result<FirstResponse> {
     let mut collected = Vec::new();
     let mut chunk = vec![0u8; config.buffer_size.max(16_384)];
@@ -1570,13 +1722,15 @@ fn read_first_response(
     loop {
         upstream.set_read_timeout(first_response_timeout(config, &tls_partial))?;
         let result = match upstream.read(&mut chunk) {
-            Ok(0) => {
-                if torst_enabled {
-                    Ok(FirstResponse::Trigger(TriggerEvent::Torst))
-                } else {
-                    Ok(FirstResponse::NoData)
-                }
-            }
+            Ok(0) => Ok(FirstResponse::Failure {
+                failure: ClassifiedFailure::new(
+                    FailureClass::SilentDrop,
+                    FailureStage::FirstResponse,
+                    FailureAction::RetryWithMatchingGroup,
+                    "upstream closed before first response",
+                ),
+                response_bytes: None,
+            }),
             Ok(n) => {
                 collected.extend_from_slice(&chunk[..n]);
                 tls_partial.observe(&chunk[..n]);
@@ -1585,44 +1739,56 @@ fn read_first_response(
                     continue;
                 }
 
-                if let Some(trigger) = detect_response_trigger(request, &collected) {
-                    if response_trigger_supported(config, trigger) {
-                        Ok(FirstResponse::Trigger(trigger))
-                    } else {
-                        Ok(FirstResponse::Forward(collected))
-                    }
+                if let Some(failure) = classify_response_failure(state, target, request, &collected, host) {
+                    Ok(FirstResponse::Failure {
+                        failure,
+                        response_bytes: Some(collected),
+                    })
                 } else {
                     Ok(FirstResponse::Forward(collected))
                 }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
-                if torst_enabled && tls_partial.waiting_for_tls_record() {
+                if tls_partial.waiting_for_tls_record() {
                     timeout_count += 1;
                     if timeout_count >= timeout_count_limit(config) {
-                        Ok(FirstResponse::Trigger(TriggerEvent::Torst))
+                        Ok(FirstResponse::Failure {
+                            failure: ClassifiedFailure::new(
+                                FailureClass::SilentDrop,
+                                FailureStage::FirstResponse,
+                                FailureAction::RetryWithMatchingGroup,
+                                "partial TLS response timed out",
+                            ),
+                            response_bytes: None,
+                        })
                     } else {
                         continue;
                     }
-                } else if torst_enabled && config.timeout_ms != 0 {
-                    Ok(FirstResponse::Trigger(TriggerEvent::Torst))
+                } else if config.timeout_ms != 0 {
+                    Ok(FirstResponse::Failure {
+                        failure: classify_transport_error(FailureStage::FirstResponse, &err),
+                        response_bytes: None,
+                    })
                 } else {
                     Ok(FirstResponse::NoData)
                 }
             }
             Err(err)
-                if torst_enabled
-                    && matches!(
-                        err.kind(),
-                        io::ErrorKind::ConnectionReset
-                            | io::ErrorKind::ConnectionAborted
-                            | io::ErrorKind::BrokenPipe
-                            | io::ErrorKind::ConnectionRefused
-                            | io::ErrorKind::InvalidInput
-                            | io::ErrorKind::TimedOut
-                            | io::ErrorKind::HostUnreachable
-                    ) =>
+                if matches!(
+                    err.kind(),
+                    io::ErrorKind::ConnectionReset
+                        | io::ErrorKind::ConnectionAborted
+                        | io::ErrorKind::BrokenPipe
+                        | io::ErrorKind::ConnectionRefused
+                        | io::ErrorKind::InvalidInput
+                        | io::ErrorKind::TimedOut
+                        | io::ErrorKind::HostUnreachable
+                ) =>
             {
-                Ok(FirstResponse::Trigger(TriggerEvent::Torst))
+                Ok(FirstResponse::Failure {
+                    failure: classify_transport_error(FailureStage::FirstResponse, &err),
+                    response_bytes: None,
+                })
             }
             Err(err) => Err(err),
         };
@@ -1636,7 +1802,10 @@ fn first_response_timeout(config: &RuntimeConfig, tls_partial: &TlsRecordTracker
         Some(Duration::from_millis(config.partial_timeout_ms as u64))
     } else if config.timeout_ms != 0 {
         Some(Duration::from_millis(config.timeout_ms as u64))
-    } else if config.groups.iter().any(|group| group.detect & (DETECT_HTTP_LOCAT | DETECT_TLS_ERR | DETECT_TORST) != 0)
+    } else if config
+        .groups
+        .iter()
+        .any(|group| group.detect & (DETECT_HTTP_LOCAT | DETECT_HTTP_BLOCKPAGE | DETECT_TLS_HANDSHAKE_FAILURE | DETECT_TLS_ALERT | DETECT_TORST) != 0)
     {
         Some(Duration::from_millis(250))
     } else {
@@ -1648,10 +1817,11 @@ fn timeout_count_limit(config: &RuntimeConfig) -> i32 {
     config.timeout_count_limit.max(1)
 }
 
+#[cfg(test)]
 fn response_trigger_supported(config: &RuntimeConfig, trigger: TriggerEvent) -> bool {
     let flag = match trigger {
         TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
-        TriggerEvent::SslErr => DETECT_TLS_ERR,
+        TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
         TriggerEvent::Connect => DETECT_CONNECT,
         TriggerEvent::Torst => DETECT_TORST,
     };
@@ -1747,22 +1917,9 @@ fn reconnect_target(
         match connect_target_via_group(target, state, route.group_index) {
             Ok(stream) => return Ok((stream, route)),
             Err(err) => {
-                let next = {
-                    note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
-                    let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-                    cache.advance_route(
-                        &state.config,
-                        &route,
-                        RouteAdvance {
-                            dest: target,
-                            payload,
-                            transport: TransportProtocol::Tcp,
-                            trigger: DETECT_CONNECT,
-                            can_reconnect: true,
-                            host: host.clone(),
-                        },
-                    )?
-                };
+                let failure = classify_transport_error(FailureStage::Connect, &err);
+                emit_failure_classified(state, target, &failure, host.as_deref());
+                let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure)?;
                 let Some(next) = next else {
                     return Err(err);
                 };
@@ -1777,10 +1934,11 @@ fn runtime_supports_trigger(state: &RuntimeState, trigger: u32) -> io::Result<bo
     Ok(cache.supports_trigger(trigger))
 }
 
+#[cfg(test)]
 fn trigger_flag(trigger: TriggerEvent) -> u32 {
     match trigger {
         TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
-        TriggerEvent::SslErr => DETECT_TLS_ERR,
+        TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
         TriggerEvent::Connect => DETECT_CONNECT,
         TriggerEvent::Torst => DETECT_TORST,
     }
@@ -1788,7 +1946,10 @@ fn trigger_flag(trigger: TriggerEvent) -> u32 {
 
 enum FirstResponse {
     Forward(Vec<u8>),
-    Trigger(TriggerEvent),
+    Failure {
+        failure: ClassifiedFailure,
+        response_bytes: Option<Vec<u8>>,
+    },
     NoData,
 }
 
@@ -2394,7 +2555,7 @@ mod tests {
         assert!(response_trigger_supported(&config, TriggerEvent::Redirect));
         assert!(response_trigger_supported(&config, TriggerEvent::Connect));
         assert!(!response_trigger_supported(&config, TriggerEvent::Torst));
-        assert_eq!(trigger_flag(TriggerEvent::SslErr), DETECT_TLS_ERR);
+        assert_eq!(trigger_flag(TriggerEvent::SslErr), DETECT_TLS_HANDSHAKE_FAILURE);
         assert_eq!(trigger_flag(TriggerEvent::Torst), DETECT_TORST);
 
         config.groups[0].detect = 0;

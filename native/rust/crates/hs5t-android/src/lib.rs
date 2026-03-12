@@ -466,30 +466,35 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     let worker = std::thread::Builder::new()
         .name("hs5t-worker".into())
         .spawn(move || {
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            runtime.block_on(hs5t_core::run_tunnel(config, owned_fd, (*worker_cancel).clone(), worker_stats.clone()))
-        }));
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                runtime.block_on(hs5t_core::run_tunnel(
+                    config,
+                    owned_fd,
+                    (*worker_cancel).clone(),
+                    worker_stats.clone(),
+                ))
+            }));
 
-        match result {
-            Ok(Ok(())) => {}
-            Ok(Err(err)) => {
-                log::error!("tunnel worker exited with error: {err}");
-                if let Ok(mut guard) = last_error.lock() {
-                    *guard = Some(err.to_string());
+            match result {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => {
+                    log::error!("tunnel worker exited with error: {err}");
+                    if let Ok(mut guard) = last_error.lock() {
+                        *guard = Some(err.to_string());
+                    }
+                    telemetry.record_error(err.to_string());
                 }
-                telemetry.record_error(err.to_string());
-            }
-            Err(_) => {
-                log::error!("tunnel worker panicked");
-                if let Ok(mut guard) = last_error.lock() {
-                    *guard = Some("Tunnel worker panicked".to_string());
+                Err(_) => {
+                    log::error!("tunnel worker panicked");
+                    if let Ok(mut guard) = last_error.lock() {
+                        *guard = Some("Tunnel worker panicked".to_string());
+                    }
+                    telemetry.record_error("Tunnel worker panicked".to_string());
                 }
-                telemetry.record_error("Tunnel worker panicked".to_string());
             }
-        }
-        telemetry.mark_stopped();
-    })
-    .expect("failed to spawn tunnel worker thread");
+            telemetry.mark_stopped();
+        })
+        .expect("failed to spawn tunnel worker thread");
 
     state = session.state.lock().expect("tunnel session poisoned");
     match &*state {
@@ -746,10 +751,7 @@ fn now_ms() -> u64 {
 }
 
 fn mapdns_resolver_protocol(mapdns: &MapDnsConfig) -> Option<String> {
-    mapdns
-        .encrypted_dns_protocol
-        .clone()
-        .or_else(|| mapdns.doh_url.as_ref().map(|_| "doh".to_string()))
+    mapdns.encrypted_dns_protocol.clone().or_else(|| mapdns.doh_url.as_ref().map(|_| "doh".to_string()))
 }
 
 trait BlankCheck {

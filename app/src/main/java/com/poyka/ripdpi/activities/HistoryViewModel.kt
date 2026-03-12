@@ -10,11 +10,15 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.diagnostics.retryCount
+import com.poyka.ripdpi.data.diagnostics.rttBand
+import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -369,22 +373,48 @@ class HistoryViewModel
         events: List<NativeSessionEventEntity>,
     ): HistoryConnectionDetailUiModel {
         val row = toConnectionRowUiModel(this)
+        val latestTelemetry = telemetry.maxByOrNull { it.createdAt }
         return HistoryConnectionDetailUiModel(
             session = row,
             highlights =
-                listOf(
-                    DiagnosticsMetricUiModel("Network", networkType, DiagnosticsTone.Info),
-                    DiagnosticsMetricUiModel("Health", health.replaceFirstChar { it.uppercase() }, toneForConnection(this)),
-                    DiagnosticsMetricUiModel("TX", formatBytes(txBytes), DiagnosticsTone.Info),
-                    DiagnosticsMetricUiModel("RX", formatBytes(rxBytes), DiagnosticsTone.Positive),
-                    DiagnosticsMetricUiModel("Errors", totalErrors.toString(), if (totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral),
-                    DiagnosticsMetricUiModel("Route changes", routeChanges.toString(), DiagnosticsTone.Info),
-                ),
+                buildList {
+                    add(DiagnosticsMetricUiModel("Network", networkType, DiagnosticsTone.Info))
+                    add(DiagnosticsMetricUiModel("Health", health.replaceFirstChar { it.uppercase() }, toneForConnection(this@toConnectionDetail)))
+                    add(DiagnosticsMetricUiModel("TX", formatBytes(txBytes), DiagnosticsTone.Info))
+                    add(DiagnosticsMetricUiModel("RX", formatBytes(rxBytes), DiagnosticsTone.Positive))
+                    add(
+                        DiagnosticsMetricUiModel(
+                            "Errors",
+                            totalErrors.toString(),
+                            if (totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
+                        ),
+                    )
+                    add(DiagnosticsMetricUiModel("Route changes", routeChanges.toString(), DiagnosticsTone.Info))
+                    (latestTelemetry?.failureClass ?: failureClass)?.let { failure ->
+                        add(DiagnosticsMetricUiModel("Failure class", failure, DiagnosticsTone.Warning))
+                    }
+                    (latestTelemetry?.winningStrategyFamily() ?: winningStrategyFamily())?.let { winningStrategy ->
+                        add(DiagnosticsMetricUiModel("Strategy", winningStrategy, DiagnosticsTone.Positive))
+                    }
+                    add(DiagnosticsMetricUiModel("RTT band", latestTelemetry?.rttBand() ?: rttBand(), DiagnosticsTone.Info))
+                    add(
+                        DiagnosticsMetricUiModel(
+                            "Retries",
+                            (latestTelemetry?.retryCount() ?: retryCount()).toString(),
+                            if ((latestTelemetry?.retryCount() ?: retryCount()) > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
+                        ),
+                    )
+                },
             contextGroups =
-                contexts
-                    .mapNotNull { context -> context.decodeContext()?.toContextGroups() }
-                    .flatten()
-                    .distinctBy { it.title + it.fields.joinToString { field -> "${field.label}:${field.value}" } },
+                buildList {
+                    addAll(
+                        contexts
+                            .mapNotNull { context -> context.decodeContext()?.toContextGroups() }
+                            .flatten()
+                            .distinctBy { it.title + it.fields.joinToString { field -> "${field.label}:${field.value}" } },
+                    )
+                    buildFieldTelemetryGroup(this@toConnectionDetail, latestTelemetry)?.let(::add)
+                },
             snapshots = snapshots.mapNotNull(::toSnapshotUiModel),
             events = events.map(::toEventUiModel),
         )
@@ -459,14 +489,17 @@ class HistoryViewModel
     }
 
     private fun ProbeResultEntity.toProbeUiModel(index: Int): DiagnosticsProbeResultUiModel =
-        DiagnosticsProbeResultUiModel(
-            id = "$sessionId-$index-$probeType-$target",
-            probeType = probeType,
-            target = target,
-            outcome = outcome,
-            tone = toneForOutcome(outcome),
-            details = decodeProbeDetails(detailJson).map { DiagnosticsFieldUiModel(it.key, it.value) },
-        )
+        decodeProbeDetails(detailJson).let { details ->
+            DiagnosticsProbeResultUiModel(
+                id = "$sessionId-$index-$probeType-$target",
+                probeType = probeType,
+                target = target,
+                outcome = outcome,
+                probeRetryCount = deriveProbeRetryCount(details),
+                tone = toneForOutcome(outcome),
+                details = details.map { DiagnosticsFieldUiModel(it.key, it.value) },
+            )
+        }
 
     private fun toEventUiModel(event: NativeSessionEventEntity): DiagnosticsEventUiModel =
         DiagnosticsEventUiModel(
@@ -539,6 +572,48 @@ class HistoryViewModel
                     ),
             ),
         )
+
+    private fun buildFieldTelemetryGroup(
+        session: BypassUsageSessionEntity,
+        telemetry: TelemetrySampleEntity?,
+    ): DiagnosticsContextGroupUiModel? {
+        val failureClass = telemetry?.failureClass ?: session.failureClass
+        val winningTcpStrategyFamily = telemetry?.winningTcpStrategyFamily ?: session.winningTcpStrategyFamily
+        val winningQuicStrategyFamily = telemetry?.winningQuicStrategyFamily ?: session.winningQuicStrategyFamily
+        val winningStrategyFamily = telemetry?.winningStrategyFamily() ?: session.winningStrategyFamily()
+        val telemetryNetworkFingerprintHash =
+            telemetry?.telemetryNetworkFingerprintHash ?: session.telemetryNetworkFingerprintHash
+        val proxyRttBand = telemetry?.proxyRttBand ?: session.proxyRttBand
+        val resolverRttBand = telemetry?.resolverRttBand ?: session.resolverRttBand
+        val rttBand = telemetry?.rttBand() ?: session.rttBand()
+        val proxyRouteRetryCount = telemetry?.proxyRouteRetryCount ?: session.proxyRouteRetryCount
+        val tunnelRecoveryRetryCount = telemetry?.tunnelRecoveryRetryCount ?: session.tunnelRecoveryRetryCount
+        val retryCount = telemetry?.retryCount() ?: session.retryCount()
+        val fields =
+            buildList {
+                failureClass?.let { add(DiagnosticsFieldUiModel("Failure class", it)) }
+                winningStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning strategy", it)) }
+                winningTcpStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning TCP family", it)) }
+                winningQuicStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning QUIC family", it)) }
+                telemetryNetworkFingerprintHash?.let {
+                    add(DiagnosticsFieldUiModel("Network fingerprint", formatTelemetryHash(it)))
+                }
+                add(DiagnosticsFieldUiModel("Proxy RTT band", proxyRttBand))
+                add(DiagnosticsFieldUiModel("Resolver RTT band", resolverRttBand))
+                add(DiagnosticsFieldUiModel("Aggregate RTT band", rttBand))
+                add(DiagnosticsFieldUiModel("Proxy route retries", proxyRouteRetryCount.toString()))
+                add(DiagnosticsFieldUiModel("Tunnel recovery retries", tunnelRecoveryRetryCount.toString()))
+                add(DiagnosticsFieldUiModel("Total retries", retryCount.toString()))
+            }
+        return fields.takeIf { it.isNotEmpty() }?.let { DiagnosticsContextGroupUiModel(title = "Field telemetry", fields = it) }
+    }
+
+    private fun formatTelemetryHash(value: String): String =
+        if (value.length <= 24) {
+            value
+        } else {
+            "${value.take(12)}...${value.takeLast(8)}"
+        }
 
     private fun toneForConnection(session: BypassUsageSessionEntity): DiagnosticsTone =
         when {

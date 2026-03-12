@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
@@ -9,6 +10,9 @@ import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
@@ -52,6 +56,8 @@ import com.poyka.ripdpi.data.normalizeQuicFakeProfile
 import com.poyka.ripdpi.data.normalizeTlsFakeProfile
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.isTlsPrelude
+import com.poyka.ripdpi.data.StrategyLaneFamilies
+import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
@@ -71,6 +77,22 @@ sealed interface RipDpiProxyPreferences {
     fun toNativeConfigJson(): String
 }
 
+data class RipDpiEncryptedDnsContext(
+    val resolverId: String? = null,
+    val protocol: String,
+    val host: String,
+    val port: Int,
+    val tlsServerName: String? = null,
+    val bootstrapIps: List<String> = emptyList(),
+    val dohUrl: String? = null,
+    val dnscryptProviderName: String? = null,
+    val dnscryptPublicKey: String? = null,
+)
+
+data class RipDpiRuntimeContext(
+    val encryptedDns: RipDpiEncryptedDnsContext? = null,
+)
+
 @Serializable
 private data class NativeNumericRange(
     val start: Long? = null,
@@ -82,6 +104,24 @@ private data class NativeActivationFilter(
     val round: NativeNumericRange? = null,
     val payloadSize: NativeNumericRange? = null,
     val streamBytes: NativeNumericRange? = null,
+)
+
+@Serializable
+private data class NativeEncryptedDnsContext(
+    val resolverId: String? = null,
+    val protocol: String,
+    val host: String,
+    val port: Int,
+    val tlsServerName: String? = null,
+    val bootstrapIps: List<String> = emptyList(),
+    val dohUrl: String? = null,
+    val dnscryptProviderName: String? = null,
+    val dnscryptPublicKey: String? = null,
+)
+
+@Serializable
+private data class NativeRuntimeContext(
+    val encryptedDns: NativeEncryptedDnsContext? = null,
 )
 
 private fun NativeNumericRange.toModel(): NumericRangeModel =
@@ -114,6 +154,84 @@ private fun ActivationFilterModel.toNative(): NativeActivationFilter? =
             NativeActivationFilter(round = round, payloadSize = payloadSize, streamBytes = streamBytes)
         }
     }
+
+private fun NativeRuntimeContext.toModel(): RipDpiRuntimeContext =
+    RipDpiRuntimeContext(
+        encryptedDns =
+            encryptedDns?.let { value ->
+                RipDpiEncryptedDnsContext(
+                    resolverId = value.resolverId,
+                    protocol = value.protocol,
+                    host = value.host,
+                    port = value.port,
+                    tlsServerName = value.tlsServerName,
+                    bootstrapIps = value.bootstrapIps,
+                    dohUrl = value.dohUrl,
+                    dnscryptProviderName = value.dnscryptProviderName,
+                    dnscryptPublicKey = value.dnscryptPublicKey,
+                )
+            },
+    )
+
+private fun RipDpiRuntimeContext.toNative(): NativeRuntimeContext? {
+    val encryptedDns =
+        encryptedDns
+            ?.takeIf { it.host.isNotBlank() }
+            ?.let { value ->
+                NativeEncryptedDnsContext(
+                    resolverId = value.resolverId?.trim()?.takeIf { it.isNotEmpty() },
+                    protocol = value.protocol.trim().lowercase(),
+                    host = value.host.trim(),
+                    port = value.port.takeIf { it > 0 } ?: 443,
+                    tlsServerName = value.tlsServerName?.trim()?.takeIf { it.isNotEmpty() },
+                    bootstrapIps = value.bootstrapIps.map(String::trim).filter { it.isNotEmpty() },
+                    dohUrl = value.dohUrl?.trim()?.takeIf { it.isNotEmpty() },
+                    dnscryptProviderName = value.dnscryptProviderName?.trim()?.takeIf { it.isNotEmpty() },
+                    dnscryptPublicKey = value.dnscryptPublicKey?.trim()?.takeIf { it.isNotEmpty() },
+                )
+            }
+            ?: return null
+    return NativeRuntimeContext(encryptedDns = encryptedDns)
+}
+
+fun stripRipDpiRuntimeContext(configJson: String): String =
+    when (val payload = NativeProxyJson.decodeFromString<NativeProxyConfig>(configJson)) {
+        is NativeProxyConfig.CommandLine ->
+            NativeProxyJson.encodeToString<NativeProxyConfig>(payload.copy(runtimeContext = null))
+
+        is NativeProxyConfig.Ui ->
+            NativeProxyJson.encodeToString<NativeProxyConfig>(payload.copy(runtimeContext = null))
+    }
+
+fun ActiveDnsSettings.toRipDpiRuntimeContext(): RipDpiRuntimeContext? {
+    if (mode != DnsModeEncrypted) {
+        return null
+    }
+    val normalizedHost = encryptedDnsHost.trim()
+    if (normalizedHost.isEmpty()) {
+        return null
+    }
+    val normalizedProtocol =
+        when (encryptedDnsProtocol.trim().lowercase()) {
+            EncryptedDnsProtocolDnsCrypt -> EncryptedDnsProtocolDnsCrypt
+            EncryptedDnsProtocolDoh -> EncryptedDnsProtocolDoh
+            else -> encryptedDnsProtocol.trim().lowercase()
+        }
+    return RipDpiRuntimeContext(
+        encryptedDns =
+            RipDpiEncryptedDnsContext(
+                resolverId = providerId.takeIf { it.isNotBlank() },
+                protocol = normalizedProtocol,
+                host = normalizedHost,
+                port = encryptedDnsPort.takeIf { it > 0 } ?: 443,
+                tlsServerName = encryptedDnsTlsServerName.takeIf { it.isNotBlank() },
+                bootstrapIps = encryptedDnsBootstrapIps,
+                dohUrl = encryptedDnsDohUrl.takeIf { it.isNotBlank() },
+                dnscryptProviderName = encryptedDnsDnscryptProviderName.takeIf { it.isNotBlank() },
+                dnscryptPublicKey = encryptedDnsDnscryptPublicKey.takeIf { it.isNotBlank() },
+            ),
+    )
+}
 
 fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences? {
     val payload = runCatching { NativeProxyJson.decodeFromString<NativeProxyConfig>(configJson) }.getOrNull()
@@ -194,18 +312,33 @@ fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences
         hostAutolearnMaxHosts = ui.hostAutolearnMaxHosts,
         hostAutolearnStorePath = ui.hostAutolearnStorePath,
         networkScopeKey = ui.networkScopeKey,
+        runtimeContext = ui.runtimeContext?.toModel(),
     )
 }
+
+fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(
+    activeDns: ActiveDnsSettings? = null,
+): StrategyLaneFamilies =
+    deriveStrategyLaneFamilies(
+        tcpSteps = tcpChainSteps,
+        desyncUdp = desyncUdp,
+        quicInitialMode = quicInitialMode,
+        quicFakeProfile = quicFakeProfile,
+        activeDns = activeDns,
+    )
 
 class RipDpiProxyJsonPreferences(
     private val configJson: String,
     private val hostAutolearnStorePath: String? = null,
     private val networkScopeKey: String? = null,
+    private val runtimeContext: RipDpiRuntimeContext? = null,
 ) : RipDpiProxyPreferences {
     override fun toNativeConfigJson(): String =
         when (val payload = NativeProxyJson.decodeFromString<NativeProxyConfig>(configJson)) {
             is NativeProxyConfig.CommandLine ->
-                NativeProxyJson.encodeToString<NativeProxyConfig>(payload)
+                NativeProxyJson.encodeToString<NativeProxyConfig>(
+                    payload.copy(runtimeContext = runtimeContext?.toNative() ?: payload.runtimeContext),
+                )
 
             is NativeProxyConfig.Ui ->
                 requireNotNull(decodeRipDpiProxyUiPreferences(configJson)) {
@@ -213,14 +346,17 @@ class RipDpiProxyJsonPreferences(
                 }.copyWith(
                     hostAutolearnStorePath = hostAutolearnStorePath ?: payload.hostAutolearnStorePath,
                     networkScopeKey = networkScopeKey ?: payload.networkScopeKey,
+                    runtimeContext = runtimeContext ?: payload.runtimeContext?.toModel(),
                 ).toNativeConfigJson()
         }
 }
 
 class RipDpiProxyCmdPreferences(
     val args: Array<String>,
+    val runtimeContext: RipDpiRuntimeContext? = null,
 ) : RipDpiProxyPreferences {
     constructor(cmd: String) : this(cmdToArgs(cmd))
+    constructor(cmd: String, runtimeContext: RipDpiRuntimeContext?) : this(cmdToArgs(cmd), runtimeContext)
 
     companion object {
         private fun cmdToArgs(cmd: String): Array<String> {
@@ -234,6 +370,7 @@ class RipDpiProxyCmdPreferences(
         NativeProxyJson.encodeToString<NativeProxyConfig>(
             NativeProxyConfig.CommandLine(
                 args = args.toList(),
+                runtimeContext = runtimeContext?.toNative(),
             ),
         )
 }
@@ -293,6 +430,7 @@ class RipDpiProxyUIPreferences(
     hostAutolearnMaxHosts: Int? = null,
     hostAutolearnStorePath: String? = null,
     networkScopeKey: String? = null,
+    runtimeContext: RipDpiRuntimeContext? = null,
 ) : RipDpiProxyPreferences {
     val ip: String = ip ?: "127.0.0.1"
     val port: Int = port ?: 1080
@@ -379,12 +517,14 @@ class RipDpiProxyUIPreferences(
             ?.trim()
             ?.takeIf { it.isNotEmpty() && this.hostAutolearnEnabled }
     val networkScopeKey: String? = networkScopeKey?.trim()?.takeIf { it.isNotEmpty() }
+    val runtimeContext: RipDpiRuntimeContext? = runtimeContext?.takeIf { it.encryptedDns != null }
     val chainSummary: String = formatChainSummary(this.tcpChainSteps, this.udpChainSteps)
 
     constructor(
         settings: AppSettings,
         hostAutolearnStorePath: String? = null,
         networkScopeKey: String? = null,
+        runtimeContext: RipDpiRuntimeContext? = null,
     ) : this(
         ip = settings.proxyIp.ifEmpty { null },
         port = settings.proxyPort.takeIf { it > 0 },
@@ -451,6 +591,7 @@ class RipDpiProxyUIPreferences(
         hostAutolearnMaxHosts = settings.hostAutolearnMaxHosts,
         hostAutolearnStorePath = hostAutolearnStorePath,
         networkScopeKey = networkScopeKey,
+        runtimeContext = runtimeContext,
     )
 
     override fun toNativeConfigJson(): String =
@@ -529,12 +670,14 @@ class RipDpiProxyUIPreferences(
                 hostAutolearnMaxHosts = hostAutolearnMaxHosts,
                 hostAutolearnStorePath = hostAutolearnStorePath,
                 networkScopeKey = networkScopeKey,
+                runtimeContext = runtimeContext?.toNative(),
             ),
         )
 
     fun copyWith(
         hostAutolearnStorePath: String? = this.hostAutolearnStorePath,
         networkScopeKey: String? = this.networkScopeKey,
+        runtimeContext: RipDpiRuntimeContext? = this.runtimeContext,
     ): RipDpiProxyUIPreferences =
         RipDpiProxyUIPreferences(
             ip = ip,
@@ -591,6 +734,7 @@ class RipDpiProxyUIPreferences(
             hostAutolearnMaxHosts = hostAutolearnMaxHosts,
             hostAutolearnStorePath = hostAutolearnStorePath,
             networkScopeKey = networkScopeKey,
+            runtimeContext = runtimeContext,
         )
 
     enum class DesyncMethod {
@@ -678,6 +822,7 @@ private sealed interface NativeProxyConfig {
     @SerialName("command_line")
     data class CommandLine(
         val args: List<String>,
+        val runtimeContext: NativeRuntimeContext? = null,
     ) : NativeProxyConfig
 
     @Serializable
@@ -738,6 +883,7 @@ private sealed interface NativeProxyConfig {
         val hostAutolearnMaxHosts: Int,
         val hostAutolearnStorePath: String?,
         val networkScopeKey: String?,
+        val runtimeContext: NativeRuntimeContext? = null,
     ) : NativeProxyConfig
 }
 

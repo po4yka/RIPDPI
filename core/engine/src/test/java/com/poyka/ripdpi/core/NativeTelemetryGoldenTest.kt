@@ -97,6 +97,27 @@ class NativeTelemetryGoldenTest {
         assertEquals(3L, parsed.dnsFailuresTotal)
     }
 
+    @Test
+    fun proxyUpstreamRttRoundTripsThroughSnapshotJson() {
+        val snapshot =
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                state = "running",
+                upstreamAddress = "203.0.113.10:443",
+                upstreamRttMs = 87L,
+                capturedAt = 55L,
+            )
+
+        val parsed =
+            json.decodeFromString(
+                NativeRuntimeSnapshot.serializer(),
+                json.encodeToString(NativeRuntimeSnapshot.serializer(), snapshot),
+            )
+
+        assertEquals("203.0.113.10:443", parsed.upstreamAddress)
+        assertEquals(87L, parsed.upstreamRttMs)
+    }
+
     private fun proxyTelemetryPayload(includeEvents: Boolean): String =
         json.encodeToString(
             NativeRuntimeSnapshot.serializer(),

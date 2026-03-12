@@ -4,6 +4,7 @@ members = [
     "crates/android-support",
     "crates/golden-test-support",
     "crates/ripdpi-dns-resolver",
+    "crates/ripdpi-failure-classifier",
     "crates/local-network-fixture",
     "crates/native-soak-support",
     "crates/ripdpi-proxy-config",
@@ -24,6 +25,7 @@ golden-test-support = { path = "crates/golden-test-support" }
 local-network-fixture = { path = "crates/local-network-fixture" }
 native-soak-support = { path = "crates/native-soak-support" }
 ripdpi-dns-resolver = { path = "crates/ripdpi-dns-resolver" }
+ripdpi-failure-classifier = { path = "crates/ripdpi-failure-classifier" }
 ripdpi-proxy-config = { path = "crates/ripdpi-proxy-config" }
 ripdpi-monitor = { path = "crates/ripdpi-monitor" }
 ripdpi-runtime = { path = "crates/ripdpi-runtime" }

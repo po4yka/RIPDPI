@@ -7,6 +7,8 @@
   "lastAutolearnGroup": 2,
   "lastAutolearnHost": "example.org",
   "lastError": "boom",
+  "lastFailureClass": null,
+  "lastFallbackAction": null,
   "lastHost": "example.org",
   "lastRouteGroup": 2,
   "lastTarget": "203.0.113.10:443",
@@ -33,5 +35,6 @@
     "txBytes": 0,
     "txPackets": 0
   },
-  "upstreamAddress": null
+  "upstreamAddress": "203.0.113.10:443",
+  "upstreamRttMs": 87
 }

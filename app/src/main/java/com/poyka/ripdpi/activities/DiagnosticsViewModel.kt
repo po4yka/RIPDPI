@@ -2,11 +2,13 @@ package com.poyka.ripdpi.activities
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.displayLabel
 import com.poyka.ripdpi.data.formatOffsetExpressionLabel
+import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
@@ -18,6 +20,9 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.decodeSummary
+import com.poyka.ripdpi.data.diagnostics.retryCount
+import com.poyka.ripdpi.data.diagnostics.rttBand
+import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
@@ -28,6 +33,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -38,6 +44,8 @@ import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
+import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
+import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
 import com.poyka.ripdpi.services.ActiveConnectionPolicy
 import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
@@ -48,6 +56,7 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -109,6 +118,15 @@ private fun defaultRememberedNetworkPolicyStore(): RememberedNetworkPolicyStore 
     }
 }
 
+private const val StrategyProbeSuiteQuickV1 = "quick_v1"
+private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
+
+private val DiagnosticsProfileOptionUiModel.isStrategyProbe: Boolean
+    get() = kind == ScanKind.STRATEGY_PROBE
+
+private val DiagnosticsProfileOptionUiModel.isFullAudit: Boolean
+    get() = strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1
+
 enum class DiagnosticsSection {
     Overview,
     Scan,
@@ -164,6 +182,7 @@ data class DiagnosticsProfileOptionUiModel(
     val name: String,
     val source: String,
     val kind: ScanKind = ScanKind.CONNECTIVITY,
+    val strategyProbeSuiteId: String? = null,
 )
 
 data class DiagnosticsProgressUiModel(
@@ -179,6 +198,7 @@ data class DiagnosticsProbeResultUiModel(
     val probeType: String,
     val target: String,
     val outcome: String,
+    val probeRetryCount: Int? = null,
     val tone: DiagnosticsTone,
     val details: List<DiagnosticsFieldUiModel>,
 )
@@ -239,6 +259,21 @@ data class DiagnosticsStrategyProbeCandidateUiModel(
     val recommended: Boolean,
 )
 
+data class DiagnosticsStrategyProbeCandidateDetailUiModel(
+    val id: String,
+    val label: String,
+    val familyLabel: String,
+    val suiteLabel: String,
+    val outcome: String,
+    val rationale: String,
+    val tone: DiagnosticsTone,
+    val recommended: Boolean,
+    val notes: List<String>,
+    val metrics: List<DiagnosticsMetricUiModel>,
+    val signature: List<DiagnosticsFieldUiModel>,
+    val resultGroups: List<DiagnosticsProbeGroupUiModel>,
+)
+
 data class DiagnosticsStrategyProbeFamilyUiModel(
     val title: String,
     val candidates: List<DiagnosticsStrategyProbeCandidateUiModel>,
@@ -252,9 +287,12 @@ data class DiagnosticsStrategyProbeRecommendationUiModel(
 )
 
 data class DiagnosticsStrategyProbeReportUiModel(
+    val suiteId: String,
     val suiteLabel: String,
+    val summaryMetrics: List<DiagnosticsMetricUiModel>,
     val recommendation: DiagnosticsStrategyProbeRecommendationUiModel,
     val families: List<DiagnosticsStrategyProbeFamilyUiModel>,
+    val candidateDetails: Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel> = emptyMap(),
 )
 
 data class DiagnosticsResolverRecommendationUiModel(
@@ -409,6 +447,7 @@ data class DiagnosticsUiState(
     val selectedApproachDetail: DiagnosticsApproachDetailUiModel? = null,
     val selectedEvent: DiagnosticsEventUiModel? = null,
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,
+    val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel? = null,
 )
 
 sealed interface DiagnosticsEffect {
@@ -453,6 +492,8 @@ class DiagnosticsViewModel
         private val eventSearch = MutableStateFlow("")
         private val eventAutoScroll = MutableStateFlow(true)
         private val selectedSessionDetail = MutableStateFlow<DiagnosticsSessionDetailUiModel?>(null)
+        private val selectedStrategyProbeCandidate = MutableStateFlow<DiagnosticsStrategyProbeCandidateDetailUiModel?>(null)
+        private val pendingAutoOpenAuditSessionId = MutableStateFlow<String?>(null)
         private val sensitiveSessionDetailsVisible = MutableStateFlow(false)
         private val archiveActionState = MutableStateFlow(ArchiveActionState())
         private val _effects = Channel<DiagnosticsEffect>(Channel.BUFFERED)
@@ -485,6 +526,7 @@ class DiagnosticsViewModel
                 eventSearch,
                 eventAutoScroll,
                 selectedSessionDetail,
+                selectedStrategyProbeCandidate,
                 selectedApproachDetail,
                 sensitiveSessionDetailsVisible,
                 archiveActionState,
@@ -515,9 +557,10 @@ class DiagnosticsViewModel
                 val eventSearch = values[22] as String
                 val eventAutoScroll = values[23] as Boolean
                 val sessionDetail = values[24] as DiagnosticsSessionDetailUiModel?
-                val approachDetail = values[25] as DiagnosticsApproachDetailUiModel?
-                val sensitiveSessionDetailsVisible = values[26] as Boolean
-                val archiveActionState = values[27] as ArchiveActionState
+                val strategyProbeCandidate = values[25] as DiagnosticsStrategyProbeCandidateDetailUiModel?
+                val approachDetail = values[26] as DiagnosticsApproachDetailUiModel?
+                val sensitiveSessionDetailsVisible = values[27] as Boolean
+                val archiveActionState = values[28] as ArchiveActionState
 
                 buildUiState(
                     profiles = profiles,
@@ -545,6 +588,7 @@ class DiagnosticsViewModel
                     eventSearch = eventSearch,
                     eventAutoScroll = eventAutoScroll,
                     selectedSessionDetail = sessionDetail,
+                    selectedStrategyProbeCandidate = strategyProbeCandidate,
                     selectedApproachDetail = approachDetail,
                     sensitiveSessionDetailsVisible = sensitiveSessionDetailsVisible,
                     archiveActionState = archiveActionState,
@@ -558,6 +602,26 @@ class DiagnosticsViewModel
         init {
             viewModelScope.launch {
                 diagnosticsManager.initialize()
+            }
+            viewModelScope.launch {
+                combine(
+                    diagnosticsManager.sessions,
+                    diagnosticsManager.activeScanProgress,
+                    pendingAutoOpenAuditSessionId,
+                ) { sessions, progress, pendingSessionId ->
+                    Triple(sessions, progress, pendingSessionId)
+                }.collect { (sessions, progress, pendingSessionId) ->
+                    if (pendingSessionId == null || progress != null) {
+                        return@collect
+                    }
+                    val session =
+                        sessions.firstOrNull { it.id == pendingSessionId && it.reportJson != null }
+                            ?: return@collect
+                    val detail = diagnosticsManager.loadSessionDetail(session.id)
+                    sensitiveSessionDetailsVisible.value = false
+                    selectedSessionDetail.value = detail.toUiModel(showSensitiveDetails = false)
+                    pendingAutoOpenAuditSessionId.value = null
+                }
             }
         }
 
@@ -576,6 +640,7 @@ class DiagnosticsViewModel
             viewModelScope.launch {
                 val detail = diagnosticsManager.loadSessionDetail(sessionId)
                 sensitiveSessionDetailsVisible.value = false
+                selectedStrategyProbeCandidate.value = null
                 selectedSessionDetail.value = detail.toUiModel(showSensitiveDetails = false)
             }
         }
@@ -603,6 +668,7 @@ class DiagnosticsViewModel
         fun dismissSessionDetail() {
             selectedSessionDetail.value = null
             selectedProbe.value = null
+            selectedStrategyProbeCandidate.value = null
             sensitiveSessionDetailsVisible.value = false
         }
 
@@ -624,6 +690,14 @@ class DiagnosticsViewModel
 
         fun dismissProbeDetail() {
             selectedProbe.value = null
+        }
+
+        fun selectStrategyProbeCandidate(detail: DiagnosticsStrategyProbeCandidateDetailUiModel) {
+            selectedStrategyProbeCandidate.value = detail
+        }
+
+        fun dismissStrategyProbeCandidate() {
+            selectedStrategyProbeCandidate.value = null
         }
 
         fun toggleSensitiveSessionDetails() {
@@ -670,7 +744,10 @@ class DiagnosticsViewModel
 
         fun startRawScan() {
             viewModelScope.launch {
-                diagnosticsManager.startScan(ScanPathMode.RAW_PATH)
+                val sessionId = diagnosticsManager.startScan(ScanPathMode.RAW_PATH)
+                if (uiState.value.scan.selectedProfile?.isFullAudit == true) {
+                    pendingAutoOpenAuditSessionId.value = sessionId
+                }
             }
         }
 
@@ -682,6 +759,7 @@ class DiagnosticsViewModel
 
         fun cancelScan() {
             viewModelScope.launch {
+                pendingAutoOpenAuditSessionId.value = null
                 diagnosticsManager.cancelActiveScan()
             }
         }
@@ -776,6 +854,7 @@ class DiagnosticsViewModel
             eventSearch: String,
             eventAutoScroll: Boolean,
             selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
+            selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,
             selectedApproachDetail: DiagnosticsApproachDetailUiModel?,
             sensitiveSessionDetailsVisible: Boolean,
             archiveActionState: ArchiveActionState,
@@ -798,22 +877,38 @@ class DiagnosticsViewModel
             val latestReport = latestCompletedSession?.reportJson?.let(::decodeReport)
             val latestReportResults = latestProfileReport?.results?.mapIndexed(::toProbeResultUiModel).orEmpty()
             val latestResolverRecommendation = latestProfileReport?.resolverRecommendation?.toUiModel()
-            val latestStrategyProbeReport = latestProfileReport?.strategyProbeReport?.toUiModel()
+            val latestStrategyProbeReport =
+                latestProfileReport?.strategyProbeReport?.toUiModel(
+                    reportResults = latestProfileReport.results,
+                    serviceMode = latestProfileSession?.serviceMode,
+                )
             val currentTelemetry = telemetry.firstOrNull()
             val health = deriveHealth(progress, latestCompletedSession, currentTelemetry, nativeEvents)
-            val strategyProbeSelected = activeProfileRequest?.kind == ScanKind.STRATEGY_PROBE
+            val strategyProbeSelected = selectedProfileUi?.isStrategyProbe == true
             val rawArgsEnabled = settings.enableCmdSettings
             val runRawEnabled = progress == null && !(strategyProbeSelected && rawArgsEnabled)
             val runInPathEnabled = progress == null && !strategyProbeSelected
+            val strategyProbeWorkflowLabel =
+                if (selectedProfileUi?.isFullAudit == true) {
+                    "Automatic audit"
+                } else {
+                    "Automatic probing"
+                }
             val runRawHint =
                 when {
-                    strategyProbeSelected && rawArgsEnabled -> "Automatic probing only works with visual RIPDPI settings. Command-line mode is active."
-                    strategyProbeSelected -> "Automatic probing starts a temporary raw-path RIPDPI runtime and returns a manual recommendation."
+                    strategyProbeSelected && rawArgsEnabled ->
+                        "$strategyProbeWorkflowLabel only works with visual RIPDPI settings. Command-line mode is active."
+
+                    strategyProbeSelected ->
+                        "$strategyProbeWorkflowLabel starts a temporary raw-path RIPDPI runtime and returns a manual recommendation."
+
                     else -> null
                 }
             val runInPathHint =
                 when {
-                    strategyProbeSelected -> "Automatic probing is raw-path only because it launches isolated temporary strategy trials."
+                    strategyProbeSelected ->
+                        "$strategyProbeWorkflowLabel is raw-path only because it launches isolated temporary strategy trials."
+
                     else -> null
                 }
             val selectedSection =
@@ -859,6 +954,15 @@ class DiagnosticsViewModel
                 selectedSessionDetail?.copy(
                     sensitiveDetailsVisible = sensitiveSessionDetailsVisible,
                 )
+            val resolvedSelectedStrategyProbeCandidate =
+                selectedStrategyProbeCandidate?.let { candidate ->
+                    sessionDetailWithVisibility
+                        ?.strategyProbeReport
+                        ?.candidateDetails
+                        ?.get(candidate.id)
+                        ?: latestStrategyProbeReport?.candidateDetails?.get(candidate.id)
+                        ?: candidate
+                }
 
             return DiagnosticsUiState(
                 selectedSection = selectedSection,
@@ -1021,6 +1125,7 @@ class DiagnosticsViewModel
                 selectedApproachDetail = selectedApproachDetail,
                 selectedEvent = selectedEvent,
                 selectedProbe = selectedProbe,
+                selectedStrategyProbeCandidate = resolvedSelectedStrategyProbeCandidate,
             )
         }
 
@@ -1088,6 +1193,43 @@ class DiagnosticsViewModel
                 if (telemetry != null) {
                     add(DiagnosticsMetricUiModel(label = "Network", value = telemetry.networkType))
                     add(DiagnosticsMetricUiModel(label = "Mode", value = telemetry.activeMode ?: "Idle"))
+                    telemetry.failureClass?.let { failureClass ->
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "Failure class",
+                                value = failureClass,
+                                tone = DiagnosticsTone.Warning,
+                            ),
+                        )
+                    }
+                    telemetry.winningStrategyFamily()?.let { winningStrategy ->
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "Winning strategy",
+                                value = winningStrategy,
+                                tone = DiagnosticsTone.Positive,
+                            ),
+                        )
+                    }
+                    add(
+                        DiagnosticsMetricUiModel(
+                            label = "RTT band",
+                            value = telemetry.rttBand(),
+                            tone = DiagnosticsTone.Info,
+                        ),
+                    )
+                    add(
+                        DiagnosticsMetricUiModel(
+                            label = "Retries",
+                            value = telemetry.retryCount().toString(),
+                            tone =
+                                if (telemetry.retryCount() > 0) {
+                                    DiagnosticsTone.Warning
+                                } else {
+                                    DiagnosticsTone.Neutral
+                                },
+                        ),
+                    )
                     telemetry.resolverId?.let { resolverId ->
                         add(
                             DiagnosticsMetricUiModel(
@@ -1138,6 +1280,34 @@ class DiagnosticsViewModel
                 telemetry?.let {
                     add(DiagnosticsMetricUiModel(label = "TX", value = formatBytes(it.txBytes), tone = DiagnosticsTone.Info))
                     add(DiagnosticsMetricUiModel(label = "RX", value = formatBytes(it.rxBytes), tone = DiagnosticsTone.Positive))
+                    it.winningStrategyFamily()?.let { winningStrategy ->
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "Strategy",
+                                value = winningStrategy,
+                                tone = DiagnosticsTone.Positive,
+                            ),
+                        )
+                    }
+                    add(
+                        DiagnosticsMetricUiModel(
+                            label = "RTT",
+                            value = it.rttBand(),
+                            tone = DiagnosticsTone.Info,
+                        ),
+                    )
+                    add(
+                        DiagnosticsMetricUiModel(
+                            label = "Retries",
+                            value = it.retryCount().toString(),
+                            tone =
+                                if (it.retryCount() > 0) {
+                                    DiagnosticsTone.Warning
+                                } else {
+                                    DiagnosticsTone.Neutral
+                                },
+                        ),
+                    )
                     if (it.resolverFallbackActive) {
                         add(
                             DiagnosticsMetricUiModel(
@@ -1230,8 +1400,10 @@ class DiagnosticsViewModel
                 return surfacedEvent.message
             }
             telemetry ?: return "Continuous monitor is waiting for an active RIPDPI session."
+            telemetry.failureClass?.let { return "Latest failure class: $it" }
             telemetry.resolverFallbackReason?.let { return "Encrypted DNS override active: $it" }
             telemetry.networkHandoverClass?.let { return "Recent network handover detected: $it" }
+            telemetry.winningStrategyFamily()?.let { return "Winning strategy family: $it" }
             val totalBytes = formatBytes(telemetry.txBytes + telemetry.rxBytes)
             val packetCount = telemetry.txPackets + telemetry.rxPackets
             val modeLabel = telemetry.activeMode ?: "Idle"
@@ -1350,13 +1522,16 @@ class DiagnosticsViewModel
             )
         }
 
-        private fun DiagnosticProfileEntity.toOptionUiModel(): DiagnosticsProfileOptionUiModel =
-            DiagnosticsProfileOptionUiModel(
+        private fun DiagnosticProfileEntity.toOptionUiModel(): DiagnosticsProfileOptionUiModel {
+            val request = decodeRequest()
+            return DiagnosticsProfileOptionUiModel(
                 id = id,
                 name = name,
                 source = source,
-                kind = decodeRequest()?.kind ?: ScanKind.CONNECTIVITY,
+                kind = request?.kind ?: ScanKind.CONNECTIVITY,
+                strategyProbeSuiteId = request?.strategyProbe?.suiteId,
             )
+        }
 
         private fun toSessionRowUiModel(session: ScanSessionEntity): DiagnosticsSessionRowUiModel {
             val report = session.reportJson?.let(::decodeReport)
@@ -1427,6 +1602,15 @@ class DiagnosticsViewModel
                 add(DiagnosticsFieldUiModel("Autolearn", signature.hostAutolearn))
                 add(DiagnosticsFieldUiModel("Chain", signature.chainSummary))
                 add(DiagnosticsFieldUiModel("Desync", signature.desyncMethod))
+                signature.tcpStrategyFamily?.let {
+                    add(DiagnosticsFieldUiModel("TCP/TLS lane", strategyLaneFamilyLabel(it)))
+                }
+                signature.quicStrategyFamily?.let {
+                    add(DiagnosticsFieldUiModel("QUIC lane", strategyLaneFamilyLabel(it)))
+                }
+                signature.dnsStrategyLabel?.let {
+                    add(DiagnosticsFieldUiModel("DNS lane", it))
+                }
                 add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
                 if (signature.httpParserEvasions.isNotEmpty()) {
                     add(
@@ -1508,58 +1692,213 @@ class DiagnosticsViewModel
                 add(DiagnosticsFieldUiModel("Route group", signature.routeGroup ?: "Unknown"))
             }
 
+        private fun strategyProbeSuiteLabel(suiteId: String): String =
+            when (suiteId) {
+                StrategyProbeSuiteFullMatrixV1 -> "Automatic audit"
+                StrategyProbeSuiteQuickV1 -> "Automatic probing"
+                else -> suiteId.replace('_', ' ').replaceFirstChar { it.uppercase() }
+            }
+
+        private fun strategyProbeOutcomeLabel(
+            outcome: String,
+            skipped: Boolean = false,
+        ): String =
+            when {
+                skipped -> "Skipped"
+                outcome.equals("not_applicable", ignoreCase = true) -> "Not applicable"
+                else -> outcome.replace('_', ' ').replaceFirstChar { it.uppercase() }
+            }
+
+        private fun strategyProbeCandidateTone(
+            outcome: String,
+            skipped: Boolean,
+            recommended: Boolean,
+        ): DiagnosticsTone =
+            when {
+                recommended -> DiagnosticsTone.Positive
+                skipped -> DiagnosticsTone.Neutral
+                outcome.equals("success", ignoreCase = true) -> DiagnosticsTone.Positive
+                outcome.equals("partial", ignoreCase = true) -> DiagnosticsTone.Warning
+                outcome.equals("not_applicable", ignoreCase = true) -> DiagnosticsTone.Neutral
+                else -> DiagnosticsTone.Negative
+            }
+
+        private fun strategyProbeFamilyLabel(family: String): String =
+            when (family) {
+                "baseline" -> "Baseline"
+                "parser" -> "Parser"
+                "parser_aggressive" -> "Parser aggressive"
+                "split" -> "Host split"
+                "tlsrec_split" -> "TLS record split"
+                "tlsrec_fake" -> "TLS record fake"
+                "fake_approx" -> "Fake approximation"
+                "hostfake" -> "Hostfake"
+                "activation_window" -> "Activation window"
+                "adaptive_fake_ttl" -> "Adaptive fake TTL"
+                "fake_payload_library" -> "Fake payload library"
+                "quic_disabled" -> "QUIC disabled"
+                "quic_burst" -> "QUIC burst"
+                else -> family.replace('_', ' ').replaceFirstChar { it.uppercase() }
+            }
+
+        private fun parseServiceModeOrDefault(serviceMode: String?): Mode =
+            when (serviceMode?.uppercase(Locale.US)) {
+                "PROXY" -> Mode.Proxy
+                "VPN" -> Mode.VPN
+                else -> Mode.VPN
+            }
+
+        private fun buildStrategyProbeCandidateMetrics(
+            summary: StrategyProbeCandidateSummary,
+            recommended: Boolean,
+        ): List<DiagnosticsMetricUiModel> =
+            buildList {
+                add(DiagnosticsMetricUiModel("Targets", "${summary.succeededTargets}/${summary.totalTargets}"))
+                add(DiagnosticsMetricUiModel("Weight", "${summary.weightedSuccessScore}/${summary.totalWeight}"))
+                add(
+                    DiagnosticsMetricUiModel(
+                        "Quality",
+                        summary.qualityScore.toString(),
+                        tone =
+                            when {
+                                summary.qualityScore >= summary.totalTargets.coerceAtLeast(1) * 3 -> DiagnosticsTone.Positive
+                                summary.qualityScore > 0 -> DiagnosticsTone.Warning
+                                else -> DiagnosticsTone.Neutral
+                            },
+                    ),
+                )
+                summary.averageLatencyMs?.let {
+                    add(DiagnosticsMetricUiModel("Latency", "${it} ms", DiagnosticsTone.Info))
+                }
+                if (recommended) {
+                    add(DiagnosticsMetricUiModel("Selected", "Winner", DiagnosticsTone.Positive))
+                }
+            }
+
+        private fun StrategyProbeCandidateSummary.deriveSignature(serviceMode: String?): BypassStrategySignature? =
+            proxyConfigJson
+                ?.takeIf { it.isNotBlank() }
+                ?.let(::decodeRipDpiProxyUiPreferences)
+                ?.let { preferences ->
+                    deriveBypassStrategySignature(
+                        preferences = preferences,
+                        routeGroup = null,
+                        modeOverride = parseServiceModeOrDefault(serviceMode),
+                    )
+                }
+
+        private fun ProbeResult.detailValue(key: String): String? =
+            details.firstOrNull { it.key == key }?.value
+
+        private fun buildStrategyProbeResultGroups(
+            reportResults: List<ProbeResult>,
+            candidateId: String,
+        ): List<DiagnosticsProbeGroupUiModel> =
+            reportResults
+                .filter { result -> result.detailValue("candidateId") == candidateId }
+                .mapIndexed(::toProbeResultUiModel)
+                .groupBy { probe ->
+                    probe.details
+                        .firstOrNull { it.label == "protocol" }
+                        ?.value
+                        ?.uppercase(Locale.US)
+                        ?.let { "$it results" }
+                        ?: probe.probeType.replace('_', ' ').replaceFirstChar { it.uppercase() }
+                }.map { (title, items) ->
+                    DiagnosticsProbeGroupUiModel(
+                        title = title,
+                        items = items,
+                    )
+                }.sortedBy { it.title }
+
         private fun StrategyProbeCandidateSummary.toUiModel(recommended: Boolean): DiagnosticsStrategyProbeCandidateUiModel =
             DiagnosticsStrategyProbeCandidateUiModel(
                 id = id,
                 label = label,
-                outcome = outcome.replaceFirstChar { it.uppercase() },
+                outcome = strategyProbeOutcomeLabel(outcome = outcome, skipped = skipped),
                 rationale = rationale,
-                metrics =
-                    buildList {
-                        add(DiagnosticsMetricUiModel("Targets", "$succeededTargets/$totalTargets"))
-                        add(DiagnosticsMetricUiModel("Weight", "$weightedSuccessScore/$totalWeight"))
-                        add(
-                            DiagnosticsMetricUiModel(
-                                "Quality",
-                                qualityScore.toString(),
-                                tone =
-                                    when {
-                                        qualityScore >= totalTargets.coerceAtLeast(1) * 3 -> DiagnosticsTone.Positive
-                                        qualityScore > 0 -> DiagnosticsTone.Warning
-                                        else -> DiagnosticsTone.Neutral
-                                    },
-                            ),
-                        )
-                        averageLatencyMs?.let {
-                            add(DiagnosticsMetricUiModel("Latency", "${it} ms", DiagnosticsTone.Info))
-                        }
-                    },
-                tone =
-                    when {
-                        recommended -> DiagnosticsTone.Positive
-                        skipped -> DiagnosticsTone.Neutral
-                        outcome.equals("success", ignoreCase = true) -> DiagnosticsTone.Positive
-                        outcome.equals("partial", ignoreCase = true) -> DiagnosticsTone.Warning
-                        else -> DiagnosticsTone.Negative
-                    },
+                metrics = buildStrategyProbeCandidateMetrics(this, recommended),
+                tone = strategyProbeCandidateTone(outcome = outcome, skipped = skipped, recommended = recommended),
                 skipped = skipped,
                 recommended = recommended,
             )
 
+        private fun StrategyProbeCandidateSummary.toDetailUiModel(
+            suiteId: String,
+            serviceMode: String?,
+            reportResults: List<ProbeResult>,
+            recommended: Boolean,
+        ): DiagnosticsStrategyProbeCandidateDetailUiModel =
+            DiagnosticsStrategyProbeCandidateDetailUiModel(
+                id = id,
+                label = label,
+                familyLabel = strategyProbeFamilyLabel(family),
+                suiteLabel = strategyProbeSuiteLabel(suiteId),
+                outcome = strategyProbeOutcomeLabel(outcome = outcome, skipped = skipped),
+                rationale = rationale,
+                tone = strategyProbeCandidateTone(outcome = outcome, skipped = skipped, recommended = recommended),
+                recommended = recommended,
+                notes = notes,
+                metrics = buildStrategyProbeCandidateMetrics(this, recommended),
+                signature = deriveSignature(serviceMode)?.let(::strategySignatureFields).orEmpty(),
+                resultGroups = buildStrategyProbeResultGroups(reportResults = reportResults, candidateId = id),
+            )
+
         private fun StrategyProbeRecommendation.toUiModel(): DiagnosticsStrategyProbeRecommendationUiModel =
             DiagnosticsStrategyProbeRecommendationUiModel(
-                headline = "$tcpCandidateLabel + $quicCandidateLabel",
+                headline =
+                    listOfNotNull(
+                        tcpCandidateLabel,
+                        quicCandidateLabel,
+                        dnsStrategyLabel,
+                    ).joinToString(" + "),
                 rationale = rationale,
                 fields =
                     listOf(
                         DiagnosticsFieldUiModel("TCP recommendation", tcpCandidateLabel),
+                        tcpCandidateFamily?.let {
+                            DiagnosticsFieldUiModel("TCP/TLS lane", strategyProbeFamilyLabel(it))
+                        },
                         DiagnosticsFieldUiModel("QUIC recommendation", quicCandidateLabel),
+                        quicCandidateFamily?.let {
+                            DiagnosticsFieldUiModel("QUIC lane", strategyProbeFamilyLabel(it))
+                        },
+                        dnsStrategyLabel?.let {
+                            DiagnosticsFieldUiModel("DNS lane", it)
+                        },
                         DiagnosticsFieldUiModel("Why it won", rationale),
-                    ),
+                    ).filterNotNull(),
                 signature = strategySignature?.let(::strategySignatureFields).orEmpty(),
             )
 
-        private fun StrategyProbeReport.toUiModel(): DiagnosticsStrategyProbeReportUiModel {
+        private fun StrategyProbeReport.buildSummaryMetrics(): List<DiagnosticsMetricUiModel> {
+            val candidates = tcpCandidates + quicCandidates
+            val worked = candidates.count { it.outcome.equals("success", ignoreCase = true) }
+            val partial = candidates.count { it.outcome.equals("partial", ignoreCase = true) }
+            val failed =
+                candidates.count { candidate ->
+                    !candidate.skipped &&
+                        !candidate.outcome.equals("success", ignoreCase = true) &&
+                        !candidate.outcome.equals("partial", ignoreCase = true) &&
+                        !candidate.outcome.equals("not_applicable", ignoreCase = true)
+                }
+            val notApplicable = candidates.count { it.outcome.equals("not_applicable", ignoreCase = true) }
+            val skipped = candidates.count { it.skipped }
+            return buildList {
+                add(DiagnosticsMetricUiModel("Worked", worked.toString(), DiagnosticsTone.Positive))
+                add(DiagnosticsMetricUiModel("Partial", partial.toString(), DiagnosticsTone.Warning))
+                add(DiagnosticsMetricUiModel("Failed", failed.toString(), DiagnosticsTone.Negative))
+                add(DiagnosticsMetricUiModel("N/A", notApplicable.toString(), DiagnosticsTone.Neutral))
+                if (skipped > 0) {
+                    add(DiagnosticsMetricUiModel("Skipped", skipped.toString(), DiagnosticsTone.Neutral))
+                }
+            }
+        }
+
+        private fun StrategyProbeReport.toUiModel(
+            reportResults: List<ProbeResult>,
+            serviceMode: String?,
+        ): DiagnosticsStrategyProbeReportUiModel {
             fun mapFamily(
                 title: String,
                 candidates: List<StrategyProbeCandidateSummary>,
@@ -1578,22 +1917,48 @@ class DiagnosticsViewModel
                             ),
                 )
 
+            val candidateDetails =
+                (tcpCandidates + quicCandidates).associate { candidate ->
+                    candidate.id to
+                        candidate.toDetailUiModel(
+                            suiteId = suiteId,
+                            serviceMode = serviceMode,
+                            reportResults = reportResults,
+                            recommended =
+                                candidate.id == recommendation.tcpCandidateId ||
+                                    candidate.id == recommendation.quicCandidateId,
+                        )
+                }
+
             return DiagnosticsStrategyProbeReportUiModel(
-                suiteLabel = suiteId.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                suiteId = suiteId,
+                suiteLabel = strategyProbeSuiteLabel(suiteId),
+                summaryMetrics = buildSummaryMetrics(),
                 recommendation = recommendation.toUiModel(),
                 families =
                     listOf(
                         mapFamily(
-                            title = "TCP candidates",
+                            title =
+                                if (suiteId == StrategyProbeSuiteFullMatrixV1) {
+                                    "TCP / HTTP / HTTPS matrix"
+                                } else {
+                                    "TCP candidates"
+                                },
                             candidates = tcpCandidates,
                             recommendedId = recommendation.tcpCandidateId,
                         ),
                         mapFamily(
-                            title = "QUIC candidates",
+                            title =
+                                if (suiteId == StrategyProbeSuiteFullMatrixV1) {
+                                    "QUIC matrix"
+                                } else {
+                                    "QUIC candidates"
+                                },
                             candidates = quicCandidates,
                             recommendedId = recommendation.quicCandidateId,
                         ),
                     ),
+                candidateDetails = candidateDetails,
             )
         }
 
@@ -1619,10 +1984,17 @@ class DiagnosticsViewModel
         private fun ScanRequest?.toScopeLabel(rawArgsEnabled: Boolean): String? =
             when (this?.kind) {
                 ScanKind.STRATEGY_PROBE ->
-                    if (rawArgsEnabled) {
-                        "Automatic probing · raw-path only · blocked by command-line mode"
-                    } else {
-                        "Automatic probing · raw-path only"
+                    when {
+                        rawArgsEnabled && strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1 ->
+                            "Automatic audit · raw-path only · blocked by command-line mode"
+
+                        rawArgsEnabled ->
+                            "Automatic probing · raw-path only · blocked by command-line mode"
+
+                        strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1 ->
+                            "Automatic audit · raw-path only"
+
+                        else -> "Automatic probing · raw-path only"
                     }
                 ScanKind.CONNECTIVITY -> "Connectivity profile"
                 null -> null
@@ -1672,6 +2044,7 @@ class DiagnosticsViewModel
             )
 
         private fun DiagnosticSessionDetail.toUiModel(showSensitiveDetails: Boolean): DiagnosticsSessionDetailUiModel {
+            val report = session.reportJson?.let(::decodeReport)
             val probeGroups =
                 results
                     .mapIndexed { index, result -> result.toUiModel(index) }
@@ -1688,21 +2061,28 @@ class DiagnosticsViewModel
                 snapshots = snapshots.mapNotNull { it.toUiModel(showSensitiveDetails = showSensitiveDetails) },
                 events = events.map { it.toUiModel() },
                 contextGroups = context?.toUiGroups(showSensitiveDetails = showSensitiveDetails).orEmpty(),
-                strategyProbeReport = session.reportJson?.let(::decodeReport)?.strategyProbeReport?.toUiModel(),
+                strategyProbeReport =
+                    report?.strategyProbeReport?.toUiModel(
+                        reportResults = report.results,
+                        serviceMode = session.serviceMode,
+                    ),
                 hasSensitiveDetails = true,
                 sensitiveDetailsVisible = showSensitiveDetails,
             )
         }
 
         private fun ProbeResultEntity.toUiModel(index: Int): DiagnosticsProbeResultUiModel =
-            DiagnosticsProbeResultUiModel(
-                id = "$sessionId-$index-$probeType-$target",
-                probeType = probeType,
-                target = target,
-                outcome = outcome,
-                tone = toneForOutcome(outcome),
-                details = decodeProbeDetails(detailJson).map { DiagnosticsFieldUiModel(it.key, it.value) },
-            )
+            decodeProbeDetails(detailJson).let { details ->
+                DiagnosticsProbeResultUiModel(
+                    id = "$sessionId-$index-$probeType-$target",
+                    probeType = probeType,
+                    target = target,
+                    outcome = outcome,
+                    probeRetryCount = deriveProbeRetryCount(details),
+                    tone = toneForOutcome(outcome),
+                    details = details.map { DiagnosticsFieldUiModel(it.key, it.value) },
+                )
+            }
 
         private fun toProbeResultUiModel(
             index: Int,
@@ -1713,6 +2093,7 @@ class DiagnosticsViewModel
                 probeType = probeResult.probeType,
                 target = probeResult.target,
                 outcome = probeResult.outcome,
+                probeRetryCount = probeResult.probeRetryCount ?: deriveProbeRetryCount(probeResult.details),
                 tone = toneForOutcome(probeResult.outcome),
                 details = probeResult.details.map { DiagnosticsFieldUiModel(it.key, it.value) },
             )

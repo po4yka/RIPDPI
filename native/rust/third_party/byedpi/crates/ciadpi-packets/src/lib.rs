@@ -450,11 +450,7 @@ fn parse_http_request_layout(buffer: &[u8]) -> Option<HttpRequestLayout> {
         if raw_line[..colon].eq_ignore_ascii_case(b"user-agent") {
             user_agent_index = Some(header_lines.len());
         }
-        header_lines.push(HttpHeaderLine {
-            start: cursor,
-            end: line_end,
-            value_start,
-        });
+        header_lines.push(HttpHeaderLine { start: cursor, end: line_end, value_start });
         cursor = next_start;
     }
 }
@@ -755,11 +751,7 @@ pub fn default_fake_quic_compat() -> Vec<u8> {
     packet
 }
 
-pub fn build_quic_initial_from_tls(
-    version: u32,
-    tls_client_hello: &[u8],
-    gap_after_split: usize,
-) -> Option<Vec<u8>> {
+pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_after_split: usize) -> Option<Vec<u8>> {
     let version = if supported_quic_version(version) { version } else { QUIC_V1_VERSION };
     if !is_tls_client_hello(tls_client_hello) || tls_client_hello.len() <= TLS_RECORD_HEADER_LEN {
         return None;
@@ -815,9 +807,7 @@ pub fn build_quic_initial_from_tls(
 
     let cipher = Aes128Gcm::new_from_slice(&key).ok()?;
     let mut ciphertext = plaintext;
-    let tag = cipher
-        .encrypt_in_place_detached(Nonce::from_slice(&iv), &aad, &mut ciphertext)
-        .ok()?;
+    let tag = cipher.encrypt_in_place_detached(Nonce::from_slice(&iv), &aad, &mut ciphertext).ok()?;
 
     let hp_cipher = Aes128::new_from_slice(&hp).ok()?;
     let mut sample = GenericArray::clone_from_slice(ciphertext.get(..QUIC_HP_SAMPLE_LEN)?);
@@ -1218,10 +1208,7 @@ pub fn mod_http_like_c(input: &[u8], flags: u32) -> PacketMutation {
         }
     }
 
-    PacketMutation {
-        rc: if modified { 0 } else { -1 },
-        bytes: if modified { output } else { input.to_vec() },
-    }
+    PacketMutation { rc: if modified { 0 } else { -1 }, bytes: if modified { output } else { input.to_vec() } }
 }
 
 pub fn part_tls_like_c(input: &[u8], pos: isize) -> PacketMutation {
@@ -1311,7 +1298,10 @@ pub fn randomize_tls_sni_seeded_like_c(input: &[u8], seed: u32) -> PacketMutatio
 
 pub fn duplicate_tls_session_id_like_c(fake_input: &[u8], original_input: &[u8]) -> PacketMutation {
     let mut output = fake_input.to_vec();
-    if !is_tls_client_hello(fake_input) || !is_tls_client_hello(original_input) || output.len() < 44 || original_input.len() < 44
+    if !is_tls_client_hello(fake_input)
+        || !is_tls_client_hello(original_input)
+        || output.len() < 44
+        || original_input.len() < 44
     {
         return PacketMutation { rc: -1, bytes: output };
     }
@@ -1594,10 +1584,7 @@ mod tests {
         let mutation = duplicate_tls_session_id_like_c(&fake, &source);
 
         assert_eq!(mutation.rc, 0);
-        assert_eq!(
-            &mutation.bytes[44..44 + mutation.bytes[43] as usize],
-            &source[44..44 + source[43] as usize]
-        );
+        assert_eq!(&mutation.bytes[44..44 + mutation.bytes[43] as usize], &source[44..44 + source[43] as usize]);
     }
 
     #[test]
@@ -1641,7 +1628,8 @@ mod tests {
 
     #[test]
     fn parse_quic_initial_extracts_v1_sni() {
-        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, Some("docs.example.test")).expect("build quic initial v1");
+        let packet =
+            build_realistic_quic_initial(QUIC_V1_VERSION, Some("docs.example.test")).expect("build quic initial v1");
         let parsed = parse_quic_initial(&packet).expect("parse quic initial v1");
 
         assert!(is_quic_initial(&packet));
@@ -1652,7 +1640,8 @@ mod tests {
 
     #[test]
     fn parse_quic_initial_extracts_v2_sni() {
-        let packet = build_realistic_quic_initial(QUIC_V2_VERSION, Some("media.example.test")).expect("build quic initial v2");
+        let packet =
+            build_realistic_quic_initial(QUIC_V2_VERSION, Some("media.example.test")).expect("build quic initial v2");
         let parsed = parse_quic_initial(&packet).expect("parse quic initial v2");
 
         assert!(is_quic_initial(&packet));
@@ -1673,7 +1662,8 @@ mod tests {
 
     #[test]
     fn realistic_quic_fake_builder_applies_host_override() {
-        let packet = build_realistic_quic_initial(QUIC_V1_VERSION, Some("video.example.test")).expect("build realistic fake");
+        let packet =
+            build_realistic_quic_initial(QUIC_V1_VERSION, Some("video.example.test")).expect("build realistic fake");
         let parsed = parse_quic_initial(&packet).expect("parse realistic fake");
 
         assert_eq!(parsed.host(), b"video.example.test");
@@ -1681,7 +1671,8 @@ mod tests {
 
     #[test]
     fn realistic_quic_fake_builder_defaults_to_v1_for_unknown_versions() {
-        let packet = build_realistic_quic_initial(0xface_feed, Some("video.example.test")).expect("build realistic fake");
+        let packet =
+            build_realistic_quic_initial(0xface_feed, Some("video.example.test")).expect("build realistic fake");
         let parsed = parse_quic_initial(&packet).expect("parse realistic fake");
 
         assert_eq!(parsed.version, QUIC_V1_VERSION);

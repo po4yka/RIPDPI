@@ -5,9 +5,8 @@ use ciadpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
     parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, NumericRange,
     OffsetExpr, PartSpec, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
-    UdpChainStep, UdpChainStepKind,
-    FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
-    HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+    UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
 use ciadpi_packets::{
     HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL,
@@ -39,8 +38,50 @@ pub enum ProxyConfigError {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ProxyConfigPayload {
-    CommandLine { args: Vec<String> },
-    Ui(ProxyUiConfig),
+    CommandLine {
+        args: Vec<String>,
+        #[serde(default)]
+        runtime_context: Option<ProxyRuntimeContext>,
+    },
+    Ui {
+        #[serde(flatten)]
+        config: ProxyUiConfig,
+        #[serde(default)]
+        runtime_context: Option<ProxyRuntimeContext>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyRuntimeContext {
+    #[serde(default)]
+    pub encrypted_dns: Option<ProxyEncryptedDnsContext>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyEncryptedDnsContext {
+    #[serde(default)]
+    pub resolver_id: Option<String>,
+    pub protocol: String,
+    pub host: String,
+    pub port: u16,
+    #[serde(default)]
+    pub tls_server_name: Option<String>,
+    #[serde(default)]
+    pub bootstrap_ips: Vec<String>,
+    #[serde(default)]
+    pub doh_url: Option<String>,
+    #[serde(default)]
+    pub dnscrypt_provider_name: Option<String>,
+    #[serde(default)]
+    pub dnscrypt_public_key: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeConfigEnvelope {
+    pub config: RuntimeConfig,
+    pub runtime_context: Option<ProxyRuntimeContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -232,6 +273,40 @@ fn default_host_autolearn_max_hosts() -> usize {
     HOST_AUTOLEARN_DEFAULT_MAX_HOSTS
 }
 
+fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Option<ProxyRuntimeContext> {
+    let Some(mut runtime_context) = runtime_context else {
+        return None;
+    };
+    runtime_context.encrypted_dns = runtime_context.encrypted_dns.and_then(|mut value| {
+        value.protocol = value.protocol.trim().to_ascii_lowercase();
+        value.host = value.host.trim().to_string();
+        if value.host.is_empty() {
+            return None;
+        }
+        value.port = if value.port == 0 { 443 } else { value.port };
+        value.tls_server_name = value.tls_server_name.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
+        value.bootstrap_ips = value
+            .bootstrap_ips
+            .into_iter()
+            .map(|entry| entry.trim().to_string())
+            .filter(|entry| !entry.is_empty())
+            .collect();
+        value.doh_url = value.doh_url.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
+        value.dnscrypt_provider_name = value
+            .dnscrypt_provider_name
+            .map(|entry| entry.trim().to_string())
+            .filter(|entry| !entry.is_empty());
+        value.dnscrypt_public_key = value
+            .dnscrypt_public_key
+            .map(|entry| entry.trim().to_string())
+            .filter(|entry| !entry.is_empty());
+        value.resolver_id = value.resolver_id.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
+        Some(value)
+    });
+    runtime_context.encrypted_dns.as_ref()?;
+    Some(runtime_context)
+}
+
 fn parse_proxy_numeric_range(
     range: &ProxyUiNumericRange,
     field_name: &str,
@@ -289,9 +364,19 @@ pub fn parse_proxy_config_json(json: &str) -> Result<ProxyConfigPayload, ProxyCo
 }
 
 pub fn runtime_config_from_payload(payload: ProxyConfigPayload) -> Result<RuntimeConfig, ProxyConfigError> {
+    runtime_config_envelope_from_payload(payload).map(|envelope| envelope.config)
+}
+
+pub fn runtime_config_envelope_from_payload(payload: ProxyConfigPayload) -> Result<RuntimeConfigEnvelope, ProxyConfigError> {
     match payload {
-        ProxyConfigPayload::CommandLine { args } => runtime_config_from_command_line(args),
-        ProxyConfigPayload::Ui(config) => runtime_config_from_ui(config),
+        ProxyConfigPayload::CommandLine { args, runtime_context } => Ok(RuntimeConfigEnvelope {
+            config: runtime_config_from_command_line(args)?,
+            runtime_context: sanitize_runtime_context(runtime_context),
+        }),
+        ProxyConfigPayload::Ui { config, runtime_context } => Ok(RuntimeConfigEnvelope {
+            config: runtime_config_from_ui(config)?,
+            runtime_context: sanitize_runtime_context(runtime_context),
+        }),
     }
 }
 
@@ -348,12 +433,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned);
-    config.network_scope_key = payload
-        .network_scope_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned);
+    config.network_scope_key =
+        payload.network_scope_key.as_deref().map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned);
     if payload.custom_ttl {
         let ttl = u8::try_from(payload.default_ttl)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid defaultTtl".to_string()))?;
@@ -406,7 +487,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         );
     } else if payload.fake_ttl > 0 {
         group.ttl = Some(
-            u8::try_from(payload.fake_ttl).map_err(|_| ProxyConfigError::InvalidConfig("Invalid fakeTtl".to_string()))?,
+            u8::try_from(payload.fake_ttl)
+                .map_err(|_| ProxyConfigError::InvalidConfig("Invalid fakeTtl".to_string()))?,
         );
     }
     group.http_fake_profile = parse_http_fake_profile(&payload.http_fake_profile)?;
@@ -473,7 +555,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 _ => {
                     if step.fragment_count != 0 || step.min_fragment_size != 0 || step.max_fragment_size != 0 {
                         return Err(ProxyConfigError::InvalidConfig(
-                            "tlsrandrec fragment fields are only supported for tcpChainSteps kind=tlsrandrec".to_string(),
+                            "tlsrandrec fragment fields are only supported for tcpChainSteps kind=tlsrandrec"
+                                .to_string(),
                         ));
                     }
                     (0, 0, 0)
@@ -544,10 +627,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         }
     }
 
-    let has_fake_step = group
-        .effective_tcp_chain()
-        .iter()
-        .any(|step| matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder));
+    let has_fake_step = group.effective_tcp_chain().iter().any(|step| {
+        matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
+    });
     let has_oob_step = group
         .effective_tcp_chain()
         .iter()
@@ -628,7 +710,11 @@ pub fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, ProxyC
 }
 
 fn normalize_tlsrandrec_step_field(value: i32, default: i32) -> i32 {
-    if value > 0 { value } else { default }
+    if value > 0 {
+        value
+    } else {
+        default
+    }
 }
 
 fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
@@ -649,7 +735,8 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
             saw_send_step = true;
         }
 
-        if matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder) && index + 1 != steps.len() {
+        if matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder) && index + 1 != steps.len()
+        {
             return Err(ProxyConfigError::InvalidConfig(format!(
                 "{} must be the last tcp send step",
                 match step.kind {
@@ -689,15 +776,18 @@ pub fn parse_quic_fake_profile(value: &str) -> Result<QuicFakeProfile, ProxyConf
 }
 
 pub fn parse_http_fake_profile(value: &str) -> Result<HttpFakeProfile, ProxyConfigError> {
-    parse_http_fake_profile_id(value).map_err(|_| ProxyConfigError::InvalidConfig(format!("Unknown httpFakeProfile: {value}")))
+    parse_http_fake_profile_id(value)
+        .map_err(|_| ProxyConfigError::InvalidConfig(format!("Unknown httpFakeProfile: {value}")))
 }
 
 pub fn parse_tls_fake_profile(value: &str) -> Result<TlsFakeProfile, ProxyConfigError> {
-    parse_tls_fake_profile_id(value).map_err(|_| ProxyConfigError::InvalidConfig(format!("Unknown tlsFakeProfile: {value}")))
+    parse_tls_fake_profile_id(value)
+        .map_err(|_| ProxyConfigError::InvalidConfig(format!("Unknown tlsFakeProfile: {value}")))
 }
 
 pub fn parse_udp_fake_profile(value: &str) -> Result<UdpFakeProfile, ProxyConfigError> {
-    parse_udp_fake_profile_id(value).map_err(|_| ProxyConfigError::InvalidConfig(format!("Unknown udpFakeProfile: {value}")))
+    parse_udp_fake_profile_id(value)
+        .map_err(|_| ProxyConfigError::InvalidConfig(format!("Unknown udpFakeProfile: {value}")))
 }
 
 pub fn parse_desync_mode(value: &str) -> Result<DesyncMode, ProxyConfigError> {
@@ -714,7 +804,8 @@ pub fn parse_desync_mode(value: &str) -> Result<DesyncMode, ProxyConfigError> {
 
 fn parse_hosts(hosts: Option<&str>) -> Result<Vec<String>, ProxyConfigError> {
     let hosts = hosts.unwrap_or_default();
-    ciadpi_config::parse_hosts_spec(hosts).map_err(|_| ProxyConfigError::InvalidConfig("Invalid hosts list".to_string()))
+    ciadpi_config::parse_hosts_spec(hosts)
+        .map_err(|_| ProxyConfigError::InvalidConfig("Invalid hosts list".to_string()))
 }
 
 fn parse_offset_expr_field<F>(marker: Option<&str>, legacy: F, field_name: &str) -> Result<OffsetExpr, ProxyConfigError>
@@ -832,7 +923,8 @@ mod tests {
         ui.quic_fake_profile = "realistic_initial".to_string();
         ui.quic_fake_host = "Example.COM.".to_string();
 
-        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
+        let config = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect("runtime config");
 
         assert_eq!(config.groups[0].http_fake_profile, HttpFakeProfile::CompatDefault);
         assert_eq!(config.groups[0].tls_fake_profile, TlsFakeProfile::CompatDefault);
@@ -861,7 +953,8 @@ mod tests {
             ui.fake_tls_dup_session_id = true;
             ui.fake_offset_marker = Some("host+1".to_string());
 
-            let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
+            let config = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+                .expect("runtime config");
             let group = &config.groups[0];
 
             let expected_mode = if kind == "fakedsplit" { DesyncMode::Fake } else { DesyncMode::Disorder };
@@ -897,7 +990,8 @@ mod tests {
             activation_filter: ProxyUiActivationFilter::default(),
         });
 
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("non-terminal fakedsplit");
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect_err("non-terminal fakedsplit");
 
         assert!(err.to_string().contains("fakedsplit"));
     }
@@ -909,7 +1003,8 @@ mod tests {
         ui.tls_fake_profile = "google_chrome".to_string();
         ui.udp_fake_profile = "dns_query".to_string();
 
-        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
+        let config = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect("runtime config");
 
         assert_eq!(config.groups[0].http_fake_profile, HttpFakeProfile::CloudflareGet);
         assert_eq!(config.groups[0].tls_fake_profile, TlsFakeProfile::GoogleChrome);
@@ -925,7 +1020,8 @@ mod tests {
         ui.http_method_eol = true;
         ui.http_unix_eol = true;
 
-        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
+        let config = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect("runtime config");
 
         assert_eq!(config.groups[0].mod_http, MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL);
     }
@@ -934,6 +1030,7 @@ mod tests {
     fn command_line_payload_requires_runnable_config() {
         let err = runtime_config_from_payload(ProxyConfigPayload::CommandLine {
             args: vec!["ciadpi".to_string(), "--help".to_string()],
+            runtime_context: None,
         })
         .expect_err("help should not produce runnable config");
 
@@ -945,7 +1042,8 @@ mod tests {
         let mut ui = minimal_ui();
         ui.quic_fake_profile = "bogus".to_string();
 
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("invalid quic profile");
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect_err("invalid quic profile");
 
         assert!(err.to_string().contains("quicFakeProfile"));
     }
@@ -955,7 +1053,8 @@ mod tests {
         let mut ui = minimal_ui();
         ui.http_fake_profile = "bogus".to_string();
 
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("invalid http profile");
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect_err("invalid http profile");
 
         assert!(err.to_string().contains("httpFakeProfile"));
     }
@@ -974,7 +1073,8 @@ mod tests {
             activation_filter: ProxyUiActivationFilter::default(),
         });
 
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("adaptive hostfake marker");
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect_err("adaptive hostfake marker");
 
         assert!(err.to_string().contains("hostfake"));
     }
@@ -993,7 +1093,8 @@ mod tests {
             activation_filter: ProxyUiActivationFilter::default(),
         });
 
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("adaptive hostfake midhost");
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect_err("adaptive hostfake midhost");
 
         assert!(err.to_string().contains("midhostMarker"));
     }
@@ -1004,7 +1105,8 @@ mod tests {
         ui.desync_method = "fake".to_string();
         ui.fake_offset_marker = Some("auto(host)".to_string());
 
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("adaptive fake offset");
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect_err("adaptive fake offset");
 
         assert!(err.to_string().contains("fakeOffsetMarker"));
     }
@@ -1019,17 +1121,11 @@ mod tests {
         ui.adaptive_fake_ttl_max = 12;
         ui.adaptive_fake_ttl_fallback = 9;
 
-        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("adaptive fake ttl config");
+        let config = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect("adaptive fake ttl config");
         let group = &config.groups[0];
 
-        assert_eq!(
-            group.auto_ttl,
-            Some(ciadpi_config::AutoTtlConfig {
-                delta: -1,
-                min_ttl: 3,
-                max_ttl: 12,
-            }),
-        );
+        assert_eq!(group.auto_ttl, Some(ciadpi_config::AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }),);
         assert_eq!(group.ttl, Some(9));
     }
 
@@ -1040,7 +1136,8 @@ mod tests {
         ui.adaptive_fake_ttl_min = 12;
         ui.adaptive_fake_ttl_max = 3;
 
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("invalid adaptive ttl window");
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect_err("invalid adaptive ttl window");
 
         assert!(err.to_string().contains("adaptive fake TTL window"));
     }
@@ -1052,7 +1149,8 @@ mod tests {
         ui.adaptive_fake_ttl_enabled = false;
         ui.adaptive_fake_ttl_fallback = 5;
 
-        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("fixed fake ttl config");
+        let config = runtime_config_from_payload(ProxyConfigPayload::Ui { config: ui, runtime_context: None })
+            .expect("fixed fake ttl config");
         let group = &config.groups[0];
 
         assert_eq!(group.auto_ttl, None);

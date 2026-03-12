@@ -28,7 +28,8 @@ pub enum UdpFakeProfile {
 }
 
 const HTTP_IANA_GET: &[u8] = include_bytes!("fake_profiles/http_iana_org.bin");
-const HTTP_CLOUDFLARE_GET: &[u8] = b"GET / HTTP/1.1\r\nHost: www.cloudflare.com\r\nConnection: keep-alive\r\nAccept: */*\r\n\r\n";
+const HTTP_CLOUDFLARE_GET: &[u8] =
+    b"GET / HTTP/1.1\r\nHost: www.cloudflare.com\r\nConnection: keep-alive\r\nAccept: */*\r\n\r\n";
 
 const TLS_IANA_FIREFOX: &[u8] = include_bytes!("fake_profiles/tls_clienthello_iana_org.bin");
 const TLS_GOOGLE_CHROME: &[u8] = include_bytes!("fake_profiles/tls_clienthello_www_google_com.bin");

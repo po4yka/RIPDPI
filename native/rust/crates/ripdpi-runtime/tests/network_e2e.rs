@@ -528,6 +528,14 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
 
     fn on_client_error(&self, _error: &io::Error) {}
 
+    fn on_failure_classified(
+        &self,
+        _target: SocketAddr,
+        _failure: &ripdpi_failure_classifier::ClassifiedFailure,
+        _host: Option<&str>,
+    ) {
+    }
+
     fn on_route_selected(&self, target: SocketAddr, group_index: usize, host: Option<&str>, phase: &'static str) {
         self.routes.lock().expect("lock routes").push(RouteEvent {
             target,

@@ -759,15 +759,7 @@ where
                         let response = match request {
                             Ok(request) => handler(request, peer, local),
                             Err(err) => {
-                                events.record(event(
-                                    "http_error",
-                                    "http",
-                                    peer,
-                                    local,
-                                    &err.to_string(),
-                                    0,
-                                    None,
-                                ));
+                                events.record(event("http_error", "http", peer, local, &err.to_string(), 0, None));
                                 HttpResponse::not_found()
                             }
                         };
@@ -873,15 +865,7 @@ fn start_socks5_server(
 
                         let mut header = [0u8; 4];
                         if let Err(err) = read_exact_with_retry(&mut stream, &mut header) {
-                            events.record(event(
-                                "socks5_error",
-                                "tcp",
-                                peer,
-                                local,
-                                &format!("header:{err}"),
-                                0,
-                                None,
-                            ));
+                            events.record(event("socks5_error", "tcp", peer, local, &format!("header:{err}"), 0, None));
                             return;
                         }
 
@@ -1280,7 +1264,11 @@ fn normalize_http_target(target: &str) -> (&str, &str) {
     let normalized = if let Some((_, rest)) = target.split_once("://") {
         let slash = rest.find('/').map(|offset| offset + 1).unwrap_or(rest.len());
         let suffix = &rest[slash..];
-        if suffix.is_empty() { "/" } else { suffix }
+        if suffix.is_empty() {
+            "/"
+        } else {
+            suffix
+        }
     } else {
         target
     };

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -45,7 +44,7 @@ class SettingsPreferencesScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Share support bundle").assertExists()
+        composeRule.onNodeWithText("Share support bundle").fetchSemanticsNode()
         composeRule.onNodeWithText("Share support bundle").performClick()
 
         assertTrue(clicked)

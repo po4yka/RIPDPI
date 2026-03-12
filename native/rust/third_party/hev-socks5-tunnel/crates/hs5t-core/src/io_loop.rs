@@ -193,33 +193,22 @@ fn parse_mapdns_runtime(config: &Config) -> io::Result<Option<MapDnsRuntime>> {
     };
 
     let intercept_ip = mapdns.address.parse::<Ipv4Addr>().map_err(|err| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("invalid mapdns.address '{}': {err}", mapdns.address),
-        )
+        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid mapdns.address '{}': {err}", mapdns.address))
     })?;
-    let synthetic_net = mapdns
-        .network
-        .as_deref()
-        .unwrap_or(mapdns.address.as_str())
-        .parse::<Ipv4Addr>()
-        .map(u32::from)
-        .map_err(|err| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!(
-                    "invalid mapdns.network '{}': {err}",
-                    mapdns.network.as_deref().unwrap_or(mapdns.address.as_str())
-                ),
-            )
-        })?;
-    let synthetic_mask = mapdns
-        .netmask
-        .as_deref()
-        .unwrap_or("255.254.0.0")
-        .parse::<Ipv4Addr>()
-        .map(u32::from)
-        .map_err(|err| {
+    let synthetic_net =
+        mapdns.network.as_deref().unwrap_or(mapdns.address.as_str()).parse::<Ipv4Addr>().map(u32::from).map_err(
+            |err| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!(
+                        "invalid mapdns.network '{}': {err}",
+                        mapdns.network.as_deref().unwrap_or(mapdns.address.as_str())
+                    ),
+                )
+            },
+        )?;
+    let synthetic_mask =
+        mapdns.netmask.as_deref().unwrap_or("255.254.0.0").parse::<Ipv4Addr>().map(u32::from).map_err(|err| {
             io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("invalid mapdns.netmask '{}': {err}", mapdns.netmask.as_deref().unwrap_or("255.254.0.0")),
@@ -242,16 +231,9 @@ fn parse_dns_cache(config: &Config, dns_cache: Option<DnsCache>) -> io::Result<O
     let Some(runtime) = parse_mapdns_runtime(config)? else {
         return Ok(None);
     };
-    let cache_size = config
-        .mapdns
-        .as_ref()
-        .map(|value| value.cache_size as usize)
-        .unwrap_or_default();
+    let cache_size = config.mapdns.as_ref().map(|value| value.cache_size as usize).unwrap_or_default();
     if cache_size == 0 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "mapdns.cache_size must be greater than zero",
-        ));
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "mapdns.cache_size must be greater than zero"));
     }
 
     Ok(Some(DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, cache_size)))
@@ -269,13 +251,7 @@ fn parse_encrypted_dns_protocol(value: &str) -> Option<EncryptedDnsProtocol> {
 fn parse_url_host(value: &str) -> Option<String> {
     let (_, rest) = value.split_once("://")?;
     let authority = rest.split('/').next()?;
-    let host = authority
-        .trim_start_matches('[')
-        .trim_end_matches(']')
-        .split(':')
-        .next()
-        .unwrap_or_default()
-        .trim();
+    let host = authority.trim_start_matches('[').trim_end_matches(']').split(':').next().unwrap_or_default().trim();
     (!host.is_empty()).then(|| host.to_string())
 }
 
@@ -293,12 +269,11 @@ fn build_encrypted_dns_resolver(config: &Config) -> io::Result<Option<EncryptedD
         return Ok(None);
     };
 
-    let bootstrap_values =
-        if mapdns.encrypted_dns_bootstrap_ips.is_empty() {
-            &mapdns.doh_bootstrap_ips
-        } else {
-            &mapdns.encrypted_dns_bootstrap_ips
-        };
+    let bootstrap_values = if mapdns.encrypted_dns_bootstrap_ips.is_empty() {
+        &mapdns.doh_bootstrap_ips
+    } else {
+        &mapdns.encrypted_dns_bootstrap_ips
+    };
     let bootstrap_ips = bootstrap_values
         .iter()
         .map(|value| {
@@ -311,10 +286,7 @@ fn build_encrypted_dns_resolver(config: &Config) -> io::Result<Option<EncryptedD
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    let doh_url = mapdns
-        .encrypted_dns_doh_url
-        .clone()
-        .or_else(|| mapdns.doh_url.clone());
+    let doh_url = mapdns.encrypted_dns_doh_url.clone().or_else(|| mapdns.doh_url.clone());
     let host = mapdns
         .encrypted_dns_host
         .clone()
@@ -369,12 +341,7 @@ fn dns_query_name(packet: &[u8]) -> Option<String> {
     }
 }
 
-fn try_write_tun_packet(
-    tun: &AsyncFd<std::fs::File>,
-    stats: &Arc<Stats>,
-    raw: &[u8],
-    context: &str,
-) {
+fn try_write_tun_packet(tun: &AsyncFd<std::fs::File>, stats: &Arc<Stats>, raw: &[u8], context: &str) {
     if raw.is_empty() {
         return;
     }
@@ -426,11 +393,7 @@ fn handle_dns_result(
             }
         },
         Err(err) => {
-            let formatted_error =
-                response
-                    .resolver_error_kind
-                    .map(|kind| format!("{kind:?}: {err}"))
-                    .unwrap_or(err);
+            let formatted_error = response.resolver_error_kind.map(|kind| format!("{kind:?}: {err}")).unwrap_or(err);
             stats.record_dns_failure(response.host.as_deref(), &formatted_error, None);
             match dns_cache.servfail_response(&response.query) {
                 Ok(servfail) => {
@@ -443,11 +406,7 @@ fn handle_dns_result(
     }
 }
 
-fn resolve_mapped_target(
-    stats: &Arc<Stats>,
-    dns_cache: &mut Option<DnsCache>,
-    dst: SocketAddr,
-) -> SocketAddr {
+fn resolve_mapped_target(stats: &Arc<Stats>, dns_cache: &mut Option<DnsCache>, dst: SocketAddr) -> SocketAddr {
     let Some(cache) = dns_cache.as_mut() else {
         return dst;
     };
@@ -528,10 +487,7 @@ pub async fn io_loop_task(
     let mapdns_runtime = parse_mapdns_runtime(&config)?;
     dns_cache = parse_dns_cache(&config, dns_cache)?;
     if let Some(mapdns) = config.mapdns.as_ref() {
-        stats.configure_resolver_fallback(
-            mapdns.resolver_fallback_active,
-            mapdns.resolver_fallback_reason.as_deref(),
-        );
+        stats.configure_resolver_fallback(mapdns.resolver_fallback_active, mapdns.resolver_fallback_reason.as_deref());
     }
     let mapdns_classify = mapdns_runtime.map(|value| {
         (
@@ -697,11 +653,7 @@ pub async fn io_loop_task(
                             }
                         }
                         (Some(mapdns), Some(cache), None) => {
-                            stats.record_dns_failure(
-                                host.as_deref(),
-                                "encrypted DNS resolver is not configured",
-                                None,
-                            );
+                            stats.record_dns_failure(host.as_deref(), "encrypted DNS resolver is not configured", None);
                             match cache.servfail_response(&payload) {
                                 Ok(servfail) => {
                                     let raw = build_udp_response(mapdns.intercept_addr, src, &servfail);

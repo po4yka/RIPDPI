@@ -14,6 +14,9 @@ ciadpi-packets = { workspace = true }
 ciadpi-session = { workspace = true }
 log = { workspace = true }
 mio = { workspace = true }
+ripdpi-dns-resolver = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
+ripdpi-proxy-config = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

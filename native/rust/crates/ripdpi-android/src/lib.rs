@@ -9,18 +9,23 @@ use android_support::{
     init_android_logging, throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception,
     HandleRegistry, JNI_VERSION,
 };
-use ciadpi_config::{QuicFakeProfile, QuicInitialMode, RuntimeConfig, TcpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS};
+use ciadpi_config::{
+    QuicFakeProfile, QuicInitialMode, RuntimeConfig, TcpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND,
+    FM_RNDSNI, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+};
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jstring};
 use jni::{JNIEnv, JavaVM};
+use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_monitor::{MonitorSession, ScanRequest};
 use ripdpi_proxy_config::{
     parse_proxy_config_json as shared_parse_proxy_config_json,
     runtime_config_from_command_line as shared_runtime_config_from_command_line,
+    runtime_config_envelope_from_payload as shared_runtime_config_envelope_from_payload,
     runtime_config_from_payload as shared_runtime_config_from_payload,
-    runtime_config_from_ui as shared_runtime_config_from_ui,
-    ProxyConfigPayload, ProxyConfigError, ProxyUiActivationFilter, ProxyUiConfig, ProxyUiTcpChainStep, FAKE_TLS_SNI_MODE_FIXED,
-    FAKE_TLS_SNI_MODE_RANDOMIZED, QUIC_FAKE_PROFILE_DISABLED,
+    runtime_config_from_ui as shared_runtime_config_from_ui, ProxyConfigError, ProxyConfigPayload,
+    ProxyUiActivationFilter, ProxyUiConfig, ProxyUiTcpChainStep, FAKE_TLS_SNI_MODE_FIXED, FAKE_TLS_SNI_MODE_RANDOMIZED,
+    QUIC_FAKE_PROFILE_DISABLED,
 };
 use ripdpi_runtime::{runtime, EmbeddedProxyControl, RuntimeTelemetrySink};
 use serde::Serialize;
@@ -77,6 +82,7 @@ fn extract_panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
 
 struct ProxySession {
     config: RuntimeConfig,
+    runtime_context: Option<ripdpi_proxy_config::ProxyRuntimeContext>,
     telemetry: Arc<ProxyTelemetryState>,
     state: Mutex<ProxySessionState>,
 }
@@ -93,8 +99,16 @@ enum ProxySessionState {
 fn is_transient_network_error(error: &std::io::Error) -> bool {
     matches!(
         error.raw_os_error(),
-        Some(libc::ENETUNREACH | libc::EHOSTUNREACH | libc::ETIMEDOUT | libc::ECONNREFUSED | libc::ECONNRESET
-            | libc::ECONNABORTED | libc::ENETDOWN | libc::EPIPE)
+        Some(
+            libc::ENETUNREACH
+                | libc::EHOSTUNREACH
+                | libc::ETIMEDOUT
+                | libc::ECONNREFUSED
+                | libc::ECONNRESET
+                | libc::ECONNABORTED
+                | libc::ENETDOWN
+                | libc::EPIPE
+        )
     )
 }
 
@@ -134,8 +148,11 @@ struct NativeRuntimeSnapshot {
     network_errors: u64,
     route_changes: u64,
     last_route_group: Option<i32>,
+    last_failure_class: Option<String>,
+    last_fallback_action: Option<String>,
     listener_address: Option<String>,
     upstream_address: Option<String>,
+    upstream_rtt_ms: Option<u64>,
     last_target: Option<String>,
     last_host: Option<String>,
     last_error: Option<String>,
@@ -153,9 +170,12 @@ struct NativeRuntimeSnapshot {
 struct TelemetryStrings {
     listener_address: Option<String>,
     upstream_address: Option<String>,
+    upstream_rtt_ms: Option<u64>,
     last_target: Option<String>,
     last_host: Option<String>,
     last_error: Option<String>,
+    last_failure_class: Option<String>,
+    last_fallback_action: Option<String>,
     last_autolearn_host: Option<String>,
     last_autolearn_action: Option<String>,
     events: VecDeque<NativeRuntimeEvent>,
@@ -193,9 +213,12 @@ impl ProxyTelemetryState {
             strings: Mutex::new(TelemetryStrings {
                 listener_address: None,
                 upstream_address: None,
+                upstream_rtt_ms: None,
                 last_target: None,
                 last_host: None,
                 last_error: None,
+                last_failure_class: None,
+                last_fallback_action: None,
                 last_autolearn_host: None,
                 last_autolearn_action: None,
                 events: VecDeque::with_capacity(MAX_PROXY_EVENTS),
@@ -301,6 +324,34 @@ impl ProxyTelemetryState {
         }
     }
 
+    fn on_failure_classified(&self, target: String, failure: &ClassifiedFailure, host: Option<String>) {
+        let level = if failure.action.as_str() == "retry_with_matching_group" { "warn" } else { "info" };
+        let message = format!(
+            "failure classified target={} class={} stage={} action={} host={} evidence={}",
+            target,
+            failure.class.as_str(),
+            failure.stage.as_str(),
+            failure.action.as_str(),
+            host.as_deref().unwrap_or("<none>"),
+            failure.evidence.summary
+        );
+        if let Ok(mut guard) = self.strings.lock() {
+            guard.last_target = Some(target);
+            guard.last_host = host;
+            guard.last_error = Some(failure.evidence.summary.clone());
+            guard.last_failure_class = Some(failure.class.as_str().to_string());
+            guard.last_fallback_action = Some(failure.action.as_str().to_string());
+            Self::push_event_to(&mut guard.events, "proxy", level, message);
+        }
+    }
+
+    fn on_upstream_connected(&self, upstream_address: String, upstream_rtt_ms: Option<u64>) {
+        if let Ok(mut guard) = self.strings.lock() {
+            guard.upstream_address = Some(upstream_address);
+            guard.upstream_rtt_ms = upstream_rtt_ms;
+        }
+    }
+
     fn set_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
         self.autolearn_enabled.store(enabled, Ordering::Relaxed);
         self.learned_host_count.store(learned_host_count as u64, Ordering::Relaxed);
@@ -308,18 +359,14 @@ impl ProxyTelemetryState {
     }
 
     fn on_autolearn_event(&self, action: &'static str, host: Option<String>, group_index: Option<usize>) {
-        self.last_autolearn_group.store(
-            group_index.and_then(|value| i64::try_from(value).ok()).unwrap_or(-1),
-            Ordering::Relaxed,
-        );
+        self.last_autolearn_group
+            .store(group_index.and_then(|value| i64::try_from(value).ok()).unwrap_or(-1), Ordering::Relaxed);
         let level = if action == "group_penalized" { "warn" } else { "info" };
         let message = format!(
             "autolearn action={} host={} group={}",
             action,
             host.as_deref().unwrap_or("<none>"),
-            group_index
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "<none>".to_string())
+            group_index.map(|value| value.to_string()).unwrap_or_else(|| "<none>".to_string())
         );
         match level {
             "warn" => log::warn!("{message}"),
@@ -333,21 +380,35 @@ impl ProxyTelemetryState {
     }
 
     fn snapshot(&self) -> NativeRuntimeSnapshot {
-        let (listener_address, upstream_address, last_target, last_host, last_error, last_autolearn_host, last_autolearn_action, native_events) =
-            if let Ok(mut guard) = self.strings.lock() {
-                (
-                    guard.listener_address.clone(),
-                    guard.upstream_address.clone(),
-                    guard.last_target.clone(),
-                    guard.last_host.clone(),
-                    guard.last_error.clone(),
-                    guard.last_autolearn_host.clone(),
-                    guard.last_autolearn_action.clone(),
-                    guard.events.drain(..).collect(),
-                )
-            } else {
-                (None, None, None, None, None, None, None, Vec::new())
-            };
+        let (
+            listener_address,
+            upstream_address,
+            upstream_rtt_ms,
+            last_target,
+            last_host,
+            last_error,
+            last_failure_class,
+            last_fallback_action,
+            last_autolearn_host,
+            last_autolearn_action,
+            native_events,
+        ) = if let Ok(mut guard) = self.strings.lock() {
+            (
+                guard.listener_address.clone(),
+                guard.upstream_address.clone(),
+                guard.upstream_rtt_ms,
+                guard.last_target.clone(),
+                guard.last_host.clone(),
+                guard.last_error.clone(),
+                guard.last_failure_class.clone(),
+                guard.last_fallback_action.clone(),
+                guard.last_autolearn_host.clone(),
+                guard.last_autolearn_action.clone(),
+                guard.events.drain(..).collect(),
+            )
+        } else {
+            (None, None, None, None, None, None, None, None, None, None, Vec::new())
+        };
 
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
@@ -370,8 +431,11 @@ impl ProxyTelemetryState {
                 value if value >= 0 => i32::try_from(value).ok(),
                 _ => None,
             },
+            last_failure_class,
+            last_fallback_action,
             listener_address,
             upstream_address,
+            upstream_rtt_ms,
             last_target,
             last_host,
             last_error,
@@ -455,6 +519,24 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         self.state.on_route_selected(target.to_string(), group_index, host.map(ToOwned::to_owned), phase);
     }
 
+    fn on_failure_classified(
+        &self,
+        target: std::net::SocketAddr,
+        failure: &ClassifiedFailure,
+        host: Option<&str>,
+    ) {
+        self.state.total_errors.fetch_add(1, Ordering::Relaxed);
+        if failure.action.as_str() == "retry_with_matching_group" {
+            self.state.network_errors.fetch_add(1, Ordering::Relaxed);
+        }
+        self.state
+            .on_failure_classified(target.to_string(), failure, host.map(ToOwned::to_owned));
+    }
+
+    fn on_upstream_connected(&self, upstream_addr: std::net::SocketAddr, rtt_ms: Option<u64>) {
+        self.state.on_upstream_connected(upstream_addr.to_string(), rtt_ms);
+    }
+
     fn on_route_advanced(
         &self,
         target: std::net::SocketAddr,
@@ -471,8 +553,7 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
     }
 
     fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group_index: Option<usize>) {
-        self.state
-            .on_autolearn_event(action, host.map(ToOwned::to_owned), group_index);
+        self.state.on_autolearn_event(action, host.map(ToOwned::to_owned), group_index);
     }
 }
 
@@ -507,11 +588,12 @@ fn proxy_start_entry(mut env: JNIEnv, handle: jlong) -> jint {
 
 fn proxy_stop_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("ripdpi-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stop_session(&mut env, handle)))
-        .map_err(|panic_payload| {
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stop_session(&mut env, handle))).map_err(
+        |panic_payload| {
             let msg = extract_panic_message(panic_payload);
             throw_runtime_exception(&mut env, format!("Proxy session stop panicked: {msg}"));
-        });
+        },
+    );
 }
 
 fn proxy_poll_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jstring {
@@ -527,11 +609,12 @@ fn proxy_poll_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jstring {
 
 fn proxy_destroy_entry(mut env: JNIEnv, handle: jlong) {
     init_android_logging("ripdpi-native");
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle)))
-        .map_err(|panic_payload| {
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle))).map_err(
+        |panic_payload| {
             let msg = extract_panic_message(panic_payload);
             throw_runtime_exception(&mut env, format!("Proxy session destroy panicked: {msg}"));
-        });
+        },
+    );
 }
 
 macro_rules! export_diagnostics_jni {
@@ -734,13 +817,14 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
         }
     };
 
-    let config = match runtime_config_from_payload(payload) {
-        Ok(config) => config,
+    let envelope = match shared_runtime_config_envelope_from_payload(payload).map_err(proxy_config_error) {
+        Ok(envelope) => envelope,
         Err(err) => {
             err.throw(env);
             return 0;
         }
     };
+    let config = envelope.config;
 
     if let Err(err) = runtime::create_listener(&config) {
         JniProxyError::Io(err).throw(env);
@@ -751,7 +835,12 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
     let telemetry = Arc::new(ProxyTelemetryState::new());
     telemetry.set_autolearn_state(autolearn_enabled, 0, 0);
 
-    SESSIONS.insert(ProxySession { config, telemetry, state: Mutex::new(ProxySessionState::Idle) }) as jlong
+    SESSIONS.insert(ProxySession {
+        config,
+        runtime_context: envelope.runtime_context,
+        telemetry,
+        state: Mutex::new(ProxySessionState::Idle),
+    }) as jlong
 }
 
 fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
@@ -773,9 +862,12 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
     };
 
     session.telemetry.clear_last_error();
-    let control = Arc::new(EmbeddedProxyControl::new(Some(Arc::new(ProxyTelemetryObserver {
-        state: session.telemetry.clone(),
-    }))));
+    let control = Arc::new(EmbeddedProxyControl::new_with_context(
+        Some(Arc::new(ProxyTelemetryObserver {
+            state: session.telemetry.clone(),
+        })),
+        session.runtime_context.clone(),
+    ));
 
     {
         let mut state = session.state.lock().expect("proxy session poisoned");
@@ -946,11 +1038,8 @@ fn to_handle(value: jlong) -> Option<u64> {
 }
 
 fn lookup_proxy_session(handle: jlong) -> Result<std::sync::Arc<ProxySession>, JniProxyError> {
-    let handle =
-        to_handle(handle).ok_or_else(|| JniProxyError::InvalidArgument("Invalid proxy handle".to_string()))?;
-    SESSIONS
-        .get(handle)
-        .ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))
+    let handle = to_handle(handle).ok_or_else(|| JniProxyError::InvalidArgument("Invalid proxy handle".to_string()))?;
+    SESSIONS.get(handle).ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))
 }
 
 fn poll_proxy_telemetry(env: &mut JNIEnv, handle: jlong) -> jstring {
@@ -971,11 +1060,8 @@ fn poll_proxy_telemetry(env: &mut JNIEnv, handle: jlong) -> jstring {
 }
 
 fn remove_proxy_session(handle: jlong) -> Result<std::sync::Arc<ProxySession>, JniProxyError> {
-    let handle =
-        to_handle(handle).ok_or_else(|| JniProxyError::InvalidArgument("Invalid proxy handle".to_string()))?;
-    SESSIONS
-        .remove(handle)
-        .ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))
+    let handle = to_handle(handle).ok_or_else(|| JniProxyError::InvalidArgument("Invalid proxy handle".to_string()))?;
+    SESSIONS.remove(handle).ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))
 }
 
 fn try_mark_proxy_running(
@@ -1052,6 +1138,14 @@ mod tests {
 
     fn lossy_string(max_len: usize) -> impl Strategy<Value = String> {
         vec(any::<u8>(), 0..max_len).prop_map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+    }
+
+    fn ui_payload(config: ProxyUiConfig) -> ProxyConfigPayload {
+        ProxyConfigPayload::Ui { config, runtime_context: None }
+    }
+
+    fn command_line_payload(args: Vec<String>) -> ProxyConfigPayload {
+        ProxyConfigPayload::CommandLine { args, runtime_context: None }
     }
 
     fn proxy_ui_config_strategy() -> impl Strategy<Value = ProxyUiConfig> {
@@ -1138,7 +1232,12 @@ mod tests {
                 ),
                 (hosts_mode, hosts, tcp_fast_open, udp_fake_count, drop_sack, fake_offset_marker, fake_offset),
                 (quic_initial_mode, quic_support_v1, quic_support_v2, quic_fake_profile, quic_fake_host),
-                (host_autolearn_enabled, host_autolearn_penalty_ttl_secs, host_autolearn_max_hosts, host_autolearn_store_path),
+                (
+                    host_autolearn_enabled,
+                    host_autolearn_penalty_ttl_secs,
+                    host_autolearn_max_hosts,
+                    host_autolearn_store_path,
+                ),
             )| ProxyUiConfig {
                 ip,
                 port,
@@ -1206,7 +1305,7 @@ mod tests {
 
     #[test]
     fn parses_ui_config_payload() {
-        let payload = ProxyConfigPayload::Ui(ProxyUiConfig {
+        let payload = ui_payload(ProxyUiConfig {
             ip: "127.0.0.1".to_string(),
             port: 1080,
             max_connections: 512,
@@ -1288,7 +1387,7 @@ mod tests {
 
     #[test]
     fn parses_hostfake_tcp_chain_step_payload() {
-        let payload = ProxyConfigPayload::Ui(ProxyUiConfig {
+        let payload = ui_payload(ProxyUiConfig {
             ip: "127.0.0.1".to_string(),
             port: 1080,
             max_connections: 512,
@@ -1365,7 +1464,10 @@ mod tests {
 
         assert_eq!(group.tcp_chain.len(), 1);
         assert!(matches!(group.tcp_chain[0].kind, TcpChainStepKind::HostFake));
-        assert_eq!(group.tcp_chain[0].midhost_offset, Some(ciadpi_config::OffsetExpr::marker(ciadpi_config::OffsetBase::MidSld, 0)));
+        assert_eq!(
+            group.tcp_chain[0].midhost_offset,
+            Some(ciadpi_config::OffsetExpr::marker(ciadpi_config::OffsetBase::MidSld, 0))
+        );
         assert_eq!(group.tcp_chain[0].fake_host_template.as_deref(), Some("googlevideo.com"));
     }
 
@@ -1495,8 +1597,7 @@ mod tests {
 
     #[test]
     fn parses_command_line_payloads_for_runtime_config() {
-        let config = runtime_config_from_payload(ProxyConfigPayload::CommandLine {
-            args: vec![
+        let config = runtime_config_from_payload(command_line_payload(vec![
                 "ciadpi".to_string(),
                 "--ip".to_string(),
                 "127.0.0.1".to_string(),
@@ -1504,8 +1605,7 @@ mod tests {
                 "2080".to_string(),
                 "--split".to_string(),
                 "1+s".to_string(),
-            ],
-        })
+            ]))
         .expect("command-line config");
 
         assert_eq!(config.listen.listen_ip, IpAddr::from_str("127.0.0.1").unwrap());
@@ -1522,7 +1622,7 @@ mod tests {
 
     #[test]
     fn rejects_invalid_ui_proxy_port() {
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ProxyUiConfig {
+        let err = runtime_config_from_payload(ui_payload(ProxyUiConfig {
             ip: "127.0.0.1".to_string(),
             port: 0,
             max_connections: 512,
@@ -1643,7 +1743,7 @@ mod tests {
 
     #[test]
     fn rejects_unknown_quic_initial_mode_in_ui_payload() {
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ProxyUiConfig {
+        let err = runtime_config_from_payload(ui_payload(ProxyUiConfig {
             ip: "127.0.0.1".to_string(),
             port: 1080,
             max_connections: 512,
@@ -1712,7 +1812,7 @@ mod tests {
 
     #[test]
     fn rejects_unknown_quic_fake_profile_in_ui_payload() {
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ProxyUiConfig {
+        let err = runtime_config_from_payload(ui_payload(ProxyUiConfig {
             ip: "127.0.0.1".to_string(),
             port: 1080,
             max_connections: 512,
@@ -1781,7 +1881,7 @@ mod tests {
 
     #[test]
     fn invalid_quic_fake_host_normalizes_to_absent() {
-        let payload = ProxyConfigPayload::Ui(ProxyUiConfig {
+        let payload = ui_payload(ProxyUiConfig {
             ip: "127.0.0.1".to_string(),
             port: 1080,
             max_connections: 512,
@@ -1859,7 +1959,7 @@ mod tests {
 
     #[test]
     fn rejects_enabled_autolearn_without_store_path() {
-        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ProxyUiConfig {
+        let err = runtime_config_from_payload(ui_payload(ProxyUiConfig {
             ip: "127.0.0.1".to_string(),
             port: 1080,
             max_connections: 512,
@@ -1986,12 +2086,11 @@ mod tests {
 
     #[test]
     fn proxy_state_rejects_destroy_when_running() {
-        let err =
-            ensure_proxy_destroyable(&ProxySessionState::Running {
-                listener_fd: 9,
-                control: Arc::new(EmbeddedProxyControl::default()),
-            })
-                .expect_err("running destroy");
+        let err = ensure_proxy_destroyable(&ProxySessionState::Running {
+            listener_fd: 9,
+            control: Arc::new(EmbeddedProxyControl::default()),
+        })
+        .expect_err("running destroy");
 
         assert_eq!(err, "Cannot destroy a running proxy session");
     }
@@ -2006,6 +2105,7 @@ mod tests {
         observer.on_listener_started(listener, 256, 3);
         observer.on_client_accepted();
         observer.on_route_selected(target, 1, Some("example.org"), "connect");
+        observer.on_upstream_connected(target, Some(87));
         observer.on_route_advanced(target, 1, 2, 7, Some("example.org"));
         observer.on_host_autolearn_state(true, 4, 1);
         observer.on_host_autolearn_event("host_promoted", Some("example.org"), Some(2));
@@ -2021,6 +2121,8 @@ mod tests {
         assert_eq!(first.route_changes, 1);
         assert_eq!(first.last_route_group, Some(2));
         assert_eq!(first.listener_address.as_deref(), Some("127.0.0.1:1080"));
+        assert_eq!(first.upstream_address.as_deref(), Some("203.0.113.10:443"));
+        assert_eq!(first.upstream_rtt_ms, Some(87));
         assert_eq!(first.last_target.as_deref(), Some("203.0.113.10:443"));
         assert_eq!(first.last_host.as_deref(), Some("example.org"));
         assert_eq!(first.last_error.as_deref(), Some("boom"));
@@ -2056,6 +2158,7 @@ mod tests {
         observer.on_listener_started(listener, 256, 3);
         observer.on_client_accepted();
         observer.on_route_selected(target, 1, Some("example.org"), "connect");
+        observer.on_upstream_connected(target, Some(87));
         observer.on_route_advanced(target, 1, 2, 7, Some("example.org"));
         observer.on_host_autolearn_state(true, 4, 1);
         observer.on_host_autolearn_event("host_promoted", Some("example.org"), Some(2));
@@ -2077,6 +2180,7 @@ mod tests {
     fn destroy_removes_idle_proxy_session() {
         let handle = SESSIONS.insert(ProxySession {
             config: RuntimeConfig::default(),
+            runtime_context: None,
             telemetry: Arc::new(ProxyTelemetryState::new()),
             state: Mutex::new(ProxySessionState::Idle),
         }) as jlong;
@@ -2160,6 +2264,7 @@ mod tests {
 
             let handle = SESSIONS.insert(ProxySession {
                 config: RuntimeConfig::default(),
+                runtime_context: None,
                 telemetry: Arc::new(ProxyTelemetryState::new()),
                 state: Mutex::new(ProxySessionState::Idle),
             }) as jlong;

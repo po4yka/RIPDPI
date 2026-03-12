@@ -70,7 +70,7 @@ data class NetworkFingerprint(
             dnsServerCount = dnsServers.distinct().size,
         )
 
-    private fun canonicalParts(): List<String> {
+    fun canonicalParts(): List<String> {
         val normalizedTransport = transport.normalizeFingerprintValue()
         val normalizedDns =
             dnsServers
@@ -188,6 +188,9 @@ data class RememberedNetworkPolicyJson(
     val proxyConfigJson: String,
     val vpnDnsPolicy: VpnDnsPolicyJson? = null,
     val strategySignatureJson: String? = null,
+    val winningTcpStrategyFamily: String? = null,
+    val winningQuicStrategyFamily: String? = null,
+    val winningDnsStrategyFamily: String? = null,
 )
 
 private fun String.normalizeFingerprintValue(): String = trim().lowercase(Locale.US)

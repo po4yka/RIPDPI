@@ -59,6 +59,12 @@ class RipDpiVpnService : LifecycleVpnService() {
     lateinit var serviceStateStore: ServiceStateStore
 
     @Inject
+    lateinit var networkFingerprintProvider: NetworkFingerprintProvider
+
+    @Inject
+    lateinit var telemetryFingerprintHasher: TelemetryFingerprintHasher
+
+    @Inject
     lateinit var vpnTunnelSessionProvider: VpnTunnelSessionProvider
 
     @Inject
@@ -82,6 +88,8 @@ class RipDpiVpnService : LifecycleVpnService() {
     private var stopping: Boolean = false
     private var currentDnsSignature: String? = null
     private var lastNetworkFingerprint: NetworkFingerprint? = null
+    private var tunnelStartCount: Int = 0
+    private var tunnelRecoveryRetryCount: Long = 0
 
     private var status: ServiceStatus = ServiceStatus.Disconnected
 
@@ -219,6 +227,8 @@ class RipDpiVpnService : LifecycleVpnService() {
                 stopping = false
                 currentDnsSignature = null
                 lastNetworkFingerprint = null
+                tunnelStartCount = 0
+                tunnelRecoveryRetryCount = 0
                 resolverOverrideStore.clear()
                 activeConnectionPolicyStore.clear()
             }
@@ -391,6 +401,10 @@ class RipDpiVpnService : LifecycleVpnService() {
             tun2SocksBridge = tunnelBridge
             tunSession = session
             currentDnsSignature = dnsSignature(activeDns, overrideReason)
+            if (tunnelStartCount > 0) {
+                tunnelRecoveryRetryCount += 1
+            }
+            tunnelStartCount += 1
         } catch (e: Exception) {
             session.close()
             throw e
@@ -423,6 +437,21 @@ class RipDpiVpnService : LifecycleVpnService() {
         logcat { "VPN status changed from $status to $newStatus" }
 
         status = newStatus
+        val currentTelemetry = serviceStateStore.telemetry.value
+        val proxyTelemetry =
+            if (newStatus == ServiceStatus.Connected) {
+                NativeRuntimeSnapshot.idle(source = "proxy")
+            } else {
+                currentTelemetry.proxyTelemetry
+            }
+        val tunnelTelemetry =
+            if (newStatus == ServiceStatus.Connected) {
+                NativeRuntimeSnapshot.idle(source = "tunnel")
+            } else {
+                currentTelemetry.tunnelTelemetry
+            }
+        val (winningTcpStrategyFamily, winningQuicStrategyFamily, winningDnsStrategyFamily) =
+            currentWinningFamilies(currentTelemetry.runtimeFieldTelemetry)
 
         val appStatus =
             when (newStatus) {
@@ -449,9 +478,21 @@ class RipDpiVpnService : LifecycleVpnService() {
             ServiceTelemetrySnapshot(
                 mode = Mode.VPN,
                 status = appStatus,
-                tunnelStats = com.poyka.ripdpi.core.TunnelStats(),
-                proxyTelemetry = NativeRuntimeSnapshot.idle(source = "proxy"),
-                tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
+                tunnelStats = tunnelTelemetry.tunnelStats,
+                proxyTelemetry = proxyTelemetry,
+                tunnelTelemetry = tunnelTelemetry,
+                runtimeFieldTelemetry =
+                    deriveRuntimeFieldTelemetry(
+                        telemetryNetworkFingerprintHash =
+                            currentTelemetryFingerprintHash(currentTelemetry.runtimeFieldTelemetry),
+                        winningTcpStrategyFamily = winningTcpStrategyFamily,
+                        winningQuicStrategyFamily = winningQuicStrategyFamily,
+                        winningDnsStrategyFamily = winningDnsStrategyFamily,
+                        proxyTelemetry = proxyTelemetry,
+                        tunnelTelemetry = tunnelTelemetry,
+                        tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+                        failureReason = failureReason,
+                    ),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -473,6 +514,8 @@ class RipDpiVpnService : LifecycleVpnService() {
                     val proxyTelemetry =
                         runCatching { ripDpiProxy?.pollTelemetry() }.getOrNull()
                             ?: NativeRuntimeSnapshot.idle(source = "proxy")
+                    val (winningTcpStrategyFamily, winningQuicStrategyFamily, winningDnsStrategyFamily) =
+                        currentWinningFamilies(serviceStateStore.telemetry.value.runtimeFieldTelemetry)
                     val tunnelTelemetryResult = runCatching { tun2SocksBridge?.telemetry() }
                     val tunnelTelemetry =
                         tunnelTelemetryResult.getOrNull()
@@ -498,6 +541,35 @@ class RipDpiVpnService : LifecycleVpnService() {
                                     ?: FailureReason.NativeError(
                                         enrichedTunnelTelemetry.lastError ?: "Tunnel exited unexpectedly",
                                     )
+                            serviceStateStore.updateTelemetry(
+                                ServiceTelemetrySnapshot(
+                                    mode = Mode.VPN,
+                                    status = AppStatus.Running,
+                                    tunnelStats = enrichedTunnelTelemetry.tunnelStats,
+                                    proxyTelemetry = proxyTelemetry,
+                                    tunnelTelemetry = enrichedTunnelTelemetry,
+                                    runtimeFieldTelemetry =
+                                        deriveRuntimeFieldTelemetry(
+                                            telemetryNetworkFingerprintHash =
+                                                currentTelemetryFingerprintHash(
+                                                    serviceStateStore.telemetry.value.runtimeFieldTelemetry,
+                                                ),
+                                            winningTcpStrategyFamily = winningTcpStrategyFamily,
+                                            winningQuicStrategyFamily = winningQuicStrategyFamily,
+                                            winningDnsStrategyFamily = winningDnsStrategyFamily,
+                                            proxyTelemetry = proxyTelemetry,
+                                            tunnelTelemetry = enrichedTunnelTelemetry,
+                                            tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+                                            failureReason = failureReason,
+                                        ),
+                                    updatedAt =
+                                        maxOf(
+                                            System.currentTimeMillis(),
+                                            proxyTelemetry.capturedAt,
+                                            enrichedTunnelTelemetry.capturedAt,
+                                        ),
+                                ),
+                            )
                             updateStatus(ServiceStatus.Failed, failureReason)
                             stop()
                             return@launch
@@ -511,6 +583,19 @@ class RipDpiVpnService : LifecycleVpnService() {
                             tunnelStats = enrichedTunnelTelemetry.tunnelStats,
                             proxyTelemetry = proxyTelemetry,
                             tunnelTelemetry = enrichedTunnelTelemetry,
+                            runtimeFieldTelemetry =
+                                deriveRuntimeFieldTelemetry(
+                                    telemetryNetworkFingerprintHash =
+                                        currentTelemetryFingerprintHash(
+                                            serviceStateStore.telemetry.value.runtimeFieldTelemetry,
+                                        ),
+                                    winningTcpStrategyFamily = winningTcpStrategyFamily,
+                                    winningQuicStrategyFamily = winningQuicStrategyFamily,
+                                    winningDnsStrategyFamily = winningDnsStrategyFamily,
+                                    proxyTelemetry = proxyTelemetry,
+                                    tunnelTelemetry = enrichedTunnelTelemetry,
+                                    tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+                                ),
                             updatedAt =
                                 maxOf(
                                     System.currentTimeMillis(),
@@ -602,6 +687,27 @@ class RipDpiVpnService : LifecycleVpnService() {
             R.string.vpn_notification_content,
             RipDpiVpnService::class.java,
         )
+
+    private fun currentWinningFamilies(fallback: RuntimeFieldTelemetry): Triple<String?, String?, String?> {
+        val activePolicy = activeConnectionPolicyStore.activePolicy.value?.policy
+        return if (activePolicy != null) {
+            Triple(
+                activePolicy.winningTcpStrategyFamily,
+                activePolicy.winningQuicStrategyFamily,
+                activePolicy.winningDnsStrategyFamily,
+            )
+        } else {
+            Triple(
+                fallback.winningTcpStrategyFamily,
+                fallback.winningQuicStrategyFamily,
+                fallback.winningDnsStrategyFamily,
+            )
+        }
+    }
+
+    private fun currentTelemetryFingerprintHash(fallback: RuntimeFieldTelemetry): String? =
+        telemetryFingerprintHasher.hash(networkFingerprintProvider.capture())
+            ?: fallback.telemetryNetworkFingerprintHash
 
     internal fun createBuilder(
         dns: String,

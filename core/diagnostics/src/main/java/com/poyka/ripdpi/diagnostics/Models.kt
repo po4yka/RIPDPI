@@ -104,6 +104,7 @@ data class ProbeResult(
     val target: String,
     val outcome: String,
     val details: List<ProbeDetail> = emptyList(),
+    val probeRetryCount: Int? = null,
 )
 
 @Serializable
@@ -151,6 +152,8 @@ data class StrategyProbeCandidateSummary(
     val weightedSuccessScore: Int,
     val totalWeight: Int,
     val qualityScore: Int,
+    val proxyConfigJson: String? = null,
+    val notes: List<String> = emptyList(),
     val averageLatencyMs: Long? = null,
     val skipped: Boolean = false,
 )
@@ -159,8 +162,12 @@ data class StrategyProbeCandidateSummary(
 data class StrategyProbeRecommendation(
     val tcpCandidateId: String,
     val tcpCandidateLabel: String,
+    val tcpCandidateFamily: String? = null,
     val quicCandidateId: String,
     val quicCandidateLabel: String,
+    val quicCandidateFamily: String? = null,
+    val dnsStrategyFamily: String? = null,
+    val dnsStrategyLabel: String? = null,
     val rationale: String,
     val recommendedProxyConfigJson: String,
     val strategySignature: BypassStrategySignature? = null,
@@ -345,3 +352,20 @@ data class BundledDiagnosticProfile(
     val version: Int,
     val request: ScanRequest,
 )
+
+fun deriveProbeRetryCount(details: List<ProbeDetail>): Int? {
+    val detailMap = details.associate { it.key to it.value }
+    detailMap["probeRetryCount"]?.toIntOrNull()?.takeIf { it >= 0 }?.let { return it }
+    detailMap["retryCount"]?.toIntOrNull()?.takeIf { it >= 0 }?.let { return it }
+    val attempts =
+        detailMap["attempts"]
+            ?.split('|')
+            ?.map(String::trim)
+            ?.filter(String::isNotEmpty)
+            ?.size
+            ?: return null
+    return (attempts - 1).takeIf { it > 0 }
+}
+
+fun ProbeResult.withDerivedProbeRetryCount(): ProbeResult =
+    copy(probeRetryCount = probeRetryCount ?: deriveProbeRetryCount(details))

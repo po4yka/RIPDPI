@@ -40,5 +40,6 @@
         "txBytes": 0,
         "txPackets": 0
     },
-    "upstreamAddress": null
+    "upstreamAddress": null,
+    "upstreamRttMs": null
 }

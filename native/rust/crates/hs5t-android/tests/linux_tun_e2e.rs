@@ -133,11 +133,10 @@ fn mapdns_round_trip(host: &str, tcp_port: u16) {
     let mut buf = [0u8; 512];
     let read = socket.recv(&mut buf).expect("receive dns response");
     let answers = parse_a_answers(&buf[..read]);
-    let synthetic_ip =
-        answers
-            .into_iter()
-            .find(|ip| ip.octets()[0] == 198 && ip.octets()[1] == 18)
-            .expect("expected mapdns response in 198.18.0.0/15");
+    let synthetic_ip = answers
+        .into_iter()
+        .find(|ip| ip.octets()[0] == 198 && ip.octets()[1] == 18)
+        .expect("expected mapdns response in 198.18.0.0/15");
 
     let mut stream = TcpStream::connect((synthetic_ip, tcp_port)).expect("connect to synthetic target through tunnel");
     stream.set_read_timeout(Some(Duration::from_secs(5))).expect("set synthetic tcp timeout");
