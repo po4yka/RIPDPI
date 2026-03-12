@@ -67,6 +67,7 @@ import com.poyka.ripdpi.data.QuicInitialModeDisabled
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.isValidOffsetExpression
+import com.poyka.ripdpi.data.formatNumericRange
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.normalizeActivationFilter
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
@@ -79,6 +80,7 @@ import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -175,6 +177,12 @@ private enum class AdvancedOptionSetting {
     QuicInitialMode,
     UdpFakeProfile,
     QuicFakeProfile,
+}
+
+private enum class ActivationWindowDimension {
+    Round,
+    PayloadSize,
+    StreamBytes,
 }
 
 private data class AdvancedNotice(
@@ -1044,6 +1052,43 @@ fun AdvancedSettingsRoute(
         onApplyHostPackPreset = viewModel::applyHostPackPreset,
         onRefreshHostPackCatalog = viewModel::refreshHostPackCatalog,
         onForgetLearnedHosts = viewModel::forgetLearnedHosts,
+        onSaveActivationRange = { dimension, start, end ->
+            when (dimension) {
+                ActivationWindowDimension.Round ->
+                    updateGroupActivationFilter(
+                        viewModel = viewModel,
+                        key = "groupActivationFilter.round",
+                        value = listOfNotNull(start, end).joinToString("-"),
+                        filter =
+                            uiState.groupActivationFilter.copy(
+                                round = normalizeRoundRange(start, end),
+                            ),
+                    )
+
+                ActivationWindowDimension.PayloadSize ->
+                    updateGroupActivationFilter(
+                        viewModel = viewModel,
+                        key = "groupActivationFilter.payloadSize",
+                        value = listOfNotNull(start, end).joinToString("-"),
+                        filter =
+                            uiState.groupActivationFilter.copy(
+                                payloadSize = normalizePayloadSizeRange(start, end),
+                            ),
+                    )
+
+                ActivationWindowDimension.StreamBytes ->
+                    updateGroupActivationFilter(
+                        viewModel = viewModel,
+                        key = "groupActivationFilter.streamBytes",
+                        value = listOfNotNull(start, end).joinToString("-"),
+                        filter =
+                            uiState.groupActivationFilter.copy(
+                                streamBytes = normalizeStreamBytesRange(start, end),
+                            ),
+                    )
+            }
+        },
+        onResetActivationWindow = viewModel::resetActivationWindow,
         onResetFakePayloadLibrary = viewModel::resetFakePayloadLibrary,
         onResetFakeTlsProfile = viewModel::resetFakeTlsProfile,
         modifier = modifier,
@@ -1062,6 +1107,8 @@ private fun AdvancedSettingsScreen(
     onApplyHostPackPreset: (HostPackPreset, String, String) -> Unit,
     onRefreshHostPackCatalog: () -> Unit,
     onForgetLearnedHosts: () -> Unit,
+    onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -> Unit,
+    onResetActivationWindow: () -> Unit,
     onResetFakePayloadLibrary: () -> Unit,
     onResetFakeTlsProfile: () -> Unit,
     modifier: Modifier = Modifier,
@@ -1778,97 +1825,45 @@ private fun AdvancedSettingsScreen(
             }
         }
 
-        item(key = "advanced_activation_window") {
-            SettingsSection(title = stringResource(R.string.activation_window_section_title)) {
-                RipDpiCard {
-                    Text(
-                        text = stringResource(R.string.activation_window_section_body),
-                        style = RipDpiThemeTokens.type.secondaryBody,
-                        color = colors.mutedForeground,
-                    )
-                    Text(
-                        text = stringResource(R.string.activation_window_summary_label, uiState.activationWindowSummary),
-                        style = RipDpiThemeTokens.type.caption,
-                        color = colors.mutedForeground,
-                    )
-                    HorizontalDivider(color = colors.divider)
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.activation_window_round_from_title),
-                        description = stringResource(R.string.activation_window_round_body),
-                        value = uiState.groupActivationFilter.round.start?.toString().orEmpty(),
-                        enabled = visualEditorEnabled,
-                        validator = { it.isEmpty() || validateIntRange(it, 1, Int.MAX_VALUE) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        setting = AdvancedTextSetting.ActivationRoundFrom,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.activation_window_round_to_title),
-                        description = stringResource(R.string.activation_window_round_body),
-                        value = uiState.groupActivationFilter.round.end?.toString().orEmpty(),
-                        enabled = visualEditorEnabled,
-                        validator = { it.isEmpty() || validateIntRange(it, 1, Int.MAX_VALUE) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        setting = AdvancedTextSetting.ActivationRoundTo,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.activation_window_payload_from_title),
-                        description = stringResource(R.string.activation_window_payload_body),
-                        value = uiState.groupActivationFilter.payloadSize.start?.toString().orEmpty(),
-                        enabled = visualEditorEnabled,
-                        validator = { it.isEmpty() || validateIntRange(it, 0, Int.MAX_VALUE) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        setting = AdvancedTextSetting.ActivationPayloadSizeFrom,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.activation_window_payload_to_title),
-                        description = stringResource(R.string.activation_window_payload_body),
-                        value = uiState.groupActivationFilter.payloadSize.end?.toString().orEmpty(),
-                        enabled = visualEditorEnabled,
-                        validator = { it.isEmpty() || validateIntRange(it, 0, Int.MAX_VALUE) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        setting = AdvancedTextSetting.ActivationPayloadSizeTo,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.activation_window_stream_from_title),
-                        description = stringResource(R.string.activation_window_stream_body),
-                        value = uiState.groupActivationFilter.streamBytes.start?.toString().orEmpty(),
-                        enabled = visualEditorEnabled,
-                        validator = { it.isEmpty() || validateIntRange(it, 0, Int.MAX_VALUE) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        setting = AdvancedTextSetting.ActivationStreamBytesFrom,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.activation_window_stream_to_title),
-                        description = stringResource(R.string.activation_window_stream_body),
-                        value = uiState.groupActivationFilter.streamBytes.end?.toString().orEmpty(),
-                        enabled = visualEditorEnabled,
-                        validator = { it.isEmpty() || validateIntRange(it, 0, Int.MAX_VALUE) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        setting = AdvancedTextSetting.ActivationStreamBytesTo,
-                        onConfirm = onTextConfirmed,
-                    )
+        if (uiState.showActivationWindowProfile) {
+            item(key = "advanced_activation_window") {
+                SettingsSection(title = stringResource(R.string.activation_window_section_title)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        ActivationWindowProfileCard(
+                            uiState = uiState,
+                            onResetActivationWindow = onResetActivationWindow,
+                        )
+                        ActivationRangeEditorCard(
+                            title = stringResource(R.string.activation_window_round_card_title),
+                            description = stringResource(R.string.activation_window_round_body),
+                            currentRange = uiState.groupActivationFilter.round,
+                            emptySummary = stringResource(R.string.activation_window_range_unbounded),
+                            effectSummary = stringResource(R.string.activation_window_round_effect),
+                            enabled = visualEditorEnabled,
+                            minValue = 1L,
+                            onSave = { start, end -> onSaveActivationRange(ActivationWindowDimension.Round, start, end) },
+                        )
+                        ActivationRangeEditorCard(
+                            title = stringResource(R.string.activation_window_payload_card_title),
+                            description = stringResource(R.string.activation_window_payload_body),
+                            currentRange = uiState.groupActivationFilter.payloadSize,
+                            emptySummary = stringResource(R.string.activation_window_range_unbounded),
+                            effectSummary = stringResource(R.string.activation_window_payload_effect),
+                            enabled = visualEditorEnabled,
+                            minValue = 0L,
+                            onSave = { start, end -> onSaveActivationRange(ActivationWindowDimension.PayloadSize, start, end) },
+                        )
+                        ActivationRangeEditorCard(
+                            title = stringResource(R.string.activation_window_stream_card_title),
+                            description = stringResource(R.string.activation_window_stream_body),
+                            currentRange = uiState.groupActivationFilter.streamBytes,
+                            emptySummary = stringResource(R.string.activation_window_range_unbounded),
+                            effectSummary = stringResource(R.string.activation_window_stream_effect),
+                            enabled = visualEditorEnabled,
+                            minValue = 0L,
+                            onSave = { start, end -> onSaveActivationRange(ActivationWindowDimension.StreamBytes, start, end) },
+                        )
+                    }
                 }
             }
         }
@@ -2754,6 +2749,328 @@ private data class FakeTlsStatusContent(
     val body: String,
     val tone: StatusIndicatorTone,
 )
+
+private data class ActivationWindowStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
+@Composable
+private fun ActivationWindowProfileCard(
+    uiState: SettingsUiState,
+    onResetActivationWindow: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val status = rememberActivationWindowStatus(uiState)
+    val scopeSummary =
+        when {
+            uiState.enableCmdSettings -> stringResource(R.string.activation_window_scope_cli)
+            !uiState.activationWindowControlsRelevant ->
+                stringResource(R.string.activation_window_scope_inactive)
+            uiState.hasCustomActivationWindow ->
+                stringResource(R.string.activation_window_scope_filtered)
+            else -> stringResource(R.string.activation_window_scope_open)
+        }
+    val stepFilterSummary =
+        if (uiState.hasStepActivationFilters) {
+            stringResource(
+                R.string.activation_window_step_filters_present,
+                uiState.stepActivationFilterCount,
+            )
+        } else {
+            stringResource(R.string.activation_window_step_filters_none)
+        }
+    val badges =
+        buildList {
+            add(
+                (
+                    if (uiState.hasCustomActivationWindow) {
+                        stringResource(R.string.activation_window_badge_custom)
+                    } else {
+                        stringResource(R.string.activation_window_badge_default)
+                    }
+                ) to
+                    if (uiState.hasCustomActivationWindow) {
+                        SummaryCapsuleTone.Active
+                    } else {
+                        SummaryCapsuleTone.Neutral
+                    },
+            )
+            if (!uiState.groupActivationFilter.round.isEmpty) {
+                add(stringResource(R.string.activation_window_badge_round) to SummaryCapsuleTone.Active)
+            }
+            if (!uiState.groupActivationFilter.payloadSize.isEmpty) {
+                add(stringResource(R.string.activation_window_badge_payload) to SummaryCapsuleTone.Active)
+            }
+            if (!uiState.groupActivationFilter.streamBytes.isEmpty) {
+                add(stringResource(R.string.activation_window_badge_stream) to SummaryCapsuleTone.Active)
+            }
+            if (uiState.hasStepActivationFilters) {
+                add(
+                    stringResource(
+                        R.string.activation_window_badge_step_filters,
+                        uiState.stepActivationFilterCount,
+                    ) to SummaryCapsuleTone.Info,
+                )
+            }
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Elevated,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        SummaryCapsuleFlow(items = badges)
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.activation_window_summary_label),
+                value = uiState.activationWindowSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.activation_window_scope_label),
+                value = scopeSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.activation_window_step_filters_label),
+                value = stepFilterSummary,
+            )
+        }
+        Text(
+            text = stringResource(R.string.activation_window_section_body),
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+        if (uiState.canResetActivationWindow) {
+            RipDpiButton(
+                text = stringResource(R.string.activation_window_reset_action),
+                onClick = onResetActivationWindow,
+                variant = RipDpiButtonVariant.Outline,
+                modifier = Modifier.align(Alignment.End),
+            )
+        }
+    }
+}
+
+@Composable
+private fun rememberActivationWindowStatus(uiState: SettingsUiState): ActivationWindowStatusContent =
+    when {
+        uiState.enableCmdSettings ->
+            ActivationWindowStatusContent(
+                label = stringResource(R.string.activation_window_cli_title),
+                body = stringResource(R.string.activation_window_cli_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        !uiState.activationWindowControlsRelevant && uiState.hasCustomActivationWindow ->
+            ActivationWindowStatusContent(
+                label = stringResource(R.string.activation_window_group_disabled_title),
+                body = stringResource(R.string.activation_window_group_disabled_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        !uiState.activationWindowControlsRelevant ->
+            ActivationWindowStatusContent(
+                label = stringResource(R.string.activation_window_group_off_title),
+                body = stringResource(R.string.activation_window_group_off_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        uiState.isServiceRunning && uiState.hasCustomActivationWindow ->
+            ActivationWindowStatusContent(
+                label = stringResource(R.string.activation_window_restart_title),
+                body = stringResource(R.string.activation_window_restart_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.hasCustomActivationWindow ->
+            ActivationWindowStatusContent(
+                label = stringResource(R.string.activation_window_custom_title),
+                body = stringResource(R.string.activation_window_custom_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        uiState.hasStepActivationFilters ->
+            ActivationWindowStatusContent(
+                label = stringResource(R.string.activation_window_step_only_title),
+                body = stringResource(R.string.activation_window_step_only_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        else ->
+            ActivationWindowStatusContent(
+                label = stringResource(R.string.activation_window_default_title),
+                body = stringResource(R.string.activation_window_default_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+    }
+
+@Composable
+private fun ActivationRangeEditorCard(
+    title: String,
+    description: String,
+    currentRange: NumericRangeModel,
+    emptySummary: String,
+    effectSummary: String,
+    enabled: Boolean,
+    minValue: Long,
+    onSave: (Long?, Long?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    var startInput by rememberSaveable(currentRange.start, currentRange.end) {
+        mutableStateOf(currentRange.start?.toString().orEmpty())
+    }
+    var endInput by rememberSaveable(currentRange.start, currentRange.end) {
+        mutableStateOf(currentRange.end?.toString().orEmpty())
+    }
+    val currentStart = currentRange.start?.toString().orEmpty()
+    val currentEnd = currentRange.end?.toString().orEmpty()
+    val isDirty = startInput != currentStart || endInput != currentEnd
+    val startValid = isActivationBoundaryValid(startInput, minValue)
+    val endValid = isActivationBoundaryValid(endInput, minValue)
+    val isValid = startValid && endValid
+    val currentSummary =
+        formatNumericRange(currentRange)
+            ?: emptySummary
+    val statusLabel =
+        if (currentRange.isEmpty) {
+            stringResource(R.string.activation_window_range_status_open)
+        } else {
+            stringResource(R.string.activation_window_range_status_scoped)
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Outlined,
+    ) {
+        StatusIndicator(
+            label = statusLabel,
+            tone = if (currentRange.isEmpty) StatusIndicatorTone.Idle else StatusIndicatorTone.Active,
+        )
+        Text(
+            text = title,
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Text(
+            text = description,
+            style = type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.activation_window_range_summary_label),
+                value = currentSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.activation_window_range_effect_label),
+                value = effectSummary,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalAlignment = Alignment.Top,
+        ) {
+            ActivationBoundaryField(
+                title = stringResource(R.string.activation_window_field_from),
+                value = startInput,
+                enabled = enabled,
+                minValue = minValue,
+                onValueChange = { startInput = it },
+                modifier = Modifier.weight(1f),
+            )
+            ActivationBoundaryField(
+                title = stringResource(R.string.activation_window_field_to),
+                value = endInput,
+                enabled = enabled,
+                minValue = minValue,
+                onValueChange = { endInput = it },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            RipDpiButton(
+                text = stringResource(R.string.config_save),
+                onClick = {
+                    onSave(
+                        parseOptionalRangeValue(startInput),
+                        parseOptionalRangeValue(endInput),
+                    )
+                },
+                enabled = enabled && isDirty && isValid,
+                variant = RipDpiButtonVariant.Outline,
+                trailingIcon = RipDpiIcons.Check,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActivationBoundaryField(
+    title: String,
+    value: String,
+    enabled: Boolean,
+    minValue: Long,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isValid = isActivationBoundaryValid(value, minValue)
+    val helperText =
+        if (!enabled && isValid) {
+            stringResource(R.string.advanced_settings_visual_controls_disabled)
+        } else {
+            null
+        }
+    val errorText =
+        if (!isValid) {
+            stringResource(R.string.config_error_out_of_range)
+        } else {
+            null
+        }
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+    ) {
+        Text(
+            text = title,
+            style = RipDpiThemeTokens.type.caption,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        RipDpiConfigTextField(
+            value = value,
+            onValueChange = onValueChange,
+            enabled = enabled,
+            helperText = helperText,
+            errorText = errorText,
+            density = RipDpiControlDensity.Compact,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+        )
+    }
+}
+
+private fun isActivationBoundaryValid(
+    value: String,
+    minValue: Long,
+): Boolean = value.isBlank() || value.toLongOrNull()?.let { it >= minValue } == true
 
 @Composable
 private fun FakeTlsProfileCard(
@@ -4209,6 +4526,8 @@ private fun AdvancedSettingsScreenPreview() {
             onApplyHostPackPreset = { _, _, _ -> },
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
+            onSaveActivationRange = { _, _, _ -> },
+            onResetActivationWindow = {},
             onResetFakePayloadLibrary = {},
             onResetFakeTlsProfile = {},
         )
@@ -4273,6 +4592,8 @@ private fun AdvancedSettingsScreenDarkPreview() {
             onApplyHostPackPreset = { _, _, _ -> },
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
+            onSaveActivationRange = { _, _, _ -> },
+            onResetActivationWindow = {},
             onResetFakePayloadLibrary = {},
             onResetFakeTlsProfile = {},
         )

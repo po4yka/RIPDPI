@@ -86,6 +86,10 @@ class SettingsUiStateTest {
         assertTrue(state.showTlsPreludeProfile)
         assertFalse(state.tlsPreludeUsesRandomRecords)
         assertFalse(state.hasStackedTlsPreludeSteps)
+        assertTrue(state.showActivationWindowProfile)
+        assertFalse(state.canResetActivationWindow)
+        assertFalse(state.hasStepActivationFilters)
+        assertEquals(0, state.stepActivationFilterCount)
         assertFalse(state.webrtcProtectionEnabled)
         assertFalse(state.biometricEnabled)
         assertEquals("", state.backupPin)
@@ -295,6 +299,44 @@ class SettingsUiStateTest {
 
         assertTrue(state.hasCustomActivationWindow)
         assertEquals("round=2-4 size=64-512", state.activationWindowSummary)
+        assertTrue(state.canResetActivationWindow)
+        assertTrue(state.showActivationWindowProfile)
+    }
+
+    @Test
+    fun `step activation filters keep activation profile visible`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("fake")
+                        .setMarker("host")
+                        .setActivationFilter(
+                            ActivationFilter
+                                .newBuilder()
+                                .setRound(NumericRange.newBuilder().setStart(1).setEnd(2))
+                                .build(),
+                        ).build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.showActivationWindowProfile)
+        assertTrue(state.hasStepActivationFilters)
+        assertEquals(1, state.stepActivationFilterCount)
+        assertFalse(state.canResetActivationWindow)
+    }
+
+    @Test
+    fun `activation profile hides when desync is off and no filters are saved`() {
+        val settings = defaults.toBuilder().setDesyncMethod("none").build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.desyncEnabled)
+        assertFalse(state.showActivationWindowProfile)
     }
 
     @Test
