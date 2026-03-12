@@ -8,7 +8,8 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 | --- | --- | --- | --- | --- |
 | `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ciadpi_config::parse_cli`, `ciadpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_listener`, `process::prepare_embedded`, `process::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling |
 | `native/rust/crates/hs5t-android` | `libhev-socks5-tunnel.so` | VPN mode only | `core/engine/src/main/java/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `hs5t_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
-| `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes, DoH comparison, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, diagnostics session state |
+| `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, diagnostics session state |
+| `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `hs5t-core` for DoH/DoT/DNSCrypt exchange, metadata collection, and IP answer extraction |
 
 ## Runtime Topology
 
@@ -40,6 +41,9 @@ The service layer polls those native snapshots once per second while the service
 - active and total session counters
 - route selection and route advances between desync groups
 - packet and byte counters
+- resolver id, protocol, endpoint, query latency, and failure counters
+- resolver fallback state and reason
+- network handover classification
 - last native error plus a bounded event ring
 
 No packet payloads or packet captures are persisted.
@@ -80,6 +84,7 @@ Structured telemetry and diagnostics-event payloads are treated as compatibility
 - `native/rust/crates/ripdpi-android`
 - `native/rust/crates/hs5t-android`
 - `native/rust/crates/ripdpi-monitor`
+- `native/rust/crates/ripdpi-dns-resolver`
 - `native/rust/crates/ripdpi-runtime`
 - `native/rust/crates/android-support`
 
