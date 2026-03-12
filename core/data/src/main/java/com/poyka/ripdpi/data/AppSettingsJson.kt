@@ -24,6 +24,9 @@ internal data class AppSettingsTcpChainSnapshot(
     val marker: String,
     val midhostMarker: String? = null,
     val fakeHostTemplate: String? = null,
+    val fragmentCount: Int = 0,
+    val minFragmentSize: Int = 0,
+    val maxFragmentSize: Int = 0,
 )
 
 @Serializable
@@ -160,6 +163,9 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
                     marker = it.marker,
                     midhostMarker = it.midhostMarker.takeIf(String::isNotBlank),
                     fakeHostTemplate = it.fakeHostTemplate.takeIf(String::isNotBlank),
+                    fragmentCount = it.fragmentCount,
+                    minFragmentSize = it.minFragmentSize,
+                    maxFragmentSize = it.maxFragmentSize,
                 )
             },
         udpChainSteps = udpChainStepsList.map { AppSettingsUdpChainSnapshot(kind = it.kind, count = it.count) },
@@ -247,6 +253,9 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                         .setMarker(step.marker)
                         .setMidhostMarker(step.midhostMarker.orEmpty())
                         .setFakeHostTemplate(step.fakeHostTemplate.orEmpty())
+                        .setFragmentCount(step.fragmentCount)
+                        .setMinFragmentSize(step.minFragmentSize)
+                        .setMaxFragmentSize(step.maxFragmentSize)
                         .build(),
                 )
             }

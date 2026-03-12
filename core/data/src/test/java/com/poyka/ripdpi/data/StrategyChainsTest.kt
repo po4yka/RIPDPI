@@ -151,4 +151,53 @@ class StrategyChainsTest {
         assertTrue(result.isFailure)
         assertFalse(result.exceptionOrNull()?.message.isNullOrBlank())
     }
+
+    @Test
+    fun `tlsrandrec dsl round trip preserves fragment options and legacy projection`() {
+        val dsl =
+            """
+            [tcp]
+            tlsrandrec sniext+4 count=5 min=24 max=48
+            split host+1
+            """.trimIndent()
+
+        val parsed = parseStrategyChainDsl(dsl).getOrThrow()
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(
+                    kind = TcpChainStepKind.TlsRandRec,
+                    marker = "sniext+4",
+                    fragmentCount = 5,
+                    minFragmentSize = 24,
+                    maxFragmentSize = 48,
+                ),
+                TcpChainStepModel(TcpChainStepKind.Split, "host+1"),
+            ),
+            parsed.tcpSteps,
+        )
+        assertEquals(dsl, formatStrategyChainDsl(parsed.tcpSteps, parsed.udpSteps))
+
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
+                .build()
+
+        assertEquals("split", settings.desyncMethod)
+        assertTrue(settings.tlsrecEnabled)
+        assertEquals("sniext+4", settings.tlsrecMarker)
+        assertEquals(
+            "tcp: tlsrandrec(sniext+4 count=5 min=24 max=48) -> split(host+1)",
+            settings.effectiveChainSummary(),
+        )
+    }
+
+    @Test
+    fun `tlsrandrec parser rejects missing knobs`() {
+        val result = parseStrategyChainDsl("[tcp]\ntlsrandrec extlen count=4 min=16")
+
+        assertTrue(result.isFailure)
+        assertFalse(result.exceptionOrNull()?.message.isNullOrBlank())
+    }
 }

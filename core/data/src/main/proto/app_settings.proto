@@ -7,6 +7,9 @@ message StrategyTcpStep {
   string marker = 2;
   string midhost_marker = 3;
   string fake_host_template = 4;
+  int32 fragment_count = 5;
+  int32 min_fragment_size = 6;
+  int32 max_fragment_size = 7;
 }
 
 message StrategyUdpStep {

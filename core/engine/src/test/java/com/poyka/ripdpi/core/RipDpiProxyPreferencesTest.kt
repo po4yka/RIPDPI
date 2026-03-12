@@ -71,6 +71,9 @@ class RipDpiProxyPreferencesTest {
         assertEquals("1", payload.string("splitMarker"))
         assertEquals("disorder", payload.array("tcpChainSteps")[0].jsonObject.string("kind"))
         assertEquals("1", payload.array("tcpChainSteps")[0].jsonObject.string("marker"))
+        assertEquals(0, payload.array("tcpChainSteps")[0].jsonObject.int("fragmentCount"))
+        assertEquals(0, payload.array("tcpChainSteps")[0].jsonObject.int("minFragmentSize"))
+        assertEquals(0, payload.array("tcpChainSteps")[0].jsonObject.int("maxFragmentSize"))
         assertEquals("route_and_cache", payload.string("quicInitialMode"))
         assertEquals("true", payload.string("quicSupportV1"))
         assertEquals("true", payload.string("quicSupportV2"))
@@ -142,6 +145,32 @@ class RipDpiProxyPreferencesTest {
         assertEquals("endhost+8", step.string("marker"))
         assertEquals("midsld", step.string("midhostMarker"))
         assertEquals("googlevideo.com", step.string("fakeHostTemplate"))
+        assertEquals(0, step.int("fragmentCount"))
+        assertEquals(0, step.int("minFragmentSize"))
+        assertEquals(0, step.int("maxFragmentSize"))
+    }
+
+    @Test
+    fun uiPreferencesNormalizeTlsRandRecDefaults() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                tcpChainSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.TlsRandRec,
+                            marker = "sniext+4",
+                        ),
+                    ),
+            )
+
+        val payload = preferences.toNativeConfigJson().parseJsonObject()
+        val step = payload.array("tcpChainSteps")[0].jsonObject
+
+        assertEquals("tlsrandrec", step.string("kind"))
+        assertEquals("sniext+4", step.string("marker"))
+        assertEquals(4, step.int("fragmentCount"))
+        assertEquals(16, step.int("minFragmentSize"))
+        assertEquals(96, step.int("maxFragmentSize"))
     }
 }
 

@@ -125,6 +125,7 @@ pub enum TcpChainStepKind {
     Oob,
     Disoob,
     TlsRec,
+    TlsRandRec,
 }
 
 impl TcpChainStepKind {
@@ -147,7 +148,12 @@ impl TcpChainStepKind {
             Self::Oob => Some(DesyncMode::Oob),
             Self::Disoob => Some(DesyncMode::Disoob),
             Self::TlsRec => None,
+            Self::TlsRandRec => None,
         }
+    }
+
+    pub const fn is_tls_prelude(self) -> bool {
+        matches!(self, Self::TlsRec | Self::TlsRandRec)
     }
 }
 
@@ -157,11 +163,22 @@ pub struct TcpChainStep {
     pub offset: OffsetExpr,
     pub midhost_offset: Option<OffsetExpr>,
     pub fake_host_template: Option<String>,
+    pub fragment_count: i32,
+    pub min_fragment_size: i32,
+    pub max_fragment_size: i32,
 }
 
 impl TcpChainStep {
     pub const fn new(kind: TcpChainStepKind, offset: OffsetExpr) -> Self {
-        Self { kind, offset, midhost_offset: None, fake_host_template: None }
+        Self {
+            kind,
+            offset,
+            midhost_offset: None,
+            fake_host_template: None,
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+        }
     }
 }
 
@@ -318,6 +335,7 @@ impl DesyncGroup {
             for step in &self.tcp_chain {
                 match step.kind {
                     TcpChainStepKind::TlsRec => self.tls_records.push(step.offset),
+                    TcpChainStepKind::TlsRandRec => {}
                     _ => {
                         if let Some(mode) = step.kind.as_mode() {
                             self.parts.push(PartSpec { mode, offset: step.offset });

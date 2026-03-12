@@ -5,6 +5,9 @@ import com.poyka.ripdpi.proto.AppSettings
 const val DefaultSplitMarker = "1"
 const val DefaultFakeOffsetMarker = "0"
 const val DefaultTlsRecordMarker = "0"
+const val DefaultTlsRandRecFragmentCount = 4
+const val DefaultTlsRandRecMinFragmentSize = 16
+const val DefaultTlsRandRecMaxFragmentSize = 96
 
 private val NumericOffsetPattern = Regex("^[+-]?\\d+$")
 private val NamedOffsetPattern = Regex("^(abs|host|endhost|sld|midsld|endsld|method|extlen|sniext)([+-]\\d+)?$")

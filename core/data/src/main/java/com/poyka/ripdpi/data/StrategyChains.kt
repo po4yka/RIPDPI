@@ -17,6 +17,7 @@ enum class TcpChainStepKind(val wireName: String) {
     Oob("oob"),
     Disoob("disoob"),
     TlsRec("tlsrec"),
+    TlsRandRec("tlsrandrec"),
     ;
 
     val legacyMethod: String?
@@ -29,6 +30,7 @@ enum class TcpChainStepKind(val wireName: String) {
                 Oob -> "oob"
                 Disoob -> "disoob"
                 TlsRec -> null
+                TlsRandRec -> null
             }
 
     companion object {
@@ -52,6 +54,9 @@ data class TcpChainStepModel(
     val marker: String,
     val midhostMarker: String = "",
     val fakeHostTemplate: String = "",
+    val fragmentCount: Int = 0,
+    val minFragmentSize: Int = 0,
+    val maxFragmentSize: Int = 0,
 )
 
 @Serializable
@@ -129,10 +134,10 @@ fun formatStrategyChainDsl(
 }
 
 fun primaryTcpChainStep(tcpSteps: List<TcpChainStepModel>): TcpChainStepModel? =
-    tcpSteps.firstOrNull { it.kind != TcpChainStepKind.TlsRec }
+    tcpSteps.firstOrNull { !it.kind.isTlsPrelude }
 
-fun tlsRecTcpChainStep(tcpSteps: List<TcpChainStepModel>): TcpChainStepModel? =
-    tcpSteps.firstOrNull { it.kind == TcpChainStepKind.TlsRec }
+fun tlsPreludeTcpChainStep(tcpSteps: List<TcpChainStepModel>): TcpChainStepModel? =
+    tcpSteps.firstOrNull { it.kind.isTlsPrelude }
 
 fun legacyDesyncMethod(tcpSteps: List<TcpChainStepModel>): String =
     primaryTcpChainStep(tcpSteps)?.kind?.legacyMethod ?: "none"
@@ -202,8 +207,8 @@ fun AppSettings.Builder.projectLegacyChainFields(
     udpSteps: List<UdpChainStepModel>,
 ): AppSettings.Builder =
     apply {
-        val primaryTcpStep = tcpSteps.firstOrNull { it.kind != TcpChainStepKind.TlsRec }
-        val tlsRecStep = tcpSteps.firstOrNull { it.kind == TcpChainStepKind.TlsRec }
+        val primaryTcpStep = primaryTcpChainStep(tcpSteps)
+        val tlsRecStep = tlsPreludeTcpChainStep(tcpSteps)
 
         setDesyncMethod(primaryTcpStep?.kind?.legacyMethod ?: "none")
         setSplitMarker(primaryTcpStep?.let(::normalizeTcpMarker) ?: DefaultSplitMarker)
@@ -242,11 +247,16 @@ private fun AppSettings.synthesizeLegacyTcpChain(): List<TcpChainStepModel> {
 
 private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
     val kind = TcpChainStepKind.fromWireName(kind) ?: return null
-    return TcpChainStepModel(
-        kind = kind,
-        marker = normalizeTcpMarker(kind, marker),
-        midhostMarker = normalizeMidhostMarker(kind, midhostMarker),
-        fakeHostTemplate = normalizeFakeHostTemplate(kind, fakeHostTemplate),
+    return normalizeTcpChainStepModel(
+        TcpChainStepModel(
+            kind = kind,
+            marker = normalizeTcpMarker(kind, marker),
+            midhostMarker = normalizeMidhostMarker(kind, midhostMarker),
+            fakeHostTemplate = normalizeFakeHostTemplate(kind, fakeHostTemplate),
+            fragmentCount = fragmentCount,
+            minFragmentSize = minFragmentSize,
+            maxFragmentSize = maxFragmentSize,
+        ),
     )
 }
 
@@ -256,13 +266,18 @@ private fun StrategyUdpStep.toModelOrNull(): UdpChainStepModel? {
 }
 
 private fun TcpChainStepModel.toProto(): StrategyTcpStep =
-    StrategyTcpStep
-        .newBuilder()
-        .setKind(kind.wireName)
-        .setMarker(normalizeTcpMarker(this))
-        .setMidhostMarker(normalizeMidhostMarker(kind, midhostMarker))
-        .setFakeHostTemplate(normalizeFakeHostTemplate(kind, fakeHostTemplate))
-        .build()
+    normalizeTcpChainStepModel(this).let { step ->
+        StrategyTcpStep
+            .newBuilder()
+            .setKind(step.kind.wireName)
+            .setMarker(normalizeTcpMarker(step))
+            .setMidhostMarker(normalizeMidhostMarker(step.kind, step.midhostMarker))
+            .setFakeHostTemplate(normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate))
+            .setFragmentCount(normalizeFragmentCount(step.kind, step.fragmentCount))
+            .setMinFragmentSize(normalizeMinFragmentSize(step.kind, step.minFragmentSize))
+            .setMaxFragmentSize(normalizeMaxFragmentSize(step.kind, step.maxFragmentSize))
+            .build()
+    }
 
 private fun UdpChainStepModel.toProto(): StrategyUdpStep =
     StrategyUdpStep
@@ -275,9 +290,12 @@ private fun validateTcpChain(steps: List<TcpChainStepModel>) {
     var sawSendStep = false
     steps.forEach { step ->
         when (step.kind) {
-            TcpChainStepKind.TlsRec -> require(!sawSendStep) { "tlsrec must be declared before tcp send steps" }
+            TcpChainStepKind.TlsRec,
+            TcpChainStepKind.TlsRandRec,
+            -> require(!sawSendStep) { "${step.kind.wireName} must be declared before tcp send steps" }
             else -> sawSendStep = true
         }
+        validateTcpStepOptions(step)
     }
 }
 
@@ -285,36 +303,54 @@ private fun normalizeTcpMarker(step: TcpChainStepModel): String = normalizeTcpMa
 
 private fun formatTcpStepSummary(step: TcpChainStepModel): String =
     buildString {
-        append(step.kind.wireName)
+        val normalized = normalizeTcpChainStepModel(step)
+        append(normalized.kind.wireName)
         append('(')
-        append(normalizeTcpMarker(step))
-        val normalizedMidhost = normalizeMidhostMarker(step.kind, step.midhostMarker)
+        append(normalizeTcpMarker(normalized))
+        val normalizedMidhost = normalizeMidhostMarker(normalized.kind, normalized.midhostMarker)
         if (normalizedMidhost.isNotEmpty()) {
             append(" midhost=")
             append(normalizedMidhost)
         }
-        val normalizedTemplate = normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate)
+        val normalizedTemplate = normalizeFakeHostTemplate(normalized.kind, normalized.fakeHostTemplate)
         if (normalizedTemplate.isNotEmpty()) {
             append(" host=")
             append(normalizedTemplate)
+        }
+        if (normalized.kind == TcpChainStepKind.TlsRandRec) {
+            append(" count=")
+            append(normalized.fragmentCount)
+            append(" min=")
+            append(normalized.minFragmentSize)
+            append(" max=")
+            append(normalized.maxFragmentSize)
         }
         append(')')
     }
 
 private fun formatTcpStepDsl(step: TcpChainStepModel): String =
     buildString {
-        append(step.kind.wireName)
+        val normalized = normalizeTcpChainStepModel(step)
+        append(normalized.kind.wireName)
         append(' ')
-        append(normalizeTcpMarker(step))
-        val normalizedMidhost = normalizeMidhostMarker(step.kind, step.midhostMarker)
+        append(normalizeTcpMarker(normalized))
+        val normalizedMidhost = normalizeMidhostMarker(normalized.kind, normalized.midhostMarker)
         if (normalizedMidhost.isNotEmpty()) {
             append(" midhost=")
             append(normalizedMidhost)
         }
-        val normalizedTemplate = normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate)
+        val normalizedTemplate = normalizeFakeHostTemplate(normalized.kind, normalized.fakeHostTemplate)
         if (normalizedTemplate.isNotEmpty()) {
             append(" host=")
             append(normalizedTemplate)
+        }
+        if (normalized.kind == TcpChainStepKind.TlsRandRec) {
+            append(" count=")
+            append(normalized.fragmentCount)
+            append(" min=")
+            append(normalized.minFragmentSize)
+            append(" max=")
+            append(normalized.maxFragmentSize)
         }
     }
 
@@ -330,6 +366,9 @@ private fun parseTcpStep(
 
     var midhostMarker = ""
     var fakeHostTemplate = ""
+    var fragmentCount = 0
+    var minFragmentSize = 0
+    var maxFragmentSize = 0
     tokens.drop(1).forEach { token ->
         val (key, value) = token.split('=', limit = 2).takeIf { it.size == 2 }
             ?: error("Invalid TCP step option '$token' on line $lineNumber")
@@ -350,15 +389,41 @@ private fun parseTcpStep(
                 fakeHostTemplate = normalized
             }
 
+            "count" -> {
+                require(kind == TcpChainStepKind.TlsRandRec) { "count is only supported for tlsrandrec on line $lineNumber" }
+                fragmentCount = value.toIntOrNull() ?: error("Invalid count on line $lineNumber")
+            }
+
+            "min" -> {
+                require(kind == TcpChainStepKind.TlsRandRec) { "min is only supported for tlsrandrec on line $lineNumber" }
+                minFragmentSize = value.toIntOrNull() ?: error("Invalid min on line $lineNumber")
+            }
+
+            "max" -> {
+                require(kind == TcpChainStepKind.TlsRandRec) { "max is only supported for tlsrandrec on line $lineNumber" }
+                maxFragmentSize = value.toIntOrNull() ?: error("Invalid max on line $lineNumber")
+            }
+
             else -> error("Unknown TCP step option '$key' on line $lineNumber")
         }
     }
 
-    return TcpChainStepModel(
-        kind = kind,
-        marker = marker,
-        midhostMarker = midhostMarker,
-        fakeHostTemplate = fakeHostTemplate,
+    if (kind == TcpChainStepKind.TlsRandRec) {
+        require(fragmentCount > 0) { "Missing count on line $lineNumber" }
+        require(minFragmentSize > 0) { "Missing min on line $lineNumber" }
+        require(maxFragmentSize > 0) { "Missing max on line $lineNumber" }
+    }
+
+    return normalizeTcpChainStepModel(
+        TcpChainStepModel(
+            kind = kind,
+            marker = marker,
+            midhostMarker = midhostMarker,
+            fakeHostTemplate = fakeHostTemplate,
+            fragmentCount = fragmentCount,
+            minFragmentSize = minFragmentSize,
+            maxFragmentSize = maxFragmentSize,
+        ),
     )
 }
 
@@ -366,9 +431,55 @@ private fun normalizeTcpMarker(
     kind: TcpChainStepKind,
     marker: String,
 ): String {
-    val defaultValue = if (kind == TcpChainStepKind.TlsRec) DefaultTlsRecordMarker else DefaultSplitMarker
+    val defaultValue = if (kind.isTlsPrelude) DefaultTlsRecordMarker else DefaultSplitMarker
     return normalizeOffsetExpression(marker, defaultValue)
 }
+
+private fun validateTcpStepOptions(step: TcpChainStepModel) {
+    when (step.kind) {
+        TcpChainStepKind.TlsRandRec -> {
+            require(step.fragmentCount in 2..16) { "tlsrandrec count must be between 2 and 16" }
+            require(step.minFragmentSize in 1..4096) { "tlsrandrec min must be between 1 and 4096" }
+            require(step.maxFragmentSize in step.minFragmentSize..4096) {
+                "tlsrandrec max must be between min and 4096"
+            }
+        }
+
+        else -> {
+            require(step.fragmentCount == 0) { "${step.kind.wireName} must not declare fragmentCount" }
+            require(step.minFragmentSize == 0) { "${step.kind.wireName} must not declare minFragmentSize" }
+            require(step.maxFragmentSize == 0) { "${step.kind.wireName} must not declare maxFragmentSize" }
+        }
+    }
+}
+
+private fun normalizeFragmentCount(
+    kind: TcpChainStepKind,
+    value: Int,
+): Int = if (kind == TcpChainStepKind.TlsRandRec) value.takeIf { it > 0 } ?: DefaultTlsRandRecFragmentCount else 0
+
+private fun normalizeMinFragmentSize(
+    kind: TcpChainStepKind,
+    value: Int,
+): Int = if (kind == TcpChainStepKind.TlsRandRec) value.takeIf { it > 0 } ?: DefaultTlsRandRecMinFragmentSize else 0
+
+private fun normalizeMaxFragmentSize(
+    kind: TcpChainStepKind,
+    value: Int,
+): Int = if (kind == TcpChainStepKind.TlsRandRec) value.takeIf { it > 0 } ?: DefaultTlsRandRecMaxFragmentSize else 0
+
+fun normalizeTcpChainStepModel(step: TcpChainStepModel): TcpChainStepModel =
+    step.copy(
+        marker = normalizeTcpMarker(step.kind, step.marker),
+        midhostMarker = normalizeMidhostMarker(step.kind, step.midhostMarker),
+        fakeHostTemplate = normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate),
+        fragmentCount = normalizeFragmentCount(step.kind, step.fragmentCount),
+        minFragmentSize = normalizeMinFragmentSize(step.kind, step.minFragmentSize),
+        maxFragmentSize = normalizeMaxFragmentSize(step.kind, step.maxFragmentSize),
+    )
+
+val TcpChainStepKind.isTlsPrelude: Boolean
+    get() = this == TcpChainStepKind.TlsRec || this == TcpChainStepKind.TlsRandRec
 
 private fun normalizeMidhostMarker(
     kind: TcpChainStepKind,

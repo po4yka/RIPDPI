@@ -13,6 +13,7 @@
     "learnedHostCount": 0,
     "listenerAddress": null,
     "nativeEvents": [],
+    "networkErrors": 0,
     "penalizedHostCount": 0,
     "routeChanges": 0,
     "source": "tunnel",
