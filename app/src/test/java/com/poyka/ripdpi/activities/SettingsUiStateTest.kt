@@ -1,13 +1,15 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.core.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
+import com.poyka.ripdpi.data.AdaptiveMarkerMethod
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
-import com.poyka.ripdpi.data.DefaultFakeSni
-import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
+import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
@@ -23,11 +25,11 @@ import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
-import com.poyka.ripdpi.proto.StrategyTcpStep
-import com.poyka.ripdpi.proto.ActivationFilter
-import com.poyka.ripdpi.proto.NumericRange
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
+import com.poyka.ripdpi.proto.ActivationFilter
+import com.poyka.ripdpi.proto.NumericRange
+import com.poyka.ripdpi.proto.StrategyTcpStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -202,6 +204,47 @@ class SettingsUiStateTest {
         assertTrue(state.enableCmdSettings)
         assertFalse(state.hostFakeControlsRelevant)
         assertTrue(state.showHostFakeProfile)
+    }
+
+    @Test
+    fun `adaptive split preset reflects known custom and unsupported primary markers`() {
+        val balancedState =
+            defaults
+                .toBuilder()
+                .setDesyncMethod("split")
+                .setSplitMarker(AdaptiveMarkerBalanced)
+                .build()
+                .toUiState()
+        val customState =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("split")
+                        .setMarker(AdaptiveMarkerMethod)
+                        .build(),
+                ).build()
+                .toUiState()
+        val hostfakeState =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("hostfake")
+                        .setMarker("endhost+8")
+                        .build(),
+                ).build()
+                .toUiState()
+
+        assertEquals(AdaptiveMarkerBalanced, balancedState.adaptiveSplitPreset)
+        assertTrue(balancedState.hasAdaptiveSplitPreset)
+        assertFalse(balancedState.hasCustomAdaptiveSplitPreset)
+        assertEquals(AdaptiveSplitPresetCustom, customState.adaptiveSplitPreset)
+        assertTrue(customState.hasAdaptiveSplitPreset)
+        assertTrue(customState.hasCustomAdaptiveSplitPreset)
+        assertFalse(hostfakeState.adaptiveSplitVisualEditorSupported)
     }
 
     @Test

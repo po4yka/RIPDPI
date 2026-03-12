@@ -8,6 +8,10 @@ import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
+import com.poyka.ripdpi.data.AdaptiveMarkerEndHost
+import com.poyka.ripdpi.data.AdaptiveMarkerHost
+import com.poyka.ripdpi.data.AdaptiveMarkerSniExt
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
@@ -55,6 +59,7 @@ import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.formatActivationFilterSummary
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
+import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.legacyDesyncMethod
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
@@ -63,6 +68,7 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
+import com.poyka.ripdpi.data.supportsAdaptiveMarker
 import com.poyka.ripdpi.core.clearHostAutolearnStore
 import com.poyka.ripdpi.core.hasHostAutolearnStore
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
@@ -89,6 +95,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+internal const val AdaptiveSplitPresetManual = "manual"
+internal const val AdaptiveSplitPresetCustom = "custom"
 
 sealed interface SettingsEffect {
     data class SettingChanged(
@@ -340,6 +349,25 @@ data class SettingsUiState(
 
     val activationWindowSummary: String
         get() = formatActivationFilterSummary(groupActivationFilter).ifBlank { "Always active" }
+
+    val adaptiveSplitPreset: String
+        get() =
+            when (splitMarker) {
+                AdaptiveMarkerBalanced -> AdaptiveMarkerBalanced
+                AdaptiveMarkerHost -> AdaptiveMarkerHost
+                AdaptiveMarkerEndHost -> AdaptiveMarkerEndHost
+                AdaptiveMarkerSniExt -> AdaptiveMarkerSniExt
+                else -> if (isAdaptiveOffsetExpression(splitMarker)) AdaptiveSplitPresetCustom else AdaptiveSplitPresetManual
+            }
+
+    val hasAdaptiveSplitPreset: Boolean
+        get() = adaptiveSplitPreset != AdaptiveSplitPresetManual
+
+    val hasCustomAdaptiveSplitPreset: Boolean
+        get() = adaptiveSplitPreset == AdaptiveSplitPresetCustom
+
+    val adaptiveSplitVisualEditorSupported: Boolean
+        get() = primaryTcpChainStep(tcpChainSteps)?.kind?.supportsAdaptiveMarker != false
 }
 
 data class HostPackCatalogUiState(

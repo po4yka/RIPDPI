@@ -89,6 +89,13 @@ pub enum OffsetBase {
     Method,
     ExtLen,
     SniExt,
+    AutoBalanced,
+    AutoHost,
+    AutoMidSld,
+    AutoEndHost,
+    AutoMethod,
+    AutoSniExt,
+    AutoExtLen,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,6 +128,10 @@ impl OffsetExpr {
         Self::tls_marker(OffsetBase::Host, delta)
     }
 
+    pub const fn adaptive(base: OffsetBase) -> Self {
+        Self { base, proto: OffsetProto::Any, delta: 0, repeats: 0, skip: 0 }
+    }
+
     pub const fn with_repeat_skip(self, repeats: i32, skip: i32) -> Self {
         Self { repeats, skip, ..self }
     }
@@ -135,6 +146,21 @@ impl OffsetExpr {
         } else {
             None
         }
+    }
+}
+
+impl OffsetBase {
+    pub const fn is_adaptive(self) -> bool {
+        matches!(
+            self,
+            Self::AutoBalanced
+                | Self::AutoHost
+                | Self::AutoMidSld
+                | Self::AutoEndHost
+                | Self::AutoMethod
+                | Self::AutoSniExt
+                | Self::AutoExtLen
+        )
     }
 }
 
@@ -918,6 +944,24 @@ fn parse_named_offset_expr(spec: &str) -> Result<Option<OffsetExpr>, ConfigError
     Ok(Some(OffsetExpr::marker(base, delta)))
 }
 
+fn parse_adaptive_offset_expr(spec: &str) -> Result<Option<OffsetExpr>, ConfigError> {
+    let trimmed = spec.trim();
+    let Some(inner) = trimmed.strip_prefix("auto(").and_then(|value| value.strip_suffix(')')) else {
+        return Ok(None);
+    };
+    let base = match inner.trim().to_ascii_lowercase().as_str() {
+        "balanced" => OffsetBase::AutoBalanced,
+        "host" => OffsetBase::AutoHost,
+        "midsld" => OffsetBase::AutoMidSld,
+        "endhost" => OffsetBase::AutoEndHost,
+        "method" => OffsetBase::AutoMethod,
+        "sniext" => OffsetBase::AutoSniExt,
+        "extlen" => OffsetBase::AutoExtLen,
+        _ => return Err(ConfigError::invalid("offset", Some(spec))),
+    };
+    Ok(Some(OffsetExpr::adaptive(base)))
+}
+
 fn marker_from_name(name: &str) -> Option<OffsetBase> {
     match name {
         "abs" => Some(OffsetBase::Abs),
@@ -1000,6 +1044,8 @@ pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
 
     let expr = if let Ok(delta) = base.parse::<i64>() {
         OffsetExpr::absolute(delta)
+    } else if let Some(expr) = parse_adaptive_offset_expr(base)? {
+        expr
     } else if let Some(expr) = parse_named_offset_expr(base)? {
         expr
     } else if let Some(expr) = parse_legacy_offset_expr(base)? {
@@ -1007,6 +1053,10 @@ pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
     } else {
         return Err(ConfigError::invalid("offset", Some(spec)));
     };
+
+    if expr.base.is_adaptive() && (repeats != 0 || skip != 0) {
+        return Err(ConfigError::invalid("offset", Some(spec)));
+    }
 
     Ok(expr.with_repeat_skip(repeats, skip))
 }
@@ -1304,7 +1354,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-O" | "--fake-offset" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().fake_offset = Some(parse_offset_expr(value)?);
+                let expr = parse_offset_expr(value)?;
+                if expr.base.is_adaptive() {
+                    return Err(ConfigError::invalid(arg, Some(value)));
+                }
+                group!().fake_offset = Some(expr);
             }
             "-Q" | "--fake-tls-mod" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -1656,8 +1710,19 @@ mod tests {
     }
 
     #[test]
+    fn parse_offset_expr_adaptive_markers() {
+        assert_eq!(parse_offset_expr("auto(balanced)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoBalanced));
+        assert_eq!(parse_offset_expr("auto(host)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoHost));
+        assert_eq!(parse_offset_expr("auto(midsld)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoMidSld));
+        assert_eq!(parse_offset_expr("auto(endhost)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoEndHost));
+        assert_eq!(parse_offset_expr("auto(method)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoMethod));
+        assert_eq!(parse_offset_expr("auto(sniext)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoSniExt));
+        assert_eq!(parse_offset_expr("auto(extlen)").unwrap(), OffsetExpr::adaptive(OffsetBase::AutoExtLen));
+    }
+
+    #[test]
     fn parse_offset_expr_rejects_invalid_marker_syntax() {
-        for spec in ["host+", "midsld-", "unknown", "host+nope", "5+zz", "method++1"] {
+        for spec in ["host+", "midsld-", "unknown", "host+nope", "5+zz", "method++1", "auto()", "auto(foo)"] {
             assert!(parse_offset_expr(spec).is_err(), "{spec} should be rejected");
         }
     }

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.formatOffsetExpressionLabel
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
@@ -26,6 +27,7 @@ import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
+import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
@@ -196,6 +198,14 @@ data class DiagnosticsStrategyProbeReportUiModel(
     val families: List<DiagnosticsStrategyProbeFamilyUiModel>,
 )
 
+data class DiagnosticsResolverRecommendationUiModel(
+    val headline: String,
+    val rationale: String,
+    val fields: List<DiagnosticsFieldUiModel>,
+    val appliedTemporarily: Boolean,
+    val persistable: Boolean,
+)
+
 data class DiagnosticsOverviewUiModel(
     val health: DiagnosticsHealth = DiagnosticsHealth.Idle,
     val headline: String = "Idle",
@@ -221,6 +231,7 @@ data class DiagnosticsScanUiModel(
     val runInPathEnabled: Boolean = true,
     val runRawHint: String? = null,
     val runInPathHint: String? = null,
+    val resolverRecommendation: DiagnosticsResolverRecommendationUiModel? = null,
     val strategyProbeReport: DiagnosticsStrategyProbeReportUiModel? = null,
     val isBusy: Boolean = false,
 )
@@ -592,6 +603,20 @@ class DiagnosticsViewModel
             }
         }
 
+        fun keepResolverRecommendationForSession(sessionId: String? = uiState.value.scan.latestSession?.id) {
+            val targetSessionId = sessionId ?: return
+            viewModelScope.launch {
+                diagnosticsManager.keepResolverRecommendationForSession(targetSessionId)
+            }
+        }
+
+        fun saveResolverRecommendation(sessionId: String? = uiState.value.scan.latestSession?.id) {
+            val targetSessionId = sessionId ?: return
+            viewModelScope.launch {
+                diagnosticsManager.saveResolverRecommendation(targetSessionId)
+            }
+        }
+
         fun shareSummary(sessionId: String? = null) {
             viewModelScope.launch {
                 val summary = diagnosticsManager.buildShareSummary(sessionId ?: uiState.value.share.targetSessionId)
@@ -687,6 +712,7 @@ class DiagnosticsViewModel
             val latestProfileReport = latestProfileSession?.reportJson?.let(::decodeReport)
             val latestReport = latestCompletedSession?.reportJson?.let(::decodeReport)
             val latestReportResults = latestProfileReport?.results?.mapIndexed(::toProbeResultUiModel).orEmpty()
+            val latestResolverRecommendation = latestProfileReport?.resolverRecommendation?.toUiModel()
             val latestStrategyProbeReport = latestProfileReport?.strategyProbeReport?.toUiModel()
             val currentTelemetry = telemetry.firstOrNull()
             val health = deriveHealth(progress, latestCompletedSession, currentTelemetry, nativeEvents)
@@ -812,6 +838,7 @@ class DiagnosticsViewModel
                         runInPathEnabled = runInPathEnabled,
                         runRawHint = runRawHint,
                         runInPathHint = runInPathHint,
+                        resolverRecommendation = latestResolverRecommendation,
                         strategyProbeReport = latestStrategyProbeReport,
                         isBusy = progress != null,
                     ),
@@ -973,6 +1000,27 @@ class DiagnosticsViewModel
                 if (telemetry != null) {
                     add(DiagnosticsMetricUiModel(label = "Network", value = telemetry.networkType))
                     add(DiagnosticsMetricUiModel(label = "Mode", value = telemetry.activeMode ?: "Idle"))
+                    telemetry.resolverId?.let { resolverId ->
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "Resolver",
+                                value = listOfNotNull(resolverId, telemetry.resolverProtocol).joinToString(" · "),
+                                tone = DiagnosticsTone.Info,
+                            ),
+                        )
+                    }
+                    telemetry.resolverLatencyMs?.let { latency ->
+                        add(DiagnosticsMetricUiModel(label = "DNS latency", value = "$latency ms", tone = DiagnosticsTone.Info))
+                    }
+                    if (telemetry.dnsFailuresTotal > 0) {
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "DNS failures",
+                                value = telemetry.dnsFailuresTotal.toString(),
+                                tone = DiagnosticsTone.Warning,
+                            ),
+                        )
+                    }
                     add(DiagnosticsMetricUiModel(label = "TX packets", value = telemetry.txPackets.toString(), tone = DiagnosticsTone.Info))
                     add(DiagnosticsMetricUiModel(label = "RX packets", value = telemetry.rxPackets.toString(), tone = DiagnosticsTone.Info))
                 }
@@ -1002,6 +1050,15 @@ class DiagnosticsViewModel
                 telemetry?.let {
                     add(DiagnosticsMetricUiModel(label = "TX", value = formatBytes(it.txBytes), tone = DiagnosticsTone.Info))
                     add(DiagnosticsMetricUiModel(label = "RX", value = formatBytes(it.rxBytes), tone = DiagnosticsTone.Positive))
+                    if (it.resolverFallbackActive) {
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "Resolver fallback",
+                                value = it.resolverFallbackReason ?: "Active",
+                                tone = DiagnosticsTone.Warning,
+                            ),
+                        )
+                    }
                     add(
                         DiagnosticsMetricUiModel(
                             label = "Packets",
@@ -1085,6 +1142,8 @@ class DiagnosticsViewModel
                 return surfacedEvent.message
             }
             telemetry ?: return "Continuous monitor is waiting for an active RIPDPI session."
+            telemetry.resolverFallbackReason?.let { return "Encrypted DNS override active: $it" }
+            telemetry.networkHandoverClass?.let { return "Recent network handover detected: $it" }
             val totalBytes = formatBytes(telemetry.txBytes + telemetry.rxBytes)
             val packetCount = telemetry.txPackets + telemetry.rxPackets
             val modeLabel = telemetry.activeMode ?: "Idle"
@@ -1278,10 +1337,10 @@ class DiagnosticsViewModel
                 add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
                 add(DiagnosticsFieldUiModel("TLS record split", signature.tlsRecordSplitEnabled.toString()))
                 signature.tlsRecordMarker?.let {
-                    add(DiagnosticsFieldUiModel("TLS record marker", it))
+                    add(DiagnosticsFieldUiModel("TLS record marker", formatOffsetExpressionLabel(it)))
                 }
                 signature.splitMarker?.let {
-                    add(DiagnosticsFieldUiModel("Split marker", it))
+                    add(DiagnosticsFieldUiModel("Split marker", formatOffsetExpressionLabel(it)))
                 }
                 signature.activationRound?.let {
                     add(DiagnosticsFieldUiModel("Activation round", it))
@@ -1424,6 +1483,25 @@ class DiagnosticsViewModel
                     ),
             )
         }
+
+        private fun ResolverRecommendation.toUiModel(): DiagnosticsResolverRecommendationUiModel =
+            DiagnosticsResolverRecommendationUiModel(
+                headline = "Switch DNS to ${selectedResolverId.replaceFirstChar { it.uppercase() }}",
+                rationale = rationale,
+                fields =
+                    listOf(
+                        DiagnosticsFieldUiModel("Trigger", triggerOutcome),
+                        DiagnosticsFieldUiModel("Resolver", selectedResolverId),
+                        DiagnosticsFieldUiModel("Protocol", selectedProtocol.uppercase()),
+                        DiagnosticsFieldUiModel("Endpoint", selectedEndpoint),
+                        DiagnosticsFieldUiModel(
+                            "Bootstrap",
+                            selectedBootstrapIps.joinToString().ifBlank { "None" },
+                        ),
+                    ),
+                appliedTemporarily = appliedTemporarily,
+                persistable = persistable,
+            )
 
         private fun ScanRequest?.toScopeLabel(rawArgsEnabled: Boolean): String? =
             when (this?.kind) {

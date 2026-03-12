@@ -8,10 +8,21 @@ const val DefaultTlsRecordMarker = "0"
 const val DefaultTlsRandRecFragmentCount = 4
 const val DefaultTlsRandRecMinFragmentSize = 16
 const val DefaultTlsRandRecMaxFragmentSize = 96
+const val AdaptiveMarkerBalanced = "auto(balanced)"
+const val AdaptiveMarkerHost = "auto(host)"
+const val AdaptiveMarkerMidSld = "auto(midsld)"
+const val AdaptiveMarkerEndHost = "auto(endhost)"
+const val AdaptiveMarkerMethod = "auto(method)"
+const val AdaptiveMarkerSniExt = "auto(sniext)"
+const val AdaptiveMarkerExtLen = "auto(extlen)"
 
 private val NumericOffsetPattern = Regex("^[+-]?\\d+$")
 private val NamedOffsetPattern = Regex("^(abs|host|endhost|sld|midsld|endsld|method|extlen|sniext)([+-]\\d+)?$")
 private val LegacyOffsetPattern = Regex("^[+-]?\\d+\\+(?:s(?:s|e|m|r)?|h(?:s|e|m|r)?|n(?:s|e|m|r)?)$")
+private val AdaptiveOffsetPattern =
+    Regex("^auto\\((balanced|host|midsld|endhost|method|sniext|extlen)\\)$", RegexOption.IGNORE_CASE)
+private val AdaptiveOffsetPresetPattern =
+    Regex("^auto\\((balanced|host|midsld|endhost|method|sniext|extlen)\\)$", RegexOption.IGNORE_CASE)
 
 fun AppSettings.effectiveSplitMarker(): String = splitMarker.normalizedOrElse { legacyMarkerExpression(splitPosition, splitAtHost) }
 
@@ -28,6 +39,9 @@ fun normalizeOffsetExpression(value: String, defaultValue: String): String = val
 fun isValidOffsetExpression(value: String): Boolean {
     if (value.isBlank()) {
         return false
+    }
+    if (isAdaptiveOffsetExpression(value)) {
+        return true
     }
 
     val parts = value.trim().split(':')
@@ -52,6 +66,23 @@ fun isValidOffsetExpression(value: String): Boolean {
 
     return true
 }
+
+fun isAdaptiveOffsetExpression(value: String): Boolean = AdaptiveOffsetPattern.matches(value.trim())
+
+fun adaptiveOffsetPreset(value: String): String? =
+    AdaptiveOffsetPresetPattern.matchEntire(value.trim())?.groupValues?.getOrNull(1)?.lowercase()
+
+fun formatOffsetExpressionLabel(value: String): String =
+    when (adaptiveOffsetPreset(value)) {
+        "balanced" -> "adaptive balanced"
+        "host" -> "adaptive host/SNI start"
+        "midsld" -> "adaptive host/SNI middle"
+        "endhost" -> "adaptive host/SNI end"
+        "method" -> "adaptive HTTP method"
+        "sniext" -> "adaptive TLS SNI extension"
+        "extlen" -> "adaptive TLS extensions length"
+        else -> value
+    }
 
 private fun String.normalizedOrElse(fallback: () -> String): String = trim().ifEmpty(fallback)
 

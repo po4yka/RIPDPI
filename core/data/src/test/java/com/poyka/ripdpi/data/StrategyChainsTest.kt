@@ -8,6 +8,60 @@ import org.junit.Test
 
 class StrategyChainsTest {
     @Test
+    fun `adaptive markers round trip through tcp dsl and humanized summary`() {
+        val dsl =
+            """
+            [tcp]
+            tlsrec auto(sniext)
+            split auto(balanced)
+            """.trimIndent()
+
+        val parsed = parseStrategyChainDsl(dsl).getOrThrow()
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.TlsRec, AdaptiveMarkerSniExt),
+                TcpChainStepModel(TcpChainStepKind.Split, AdaptiveMarkerBalanced),
+            ),
+            parsed.tcpSteps,
+        )
+        assertEquals(dsl, formatStrategyChainDsl(parsed.tcpSteps, parsed.udpSteps))
+        assertEquals(
+            "tcp: tlsrec(adaptive TLS SNI extension) -> split(adaptive balanced)",
+            formatChainSummary(parsed.tcpSteps, parsed.udpSteps),
+        )
+    }
+
+    @Test
+    fun `rewritePrimaryTcpMarker only updates first non tls step`() {
+        val updated =
+            rewritePrimaryTcpMarker(
+                tcpSteps =
+                    listOf(
+                        TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                        TcpChainStepModel(TcpChainStepKind.Split, "host+1"),
+                        TcpChainStepModel(TcpChainStepKind.Fake, "endhost"),
+                    ),
+                marker = AdaptiveMarkerBalanced,
+            )
+
+        assertEquals("extlen", updated[0].marker)
+        assertEquals(AdaptiveMarkerBalanced, updated[1].marker)
+        assertEquals("endhost", updated[2].marker)
+    }
+
+    @Test
+    fun `hostfake parser rejects adaptive markers`() {
+        val markerResult = parseStrategyChainDsl("[tcp]\nhostfake auto(host)")
+        val midhostResult = parseStrategyChainDsl("[tcp]\nhostfake endhost midhost=auto(midsld)")
+
+        assertTrue(markerResult.isFailure)
+        assertFalse(markerResult.exceptionOrNull()?.message.isNullOrBlank())
+        assertTrue(midhostResult.isFailure)
+        assertFalse(midhostResult.exceptionOrNull()?.message.isNullOrBlank())
+    }
+
+    @Test
     fun `dsl round trip preserves tcp and udp chain order`() {
         val dsl =
             """

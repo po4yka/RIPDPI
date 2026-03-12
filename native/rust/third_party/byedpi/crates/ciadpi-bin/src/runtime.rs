@@ -955,7 +955,7 @@ fn udp_associate_loop(
                             .or_insert_with(|| UdpFlowActivationState { session: SessionState::default(), last_used: now });
                         entry.last_used = now;
                         let progress = entry.session.observe_datagram_outbound(payload);
-                        activation_context_from_progress(progress, ActivationTransport::Udp)
+                        activation_context_from_progress(progress, ActivationTransport::Udp, None)
                     };
                     let actions = plan_udp(&group, payload, config.default_ttl, activation);
                     execute_udp_actions(&relay, target, &actions)?;
@@ -1290,13 +1290,18 @@ fn relay_streams(
     Ok(())
 }
 
-fn activation_context_from_progress(progress: OutboundProgress, transport: ActivationTransport) -> ActivationContext {
+fn activation_context_from_progress(
+    progress: OutboundProgress,
+    transport: ActivationTransport,
+    tcp_segment_hint: Option<ciadpi_desync::TcpSegmentHint>,
+) -> ActivationContext {
     ActivationContext {
         round: progress.round as i64,
         payload_size: progress.payload_size as i64,
         stream_start: progress.stream_start as i64,
         stream_end: progress.stream_end as i64,
         transport,
+        tcp_segment_hint,
     }
 }
 
@@ -1639,7 +1644,8 @@ fn send_with_group(
     payload: &[u8],
     progress: OutboundProgress,
 ) -> io::Result<()> {
-    let context = activation_context_from_progress(progress, ActivationTransport::Tcp);
+    let context =
+        activation_context_from_progress(progress, ActivationTransport::Tcp, platform::tcp_segment_hint(writer).ok().flatten());
     if should_desync_tcp(group, context) {
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
         match plan_tcp(group, payload, seed, config.default_ttl, context) {
@@ -2177,6 +2183,7 @@ mod tests {
             stream_start: 0,
             stream_end: 15,
             transport: ActivationTransport::Tcp,
+            tcp_segment_hint: None,
         };
         let round_five = ActivationContext {
             round: 5,
@@ -2184,6 +2191,7 @@ mod tests {
             stream_start: 16,
             stream_end: 31,
             transport: ActivationTransport::Tcp,
+            tcp_segment_hint: None,
         };
         let round_one = ActivationContext {
             round: 1,
@@ -2191,6 +2199,7 @@ mod tests {
             stream_start: 0,
             stream_end: 15,
             transport: ActivationTransport::Tcp,
+            tcp_segment_hint: None,
         };
 
         assert!(!has_tcp_actions(&group));
