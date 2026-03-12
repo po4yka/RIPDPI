@@ -40,6 +40,9 @@ import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
+import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
+import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
+import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
@@ -49,10 +52,13 @@ import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicInitialModeDisabled
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.isValidOffsetExpression
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.parseStrategyChainDsl
+import com.poyka.ripdpi.data.replaceTlsPreludeTcpChainSteps
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -75,6 +81,8 @@ import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
 import kotlinx.coroutines.flow.collect
+
+private const val TlsPreludeModeDisabled = "disabled"
 
 private enum class AdvancedToggleSetting {
     UseCommandLine,
@@ -116,6 +124,9 @@ private enum class AdvancedTextSetting {
     QuicFakeHost,
     OobData,
     TlsrecMarker,
+    TlsRandRecFragmentCount,
+    TlsRandRecMinFragmentSize,
+    TlsRandRecMaxFragmentSize,
     UdpFakeCount,
     HostAutolearnPenaltyTtlHours,
     HostAutolearnMaxHosts,
@@ -125,6 +136,7 @@ private enum class AdvancedTextSetting {
 
 private enum class AdvancedOptionSetting {
     DesyncMethod,
+    TlsPreludeMode,
     FakeTlsBase,
     FakeTlsSniMode,
     HostsMode,
@@ -137,6 +149,84 @@ private data class AdvancedNotice(
     val message: String,
     val tone: WarningBannerTone,
 )
+
+private fun SettingsUiState.toTlsPreludeStep(
+    mode: String = tlsPreludeMode,
+    marker: String = tlsrecMarker,
+    fragmentCount: Int = tlsRandRecFragmentCount,
+    minFragmentSize: Int = tlsRandRecMinFragmentSize,
+    maxFragmentSize: Int = tlsRandRecMaxFragmentSize,
+): TcpChainStepModel? {
+    val normalizedMarker = normalizeOffsetExpression(marker, DefaultTlsRecordMarker)
+    return when (mode) {
+        TcpChainStepKind.TlsRec.wireName ->
+            TcpChainStepModel(
+                kind = TcpChainStepKind.TlsRec,
+                marker = normalizedMarker,
+            )
+
+        TcpChainStepKind.TlsRandRec.wireName ->
+            TcpChainStepModel(
+                kind = TcpChainStepKind.TlsRandRec,
+                marker = normalizedMarker,
+                fragmentCount = fragmentCount.takeIf { it > 0 } ?: DefaultTlsRandRecFragmentCount,
+                minFragmentSize = minFragmentSize.takeIf { it > 0 } ?: DefaultTlsRandRecMinFragmentSize,
+                maxFragmentSize = maxFragmentSize.takeIf { it > 0 } ?: DefaultTlsRandRecMaxFragmentSize,
+            )
+
+        else -> null
+    }
+}
+
+private fun SettingsUiState.replaceTlsPreludeSteps(
+    mode: String = tlsPreludeMode,
+    marker: String = tlsrecMarker,
+    fragmentCount: Int = tlsRandRecFragmentCount,
+    minFragmentSize: Int = tlsRandRecMinFragmentSize,
+    maxFragmentSize: Int = tlsRandRecMaxFragmentSize,
+): List<TcpChainStepModel> =
+    replaceTlsPreludeTcpChainSteps(
+        tcpSteps = tcpChainSteps,
+        newPreludeSteps =
+            listOfNotNull(
+                toTlsPreludeStep(
+                    mode = mode,
+                    marker = marker,
+                    fragmentCount = fragmentCount,
+                    minFragmentSize = minFragmentSize,
+                    maxFragmentSize = maxFragmentSize,
+                ),
+            ),
+    )
+
+private fun updateTlsPreludeProfile(
+    viewModel: SettingsViewModel,
+    uiState: SettingsUiState,
+    key: String,
+    value: String,
+    mode: String = uiState.tlsPreludeMode,
+    marker: String = uiState.tlsrecMarker,
+    fragmentCount: Int = uiState.tlsRandRecFragmentCount,
+    minFragmentSize: Int = uiState.tlsRandRecMinFragmentSize,
+    maxFragmentSize: Int = uiState.tlsRandRecMaxFragmentSize,
+) {
+    viewModel.updateSetting(
+        key = key,
+        value = value,
+    ) {
+        setStrategyChains(
+            tcpSteps =
+                uiState.replaceTlsPreludeSteps(
+                    mode = mode,
+                    marker = marker,
+                    fragmentCount = fragmentCount,
+                    minFragmentSize = minFragmentSize,
+                    maxFragmentSize = maxFragmentSize,
+                ),
+            udpSteps = uiState.udpChainSteps,
+        )
+    }
+}
 
 @Composable
 fun AdvancedSettingsRoute(
@@ -525,11 +615,48 @@ fun AdvancedSettingsRoute(
 
                 AdvancedTextSetting.TlsrecMarker -> {
                     val marker = normalizeOffsetExpression(value, DefaultTlsRecordMarker)
-                    viewModel.updateSetting(
+                    updateTlsPreludeProfile(
+                        viewModel = viewModel,
+                        uiState = uiState,
                         key = "tlsrecMarker",
                         value = marker,
-                    ) {
-                        setTlsrecMarker(marker)
+                        marker = marker,
+                    )
+                }
+
+                AdvancedTextSetting.TlsRandRecFragmentCount -> {
+                    value.toIntOrNull()?.let { fragmentCount ->
+                        updateTlsPreludeProfile(
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            key = "tlsRandRecFragmentCount",
+                            value = fragmentCount.toString(),
+                            fragmentCount = fragmentCount,
+                        )
+                    }
+                }
+
+                AdvancedTextSetting.TlsRandRecMinFragmentSize -> {
+                    value.toIntOrNull()?.let { minSize ->
+                        updateTlsPreludeProfile(
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            key = "tlsRandRecMinFragmentSize",
+                            value = minSize.toString(),
+                            minFragmentSize = minSize,
+                        )
+                    }
+                }
+
+                AdvancedTextSetting.TlsRandRecMaxFragmentSize -> {
+                    value.toIntOrNull()?.let { maxSize ->
+                        updateTlsPreludeProfile(
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            key = "tlsRandRecMaxFragmentSize",
+                            value = maxSize.toString(),
+                            maxFragmentSize = maxSize,
+                        )
                     }
                 }
 
@@ -596,6 +723,16 @@ fun AdvancedSettingsRoute(
                     ) {
                         setDesyncMethod(value)
                     }
+                }
+
+                AdvancedOptionSetting.TlsPreludeMode -> {
+                    updateTlsPreludeProfile(
+                        viewModel = viewModel,
+                        uiState = uiState,
+                        key = "tlsPreludeMode",
+                        value = value,
+                        mode = value,
+                    )
                 }
 
                 AdvancedOptionSetting.FakeTlsBase -> {
@@ -1243,8 +1380,111 @@ private fun AdvancedSettingsScreen(
             SettingsSection(title = stringResource(R.string.desync_https_category)) {
                 RipDpiCard {
                     Text(
-                        text = stringResource(R.string.config_https_chain_hint),
+                        text = stringResource(R.string.ripdpi_tls_prelude_section_body),
                         style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.mutedForeground,
+                    )
+                    HorizontalDivider(color = colors.divider)
+                    TlsPreludeProfileCard(
+                        uiState = uiState,
+                        modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+                    )
+                    HorizontalDivider(color = colors.divider)
+                    TlsPreludeModeSelector(
+                        uiState = uiState,
+                        enabled = visualEditorEnabled,
+                        onModeSelected = {
+                            onOptionSelected(AdvancedOptionSetting.TlsPreludeMode, it)
+                        },
+                    )
+                    if (uiState.hasStackedTlsPreludeSteps) {
+                        Text(
+                            text = stringResource(R.string.ripdpi_tls_prelude_multiple_note),
+                            style = RipDpiThemeTokens.type.caption,
+                            color = colors.warning,
+                        )
+                    }
+                    if (uiState.tlsPreludeMode != TlsPreludeModeDisabled) {
+                        HorizontalDivider(color = colors.divider)
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.ripdpi_tlsrec_position_setting),
+                            description = stringResource(R.string.config_tls_record_marker_helper),
+                            value = uiState.tlsrecMarker,
+                            placeholder = stringResource(R.string.config_placeholder_tls_record_marker),
+                            enabled = visualEditorEnabled,
+                            validator = ::isValidOffsetExpression,
+                            invalidMessage = stringResource(R.string.config_error_invalid_marker),
+                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Ascii,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            setting = AdvancedTextSetting.TlsrecMarker,
+                            onConfirm = onTextConfirmed,
+                            showDivider = uiState.tlsPreludeUsesRandomRecords,
+                        )
+                    }
+                    if (uiState.tlsPreludeUsesRandomRecords) {
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.ripdpi_tlsrandrec_count_title),
+                            description = stringResource(R.string.ripdpi_tlsrandrec_count_body),
+                            value = uiState.tlsRandRecFragmentCount.toString(),
+                            enabled = visualEditorEnabled,
+                            validator = { validateIntRange(it, 2, 16) },
+                            invalidMessage = stringResource(R.string.config_error_out_of_range),
+                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            setting = AdvancedTextSetting.TlsRandRecFragmentCount,
+                            onConfirm = onTextConfirmed,
+                            showDivider = true,
+                        )
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.ripdpi_tlsrandrec_min_title),
+                            description = stringResource(R.string.ripdpi_tlsrandrec_min_body),
+                            value = uiState.tlsRandRecMinFragmentSize.toString(),
+                            enabled = visualEditorEnabled,
+                            validator = { validateIntRange(it, 1, 4096) },
+                            invalidMessage = stringResource(R.string.config_error_out_of_range),
+                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            setting = AdvancedTextSetting.TlsRandRecMinFragmentSize,
+                            onConfirm = onTextConfirmed,
+                            showDivider = true,
+                        )
+                        AdvancedTextSetting(
+                            title = stringResource(R.string.ripdpi_tlsrandrec_max_title),
+                            description = stringResource(R.string.ripdpi_tlsrandrec_max_body),
+                            value = uiState.tlsRandRecMaxFragmentSize.toString(),
+                            enabled = visualEditorEnabled,
+                            validator = { input ->
+                                input.toIntOrNull()?.let { value ->
+                                    value in uiState.tlsRandRecMinFragmentSize..4096
+                                } == true
+                            },
+                            invalidMessage = stringResource(R.string.ripdpi_tlsrandrec_max_error),
+                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            setting = AdvancedTextSetting.TlsRandRecMaxFragmentSize,
+                            onConfirm = onTextConfirmed,
+                            showDivider = true,
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.ripdpi_tls_prelude_scope_note),
+                        style = RipDpiThemeTokens.type.caption,
                         color = colors.mutedForeground,
                     )
                 }
@@ -1674,6 +1914,278 @@ private fun ProfileSummaryLine(
             style = type.secondaryBody,
             color = colors.foreground,
         )
+    }
+}
+
+private data class TlsPreludeStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
+private data class TlsPreludePresetUiModel(
+    val value: String,
+    val title: String,
+    val body: String,
+)
+
+@Composable
+private fun TlsPreludeProfileCard(
+    uiState: SettingsUiState,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val status = rememberTlsPreludeStatus(uiState)
+    val modeSummary =
+        stringResource(
+            when (uiState.tlsPreludeMode) {
+                TcpChainStepKind.TlsRec.wireName -> R.string.ripdpi_tls_prelude_summary_mode_single
+                TcpChainStepKind.TlsRandRec.wireName -> R.string.ripdpi_tls_prelude_summary_mode_random
+                else -> R.string.ripdpi_tls_prelude_summary_mode_off
+            },
+        )
+    val markerSummary =
+        if (uiState.tlsPreludeMode == TlsPreludeModeDisabled) {
+            stringResource(R.string.ripdpi_tls_prelude_marker_unused)
+        } else {
+            uiState.tlsrecMarker
+        }
+    val layoutSummary =
+        when (uiState.tlsPreludeMode) {
+            TcpChainStepKind.TlsRandRec.wireName ->
+                stringResource(
+                    R.string.ripdpi_tls_prelude_summary_layout_random,
+                    uiState.tlsRandRecFragmentCount,
+                    uiState.tlsRandRecMinFragmentSize,
+                    uiState.tlsRandRecMaxFragmentSize,
+                )
+
+            TcpChainStepKind.TlsRec.wireName ->
+                stringResource(R.string.ripdpi_tls_prelude_summary_layout_single)
+
+            else -> stringResource(R.string.ripdpi_tls_prelude_summary_layout_off)
+        }
+    val scopeSummary =
+        when {
+            uiState.enableCmdSettings -> stringResource(R.string.ripdpi_tls_prelude_scope_cli)
+            !uiState.tlsPreludeControlsRelevant -> stringResource(R.string.ripdpi_tls_prelude_scope_https_disabled)
+            uiState.hasStackedTlsPreludeSteps -> stringResource(R.string.ripdpi_tls_prelude_scope_stacked)
+            else -> stringResource(R.string.ripdpi_tls_prelude_scope_active)
+        }
+    val badges =
+        buildList {
+            add(stringResource(R.string.ripdpi_tls_prelude_badge_https_only) to SummaryCapsuleTone.Info)
+            when (uiState.tlsPreludeMode) {
+                TcpChainStepKind.TlsRec.wireName ->
+                    add(stringResource(R.string.ripdpi_tls_prelude_badge_single) to SummaryCapsuleTone.Active)
+
+                TcpChainStepKind.TlsRandRec.wireName ->
+                    add(
+                        stringResource(
+                            R.string.ripdpi_tls_prelude_badge_random,
+                            uiState.tlsRandRecFragmentCount,
+                        ) to SummaryCapsuleTone.Active,
+                    )
+
+                else -> Unit
+            }
+            if (uiState.hasStackedTlsPreludeSteps) {
+                add(
+                    stringResource(
+                        R.string.ripdpi_tls_prelude_badge_stacked,
+                        uiState.tlsPreludeStepCount,
+                    ) to SummaryCapsuleTone.Warning,
+                )
+            }
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Tonal,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        SummaryCapsuleFlow(items = badges)
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_tls_prelude_summary_label_mode),
+                value = modeSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_tls_prelude_summary_label_marker),
+                value = markerSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_tls_prelude_summary_label_layout),
+                value = layoutSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_tls_prelude_summary_label_scope),
+                value = scopeSummary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun rememberTlsPreludeStatus(uiState: SettingsUiState): TlsPreludeStatusContent =
+    when {
+        uiState.enableCmdSettings ->
+            TlsPreludeStatusContent(
+                label = stringResource(R.string.ripdpi_tls_prelude_cli_title),
+                body = stringResource(R.string.ripdpi_tls_prelude_cli_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        !uiState.tlsPreludeControlsRelevant && uiState.tlsPreludeStepCount > 0 ->
+            TlsPreludeStatusContent(
+                label = stringResource(R.string.ripdpi_tls_prelude_https_disabled_title),
+                body = stringResource(R.string.ripdpi_tls_prelude_https_disabled_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        uiState.hasStackedTlsPreludeSteps ->
+            TlsPreludeStatusContent(
+                label = stringResource(R.string.ripdpi_tls_prelude_stacked_title),
+                body = stringResource(R.string.ripdpi_tls_prelude_stacked_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.tlsPreludeMode == TlsPreludeModeDisabled ->
+            TlsPreludeStatusContent(
+                label = stringResource(R.string.ripdpi_tls_prelude_off_title),
+                body = stringResource(R.string.ripdpi_tls_prelude_off_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        uiState.isServiceRunning ->
+            TlsPreludeStatusContent(
+                label = stringResource(R.string.ripdpi_tls_prelude_restart_title),
+                body = stringResource(R.string.ripdpi_tls_prelude_restart_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.tlsPreludeUsesRandomRecords ->
+            TlsPreludeStatusContent(
+                label = stringResource(R.string.ripdpi_tls_prelude_random_title),
+                body = stringResource(R.string.ripdpi_tls_prelude_random_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        else ->
+            TlsPreludeStatusContent(
+                label = stringResource(R.string.ripdpi_tls_prelude_single_title),
+                body = stringResource(R.string.ripdpi_tls_prelude_single_body),
+                tone = StatusIndicatorTone.Active,
+            )
+    }
+
+@Composable
+private fun TlsPreludeModeSelector(
+    uiState: SettingsUiState,
+    enabled: Boolean,
+    onModeSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val presets =
+        listOf(
+            TlsPreludePresetUiModel(
+                value = TlsPreludeModeDisabled,
+                title = stringResource(R.string.ripdpi_tls_prelude_mode_off_title),
+                body = stringResource(R.string.ripdpi_tls_prelude_mode_off_body),
+            ),
+            TlsPreludePresetUiModel(
+                value = TcpChainStepKind.TlsRec.wireName,
+                title = stringResource(R.string.ripdpi_tls_prelude_mode_single_title),
+                body = stringResource(R.string.ripdpi_tls_prelude_mode_single_body),
+            ),
+            TlsPreludePresetUiModel(
+                value = TcpChainStepKind.TlsRandRec.wireName,
+                title = stringResource(R.string.ripdpi_tls_prelude_mode_random_title),
+                body = stringResource(R.string.ripdpi_tls_prelude_mode_random_body),
+            ),
+        )
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Text(
+            text = stringResource(R.string.ripdpi_tls_prelude_mode_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Text(
+            text = stringResource(R.string.ripdpi_tls_prelude_mode_body),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        presets.forEach { preset ->
+            TlsPreludePresetCard(
+                preset = preset,
+                selected = uiState.tlsPreludeMode == preset.value,
+                enabled = enabled,
+                onClick = { onModeSelected(preset.value) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun TlsPreludePresetCard(
+    preset: TlsPreludePresetUiModel,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = if (selected) RipDpiCardVariant.Tonal else RipDpiCardVariant.Outlined,
+        enabled = enabled,
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                Text(
+                    text = preset.title,
+                    style = type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Text(
+                    text = preset.body,
+                    style = type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+            if (selected) {
+                StatusIndicator(
+                    label = stringResource(R.string.quic_fake_preset_selected),
+                    tone = StatusIndicatorTone.Active,
+                )
+            }
+        }
     }
 }
 
@@ -2461,6 +2973,8 @@ private fun AdvancedSettingsScreenPreview() {
                     domainMixedCase = false,
                     hostRemoveSpaces = false,
                     tlsrecEnabled = false,
+                    tlsPreludeMode = TlsPreludeModeDisabled,
+                    tlsPreludeStepCount = 0,
                     udpFakeCount = 0,
                     hostsMode = "disable",
                     hostAutolearnEnabled = true,
@@ -2516,6 +3030,11 @@ private fun AdvancedSettingsScreenDarkPreview() {
                     desyncUdp = true,
                     tlsrecEnabled = true,
                     tlsrecMarker = "sniext+4",
+                    tlsPreludeMode = TcpChainStepKind.TlsRandRec.wireName,
+                    tlsPreludeStepCount = 1,
+                    tlsRandRecFragmentCount = 5,
+                    tlsRandRecMinFragmentSize = 24,
+                    tlsRandRecMaxFragmentSize = 48,
                     udpFakeCount = 1,
                     hostsMode = "blacklist",
                     hostsBlacklist = "example.com\ncdn.example.net",
