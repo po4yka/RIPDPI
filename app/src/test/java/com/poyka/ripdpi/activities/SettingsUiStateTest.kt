@@ -12,6 +12,10 @@ import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
+import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.DnsProviderCustom
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
@@ -327,6 +331,50 @@ class SettingsUiStateTest {
         assertTrue(state.hasStepActivationFilters)
         assertEquals(1, state.stepActivationFilterCount)
         assertFalse(state.canResetActivationWindow)
+    }
+
+    @Test
+    fun `command line mode keeps activation profile visible but reset disabled`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setEnableCmdSettings(true)
+                .setDesyncMethod("none")
+                .setGroupActivationFilter(
+                    ActivationFilter
+                        .newBuilder()
+                        .setRound(NumericRange.newBuilder().setStart(2).setEnd(4))
+                        .setStreamBytes(NumericRange.newBuilder().setStart(0).setEnd(2047))
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.enableCmdSettings)
+        assertTrue(state.hasCustomActivationWindow)
+        assertTrue(state.showActivationWindowProfile)
+        assertFalse(state.canResetActivationWindow)
+        assertFalse(state.activationWindowControlsRelevant)
+    }
+
+    @Test
+    fun `custom activation window remains visible when group desync is off`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncMethod("none")
+                .setGroupActivationFilter(
+                    ActivationFilter
+                        .newBuilder()
+                        .setPayloadSize(NumericRange.newBuilder().setStart(64).setEnd(512))
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.desyncEnabled)
+        assertTrue(state.hasCustomActivationWindow)
+        assertTrue(state.showActivationWindowProfile)
     }
 
     @Test
@@ -694,5 +742,67 @@ class SettingsUiStateTest {
         val state = settings.toUiState(hostAutolearnStorePresent = true)
 
         assertFalse(state.canForgetLearnedHosts)
+    }
+
+    @Test
+    fun `custom dot resolver populates settings ui dns fields and summary`() {
+        val state =
+            defaults
+                .toBuilder()
+                .setDnsIp("9.9.9.9")
+                .setDnsMode(DnsModeEncrypted)
+                .setDnsProviderId(DnsProviderCustom)
+                .setEncryptedDnsProtocol(EncryptedDnsProtocolDot)
+                .setEncryptedDnsHost("dot.example.test")
+                .setEncryptedDnsPort(853)
+                .setEncryptedDnsTlsServerName("dot.example.test")
+                .clearEncryptedDnsBootstrapIps()
+                .addAllEncryptedDnsBootstrapIps(listOf("9.9.9.9", "149.112.112.112"))
+                .build()
+                .toUiState()
+
+        assertEquals(DnsModeEncrypted, state.dnsMode)
+        assertEquals(DnsProviderCustom, state.dnsProviderId)
+        assertEquals("9.9.9.9", state.dnsIp)
+        assertEquals(EncryptedDnsProtocolDot, state.encryptedDnsProtocol)
+        assertEquals("dot.example.test", state.encryptedDnsHost)
+        assertEquals(853, state.encryptedDnsPort)
+        assertEquals("dot.example.test", state.encryptedDnsTlsServerName)
+        assertEquals(listOf("9.9.9.9", "149.112.112.112"), state.encryptedDnsBootstrapIps)
+        assertEquals("Encrypted DNS · Custom resolver (DoT)", state.dnsSummary)
+    }
+
+    @Test
+    fun `custom dnscrypt resolver populates settings ui dns fields and summary`() {
+        val state =
+            defaults
+                .toBuilder()
+                .setDnsIp("8.8.8.8")
+                .setDnsMode(DnsModeEncrypted)
+                .setDnsProviderId(DnsProviderCustom)
+                .setEncryptedDnsProtocol(EncryptedDnsProtocolDnsCrypt)
+                .setEncryptedDnsHost("dnscrypt.example.test")
+                .setEncryptedDnsPort(5443)
+                .setEncryptedDnsTlsServerName("")
+                .clearEncryptedDnsBootstrapIps()
+                .addAllEncryptedDnsBootstrapIps(listOf("8.8.8.8"))
+                .setEncryptedDnsDnscryptProviderName("2.dnscrypt-cert.example.test")
+                .setEncryptedDnsDnscryptPublicKey(
+                    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                ).build()
+                .toUiState()
+
+        assertEquals(DnsModeEncrypted, state.dnsMode)
+        assertEquals(DnsProviderCustom, state.dnsProviderId)
+        assertEquals("8.8.8.8", state.dnsIp)
+        assertEquals(EncryptedDnsProtocolDnsCrypt, state.encryptedDnsProtocol)
+        assertEquals("dnscrypt.example.test", state.encryptedDnsHost)
+        assertEquals(5443, state.encryptedDnsPort)
+        assertEquals("2.dnscrypt-cert.example.test", state.encryptedDnsDnscryptProviderName)
+        assertEquals(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            state.encryptedDnsDnscryptPublicKey,
+        )
+        assertEquals("Encrypted DNS · Custom resolver (DNSCrypt)", state.dnsSummary)
     }
 }
