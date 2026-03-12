@@ -154,6 +154,14 @@ data class TelemetrySampleEntity(
     val connectionState: String,
     val networkType: String,
     val publicIp: String?,
+    val resolverId: String? = null,
+    val resolverProtocol: String? = null,
+    val resolverEndpoint: String? = null,
+    val resolverLatencyMs: Long? = null,
+    val dnsFailuresTotal: Long = 0,
+    val resolverFallbackActive: Boolean = false,
+    val resolverFallbackReason: String? = null,
+    val networkHandoverClass: String? = null,
     val txPackets: Long,
     val txBytes: Long,
     val rxPackets: Long,
@@ -389,7 +397,7 @@ interface DiagnosticsDao {
         ExportRecordEntity::class,
         BypassUsageSessionEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -710,6 +718,20 @@ internal val DiagnosticsDatabaseMigration3To4 =
         }
     }
 
+internal val DiagnosticsDatabaseMigration4To5 =
+    object : Migration(4, 5) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN resolverId TEXT")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN resolverProtocol TEXT")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN resolverEndpoint TEXT")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN resolverLatencyMs INTEGER")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN dnsFailuresTotal INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN resolverFallbackActive INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN resolverFallbackReason TEXT")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN networkHandoverClass TEXT")
+        }
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DiagnosticsHistoryRepositoryModule {
@@ -732,7 +754,7 @@ object DiagnosticsDatabaseModule {
             context,
             DiagnosticsDatabase::class.java,
             "diagnostics.db",
-        ).addMigrations(DiagnosticsDatabaseMigration3To4).build()
+        ).addMigrations(DiagnosticsDatabaseMigration3To4, DiagnosticsDatabaseMigration4To5).build()
 
     @Provides
     @Singleton

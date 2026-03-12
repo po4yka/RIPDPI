@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DnsStatsSnapshot {
@@ -10,6 +11,11 @@ pub struct DnsStatsSnapshot {
     pub last_dns_host: Option<String>,
     pub last_dns_error: Option<String>,
     pub last_host: Option<String>,
+    pub resolver_endpoint: Option<String>,
+    pub resolver_latency_ms: Option<u64>,
+    pub resolver_latency_avg_ms: Option<u64>,
+    pub resolver_fallback_active: bool,
+    pub resolver_fallback_reason: Option<String>,
 }
 
 /// Per-tunnel traffic and DNS counters.
@@ -28,6 +34,11 @@ pub struct Stats {
     pub last_dns_host: Mutex<Option<String>>,
     pub last_dns_error: Mutex<Option<String>>,
     pub last_host: Mutex<Option<String>>,
+    pub resolver_endpoint: Mutex<Option<String>>,
+    pub resolver_latency_ms: Mutex<Option<u64>>,
+    pub resolver_latency_window: Mutex<VecDeque<u64>>,
+    pub resolver_fallback_active: AtomicU64,
+    pub resolver_fallback_reason: Mutex<Option<String>>,
 }
 
 impl Default for Stats {
@@ -50,6 +61,11 @@ impl Stats {
             last_dns_host: Mutex::new(None),
             last_dns_error: Mutex::new(None),
             last_host: Mutex::new(None),
+            resolver_endpoint: Mutex::new(None),
+            resolver_latency_ms: Mutex::new(None),
+            resolver_latency_window: Mutex::new(VecDeque::with_capacity(32)),
+            resolver_fallback_active: AtomicU64::new(0),
+            resolver_fallback_reason: Mutex::new(None),
         }
     }
 
@@ -71,10 +87,36 @@ impl Stats {
             last_dns_host: self.last_dns_host.lock().ok().and_then(|guard| guard.clone()),
             last_dns_error: self.last_dns_error.lock().ok().and_then(|guard| guard.clone()),
             last_host: self.last_host.lock().ok().and_then(|guard| guard.clone()),
+            resolver_endpoint: self.resolver_endpoint.lock().ok().and_then(|guard| guard.clone()),
+            resolver_latency_ms: self.resolver_latency_ms.lock().ok().and_then(|guard| *guard),
+            resolver_latency_avg_ms: self
+                .resolver_latency_window
+                .lock()
+                .ok()
+                .and_then(|guard| {
+                    if guard.is_empty() {
+                        None
+                    } else {
+                        Some(guard.iter().sum::<u64>() / guard.len() as u64)
+                    }
+                }),
+            resolver_fallback_active: self.resolver_fallback_active.load(Ordering::Relaxed) != 0,
+            resolver_fallback_reason: self
+                .resolver_fallback_reason
+                .lock()
+                .ok()
+                .and_then(|guard| guard.clone()),
         }
     }
 
-    pub fn record_dns_success(&self, host: &str, cache_hits: u64, cache_misses: u64) {
+    pub fn record_dns_success(
+        &self,
+        host: &str,
+        cache_hits: u64,
+        cache_misses: u64,
+        resolver_endpoint: Option<&str>,
+        resolver_latency_ms: Option<u64>,
+    ) {
         self.dns_queries_total.fetch_add(1, Ordering::Relaxed);
         self.dns_cache_hits.fetch_add(cache_hits, Ordering::Relaxed);
         self.dns_cache_misses.fetch_add(cache_misses, Ordering::Relaxed);
@@ -84,9 +126,23 @@ impl Stats {
         if let Ok(mut guard) = self.last_dns_error.lock() {
             *guard = None;
         }
+        if let Ok(mut guard) = self.resolver_endpoint.lock() {
+            *guard = resolver_endpoint.map(ToString::to_string);
+        }
+        if let Ok(mut guard) = self.resolver_latency_ms.lock() {
+            *guard = resolver_latency_ms;
+        }
+        if let Some(latency_ms) = resolver_latency_ms {
+            if let Ok(mut guard) = self.resolver_latency_window.lock() {
+                if guard.len() >= 32 {
+                    guard.pop_front();
+                }
+                guard.push_back(latency_ms);
+            }
+        }
     }
 
-    pub fn record_dns_failure(&self, host: Option<&str>, error: &str) {
+    pub fn record_dns_failure(&self, host: Option<&str>, error: &str, resolver_endpoint: Option<&str>) {
         self.dns_queries_total.fetch_add(1, Ordering::Relaxed);
         self.dns_failures_total.fetch_add(1, Ordering::Relaxed);
         if let Some(host) = host {
@@ -97,11 +153,22 @@ impl Stats {
         if let Ok(mut guard) = self.last_dns_error.lock() {
             *guard = Some(error.to_string());
         }
+        if let Ok(mut guard) = self.resolver_endpoint.lock() {
+            *guard = resolver_endpoint.map(ToString::to_string);
+        }
     }
 
     pub fn record_last_host(&self, host: Option<&str>) {
         if let Ok(mut guard) = self.last_host.lock() {
             *guard = host.map(ToString::to_string);
+        }
+    }
+
+    pub fn configure_resolver_fallback(&self, active: bool, reason: Option<&str>) {
+        self.resolver_fallback_active
+            .store(u64::from(active), Ordering::Relaxed);
+        if let Ok(mut guard) = self.resolver_fallback_reason.lock() {
+            *guard = reason.map(ToString::to_string);
         }
     }
 }
@@ -138,9 +205,10 @@ mod tests {
     #[test]
     fn dns_stats_record_success_and_failure() {
         let stats = Stats::new();
-        stats.record_dns_success("fixture.test", 1, 2);
+        stats.record_dns_success("fixture.test", 1, 2, Some("https://dns.example/dns-query"), Some(42));
         stats.record_last_host(Some("fixture.test"));
-        stats.record_dns_failure(Some("fixture.test"), "boom");
+        stats.record_dns_failure(Some("fixture.test"), "boom", Some("https://dns.example/dns-query"));
+        stats.configure_resolver_fallback(true, Some("temporary override"));
 
         let snapshot = stats.dns_snapshot();
         assert_eq!(snapshot.dns_queries_total, 2);
@@ -150,5 +218,10 @@ mod tests {
         assert_eq!(snapshot.last_dns_host.as_deref(), Some("fixture.test"));
         assert_eq!(snapshot.last_dns_error.as_deref(), Some("boom"));
         assert_eq!(snapshot.last_host.as_deref(), Some("fixture.test"));
+        assert_eq!(snapshot.resolver_endpoint.as_deref(), Some("https://dns.example/dns-query"));
+        assert_eq!(snapshot.resolver_latency_ms, Some(42));
+        assert_eq!(snapshot.resolver_latency_avg_ms, Some(42));
+        assert!(snapshot.resolver_fallback_active);
+        assert_eq!(snapshot.resolver_fallback_reason.as_deref(), Some("temporary override"));
     }
 }

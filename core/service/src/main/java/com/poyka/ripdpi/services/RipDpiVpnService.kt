@@ -3,6 +3,8 @@ package com.poyka.ripdpi.services
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.NativeRuntimeSnapshot
@@ -13,6 +15,7 @@ import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.service.R
+import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
@@ -60,6 +63,9 @@ class RipDpiVpnService : LifecycleVpnService() {
     @Inject
     lateinit var vpnAppExclusionPolicy: VpnAppExclusionPolicy
 
+    @Inject
+    lateinit var resolverOverrideStore: ResolverOverrideStore
+
     private var ripDpiProxy: RipDpiProxyRuntime? = null
     private var tun2SocksBridge: Tun2SocksBridge? = null
     private var proxyJob: Job? = null
@@ -67,6 +73,8 @@ class RipDpiVpnService : LifecycleVpnService() {
     private var tunSession: VpnTunnelSession? = null
     private val mutex = Mutex()
     private var stopping: Boolean = false
+    private var currentDnsSignature: String? = null
+    private var lastNetworkFingerprint: NetworkFingerprint? = null
 
     private var status: ServiceStatus = ServiceStatus.Disconnected
 
@@ -129,9 +137,14 @@ class RipDpiVpnService : LifecycleVpnService() {
 
         startForeground()
         try {
+            val settings = appSettingsRepository.snapshot()
+            val (effectiveDns, override) = resolveEffectiveDns(settings)
             mutex.withLock {
                 startProxy()
-                startTun2Socks()
+                startTun2Socks(
+                    activeDns = effectiveDns,
+                    overrideReason = override?.reason,
+                )
             }
             updateStatus(ServiceStatus.Connected)
             startTelemetryUpdates()
@@ -182,6 +195,9 @@ class RipDpiVpnService : LifecycleVpnService() {
                 shutdownError?.let { throw it }
             } finally {
                 stopping = false
+                currentDnsSignature = null
+                lastNetworkFingerprint = null
+                resolverOverrideStore.clear()
             }
         }
 
@@ -248,7 +264,10 @@ class RipDpiVpnService : LifecycleVpnService() {
         logcat(LogPriority.INFO) { "Proxy stopped" }
     }
 
-    private suspend fun startTun2Socks() {
+    private suspend fun startTun2Socks(
+        activeDns: ActiveDnsSettings,
+        overrideReason: String? = null,
+    ) {
         logcat(LogPriority.INFO) { "Starting tun2socks" }
 
         if (tunSession != null) {
@@ -257,7 +276,6 @@ class RipDpiVpnService : LifecycleVpnService() {
 
         val settings = appSettingsRepository.snapshot()
         val port = if (settings.proxyPort > 0) settings.proxyPort else 1080
-        val activeDns = settings.activeDnsSettings()
         val dns = if (activeDns.mode == DnsModeEncrypted) MAPDNS_ADDRESS else activeDns.dnsIp
         val ipv6 = settings.ipv6Enable
         val config =
@@ -303,6 +321,8 @@ class RipDpiVpnService : LifecycleVpnService() {
                         null
                     },
                 dnsQueryTimeoutMs = if (activeDns.mode == DnsModeEncrypted) DNS_QUERY_TIMEOUT_MS else null,
+                resolverFallbackActive = overrideReason != null,
+                resolverFallbackReason = overrideReason,
             )
 
         val session = vpnTunnelSessionProvider.establish(this, dns, ipv6)
@@ -312,6 +332,7 @@ class RipDpiVpnService : LifecycleVpnService() {
             tunnelBridge.start(config, session.tunFd)
             tun2SocksBridge = tunnelBridge
             tunSession = session
+            currentDnsSignature = dnsSignature(activeDns, overrideReason)
         } catch (e: Exception) {
             session.close()
             throw e
@@ -390,30 +411,140 @@ class RipDpiVpnService : LifecycleVpnService() {
         telemetryJob =
             lifecycleScope.launch {
                 while (status == ServiceStatus.Connected) {
+                    refreshEffectiveResolverIfNeeded()
                     val proxyTelemetry =
                         runCatching { ripDpiProxy?.pollTelemetry() }.getOrNull()
                             ?: NativeRuntimeSnapshot.idle(source = "proxy")
                     val tunnelTelemetry =
                         runCatching { tun2SocksBridge?.telemetry() }.getOrNull()
                             ?: NativeRuntimeSnapshot.idle(source = "tunnel")
+                    val enrichedTunnelTelemetry =
+                        tunnelTelemetry.copy(
+                            networkHandoverClass = deriveNetworkHandoverClass(),
+                        )
                     serviceStateStore.updateTelemetry(
                         ServiceTelemetrySnapshot(
                             mode = Mode.VPN,
                             status = AppStatus.Running,
-                            tunnelStats = tunnelTelemetry.tunnelStats,
+                            tunnelStats = enrichedTunnelTelemetry.tunnelStats,
                             proxyTelemetry = proxyTelemetry,
-                            tunnelTelemetry = tunnelTelemetry,
+                            tunnelTelemetry = enrichedTunnelTelemetry,
                             updatedAt =
                                 maxOf(
                                     System.currentTimeMillis(),
                                     proxyTelemetry.capturedAt,
-                                    tunnelTelemetry.capturedAt,
+                                    enrichedTunnelTelemetry.capturedAt,
                                 ),
                         ),
                     )
                     delay(1_000)
                 }
             }
+    }
+
+    private suspend fun refreshEffectiveResolverIfNeeded() {
+        val settings = appSettingsRepository.snapshot()
+        val persistedDns = settings.activeDnsSettings()
+        val currentOverride = resolverOverrideStore.override.value
+        if (currentOverride != null && currentOverride.matches(persistedDns)) {
+            resolverOverrideStore.clear()
+        }
+        val (effectiveDns, override) = resolveEffectiveDns(settings)
+        val desiredSignature = dnsSignature(effectiveDns, override?.reason)
+        if (desiredSignature == currentDnsSignature || tunSession == null) {
+            return
+        }
+
+        mutex.withLock {
+            if (status != ServiceStatus.Connected || tunSession == null) {
+                return
+            }
+            val latestSettings = appSettingsRepository.snapshot()
+            val (latestEffectiveDns, latestOverride) = resolveEffectiveDns(latestSettings)
+            val latestSignature = dnsSignature(latestEffectiveDns, latestOverride?.reason)
+            if (latestSignature == currentDnsSignature) {
+                return
+            }
+            stopTun2Socks()
+            startTun2Socks(
+                activeDns = latestEffectiveDns,
+                overrideReason = latestOverride?.reason,
+            )
+        }
+    }
+
+    private fun resolveEffectiveDns(
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ): Pair<ActiveDnsSettings, TemporaryResolverOverride?> {
+        val override = resolverOverrideStore.override.value
+        return if (override != null) {
+            override.toActiveDnsSettings() to override
+        } else {
+            settings.activeDnsSettings() to null
+        }
+    }
+
+    private fun dnsSignature(
+        activeDns: ActiveDnsSettings,
+        overrideReason: String?,
+    ): String =
+        listOf(
+            activeDns.mode,
+            activeDns.providerId,
+            activeDns.dnsIp,
+            activeDns.encryptedDnsProtocol,
+            activeDns.encryptedDnsHost,
+            activeDns.encryptedDnsPort.toString(),
+            activeDns.encryptedDnsTlsServerName,
+            activeDns.encryptedDnsBootstrapIps.joinToString(","),
+            activeDns.encryptedDnsDohUrl,
+            activeDns.encryptedDnsDnscryptProviderName,
+            activeDns.encryptedDnsDnscryptPublicKey,
+            overrideReason.orEmpty(),
+        ).joinToString("|")
+
+    private fun deriveNetworkHandoverClass(): String? {
+        val current = currentNetworkFingerprint()
+        val previous = lastNetworkFingerprint
+        lastNetworkFingerprint = current
+        return when {
+            previous == null || previous == current -> null
+            current == null -> "connectivity_loss"
+            previous.transportLabel != current.transportLabel -> "transport_switch"
+            previous != current -> "link_refresh"
+            else -> null
+        }
+    }
+
+    private fun currentNetworkFingerprint(): NetworkFingerprint? {
+        val connectivityManager = getSystemService(ConnectivityManager::class.java) ?: return null
+        val network = connectivityManager.activeNetwork ?: return null
+        val capabilities = connectivityManager.getNetworkCapabilities(network)
+        val linkProperties = connectivityManager.getLinkProperties(network)
+        return NetworkFingerprint(
+            transportLabel = capabilities.transportLabel(),
+            interfaceName = linkProperties?.interfaceName,
+            dnsServers = linkProperties?.dnsServers.orEmpty().map { it.hostAddress.orEmpty() },
+        )
+    }
+
+    private data class NetworkFingerprint(
+        val transportLabel: String,
+        val interfaceName: String?,
+        val dnsServers: List<String>,
+    )
+
+    private fun NetworkCapabilities?.transportLabel(): String {
+        if (this == null) {
+            return "unknown"
+        }
+        return when {
+            hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+            hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+            hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
+            hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
+            else -> "other"
+        }
     }
 
     private fun createNotification(): Notification =

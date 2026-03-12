@@ -21,7 +21,13 @@
       "source": "tunnel"
     }
   ],
+  "networkHandoverClass": null,
+  "resolverEndpoint": null,
+  "resolverFallbackActive": false,
+  "resolverFallbackReason": null,
   "resolverId": null,
+  "resolverLatencyAvgMs": null,
+  "resolverLatencyMs": null,
   "resolverProtocol": null,
   "routeChanges": 0,
   "source": "tunnel",

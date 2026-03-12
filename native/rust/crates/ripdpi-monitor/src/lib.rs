@@ -72,6 +72,8 @@ pub struct DnsTarget {
     #[serde(default)]
     pub udp_server: Option<String>,
     #[serde(default)]
+    pub encrypted_resolver_id: Option<String>,
+    #[serde(default)]
     pub encrypted_protocol: Option<String>,
     #[serde(default)]
     pub encrypted_host: Option<String>,
@@ -1538,7 +1540,10 @@ fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(EncryptedDns
     Ok((
         EncryptedDnsEndpoint {
             protocol,
-            resolver_id: Some(protocol.as_str().to_string()),
+            resolver_id: target
+                .encrypted_resolver_id
+                .clone()
+                .or_else(|| Some(protocol.as_str().to_string())),
             host,
             port,
             tls_server_name: target.encrypted_tls_server_name.clone(),
@@ -1564,8 +1569,12 @@ fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &Sc
             };
         }
     };
+    let udp_started = std::time::Instant::now();
     let udp_result = resolve_via_udp(&target.domain, &udp_server, transport);
+    let udp_latency_ms = udp_started.elapsed().as_millis().to_string();
+    let encrypted_started = std::time::Instant::now();
     let encrypted_result = resolve_via_encrypted_dns(&target.domain, encrypted_endpoint.clone(), transport);
+    let encrypted_latency_ms = encrypted_started.elapsed().as_millis().to_string();
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
 
     let outcome = match (&udp_result, &encrypted_result) {
@@ -1595,6 +1604,11 @@ fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &Sc
         details: vec![
             ProbeDetail { key: "udpServer".to_string(), value: udp_server },
             ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(&udp_result) },
+            ProbeDetail { key: "udpLatencyMs".to_string(), value: udp_latency_ms },
+            ProbeDetail {
+                key: "encryptedResolverId".to_string(),
+                value: encrypted_endpoint.resolver_id.clone().unwrap_or_default(),
+            },
             ProbeDetail {
                 key: "encryptedProtocol".to_string(),
                 value: encrypted_endpoint.protocol.as_str().to_string(),
@@ -1608,6 +1622,7 @@ fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &Sc
             },
             ProbeDetail { key: "encryptedBootstrapIps".to_string(), value: encrypted_bootstrap_ips.join("|") },
             ProbeDetail { key: "encryptedAddresses".to_string(), value: format_result_set(&encrypted_result) },
+            ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms },
             ProbeDetail {
                 key: "expected".to_string(),
                 value: if expected.is_empty() {
@@ -2785,6 +2800,7 @@ mod tests {
         let target = DnsTarget {
             domain: "blocked.example".to_string(),
             udp_server: Some(udp.addr()),
+            encrypted_resolver_id: None,
             encrypted_protocol: None,
             encrypted_host: None,
             encrypted_port: None,
@@ -2808,6 +2824,7 @@ mod tests {
         let target = DnsTarget {
             domain: "blocked.example".to_string(),
             udp_server: Some(udp.addr()),
+            encrypted_resolver_id: None,
             encrypted_protocol: None,
             encrypted_host: None,
             encrypted_port: None,
@@ -2833,6 +2850,7 @@ mod tests {
         let target = DnsTarget {
             domain: "blocked.example".to_string(),
             udp_server: Some(udp.addr()),
+            encrypted_resolver_id: None,
             encrypted_protocol: None,
             encrypted_host: None,
             encrypted_port: None,
