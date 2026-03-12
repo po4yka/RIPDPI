@@ -48,6 +48,7 @@ fun SettingsRoute(
     onOpenAdvancedSettings: () -> Unit,
     onOpenCustomization: () -> Unit,
     onOpenAbout: () -> Unit,
+    onShareDebugBundle: () -> Unit,
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
     modifier: Modifier = Modifier,
@@ -61,6 +62,7 @@ fun SettingsRoute(
         onOpenAdvancedSettings = onOpenAdvancedSettings,
         onOpenCustomization = onOpenCustomization,
         onOpenAbout = onOpenAbout,
+        onShareDebugBundle = onShareDebugBundle,
         permissionSummary = permissionSummary,
         onRepairPermission = onRepairPermission,
         onThemeSelected = viewModel::setAppTheme,
@@ -78,6 +80,7 @@ internal fun SettingsScreen(
     onOpenAdvancedSettings: () -> Unit,
     onOpenCustomization: () -> Unit,
     onOpenAbout: () -> Unit,
+    onShareDebugBundle: () -> Unit,
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
     onThemeSelected: (String) -> Unit,
@@ -264,6 +267,13 @@ internal fun SettingsScreen(
                 title = stringResource(R.string.settings_support_section),
             ) {
                 SettingsRow(
+                    title = stringResource(R.string.settings_support_debug_bundle_title),
+                    subtitle = stringResource(R.string.settings_support_debug_bundle_body),
+                    value = stringResource(R.string.settings_share_debug_bundle_action),
+                    onClick = onShareDebugBundle,
+                    showDivider = true,
+                )
+                SettingsRow(
                     title = stringResource(R.string.about_category),
                     subtitle = stringResource(R.string.settings_about_body),
                     value = BuildConfig.VERSION_NAME,
@@ -376,6 +386,7 @@ private fun SettingsScreenPreview() {
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},
             onOpenAbout = {},
+            onShareDebugBundle = {},
             permissionSummary = PermissionSummaryUiState(),
             onRepairPermission = {},
             onThemeSelected = {},
@@ -403,6 +414,7 @@ private fun SettingsScreenDarkPreview() {
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},
             onOpenAbout = {},
+            onShareDebugBundle = {},
             permissionSummary = PermissionSummaryUiState(),
             onRepairPermission = {},
             onThemeSelected = {},
