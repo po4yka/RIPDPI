@@ -45,6 +45,7 @@ extensions.configure<ApplicationExtension> {
         }
         debug {
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}-debug\"")
+            enableAndroidTestCoverage = true
         }
     }
 
@@ -86,10 +87,15 @@ dependencies {
     implementation(libs.okhttp)
 
     testImplementation(libs.bundles.unit.test)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.uiautomator)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

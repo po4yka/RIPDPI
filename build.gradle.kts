@@ -1,3 +1,6 @@
+import org.gradle.api.Project
+import org.gradle.testing.jacoco.tasks.JacocoReport
+
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
     alias(libs.plugins.android.application) apply false
@@ -9,6 +12,82 @@ plugins {
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.ktlint) apply false
     alias(libs.plugins.roborazzi) apply false
+    jacoco
+}
+
+val coverageModules =
+    listOf(
+        project(":app"),
+        project(":core:data"),
+        project(":core:diagnostics"),
+        project(":core:engine"),
+        project(":core:service"),
+    )
+
+val kotlinCoverageExcludes =
+    listOf(
+        "**/R.class",
+        "**/R\$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*_Factory.class",
+        "**/*_Factory\$*.class",
+        "**/*_MembersInjector.class",
+        "**/Hilt_*.*",
+        "**/*Hilt*.*",
+        "**/*_HiltModules*.*",
+        "**/*ComposableSingletons*.*",
+        "**/*Preview*.*",
+        "**/*\$serializer.class",
+        "**/*\$Companion.class",
+        "**/com/poyka/ripdpi/proto/**",
+        "**/com/poyka/ripdpi/data/schemas/**",
+    )
+
+fun Project.kotlinDebugCoverageClasses() =
+    files(
+        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+            exclude(kotlinCoverageExcludes)
+        },
+        fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
+            exclude(kotlinCoverageExcludes)
+        },
+    )
+
+fun Project.kotlinDebugCoverageExecutionData() =
+    fileTree(layout.buildDirectory) {
+        include("jacoco/testDebugUnitTest.exec")
+        include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    }
+
+tasks.register<JacocoReport>("kotlinCoverageReport") {
+    group = "verification"
+    description = "Aggregates Kotlin debug unit test JaCoCo reports across Android modules."
+    dependsOn(coverageModules.map { "${it.path}:jacocoDebugUnitTestReport" })
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    sourceDirectories.setFrom(
+        coverageModules.flatMap { module ->
+            listOf(
+                module.file("src/main/java"),
+                module.file("src/main/kotlin"),
+            )
+        },
+    )
+    classDirectories.setFrom(coverageModules.map { it.kotlinDebugCoverageClasses() })
+    executionData.setFrom(coverageModules.map { it.kotlinDebugCoverageExecutionData() })
+    onlyIf { executionData.files.any { it.exists() } }
+}
+
+tasks.register("coverageReport") {
+    group = "verification"
+    description = "Runs aggregate Kotlin coverage reporting."
+    dependsOn("kotlinCoverageReport")
 }
 
 tasks.register("staticAnalysis") {

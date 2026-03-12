@@ -29,4 +29,6 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.bundles.unit.test)
+    testImplementation(libs.androidx.test.core.ktx)
+    testImplementation(libs.androidx.room.testing)
 }
