@@ -106,6 +106,7 @@ class DefaultDiagnosticsManager
         @ApplicationContext private val context: Context,
         private val appSettingsRepository: AppSettingsRepository,
         private val historyRepository: DiagnosticsHistoryRepository,
+        private val logcatSnapshotCollector: LogcatSnapshotCollector = LogcatSnapshotCollector(),
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
             DefaultRememberedNetworkPolicyStore(historyRepository),
         private val networkMetadataProvider: NetworkMetadataProvider,
@@ -527,6 +528,7 @@ class DefaultDiagnosticsManager
             val telemetry = historyRepository.observeTelemetry(limit = ArchiveTelemetryLimit).first()
             val events = historyRepository.observeNativeEvents(limit = ArchiveGlobalEventLimit).first()
             val contexts = historyRepository.observeContexts(limit = ArchiveSnapshotLimit).first()
+            val logcatSnapshot = runCatching { logcatSnapshotCollector.capture() }.getOrNull()
             val approachSummaries = buildApproachSummaries(scanSessions = sessions, usageSessions = usageSessions)
             val primarySession =
                 sessionId
@@ -605,6 +607,7 @@ class DefaultDiagnosticsManager
                         telemetry = telemetry,
                         globalEvents = globalEvents,
                         selectedApproach = selectedApproachSummary,
+                        logcatSnapshot = logcatSnapshot,
                     )
                 zip.write(summary.toByteArray())
                 zip.closeEntry()
@@ -613,6 +616,12 @@ class DefaultDiagnosticsManager
                 val reportJson = json.encodeToString(DiagnosticsArchivePayload.serializer(), payload)
                 zip.write(reportJson.toByteArray())
                 zip.closeEntry()
+
+                logcatSnapshot?.let { snapshot ->
+                    zip.putNextEntry(ZipEntry("logcat.txt"))
+                    zip.write(snapshot.content.toByteArray())
+                    zip.closeEntry()
+                }
 
                 zip.putNextEntry(ZipEntry("telemetry.csv"))
                 val csv =
@@ -670,6 +679,9 @@ class DefaultDiagnosticsManager
                             selectedApproach = selectedApproachSummary,
                             networkSummary = latestSnapshotModel?.toRedactedSummary(),
                             contextSummary = (sessionContextModel ?: latestContextModel)?.toRedactedSummary(),
+                            logcatIncluded = logcatSnapshot != null,
+                            logcatCaptureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
+                            logcatByteCount = logcatSnapshot?.byteCount ?: 0,
                         ),
                     )
                 zip.write(manifest.toByteArray())
@@ -789,12 +801,16 @@ class DefaultDiagnosticsManager
         telemetry: List<TelemetrySampleEntity>,
         globalEvents: List<NativeSessionEventEntity>,
         selectedApproach: BypassApproachSummary?,
+        logcatSnapshot: LogcatSnapshot?,
     ): String =
         buildString {
             appendLine("RIPDPI diagnostics archive")
             appendLine("generatedAt=$createdAt")
             appendLine("scope=$ArchiveScopeHybrid")
             appendLine("privacyMode=$ArchivePrivacyMode")
+            appendLine("logcatIncluded=${logcatSnapshot != null}")
+            appendLine("logcatCaptureScope=${LogcatSnapshotCollector.AppVisibleSnapshotScope}")
+            appendLine("logcatByteCount=${logcatSnapshot?.byteCount ?: 0}")
             appendLine("selectedSession=${session?.id ?: "latest-live"}")
             session?.let {
                 appendLine("pathMode=${it.pathMode}")
@@ -1483,6 +1499,9 @@ internal data class DiagnosticsArchiveManifest(
     val selectedApproach: BypassApproachSummary?,
     val networkSummary: RedactedNetworkSummary?,
     val contextSummary: RedactedDiagnosticContextSummary?,
+    val logcatIncluded: Boolean,
+    val logcatCaptureScope: String,
+    val logcatByteCount: Int,
 )
 
 @Serializable
