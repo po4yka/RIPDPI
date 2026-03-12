@@ -1421,6 +1421,7 @@ private fun AdvancedSettingsScreen(
     val visualEditorEnabled = !uiState.enableCmdSettings
     val hostPackApplyControlsEnabled = hostPackApplyEnabled(uiState)
     val showHostFakeSection = uiState.showHostFakeProfile
+    val showFakeApproxSection = uiState.showFakeApproximationProfile
     val showQuicFakeSection = uiState.showQuicFakeProfile
     val showFakePayloadLibrary = uiState.showFakePayloadLibrary
     val showAdaptiveFakeTtlSection = uiState.showAdaptiveFakeTtlProfile
@@ -1765,10 +1766,24 @@ private fun AdvancedSettingsScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
                         setting = AdvancedTextSetting.ChainDsl,
                         onConfirm = onTextConfirmed,
-                        showDivider = showHostFakeSection || showAdaptiveFakeTtlSection || showFakeTlsSection || uiState.isOob,
+                        showDivider =
+                            showHostFakeSection ||
+                                showFakeApproxSection ||
+                                showAdaptiveFakeTtlSection ||
+                                showFakeTlsSection ||
+                                uiState.isOob,
                     )
                     if (showHostFakeSection) {
                         HostFakeProfileCard(
+                            uiState = uiState,
+                            modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+                        )
+                        if (showFakeApproxSection || showAdaptiveFakeTtlSection || showFakeTlsSection || uiState.isOob) {
+                            HorizontalDivider(color = colors.divider)
+                        }
+                    }
+                    if (showFakeApproxSection) {
+                        FakeApproximationProfileCard(
                             uiState = uiState,
                             modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                         )
@@ -4841,6 +4856,12 @@ private data class HostFakeStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+private data class FakeApproximationStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
 private data class QuicFakeStatusContent(
     val label: String,
     val body: String,
@@ -4860,6 +4881,173 @@ private enum class SummaryCapsuleTone {
     Info,
     Warning,
 }
+
+@Composable
+private fun FakeApproximationProfileCard(
+    uiState: SettingsUiState,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val status = rememberFakeApproximationStatus(uiState)
+    val primaryStep = uiState.primaryFakeApproximationStep
+    val profileSummary =
+        when (uiState.fakeApproximationStepCount) {
+            0 -> stringResource(R.string.ripdpi_fake_approx_summary_profile_none)
+            1 -> stringResource(R.string.ripdpi_fake_approx_summary_profile_single)
+            else -> stringResource(R.string.ripdpi_fake_approx_summary_profile_multiple, uiState.fakeApproximationStepCount)
+        }
+    val scopeSummary =
+        when {
+            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled ->
+                stringResource(R.string.ripdpi_fake_approx_summary_scope_http_https)
+            uiState.desyncHttpEnabled -> stringResource(R.string.ripdpi_fake_approx_summary_scope_http)
+            uiState.desyncHttpsEnabled -> stringResource(R.string.ripdpi_fake_approx_summary_scope_https)
+            else -> stringResource(R.string.ripdpi_fake_approx_summary_scope_none)
+        }
+    val modeSummary =
+        when (primaryStep?.kind) {
+            TcpChainStepKind.FakeSplit -> stringResource(R.string.ripdpi_fake_approx_summary_mode_fakedsplit)
+            TcpChainStepKind.FakeDisorder -> stringResource(R.string.ripdpi_fake_approx_summary_mode_fakeddisorder)
+            else -> stringResource(R.string.ripdpi_fake_approx_summary_mode_none)
+        }
+    val markerSummary =
+        primaryStep
+            ?.marker
+            ?.takeIf { it.isNotBlank() }
+            ?: stringResource(R.string.ripdpi_fake_approx_summary_marker_none)
+    val transportSummary =
+        when (primaryStep?.kind) {
+            TcpChainStepKind.FakeSplit -> stringResource(R.string.ripdpi_fake_approx_summary_transport_fakedsplit)
+            TcpChainStepKind.FakeDisorder -> stringResource(R.string.ripdpi_fake_approx_summary_transport_fakeddisorder)
+            else -> stringResource(R.string.ripdpi_fake_approx_summary_transport_none)
+        }
+    val badges =
+        buildList {
+            add(
+                (
+                    if (uiState.hasFakeApproximation) {
+                        stringResource(R.string.ripdpi_fake_approx_badge_configured)
+                    } else {
+                        stringResource(R.string.ripdpi_fake_approx_badge_available)
+                    }
+                ) to
+                    if (uiState.hasFakeApproximation) {
+                        SummaryCapsuleTone.Active
+                    } else {
+                        SummaryCapsuleTone.Neutral
+                    },
+            )
+            add(stringResource(R.string.ripdpi_fake_approx_badge_linux_android) to SummaryCapsuleTone.Info)
+            if (uiState.desyncHttpEnabled) {
+                add(stringResource(R.string.ripdpi_fake_approx_badge_http) to SummaryCapsuleTone.Info)
+            }
+            if (uiState.desyncHttpsEnabled) {
+                add(stringResource(R.string.ripdpi_fake_approx_badge_https) to SummaryCapsuleTone.Info)
+            }
+            if (uiState.hasFakeSplitApproximation) {
+                add(stringResource(R.string.ripdpi_fake_approx_badge_fakedsplit) to SummaryCapsuleTone.Active)
+            }
+            if (uiState.hasFakeDisorderApproximation) {
+                add(stringResource(R.string.ripdpi_fake_approx_badge_fakeddisorder) to SummaryCapsuleTone.Warning)
+            }
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Tonal,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        SummaryCapsuleFlow(items = badges)
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_approx_summary_label_profile),
+                value = profileSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_approx_summary_label_scope),
+                value = scopeSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_approx_summary_label_mode),
+                value = modeSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_approx_summary_label_marker),
+                value = markerSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_approx_summary_label_shared),
+                value = stringResource(R.string.ripdpi_fake_approx_summary_shared),
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_approx_summary_label_transport),
+                value = transportSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_approx_summary_label_http_example),
+                value = stringResource(R.string.ripdpi_fake_approx_example_http),
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.ripdpi_fake_approx_summary_label_tls_example),
+                value = stringResource(R.string.ripdpi_fake_approx_example_tls),
+            )
+        }
+        Text(
+            text = stringResource(R.string.ripdpi_fake_approx_scope_note),
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+    }
+}
+
+@Composable
+private fun rememberFakeApproximationStatus(uiState: SettingsUiState): FakeApproximationStatusContent =
+    when {
+        uiState.enableCmdSettings ->
+            FakeApproximationStatusContent(
+                label = stringResource(R.string.ripdpi_fake_approx_cli_title),
+                body = stringResource(R.string.ripdpi_fake_approx_cli_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        !uiState.fakeApproximationControlsRelevant ->
+            FakeApproximationStatusContent(
+                label = stringResource(R.string.ripdpi_fake_approx_protocols_off_title),
+                body = stringResource(R.string.ripdpi_fake_approx_protocols_off_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        uiState.hasFakeApproximation && uiState.isServiceRunning ->
+            FakeApproximationStatusContent(
+                label = stringResource(R.string.ripdpi_fake_approx_restart_title),
+                body = stringResource(R.string.ripdpi_fake_approx_restart_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.hasFakeApproximation ->
+            FakeApproximationStatusContent(
+                label = stringResource(R.string.ripdpi_fake_approx_ready_title),
+                body = stringResource(R.string.ripdpi_fake_approx_ready_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        else ->
+            FakeApproximationStatusContent(
+                label = stringResource(R.string.ripdpi_fake_approx_available_title),
+                body = stringResource(R.string.ripdpi_fake_approx_available_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+    }
 
 @Composable
 private fun HostFakeProfileCard(
