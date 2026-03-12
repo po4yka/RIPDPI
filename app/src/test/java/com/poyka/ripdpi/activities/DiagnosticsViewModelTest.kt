@@ -39,6 +39,9 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
+import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
+import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -858,6 +861,96 @@ class DiagnosticsViewModelTest {
             val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
             assertTrue(signature.any { it.label == "QUIC fake profile" && it.value == "Zapret compatibility" })
             assertFalse(signature.any { it.label == "QUIC fake host" })
+            collector.cancel()
+        }
+
+    @Test
+    fun `approaches detail humanizes fake payload library profiles`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-fake-payload-library",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "disabled",
+                            desyncMethod = "fake",
+                            chainSummary = "tcp: fake(host) | udp: fake_burst(3)",
+                            protocolToggles = listOf("HTTP", "HTTPS", "UDP"),
+                            tlsRecordSplitEnabled = false,
+                            httpFakeProfile = HttpFakeProfileCloudflareGet,
+                            tlsFakeProfile = TlsFakeProfileGoogleChrome,
+                            udpFakeProfile = UdpFakeProfileDnsQuery,
+                            routeGroup = "8",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-fake-payload-library")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(signature.any { it.label == "HTTP fake profile" && it.value == "Cloudflare GET" })
+            assertTrue(signature.any { it.label == "TLS fake profile" && it.value == "Google Chrome" })
+            assertTrue(signature.any { it.label == "UDP fake profile" && it.value == "DNS query" })
+            assertFalse(signature.any { it.label == "Fake payload source" })
+            collector.cancel()
+        }
+
+    @Test
+    fun `approaches detail prefers custom raw fake payload source over library labels`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-custom-raw-fake",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "command line",
+                            hostAutolearn = "command line",
+                            desyncMethod = "fake",
+                            chainSummary = "tcp: fake(host)",
+                            protocolToggles = listOf("HTTP", "HTTPS"),
+                            tlsRecordSplitEnabled = false,
+                            fakePayloadSource = "custom_raw",
+                            routeGroup = "11",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-custom-raw-fake")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(signature.any { it.label == "Fake payload source" && it.value == "Custom raw fake payload" })
+            assertFalse(signature.any { it.label == "HTTP fake profile" })
+            assertFalse(signature.any { it.label == "TLS fake profile" })
+            assertFalse(signature.any { it.label == "UDP fake profile" })
             collector.cancel()
         }
 
