@@ -359,6 +359,33 @@ data class SettingsUiState(
     val showHostFakeProfile: Boolean
         get() = enableCmdSettings || hasHostFake || hostFakeControlsRelevant
 
+    val fakeApproximationSteps: List<TcpChainStepModel>
+        get() =
+            tcpChainSteps.filter {
+                it.kind == TcpChainStepKind.FakeSplit || it.kind == TcpChainStepKind.FakeDisorder
+            }
+
+    val fakeApproximationStepCount: Int
+        get() = fakeApproximationSteps.size
+
+    val hasFakeApproximation: Boolean
+        get() = fakeApproximationStepCount > 0
+
+    val primaryFakeApproximationStep: TcpChainStepModel?
+        get() = fakeApproximationSteps.firstOrNull()
+
+    val hasFakeSplitApproximation: Boolean
+        get() = fakeApproximationSteps.any { it.kind == TcpChainStepKind.FakeSplit }
+
+    val hasFakeDisorderApproximation: Boolean
+        get() = fakeApproximationSteps.any { it.kind == TcpChainStepKind.FakeDisorder }
+
+    val fakeApproximationControlsRelevant: Boolean
+        get() = desyncHttpEnabled || desyncHttpsEnabled
+
+    val showFakeApproximationProfile: Boolean
+        get() = enableCmdSettings || hasFakeApproximation || fakeApproximationControlsRelevant
+
     val httpParserSafeCount: Int
         get() = listOf(hostMixedCase, domainMixedCase, hostRemoveSpaces).count { it }
 

@@ -60,6 +60,10 @@ class SettingsUiStateTest {
         assertEquals(0, state.hostFakeStepCount)
         assertTrue(state.hostFakeControlsRelevant)
         assertTrue(state.showHostFakeProfile)
+        assertFalse(state.hasFakeApproximation)
+        assertEquals(0, state.fakeApproximationStepCount)
+        assertTrue(state.fakeApproximationControlsRelevant)
+        assertTrue(state.showFakeApproximationProfile)
         assertFalse(state.isOob)
         assertEquals(FakeTlsSniModeFixed, state.fakeTlsSniMode)
         assertEquals(0, state.fakeTlsSize)
@@ -299,6 +303,13 @@ class SettingsUiStateTest {
         assertTrue(state.tlsFakeProfileActiveInStrategy)
         assertTrue(state.fakeTlsControlsRelevant)
         assertTrue(state.showAdaptiveFakeTtlProfile)
+        assertTrue(state.hasFakeApproximation)
+        assertEquals(1, state.fakeApproximationStepCount)
+        assertTrue(state.hasFakeSplitApproximation)
+        assertFalse(state.hasFakeDisorderApproximation)
+        assertEquals(TcpChainStepKind.FakeSplit, state.primaryFakeApproximationStep?.kind)
+        assertEquals("host+1", state.primaryFakeApproximationStep?.marker)
+        assertTrue(state.showFakeApproximationProfile)
     }
 
     @Test
@@ -319,7 +330,74 @@ class SettingsUiStateTest {
         assertTrue(state.isFake)
         assertTrue(state.usesFakeTransport)
         assertTrue(state.showAdaptiveFakeTtlProfile)
+        assertTrue(state.hasFakeApproximation)
+        assertFalse(state.hasFakeSplitApproximation)
+        assertTrue(state.hasFakeDisorderApproximation)
+        assertEquals(TcpChainStepKind.FakeDisorder, state.primaryFakeApproximationStep?.kind)
         assertEquals("tcp: fakeddisorder(endhost)", state.chainSummary)
+    }
+
+    @Test
+    fun `fake approximation guidance hides when no relevant protocols are enabled`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.fakeApproximationControlsRelevant)
+        assertFalse(state.showFakeApproximationProfile)
+    }
+
+    @Test
+    fun `fake approximation profile remains visible in command line mode`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setEnableCmdSettings(true)
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.enableCmdSettings)
+        assertFalse(state.fakeApproximationControlsRelevant)
+        assertTrue(state.showFakeApproximationProfile)
+    }
+
+    @Test
+    fun `multiple fake approximation steps preserve primary step ordering`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("fakedsplit")
+                        .setMarker("host+1")
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("fakeddisorder")
+                        .setMarker("endhost")
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.hasFakeApproximation)
+        assertEquals(2, state.fakeApproximationStepCount)
+        assertTrue(state.hasFakeSplitApproximation)
+        assertTrue(state.hasFakeDisorderApproximation)
+        assertEquals(TcpChainStepKind.FakeSplit, state.primaryFakeApproximationStep?.kind)
+        assertEquals("host+1", state.primaryFakeApproximationStep?.marker)
     }
 
     @Test
