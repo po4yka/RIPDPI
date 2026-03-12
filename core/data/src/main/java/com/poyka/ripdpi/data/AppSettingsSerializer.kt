@@ -58,6 +58,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setHostAutolearnEnabled(false)
             .setHostAutolearnPenaltyTtlHours(DefaultHostAutolearnPenaltyTtlHours)
             .setHostAutolearnMaxHosts(DefaultHostAutolearnMaxHosts)
+            .setNetworkStrategyMemoryEnabled(false)
             .setAppIconVariant("default")
             .setAppIconStyle("themed")
             .setDiagnosticsMonitorEnabled(true)

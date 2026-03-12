@@ -188,6 +188,8 @@ pub struct ProxyUiConfig {
     pub host_autolearn_max_hosts: usize,
     #[serde(default)]
     pub host_autolearn_store_path: Option<String>,
+    #[serde(default)]
+    pub network_scope_key: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -346,6 +348,12 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned);
+    config.network_scope_key = payload
+        .network_scope_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
     if payload.custom_ttl {
         let ttl = u8::try_from(payload.default_ttl)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid defaultTtl".to_string()))?;
@@ -484,16 +492,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 max_fragment_size,
             });
         }
-    } else {
-        let part_offset = parse_offset_expr_field(
-            payload.split_marker.as_deref(),
-            || legacy_marker_expression(payload.split_position, payload.split_at_host),
-            "splitMarker",
-        )?;
-        let desync_mode = parse_desync_mode(&payload.desync_method)?;
-        if desync_mode != DesyncMode::None {
         validate_tcp_chain(&group.tcp_chain)?;
-            group.parts.push(PartSpec { mode: desync_mode, offset: part_offset });
+    } else {
         if payload.tls_record_split {
             let expr = parse_offset_expr_field(
                 payload.tls_record_split_marker.as_deref(),
@@ -504,6 +504,14 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, expr));
         }
 
+        let part_offset = parse_offset_expr_field(
+            payload.split_marker.as_deref(),
+            || legacy_marker_expression(payload.split_position, payload.split_at_host),
+            "splitMarker",
+        )?;
+        let desync_mode = parse_desync_mode(&payload.desync_method)?;
+        if desync_mode != DesyncMode::None {
+            group.parts.push(PartSpec { mode: desync_mode, offset: part_offset });
             if let Some(kind) = TcpChainStepKind::from_mode(desync_mode) {
                 group.tcp_chain.push(TcpChainStep::new(kind, part_offset));
             }
@@ -608,6 +616,8 @@ pub fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, ProxyC
         "split" => Ok(TcpChainStepKind::Split),
         "disorder" => Ok(TcpChainStepKind::Disorder),
         "fake" => Ok(TcpChainStepKind::Fake),
+        "fakedsplit" => Ok(TcpChainStepKind::FakeSplit),
+        "fakeddisorder" => Ok(TcpChainStepKind::FakeDisorder),
         "hostfake" => Ok(TcpChainStepKind::HostFake),
         "oob" => Ok(TcpChainStepKind::Oob),
         "disoob" => Ok(TcpChainStepKind::Disoob),
@@ -616,21 +626,11 @@ pub fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, ProxyC
         _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown tcpChainSteps kind: {value}"))),
     }
 }
-        "fakedsplit" => Ok(TcpChainStepKind::FakeSplit),
-        "fakeddisorder" => Ok(TcpChainStepKind::FakeDisorder),
 
 fn normalize_tlsrandrec_step_field(value: i32, default: i32) -> i32 {
     if value > 0 { value } else { default }
 }
 
-pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyConfigError> {
-    match value {
-        "fake_burst" => Ok(UdpChainStepKind::FakeBurst),
-        _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown udpChainSteps kind: {value}"))),
-    }
-}
-
-pub fn parse_quic_initial_mode(value: &str) -> Result<QuicInitialMode, ProxyConfigError> {
 fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
     let mut saw_send_step = false;
     for (index, step) in steps.iter().enumerate() {
@@ -663,6 +663,14 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
     Ok(())
 }
 
+pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyConfigError> {
+    match value {
+        "fake_burst" => Ok(UdpChainStepKind::FakeBurst),
+        _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown udpChainSteps kind: {value}"))),
+    }
+}
+
+pub fn parse_quic_initial_mode(value: &str) -> Result<QuicInitialMode, ProxyConfigError> {
     match value.trim().to_lowercase().as_str() {
         "disabled" => Ok(QuicInitialMode::Disabled),
         "route" => Ok(QuicInitialMode::Route),
@@ -799,6 +807,7 @@ mod tests {
             host_autolearn_penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
+            network_scope_key: None,
         }
     }
 
@@ -833,15 +842,6 @@ mod tests {
         assert_eq!(config.groups[0].tcp_chain[0].kind, TcpChainStepKind::HostFake);
         assert_eq!(config.groups[0].udp_chain[0].count, 3);
     }
-
-    #[test]
-    fn ui_payload_parses_fake_payload_profiles() {
-        let mut ui = minimal_ui();
-        ui.http_fake_profile = "cloudflare_get".to_string();
-        ui.tls_fake_profile = "google_chrome".to_string();
-        ui.udp_fake_profile = "dns_query".to_string();
-
-        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
 
     #[test]
     fn ui_payload_treats_fake_approx_steps_as_fake_payload_consumers() {
@@ -901,6 +901,15 @@ mod tests {
 
         assert!(err.to_string().contains("fakedsplit"));
     }
+
+    #[test]
+    fn ui_payload_parses_fake_payload_profiles() {
+        let mut ui = minimal_ui();
+        ui.http_fake_profile = "cloudflare_get".to_string();
+        ui.tls_fake_profile = "google_chrome".to_string();
+        ui.udp_fake_profile = "dns_query".to_string();
+
+        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
 
         assert_eq!(config.groups[0].http_fake_profile, HttpFakeProfile::CloudflareGet);
         assert_eq!(config.groups[0].tls_fake_profile, TlsFakeProfile::GoogleChrome);

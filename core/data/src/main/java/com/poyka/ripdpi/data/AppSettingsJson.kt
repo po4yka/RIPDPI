@@ -122,6 +122,7 @@ internal data class AppSettingsSnapshot(
     val hostAutolearnEnabled: Boolean = defaultSettings.hostAutolearnEnabled,
     val hostAutolearnPenaltyTtlHours: Int = defaultSettings.hostAutolearnPenaltyTtlHours,
     val hostAutolearnMaxHosts: Int = defaultSettings.hostAutolearnMaxHosts,
+    val networkStrategyMemoryEnabled: Boolean = defaultSettings.networkStrategyMemoryEnabled,
     val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
@@ -233,6 +234,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         hostAutolearnEnabled = hostAutolearnEnabled,
         hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
         hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
+        networkStrategyMemoryEnabled = networkStrategyMemoryEnabled,
         groupActivationFilter = if (hasGroupActivationFilter()) groupActivationFilter.toModel().let(::normalizeActivationFilter) else ActivationFilterModel(),
         )
     }
@@ -348,6 +350,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setHostAutolearnEnabled(hostAutolearnEnabled)
         .setHostAutolearnPenaltyTtlHours(normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours))
         .setHostAutolearnMaxHosts(normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts))
+        .setNetworkStrategyMemoryEnabled(networkStrategyMemoryEnabled)
         .setGroupActivationFilterCompat(normalizeActivationFilter(groupActivationFilter))
         .also { builder ->
             tcpChainSteps.forEach { step ->

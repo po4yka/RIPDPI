@@ -6,8 +6,8 @@ import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 import android.os.Build
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.NativeRuntimeSnapshot
+import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.service.R
@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStatus
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.poyka.ripdpi.utility.createConnectionNotification
@@ -35,13 +36,19 @@ import logcat.logcat
 @AndroidEntryPoint
 class RipDpiProxyService : LifecycleService() {
     @Inject
-    lateinit var proxyPreferencesResolver: ProxyPreferencesResolver
+    lateinit var connectionPolicyResolver: ConnectionPolicyResolver
 
     @Inject
     lateinit var ripDpiProxyFactory: RipDpiProxyFactory
 
     @Inject
     lateinit var serviceStateStore: ServiceStateStore
+
+    @Inject
+    lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore
+
+    @Inject
+    lateinit var rememberedNetworkPolicyStore: RememberedNetworkPolicyStore
 
     private var proxy: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
@@ -98,14 +105,30 @@ class RipDpiProxyService : LifecycleService() {
         }
 
         startForeground()
+        var matchedRememberedPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity? = null
         try {
+            val resolution = connectionPolicyResolver.resolve(mode = Mode.Proxy)
+            matchedRememberedPolicy = resolution.matchedNetworkPolicy
+            resolution.appliedPolicy?.let { policy ->
+                activeConnectionPolicyStore.set(
+                    ActiveConnectionPolicy(
+                        mode = Mode.Proxy,
+                        policy = policy,
+                        matchedPolicy = resolution.matchedNetworkPolicy,
+                        usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
+                    ),
+                )
+            }
             mutex.withLock {
-                startProxy()
+                startProxy(resolution.proxyPreferences)
             }
             updateStatus(ServiceStatus.Connected)
             startTelemetryUpdates()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start proxy\n${e.asLog()}" }
+            matchedRememberedPolicy?.let { policy ->
+                rememberedNetworkPolicyStore.recordFailure(policy)
+            }
             val reason = classifyFailureReason(e)
             updateStatus(ServiceStatus.Failed, reason)
             stop()
@@ -146,10 +169,11 @@ class RipDpiProxyService : LifecycleService() {
         updateStatus(ServiceStatus.Disconnected)
         telemetryJob?.cancel()
         telemetryJob = null
+        activeConnectionPolicyStore.clear()
         stopSelf()
     }
 
-    private suspend fun startProxy() {
+    private suspend fun startProxy(preferences: RipDpiProxyPreferences) {
         logcat(LogPriority.INFO) { "Starting proxy" }
 
         if (proxyJob != null) {
@@ -157,7 +181,6 @@ class RipDpiProxyService : LifecycleService() {
             throw IllegalStateException("Proxy fields not null")
         }
 
-        val preferences = proxyPreferencesResolver.resolve()
         val proxyInstance = ripDpiProxyFactory.create()
         proxy = proxyInstance
 
@@ -293,7 +316,7 @@ class RipDpiProxyService : LifecycleService() {
                         ServiceTelemetrySnapshot(
                             mode = Mode.Proxy,
                             status = AppStatus.Running,
-                            tunnelStats = com.poyka.ripdpi.core.TunnelStats(),
+                            tunnelStats = proxyTelemetry.tunnelStats,
                             proxyTelemetry = proxyTelemetry,
                             tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
                             updatedAt = maxOf(System.currentTimeMillis(), proxyTelemetry.capturedAt),

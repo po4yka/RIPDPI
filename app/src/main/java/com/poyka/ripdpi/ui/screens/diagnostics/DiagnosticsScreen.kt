@@ -64,6 +64,7 @@ import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsNetworkSnapshotUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRememberedNetworkUiModel
 import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
@@ -522,6 +523,11 @@ private fun OverviewSection(
                 )
             }
         }
+        if (uiState.overview.rememberedNetworks.isNotEmpty()) {
+            item {
+                RememberedNetworkPoliciesCard(policies = uiState.overview.rememberedNetworks)
+            }
+        }
         item {
             HistoryCalloutCard(onOpenHistory = onOpenHistory)
         }
@@ -532,6 +538,66 @@ private fun OverviewSection(
                     uiState.overview.warnings.forEach { warning ->
                         EventRow(event = warning, onClick = {})
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RememberedNetworkPoliciesCard(policies: List<DiagnosticsRememberedNetworkUiModel>) {
+    val spacing = RipDpiThemeTokens.spacing
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    RipDpiCard {
+        Text(
+            text = stringResource(R.string.diagnostics_remembered_networks_title),
+            style = type.sectionTitle,
+            color = colors.mutedForeground,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            policies.forEachIndexed { index, policy ->
+                if (index > 0) {
+                    HorizontalDivider(color = colors.divider)
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    StatusIndicator(
+                        label = policy.status,
+                        tone =
+                            when (policy.statusTone) {
+                                DiagnosticsTone.Positive -> StatusIndicatorTone.Active
+                                DiagnosticsTone.Warning -> StatusIndicatorTone.Warning
+                                DiagnosticsTone.Negative -> StatusIndicatorTone.Error
+                                DiagnosticsTone.Info -> StatusIndicatorTone.Idle
+                                DiagnosticsTone.Neutral -> StatusIndicatorTone.Idle
+                            },
+                    )
+                    Text(
+                        text = policy.title,
+                        style = type.bodyEmphasis,
+                        color = colors.foreground,
+                    )
+                    Text(
+                        text = policy.subtitle,
+                        style = type.secondaryBody,
+                        color = colors.mutedForeground,
+                    )
+                    Text(
+                        text = policy.strategyLabel,
+                        style = type.caption,
+                        color = colors.foreground,
+                    )
+                    Text(
+                        text =
+                            listOfNotNull(
+                                "Success ${policy.successCount}",
+                                "Failures ${policy.failureCount}",
+                                policy.lastValidatedLabel?.let { "Validated $it" },
+                                policy.lastAppliedLabel?.let { "Applied $it" },
+                            ).joinToString(" · "),
+                        style = type.caption,
+                        color = colors.mutedForeground,
+                    )
                 }
             }
         }

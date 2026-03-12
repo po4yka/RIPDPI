@@ -36,6 +36,7 @@
     <string name="diagnostics_action_export">Export latest bundle</string>
     <string name="diagnostics_profiles_title">Active profile</string>
     <string name="diagnostics_profiles_body">Choose whether Diagnostics should validate the current path or run isolated strategy trials that return a manual recommendation.</string>
+    <string name="diagnostics_remembered_networks_title">Remembered networks</string>
     <string name="diagnostics_probe_profile_title">Automatic probing</string>
     <string name="diagnostics_probe_path_title">Path restriction</string>
     <string name="diagnostics_probe_recommendation_title">Recommendation</string>
@@ -244,6 +245,12 @@
     <string name="host_autolearn_max_hosts_body">Maximum number of remembered hosts stored on this device.</string>
     <string name="host_autolearn_helper">TCP HTTP/TLS only. Learned hosts are remembered across restarts.</string>
     <string name="host_autolearn_forget_action">Forget learned hosts</string>
+    <string name="network_strategy_memory_section_title">Network strategy memory</string>
+    <string name="network_strategy_memory_enabled_title">Remember policy per network</string>
+    <string name="network_strategy_memory_enabled_body">Store a validated bypass policy for the current network fingerprint and reuse it on future starts.</string>
+    <string name="network_strategy_memory_count_summary">%1$d remembered networks stored locally.</string>
+    <string name="network_strategy_memory_clear_action">Clear remembered networks</string>
+    <string name="network_strategy_memory_helper">Only validated network matches auto-apply. Raw SSID, BSSID, and carrier identifiers stay out of storage.</string>
     <string name="host_autolearn_cli_status_title">Controlled by command line</string>
     <string name="host_autolearn_cli_status_body">Visual host learning settings are paused while raw RIPDPI arguments are enabled. Use --host-autolearn, --host-autolearn-penalty-ttl, --host-autolearn-max-hosts, and optional --host-autolearn-file in command line settings.</string>
     <string name="host_autolearn_cli_live_status_body">This session is learning hosts through command line flags. Edit raw RIPDPI arguments to change the next start.</string>
