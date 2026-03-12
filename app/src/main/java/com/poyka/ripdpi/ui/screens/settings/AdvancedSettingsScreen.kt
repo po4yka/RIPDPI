@@ -82,7 +82,7 @@ import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
 import kotlinx.coroutines.flow.collect
 
-private const val TlsPreludeModeDisabled = "disabled"
+internal const val TlsPreludeModeDisabled = "disabled"
 
 private enum class AdvancedToggleSetting {
     UseCommandLine,
@@ -150,7 +150,7 @@ private data class AdvancedNotice(
     val tone: WarningBannerTone,
 )
 
-private fun SettingsUiState.toTlsPreludeStep(
+internal fun SettingsUiState.toTlsPreludeEditorStep(
     mode: String = tlsPreludeMode,
     marker: String = tlsrecMarker,
     fragmentCount: Int = tlsRandRecFragmentCount,
@@ -178,7 +178,7 @@ private fun SettingsUiState.toTlsPreludeStep(
     }
 }
 
-private fun SettingsUiState.replaceTlsPreludeSteps(
+internal fun SettingsUiState.rewriteTlsPreludeChainForEditor(
     mode: String = tlsPreludeMode,
     marker: String = tlsrecMarker,
     fragmentCount: Int = tlsRandRecFragmentCount,
@@ -189,7 +189,7 @@ private fun SettingsUiState.replaceTlsPreludeSteps(
         tcpSteps = tcpChainSteps,
         newPreludeSteps =
             listOfNotNull(
-                toTlsPreludeStep(
+                toTlsPreludeEditorStep(
                     mode = mode,
                     marker = marker,
                     fragmentCount = fragmentCount,
@@ -216,7 +216,7 @@ private fun updateTlsPreludeProfile(
     ) {
         setStrategyChains(
             tcpSteps =
-                uiState.replaceTlsPreludeSteps(
+                uiState.rewriteTlsPreludeChainForEditor(
                     mode = mode,
                     marker = marker,
                     fragmentCount = fragmentCount,
