@@ -47,7 +47,15 @@ import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.core.clearHostAutolearnStore
 import com.poyka.ripdpi.core.hasHostAutolearnStore
+import com.poyka.ripdpi.data.HostPackCatalogSnapshot
+import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.platform.LauncherIconController
+import com.poyka.ripdpi.data.applyCuratedHostPack
+import com.poyka.ripdpi.hosts.HostPackCatalogBuildException
+import com.poyka.ripdpi.hosts.HostPackCatalogParseException
+import com.poyka.ripdpi.hosts.HostPackChecksumFormatException
+import com.poyka.ripdpi.hosts.HostPackChecksumMismatchException
+import com.poyka.ripdpi.hosts.HostPackCatalogRepository
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -252,6 +260,14 @@ data class SettingsUiState(
                 (fakeTlsSniMode == FakeTlsSniModeFixed && fakeSni != DefaultFakeSni)
 }
 
+data class HostPackCatalogUiState(
+    val snapshot: HostPackCatalogSnapshot = HostPackCatalogSnapshot(),
+    val isRefreshing: Boolean = false,
+) {
+    val presets: List<HostPackPreset>
+        get() = snapshot.packs
+}
+
 @VisibleForTesting
 internal fun AppSettings.toUiState(
     isHydrated: Boolean = true,
@@ -386,12 +402,15 @@ class SettingsViewModel
     constructor(
         @param:ApplicationContext private val appContext: Context,
         private val appSettingsRepository: AppSettingsRepository,
+        private val hostPackCatalogRepository: HostPackCatalogRepository,
         private val launcherIconController: LauncherIconController,
         private val serviceStateStore: ServiceStateStore,
     ) : ViewModel() {
     private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
     private val hostAutolearnStoreRefresh = MutableStateFlow(0)
+    private val hostPackCatalogState = MutableStateFlow(HostPackCatalogUiState())
     val effects: Flow<SettingsEffect> = _effects.receiveAsFlow()
+    val hostPackCatalog: StateFlow<HostPackCatalogUiState> = hostPackCatalogState
 
     val uiState: StateFlow<SettingsUiState> =
         combine(
@@ -416,6 +435,15 @@ class SettingsViewModel
                         hostAutolearnStorePresent = hasHostAutolearnStore(appContext),
                     ),
             )
+
+    init {
+        viewModelScope.launch {
+            hostPackCatalogState.value =
+                HostPackCatalogUiState(
+                    snapshot = hostPackCatalogRepository.loadSnapshot(),
+                )
+        }
+    }
 
     fun update(transform: AppSettings.Builder.() -> Unit) {
         mutateSettings(effect = null, transform = transform)
@@ -513,6 +541,92 @@ class SettingsViewModel
         viewModelScope.launch {
             appSettingsRepository.replace(AppSettingsSerializer.defaultValue)
             _effects.send(SettingsEffect.SettingChanged(key = "settings", value = "reset"))
+        }
+    }
+
+    fun applyHostPackPreset(
+        preset: HostPackPreset,
+        targetMode: String,
+        applyMode: String,
+    ) {
+        val currentState = uiState.value
+        val result =
+            applyCuratedHostPack(
+                currentBlacklist = currentState.hostsBlacklist,
+                currentWhitelist = currentState.hostsWhitelist,
+                presetHosts = preset.hosts,
+                targetMode = targetMode,
+                applyMode = applyMode,
+            )
+
+        viewModelScope.launch {
+            appSettingsRepository.update {
+                setHostsMode(result.hostsMode)
+                setHostsBlacklist(result.hostsBlacklist)
+                setHostsWhitelist(result.hostsWhitelist)
+            }
+            _effects.send(SettingsEffect.SettingChanged(key = "hostPackPreset", value = preset.id))
+        }
+    }
+
+    fun refreshHostPackCatalog() {
+        val previousSnapshot = hostPackCatalogState.value.snapshot
+        hostPackCatalogState.update { current ->
+            current.copy(isRefreshing = true)
+        }
+
+        viewModelScope.launch {
+            val effect =
+                runCatching {
+                    hostPackCatalogRepository.refreshSnapshot()
+                }.fold(
+                    onSuccess = { snapshot ->
+                        hostPackCatalogState.value =
+                            HostPackCatalogUiState(
+                                snapshot = snapshot,
+                                isRefreshing = false,
+                            )
+                        SettingsEffect.Notice(
+                            title = "Host packs refreshed",
+                            message = "RIPDPI downloaded geosite.dat, verified its SHA-256 checksum, and updated the on-device curated host packs.",
+                            tone = SettingsNoticeTone.Info,
+                        )
+                    },
+                    onFailure = { error ->
+                        hostPackCatalogState.value =
+                            HostPackCatalogUiState(
+                                snapshot = previousSnapshot,
+                                isRefreshing = false,
+                            )
+                        when (error) {
+                            is HostPackChecksumMismatchException,
+                            is HostPackChecksumFormatException,
+                                ->
+                                SettingsEffect.Notice(
+                                    title = "Host pack verification failed",
+                                    message = "The downloaded geosite.dat checksum did not match the published SHA-256 digest. RIPDPI kept the current curated host packs.",
+                                    tone = SettingsNoticeTone.Error,
+                                )
+
+                            is HostPackCatalogParseException,
+                            is HostPackCatalogBuildException,
+                                ->
+                                SettingsEffect.Notice(
+                                    title = "Host pack refresh failed",
+                                    message = "RIPDPI verified the download, but the remote geosite.dat did not produce a complete YouTube, Telegram, and Discord catalog. The current packs remain in use.",
+                                    tone = SettingsNoticeTone.Error,
+                                )
+
+                            else ->
+                                SettingsEffect.Notice(
+                                    title = "Couldn’t refresh host packs",
+                                    message = "RIPDPI could not download the latest geosite.dat or checksum file. The current curated host packs remain in use.",
+                                    tone = SettingsNoticeTone.Warning,
+                                )
+                        }
+                    },
+                )
+            _effects.send(effect)
         }
     }
 
