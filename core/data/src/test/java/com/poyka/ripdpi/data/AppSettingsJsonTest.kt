@@ -4,6 +4,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.ActivationFilter
 import com.poyka.ripdpi.proto.NumericRange
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -215,8 +216,100 @@ class AppSettingsJsonTest {
         assertEquals("8.8.8.8", decoded.dnsIp)
         assertEquals(DnsModeEncrypted, decoded.dnsMode)
         assertEquals(DnsProviderGoogle, decoded.dnsProviderId)
+        assertEquals(EncryptedDnsProtocolDoh, decoded.encryptedDnsProtocol)
+        assertEquals("dns.google", decoded.encryptedDnsHost)
+        assertEquals(443, decoded.encryptedDnsPort)
         assertEquals("https://dns.google/dns-query", decoded.dnsDohUrl)
         assertEquals(listOf("8.8.8.8", "8.8.4.4"), decoded.dnsDohBootstrapIpsList)
+    }
+
+    @Test
+    fun `custom dot resolver round trips through generic encrypted dns json fields`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setDnsIp("9.9.9.9")
+                .setDnsMode(DnsModeEncrypted)
+                .setDnsProviderId(DnsProviderCustom)
+                .setEncryptedDnsProtocol(EncryptedDnsProtocolDot)
+                .setEncryptedDnsHost("dot.example.test")
+                .setEncryptedDnsPort(853)
+                .setEncryptedDnsTlsServerName("dot.example.test")
+                .addAllEncryptedDnsBootstrapIps(listOf("9.9.9.9", "149.112.112.112"))
+                .build()
+
+        val json = settings.toJson()
+        val parsed = Json.parseToJsonElement(json).jsonObject
+        val decoded = appSettingsFromJson(json)
+
+        assertEquals(settings.toJson(), decoded.toJson())
+        assertEquals("", parsed.getValue("dnsDohUrl").jsonPrimitive.content)
+        assertEquals(0, parsed.getValue("dnsDohBootstrapIps").jsonArray.size)
+        assertEquals(EncryptedDnsProtocolDot, decoded.encryptedDnsProtocol)
+        assertEquals("dot.example.test", decoded.encryptedDnsHost)
+        assertEquals(853, decoded.encryptedDnsPort)
+        assertEquals("dot.example.test", decoded.encryptedDnsTlsServerName)
+        assertEquals(listOf("9.9.9.9", "149.112.112.112"), decoded.encryptedDnsBootstrapIpsList)
+    }
+
+    @Test
+    fun `custom dnscrypt resolver round trips through generic encrypted dns json fields`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setDnsIp("8.8.8.8")
+                .setDnsMode(DnsModeEncrypted)
+                .setDnsProviderId(DnsProviderCustom)
+                .setEncryptedDnsProtocol(EncryptedDnsProtocolDnsCrypt)
+                .setEncryptedDnsHost("dnscrypt.example.test")
+                .setEncryptedDnsPort(5443)
+                .addAllEncryptedDnsBootstrapIps(listOf("8.8.8.8", "8.8.4.4"))
+                .setEncryptedDnsDnscryptProviderName("2.dnscrypt-cert.example.test")
+                .setEncryptedDnsDnscryptPublicKey(
+                    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                ).build()
+
+        val json = settings.toJson()
+        val parsed = Json.parseToJsonElement(json).jsonObject
+        val decoded = appSettingsFromJson(json)
+
+        assertEquals(settings.toJson(), decoded.toJson())
+        assertEquals("", parsed.getValue("dnsDohUrl").jsonPrimitive.content)
+        assertEquals(0, parsed.getValue("dnsDohBootstrapIps").jsonArray.size)
+        assertEquals(EncryptedDnsProtocolDnsCrypt, decoded.encryptedDnsProtocol)
+        assertEquals("dnscrypt.example.test", decoded.encryptedDnsHost)
+        assertEquals(5443, decoded.encryptedDnsPort)
+        assertEquals("2.dnscrypt-cert.example.test", decoded.encryptedDnsDnscryptProviderName)
+        assertEquals(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            decoded.encryptedDnsDnscryptPublicKey,
+        )
+    }
+
+    @Test
+    fun `v1 custom doh fields hydrate generic encrypted dns fields`() {
+        val decoded =
+            appSettingsFromJson(
+                """
+                {
+                  "formatVersion": 1,
+                  "dnsMode": "doh",
+                  "dnsProviderId": "custom",
+                  "dnsIp": "1.1.1.1",
+                  "dnsDohUrl": "https://resolver.example.test/dns-query",
+                  "dnsDohBootstrapIps": ["1.1.1.1", "1.0.0.1"]
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(DnsModeEncrypted, decoded.dnsMode)
+        assertEquals(DnsProviderCustom, decoded.dnsProviderId)
+        assertEquals(EncryptedDnsProtocolDoh, decoded.encryptedDnsProtocol)
+        assertEquals("resolver.example.test", decoded.encryptedDnsHost)
+        assertEquals(443, decoded.encryptedDnsPort)
+        assertEquals("resolver.example.test", decoded.encryptedDnsTlsServerName)
+        assertEquals("https://resolver.example.test/dns-query", decoded.encryptedDnsDohUrl)
+        assertEquals(listOf("1.1.1.1", "1.0.0.1"), decoded.encryptedDnsBootstrapIpsList)
     }
 
     @Test
