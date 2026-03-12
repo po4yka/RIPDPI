@@ -10,6 +10,16 @@ mod linux;
 
 pub type TcpStageWait = (bool, Duration);
 
+#[cfg(target_os = "linux")]
+pub const fn supports_fake_retransmit() -> bool {
+    true
+}
+
+#[cfg(not(target_os = "linux"))]
+pub const fn supports_fake_retransmit() -> bool {
+    false
+}
+
 pub fn detect_default_ttl() -> io::Result<u8> {
     let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
     let ttl = socket.ttl()?;

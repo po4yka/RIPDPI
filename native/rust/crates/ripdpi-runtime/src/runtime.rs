@@ -19,7 +19,8 @@ use ciadpi_config::{
     DETECT_TORST,
 };
 use ciadpi_desync::{
-    activation_filter_matches, build_fake_packet, build_hostfake_bytes, plan_tcp, plan_udp, resolve_hostfake_span,
+    activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes, plan_tcp, plan_udp,
+    resolve_hostfake_span,
     ActivationContext, ActivationTransport, DesyncAction, DesyncPlan,
 };
 use ciadpi_session::{
@@ -1684,7 +1685,7 @@ fn send_with_group(
     if should_desync_tcp(group, context) {
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
         match plan_tcp(group, payload, seed, state.config.default_ttl, context) {
-            Ok(plan) if group.effective_tcp_chain().iter().any(|step| matches!(step.kind, TcpChainStepKind::Fake)) => {
+            Ok(plan) if requires_special_tcp_execution(group) => {
                 execute_tcp_plan(writer, &state.config, group, &plan, seed, resolved_fake_ttl)?;
             }
             Ok(plan) => execute_tcp_actions(
@@ -1708,6 +1709,15 @@ fn should_desync_tcp(group: &DesyncGroup, context: ActivationContext) -> bool {
 
 fn has_tcp_actions(group: &DesyncGroup) -> bool {
     !group.effective_tcp_chain().is_empty() || group.mod_http != 0 || group.tlsminor.is_some()
+}
+
+fn requires_special_tcp_execution(group: &DesyncGroup) -> bool {
+    let supports_fake_retransmit = platform::supports_fake_retransmit();
+    group.effective_tcp_chain().iter().any(|step| {
+        matches!(step.kind, TcpChainStepKind::Fake)
+            || (supports_fake_retransmit
+                && matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder))
+    })
 }
 
 fn execute_tcp_actions(
@@ -1744,7 +1754,11 @@ fn execute_tcp_plan(
     seed: u32,
     resolved_fake_ttl: Option<u8>,
 ) -> io::Result<()> {
-    let fake = if plan.steps.iter().any(|step| matches!(step.kind, TcpChainStepKind::Fake)) {
+    let fake = if plan
+        .steps
+        .iter()
+        .any(|step| matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder))
+    {
         Some(
             build_fake_packet(group, &plan.tampered, seed)
                 .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "failed to build fake packet for tcp desync"))?,
@@ -1834,6 +1848,84 @@ fn execute_tcp_plan(
                     config.default_ttl,
                     (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
                 )?;
+            }
+            TcpChainStepKind::FakeSplit => {
+                let second = &plan.tampered[end..];
+                if second.is_empty() {
+                    writer.write_all(chunk)?;
+                    platform::wait_tcp_stage(
+                        writer,
+                        config.wait_send,
+                        Duration::from_millis(config.await_interval.max(1) as u64),
+                    )?;
+                    cursor = end;
+                    continue;
+                }
+                let fake = fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
+                let first_fake = build_fake_region_bytes(fake, start, chunk.len());
+                let second_fake = build_fake_region_bytes(fake, end, second.len());
+                let fake_ttl = resolved_fake_ttl.or(group.ttl).unwrap_or(8);
+                platform::send_fake_tcp(
+                    writer,
+                    chunk,
+                    &first_fake,
+                    fake_ttl,
+                    group.md5sig,
+                    config.default_ttl,
+                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                )?;
+                platform::send_fake_tcp(
+                    writer,
+                    second,
+                    &second_fake,
+                    fake_ttl,
+                    group.md5sig,
+                    config.default_ttl,
+                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                )?;
+                cursor = plan.tampered.len();
+                break;
+            }
+            TcpChainStepKind::FakeDisorder => {
+                let second = &plan.tampered[end..];
+                if second.is_empty() {
+                    set_stream_ttl(writer, 1)?;
+                    writer.write_all(chunk)?;
+                    platform::wait_tcp_stage(
+                        writer,
+                        config.wait_send,
+                        Duration::from_millis(config.await_interval.max(1) as u64),
+                    )?;
+                    if config.default_ttl != 0 {
+                        set_stream_ttl(writer, config.default_ttl)?;
+                    }
+                    cursor = end;
+                    continue;
+                }
+                let fake = fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
+                let first_fake = build_fake_region_bytes(fake, start, chunk.len());
+                let second_fake = build_fake_region_bytes(fake, end, second.len());
+                let fake_ttl = resolved_fake_ttl.or(group.ttl).unwrap_or(8);
+                platform::send_fake_tcp(
+                    writer,
+                    chunk,
+                    &first_fake,
+                    1,
+                    group.md5sig,
+                    config.default_ttl,
+                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                )?;
+                platform::send_fake_tcp(
+                    writer,
+                    second,
+                    &second_fake,
+                    fake_ttl,
+                    group.md5sig,
+                    config.default_ttl,
+                    (config.wait_send, Duration::from_millis(config.await_interval.max(1) as u64)),
+                )?;
+                cursor = plan.tampered.len();
+                break;
             }
             TcpChainStepKind::HostFake => {
                 let Some(span) = resolve_hostfake_span(configured_step, &plan.tampered, start, end, seed) else {
@@ -2161,5 +2253,20 @@ mod tests {
         assert!(has_tcp_actions(&group));
         assert!(should_desync_tcp(&group, in_range));
         assert!(!should_desync_tcp(&group, out_of_range));
+    }
+
+    #[test]
+    fn special_tcp_execution_includes_fake_approximation_steps() {
+        let mut group = test_group();
+        group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset()));
+        assert_eq!(requires_special_tcp_execution(&group), platform::supports_fake_retransmit());
+
+        group.tcp_chain.clear();
+        group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeDisorder, test_offset()));
+        assert_eq!(requires_special_tcp_execution(&group), platform::supports_fake_retransmit());
+
+        group.tcp_chain.clear();
+        group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, test_offset()));
+        assert!(requires_special_tcp_execution(&group));
     }
 }

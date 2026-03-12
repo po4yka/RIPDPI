@@ -13,6 +13,8 @@ enum class TcpChainStepKind(val wireName: String) {
     Split("split"),
     Disorder("disorder"),
     Fake("fake"),
+    FakeSplit("fakedsplit"),
+    FakeDisorder("fakeddisorder"),
     HostFake("hostfake"),
     Oob("oob"),
     Disoob("disoob"),
@@ -26,6 +28,8 @@ enum class TcpChainStepKind(val wireName: String) {
                 Split -> "split"
                 Disorder -> "disorder"
                 Fake -> "fake"
+                FakeSplit -> "fake"
+                FakeDisorder -> "disorder"
                 HostFake -> "fake"
                 Oob -> "oob"
                 Disoob -> "disoob"
@@ -354,12 +358,17 @@ private fun UdpChainStepModel.toProto(): StrategyUdpStep =
 
 private fun validateTcpChain(steps: List<TcpChainStepModel>) {
     var sawSendStep = false
-    steps.forEach { step ->
+    steps.forEachIndexed { index, step ->
         when (step.kind) {
             TcpChainStepKind.TlsRec,
             TcpChainStepKind.TlsRandRec,
             -> require(!sawSendStep) { "${step.kind.wireName} must be declared before tcp send steps" }
             else -> sawSendStep = true
+        }
+        if (step.kind == TcpChainStepKind.FakeSplit || step.kind == TcpChainStepKind.FakeDisorder) {
+            require(index == steps.lastIndex) {
+                "${step.kind.wireName} must be the last tcp send step"
+            }
         }
         validateTcpStepOptions(step)
     }

@@ -207,6 +207,51 @@ class StrategyChainsTest {
     }
 
     @Test
+    fun `fake approximation steps round trip through dsl and legacy projection`() {
+        val dsl =
+            """
+            [tcp]
+            tlsrec extlen
+            fakedsplit auto(host) when_round=1-2
+            """.trimIndent()
+
+        val parsed = parseStrategyChainDsl(dsl).getOrThrow()
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
+                .build()
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                TcpChainStepModel(
+                    kind = TcpChainStepKind.FakeSplit,
+                    marker = AdaptiveMarkerHost,
+                    activationFilter = ActivationFilterModel(round = NumericRangeModel(1, 2)),
+                ),
+            ),
+            parsed.tcpSteps,
+        )
+        assertEquals(dsl, formatStrategyChainDsl(parsed.tcpSteps, parsed.udpSteps))
+        assertEquals(
+            "tcp: tlsrec(extlen) -> fakedsplit(adaptive host/SNI start round=1-2)",
+            formatChainSummary(parsed.tcpSteps, parsed.udpSteps),
+        )
+        assertEquals("fake", settings.desyncMethod)
+        assertEquals(AdaptiveMarkerHost, settings.splitMarker)
+    }
+
+    @Test
+    fun `fake approximation steps must be terminal in tcp chain`() {
+        val fakedsplitResult = parseStrategyChainDsl("[tcp]\nfakedsplit host+1\nsplit endhost")
+        val fakeddisorderResult = parseStrategyChainDsl("[tcp]\nfakeddisorder host+1\nfake endhost")
+
+        assertTrue(fakedsplitResult.isFailure)
+        assertTrue(fakeddisorderResult.isFailure)
+    }
+
+    @Test
     fun `tlsrandrec dsl round trip preserves fragment options and legacy projection`() {
         val dsl =
             """

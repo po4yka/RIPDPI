@@ -992,6 +992,8 @@ fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let split_host = build_split_host_candidate(base);
     let tlsrec_split_host = build_tlsrec_split_host_candidate(base);
     let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
+    let tlsrec_fakedsplit = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
+    let tlsrec_fakeddisorder = build_tlsrec_fake_approx_candidate(base, "fakeddisorder");
     let tlsrec_hostfake = build_tlsrec_hostfake_candidate(base, false);
     let tlsrec_hostfake_split = build_tlsrec_hostfake_candidate(base, true);
 
@@ -1022,6 +1024,18 @@ fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
             label: "TLS record + rich fake",
             family: "tlsrec_fake",
             config: tlsrec_fake_rich,
+        },
+        StrategyCandidateSpec {
+            id: "tlsrec_fakedsplit",
+            label: "TLS record + fakedsplit",
+            family: "fake_approx",
+            config: tlsrec_fakedsplit,
+        },
+        StrategyCandidateSpec {
+            id: "tlsrec_fakeddisorder",
+            label: "TLS record + fakeddisorder",
+            family: "fake_approx",
+            config: tlsrec_fakeddisorder,
         },
         StrategyCandidateSpec {
             id: "tlsrec_hostfake",
@@ -1145,6 +1159,12 @@ fn build_tlsrec_fake_rich_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     config.fake_tls_pad_encap = true;
     config.fake_tls_sni_mode = "randomized".to_string();
     config.fake_offset_marker = Some("endhost-1".to_string());
+    config
+}
+
+fn build_tlsrec_fake_approx_candidate(base: &ProxyUiConfig, kind: &str) -> ProxyUiConfig {
+    let mut config = build_tlsrec_fake_rich_candidate(base);
+    config.tcp_chain_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step(kind, "host+1")];
     config
 }
 
@@ -3123,11 +3143,13 @@ mod tests {
         let candidates = build_tcp_candidates(&minimal_ui_config());
 
         assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_current"));
-        assert_eq!(candidates.len(), 9);
+        assert_eq!(candidates.len(), 11);
         assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("parser_only"));
         assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("parser_unixeol"));
         assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("parser_methodeol"));
     }
+        assert_eq!(candidates.get(7).map(|candidate| candidate.id), Some("tlsrec_fakedsplit"));
+        assert_eq!(candidates.get(8).map(|candidate| candidate.id), Some("tlsrec_fakeddisorder"));
 
     #[test]
     fn aggressive_parser_candidates_enable_only_expected_evasion() {
