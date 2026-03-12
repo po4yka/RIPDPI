@@ -345,4 +345,119 @@ class DiagnosticsDatabaseMigrationTest {
             java.io.File(databaseFile.parentFile, "${databaseFile.name}-journal").delete()
         }
     }
+
+    @Test
+    fun `migration 7 to 8 preserves rows and initializes failure classification columns`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "diagnostics-migration-${System.nanoTime()}.db"
+        val databaseFile = context.getDatabasePath(databaseName)
+        databaseFile.parentFile?.mkdirs()
+        if (databaseFile.exists()) {
+            databaseFile.delete()
+        }
+
+        val helper =
+            FrameworkSQLiteOpenHelperFactory().create(
+                SupportSQLiteOpenHelper.Configuration.builder(context)
+                    .name(databaseName)
+                    .callback(
+                        object : SupportSQLiteOpenHelper.Callback(7) {
+                            override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) = Unit
+
+                            override fun onUpgrade(
+                                db: androidx.sqlite.db.SupportSQLiteDatabase,
+                                oldVersion: Int,
+                                newVersion: Int,
+                            ) = Unit
+                        },
+                    ).build(),
+            )
+
+        try {
+            val database = helper.writableDatabase
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS telemetry_samples (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    sessionId TEXT,
+                    connectionSessionId TEXT,
+                    activeMode TEXT,
+                    connectionState TEXT NOT NULL,
+                    networkType TEXT NOT NULL,
+                    publicIp TEXT,
+                    failureClass TEXT,
+                    telemetryNetworkFingerprintHash TEXT,
+                    winningTcpStrategyFamily TEXT,
+                    winningQuicStrategyFamily TEXT,
+                    proxyRttBand TEXT NOT NULL DEFAULT 'unknown',
+                    resolverRttBand TEXT NOT NULL DEFAULT 'unknown',
+                    proxyRouteRetryCount INTEGER NOT NULL DEFAULT 0,
+                    tunnelRecoveryRetryCount INTEGER NOT NULL DEFAULT 0,
+                    resolverId TEXT,
+                    resolverProtocol TEXT,
+                    resolverEndpoint TEXT,
+                    resolverLatencyMs INTEGER,
+                    dnsFailuresTotal INTEGER NOT NULL DEFAULT 0,
+                    resolverFallbackActive INTEGER NOT NULL DEFAULT 0,
+                    resolverFallbackReason TEXT,
+                    networkHandoverClass TEXT,
+                    txPackets INTEGER NOT NULL,
+                    txBytes INTEGER NOT NULL,
+                    rxPackets INTEGER NOT NULL,
+                    rxBytes INTEGER NOT NULL,
+                    createdAt INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO telemetry_samples (
+                    id, sessionId, connectionSessionId, activeMode, connectionState, networkType, publicIp,
+                    failureClass, telemetryNetworkFingerprintHash, winningTcpStrategyFamily, winningQuicStrategyFamily,
+                    proxyRttBand, resolverRttBand, proxyRouteRetryCount, tunnelRecoveryRetryCount,
+                    resolverId, resolverProtocol, resolverEndpoint, resolverLatencyMs, dnsFailuresTotal,
+                    resolverFallbackActive, resolverFallbackReason, networkHandoverClass,
+                    txPackets, txBytes, rxPackets, rxBytes, createdAt
+                ) VALUES (
+                    'sample-1', 'session-1', 'connection-1', 'VPN', 'Running', 'wifi', '198.51.100.9',
+                    'dns_interference', 'v1:abc', 'hostfake', 'quic_burst',
+                    '50_99', 'lt50', 2, 1,
+                    'cloudflare', 'doh', 'https://cloudflare-dns.com/dns-query', 42, 3,
+                    1, 'dns_substitution', 'transport_switch',
+                    10, 20, 30, 40, 50
+                )
+                """.trimIndent(),
+            )
+
+            DiagnosticsDatabaseMigration7To8.migrate(database)
+
+            val columns =
+                database.query("PRAGMA table_info(`telemetry_samples`)").use { cursor ->
+                    buildSet {
+                        val nameIndex = cursor.getColumnIndexOrThrow("name")
+                        while (cursor.moveToNext()) {
+                            add(cursor.getString(nameIndex))
+                        }
+                    }
+                }
+            assertTrue(columns.contains("lastFailureClass"))
+            assertTrue(columns.contains("lastFallbackAction"))
+
+            database.query(
+                """
+                SELECT lastFailureClass, lastFallbackAction
+                FROM telemetry_samples
+                WHERE id = 'sample-1'
+                """.trimIndent(),
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertTrue(cursor.isNull(0))
+                assertTrue(cursor.isNull(1))
+            }
+        } finally {
+            helper.close()
+            databaseFile.delete()
+            java.io.File(databaseFile.parentFile, "${databaseFile.name}-journal").delete()
+        }
+    }
 }

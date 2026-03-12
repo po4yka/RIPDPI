@@ -527,6 +527,8 @@ class DefaultRuntimeHistoryRecorder
                 resolverFallbackActive = telemetry.tunnelTelemetry.resolverFallbackActive,
                 resolverFallbackReason = telemetry.tunnelTelemetry.resolverFallbackReason,
                 networkHandoverClass = telemetry.tunnelTelemetry.networkHandoverClass,
+                lastFailureClass = telemetry.proxyTelemetry.lastFailureClass,
+                lastFallbackAction = telemetry.proxyTelemetry.lastFallbackAction,
                 txPackets = telemetry.tunnelStats.txPackets,
                 txBytes = telemetry.tunnelStats.txBytes,
                 rxPackets = telemetry.tunnelStats.rxPackets,

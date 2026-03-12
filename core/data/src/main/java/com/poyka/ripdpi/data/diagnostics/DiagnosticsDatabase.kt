@@ -170,6 +170,8 @@ data class TelemetrySampleEntity(
     val resolverFallbackActive: Boolean = false,
     val resolverFallbackReason: String? = null,
     val networkHandoverClass: String? = null,
+    val lastFailureClass: String? = null,
+    val lastFallbackAction: String? = null,
     val txPackets: Long,
     val txBytes: Long,
     val rxPackets: Long,
@@ -509,7 +511,7 @@ interface DiagnosticsDao {
         BypassUsageSessionEntity::class,
         RememberedNetworkPolicyEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -974,6 +976,14 @@ internal val DiagnosticsDatabaseMigration6To7 =
         }
     }
 
+internal val DiagnosticsDatabaseMigration7To8 =
+    object : Migration(7, 8) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN lastFailureClass TEXT")
+            database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN lastFallbackAction TEXT")
+        }
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DiagnosticsHistoryRepositoryModule {
@@ -1001,6 +1011,7 @@ object DiagnosticsDatabaseModule {
             DiagnosticsDatabaseMigration4To5,
             DiagnosticsDatabaseMigration5To6,
             DiagnosticsDatabaseMigration6To7,
+            DiagnosticsDatabaseMigration7To8,
         ).build()
 
     @Provides

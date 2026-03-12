@@ -1193,6 +1193,24 @@ class DiagnosticsViewModel
                 if (telemetry != null) {
                     add(DiagnosticsMetricUiModel(label = "Network", value = telemetry.networkType))
                     add(DiagnosticsMetricUiModel(label = "Mode", value = telemetry.activeMode ?: "Idle"))
+                    telemetry.lastFailureClass?.let { failureClass ->
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "Latest native failure",
+                                value = failureClass,
+                                tone = DiagnosticsTone.Warning,
+                            ),
+                        )
+                    }
+                    telemetry.lastFallbackAction?.let { fallbackAction ->
+                        add(
+                            DiagnosticsMetricUiModel(
+                                label = "Fallback action",
+                                value = fallbackAction,
+                                tone = DiagnosticsTone.Info,
+                            ),
+                        )
+                    }
                     telemetry.failureClass?.let { failureClass ->
                         add(
                             DiagnosticsMetricUiModel(
@@ -1400,6 +1418,9 @@ class DiagnosticsViewModel
                 return surfacedEvent.message
             }
             telemetry ?: return "Continuous monitor is waiting for an active RIPDPI session."
+            if (telemetry.lastFailureClass != null || telemetry.lastFallbackAction != null) {
+                return listOfNotNull(telemetry.lastFailureClass, telemetry.lastFallbackAction).joinToString(" · ")
+            }
             telemetry.failureClass?.let { return "Latest failure class: $it" }
             telemetry.resolverFallbackReason?.let { return "Encrypted DNS override active: $it" }
             telemetry.networkHandoverClass?.let { return "Recent network handover detected: $it" }
