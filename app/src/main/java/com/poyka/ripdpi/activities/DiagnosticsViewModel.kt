@@ -175,6 +175,7 @@ data class DiagnosticsStrategyProbeCandidateUiModel(
     val metrics: List<DiagnosticsMetricUiModel>,
     val tone: DiagnosticsTone,
     val skipped: Boolean,
+    val recommended: Boolean,
 )
 
 data class DiagnosticsStrategyProbeFamilyUiModel(
@@ -210,6 +211,7 @@ data class DiagnosticsOverviewUiModel(
 data class DiagnosticsScanUiModel(
     val profiles: List<DiagnosticsProfileOptionUiModel> = emptyList(),
     val selectedProfileId: String? = null,
+    val selectedProfile: DiagnosticsProfileOptionUiModel? = null,
     val activePathMode: ScanPathMode = ScanPathMode.RAW_PATH,
     val activeProgress: DiagnosticsProgressUiModel? = null,
     val latestSession: DiagnosticsSessionRowUiModel? = null,
@@ -676,10 +678,16 @@ class DiagnosticsViewModel
             val latestContext = (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.decodeContext()
             val eventModels = nativeEvents.map { it.toUiModel() }
             val sessionRows = sessions.map(::toSessionRowUiModel)
+            val selectedProfileUi = activeProfile?.toOptionUiModel()
             val latestCompletedSession = sessions.firstOrNull { it.reportJson != null } ?: sessions.firstOrNull()
+            val latestProfileSession =
+                sessions.firstOrNull { it.profileId == activeProfile?.id && it.reportJson != null }
+                    ?: sessions.firstOrNull { it.profileId == activeProfile?.id }
+                    ?: latestCompletedSession
+            val latestProfileReport = latestProfileSession?.reportJson?.let(::decodeReport)
             val latestReport = latestCompletedSession?.reportJson?.let(::decodeReport)
-            val latestReportResults = latestReport?.results?.mapIndexed(::toProbeResultUiModel).orEmpty()
-            val latestStrategyProbeReport = latestReport?.strategyProbeReport?.toUiModel()
+            val latestReportResults = latestProfileReport?.results?.mapIndexed(::toProbeResultUiModel).orEmpty()
+            val latestStrategyProbeReport = latestProfileReport?.strategyProbeReport?.toUiModel()
             val currentTelemetry = telemetry.firstOrNull()
             val health = deriveHealth(progress, latestCompletedSession, currentTelemetry, nativeEvents)
             val strategyProbeSelected = activeProfileRequest?.kind == ScanKind.STRATEGY_PROBE
@@ -746,7 +754,7 @@ class DiagnosticsViewModel
                         health = health,
                         headline = overviewHeadline(health, progress, latestCompletedSession),
                         body = overviewBody(health, latestSnapshot, currentTelemetry),
-                        activeProfile = activeProfile?.toOptionUiModel(),
+                        activeProfile = selectedProfileUi,
                         latestSnapshot = latestSnapshot,
                         latestSession = sessionRows.firstOrNull(),
                         contextSummary = overviewContext,
@@ -794,9 +802,10 @@ class DiagnosticsViewModel
                     DiagnosticsScanUiModel(
                         profiles = profiles.map { it.toOptionUiModel() },
                         selectedProfileId = activeProfile?.id,
-                        activePathMode = latestCompletedSession?.pathMode?.let(::parsePathMode) ?: ScanPathMode.RAW_PATH,
+                        selectedProfile = selectedProfileUi,
+                        activePathMode = latestProfileSession?.pathMode?.let(::parsePathMode) ?: ScanPathMode.RAW_PATH,
                         activeProgress = progress?.toUiModel(),
-                        latestSession = latestCompletedSession?.let(::toSessionRowUiModel),
+                        latestSession = latestProfileSession?.let(::toSessionRowUiModel),
                         latestResults = latestReportResults,
                         selectedProfileScopeLabel = activeProfileRequest.toScopeLabel(rawArgsEnabled = rawArgsEnabled),
                         runRawEnabled = runRawEnabled,
@@ -1306,7 +1315,7 @@ class DiagnosticsViewModel
                 add(DiagnosticsFieldUiModel("Route group", signature.routeGroup ?: "Unknown"))
             }
 
-        private fun StrategyProbeCandidateSummary.toUiModel(): DiagnosticsStrategyProbeCandidateUiModel =
+        private fun StrategyProbeCandidateSummary.toUiModel(recommended: Boolean): DiagnosticsStrategyProbeCandidateUiModel =
             DiagnosticsStrategyProbeCandidateUiModel(
                 id = id,
                 label = label,
@@ -1334,12 +1343,14 @@ class DiagnosticsViewModel
                     },
                 tone =
                     when {
+                        recommended -> DiagnosticsTone.Positive
                         skipped -> DiagnosticsTone.Neutral
                         outcome.equals("success", ignoreCase = true) -> DiagnosticsTone.Positive
                         outcome.equals("partial", ignoreCase = true) -> DiagnosticsTone.Warning
                         else -> DiagnosticsTone.Negative
                     },
                 skipped = skipped,
+                recommended = recommended,
             )
 
         private fun StrategyProbeRecommendation.toUiModel(): DiagnosticsStrategyProbeRecommendationUiModel =
@@ -1355,22 +1366,43 @@ class DiagnosticsViewModel
                 signature = strategySignature?.let(::strategySignatureFields).orEmpty(),
             )
 
-        private fun StrategyProbeReport.toUiModel(): DiagnosticsStrategyProbeReportUiModel =
-            DiagnosticsStrategyProbeReportUiModel(
+        private fun StrategyProbeReport.toUiModel(): DiagnosticsStrategyProbeReportUiModel {
+            fun mapFamily(
+                title: String,
+                candidates: List<StrategyProbeCandidateSummary>,
+                recommendedId: String,
+            ): DiagnosticsStrategyProbeFamilyUiModel =
+                DiagnosticsStrategyProbeFamilyUiModel(
+                    title = title,
+                    candidates =
+                        candidates
+                            .map { candidate ->
+                                candidate.toUiModel(recommended = candidate.id == recommendedId)
+                            }.sortedWith(
+                                compareByDescending<DiagnosticsStrategyProbeCandidateUiModel> { it.recommended }
+                                    .thenBy { it.skipped }
+                                    .thenBy { it.label },
+                            ),
+                )
+
+            return DiagnosticsStrategyProbeReportUiModel(
                 suiteLabel = suiteId.replace('_', ' ').replaceFirstChar { it.uppercase() },
                 recommendation = recommendation.toUiModel(),
                 families =
                     listOf(
-                        DiagnosticsStrategyProbeFamilyUiModel(
+                        mapFamily(
                             title = "TCP candidates",
-                            candidates = tcpCandidates.map { it.toUiModel() },
+                            candidates = tcpCandidates,
+                            recommendedId = recommendation.tcpCandidateId,
                         ),
-                        DiagnosticsStrategyProbeFamilyUiModel(
+                        mapFamily(
                             title = "QUIC candidates",
-                            candidates = quicCandidates.map { it.toUiModel() },
+                            candidates = quicCandidates,
+                            recommendedId = recommendation.quicCandidateId,
                         ),
                     ),
             )
+        }
 
         private fun ScanRequest?.toScopeLabel(rawArgsEnabled: Boolean): String? =
             when (this?.kind) {

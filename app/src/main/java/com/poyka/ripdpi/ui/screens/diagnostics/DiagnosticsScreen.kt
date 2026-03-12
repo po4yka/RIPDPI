@@ -74,6 +74,7 @@ import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
+import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -656,6 +657,8 @@ private fun ScanSection(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
+    val selectedProfile = uiState.scan.selectedProfile
+    val strategyProbeSelected = selectedProfile?.kind == com.poyka.ripdpi.diagnostics.ScanKind.STRATEGY_PROBE
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
@@ -668,65 +671,31 @@ private fun ScanSection(
                     style = RipDpiThemeTokens.type.sectionTitle,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    items(uiState.scan.profiles, key = { it.id }) { profile ->
-                        RipDpiChip(
-                            text = profile.name,
+                Text(
+                    text = stringResource(R.string.diagnostics_profiles_body),
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    uiState.scan.profiles.forEach { profile ->
+                        DiagnosticsProfileCard(
+                            profile = profile,
                             selected = profile.id == uiState.scan.selectedProfileId,
                             onClick = { onSelectProfile(profile.id) },
                         )
                     }
                 }
-                uiState.scan.selectedProfileScopeLabel?.let { label ->
-                    Text(
-                        text = label,
-                        style = RipDpiThemeTokens.type.secondaryBody,
-                        color = RipDpiThemeTokens.colors.mutedForeground,
-                    )
-                }
-                uiState.scan.runRawHint?.let { hint ->
-                    WarningBanner(
-                        title = stringResource(R.string.diagnostics_probe_profile_title),
-                        message = hint,
-                        tone =
-                            if (uiState.scan.runRawEnabled) {
-                                WarningBannerTone.Info
-                            } else {
-                                WarningBannerTone.Restricted
-                            },
-                    )
-                }
-                uiState.scan.runInPathHint?.let { hint ->
-                    WarningBanner(
-                        title = stringResource(R.string.diagnostics_probe_path_title),
-                        message = hint,
-                        tone = WarningBannerTone.Restricted,
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                ) {
-                    RipDpiButton(
-                        text = stringResource(R.string.diagnostics_action_raw),
-                        onClick = onRunRawScan,
-                        modifier = Modifier.weight(1f),
-                        enabled = uiState.scan.runRawEnabled,
-                    )
-                    RipDpiButton(
-                        text = stringResource(R.string.diagnostics_action_in_path),
-                        onClick = onRunInPathScan,
-                        modifier = Modifier.weight(1f),
-                        variant = RipDpiButtonVariant.Outline,
-                        enabled = uiState.scan.runInPathEnabled,
-                    )
-                }
-                RipDpiButton(
-                    text = stringResource(R.string.diagnostics_action_cancel),
-                    onClick = onCancelScan,
-                    enabled = uiState.scan.isBusy,
-                    variant = RipDpiButtonVariant.Destructive,
-                    modifier = Modifier.fillMaxWidth(),
+            }
+        }
+        selectedProfile?.let { profile ->
+            item {
+                DiagnosticsScanWorkflowCard(
+                    profile = profile,
+                    scan = uiState.scan,
+                    strategyProbeSelected = strategyProbeSelected,
+                    onRunRawScan = onRunRawScan,
+                    onRunInPathScan = onRunInPathScan,
+                    onCancelScan = onCancelScan,
                 )
             }
         }
@@ -734,7 +703,12 @@ private fun ScanSection(
             item {
                 RipDpiCard {
                     StatusIndicator(
-                        label = stringResource(R.string.diagnostics_status_running),
+                        label =
+                            if (strategyProbeSelected) {
+                                stringResource(R.string.diagnostics_probe_progress_title)
+                            } else {
+                                stringResource(R.string.diagnostics_status_running)
+                            },
                         tone = StatusIndicatorTone.Warning,
                     )
                     Text(
@@ -756,6 +730,14 @@ private fun ScanSection(
         }
         uiState.scan.latestSession?.let { session ->
             item {
+                SettingsCategoryHeader(
+                    title =
+                        if (strategyProbeSelected) {
+                            stringResource(R.string.diagnostics_probe_latest_section)
+                        } else {
+                            stringResource(R.string.diagnostics_latest_scan_section)
+                        },
+                )
                 SessionRow(session = session, onClick = {})
             }
         }
@@ -766,7 +748,14 @@ private fun ScanSection(
         }
         if (uiState.scan.latestResults.isNotEmpty()) {
             item {
-                SettingsCategoryHeader(title = stringResource(R.string.diagnostics_results_section))
+                SettingsCategoryHeader(
+                    title =
+                        if (strategyProbeSelected) {
+                            stringResource(R.string.diagnostics_probe_evidence_section)
+                        } else {
+                            stringResource(R.string.diagnostics_results_section)
+                        },
+                )
             }
             items(uiState.scan.latestResults, key = { it.id }) { probe ->
                 ProbeResultRow(probe = probe, onClick = { onSelectProbe(probe) })
@@ -776,10 +765,193 @@ private fun ScanSection(
 }
 
 @Composable
+private fun DiagnosticsProfileCard(
+    profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val (badge, description) =
+        when (profile.kind) {
+            com.poyka.ripdpi.diagnostics.ScanKind.STRATEGY_PROBE ->
+                stringResource(R.string.diagnostics_profile_probe_badge) to
+                    stringResource(R.string.diagnostics_profile_probe_body)
+            else ->
+                stringResource(R.string.diagnostics_profile_connectivity_badge) to
+                    stringResource(R.string.diagnostics_profile_connectivity_body)
+        }
+
+    PresetCard(
+        title = profile.name,
+        description = description,
+        badgeText = badge,
+        selected = selected,
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun DiagnosticsScanWorkflowCard(
+    profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel,
+    scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel,
+    strategyProbeSelected: Boolean,
+    onRunRawScan: () -> Unit,
+    onRunInPathScan: () -> Unit,
+    onCancelScan: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val status =
+        when {
+            scan.isBusy && strategyProbeSelected ->
+                Triple(
+                    stringResource(R.string.diagnostics_probe_progress_title),
+                    stringResource(R.string.diagnostics_profile_probe_running_body),
+                    StatusIndicatorTone.Warning,
+                )
+
+            scan.isBusy ->
+                Triple(
+                    stringResource(R.string.diagnostics_status_running),
+                    stringResource(R.string.diagnostics_profile_connectivity_running_body),
+                    StatusIndicatorTone.Warning,
+                )
+
+            strategyProbeSelected && !scan.runRawEnabled ->
+                Triple(
+                    stringResource(R.string.diagnostics_probe_unavailable_title),
+                    stringResource(R.string.diagnostics_profile_probe_unavailable_body),
+                    StatusIndicatorTone.Error,
+                )
+
+            strategyProbeSelected && scan.strategyProbeReport != null ->
+                Triple(
+                    stringResource(R.string.diagnostics_probe_ready_title),
+                    stringResource(R.string.diagnostics_profile_probe_ready_body),
+                    StatusIndicatorTone.Active,
+                )
+
+            strategyProbeSelected ->
+                Triple(
+                    stringResource(R.string.diagnostics_probe_profile_title),
+                    stringResource(R.string.diagnostics_profile_probe_body),
+                    StatusIndicatorTone.Idle,
+                )
+
+            else ->
+                Triple(
+                    stringResource(R.string.diagnostics_profile_connectivity_title),
+                    stringResource(R.string.diagnostics_profile_connectivity_body),
+                    StatusIndicatorTone.Idle,
+                )
+        }
+    val badges =
+        buildList {
+            if (strategyProbeSelected) {
+                add(stringResource(R.string.diagnostics_profile_badge_http_https_quic) to DiagnosticsTone.Info)
+                add(stringResource(R.string.diagnostics_profile_badge_raw_only) to DiagnosticsTone.Warning)
+                add(stringResource(R.string.diagnostics_profile_badge_manual_apply) to DiagnosticsTone.Positive)
+            } else {
+                add(stringResource(R.string.diagnostics_profile_badge_dns_http_https_tcp) to DiagnosticsTone.Info)
+                add(stringResource(R.string.diagnostics_profile_badge_raw_and_in_path) to DiagnosticsTone.Positive)
+            }
+        }
+
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+        StatusIndicator(label = status.first, tone = status.third)
+        Text(
+            text = profile.name,
+            style = RipDpiThemeTokens.type.screenTitle,
+            color = colors.foreground,
+        )
+        Text(
+            text = status.second,
+            style = RipDpiThemeTokens.type.body,
+            color = colors.foreground,
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            items(badges) { badge ->
+                EventBadge(text = badge.first, tone = badge.second)
+            }
+        }
+        scan.selectedProfileScopeLabel?.let { label ->
+            Text(
+                text = label,
+                style = RipDpiThemeTokens.type.monoSmall,
+                color = colors.mutedForeground,
+            )
+        }
+        scan.runRawHint?.let { hint ->
+            WarningBanner(
+                title = stringResource(R.string.diagnostics_probe_profile_title),
+                message = hint,
+                tone =
+                    if (scan.runRawEnabled) {
+                        WarningBannerTone.Info
+                    } else {
+                        WarningBannerTone.Restricted
+                    },
+            )
+        }
+        scan.runInPathHint?.let { hint ->
+            WarningBanner(
+                title = stringResource(R.string.diagnostics_probe_path_title),
+                message = hint,
+                tone = WarningBannerTone.Restricted,
+            )
+        }
+        if (strategyProbeSelected) {
+            RipDpiButton(
+                text =
+                    if (scan.runRawEnabled) {
+                        stringResource(R.string.diagnostics_action_start_probe)
+                    } else {
+                        stringResource(R.string.diagnostics_action_probe_unavailable)
+                    },
+                onClick = onRunRawScan,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = scan.runRawEnabled,
+            )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                RipDpiButton(
+                    text = stringResource(R.string.diagnostics_action_raw),
+                    onClick = onRunRawScan,
+                    modifier = Modifier.weight(1f),
+                    enabled = scan.runRawEnabled,
+                )
+                RipDpiButton(
+                    text = stringResource(R.string.diagnostics_action_in_path),
+                    onClick = onRunInPathScan,
+                    modifier = Modifier.weight(1f),
+                    variant = RipDpiButtonVariant.Outline,
+                    enabled = scan.runInPathEnabled,
+                )
+            }
+        }
+        if (scan.isBusy) {
+            RipDpiButton(
+                text = stringResource(R.string.diagnostics_action_cancel),
+                onClick = onCancelScan,
+                variant = RipDpiButtonVariant.Destructive,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
 private fun StrategyProbeReportCard(report: DiagnosticsStrategyProbeReportUiModel) {
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
+    val manualApplyBadge = stringResource(R.string.diagnostics_profile_badge_manual_apply)
     RipDpiCard {
+        StatusIndicator(
+            label = stringResource(R.string.diagnostics_probe_ready_title),
+            tone = StatusIndicatorTone.Active,
+        )
         Text(
             text = stringResource(R.string.diagnostics_probe_recommendation_title),
             style = RipDpiThemeTokens.type.sectionTitle,
@@ -795,6 +967,28 @@ private fun StrategyProbeReportCard(report: DiagnosticsStrategyProbeReportUiMode
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,
         )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            items(
+                listOf(
+                    report.suiteLabel to DiagnosticsTone.Info,
+                    manualApplyBadge to DiagnosticsTone.Positive,
+                ),
+            ) { badge ->
+                EventBadge(text = badge.first, tone = badge.second)
+            }
+        }
+        RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+            Text(
+                text = stringResource(R.string.diagnostics_probe_manual_apply_title),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.diagnostics_probe_manual_apply_body),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
         report.recommendation.fields.forEach { field ->
             SettingsRow(
                 title = field.label,
@@ -858,8 +1052,18 @@ private fun StrategyProbeCandidateRow(candidate: DiagnosticsStrategyProbeCandida
                     color = colors.foreground,
                 )
                 StatusIndicator(
-                    label = if (candidate.skipped) stringResource(R.string.diagnostics_probe_status_skipped) else candidate.outcome,
-                    tone = statusTone(candidate.tone),
+                    label =
+                        when {
+                            candidate.recommended -> stringResource(R.string.diagnostics_probe_status_recommended)
+                            candidate.skipped -> stringResource(R.string.diagnostics_probe_status_skipped)
+                            else -> candidate.outcome
+                        },
+                    tone =
+                        if (candidate.recommended) {
+                            StatusIndicatorTone.Active
+                        } else {
+                            statusTone(candidate.tone)
+                        },
                 )
             }
             Text(
