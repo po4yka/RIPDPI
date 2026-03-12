@@ -1,5 +1,5 @@
-use std::io::{self, Read, Write};
 use std::collections::HashMap;
+use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -7,6 +7,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::platform;
 use crate::process;
 use crate::runtime_policy::{
@@ -20,14 +21,13 @@ use ciadpi_config::{
 };
 use ciadpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes, plan_tcp, plan_udp,
-    resolve_hostfake_span,
-    ActivationContext, ActivationTransport, DesyncAction, DesyncPlan,
+    resolve_hostfake_span, ActivationContext, ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan,
 };
 use ciadpi_session::{
     detect_response_trigger, encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply,
-    parse_http_connect_request, parse_socks4_request, parse_socks5_request, ClientRequest, SessionConfig, SessionError,
-    OutboundProgress, SessionState, SocketType, TriggerEvent, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_CMD_CONN, S_ER_CMD,
-    S_ER_CONN, S_ER_GEN, S_VER5,
+    parse_http_connect_request, parse_socks4_request, parse_socks5_request, ClientRequest, OutboundProgress,
+    SessionConfig, SessionError, SessionState, SocketType, TriggerEvent, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE,
+    S_CMD_CONN, S_ER_CMD, S_ER_CONN, S_ER_GEN, S_VER5,
 };
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token};
@@ -43,6 +43,7 @@ struct RuntimeState {
     config: Arc<RuntimeConfig>,
     cache: Arc<Mutex<RuntimeCache>>,
     adaptive_fake_ttl: Arc<Mutex<AdaptiveFakeTtlResolver>>,
+    adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
     active_clients: Arc<AtomicUsize>,
     telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
 }
@@ -51,6 +52,10 @@ struct RuntimeState {
 struct UdpFlowActivationState {
     session: SessionState,
     last_used: Instant,
+    route: ConnectionRoute,
+    host: Option<String>,
+    payload: Vec<u8>,
+    awaiting_response: bool,
 }
 
 pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
@@ -88,6 +93,7 @@ fn run_proxy_with_listener_internal(
         config: Arc::new(config),
         cache: Arc::new(Mutex::new(cache)),
         adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
+        adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry),
     };
@@ -110,9 +116,7 @@ fn run_proxy_with_listener_internal(
 
     let result = loop {
         let shutdown_requested =
-            control
-                .as_ref()
-                .map_or_else(process::shutdown_requested, |value| value.shutdown_requested());
+            control.as_ref().map_or_else(process::shutdown_requested, |value| value.shutdown_requested());
         if shutdown_requested {
             break Ok(());
         }
@@ -575,7 +579,7 @@ fn maybe_delay_connect(
             0,
             true,
         )
-            .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
+        .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
     };
 
     Ok(DelayConnect::Delayed { route, payload })
@@ -766,8 +770,18 @@ fn note_route_success(
     route: &ConnectionRoute,
     host: Option<&str>,
 ) -> io::Result<()> {
+    note_route_success_for_transport(state, target, route, host, TransportProtocol::Tcp)
+}
+
+fn note_route_success_for_transport(
+    state: &RuntimeState,
+    target: SocketAddr,
+    route: &ConnectionRoute,
+    host: Option<&str>,
+    transport: TransportProtocol,
+) -> io::Result<()> {
     let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-    cache.note_route_success(&state.config, target, route, host)?;
+    cache.note_route_success_for_transport(&state.config, target, route, host, transport)?;
     flush_autolearn_updates(state, &mut cache);
     Ok(())
 }
@@ -778,10 +792,8 @@ fn note_adaptive_fake_ttl_success(
     group_index: usize,
     host: Option<&str>,
 ) -> io::Result<()> {
-    let mut resolver = state
-        .adaptive_fake_ttl
-        .lock()
-        .map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
+    let mut resolver =
+        state.adaptive_fake_ttl.lock().map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
     resolver.note_success(group_index, target, host);
     Ok(())
 }
@@ -792,10 +804,8 @@ fn note_adaptive_fake_ttl_failure(
     group_index: usize,
     host: Option<&str>,
 ) -> io::Result<()> {
-    let mut resolver = state
-        .adaptive_fake_ttl
-        .lock()
-        .map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
+    let mut resolver =
+        state.adaptive_fake_ttl.lock().map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
     resolver.note_failure(group_index, target, host);
     Ok(())
 }
@@ -810,11 +820,81 @@ fn resolve_adaptive_fake_ttl(
     let Some(auto_ttl) = group.auto_ttl else {
         return Ok(None);
     };
-    let mut resolver = state
-        .adaptive_fake_ttl
-        .lock()
-        .map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
+    let mut resolver =
+        state.adaptive_fake_ttl.lock().map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
     Ok(Some(resolver.resolve(group_index, target, host, auto_ttl, group.ttl)))
+}
+
+fn resolve_adaptive_tcp_hints(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    group: &DesyncGroup,
+    host: Option<&str>,
+    payload: &[u8],
+) -> io::Result<AdaptivePlannerHints> {
+    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    Ok(resolver.resolve_tcp_hints(group_index, target, host, group, payload))
+}
+
+fn resolve_adaptive_udp_hints(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    group: &DesyncGroup,
+    host: Option<&str>,
+    payload: &[u8],
+) -> io::Result<AdaptivePlannerHints> {
+    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    Ok(resolver.resolve_udp_hints(group_index, target, host, group, payload))
+}
+
+fn note_adaptive_tcp_success(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    host: Option<&str>,
+    payload: &[u8],
+) -> io::Result<()> {
+    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    resolver.note_tcp_success(group_index, target, host, payload);
+    Ok(())
+}
+
+fn note_adaptive_tcp_failure(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    host: Option<&str>,
+    payload: &[u8],
+) -> io::Result<()> {
+    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    resolver.note_tcp_failure(group_index, target, host, payload);
+    Ok(())
+}
+
+fn note_adaptive_udp_success(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    host: Option<&str>,
+    payload: &[u8],
+) -> io::Result<()> {
+    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    resolver.note_udp_success(group_index, target, host, payload);
+    Ok(())
+}
+
+fn note_adaptive_udp_failure(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    host: Option<&str>,
+    payload: &[u8],
+) -> io::Result<()> {
+    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    resolver.note_udp_failure(group_index, target, host, payload);
+    Ok(())
 }
 
 fn connect_target_via_group(target: SocketAddr, state: &RuntimeState, group_index: usize) -> io::Result<TcpStream> {
@@ -934,10 +1014,10 @@ fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running: Arc<Atomic
     let mut flow_state = HashMap::<(SocketAddr, SocketAddr), UdpFlowActivationState>::new();
 
     while running.load(Ordering::Relaxed) {
+        expire_udp_flows(&state, &mut flow_state, Instant::now())?;
         match relay.recv_from(&mut buffer) {
             Ok((n, sender)) => {
                 let now = Instant::now();
-                flow_state.retain(|_, value| now.duration_since(value.last_used) < UDP_FLOW_IDLE_TIMEOUT);
                 let known_client = udp_client_addr;
                 if known_client.is_none() || known_client == Some(sender) {
                     udp_client_addr = Some(sender);
@@ -972,16 +1052,55 @@ fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running: Arc<Atomic
                         continue;
                     };
                     let activation = {
-                        let entry = flow_state
-                            .entry((sender, target))
-                            .or_insert_with(|| UdpFlowActivationState { session: SessionState::default(), last_used: now });
+                        let adaptive_hints = resolve_adaptive_udp_hints(
+                            &state,
+                            target,
+                            route.group_index,
+                            group,
+                            host.as_deref(),
+                            payload,
+                        )?;
+                        let entry = flow_state.entry((sender, target)).or_insert_with(|| UdpFlowActivationState {
+                            session: SessionState::default(),
+                            last_used: now,
+                            route: route.clone(),
+                            host: host.clone(),
+                            payload: payload.to_vec(),
+                            awaiting_response: true,
+                        });
                         entry.last_used = now;
+                        entry.route = route.clone();
+                        entry.host = host.clone();
+                        entry.payload.clear();
+                        entry.payload.extend_from_slice(payload);
+                        entry.awaiting_response = true;
                         let progress = entry.session.observe_datagram_outbound(payload);
-                        activation_context_from_progress(progress, ActivationTransport::Udp, None, None)
+                        activation_context_from_progress(progress, ActivationTransport::Udp, None, None, adaptive_hints)
                     };
                     let actions = plan_udp(group, payload, state.config.default_ttl, activation);
                     execute_udp_actions(&relay, target, &actions)?;
                 } else if let Some(client_addr) = udp_client_addr {
+                    if let Some(entry) = flow_state.get_mut(&(client_addr, sender)) {
+                        entry.last_used = now;
+                        entry.session.observe_inbound(&buffer[..n]);
+                        if entry.awaiting_response {
+                            note_adaptive_udp_success(
+                                &state,
+                                sender,
+                                entry.route.group_index,
+                                entry.host.as_deref(),
+                                &entry.payload,
+                            )?;
+                            note_route_success_for_transport(
+                                &state,
+                                sender,
+                                &entry.route,
+                                entry.host.as_deref(),
+                                TransportProtocol::Udp,
+                            )?;
+                            entry.awaiting_response = false;
+                        }
+                    }
                     let packet = encode_socks5_udp_packet(sender, &buffer[..n]);
                     relay.send_to(&packet, client_addr)?;
                 }
@@ -991,6 +1110,54 @@ fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running: Arc<Atomic
         }
     }
 
+    expire_udp_flows(&state, &mut flow_state, Instant::now())?;
+    Ok(())
+}
+
+fn expire_udp_flows(
+    state: &RuntimeState,
+    flow_state: &mut HashMap<(SocketAddr, SocketAddr), UdpFlowActivationState>,
+    now: Instant,
+) -> io::Result<()> {
+    let expired = flow_state
+        .iter()
+        .filter(|(_, value)| now.duration_since(value.last_used) >= UDP_FLOW_IDLE_TIMEOUT)
+        .map(|(key, value)| (*key, value.clone()))
+        .collect::<Vec<_>>();
+
+    for ((client_addr, target), entry) in expired {
+        flow_state.remove(&(client_addr, target));
+        if !entry.awaiting_response {
+            continue;
+        }
+        note_adaptive_udp_failure(state, target, entry.route.group_index, entry.host.as_deref(), &entry.payload)?;
+        let next = {
+            let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
+            let next = cache.advance_route(
+                &state.config,
+                &entry.route,
+                RouteAdvance {
+                    dest: target,
+                    payload: Some(entry.payload.as_slice()),
+                    transport: TransportProtocol::Udp,
+                    trigger: DETECT_CONNECT,
+                    can_reconnect: true,
+                    host: entry.host.clone(),
+                },
+            )?;
+            flush_autolearn_updates(state, &mut cache);
+            next
+        };
+        if let (Some(telemetry), Some(next)) = (&state.telemetry, next) {
+            telemetry.on_route_advanced(
+                target,
+                entry.route.group_index,
+                next.group_index,
+                DETECT_CONNECT,
+                entry.host.as_deref(),
+            );
+        }
+    }
     Ok(())
 }
 
@@ -1134,6 +1301,7 @@ fn relay(
     let mut session_state = SessionState::default();
     let mut success_recorded = false;
     let mut success_host = seed_request.as_ref().and_then(|payload| extract_host(&state.config, payload));
+    let mut success_payload = seed_request.clone();
 
     if seed_request.is_some() || needs_first_exchange(state)? {
         let request_timeout = client.read_timeout()?;
@@ -1146,6 +1314,7 @@ fn relay(
             let original_request = first_request;
             let host = extract_host(&state.config, &original_request);
             success_host = host.clone();
+            success_payload = Some(original_request.clone());
 
             loop {
                 session_state = SessionState::default();
@@ -1165,6 +1334,13 @@ fn relay(
                         return Err(err);
                     }
                     let next = {
+                        note_adaptive_tcp_failure(
+                            state,
+                            target,
+                            route.group_index,
+                            host.as_deref(),
+                            &original_request,
+                        )?;
                         note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
                         let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
                         let next = cache.advance_route(
@@ -1209,6 +1385,13 @@ fn relay(
                         session_state.observe_inbound(&bytes);
                         client.write_all(&bytes)?;
                         if session_state.recv_count > 0 {
+                            note_adaptive_tcp_success(
+                                state,
+                                target,
+                                route.group_index,
+                                host.as_deref(),
+                                &original_request,
+                            )?;
                             note_adaptive_fake_ttl_success(state, target, route.group_index, host.as_deref())?;
                             note_route_success(state, target, &route, host.as_deref())?;
                             success_recorded = true;
@@ -1218,6 +1401,13 @@ fn relay(
                     FirstResponse::NoData => break,
                     FirstResponse::Trigger(trigger) => {
                         let next = {
+                            note_adaptive_tcp_failure(
+                                state,
+                                target,
+                                route.group_index,
+                                host.as_deref(),
+                                &original_request,
+                            )?;
                             note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
                             let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
                             let next = cache.advance_route(
@@ -1261,6 +1451,9 @@ fn relay(
 
     let final_state = relay_streams(client, upstream, state, route.group_index, session_state)?;
     if !success_recorded && final_state.recv_count > 0 {
+        if let Some(ref request) = success_payload {
+            note_adaptive_tcp_success(state, target, route.group_index, success_host.as_deref(), request)?;
+        }
         note_adaptive_fake_ttl_success(state, target, route.group_index, success_host.as_deref())?;
         note_route_success(state, target, &route, success_host.as_deref())?;
     }
@@ -1301,7 +1494,9 @@ fn relay_streams(
         .expect("failed to spawn inbound relay thread");
     let up = thread::Builder::new()
         .name("ripdpi-up".into())
-        .spawn(move || copy_outbound_half(client_reader, upstream_writer, outbound_state, group_index, outbound_session))
+        .spawn(move || {
+            copy_outbound_half(client_reader, upstream_writer, outbound_state, group_index, outbound_session)
+        })
         .expect("failed to spawn outbound relay thread");
 
     let up_result = up.join().map_err(|_| io::Error::other("upstream thread panicked"))?;
@@ -1313,10 +1508,7 @@ fn relay_streams(
 
     up_result?;
     down_result?;
-    session_state
-        .lock()
-        .map_err(|_| io::Error::other("session mutex poisoned"))
-        .map(|state| state.clone())
+    session_state.lock().map_err(|_| io::Error::other("session mutex poisoned")).map(|state| state.clone())
 }
 
 fn activation_context_from_progress(
@@ -1324,6 +1516,7 @@ fn activation_context_from_progress(
     transport: ActivationTransport,
     tcp_segment_hint: Option<ciadpi_desync::TcpSegmentHint>,
     resolved_fake_ttl: Option<u8>,
+    adaptive: AdaptivePlannerHints,
 ) -> ActivationContext {
     ActivationContext {
         round: progress.round as i64,
@@ -1333,6 +1526,7 @@ fn activation_context_from_progress(
         transport,
         tcp_segment_hint,
         resolved_fake_ttl,
+        adaptive,
     }
 }
 
@@ -1676,11 +1870,13 @@ fn send_with_group(
     target: SocketAddr,
 ) -> io::Result<()> {
     let resolved_fake_ttl = resolve_adaptive_fake_ttl(state, target, group_index, group, host)?;
+    let adaptive_hints = resolve_adaptive_tcp_hints(state, target, group_index, group, host, payload)?;
     let context = activation_context_from_progress(
         progress,
         ActivationTransport::Tcp,
         platform::tcp_segment_hint(writer).ok().flatten(),
         resolved_fake_ttl,
+        adaptive_hints,
     );
     if should_desync_tcp(group, context) {
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
@@ -1754,23 +1950,18 @@ fn execute_tcp_plan(
     seed: u32,
     resolved_fake_ttl: Option<u8>,
 ) -> io::Result<()> {
-    let fake = if plan
-        .steps
-        .iter()
-        .any(|step| matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder))
-    {
-        Some(
-            build_fake_packet(group, &plan.tampered, seed)
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "failed to build fake packet for tcp desync"))?,
-        )
-    } else {
-        None
-    };
-    let send_steps = group
-        .effective_tcp_chain()
-        .into_iter()
-        .filter(|step| !step.kind.is_tls_prelude())
-        .collect::<Vec<_>>();
+    let fake =
+        if plan.steps.iter().any(|step| {
+            matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
+        }) {
+            Some(build_fake_packet(group, &plan.tampered, seed).map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidData, "failed to build fake packet for tcp desync")
+            })?)
+        } else {
+            None
+        };
+    let send_steps =
+        group.effective_tcp_chain().into_iter().filter(|step| !step.kind.is_tls_prelude()).collect::<Vec<_>>();
     if send_steps.len() < plan.steps.len() {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "tcp plan steps exceed configured send steps"));
     }
@@ -1829,7 +2020,8 @@ fn execute_tcp_plan(
                 }
             }
             TcpChainStepKind::Fake => {
-                let fake = fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
+                let fake =
+                    fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
                 let span = chunk.len();
                 let fake_end = fake.fake_offset.saturating_add(span).min(fake.bytes.len());
                 let fake_chunk = &fake.bytes[fake.fake_offset..fake_end];
@@ -1861,7 +2053,8 @@ fn execute_tcp_plan(
                     cursor = end;
                     continue;
                 }
-                let fake = fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
+                let fake =
+                    fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
                 let first_fake = build_fake_region_bytes(fake, start, chunk.len());
                 let second_fake = build_fake_region_bytes(fake, end, second.len());
                 let fake_ttl = resolved_fake_ttl.or(group.ttl).unwrap_or(8);
@@ -1902,7 +2095,8 @@ fn execute_tcp_plan(
                     cursor = end;
                     continue;
                 }
-                let fake = fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
+                let fake =
+                    fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
                 let first_fake = build_fake_region_bytes(fake, start, chunk.len());
                 let second_fake = build_fake_region_bytes(fake, end, second.len());
                 let fake_ttl = resolved_fake_ttl.or(group.ttl).unwrap_or(8);
@@ -2241,6 +2435,7 @@ mod tests {
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
             resolved_fake_ttl: None,
+            adaptive: AdaptivePlannerHints::default(),
         };
         let out_of_range = ActivationContext { round: 5, ..in_range };
 

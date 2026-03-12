@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use ciadpi_config::{parse_cli, DesyncMode, ParseResult, RuntimeConfig, StartupEnv};
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use ciadpi_desync::build_fake_packet;
-use ciadpi_desync::{plan_tcp, plan_udp, ActivationContext, ActivationTransport, DesyncAction};
+use ciadpi_desync::{plan_tcp, plan_udp, ActivationContext, ActivationTransport, AdaptivePlannerHints, DesyncAction};
 use ciadpi_packets::{http_marker_info, second_level_domain_span};
 use serde_json::Value;
 
@@ -52,6 +52,7 @@ fn tcp_context(payload: &[u8]) -> ActivationContext {
         transport: ActivationTransport::Tcp,
         tcp_segment_hint: None,
         resolved_fake_ttl: None,
+        adaptive: AdaptivePlannerHints::default(),
     }
 }
 
@@ -64,6 +65,7 @@ fn udp_context(payload: &[u8]) -> ActivationContext {
         transport: ActivationTransport::Udp,
         tcp_segment_hint: None,
         resolved_fake_ttl: None,
+        adaptive: AdaptivePlannerHints::default(),
     }
 }
 
@@ -106,28 +108,18 @@ fn host_offset_plans_match_fixture() {
     let http_expected = fixture("http_host_offset_plan");
     let http_payload = rust_packet_seeds::http_request();
     let (http_config, http_idx) = parse_group(&["--split", "0+h"]);
-    let http_plan = plan_tcp(
-        &http_config.groups[http_idx],
-        &http_payload,
-        7,
-        http_config.default_ttl,
-        tcp_context(&http_payload),
-    )
-    .expect("http plan");
+    let http_plan =
+        plan_tcp(&http_config.groups[http_idx], &http_payload, 7, http_config.default_ttl, tcp_context(&http_payload))
+            .expect("http plan");
 
     assert_eq!(http_plan.steps[0].end as i64, http_expected["step_end"].as_i64().unwrap());
 
     let tls_expected = fixture("tls_host_offset_plan");
     let tls_payload = rust_packet_seeds::tls_client_hello();
     let (tls_config, tls_idx) = parse_group(&["--split", "0+s"]);
-    let tls_plan = plan_tcp(
-        &tls_config.groups[tls_idx],
-        &tls_payload,
-        7,
-        tls_config.default_ttl,
-        tcp_context(&tls_payload),
-    )
-    .expect("tls plan");
+    let tls_plan =
+        plan_tcp(&tls_config.groups[tls_idx], &tls_payload, 7, tls_config.default_ttl, tcp_context(&tls_payload))
+            .expect("tls plan");
 
     assert_eq!(tls_plan.steps[0].end as i64, tls_expected["step_end"].as_i64().unwrap());
 }
@@ -141,25 +133,15 @@ fn named_markers_drive_cli_planning() {
     let expected_mid = (http_markers.host_start + sld_start + ((sld_end - sld_start) / 2)) as i64;
 
     let (method_cfg, method_idx) = parse_group(&["--split", "method+2"]);
-    let method_plan = plan_tcp(
-        &method_cfg.groups[method_idx],
-        &http_payload,
-        7,
-        method_cfg.default_ttl,
-        tcp_context(&http_payload),
-    )
-    .expect("method plan");
+    let method_plan =
+        plan_tcp(&method_cfg.groups[method_idx], &http_payload, 7, method_cfg.default_ttl, tcp_context(&http_payload))
+            .expect("method plan");
     assert_eq!(method_plan.steps[0].end, 2);
 
     let (mid_cfg, mid_idx) = parse_group(&["--split", "midsld"]);
-    let mid_plan = plan_tcp(
-        &mid_cfg.groups[mid_idx],
-        &http_payload,
-        7,
-        mid_cfg.default_ttl,
-        tcp_context(&http_payload),
-    )
-    .expect("midsld plan");
+    let mid_plan =
+        plan_tcp(&mid_cfg.groups[mid_idx], &http_payload, 7, mid_cfg.default_ttl, tcp_context(&http_payload))
+            .expect("midsld plan");
     assert_eq!(mid_plan.steps[0].end, expected_mid);
 
     let tls_payload = rust_packet_seeds::tls_client_hello();
@@ -182,8 +164,7 @@ fn desync_modes_map_to_distinct_plans() {
     ] {
         let (config, idx) = parse_group(&[flag, "8"]);
         let payload = b"GET / HTTP/1.1\r\nHost: www.wikipedia.org\r\n\r\n";
-        let plan =
-            plan_tcp(&config.groups[idx], payload, 7, config.default_ttl, tcp_context(payload)).expect("plan");
+        let plan = plan_tcp(&config.groups[idx], payload, 7, config.default_ttl, tcp_context(payload)).expect("plan");
 
         assert_eq!(plan.steps[0].kind.as_mode().unwrap(), expected_mode, "{flag}");
         assert_eq!(plan.steps[0].end, 8, "{flag}");
