@@ -65,6 +65,9 @@ import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeFamilyUiModel
+import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
@@ -315,6 +318,9 @@ fun DiagnosticsScreen(
                     variant = RipDpiButtonVariant.Outline,
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+            detail.strategyProbeReport?.let { report ->
+                StrategyProbeReportCard(report = report)
             }
             detail.contextGroups.forEach { group ->
                 ContextGroupCard(group = group)
@@ -671,6 +677,32 @@ private fun ScanSection(
                         )
                     }
                 }
+                uiState.scan.selectedProfileScopeLabel?.let { label ->
+                    Text(
+                        text = label,
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = RipDpiThemeTokens.colors.mutedForeground,
+                    )
+                }
+                uiState.scan.runRawHint?.let { hint ->
+                    WarningBanner(
+                        title = stringResource(R.string.diagnostics_probe_profile_title),
+                        message = hint,
+                        tone =
+                            if (uiState.scan.runRawEnabled) {
+                                WarningBannerTone.Info
+                            } else {
+                                WarningBannerTone.Restricted
+                            },
+                    )
+                }
+                uiState.scan.runInPathHint?.let { hint ->
+                    WarningBanner(
+                        title = stringResource(R.string.diagnostics_probe_path_title),
+                        message = hint,
+                        tone = WarningBannerTone.Restricted,
+                    )
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -679,14 +711,14 @@ private fun ScanSection(
                         text = stringResource(R.string.diagnostics_action_raw),
                         onClick = onRunRawScan,
                         modifier = Modifier.weight(1f),
-                        enabled = !uiState.scan.isBusy,
+                        enabled = uiState.scan.runRawEnabled,
                     )
                     RipDpiButton(
                         text = stringResource(R.string.diagnostics_action_in_path),
                         onClick = onRunInPathScan,
                         modifier = Modifier.weight(1f),
                         variant = RipDpiButtonVariant.Outline,
-                        enabled = !uiState.scan.isBusy,
+                        enabled = uiState.scan.runInPathEnabled,
                     )
                 }
                 RipDpiButton(
@@ -727,6 +759,11 @@ private fun ScanSection(
                 SessionRow(session = session, onClick = {})
             }
         }
+        uiState.scan.strategyProbeReport?.let { report ->
+            item {
+                StrategyProbeReportCard(report = report)
+            }
+        }
         if (uiState.scan.latestResults.isNotEmpty()) {
             item {
                 SettingsCategoryHeader(title = stringResource(R.string.diagnostics_results_section))
@@ -734,6 +771,103 @@ private fun ScanSection(
             items(uiState.scan.latestResults, key = { it.id }) { probe ->
                 ProbeResultRow(probe = probe, onClick = { onSelectProbe(probe) })
             }
+        }
+    }
+}
+
+@Composable
+private fun StrategyProbeReportCard(report: DiagnosticsStrategyProbeReportUiModel) {
+    val spacing = RipDpiThemeTokens.spacing
+    val colors = RipDpiThemeTokens.colors
+    RipDpiCard {
+        Text(
+            text = stringResource(R.string.diagnostics_probe_recommendation_title),
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = colors.foreground,
+        )
+        Text(
+            text = report.recommendation.headline,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Text(
+            text = report.recommendation.rationale,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        report.recommendation.fields.forEach { field ->
+            SettingsRow(
+                title = field.label,
+                value = field.value,
+            )
+        }
+        if (report.recommendation.signature.isNotEmpty()) {
+            HorizontalDivider()
+            Text(
+                text = stringResource(R.string.diagnostics_probe_signature_title),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            report.recommendation.signature.forEach { field ->
+                SettingsRow(
+                    title = field.label,
+                    value = field.value,
+                )
+            }
+        }
+        report.families.forEach { family ->
+            HorizontalDivider()
+            Text(
+                text = family.title,
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                family.candidates.forEach { candidate ->
+                    StrategyProbeCandidateRow(candidate = candidate)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StrategyProbeCandidateRow(candidate: DiagnosticsStrategyProbeCandidateUiModel) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    Surface(
+        shape = RipDpiThemeTokens.shapes.lg,
+        color = colors.inputBackground,
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(RipDpiThemeTokens.layout.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = candidate.label,
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                StatusIndicator(
+                    label = if (candidate.skipped) stringResource(R.string.diagnostics_probe_status_skipped) else candidate.outcome,
+                    tone = statusTone(candidate.tone),
+                )
+            }
+            Text(
+                text = candidate.rationale,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+            MetricsRow(metrics = candidate.metrics)
         }
     }
 }

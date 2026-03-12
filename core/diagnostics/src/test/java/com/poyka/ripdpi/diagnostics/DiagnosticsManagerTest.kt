@@ -4,6 +4,7 @@ import android.content.ContextWrapper
 import com.poyka.ripdpi.core.NativeRuntimeEvent
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultQueue
 import com.poyka.ripdpi.core.testing.FaultSpec
@@ -30,7 +31,13 @@ import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
 import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
+import com.poyka.ripdpi.diagnostics.QuicTarget
+import com.poyka.ripdpi.diagnostics.ScanKind
+import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
+import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
+import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
+import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -81,7 +88,7 @@ class DiagnosticsManagerTest {
                 )
 
             val sessionId = manager.startScan(ScanPathMode.RAW_PATH)
-            waitForCompletion(history, sessionId)
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
 
             val request = json.decodeFromString(ScanRequest.serializer(), bridgeFactory.bridge.startedRequestJson!!)
             val session = history.getScanSession(sessionId)
@@ -120,7 +127,7 @@ class DiagnosticsManagerTest {
                 )
 
             val sessionId = manager.startScan(ScanPathMode.IN_PATH)
-            waitForCompletion(history, sessionId)
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
 
             val request = json.decodeFromString(ScanRequest.serializer(), bridgeFactory.bridge.startedRequestJson!!)
 
@@ -128,6 +135,237 @@ class DiagnosticsManagerTest {
             assertEquals(ScanPathMode.IN_PATH, request.pathMode)
             assertEquals("10.0.0.2", request.proxyHost)
             assertEquals(2080, request.proxyPort)
+        }
+
+    @Test
+    fun `automatic probing injects base ui config and stays raw path only`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
+            val settings =
+                defaultAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-probing")
+                    .setFakeTtl(9)
+                    .setHostAutolearnEnabled(true)
+                    .build()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = runtimeCoordinator,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.RAW_PATH)
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
+
+            val request = json.decodeFromString(ScanRequest.serializer(), bridgeFactory.bridge.startedRequestJson!!)
+
+            assertEquals(1, runtimeCoordinator.rawScanCount.get())
+            assertEquals(ScanKind.STRATEGY_PROBE, request.kind)
+            assertEquals(ScanPathMode.RAW_PATH, request.pathMode)
+            assertNull(request.proxyHost)
+            assertNull(request.proxyPort)
+            assertEquals("quick_v1", request.strategyProbe?.suiteId)
+            val injectedConfig = request.strategyProbe?.baseProxyConfigJson.orEmpty()
+            assertTrue(injectedConfig.contains("\"kind\":\"ui\""))
+            assertTrue(injectedConfig.contains("\"hostAutolearnStorePath\""))
+        }
+
+    @Test
+    fun `automatic probing rejects in path execution`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository =
+                        FakeAppSettingsRepository(
+                            defaultAppSettings()
+                                .toBuilder()
+                                .setDiagnosticsActiveProfileId("automatic-probing")
+                                .build(),
+                        ),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            try {
+                manager.startScan(ScanPathMode.IN_PATH)
+                error("Expected automatic probing to reject in-path execution")
+            } catch (error: IllegalArgumentException) {
+                assertTrue(error.message.orEmpty().contains("raw-path", ignoreCase = true))
+            }
+        }
+
+    @Test
+    fun `automatic probing rejects command line mode`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }
+            val settings =
+                defaultAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-probing")
+                    .setEnableCmdSettings(true)
+                    .build()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            try {
+                manager.startScan(ScanPathMode.RAW_PATH)
+                error("Expected automatic probing to reject command-line mode")
+            } catch (error: IllegalArgumentException) {
+                assertTrue(error.message.orEmpty().contains("UI-configured", ignoreCase = true))
+            }
+        }
+
+    @Test
+    fun `automatic probing report is enriched with strategy signature before persistence`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                bridge.autoCompleteOnStart = false
+            }
+            val settings =
+                defaultAppSettings()
+                    .toBuilder()
+                    .setDiagnosticsActiveProfileId("automatic-probing")
+                    .build()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.RAW_PATH)
+            bridgeFactory.bridge.enqueueReport(
+                json.encodeToString(
+                    ScanReport.serializer(),
+                    ScanReport(
+                        sessionId = sessionId,
+                        profileId = "automatic-probing",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        startedAt = 10L,
+                        finishedAt = 20L,
+                        summary = "Recommended hostfake",
+                        results = emptyList(),
+                        strategyProbeReport =
+                            StrategyProbeReport(
+                                suiteId = "quick_v1",
+                                tcpCandidates =
+                                    listOf(
+                                        StrategyProbeCandidateSummary(
+                                            id = "tlsrec_hostfake",
+                                            label = "TLS record + hostfake",
+                                            family = "hostfake",
+                                            outcome = "success",
+                                            rationale = "Won HTTPS",
+                                            succeededTargets = 2,
+                                            totalTargets = 2,
+                                            weightedSuccessScore = 4,
+                                            totalWeight = 4,
+                                            qualityScore = 8,
+                                            averageLatencyMs = 120,
+                                        ),
+                                    ),
+                                quicCandidates =
+                                    listOf(
+                                        StrategyProbeCandidateSummary(
+                                            id = "quic_realistic_burst",
+                                            label = "QUIC realistic burst",
+                                            family = "quic_burst",
+                                            outcome = "success",
+                                            rationale = "Won QUIC",
+                                            succeededTargets = 1,
+                                            totalTargets = 1,
+                                            weightedSuccessScore = 2,
+                                            totalWeight = 2,
+                                            qualityScore = 4,
+                                            averageLatencyMs = 180,
+                                        ),
+                                    ),
+                                recommendation =
+                                    StrategyProbeRecommendation(
+                                        tcpCandidateId = "tlsrec_hostfake",
+                                        tcpCandidateLabel = "TLS record + hostfake",
+                                        quicCandidateId = "quic_realistic_burst",
+                                        quicCandidateLabel = "QUIC realistic burst",
+                                        rationale = "Won by weighted success",
+                                        recommendedProxyConfigJson =
+                                            RipDpiProxyUIPreferences(
+                                                desyncUdp = true,
+                                                tcpChainSteps =
+                                                    listOf(
+                                                        com.poyka.ripdpi.data.TcpChainStepModel(
+                                                            kind = com.poyka.ripdpi.data.TcpChainStepKind.TlsRec,
+                                                            marker = "extlen",
+                                                        ),
+                                                        com.poyka.ripdpi.data.TcpChainStepModel(
+                                                            kind = com.poyka.ripdpi.data.TcpChainStepKind.HostFake,
+                                                            marker = "endhost+8",
+                                                            midhostMarker = "midsld",
+                                                            fakeHostTemplate = "googlevideo.com",
+                                                        ),
+                                                    ),
+                                                udpChainSteps =
+                                                    listOf(
+                                                        com.poyka.ripdpi.data.UdpChainStepModel(
+                                                            count = 4,
+                                                        ),
+                                                    ),
+                                                quicFakeProfile = "realistic_initial",
+                                            ).toNativeConfigJson(),
+                                    ),
+                            ),
+                    ),
+                ),
+            )
+            bridgeFactory.bridge.enqueueProgress(
+                json.encodeToString(
+                    ScanProgress.serializer(),
+                    ScanProgress(
+                        sessionId = sessionId,
+                        phase = "finished",
+                        completedSteps = 1,
+                        totalSteps = 1,
+                        message = "done",
+                        isFinished = true,
+                    ),
+                ),
+            )
+
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
+
+            val persisted = json.decodeFromString(ScanReport.serializer(), history.getScanSession(sessionId)?.reportJson.orEmpty())
+            val signature = persisted.strategyProbeReport?.recommendation?.strategySignature
+
+            assertTrue(signature?.chainSummary.orEmpty().contains("hostfake(endhost+8", ignoreCase = true))
+            assertEquals("realistic_initial", signature?.quicFakeProfile)
         }
 
     @Test
@@ -865,16 +1103,32 @@ class DiagnosticsManagerTest {
     private suspend fun waitForCompletion(
         history: FakeDiagnosticsHistoryRepository,
         sessionId: String,
+        minNativeEvents: Int = 2,
     ) {
         kotlinx.coroutines.withContext(Dispatchers.Default.limitedParallelism(1)) {
-            withTimeout(2_000) {
-                while (
-                    history.getScanSession(sessionId)?.status != "completed" ||
-                    history.snapshotsState.value.size < 2 ||
-                    history.nativeEventsState.value.size < 2
-                ) {
-                    delay(25)
+            try {
+                withTimeout(2_000) {
+                    while (
+                        history.getScanSession(sessionId)?.let { session ->
+                            if (session.status == "failed") {
+                                error("Session failed before completion: ${session.summary}")
+                            }
+                            session.status != "completed"
+                        } != false ||
+                        history.snapshotsState.value.size < 2 ||
+                        history.nativeEventsState.value.size < minNativeEvents
+                    ) {
+                        delay(25)
+                    }
                 }
+            } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
+                val session = history.getScanSession(sessionId)
+                error(
+                    "Timed out waiting for completion: " +
+                        "status=${session?.status} summary=${session?.summary} " +
+                        "snapshots=${history.snapshotsState.value.size} " +
+                        "nativeEvents=${history.nativeEventsState.value.size}",
+                )
             }
         }
     }
@@ -915,6 +1169,8 @@ private class TestContext(
     private val testCacheDir: File = Files.createTempDirectory("diagnostics-manager-test").toFile(),
 ) : ContextWrapper(null) {
     override fun getCacheDir(): File = testCacheDir
+
+    override fun getNoBackupFilesDir(): File = File(testCacheDir, "no-backup").apply { mkdirs() }
 }
 
 private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
@@ -1043,6 +1299,32 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
                                 pathMode = ScanPathMode.RAW_PATH,
                                 domainTargets = listOf(DomainTarget(host = "example.org")),
                                 dnsTargets = listOf(DnsTarget(domain = "blocked.example")),
+                            ),
+                        ),
+                    updatedAt = 1L,
+                ),
+            )
+    }
+
+    fun seedStrategyProbeProfile(json: Json) {
+        profilesState.value =
+            listOf(
+                DiagnosticProfileEntity(
+                    id = "automatic-probing",
+                    name = "Automatic probing",
+                    source = "bundled",
+                    version = 1,
+                    requestJson =
+                        json.encodeToString(
+                            ScanRequest.serializer(),
+                            ScanRequest(
+                                profileId = "automatic-probing",
+                                displayName = "Automatic probing",
+                                pathMode = ScanPathMode.RAW_PATH,
+                                kind = ScanKind.STRATEGY_PROBE,
+                                domainTargets = listOf(DomainTarget(host = "example.org")),
+                                quicTargets = listOf(QuicTarget(host = "example.org")),
+                                strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
                             ),
                         ),
                     updatedAt = 1L,

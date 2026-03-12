@@ -151,6 +151,38 @@ class RipDpiProxyPreferencesTest {
     }
 
     @Test
+    fun decodeUiPreferencesRoundTripsHostfakeAndQuicProfile() {
+        val original =
+            RipDpiProxyUIPreferences(
+                tcpChainSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.TlsRec,
+                            marker = "extlen",
+                        ),
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.HostFake,
+                            marker = "endhost+8",
+                            midhostMarker = "midsld",
+                            fakeHostTemplate = "googlevideo.com",
+                        ),
+                    ),
+                quicFakeProfile = QuicFakeProfileRealisticInitial,
+                quicFakeHost = "Video.Example.TEST.",
+                hostAutolearnEnabled = true,
+                hostAutolearnPenaltyTtlHours = 6,
+                hostAutolearnMaxHosts = 512,
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals(original.chainSummary, decoded?.chainSummary)
+        assertEquals(QuicFakeProfileRealisticInitial, decoded?.quicFakeProfile)
+        assertEquals("video.example.test", decoded?.quicFakeHost)
+        assertEquals(true, decoded?.hostAutolearnEnabled)
+    }
+
+    @Test
     fun uiPreferencesNormalizeTlsRandRecDefaults() {
         val preferences =
             RipDpiProxyUIPreferences(

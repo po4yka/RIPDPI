@@ -3,7 +3,11 @@ package com.poyka.ripdpi.diagnostics
 import android.content.Context
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -139,6 +143,48 @@ class DefaultDiagnosticsManager
         val profileId = settings.diagnosticsActiveProfileId.ifEmpty { "default" }
         val profile = requireNotNull(historyRepository.getProfile(profileId)) { "Unknown diagnostics profile: $profileId" }
         val request = json.decodeFromString(ScanRequest.serializer(), profile.requestJson)
+        val requestForPath =
+            when (request.kind) {
+                ScanKind.CONNECTIVITY ->
+                    request.copy(
+                        pathMode = pathMode,
+                        proxyHost =
+                            if (pathMode == ScanPathMode.IN_PATH) {
+                                settings.proxyIp.ifEmpty { "127.0.0.1" }
+                            } else {
+                                null
+                            },
+                        proxyPort =
+                            if (pathMode == ScanPathMode.IN_PATH) {
+                                settings.proxyPort.takeIf { it > 0 } ?: 1080
+                            } else {
+                                null
+                            },
+                    )
+
+                ScanKind.STRATEGY_PROBE -> {
+                    require(pathMode == ScanPathMode.RAW_PATH) {
+                        "Automatic probing only supports raw-path scans"
+                    }
+                    require(!settings.enableCmdSettings) {
+                        "Automatic probing only supports UI-configured RIPDPI settings"
+                    }
+                    val baseProxyConfigJson =
+                        RipDpiProxyUIPreferences(
+                            settings = settings,
+                            hostAutolearnStorePath = resolveHostAutolearnStorePath(context),
+                        ).toNativeConfigJson()
+                    request.copy(
+                        pathMode = ScanPathMode.RAW_PATH,
+                        proxyHost = null,
+                        proxyPort = null,
+                        strategyProbe =
+                            (request.strategyProbe ?: StrategyProbeRequest()).copy(
+                                baseProxyConfigJson = baseProxyConfigJson,
+                            ),
+                    )
+                }
+            }
         val sessionId = UUID.randomUUID().toString()
         val serviceMode = serviceStateStore.status.value.second.name
         val contextSnapshot = diagnosticsContextProvider.captureContext()
@@ -182,22 +228,6 @@ class DefaultDiagnosticsManager
         )
 
         val bridge = networkDiagnosticsBridgeFactory.create().also { activeDiagnosticsBridge = it }
-        val requestForPath =
-            request.copy(
-                pathMode = pathMode,
-                proxyHost =
-                    if (pathMode == ScanPathMode.IN_PATH) {
-                        settings.proxyIp.ifEmpty { "127.0.0.1" }
-                    } else {
-                        null
-                    },
-                proxyPort =
-                    if (pathMode == ScanPathMode.IN_PATH) {
-                        settings.proxyPort.takeIf { it > 0 } ?: 1080
-                    } else {
-                        null
-                    },
-            )
         try {
             bridge.startScan(
                 requestJson = json.encodeToString(ScanRequest.serializer(), requestForPath),
@@ -222,7 +252,7 @@ class DefaultDiagnosticsManager
         scope.launch {
             try {
                 val scanBlock: suspend () -> Unit = {
-                    pollScanResult(sessionId, bridge)
+                    pollScanResult(sessionId, bridge, settings)
                 }
 
                 when (pathMode) {
@@ -774,6 +804,7 @@ class DefaultDiagnosticsManager
     private suspend fun pollScanResult(
         sessionId: String,
         bridge: NetworkDiagnosticsBridge,
+        settings: com.poyka.ripdpi.proto.AppSettings,
     ) {
         while (true) {
             persistNativeEvents(
@@ -789,7 +820,7 @@ class DefaultDiagnosticsManager
                     bridge.takeReportJson()
                         ?.let { json.decodeFromString(ScanReport.serializer(), it) }
                         ?: throw IllegalStateException("Diagnostics scan completed without a report")
-                persistScanReport(report)
+                persistScanReport(enrichScanReport(report, settings))
                 historyRepository.upsertSnapshot(
                     NetworkSnapshotEntity(
                         id = UUID.randomUUID().toString(),
@@ -817,6 +848,30 @@ class DefaultDiagnosticsManager
             }
             delay(400L)
         }
+    }
+
+    private fun enrichScanReport(
+        report: ScanReport,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ): ScanReport {
+        val strategyProbe = report.strategyProbeReport ?: return report
+        val recommendation = strategyProbe.recommendation
+        val strategySignature =
+            decodeRipDpiProxyUiPreferences(recommendation.recommendedProxyConfigJson)
+                ?.let { preferences ->
+                    deriveBypassStrategySignature(
+                        preferences = preferences,
+                        routeGroup = null,
+                        modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }),
+                    )
+                }
+
+        return report.copy(
+            strategyProbeReport =
+                strategyProbe.copy(
+                    recommendation = recommendation.copy(strategySignature = strategySignature),
+                ),
+        )
     }
 
     private suspend fun persistScanFailure(
