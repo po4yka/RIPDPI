@@ -131,6 +131,7 @@ abstract class BuildRustNativeLibsTask
                             add("-p")
                             add(packageName)
                         }
+                        add("--locked")
                         add("--target")
                         add(target)
                         add("--profile")

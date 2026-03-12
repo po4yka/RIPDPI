@@ -1,7 +1,9 @@
 use std::io;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
+pub mod adaptive_fake_ttl;
 pub mod platform;
 pub mod process;
 pub mod runtime;
@@ -34,6 +36,50 @@ pub trait RuntimeTelemetrySink: Send + Sync {
     fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group_index: Option<usize>);
 }
 
+#[derive(Clone)]
+pub struct EmbeddedProxyControl {
+    shutdown: Arc<AtomicBool>,
+    telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
+}
+
+impl std::fmt::Debug for EmbeddedProxyControl {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("EmbeddedProxyControl")
+            .field("shutdown_requested", &self.shutdown_requested())
+            .field("has_telemetry_sink", &self.telemetry.is_some())
+            .finish()
+    }
+}
+
+impl Default for EmbeddedProxyControl {
+    fn default() -> Self {
+        Self::new(None)
+    }
+}
+
+impl EmbeddedProxyControl {
+    pub fn new(telemetry: Option<Arc<dyn RuntimeTelemetrySink>>) -> Self {
+        Self { shutdown: Arc::new(AtomicBool::new(false)), telemetry }
+    }
+
+    pub fn request_shutdown(&self) {
+        self.shutdown.store(true, Ordering::Relaxed);
+    }
+
+    pub fn reset_shutdown(&self) {
+        self.shutdown.store(false, Ordering::Relaxed);
+    }
+
+    pub fn shutdown_requested(&self) -> bool {
+        self.shutdown.load(Ordering::Relaxed)
+    }
+
+    pub fn telemetry_sink(&self) -> Option<Arc<dyn RuntimeTelemetrySink>> {
+        self.telemetry.clone()
+    }
+}
+
 static TELEMETRY_SINK: OnceLock<Mutex<Option<Arc<dyn RuntimeTelemetrySink>>>> = OnceLock::new();
 
 fn telemetry_slot() -> &'static Mutex<Option<Arc<dyn RuntimeTelemetrySink>>> {
@@ -59,7 +105,7 @@ pub(crate) fn current_runtime_telemetry() -> Option<Arc<dyn RuntimeTelemetrySink
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::AtomicUsize;
 
     struct CountingSink {
         accepted: AtomicUsize,
@@ -137,5 +183,30 @@ mod tests {
         assert_eq!(second.accepted.load(Ordering::Relaxed), 1);
 
         clear_runtime_telemetry();
+    }
+
+    #[test]
+    fn embedded_proxy_controls_keep_shutdown_state_isolated() {
+        let first = EmbeddedProxyControl::default();
+        let second = EmbeddedProxyControl::default();
+
+        first.request_shutdown();
+
+        assert!(first.shutdown_requested());
+        assert!(!second.shutdown_requested());
+
+        first.reset_shutdown();
+        assert!(!first.shutdown_requested());
+    }
+
+    #[test]
+    fn embedded_proxy_control_preserves_its_own_telemetry_sink() {
+        let sink = Arc::new(CountingSink::new());
+        let control = EmbeddedProxyControl::new(Some(sink.clone()));
+
+        let current = control.telemetry_sink().expect("telemetry sink");
+        current.on_client_accepted();
+
+        assert_eq!(sink.accepted.load(Ordering::Relaxed), 1);
     }
 }

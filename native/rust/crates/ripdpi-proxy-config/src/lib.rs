@@ -25,6 +25,10 @@ pub const FAKE_TLS_SNI_MODE_FIXED: &str = "fixed";
 pub const FAKE_TLS_SNI_MODE_RANDOMIZED: &str = "randomized";
 pub const QUIC_FAKE_PROFILE_DISABLED: &str = "disabled";
 pub const FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT: &str = "compat_default";
+pub const ADAPTIVE_FAKE_TTL_DEFAULT_DELTA: i32 = -1;
+pub const ADAPTIVE_FAKE_TTL_DEFAULT_MIN: i32 = 3;
+pub const ADAPTIVE_FAKE_TTL_DEFAULT_MAX: i32 = 12;
+pub const ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK: i32 = 8;
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum ProxyConfigError {
@@ -112,6 +116,16 @@ pub struct ProxyUiConfig {
     #[serde(default)]
     pub split_at_host: bool,
     pub fake_ttl: i32,
+    #[serde(default)]
+    pub adaptive_fake_ttl_enabled: bool,
+    #[serde(default = "default_adaptive_fake_ttl_delta")]
+    pub adaptive_fake_ttl_delta: i32,
+    #[serde(default = "default_adaptive_fake_ttl_min")]
+    pub adaptive_fake_ttl_min: i32,
+    #[serde(default = "default_adaptive_fake_ttl_max")]
+    pub adaptive_fake_ttl_max: i32,
+    #[serde(default = "default_adaptive_fake_ttl_fallback")]
+    pub adaptive_fake_ttl_fallback: i32,
     pub fake_sni: String,
     #[serde(default = "default_fake_payload_profile")]
     pub http_fake_profile: String,
@@ -190,6 +204,22 @@ fn default_quic_fake_profile() -> String {
 
 fn default_fake_payload_profile() -> String {
     FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT.to_string()
+}
+
+fn default_adaptive_fake_ttl_delta() -> i32 {
+    ADAPTIVE_FAKE_TTL_DEFAULT_DELTA
+}
+
+fn default_adaptive_fake_ttl_min() -> i32 {
+    ADAPTIVE_FAKE_TTL_DEFAULT_MIN
+}
+
+fn default_adaptive_fake_ttl_max() -> i32 {
+    ADAPTIVE_FAKE_TTL_DEFAULT_MAX
+}
+
+fn default_adaptive_fake_ttl_fallback() -> i32 {
+    ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK
 }
 
 fn default_host_autolearn_penalty_ttl_secs() -> i64 {
@@ -344,9 +374,32 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         _ => return Err(ProxyConfigError::InvalidConfig("Unknown hostsMode".to_string())),
     }
 
-    if payload.fake_ttl > 0 {
-        group.ttl =
-            Some(u8::try_from(payload.fake_ttl).map_err(|_| ProxyConfigError::InvalidConfig("Invalid fakeTtl".to_string()))?);
+    if payload.adaptive_fake_ttl_enabled {
+        let delta = i8::try_from(payload.adaptive_fake_ttl_delta)
+            .map_err(|_| ProxyConfigError::InvalidConfig("Invalid adaptiveFakeTtlDelta".to_string()))?;
+        let min_ttl = u8::try_from(payload.adaptive_fake_ttl_min)
+            .map_err(|_| ProxyConfigError::InvalidConfig("Invalid adaptiveFakeTtlMin".to_string()))?;
+        let max_ttl = u8::try_from(payload.adaptive_fake_ttl_max)
+            .map_err(|_| ProxyConfigError::InvalidConfig("Invalid adaptiveFakeTtlMax".to_string()))?;
+        if min_ttl == 0 || max_ttl == 0 || min_ttl > max_ttl {
+            return Err(ProxyConfigError::InvalidConfig("Invalid adaptive fake TTL window".to_string()));
+        }
+        group.auto_ttl = Some(ciadpi_config::AutoTtlConfig { delta, min_ttl, max_ttl });
+        let fallback_ttl = if payload.adaptive_fake_ttl_fallback > 0 {
+            payload.adaptive_fake_ttl_fallback
+        } else if payload.fake_ttl > 0 {
+            payload.fake_ttl
+        } else {
+            ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK
+        };
+        group.ttl = Some(
+            u8::try_from(fallback_ttl)
+                .map_err(|_| ProxyConfigError::InvalidConfig("Invalid adaptiveFakeTtlFallback".to_string()))?,
+        );
+    } else if payload.fake_ttl > 0 {
+        group.ttl = Some(
+            u8::try_from(payload.fake_ttl).map_err(|_| ProxyConfigError::InvalidConfig("Invalid fakeTtl".to_string()))?,
+        );
     }
     group.http_fake_profile = parse_http_fake_profile(&payload.http_fake_profile)?;
     group.tls_fake_profile = parse_tls_fake_profile(&payload.tls_fake_profile)?;
@@ -665,6 +718,11 @@ mod tests {
             split_position: 0,
             split_at_host: false,
             fake_ttl: 8,
+            adaptive_fake_ttl_enabled: false,
+            adaptive_fake_ttl_delta: ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+            adaptive_fake_ttl_min: ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+            adaptive_fake_ttl_max: ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+            adaptive_fake_ttl_fallback: ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
             fake_sni: "www.wikipedia.org".to_string(),
             http_fake_profile: FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT.to_string(),
             fake_tls_use_original: false,
@@ -842,5 +900,55 @@ mod tests {
         let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("adaptive fake offset");
 
         assert!(err.to_string().contains("fakeOffsetMarker"));
+    }
+
+    #[test]
+    fn ui_payload_maps_adaptive_fake_ttl_and_fallback() {
+        let mut ui = minimal_ui();
+        ui.fake_ttl = 11;
+        ui.adaptive_fake_ttl_enabled = true;
+        ui.adaptive_fake_ttl_delta = -1;
+        ui.adaptive_fake_ttl_min = 3;
+        ui.adaptive_fake_ttl_max = 12;
+        ui.adaptive_fake_ttl_fallback = 9;
+
+        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("adaptive fake ttl config");
+        let group = &config.groups[0];
+
+        assert_eq!(
+            group.auto_ttl,
+            Some(ciadpi_config::AutoTtlConfig {
+                delta: -1,
+                min_ttl: 3,
+                max_ttl: 12,
+            }),
+        );
+        assert_eq!(group.ttl, Some(9));
+    }
+
+    #[test]
+    fn ui_payload_rejects_invalid_adaptive_fake_ttl_window() {
+        let mut ui = minimal_ui();
+        ui.adaptive_fake_ttl_enabled = true;
+        ui.adaptive_fake_ttl_min = 12;
+        ui.adaptive_fake_ttl_max = 3;
+
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("invalid adaptive ttl window");
+
+        assert!(err.to_string().contains("adaptive fake TTL window"));
+    }
+
+    #[test]
+    fn ui_payload_uses_fixed_fake_ttl_when_adaptive_is_disabled() {
+        let mut ui = minimal_ui();
+        ui.fake_ttl = 13;
+        ui.adaptive_fake_ttl_enabled = false;
+        ui.adaptive_fake_ttl_fallback = 5;
+
+        let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("fixed fake ttl config");
+        let group = &config.groups[0];
+
+        assert_eq!(group.auto_ttl, None);
+        assert_eq!(group.ttl, Some(13));
     }
 }

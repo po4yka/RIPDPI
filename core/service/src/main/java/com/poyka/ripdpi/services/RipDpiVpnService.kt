@@ -29,13 +29,13 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
@@ -169,30 +169,27 @@ class RipDpiVpnService : LifecycleVpnService() {
         }
     }
 
-    private suspend fun stop() {
+    private suspend fun stop(skipProxyShutdown: Boolean = false) {
         logcat(LogPriority.INFO) { "Stopping" }
 
         mutex.withLock {
             stopping = true
             try {
-                var shutdownError: Exception? = null
                 try {
                     stopTun2Socks()
                 } catch (e: Exception) {
-                    shutdownError = e
                     logcat(LogPriority.ERROR) { "Failed to stop tunnel\n${e.asLog()}" }
                 }
-                try {
-                    stopProxy()
-                } catch (e: Exception) {
-                    if (shutdownError == null) {
-                        shutdownError = e
-                    } else {
-                        shutdownError.addSuppressed(e)
+                if (!skipProxyShutdown) {
+                    try {
+                        stopProxy()
+                    } catch (e: Exception) {
+                        logcat(LogPriority.ERROR) { "Failed to stop proxy\n${e.asLog()}" }
                     }
-                    logcat(LogPriority.ERROR) { "Failed to stop proxy\n${e.asLog()}" }
+                } else {
+                    proxyJob = null
+                    ripDpiProxy = null
                 }
-                shutdownError?.let { throw it }
             } finally {
                 stopping = false
                 currentDnsSignature = null
@@ -219,35 +216,47 @@ class RipDpiVpnService : LifecycleVpnService() {
         val proxyInstance = ripDpiProxyFactory.create()
         ripDpiProxy = proxyInstance
 
-        proxyJob =
+        val exitResult = CompletableDeferred<Result<Int>>()
+        val job =
             lifecycleScope.launch(Dispatchers.IO) {
-                val code = proxyInstance.startProxy(preferences)
-
-                withContext(Dispatchers.Main) {
-                    if (code != 0) {
-                        logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
-                        updateStatus(ServiceStatus.Failed, FailureReason.NativeError("Proxy exited with code $code"))
-                        if (!stopping) {
-                            stop()
-                        }
-                    } else {
-                        if (!stopping) {
-                            stop()
-                        }
+                try {
+                    exitResult.complete(runCatching { proxyInstance.startProxy(preferences) })
+                } finally {
+                    if (!exitResult.isCompleted) {
+                        exitResult.complete(Result.failure(IllegalStateException("Proxy job cancelled")))
                     }
                 }
             }
+        proxyJob = job
+
+        try {
+            proxyInstance.awaitReady()
+        } catch (e: Exception) {
+            runCatching {
+                if (job.isActive) {
+                    proxyInstance.stopProxy()
+                }
+            }
+            job.join()
+            proxyJob = null
+            ripDpiProxy = null
+            throw e
+        }
+
+        job.invokeOnCompletion {
+            if (stopping) {
+                return@invokeOnCompletion
+            }
+            lifecycleScope.launch {
+                handleProxyExit(exitResult.await())
+            }
+        }
 
         logcat(LogPriority.INFO) { "Proxy started" }
     }
 
     private suspend fun stopProxy() {
         logcat(LogPriority.INFO) { "Stopping proxy" }
-
-        if (status == ServiceStatus.Disconnected) {
-            logcat(LogPriority.WARN) { "Proxy already disconnected" }
-            return
-        }
 
         val proxyInstance = ripDpiProxy
         if (proxyInstance == null) {
@@ -262,6 +271,30 @@ class RipDpiVpnService : LifecycleVpnService() {
         ripDpiProxy = null
 
         logcat(LogPriority.INFO) { "Proxy stopped" }
+    }
+
+    private suspend fun handleProxyExit(result: Result<Int>) {
+        if (stopping) {
+            return
+        }
+
+        val failureReason =
+            result.exceptionOrNull()?.let { throwable ->
+                val error = throwable as? Exception ?: IllegalStateException("Proxy runtime failed", throwable)
+                logcat(LogPriority.ERROR) { "Proxy failed\n${error.asLog()}" }
+                classifyFailureReason(error)
+            } ?: result.getOrNull()
+                ?.takeIf { it != 0 }
+                ?.let { code ->
+                    logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
+                    FailureReason.NativeError("Proxy exited with code $code")
+                }
+
+        if (failureReason != null) {
+            updateStatus(ServiceStatus.Failed, failureReason)
+        }
+
+        stop(skipProxyShutdown = true)
     }
 
     private suspend fun startTun2Socks(
@@ -415,13 +448,37 @@ class RipDpiVpnService : LifecycleVpnService() {
                     val proxyTelemetry =
                         runCatching { ripDpiProxy?.pollTelemetry() }.getOrNull()
                             ?: NativeRuntimeSnapshot.idle(source = "proxy")
+                    val tunnelTelemetryResult = runCatching { tun2SocksBridge?.telemetry() }
                     val tunnelTelemetry =
-                        runCatching { tun2SocksBridge?.telemetry() }.getOrNull()
+                        tunnelTelemetryResult.getOrNull()
                             ?: NativeRuntimeSnapshot.idle(source = "tunnel")
                     val enrichedTunnelTelemetry =
                         tunnelTelemetry.copy(
                             networkHandoverClass = deriveNetworkHandoverClass(),
                         )
+
+                    if (!stopping) {
+                        val telemetryFailure =
+                            tunnelTelemetryResult.exceptionOrNull()?.let { throwable ->
+                                val error =
+                                    throwable as? Exception
+                                        ?: IllegalStateException("Tunnel telemetry failed", throwable)
+                                classifyFailureReason(error, isTunnelContext = true)
+                            }
+                        val tunnelStoppedUnexpectedly =
+                            tunSession != null && enrichedTunnelTelemetry.state != "running"
+                        if (telemetryFailure != null || tunnelStoppedUnexpectedly) {
+                            val failureReason =
+                                telemetryFailure
+                                    ?: FailureReason.NativeError(
+                                        enrichedTunnelTelemetry.lastError ?: "Tunnel exited unexpectedly",
+                                    )
+                            updateStatus(ServiceStatus.Failed, failureReason)
+                            stop()
+                            return@launch
+                        }
+                    }
+
                     serviceStateStore.updateTelemetry(
                         ServiceTelemetrySnapshot(
                             mode = Mode.VPN,

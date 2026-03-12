@@ -61,6 +61,7 @@ pub struct ActivationContext {
     pub stream_end: i64,
     pub transport: ActivationTransport,
     pub tcp_segment_hint: Option<TcpSegmentHint>,
+    pub resolved_fake_ttl: Option<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -324,8 +325,15 @@ fn push_split_actions(actions: &mut Vec<DesyncAction>, bytes: Vec<u8>) {
     actions.push(DesyncAction::AwaitWritable);
 }
 
-fn push_fake_actions(actions: &mut Vec<DesyncAction>, original: &[u8], fake: Vec<u8>, group: &DesyncGroup, default_ttl: u8) {
-    actions.push(DesyncAction::SetTtl(group.ttl.unwrap_or(8)));
+fn push_fake_actions(
+    actions: &mut Vec<DesyncAction>,
+    original: &[u8],
+    fake: Vec<u8>,
+    group: &DesyncGroup,
+    default_ttl: u8,
+    fake_ttl: u8,
+) {
+    actions.push(DesyncAction::SetTtl(fake_ttl));
     if group.md5sig {
         actions.push(DesyncAction::SetMd5Sig { key_len: 5 });
     }
@@ -703,6 +711,7 @@ pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<Tamp
             stream_end: input.len().saturating_sub(1) as i64,
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
+            resolved_fake_ttl: None,
         },
     )
 }
@@ -819,6 +828,7 @@ pub fn plan_tcp(
     let mut steps = Vec::new();
     let mut actions = Vec::new();
     let mut lp = 0i64;
+    let fake_ttl = context.resolved_fake_ttl.or(group.ttl).unwrap_or(8);
 
     for step in send_steps {
         if !activation_filter_matches(step.activation_filter, context) {
@@ -870,6 +880,7 @@ pub fn plan_tcp(
                     fake.bytes[fake.fake_offset..fake_end].to_vec(),
                     group,
                     default_ttl,
+                    fake_ttl,
                 );
             }
             TcpChainStepKind::HostFake => {
@@ -890,7 +901,7 @@ pub fn plan_tcp(
 
                 let real_host = &tampered.bytes[span.host_start..span.host_end];
                 let fake_host = build_hostfake_bytes(real_host, step.fake_host_template.as_deref(), seed);
-                push_fake_actions(&mut actions, real_host, fake_host.clone(), group, default_ttl);
+                push_fake_actions(&mut actions, real_host, fake_host.clone(), group, default_ttl, fake_ttl);
 
                 if let Some(midhost) = span.midhost {
                     push_split_actions(&mut actions, tampered.bytes[span.host_start..midhost].to_vec());
@@ -899,7 +910,7 @@ pub fn plan_tcp(
                     push_split_actions(&mut actions, real_host.to_vec());
                 }
 
-                push_fake_actions(&mut actions, real_host, fake_host, group, default_ttl);
+                push_fake_actions(&mut actions, real_host, fake_host, group, default_ttl, fake_ttl);
 
                 if span.host_end < pos as usize {
                     push_split_actions(&mut actions, tampered.bytes[span.host_end..pos as usize].to_vec());
@@ -1047,6 +1058,7 @@ mod tests {
             stream_end: payload.len().saturating_sub(1) as i64,
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
+            resolved_fake_ttl: None,
         }
     }
 
@@ -1058,6 +1070,7 @@ mod tests {
             stream_end: payload.len().saturating_sub(1) as i64,
             transport: ActivationTransport::Udp,
             tcp_segment_hint: None,
+            resolved_fake_ttl: None,
         }
     }
 
@@ -1280,6 +1293,30 @@ mod tests {
             plan.actions,
             vec![
                 DesyncAction::SetTtl(9),
+                DesyncAction::Write(b"FAKE".to_vec()),
+                DesyncAction::RestoreDefaultTtl,
+                DesyncAction::SetTtl(32),
+                DesyncAction::Write(b"o world".to_vec()),
+            ]
+        );
+    }
+
+    #[test]
+    fn plan_tcp_fake_prefers_resolved_fake_ttl_over_group_ttl() {
+        let mut group = DesyncGroup::new(0);
+        group.ttl = Some(9);
+        group.fake_data = Some(b"FAKEPAYLOAD".to_vec());
+        group.parts.push(PartSpec { mode: DesyncMode::Fake, offset: split_expr(4) });
+        let payload = b"hello world";
+        let mut context = tcp_context(payload);
+        context.resolved_fake_ttl = Some(5);
+
+        let plan = plan_tcp(&group, payload, 3, 32, context).expect("plan fake tcp");
+
+        assert_eq!(
+            plan.actions,
+            vec![
+                DesyncAction::SetTtl(5),
                 DesyncAction::Write(b"FAKE".to_vec()),
                 DesyncAction::RestoreDefaultTtl,
                 DesyncAction::SetTtl(32),

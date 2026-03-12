@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AdaptiveMarkerMethod
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.NumericRangeModel
@@ -58,6 +59,11 @@ class RipDpiProxyPreferencesTest {
                 quicFakeProfile = QuicFakeProfileRealisticInitial,
                 quicFakeHost = "video.example.test",
                 udpFakeProfile = UdpFakeProfileDnsQuery,
+                adaptiveFakeTtlEnabled = true,
+                adaptiveFakeTtlDelta = -1,
+                adaptiveFakeTtlMin = 3,
+                adaptiveFakeTtlMax = 12,
+                adaptiveFakeTtlFallback = 9,
                 hostAutolearnEnabled = true,
                 hostAutolearnPenaltyTtlHours = 12,
                 hostAutolearnMaxHosts = 1024,
@@ -92,6 +98,11 @@ class RipDpiProxyPreferencesTest {
         assertEquals(UdpFakeProfileDnsQuery, payload.string("udpFakeProfile"))
         assertEquals(QuicFakeProfileRealisticInitial, payload.string("quicFakeProfile"))
         assertEquals("video.example.test", payload.string("quicFakeHost"))
+        assertEquals("true", payload.string("adaptiveFakeTtlEnabled"))
+        assertEquals(-1, payload.int("adaptiveFakeTtlDelta"))
+        assertEquals(3, payload.int("adaptiveFakeTtlMin"))
+        assertEquals(12, payload.int("adaptiveFakeTtlMax"))
+        assertEquals(9, payload.int("adaptiveFakeTtlFallback"))
         assertEquals("true", payload.string("hostAutolearnEnabled"))
         assertEquals(43_200, payload.int("hostAutolearnPenaltyTtlSecs"))
         assertEquals(1024, payload.int("hostAutolearnMaxHosts"))
@@ -219,6 +230,35 @@ class RipDpiProxyPreferencesTest {
         assertEquals(TlsFakeProfileGoogleChrome, decoded?.tlsFakeProfile)
         assertEquals(UdpFakeProfileDnsQuery, decoded?.udpFakeProfile)
         assertEquals(true, decoded?.hostAutolearnEnabled)
+    }
+
+    @Test
+    fun decodeUiPreferencesRoundTripsAdaptiveFakeTtl() {
+        val original =
+            RipDpiProxyUIPreferences(
+                fakeTtl = 10,
+                adaptiveFakeTtlEnabled = true,
+                adaptiveFakeTtlDelta = 2,
+                adaptiveFakeTtlMin = 4,
+                adaptiveFakeTtlMax = 16,
+                adaptiveFakeTtlFallback = 11,
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals(true, decoded?.adaptiveFakeTtlEnabled)
+        assertEquals(2, decoded?.adaptiveFakeTtlDelta)
+        assertEquals(4, decoded?.adaptiveFakeTtlMin)
+        assertEquals(16, decoded?.adaptiveFakeTtlMax)
+        assertEquals(11, decoded?.adaptiveFakeTtlFallback)
+    }
+
+    @Test
+    fun uiPreferencesAdaptiveFakeTtlDefaultsUseUiBias() {
+        val payload = RipDpiProxyUIPreferences(adaptiveFakeTtlEnabled = true).toNativeConfigJson().parseJsonObject()
+
+        assertEquals("true", payload.string("adaptiveFakeTtlEnabled"))
+        assertEquals(DefaultAdaptiveFakeTtlDelta, payload.int("adaptiveFakeTtlDelta"))
     }
 
     @Test

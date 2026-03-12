@@ -14,9 +14,9 @@ use ripdpi_dns_resolver::{
 };
 use ripdpi_proxy_config::{
     parse_proxy_config_json, runtime_config_from_ui, ProxyConfigPayload, ProxyUiActivationFilter, ProxyUiConfig,
-    ProxyUiTcpChainStep, ProxyUiUdpChainStep,
+    ProxyUiTcpChainStep, ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
 };
-use ripdpi_runtime::{process, runtime};
+use ripdpi_runtime::{runtime, EmbeddedProxyControl};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{
@@ -488,17 +488,21 @@ struct ProbeSample {
 
 struct TemporaryProxyRuntime {
     addr: SocketAddr,
+    control: Arc<EmbeddedProxyControl>,
     handle: Option<JoinHandle<Result<(), String>>>,
 }
 
 impl TemporaryProxyRuntime {
     fn start(config: RuntimeConfig) -> Result<Self, String> {
-        process::prepare_embedded();
         let listener = runtime::create_listener(&config).map_err(|err| err.to_string())?;
         let addr = listener.local_addr().map_err(|err| err.to_string())?;
-        let handle = thread::spawn(move || runtime::run_proxy_with_listener(config, listener).map_err(|err| err.to_string()));
+        let control = Arc::new(EmbeddedProxyControl::default());
+        let worker_control = control.clone();
+        let handle = thread::spawn(move || {
+            runtime::run_proxy_with_embedded_control(config, listener, worker_control).map_err(|err| err.to_string())
+        });
         wait_for_listener(addr)?;
-        Ok(Self { addr, handle: Some(handle) })
+        Ok(Self { addr, control, handle: Some(handle) })
     }
 
     fn transport(&self) -> TransportConfig {
@@ -508,12 +512,11 @@ impl TemporaryProxyRuntime {
 
 impl Drop for TemporaryProxyRuntime {
     fn drop(&mut self) {
-        process::request_shutdown();
+        self.control.request_shutdown();
         let _ = TcpStream::connect(self.addr);
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
         }
-        process::prepare_embedded();
     }
 }
 
@@ -1235,7 +1238,25 @@ fn probe_runtime_transport(config: &ProxyUiConfig) -> Result<TemporaryProxyRunti
     runtime_config.port = 0;
     runtime_config.host_autolearn_enabled = false;
     runtime_config.host_autolearn_store_path = None;
+    freeze_adaptive_fake_ttl_for_probe(&mut runtime_config);
     TemporaryProxyRuntime::start(runtime_config_from_ui(runtime_config).map_err(|err| err.to_string())?)
+}
+
+fn freeze_adaptive_fake_ttl_for_probe(runtime_config: &mut ProxyUiConfig) {
+    if !runtime_config.adaptive_fake_ttl_enabled {
+        return;
+    }
+    let min_ttl = runtime_config.adaptive_fake_ttl_min.clamp(1, 255);
+    let max_ttl = runtime_config.adaptive_fake_ttl_max.clamp(min_ttl, 255);
+    let fallback = if runtime_config.adaptive_fake_ttl_fallback > 0 {
+        runtime_config.adaptive_fake_ttl_fallback
+    } else if runtime_config.fake_ttl > 0 {
+        runtime_config.fake_ttl
+    } else {
+        ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK
+    };
+    runtime_config.fake_ttl = fallback.clamp(min_ttl, max_ttl);
+    runtime_config.adaptive_fake_ttl_enabled = false;
 }
 
 fn build_candidate_execution(spec: &StrategyCandidateSpec, score: CandidateScore, quality_floor: usize) -> CandidateExecution {
@@ -2755,6 +2776,11 @@ mod tests {
             split_position: 0,
             split_at_host: false,
             fake_ttl: 8,
+            adaptive_fake_ttl_enabled: false,
+            adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+            adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+            adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+            adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
             fake_sni: "www.wikipedia.org".to_string(),
             http_fake_profile: "compat_default".to_string(),
             fake_tls_use_original: false,
@@ -2821,6 +2847,37 @@ mod tests {
                 ),
             }),
         }
+    }
+
+    #[test]
+    fn probe_transport_freezes_adaptive_fake_ttl_to_seed() {
+        let mut config = minimal_ui_config();
+        config.fake_ttl = 11;
+        config.adaptive_fake_ttl_enabled = true;
+        config.adaptive_fake_ttl_delta = -1;
+        config.adaptive_fake_ttl_min = 3;
+        config.adaptive_fake_ttl_max = 9;
+        config.adaptive_fake_ttl_fallback = 13;
+
+        freeze_adaptive_fake_ttl_for_probe(&mut config);
+
+        assert_eq!(config.fake_ttl, 9);
+        assert!(!config.adaptive_fake_ttl_enabled);
+    }
+
+    #[test]
+    fn probe_transport_uses_fake_ttl_when_adaptive_fallback_is_invalid() {
+        let mut config = minimal_ui_config();
+        config.fake_ttl = 7;
+        config.adaptive_fake_ttl_enabled = true;
+        config.adaptive_fake_ttl_min = 3;
+        config.adaptive_fake_ttl_max = 12;
+        config.adaptive_fake_ttl_fallback = 0;
+
+        freeze_adaptive_fake_ttl_for_probe(&mut config);
+
+        assert_eq!(config.fake_ttl, 7);
+        assert!(!config.adaptive_fake_ttl_enabled);
     }
 
     #[test]

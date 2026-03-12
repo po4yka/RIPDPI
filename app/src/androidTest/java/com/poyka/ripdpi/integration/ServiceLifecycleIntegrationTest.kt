@@ -196,6 +196,21 @@ class ServiceLifecycleIntegrationTest {
     }
 
     @Test
+    fun proxyServiceStartupFailureEmitsFailureWithoutReportingRunning() {
+        runBlocking {
+            IntegrationTestOverrides.proxyFactory.lastRuntime.startFailure = IOException("proxy boom")
+
+            startService(RipDpiProxyService::class.java)
+
+            awaitFailure(Sender.Proxy)
+            awaitStatus(AppStatus.Halted, Mode.Proxy)
+
+            assertEquals(listOf("proxy:start"), IntegrationTestOverrides.orderSnapshot())
+            assertEquals(0, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
+        }
+    }
+
+    @Test
     fun vpnServiceStartsInExpectedOrderAndStopsTunnelBeforeProxy() {
         assumeVpnPrepared()
         runBlocking {
@@ -311,6 +326,23 @@ class ServiceLifecycleIntegrationTest {
     }
 
     @Test
+    fun vpnServiceProxyStartupFailureEmitsFailureBeforeTunnelStarts() {
+        assumeVpnPrepared()
+        runBlocking {
+            IntegrationTestOverrides.proxyFactory.lastRuntime.startFailure = IOException("proxy boom")
+
+            startService(RipDpiVpnService::class.java)
+
+            awaitFailure(Sender.VPN)
+            awaitStatus(AppStatus.Halted, Mode.VPN)
+
+            assertEquals(listOf("proxy:start"), IntegrationTestOverrides.orderSnapshot())
+            assertEquals(null, IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.startedConfig)
+            assertEquals(0, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
+        }
+    }
+
+    @Test
     fun vpnServiceProxyFailureEmitsFailureAndStopsTunnel() {
         assumeVpnPrepared()
         runBlocking {
@@ -321,6 +353,33 @@ class ServiceLifecycleIntegrationTest {
 
             awaitFailure(Sender.VPN)
             awaitStatus(AppStatus.Halted, Mode.VPN)
+            assertTrue(IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed)
+            assertTrue(
+                IntegrationTestOverrides.orderSnapshot().containsAll(
+                    listOf("tunnel:stop", "vpn:session-close", "proxy:stop"),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun vpnServiceUnexpectedTunnelExitEmitsFailureAndStopsProxy() {
+        assumeVpnPrepared()
+        runBlocking {
+            startService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Running, Mode.VPN)
+
+            IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.telemetryValue =
+                NativeRuntimeSnapshot(
+                    source = "tunnel",
+                    state = "idle",
+                    health = "degraded",
+                    lastError = "worker died",
+                )
+
+            awaitFailure(Sender.VPN)
+            awaitStatus(AppStatus.Halted, Mode.VPN)
+
             assertTrue(IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed)
             assertTrue(
                 IntegrationTestOverrides.orderSnapshot().containsAll(

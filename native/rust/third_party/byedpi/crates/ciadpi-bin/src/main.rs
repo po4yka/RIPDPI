@@ -79,6 +79,7 @@ fn help_text() -> String {
         text.push_str("                              Replaced: ? - rand let, # - rand num, * - rand let/num\n");
     }
     text.push_str("    -t, --ttl <num>           TTL of fake packets, default 8\n");
+    text.push_str("        --auto-ttl <d,min-max> Adaptive fake TTL search window, e.g. -1,3-12\n");
     text.push_str("    -Z, --wait-send           Wait for TCP send queue before next step\n");
     text.push_str("    -W, --await-int <ms>      Poll interval while waiting for send queue\n");
     text.push_str("    -C, --to-socks5 <ip:port> Chain upstream traffic through SOCKS5\n");
@@ -130,6 +131,7 @@ fn canonical_option(option: &str) -> &str {
         "--disoob" | "-q" => "-q",
         "--fake" | "-f" => "-f",
         "--ttl" | "-t" => "-t",
+        "--auto-ttl" => "--auto-ttl",
         "--fake-offset" | "-O" => "-O",
         "--fake-data" | "-l" => "-l",
         "--fake-http-profile" => "--fake-http-profile",
