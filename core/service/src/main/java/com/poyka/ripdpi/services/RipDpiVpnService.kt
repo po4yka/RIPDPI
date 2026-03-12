@@ -138,12 +138,12 @@ class RipDpiVpnService : LifecycleVpnService() {
         startForeground()
         try {
             val settings = appSettingsRepository.snapshot()
-            val (effectiveDns, override) = resolveEffectiveDns(settings)
+            val resolution = resolveEffectiveDns(settings, resolverOverrideStore.override.value)
             mutex.withLock {
                 startProxy()
                 startTun2Socks(
-                    activeDns = effectiveDns,
-                    overrideReason = override?.reason,
+                    activeDns = resolution.activeDns,
+                    overrideReason = resolution.override?.reason,
                 )
             }
             updateStatus(ServiceStatus.Connected)
@@ -444,14 +444,18 @@ class RipDpiVpnService : LifecycleVpnService() {
 
     private suspend fun refreshEffectiveResolverIfNeeded() {
         val settings = appSettingsRepository.snapshot()
-        val persistedDns = settings.activeDnsSettings()
         val currentOverride = resolverOverrideStore.override.value
-        if (currentOverride != null && currentOverride.matches(persistedDns)) {
+        val plan =
+            planResolverRefresh(
+                settings = settings,
+                override = currentOverride,
+                currentSignature = currentDnsSignature,
+                tunnelRunning = tunSession != null,
+            )
+        if (plan.resolution.shouldClearOverride) {
             resolverOverrideStore.clear()
         }
-        val (effectiveDns, override) = resolveEffectiveDns(settings)
-        val desiredSignature = dnsSignature(effectiveDns, override?.reason)
-        if (desiredSignature == currentDnsSignature || tunSession == null) {
+        if (!plan.requiresTunnelRebuild) {
             return
         }
 
@@ -460,60 +464,32 @@ class RipDpiVpnService : LifecycleVpnService() {
                 return
             }
             val latestSettings = appSettingsRepository.snapshot()
-            val (latestEffectiveDns, latestOverride) = resolveEffectiveDns(latestSettings)
-            val latestSignature = dnsSignature(latestEffectiveDns, latestOverride?.reason)
-            if (latestSignature == currentDnsSignature) {
+            val latestPlan =
+                planResolverRefresh(
+                    settings = latestSettings,
+                    override = resolverOverrideStore.override.value,
+                    currentSignature = currentDnsSignature,
+                    tunnelRunning = tunSession != null,
+                )
+            if (latestPlan.resolution.shouldClearOverride) {
+                resolverOverrideStore.clear()
+            }
+            if (!latestPlan.requiresTunnelRebuild) {
                 return
             }
             stopTun2Socks()
             startTun2Socks(
-                activeDns = latestEffectiveDns,
-                overrideReason = latestOverride?.reason,
+                activeDns = latestPlan.resolution.activeDns,
+                overrideReason = latestPlan.resolution.override?.reason,
             )
         }
     }
-
-    private fun resolveEffectiveDns(
-        settings: com.poyka.ripdpi.proto.AppSettings,
-    ): Pair<ActiveDnsSettings, TemporaryResolverOverride?> {
-        val override = resolverOverrideStore.override.value
-        return if (override != null) {
-            override.toActiveDnsSettings() to override
-        } else {
-            settings.activeDnsSettings() to null
-        }
-    }
-
-    private fun dnsSignature(
-        activeDns: ActiveDnsSettings,
-        overrideReason: String?,
-    ): String =
-        listOf(
-            activeDns.mode,
-            activeDns.providerId,
-            activeDns.dnsIp,
-            activeDns.encryptedDnsProtocol,
-            activeDns.encryptedDnsHost,
-            activeDns.encryptedDnsPort.toString(),
-            activeDns.encryptedDnsTlsServerName,
-            activeDns.encryptedDnsBootstrapIps.joinToString(","),
-            activeDns.encryptedDnsDohUrl,
-            activeDns.encryptedDnsDnscryptProviderName,
-            activeDns.encryptedDnsDnscryptPublicKey,
-            overrideReason.orEmpty(),
-        ).joinToString("|")
 
     private fun deriveNetworkHandoverClass(): String? {
         val current = currentNetworkFingerprint()
         val previous = lastNetworkFingerprint
         lastNetworkFingerprint = current
-        return when {
-            previous == null || previous == current -> null
-            current == null -> "connectivity_loss"
-            previous.transportLabel != current.transportLabel -> "transport_switch"
-            previous != current -> "link_refresh"
-            else -> null
-        }
+        return classifyNetworkHandover(previous, current)
     }
 
     private fun currentNetworkFingerprint(): NetworkFingerprint? {
@@ -527,12 +503,6 @@ class RipDpiVpnService : LifecycleVpnService() {
             dnsServers = linkProperties?.dnsServers.orEmpty().map { it.hostAddress.orEmpty() },
         )
     }
-
-    private data class NetworkFingerprint(
-        val transportLabel: String,
-        val interfaceName: String?,
-        val dnsServers: List<String>,
-    )
 
     private fun NetworkCapabilities?.transportLabel(): String {
         if (this == null) {

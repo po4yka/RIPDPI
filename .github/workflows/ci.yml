@@ -166,6 +166,77 @@ jobs:
       - name: Run repo-owned Rust network E2E
         run: bash scripts/ci/run-rust-network-e2e.sh
 
+  coverage:
+    if: github.event_name != 'schedule'
+    needs: [build, static-analysis]
+    runs-on: ubuntu-latest
+    env:
+      RIPDPI_ENFORCE_COVERAGE_THRESHOLDS: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+          components: rustfmt, clippy, llvm-tools
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Read native toolchain policy
+        id: native-toolchain-coverage
+        run: |
+          echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust Android targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+      - name: Install NDK
+        run: sdkmanager --install "ndk;${{ steps.native-toolchain-coverage.outputs.ndk }}"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Generate Kotlin coverage reports
+        run: ./gradlew coverageReport
+
+      - name: Generate Rust coverage reports
+        run: bash scripts/ci/run-rust-coverage.sh
+
+      - name: Summarize coverage
+        run: |
+          python3 scripts/ci/summarize_coverage.py \
+            --aggregate-xml build/reports/jacoco/kotlinCoverageReport/kotlinCoverageReport.xml \
+            --module app=app/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
+            --module core:data=core/data/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
+            --module core:diagnostics=core/diagnostics/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
+            --module core:engine=core/engine/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
+            --module core:service=core/service/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
+            --rust-metrics-env native/rust/target/coverage/metrics.env \
+            --markdown-output "$RUNNER_TEMP/coverage-summary.md"
+          cat "$RUNNER_TEMP/coverage-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-artifacts
+          path: |
+            build/reports/jacoco/
+            app/build/reports/jacoco/
+            core/**/build/reports/jacoco/
+            native/rust/target/coverage/
+          retention-days: 7
+
   rust-native-soak:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -264,6 +335,8 @@ jobs:
               adb logcat -d > android-logcat.txt
               exit 1
             }
+            ./gradlew :app:createDebugAndroidTestCoverageReport \
+              -Pripdpi.localNativeAbis=x86_64
 
       - name: Upload Android E2E artifacts
         if: always()
@@ -273,6 +346,8 @@ jobs:
           path: |
             android-logcat.txt
             app/build/reports/androidTests/
+            app/build/reports/coverage/
+            app/build/outputs/code_coverage/
             ${{ runner.temp }}/local-network-fixture/
           retention-days: 7
 
@@ -298,6 +373,8 @@ jobs:
           path: |
             android-logcat.txt
             app/build/reports/androidTests/connected/
+            app/build/reports/coverage/
+            app/build/outputs/code_coverage/
             app/build/outputs/androidTest-results/connected/
             ${{ runner.temp }}/local-network-fixture/fixture.log
             ${{ runner.temp }}/local-network-fixture/fixture-manifest.json
