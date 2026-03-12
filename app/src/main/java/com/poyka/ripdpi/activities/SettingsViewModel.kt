@@ -242,6 +242,9 @@ data class SettingsUiState(
     val canResetFakePayloadLibrary: Boolean
         get() = !enableCmdSettings && hasCustomFakePayloadProfiles
 
+    val canResetHttpParserEvasions: Boolean
+        get() = !enableCmdSettings && hasCustomHttpParserEvasions
+
     val canResetActivationWindow: Boolean
         get() = !enableCmdSettings && hasCustomActivationWindow
 
@@ -309,6 +312,27 @@ data class SettingsUiState(
 
     val showHostFakeProfile: Boolean
         get() = enableCmdSettings || hasHostFake || hostFakeControlsRelevant
+
+    val httpParserSafeCount: Int
+        get() = listOf(hostMixedCase, domainMixedCase, hostRemoveSpaces).count { it }
+
+    val httpParserAggressiveCount: Int
+        get() = listOf(httpMethodEol, httpUnixEol).count { it }
+
+    val hasSafeHttpParserTweaks: Boolean
+        get() = httpParserSafeCount > 0
+
+    val hasAggressiveHttpParserEvasions: Boolean
+        get() = httpParserAggressiveCount > 0
+
+    val hasCustomHttpParserEvasions: Boolean
+        get() = hasSafeHttpParserTweaks || hasAggressiveHttpParserEvasions
+
+    val httpParserControlsRelevant: Boolean
+        get() = desyncHttpEnabled
+
+    val showHttpParserProfile: Boolean
+        get() = enableCmdSettings || httpParserControlsRelevant || hasCustomHttpParserEvasions
 
     val tlsPreludeControlsRelevant: Boolean
         get() = desyncHttpsEnabled
@@ -1004,6 +1028,33 @@ class SettingsViewModel
                         tone = SettingsNoticeTone.Info,
                     )
             }
+            _effects.send(effect)
+        }
+    }
+
+    fun resetHttpParserEvasions() {
+        viewModelScope.launch {
+            appSettingsRepository.update {
+                setHostMixedCase(false)
+                setDomainMixedCase(false)
+                setHostRemoveSpaces(false)
+                setHttpMethodEol(false)
+                setHttpUnixEol(false)
+            }
+            val effect =
+                if (serviceStateStore.status.value.first == AppStatus.Running) {
+                    SettingsEffect.Notice(
+                        title = "HTTP parser evasions reset for next start",
+                        message = "HTTP parser tweaks are back to their defaults. Restart RIPDPI to remove the saved parser evasions from the active session.",
+                        tone = SettingsNoticeTone.Info,
+                    )
+                } else {
+                    SettingsEffect.Notice(
+                        title = "HTTP parser evasions reset",
+                        message = "RIPDPI will stop applying saved HTTP parser tweaks and EOL evasions on the next start.",
+                        tone = SettingsNoticeTone.Info,
+                    )
+                }
             _effects.send(effect)
         }
     }
