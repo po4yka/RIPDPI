@@ -7,6 +7,13 @@ use aes_gcm::{Aes128Gcm, Nonce, Tag};
 use hkdf::Hkdf;
 use sha2::Sha256;
 
+mod fake_profiles;
+
+pub use fake_profiles::{
+    http_fake_profile_bytes, tls_fake_profile_bytes, udp_fake_profile_bytes, HttpFakeProfile, TlsFakeProfile,
+    UdpFakeProfile,
+};
+
 pub const IS_TCP: u32 = 1;
 pub const IS_UDP: u32 = 2;
 pub const IS_HTTP: u32 = 4;

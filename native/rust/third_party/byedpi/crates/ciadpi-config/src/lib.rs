@@ -6,7 +6,10 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE};
+use ciadpi_packets::{
+    HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP, MH_DMIX, MH_HMIX,
+    MH_SPACE,
+};
 
 pub const VERSION: &str = "17.3";
 
@@ -224,6 +227,9 @@ pub struct DesyncGroup {
     pub fake_sni_list: Vec<String>,
     pub fake_mod: u32,
     pub fake_tls_size: i32,
+    pub http_fake_profile: HttpFakeProfile,
+    pub tls_fake_profile: TlsFakeProfile,
+    pub udp_fake_profile: UdpFakeProfile,
     pub quic_fake_profile: QuicFakeProfile,
     pub quic_fake_host: Option<String>,
     pub drop_sack: bool,
@@ -260,6 +266,9 @@ impl DesyncGroup {
             fake_sni_list: Vec::new(),
             fake_mod: 0,
             fake_tls_size: 0,
+            http_fake_profile: HttpFakeProfile::CompatDefault,
+            tls_fake_profile: TlsFakeProfile::CompatDefault,
+            udp_fake_profile: UdpFakeProfile::CompatDefault,
             quic_fake_profile: QuicFakeProfile::Disabled,
             quic_fake_host: None,
             drop_sack: false,
@@ -591,6 +600,41 @@ pub fn parse_quic_fake_profile(spec: &str) -> Result<QuicFakeProfile, ConfigErro
         "compat_default" => Ok(QuicFakeProfile::CompatDefault),
         "realistic_initial" => Ok(QuicFakeProfile::RealisticInitial),
         _ => Err(ConfigError::invalid("--fake-quic-profile", Some(spec))),
+    }
+}
+
+pub fn parse_http_fake_profile(spec: &str) -> Result<HttpFakeProfile, ConfigError> {
+    match spec.trim().to_ascii_lowercase().as_str() {
+        "" | "compat_default" => Ok(HttpFakeProfile::CompatDefault),
+        "iana_get" => Ok(HttpFakeProfile::IanaGet),
+        "cloudflare_get" => Ok(HttpFakeProfile::CloudflareGet),
+        _ => Err(ConfigError::invalid("--fake-http-profile", Some(spec))),
+    }
+}
+
+pub fn parse_tls_fake_profile(spec: &str) -> Result<TlsFakeProfile, ConfigError> {
+    match spec.trim().to_ascii_lowercase().as_str() {
+        "" | "compat_default" => Ok(TlsFakeProfile::CompatDefault),
+        "iana_firefox" => Ok(TlsFakeProfile::IanaFirefox),
+        "google_chrome" => Ok(TlsFakeProfile::GoogleChrome),
+        "vk_chrome" => Ok(TlsFakeProfile::VkChrome),
+        "sberbank_chrome" => Ok(TlsFakeProfile::SberbankChrome),
+        "rutracker_kyber" => Ok(TlsFakeProfile::RutrackerKyber),
+        "bigsize_iana" => Ok(TlsFakeProfile::BigsizeIana),
+        _ => Err(ConfigError::invalid("--fake-tls-profile", Some(spec))),
+    }
+}
+
+pub fn parse_udp_fake_profile(spec: &str) -> Result<UdpFakeProfile, ConfigError> {
+    match spec.trim().to_ascii_lowercase().as_str() {
+        "" | "compat_default" => Ok(UdpFakeProfile::CompatDefault),
+        "zero_256" => Ok(UdpFakeProfile::Zero256),
+        "zero_512" => Ok(UdpFakeProfile::Zero512),
+        "dns_query" => Ok(UdpFakeProfile::DnsQuery),
+        "stun_binding" => Ok(UdpFakeProfile::StunBinding),
+        "wireguard_initiation" => Ok(UdpFakeProfile::WireGuardInitiation),
+        "dht_get_peers" => Ok(UdpFakeProfile::DhtGetPeers),
+        _ => Err(ConfigError::invalid("--fake-udp-profile", Some(spec))),
     }
 }
 
@@ -1195,6 +1239,18 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                     group!().fake_data = Some(file_or_inline_bytes(value)?);
                 }
             }
+            "--fake-http-profile" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                group!().http_fake_profile = parse_http_fake_profile(value)?;
+            }
+            "--fake-tls-profile" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                group!().tls_fake_profile = parse_tls_fake_profile(value)?;
+            }
+            "--fake-udp-profile" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                group!().udp_fake_profile = parse_udp_fake_profile(value)?;
+            }
             "-e" | "--oob-data" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let bytes = data_from_str(value)?;
@@ -1530,6 +1586,24 @@ mod tests {
     }
 
     #[test]
+    fn parse_fake_payload_profiles_accepts_known_values() {
+        assert_eq!(parse_http_fake_profile("compat_default").unwrap(), HttpFakeProfile::CompatDefault);
+        assert_eq!(parse_http_fake_profile("iana_get").unwrap(), HttpFakeProfile::IanaGet);
+        assert_eq!(parse_http_fake_profile("cloudflare_get").unwrap(), HttpFakeProfile::CloudflareGet);
+        assert!(parse_http_fake_profile("bogus").is_err());
+
+        assert_eq!(parse_tls_fake_profile("compat_default").unwrap(), TlsFakeProfile::CompatDefault);
+        assert_eq!(parse_tls_fake_profile("google_chrome").unwrap(), TlsFakeProfile::GoogleChrome);
+        assert_eq!(parse_tls_fake_profile("rutracker_kyber").unwrap(), TlsFakeProfile::RutrackerKyber);
+        assert!(parse_tls_fake_profile("bogus").is_err());
+
+        assert_eq!(parse_udp_fake_profile("compat_default").unwrap(), UdpFakeProfile::CompatDefault);
+        assert_eq!(parse_udp_fake_profile("dns_query").unwrap(), UdpFakeProfile::DnsQuery);
+        assert_eq!(parse_udp_fake_profile("wireguard_initiation").unwrap(), UdpFakeProfile::WireGuardInitiation);
+        assert!(parse_udp_fake_profile("bogus").is_err());
+    }
+
+    #[test]
     fn parse_cli_reads_quic_fake_profile_and_host() {
         let args = vec![
             "--udp-fake".to_string(),
@@ -1548,6 +1622,29 @@ mod tests {
         assert_eq!(group.quic_fake_profile, QuicFakeProfile::RealisticInitial);
         assert_eq!(group.quic_fake_host.as_deref(), Some("video.example.test"));
         assert_eq!(group.udp_fake_count, 2);
+    }
+
+    #[test]
+    fn parse_cli_reads_fake_payload_profiles() {
+        let args = vec![
+            "--fake-http-profile".to_string(),
+            "cloudflare_get".to_string(),
+            "--fake-tls-profile".to_string(),
+            "google_chrome".to_string(),
+            "--udp-fake".to_string(),
+            "1".to_string(),
+            "--fake-udp-profile".to_string(),
+            "dns_query".to_string(),
+        ];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+        let group = &config.groups[0];
+
+        assert_eq!(group.http_fake_profile, HttpFakeProfile::CloudflareGet);
+        assert_eq!(group.tls_fake_profile, TlsFakeProfile::GoogleChrome);
+        assert_eq!(group.udp_fake_profile, UdpFakeProfile::DnsQuery);
     }
 
     #[test]

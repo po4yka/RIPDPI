@@ -4,17 +4,21 @@ import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
+import com.poyka.ripdpi.data.effectiveHttpFakeProfile
 import com.poyka.ripdpi.data.effectiveQuicFakeHost
 import com.poyka.ripdpi.data.effectiveQuicFakeProfile
+import com.poyka.ripdpi.data.effectiveTlsFakeProfile
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveQuicInitialMode
 import com.poyka.ripdpi.data.effectiveQuicSupportV1
@@ -27,12 +31,15 @@ import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
+import com.poyka.ripdpi.data.normalizeHttpFakeProfile
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeQuicFakeProfile
+import com.poyka.ripdpi.data.normalizeTlsFakeProfile
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
+import com.poyka.ripdpi.data.normalizeUdpFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.shellSplit
 import kotlinx.serialization.SerialName
@@ -78,12 +85,14 @@ fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences
             },
         fakeTtl = ui.fakeTtl,
         fakeSni = ui.fakeSni,
+        httpFakeProfile = ui.httpFakeProfile,
         fakeTlsUseOriginal = ui.fakeTlsUseOriginal,
         fakeTlsRandomize = ui.fakeTlsRandomize,
         fakeTlsDupSessionId = ui.fakeTlsDupSessionId,
         fakeTlsPadEncap = ui.fakeTlsPadEncap,
         fakeTlsSize = ui.fakeTlsSize,
         fakeTlsSniMode = ui.fakeTlsSniMode,
+        tlsFakeProfile = ui.tlsFakeProfile,
         oobChar = ui.oobChar.toChar().toString(),
         hostMixedCase = ui.hostMixedCase,
         domainMixedCase = ui.domainMixedCase,
@@ -94,6 +103,7 @@ fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences
         hosts = ui.hosts,
         tcpFastOpen = ui.tcpFastOpen,
         udpFakeCount = ui.udpFakeCount,
+        udpFakeProfile = ui.udpFakeProfile,
         dropSack = ui.dropSack,
         fakeOffsetMarker = ui.fakeOffsetMarker,
         udpChainSteps =
@@ -149,12 +159,14 @@ class RipDpiProxyUIPreferences(
     tcpChainSteps: List<TcpChainStepModel>? = null,
     fakeTtl: Int? = null,
     fakeSni: String? = null,
+    httpFakeProfile: String? = null,
     fakeTlsUseOriginal: Boolean? = null,
     fakeTlsRandomize: Boolean? = null,
     fakeTlsDupSessionId: Boolean? = null,
     fakeTlsPadEncap: Boolean? = null,
     fakeTlsSize: Int? = null,
     fakeTlsSniMode: String? = null,
+    tlsFakeProfile: String? = null,
     oobChar: String? = null,
     hostMixedCase: Boolean? = null,
     domainMixedCase: Boolean? = null,
@@ -165,6 +177,7 @@ class RipDpiProxyUIPreferences(
     hosts: String? = null,
     tcpFastOpen: Boolean? = null,
     udpFakeCount: Int? = null,
+    udpFakeProfile: String? = null,
     dropSack: Boolean? = null,
     fakeOffsetMarker: String? = null,
     udpChainSteps: List<UdpChainStepModel>? = null,
@@ -200,12 +213,14 @@ class RipDpiProxyUIPreferences(
             )
     val fakeTtl: Int = fakeTtl ?: 8
     val fakeSni: String = fakeSni ?: DefaultFakeSni
+    val httpFakeProfile: String = normalizeHttpFakeProfile(httpFakeProfile.orEmpty().ifBlank { FakePayloadProfileCompatDefault })
     val fakeTlsUseOriginal: Boolean = fakeTlsUseOriginal ?: false
     val fakeTlsRandomize: Boolean = fakeTlsRandomize ?: false
     val fakeTlsDupSessionId: Boolean = fakeTlsDupSessionId ?: false
     val fakeTlsPadEncap: Boolean = fakeTlsPadEncap ?: false
     val fakeTlsSize: Int = fakeTlsSize ?: 0
     val fakeTlsSniMode: String = normalizeFakeTlsSniMode(fakeTlsSniMode.orEmpty())
+    val tlsFakeProfile: String = normalizeTlsFakeProfile(tlsFakeProfile.orEmpty().ifBlank { FakePayloadProfileCompatDefault })
     val oobChar: Byte = (oobChar ?: "a")[0].code.toByte()
     val hostMixedCase: Boolean = hostMixedCase ?: false
     val domainMixedCase: Boolean = domainMixedCase ?: false
@@ -227,6 +242,7 @@ class RipDpiProxyUIPreferences(
     val tcpFastOpen: Boolean = tcpFastOpen ?: false
     val udpFakeCount: Int = udpFakeCount ?: 0
     val udpChainSteps: List<UdpChainStepModel> = udpChainSteps ?: buildLegacyUdpChain(this.udpFakeCount)
+    val udpFakeProfile: String = normalizeUdpFakeProfile(udpFakeProfile.orEmpty().ifBlank { FakePayloadProfileCompatDefault })
     val dropSack: Boolean = dropSack ?: false
     val fakeOffsetMarker: String = normalizeOffsetExpression(fakeOffsetMarker.orEmpty(), DefaultFakeOffsetMarker)
     val quicInitialMode: String = normalizeQuicInitialMode(quicInitialMode.orEmpty().ifBlank { QuicInitialModeRouteAndCache })
@@ -266,12 +282,14 @@ class RipDpiProxyUIPreferences(
         tcpChainSteps = settings.effectiveTcpChainSteps(),
         fakeTtl = settings.fakeTtl.takeIf { it > 0 },
         fakeSni = settings.fakeSni.ifEmpty { null },
+        httpFakeProfile = settings.effectiveHttpFakeProfile(),
         fakeTlsUseOriginal = settings.fakeTlsUseOriginal,
         fakeTlsRandomize = settings.fakeTlsRandomize,
         fakeTlsDupSessionId = settings.fakeTlsDupSessionId,
         fakeTlsPadEncap = settings.fakeTlsPadEncap,
         fakeTlsSize = settings.fakeTlsSize,
         fakeTlsSniMode = settings.effectiveFakeTlsSniMode(),
+        tlsFakeProfile = settings.effectiveTlsFakeProfile(),
         oobChar = settings.oobData.ifEmpty { null },
         hostMixedCase = settings.hostMixedCase,
         domainMixedCase = settings.domainMixedCase,
@@ -290,6 +308,7 @@ class RipDpiProxyUIPreferences(
             },
         tcpFastOpen = settings.tcpFastOpen,
         udpFakeCount = settings.udpFakeCount,
+        udpFakeProfile = settings.effectiveUdpFakeProfile(),
         dropSack = settings.dropSack,
         fakeOffsetMarker = settings.effectiveFakeOffsetMarker(),
         udpChainSteps = settings.effectiveUdpChainSteps(),
@@ -333,12 +352,14 @@ class RipDpiProxyUIPreferences(
                 },
                 fakeTtl = fakeTtl,
                 fakeSni = fakeSni,
+                httpFakeProfile = httpFakeProfile,
                 fakeTlsUseOriginal = fakeTlsUseOriginal,
                 fakeTlsRandomize = fakeTlsRandomize,
                 fakeTlsDupSessionId = fakeTlsDupSessionId,
                 fakeTlsPadEncap = fakeTlsPadEncap,
                 fakeTlsSize = fakeTlsSize,
                 fakeTlsSniMode = fakeTlsSniMode,
+                tlsFakeProfile = tlsFakeProfile,
                 oobChar = oobChar.toInt() and 0xFF,
                 hostMixedCase = hostMixedCase,
                 domainMixedCase = domainMixedCase,
@@ -352,6 +373,7 @@ class RipDpiProxyUIPreferences(
                 udpChainSteps = udpChainSteps.map {
                     NativeProxyConfig.NativeUdpChainStep(kind = it.kind.wireName, count = it.count)
                 },
+                udpFakeProfile = udpFakeProfile,
                 dropSack = dropSack,
                 fakeOffsetMarker = fakeOffsetMarker,
                 quicInitialMode = quicInitialMode,
@@ -469,12 +491,14 @@ private sealed interface NativeProxyConfig {
         val tcpChainSteps: List<NativeTcpChainStep>,
         val fakeTtl: Int,
         val fakeSni: String,
+        val httpFakeProfile: String = FakePayloadProfileCompatDefault,
         val fakeTlsUseOriginal: Boolean,
         val fakeTlsRandomize: Boolean,
         val fakeTlsDupSessionId: Boolean,
         val fakeTlsPadEncap: Boolean,
         val fakeTlsSize: Int,
         val fakeTlsSniMode: String,
+        val tlsFakeProfile: String = FakePayloadProfileCompatDefault,
         val oobChar: Int,
         val hostMixedCase: Boolean,
         val domainMixedCase: Boolean,
@@ -486,6 +510,7 @@ private sealed interface NativeProxyConfig {
         val tcpFastOpen: Boolean,
         val udpFakeCount: Int,
         val udpChainSteps: List<NativeUdpChainStep>,
+        val udpFakeProfile: String = FakePayloadProfileCompatDefault,
         val dropSack: Boolean,
         val fakeOffsetMarker: String,
         val quicInitialMode: String,
