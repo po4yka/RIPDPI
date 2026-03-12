@@ -1173,6 +1173,52 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `approaches detail humanizes aggressive only http parser evasions`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-http-parser-aggressive",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "disabled",
+                            desyncMethod = "disorder",
+                            chainSummary = "tcp: disorder(1)",
+                            protocolToggles = listOf("HTTP", "HTTPS"),
+                            tlsRecordSplitEnabled = false,
+                            httpParserEvasions = listOf("unix_eol", "method_eol"),
+                            routeGroup = "16",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-http-parser-aggressive")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(
+                signature.any {
+                    it.label == "HTTP parser evasions" &&
+                        it.value == "Unix line endings, Method EOL shift"
+                },
+            )
+            collector.cancel()
+        }
+
+    @Test
     fun `approaches detail prefers custom raw fake payload source over library labels`() =
         runTest {
             val manager =

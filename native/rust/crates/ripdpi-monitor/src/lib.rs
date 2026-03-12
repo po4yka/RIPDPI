@@ -3093,6 +3093,18 @@ mod tests {
     }
 
     #[test]
+    fn parser_only_candidate_keeps_aggressive_http_evasions_disabled() {
+        let candidates = build_tcp_candidates(&minimal_ui_config());
+        let parser_only = candidates.iter().find(|candidate| candidate.id == "parser_only").expect("parser_only candidate");
+
+        assert!(parser_only.config.host_mixed_case);
+        assert!(parser_only.config.domain_mixed_case);
+        assert!(parser_only.config.host_remove_spaces);
+        assert!(!parser_only.config.http_method_eol);
+        assert!(!parser_only.config.http_unix_eol);
+    }
+
+    #[test]
     fn monitor_session_strategy_probe_returns_structured_recommendation() {
         let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
         let mut request = strategy_probe_request(minimal_ui_config());
