@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
@@ -218,6 +220,72 @@ class RipDpiProxyPreferencesTest {
         assertEquals(4, step.int("fragmentCount"))
         assertEquals(16, step.int("minFragmentSize"))
         assertEquals(96, step.int("maxFragmentSize"))
+    }
+
+    @Test
+    fun uiPreferencesEncodeActivationFilters() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                groupActivationFilter =
+                    ActivationFilterModel(
+                        round = NumericRangeModel(start = 1, end = 2),
+                        payloadSize = NumericRangeModel(start = 64, end = 512),
+                        streamBytes = NumericRangeModel(start = 0, end = 2047),
+                    ),
+                tcpChainSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.Fake,
+                            marker = "host",
+                            activationFilter =
+                                ActivationFilterModel(
+                                    round = NumericRangeModel(start = 1, end = 2),
+                                    payloadSize = NumericRangeModel(start = 64, end = 512),
+                                ),
+                        ),
+                    ),
+            )
+
+        val payload = preferences.toNativeConfigJson().parseJsonObject()
+        val group = payload["groupActivationFilter"]?.jsonObject
+        val step = payload.array("tcpChainSteps")[0].jsonObject
+        val filter = step["activationFilter"]?.jsonObject
+
+        assertEquals("1", group?.getValue("round")?.jsonObject?.string("start"))
+        assertEquals("2", group?.getValue("round")?.jsonObject?.string("end"))
+        assertEquals("64", group?.getValue("payloadSize")?.jsonObject?.string("start"))
+        assertEquals("2047", group?.getValue("streamBytes")?.jsonObject?.string("end"))
+        assertEquals("1", filter?.getValue("round")?.jsonObject?.string("start"))
+        assertEquals("512", filter?.getValue("payloadSize")?.jsonObject?.string("end"))
+    }
+
+    @Test
+    fun decodeUiPreferencesRoundTripsActivationFilters() {
+        val original =
+            RipDpiProxyUIPreferences(
+                groupActivationFilter =
+                    ActivationFilterModel(
+                        round = NumericRangeModel(start = 2, end = 4),
+                        streamBytes = NumericRangeModel(start = 0, end = 1199),
+                    ),
+                tcpChainSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.Fake,
+                            marker = "host",
+                            activationFilter =
+                                ActivationFilterModel(
+                                    round = NumericRangeModel(start = 1, end = 1),
+                                    payloadSize = NumericRangeModel(start = 32, end = 256),
+                                ),
+                        ),
+                    ),
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals(original.groupActivationFilter, decoded?.groupActivationFilter)
+        assertEquals(original.tcpChainSteps.first().activationFilter, decoded?.tcpChainSteps?.first()?.activationFilter)
     }
 }
 

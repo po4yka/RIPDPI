@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
+import com.poyka.ripdpi.data.effectiveGroupActivationFilter
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.effectiveHttpFakeProfile
 import com.poyka.ripdpi.data.TcpChainStepKind
@@ -16,6 +17,7 @@ import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveTlsFakeProfile
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpFakeProfile
+import com.poyka.ripdpi.data.formatNumericRange
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.hasCustomFakeTlsProfile
 import com.poyka.ripdpi.data.legacyDesyncMethod
@@ -54,6 +56,9 @@ data class BypassStrategySignature(
     val tlsRecordSplitEnabled: Boolean,
     val tlsRecordMarker: String? = null,
     val splitMarker: String? = null,
+    val activationRound: String? = null,
+    val activationPayloadSize: String? = null,
+    val activationStreamBytes: String? = null,
     val fakeSniMode: String? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val fakeSniValue: String? = null,
@@ -161,6 +166,7 @@ fun deriveBypassStrategySignature(
             if (settings.fakeTlsDupSessionId) add("dupsid")
             if (settings.fakeTlsPadEncap) add("padencap")
         }
+    val activationFilter = settings.effectiveGroupActivationFilter()
 
     return BypassStrategySignature(
         mode = mode,
@@ -177,6 +183,9 @@ fun deriveBypassStrategySignature(
         tlsRecordSplitEnabled = tlsRecStep != null,
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
+        activationRound = formatNumericRange(activationFilter.round),
+        activationPayloadSize = formatNumericRange(activationFilter.payloadSize),
+        activationStreamBytes = formatNumericRange(activationFilter.streamBytes),
         fakeSniMode = fakeTlsSniMode.takeIf { fakeTlsProfileActive },
         fakeSniValue = settings.fakeSni.ifBlank { null }?.takeIf { fakeTlsProfileActive && fakeTlsSniMode == FakeTlsSniModeFixed },
         fakeTlsBaseMode = if (fakeTlsProfileActive) if (settings.fakeTlsUseOriginal) "original" else "default" else null,
@@ -246,6 +255,9 @@ fun deriveBypassStrategySignature(
         tlsRecordSplitEnabled = tlsRecStep != null,
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
+        activationRound = formatNumericRange(preferences.groupActivationFilter.round),
+        activationPayloadSize = formatNumericRange(preferences.groupActivationFilter.payloadSize),
+        activationStreamBytes = formatNumericRange(preferences.groupActivationFilter.streamBytes),
         fakeSniMode = preferences.fakeTlsSniMode.takeIf { fakeTlsProfileActive },
         fakeSniValue = preferences.fakeSni.takeIf { fakeTlsProfileActive && preferences.fakeTlsSniMode == FakeTlsSniModeFixed },
         fakeTlsBaseMode = if (fakeTlsProfileActive) if (preferences.fakeTlsUseOriginal) "original" else "default" else null,

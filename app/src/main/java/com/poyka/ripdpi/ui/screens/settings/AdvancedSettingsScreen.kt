@@ -38,6 +38,7 @@ import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
@@ -58,6 +59,7 @@ import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.HostPackCatalog
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
+import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
@@ -66,9 +68,14 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.isValidOffsetExpression
 import com.poyka.ripdpi.data.normalizeOffsetExpression
+import com.poyka.ripdpi.data.normalizeActivationFilter
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
+import com.poyka.ripdpi.data.normalizePayloadSizeRange
+import com.poyka.ripdpi.data.normalizeRoundRange
+import com.poyka.ripdpi.data.normalizeStreamBytesRange
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.replaceTlsPreludeTcpChainSteps
+import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -133,6 +140,12 @@ private enum class AdvancedTextSetting {
     BufferSize,
     DefaultTtl,
     ChainDsl,
+    ActivationRoundFrom,
+    ActivationRoundTo,
+    ActivationPayloadSizeFrom,
+    ActivationPayloadSizeTo,
+    ActivationStreamBytesFrom,
+    ActivationStreamBytesTo,
     SplitMarker,
     FakeTtl,
     FakeSni,
@@ -306,6 +319,95 @@ private fun updateTlsPreludeProfile(
             udpSteps = uiState.udpChainSteps,
         )
     }
+}
+
+private fun updateGroupActivationFilter(
+    viewModel: SettingsViewModel,
+    key: String,
+    value: String,
+    filter: ActivationFilterModel,
+) {
+    val normalized = normalizeActivationFilter(filter)
+    viewModel.updateSetting(
+        key = key,
+        value = value,
+    ) {
+        setGroupActivationFilterCompat(normalized)
+    }
+}
+
+private fun parseOptionalRangeValue(value: String): Long? = value.trim().takeIf { it.isNotEmpty() }?.toLongOrNull()
+
+private fun updateRoundRangeBoundary(
+    viewModel: SettingsViewModel,
+    uiState: SettingsUiState,
+    key: String,
+    value: String,
+    updateStart: Boolean,
+) {
+    val current = uiState.groupActivationFilter.round
+    val updated =
+        normalizeRoundRange(
+            if (updateStart) {
+                current.copy(start = parseOptionalRangeValue(value))
+            } else {
+                current.copy(end = parseOptionalRangeValue(value))
+            },
+        )
+    updateGroupActivationFilter(
+        viewModel = viewModel,
+        key = key,
+        value = value,
+        filter = uiState.groupActivationFilter.copy(round = updated),
+    )
+}
+
+private fun updatePayloadSizeRangeBoundary(
+    viewModel: SettingsViewModel,
+    uiState: SettingsUiState,
+    key: String,
+    value: String,
+    updateStart: Boolean,
+) {
+    val current = uiState.groupActivationFilter.payloadSize
+    val updated =
+        normalizePayloadSizeRange(
+            if (updateStart) {
+                current.copy(start = parseOptionalRangeValue(value))
+            } else {
+                current.copy(end = parseOptionalRangeValue(value))
+            },
+        )
+    updateGroupActivationFilter(
+        viewModel = viewModel,
+        key = key,
+        value = value,
+        filter = uiState.groupActivationFilter.copy(payloadSize = updated),
+    )
+}
+
+private fun updateStreamBytesRangeBoundary(
+    viewModel: SettingsViewModel,
+    uiState: SettingsUiState,
+    key: String,
+    value: String,
+    updateStart: Boolean,
+) {
+    val current = uiState.groupActivationFilter.streamBytes
+    val updated =
+        normalizeStreamBytesRange(
+            if (updateStart) {
+                current.copy(start = parseOptionalRangeValue(value))
+            } else {
+                current.copy(end = parseOptionalRangeValue(value))
+            },
+        )
+    updateGroupActivationFilter(
+        viewModel = viewModel,
+        key = key,
+        value = value,
+        filter = uiState.groupActivationFilter.copy(streamBytes = updated),
+    )
 }
 
 @Composable
@@ -621,6 +723,54 @@ fun AdvancedSettingsRoute(
                     ) {
                         setStrategyChains(parsed.tcpSteps, parsed.udpSteps)
                     }
+                }
+
+                AdvancedTextSetting.ActivationRoundFrom -> {
+                    updateRoundRangeBoundary(viewModel, uiState, "groupActivationFilter.round.start", value, updateStart = true)
+                }
+
+                AdvancedTextSetting.ActivationRoundTo -> {
+                    updateRoundRangeBoundary(viewModel, uiState, "groupActivationFilter.round.end", value, updateStart = false)
+                }
+
+                AdvancedTextSetting.ActivationPayloadSizeFrom -> {
+                    updatePayloadSizeRangeBoundary(
+                        viewModel,
+                        uiState,
+                        "groupActivationFilter.payloadSize.start",
+                        value,
+                        updateStart = true,
+                    )
+                }
+
+                AdvancedTextSetting.ActivationPayloadSizeTo -> {
+                    updatePayloadSizeRangeBoundary(
+                        viewModel,
+                        uiState,
+                        "groupActivationFilter.payloadSize.end",
+                        value,
+                        updateStart = false,
+                    )
+                }
+
+                AdvancedTextSetting.ActivationStreamBytesFrom -> {
+                    updateStreamBytesRangeBoundary(
+                        viewModel,
+                        uiState,
+                        "groupActivationFilter.streamBytes.start",
+                        value,
+                        updateStart = true,
+                    )
+                }
+
+                AdvancedTextSetting.ActivationStreamBytesTo -> {
+                    updateStreamBytesRangeBoundary(
+                        viewModel,
+                        uiState,
+                        "groupActivationFilter.streamBytes.end",
+                        value,
+                        updateStart = false,
+                    )
                 }
 
                 AdvancedTextSetting.SplitMarker -> {
@@ -1623,6 +1773,101 @@ private fun AdvancedSettingsScreen(
                         checked = uiState.dropSack,
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DropSack, it) },
                         enabled = visualEditorEnabled,
+                    )
+                }
+            }
+        }
+
+        item(key = "advanced_activation_window") {
+            SettingsSection(title = stringResource(R.string.activation_window_section_title)) {
+                RipDpiCard {
+                    Text(
+                        text = stringResource(R.string.activation_window_section_body),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.mutedForeground,
+                    )
+                    Text(
+                        text = stringResource(R.string.activation_window_summary_label, uiState.activationWindowSummary),
+                        style = RipDpiThemeTokens.type.caption,
+                        color = colors.mutedForeground,
+                    )
+                    HorizontalDivider(color = colors.divider)
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.activation_window_round_from_title),
+                        description = stringResource(R.string.activation_window_round_body),
+                        value = uiState.groupActivationFilter.round.start?.toString().orEmpty(),
+                        enabled = visualEditorEnabled,
+                        validator = { it.isEmpty() || validateIntRange(it, 1, Int.MAX_VALUE) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        setting = AdvancedTextSetting.ActivationRoundFrom,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.activation_window_round_to_title),
+                        description = stringResource(R.string.activation_window_round_body),
+                        value = uiState.groupActivationFilter.round.end?.toString().orEmpty(),
+                        enabled = visualEditorEnabled,
+                        validator = { it.isEmpty() || validateIntRange(it, 1, Int.MAX_VALUE) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        setting = AdvancedTextSetting.ActivationRoundTo,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.activation_window_payload_from_title),
+                        description = stringResource(R.string.activation_window_payload_body),
+                        value = uiState.groupActivationFilter.payloadSize.start?.toString().orEmpty(),
+                        enabled = visualEditorEnabled,
+                        validator = { it.isEmpty() || validateIntRange(it, 0, Int.MAX_VALUE) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        setting = AdvancedTextSetting.ActivationPayloadSizeFrom,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.activation_window_payload_to_title),
+                        description = stringResource(R.string.activation_window_payload_body),
+                        value = uiState.groupActivationFilter.payloadSize.end?.toString().orEmpty(),
+                        enabled = visualEditorEnabled,
+                        validator = { it.isEmpty() || validateIntRange(it, 0, Int.MAX_VALUE) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        setting = AdvancedTextSetting.ActivationPayloadSizeTo,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.activation_window_stream_from_title),
+                        description = stringResource(R.string.activation_window_stream_body),
+                        value = uiState.groupActivationFilter.streamBytes.start?.toString().orEmpty(),
+                        enabled = visualEditorEnabled,
+                        validator = { it.isEmpty() || validateIntRange(it, 0, Int.MAX_VALUE) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        setting = AdvancedTextSetting.ActivationStreamBytesFrom,
+                        onConfirm = onTextConfirmed,
+                        showDivider = true,
+                    )
+                    AdvancedTextSetting(
+                        title = stringResource(R.string.activation_window_stream_to_title),
+                        description = stringResource(R.string.activation_window_stream_body),
+                        value = uiState.groupActivationFilter.streamBytes.end?.toString().orEmpty(),
+                        enabled = visualEditorEnabled,
+                        validator = { it.isEmpty() || validateIntRange(it, 0, Int.MAX_VALUE) },
+                        invalidMessage = stringResource(R.string.config_error_out_of_range),
+                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        setting = AdvancedTextSetting.ActivationStreamBytesTo,
+                        onConfirm = onTextConfirmed,
                     )
                 }
             }

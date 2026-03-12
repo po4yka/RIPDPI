@@ -54,6 +54,8 @@ fn help_text() -> String {
     text.push_str(
         "    -R, --round <num[-numr]>  Number of request to which desync will be applied\n",
     );
+    text.push_str("        --payload-size-range <start-end> Activate group only for matching payload sizes\n");
+    text.push_str("        --stream-byte-range <start-end> Activate group only for matching outbound stream bytes\n");
     text.push_str(
         "    -s, --split <pos_t>       Position format: marker[:repeats:skip]\n",
     );
@@ -145,6 +147,8 @@ fn canonical_option(option: &str) -> &str {
         "--def-ttl" | "-g" => "-g",
         "--pf" | "-V" => "-V",
         "--round" | "-R" => "-R",
+        "--payload-size-range" => "--payload-size-range",
+        "--stream-byte-range" => "--stream-byte-range",
         "--auto" | "-A" => "-A",
         "--auto-mode" | "-L" => "-L",
         "--to-socks5" | "-C" => "-C",

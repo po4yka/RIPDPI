@@ -1,6 +1,16 @@
 use ciadpi_config::{DesyncGroup, OffsetBase, OffsetExpr, TcpChainStep, TcpChainStepKind};
-use ciadpi_desync::{build_fake_packet, plan_tcp, PlannedStep};
+use ciadpi_desync::{build_fake_packet, plan_tcp, ActivationContext, ActivationTransport, PlannedStep};
 use ciadpi_packets::{http_marker_info, second_level_domain_span, tls_marker_info, DEFAULT_FAKE_TLS};
+
+fn tcp_context(payload: &[u8]) -> ActivationContext {
+    ActivationContext {
+        round: 1,
+        payload_size: payload.len() as i64,
+        stream_start: 0,
+        stream_end: payload.len().saturating_sub(1) as i64,
+        transport: ActivationTransport::Tcp,
+    }
+}
 
 #[test]
 fn plan_tcp_http_chain_resolves_host_and_endsld_markers() {
@@ -15,7 +25,7 @@ fn plan_tcp_http_chain_resolves_host_and_endsld_markers() {
         TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::EndSld, 0)),
     ];
 
-    let plan = plan_tcp(&group, payload, 7, 64).expect("plan http marker chain");
+    let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan http marker chain");
 
     assert_eq!(
         plan.steps,
@@ -40,7 +50,8 @@ fn plan_tcp_tls_chain_resolves_sniext_and_tls_endhost_markers() {
         TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::tls_marker(OffsetBase::EndHost, 0)),
     ];
 
-    let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64).expect("plan tls marker chain");
+    let plan =
+        plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS)).expect("plan tls marker chain");
 
     assert_eq!(
         plan.steps,

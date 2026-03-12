@@ -33,6 +33,31 @@ pub const HOST_AUTOLEARN_DEFAULT_MAX_HOSTS: usize = 512;
 pub const HOST_AUTOLEARN_DEFAULT_STORE_FILE: &str = "host-autolearn-v1.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NumericRange<T> {
+    pub start: T,
+    pub end: T,
+}
+
+impl<T> NumericRange<T> {
+    pub const fn new(start: T, end: T) -> Self {
+        Self { start, end }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ActivationFilter {
+    pub round: Option<NumericRange<i64>>,
+    pub payload_size: Option<NumericRange<i64>>,
+    pub stream_bytes: Option<NumericRange<i64>>,
+}
+
+impl ActivationFilter {
+    pub const fn is_unbounded(self) -> bool {
+        self.round.is_none() && self.payload_size.is_none() && self.stream_bytes.is_none()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DesyncMode {
     None = 0,
     Split = 1,
@@ -164,6 +189,7 @@ impl TcpChainStepKind {
 pub struct TcpChainStep {
     pub kind: TcpChainStepKind,
     pub offset: OffsetExpr,
+    pub activation_filter: Option<ActivationFilter>,
     pub midhost_offset: Option<OffsetExpr>,
     pub fake_host_template: Option<String>,
     pub fragment_count: i32,
@@ -176,6 +202,7 @@ impl TcpChainStep {
         Self {
             kind,
             offset,
+            activation_filter: None,
             midhost_offset: None,
             fake_host_template: None,
             fragment_count: 0,
@@ -194,6 +221,7 @@ pub enum UdpChainStepKind {
 pub struct UdpChainStep {
     pub kind: UdpChainStepKind,
     pub count: i32,
+    pub activation_filter: Option<ActivationFilter>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -240,6 +268,7 @@ pub struct DesyncGroup {
     pub mod_http: u32,
     pub tls_records: Vec<OffsetExpr>,
     pub tlsminor: Option<u8>,
+    pub activation_filter: Option<ActivationFilter>,
     pub filters: FilterSet,
     pub port_filter: Option<(u16, u16)>,
     pub rounds: [i32; 2],
@@ -279,6 +308,7 @@ impl DesyncGroup {
             mod_http: 0,
             tls_records: Vec::new(),
             tlsminor: None,
+            activation_filter: None,
             filters: FilterSet::default(),
             port_filter: None,
             rounds: [0, 0],
@@ -331,10 +361,33 @@ impl DesyncGroup {
             return self.udp_chain.clone();
         }
         if self.udp_fake_count > 0 {
-            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: self.udp_fake_count }]
+            vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: self.udp_fake_count, activation_filter: None }]
         } else {
             Vec::new()
         }
+    }
+
+    pub fn activation_filter(&self) -> Option<ActivationFilter> {
+        self.activation_filter.filter(|filter| !filter.is_unbounded())
+    }
+
+    pub fn set_activation_filter(&mut self, filter: ActivationFilter) {
+        self.activation_filter = (!filter.is_unbounded()).then_some(filter);
+        self.rounds = self
+            .activation_filter
+            .and_then(|value| value.round)
+            .and_then(|range| {
+                let start = i32::try_from(range.start).ok()?;
+                let end = i32::try_from(range.end).ok()?;
+                Some([start, end])
+            })
+            .unwrap_or([0, 0]);
+    }
+
+    pub fn set_round_activation(&mut self, range: Option<NumericRange<i64>>) {
+        let mut filter = self.activation_filter.unwrap_or_default();
+        filter.round = range;
+        self.set_activation_filter(filter);
     }
 
     pub fn sync_legacy_views_from_chains(&mut self) {
@@ -636,6 +689,36 @@ pub fn parse_udp_fake_profile(spec: &str) -> Result<UdpFakeProfile, ConfigError>
         "dht_get_peers" => Ok(UdpFakeProfile::DhtGetPeers),
         _ => Err(ConfigError::invalid("--fake-udp-profile", Some(spec))),
     }
+}
+
+fn parse_range_core(spec: &str, option: &str, minimum: i64) -> Result<NumericRange<i64>, ConfigError> {
+    let trimmed = spec.trim();
+    if trimmed.is_empty() {
+        return Err(ConfigError::invalid(option, Some(spec)));
+    }
+    let (start_raw, end_raw) = match trimmed.split_once('-') {
+        Some((start, end)) if !start.is_empty() && !end.is_empty() => (start, end),
+        None => (trimmed, trimmed),
+        _ => return Err(ConfigError::invalid(option, Some(spec))),
+    };
+    let start = start_raw.parse::<i64>().map_err(|_| ConfigError::invalid(option, Some(spec)))?;
+    let end = end_raw.parse::<i64>().map_err(|_| ConfigError::invalid(option, Some(spec)))?;
+    if start < minimum || end < minimum || start > end {
+        return Err(ConfigError::invalid(option, Some(spec)));
+    }
+    Ok(NumericRange::new(start, end))
+}
+
+pub fn parse_round_range_spec(spec: &str) -> Result<NumericRange<i64>, ConfigError> {
+    parse_range_core(spec, "--round", 1)
+}
+
+pub fn parse_payload_size_range_spec(spec: &str) -> Result<NumericRange<i64>, ConfigError> {
+    parse_range_core(spec, "--payload-size-range", 0)
+}
+
+pub fn parse_stream_byte_range_spec(spec: &str) -> Result<NumericRange<i64>, ConfigError> {
+    parse_range_core(spec, "--stream-byte-range", 0)
 }
 
 pub fn parse_hosts_spec(spec: &str) -> Result<Vec<String>, ConfigError> {
@@ -1292,7 +1375,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 }
                 group!().udp_fake_count += count;
                 if count > 0 {
-                    group!().udp_chain.push(UdpChainStep { kind: UdpChainStepKind::FakeBurst, count });
+                    group!().udp_chain.push(UdpChainStep {
+                        kind: UdpChainStepKind::FakeBurst,
+                        count,
+                        activation_filter: None,
+                    });
                 }
             }
             "--fake-quic-profile" => {
@@ -1318,16 +1405,22 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-R" | "--round" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let (start, end) = match value.split_once('-') {
-                    Some((start, end)) => (start, end),
-                    None => (value, value),
-                };
-                let start = start.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-                let end = end.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-                if start <= 0 || end <= 0 {
-                    return Err(ConfigError::invalid(arg, Some(value)));
-                }
-                group!().rounds = [start, end];
+                let range = parse_round_range_spec(value)?;
+                group!().set_round_activation(Some(range));
+            }
+            "--payload-size-range" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                let range = parse_payload_size_range_spec(value)?;
+                let mut filter = group!().activation_filter.unwrap_or_default();
+                filter.payload_size = Some(range);
+                group!().set_activation_filter(filter);
+            }
+            "--stream-byte-range" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                let range = parse_stream_byte_range_spec(value)?;
+                let mut filter = group!().activation_filter.unwrap_or_default();
+                filter.stream_bytes = Some(range);
+                group!().set_activation_filter(filter);
             }
             "-g" | "--def-ttl" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -1567,6 +1660,40 @@ mod tests {
         for spec in ["host+", "midsld-", "unknown", "host+nope", "5+zz", "method++1"] {
             assert!(parse_offset_expr(spec).is_err(), "{spec} should be rejected");
         }
+    }
+
+    #[test]
+    fn parse_activation_range_specs_validate_bounds() {
+        assert_eq!(parse_round_range_spec("1-3").unwrap(), NumericRange::new(1, 3));
+        assert_eq!(parse_payload_size_range_spec("64-512").unwrap(), NumericRange::new(64, 512));
+        assert_eq!(parse_stream_byte_range_spec("0-1199").unwrap(), NumericRange::new(0, 1199));
+
+        assert!(parse_round_range_spec("0-2").is_err());
+        assert!(parse_payload_size_range_spec("-1-5").is_err());
+        assert!(parse_stream_byte_range_spec("10-2").is_err());
+    }
+
+    #[test]
+    fn parse_cli_maps_activation_ranges_into_group_filter() {
+        let args = vec![
+            "--round".to_string(),
+            "2-4".to_string(),
+            "--payload-size-range".to_string(),
+            "64-512".to_string(),
+            "--stream-byte-range".to_string(),
+            "0-2047".to_string(),
+        ];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+        let group = &config.groups[0];
+        let activation = group.activation_filter().expect("group activation filter");
+
+        assert_eq!(group.rounds, [2, 4]);
+        assert_eq!(activation.round, Some(NumericRange::new(2, 4)));
+        assert_eq!(activation.payload_size, Some(NumericRange::new(64, 512)));
+        assert_eq!(activation.stream_bytes, Some(NumericRange::new(0, 2047)));
     }
 
     #[test]

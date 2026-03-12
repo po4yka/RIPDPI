@@ -6,7 +6,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-private const val AppSettingsJsonFormatVersion = 1
+private const val AppSettingsJsonFormatVersion = 2
 
 private val defaultSettings = AppSettingsSerializer.defaultValue
 
@@ -27,12 +27,14 @@ internal data class AppSettingsTcpChainSnapshot(
     val fragmentCount: Int = 0,
     val minFragmentSize: Int = 0,
     val maxFragmentSize: Int = 0,
+    val activationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
 @Serializable
 internal data class AppSettingsUdpChainSnapshot(
     val kind: String,
     val count: Int,
+    val activationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
 @Serializable
@@ -45,6 +47,14 @@ internal data class AppSettingsSnapshot(
     val dnsProviderId: String = "",
     val dnsDohUrl: String = "",
     val dnsDohBootstrapIps: List<String> = emptyList(),
+    val encryptedDnsProtocol: String = "",
+    val encryptedDnsHost: String = "",
+    val encryptedDnsPort: Int = 0,
+    val encryptedDnsTlsServerName: String = "",
+    val encryptedDnsBootstrapIps: List<String> = emptyList(),
+    val encryptedDnsDohUrl: String = "",
+    val encryptedDnsDnscryptProviderName: String = "",
+    val encryptedDnsDnscryptPublicKey: String = "",
     val ipv6Enabled: Boolean = defaultSettings.ipv6Enable,
     val enableCommandLineSettings: Boolean = defaultSettings.enableCmdSettings,
     val commandLineArgs: String = defaultSettings.cmdArgs,
@@ -105,6 +115,7 @@ internal data class AppSettingsSnapshot(
     val hostAutolearnEnabled: Boolean = defaultSettings.hostAutolearnEnabled,
     val hostAutolearnPenaltyTtlHours: Int = defaultSettings.hostAutolearnPenaltyTtlHours,
     val hostAutolearnMaxHosts: Int = defaultSettings.hostAutolearnMaxHosts,
+    val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
 fun AppSettings.toJson(): String = appSettingsJson.encodeToString(toSnapshot())
@@ -119,8 +130,16 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         dnsIp = activeDns.dnsIp,
         dnsMode = activeDns.mode,
         dnsProviderId = activeDns.providerId,
-        dnsDohUrl = activeDns.dohUrl,
-        dnsDohBootstrapIps = activeDns.dohBootstrapIps,
+        dnsDohUrl = if (activeDns.isDoh) activeDns.dohUrl else "",
+        dnsDohBootstrapIps = if (activeDns.isDoh) activeDns.dohBootstrapIps else emptyList(),
+        encryptedDnsProtocol = activeDns.encryptedDnsProtocol,
+        encryptedDnsHost = activeDns.encryptedDnsHost,
+        encryptedDnsPort = activeDns.encryptedDnsPort,
+        encryptedDnsTlsServerName = activeDns.encryptedDnsTlsServerName,
+        encryptedDnsBootstrapIps = activeDns.encryptedDnsBootstrapIps,
+        encryptedDnsDohUrl = activeDns.encryptedDnsDohUrl,
+        encryptedDnsDnscryptProviderName = activeDns.encryptedDnsDnscryptProviderName,
+        encryptedDnsDnscryptPublicKey = activeDns.encryptedDnsDnscryptPublicKey,
         ipv6Enabled = ipv6Enable,
         enableCommandLineSettings = enableCmdSettings,
         commandLineArgs = cmdArgs,
@@ -181,9 +200,17 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
                     fragmentCount = it.fragmentCount,
                     minFragmentSize = it.minFragmentSize,
                     maxFragmentSize = it.maxFragmentSize,
+                    activationFilter = if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel(),
                 )
             },
-        udpChainSteps = udpChainStepsList.map { AppSettingsUdpChainSnapshot(kind = it.kind, count = it.count) },
+        udpChainSteps =
+            udpChainStepsList.map {
+                AppSettingsUdpChainSnapshot(
+                    kind = it.kind,
+                    count = it.count,
+                    activationFilter = if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel(),
+                )
+            },
         quicInitialMode = effectiveQuicInitialMode(),
         quicSupportV1 = effectiveQuicSupportV1(),
         quicSupportV2 = effectiveQuicSupportV2(),
@@ -192,11 +219,12 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         hostAutolearnEnabled = hostAutolearnEnabled,
         hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
         hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
+        groupActivationFilter = if (hasGroupActivationFilter()) groupActivationFilter.toModel().let(::normalizeActivationFilter) else ActivationFilterModel(),
         )
     }
 
 private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
-    require(formatVersion == AppSettingsJsonFormatVersion) {
+    require(formatVersion == 1 || formatVersion == AppSettingsJsonFormatVersion) {
         "Unsupported app settings format version: $formatVersion"
     }
 
@@ -207,6 +235,14 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
             dnsIp = dnsIp,
             dnsDohUrl = dnsDohUrl,
             dnsDohBootstrapIps = dnsDohBootstrapIps,
+            encryptedDnsProtocol = encryptedDnsProtocol,
+            encryptedDnsHost = encryptedDnsHost,
+            encryptedDnsPort = encryptedDnsPort,
+            encryptedDnsTlsServerName = encryptedDnsTlsServerName,
+            encryptedDnsBootstrapIps = encryptedDnsBootstrapIps,
+            encryptedDnsDohUrl = encryptedDnsDohUrl,
+            encryptedDnsDnscryptProviderName = encryptedDnsDnscryptProviderName,
+            encryptedDnsDnscryptPublicKey = encryptedDnsDnscryptPublicKey,
         )
 
     return AppSettings
@@ -216,9 +252,18 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setDnsIp(activeDns.dnsIp)
         .setDnsMode(activeDns.mode)
         .setDnsProviderId(activeDns.providerId)
-        .setDnsDohUrl(activeDns.dohUrl)
+        .setDnsDohUrl(if (activeDns.isDoh) activeDns.dohUrl else "")
         .clearDnsDohBootstrapIps()
-        .addAllDnsDohBootstrapIps(activeDns.dohBootstrapIps)
+        .addAllDnsDohBootstrapIps(if (activeDns.isDoh) activeDns.dohBootstrapIps else emptyList())
+        .setEncryptedDnsProtocol(activeDns.encryptedDnsProtocol)
+        .setEncryptedDnsHost(activeDns.encryptedDnsHost)
+        .setEncryptedDnsPort(activeDns.encryptedDnsPort)
+        .setEncryptedDnsTlsServerName(activeDns.encryptedDnsTlsServerName)
+        .clearEncryptedDnsBootstrapIps()
+        .addAllEncryptedDnsBootstrapIps(activeDns.encryptedDnsBootstrapIps)
+        .setEncryptedDnsDohUrl(activeDns.encryptedDnsDohUrl)
+        .setEncryptedDnsDnscryptProviderName(activeDns.encryptedDnsDnscryptProviderName)
+        .setEncryptedDnsDnscryptPublicKey(activeDns.encryptedDnsDnscryptPublicKey)
         .setIpv6Enable(ipv6Enabled)
         .setEnableCmdSettings(enableCommandLineSettings)
         .setCmdArgs(commandLineArgs)
@@ -277,6 +322,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setHostAutolearnEnabled(hostAutolearnEnabled)
         .setHostAutolearnPenaltyTtlHours(normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours))
         .setHostAutolearnMaxHosts(normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts))
+        .setGroupActivationFilterCompat(normalizeActivationFilter(groupActivationFilter))
         .also { builder ->
             tcpChainSteps.forEach { step ->
                 builder.addTcpChainSteps(
@@ -289,6 +335,12 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                         .setFragmentCount(step.fragmentCount)
                         .setMinFragmentSize(step.minFragmentSize)
                         .setMaxFragmentSize(step.maxFragmentSize)
+                        .apply {
+                            val normalizedFilter = normalizeActivationFilter(step.activationFilter)
+                            if (!normalizedFilter.isEmpty) {
+                                setActivationFilter(normalizedFilter.toProto())
+                            }
+                        }
                         .build(),
                 )
             }
@@ -298,6 +350,12 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                         .newBuilder()
                         .setKind(step.kind)
                         .setCount(step.count)
+                        .apply {
+                            val normalizedFilter = normalizeActivationFilter(step.activationFilter)
+                            if (!normalizedFilter.isEmpty) {
+                                setActivationFilter(normalizedFilter.toProto())
+                            }
+                        }
                         .build(),
                 )
             }

@@ -780,6 +780,51 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `approaches detail renders activation window fields`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-activation-window",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "disabled",
+                            desyncMethod = "fake",
+                            chainSummary = "tcp: fake(host when_round=1-2 when_size=64-512)",
+                            protocolToggles = listOf("HTTP", "HTTPS"),
+                            tlsRecordSplitEnabled = false,
+                            activationRound = "2-4",
+                            activationPayloadSize = "64-512",
+                            activationStreamBytes = "0-2047",
+                            routeGroup = "12",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-activation-window")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(signature.any { it.label == "Activation round" && it.value == "2-4" })
+            assertTrue(signature.any { it.label == "Activation payload size" && it.value == "64-512" })
+            assertTrue(signature.any { it.label == "Activation stream bytes" && it.value == "0-2047" })
+            collector.cancel()
+        }
+
+    @Test
     fun `approaches detail humanizes quic fake profile`() =
         runTest {
             val manager =

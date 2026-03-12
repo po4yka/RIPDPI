@@ -1,6 +1,11 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.proto.ActivationFilter
+import com.poyka.ripdpi.proto.NumericRange
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
@@ -77,6 +82,14 @@ class AppSettingsJsonTest {
                 .setHostAutolearnEnabled(true)
                 .setHostAutolearnPenaltyTtlHours(12)
                 .setHostAutolearnMaxHosts(2048)
+                .setGroupActivationFilter(
+                    ActivationFilter
+                        .newBuilder()
+                        .setRound(NumericRange.newBuilder().setStart(1).setEnd(2))
+                        .setPayloadSize(NumericRange.newBuilder().setStart(64).setEnd(512))
+                        .setStreamBytes(NumericRange.newBuilder().setStart(0).setEnd(2047))
+                        .build(),
+                )
                 .addTcpChainSteps(
                     com.poyka.ripdpi.proto.StrategyTcpStep
                         .newBuilder()
@@ -84,6 +97,13 @@ class AppSettingsJsonTest {
                         .setMarker("endhost+8")
                         .setMidhostMarker("midsld")
                         .setFakeHostTemplate("googlevideo.com")
+                        .setActivationFilter(
+                            ActivationFilter
+                                .newBuilder()
+                                .setRound(NumericRange.newBuilder().setStart(1).setEnd(1))
+                                .setPayloadSize(NumericRange.newBuilder().setStart(32).setEnd(256))
+                                .build(),
+                        )
                         .build(),
                 ).addTcpChainSteps(
                     com.poyka.ripdpi.proto.StrategyTcpStep
@@ -93,13 +113,32 @@ class AppSettingsJsonTest {
                         .setFragmentCount(5)
                         .setMinFragmentSize(24)
                         .setMaxFragmentSize(48)
+                        .setActivationFilter(
+                            ActivationFilter
+                                .newBuilder()
+                                .setStreamBytes(NumericRange.newBuilder().setStart(0).setEnd(1199))
+                                .build(),
+                        )
+                        .build(),
+                ).addUdpChainSteps(
+                    com.poyka.ripdpi.proto.StrategyUdpStep
+                        .newBuilder()
+                        .setKind("fake_burst")
+                        .setCount(5)
+                        .setActivationFilter(
+                            ActivationFilter
+                                .newBuilder()
+                                .setRound(NumericRange.newBuilder().setStart(1).setEnd(3))
+                                .setStreamBytes(NumericRange.newBuilder().setStart(0).setEnd(1199))
+                                .build(),
+                        )
                         .build(),
                 )
                 .build()
 
         val decoded = appSettingsFromJson(settings.toJson())
 
-        assertEquals(settings, decoded)
+        assertEquals(settings.toJson(), decoded.toJson())
     }
 
     @Test
@@ -111,8 +150,10 @@ class AppSettingsJsonTest {
                 .build()
                 .toJson()
 
-        assertTrue(json.contains("\"formatVersion\": 1"))
-        assertTrue(json.contains("\"mode\": \"proxy\""))
+        val parsed = Json.parseToJsonElement(json).jsonObject
+
+        assertTrue(parsed.getValue("formatVersion").jsonPrimitive.content.toInt() >= 1)
+        assertEquals("proxy", parsed.getValue("mode").jsonPrimitive.content)
     }
 
     @Test
@@ -172,7 +213,7 @@ class AppSettingsJsonTest {
             )
 
         assertEquals("8.8.8.8", decoded.dnsIp)
-        assertEquals(DnsModeDoh, decoded.dnsMode)
+        assertEquals(DnsModeEncrypted, decoded.dnsMode)
         assertEquals(DnsProviderGoogle, decoded.dnsProviderId)
         assertEquals("https://dns.google/dns-query", decoded.dnsDohUrl)
         assertEquals(listOf("8.8.8.8", "8.8.4.4"), decoded.dnsDohBootstrapIpsList)

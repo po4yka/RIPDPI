@@ -1283,6 +1283,15 @@ class DiagnosticsViewModel
                 signature.splitMarker?.let {
                     add(DiagnosticsFieldUiModel("Split marker", it))
                 }
+                signature.activationRound?.let {
+                    add(DiagnosticsFieldUiModel("Activation round", it))
+                }
+                signature.activationPayloadSize?.let {
+                    add(DiagnosticsFieldUiModel("Activation payload size", it))
+                }
+                signature.activationStreamBytes?.let {
+                    add(DiagnosticsFieldUiModel("Activation stream bytes", it))
+                }
                 signature.fakeTlsBaseMode?.let {
                     add(DiagnosticsFieldUiModel("Fake TLS base", formatFakeTlsBaseMode(it)))
                 }

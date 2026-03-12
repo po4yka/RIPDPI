@@ -3,8 +3,9 @@ use std::str::FromStr;
 
 use ciadpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
-    parse_udp_fake_profile as parse_udp_fake_profile_id, DesyncGroup, DesyncMode, OffsetExpr, PartSpec, QuicFakeProfile,
-    QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+    parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, NumericRange,
+    OffsetExpr, PartSpec, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
+    UdpChainStep, UdpChainStepKind,
     FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
     HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
@@ -39,6 +40,26 @@ pub enum ProxyConfigPayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct ProxyUiNumericRange {
+    #[serde(default)]
+    pub start: Option<i64>,
+    #[serde(default)]
+    pub end: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiActivationFilter {
+    #[serde(default)]
+    pub round: Option<ProxyUiNumericRange>,
+    #[serde(default)]
+    pub payload_size: Option<ProxyUiNumericRange>,
+    #[serde(default)]
+    pub stream_bytes: Option<ProxyUiNumericRange>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ProxyUiTcpChainStep {
     pub kind: String,
     pub marker: String,
@@ -52,6 +73,8 @@ pub struct ProxyUiTcpChainStep {
     pub min_fragment_size: i32,
     #[serde(default)]
     pub max_fragment_size: i32,
+    #[serde(default)]
+    pub activation_filter: ProxyUiActivationFilter,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -59,6 +82,8 @@ pub struct ProxyUiTcpChainStep {
 pub struct ProxyUiUdpChainStep {
     pub kind: String,
     pub count: i32,
+    #[serde(default)]
+    pub activation_filter: ProxyUiActivationFilter,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -79,6 +104,8 @@ pub struct ProxyUiConfig {
     pub split_marker: Option<String>,
     #[serde(default)]
     pub tcp_chain_steps: Vec<ProxyUiTcpChainStep>,
+    #[serde(default)]
+    pub group_activation_filter: ProxyUiActivationFilter,
     #[serde(default)]
     pub split_position: i32,
     #[serde(default)]
@@ -166,6 +193,50 @@ fn default_host_autolearn_penalty_ttl_secs() -> i64 {
 
 fn default_host_autolearn_max_hosts() -> usize {
     HOST_AUTOLEARN_DEFAULT_MAX_HOSTS
+}
+
+fn parse_proxy_numeric_range(
+    range: &ProxyUiNumericRange,
+    field_name: &str,
+    minimum: i64,
+) -> Result<Option<NumericRange<i64>>, ProxyConfigError> {
+    let start = range.start;
+    let end = range.end;
+    if start.is_none() && end.is_none() {
+        return Ok(None);
+    }
+    let start = start.or(end).unwrap_or(minimum);
+    let end = end.or(Some(start)).unwrap_or(start);
+    if start < minimum || end < minimum || start > end {
+        return Err(ProxyConfigError::InvalidConfig(format!("Invalid {field_name}")));
+    }
+    Ok(Some(NumericRange::new(start, end)))
+}
+
+fn parse_proxy_activation_filter(
+    filter: &ProxyUiActivationFilter,
+    field_name: &str,
+) -> Result<Option<ActivationFilter>, ProxyConfigError> {
+    let round = filter
+        .round
+        .as_ref()
+        .map(|value| parse_proxy_numeric_range(value, &format!("{field_name}.round"), 1))
+        .transpose()?
+        .flatten();
+    let payload_size = filter
+        .payload_size
+        .as_ref()
+        .map(|value| parse_proxy_numeric_range(value, &format!("{field_name}.payloadSize"), 0))
+        .transpose()?
+        .flatten();
+    let stream_bytes = filter
+        .stream_bytes
+        .as_ref()
+        .map(|value| parse_proxy_numeric_range(value, &format!("{field_name}.streamBytes"), 0))
+        .transpose()?
+        .flatten();
+    let filter = ActivationFilter { round, payload_size, stream_bytes };
+    Ok((!filter.is_unbounded()).then_some(filter))
 }
 
 pub fn normalize_fake_tls_sni_mode(value: &str) -> &'static str {
@@ -279,6 +350,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     group.proto = (u32::from(payload.desync_http) * IS_HTTP)
         | (u32::from(payload.desync_https) * IS_HTTPS)
         | (u32::from(payload.desync_udp) * IS_UDP);
+    if let Some(filter) = parse_proxy_activation_filter(&payload.group_activation_filter, "groupActivationFilter")? {
+        group.set_activation_filter(filter);
+    }
     group.quic_fake_profile = parse_quic_fake_profile(&payload.quic_fake_profile)?;
     group.quic_fake_host = {
         let host = payload.quic_fake_host.trim();
@@ -327,9 +401,12 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                     (0, 0, 0)
                 }
             };
+            let activation_filter =
+                parse_proxy_activation_filter(&step.activation_filter, "tcpChainSteps.activationFilter")?;
             group.tcp_chain.push(TcpChainStep {
                 kind,
                 offset,
+                activation_filter,
                 midhost_offset,
                 fake_host_template,
                 fragment_count,
@@ -367,12 +444,23 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             if step.count < 0 {
                 return Err(ProxyConfigError::InvalidConfig("udpChainSteps count must be non-negative".to_string()));
             }
-            group.udp_chain.push(UdpChainStep { kind: parse_udp_chain_step_kind(&step.kind)?, count: step.count });
+            group.udp_chain.push(UdpChainStep {
+                kind: parse_udp_chain_step_kind(&step.kind)?,
+                count: step.count,
+                activation_filter: parse_proxy_activation_filter(
+                    &step.activation_filter,
+                    "udpChainSteps.activationFilter",
+                )?,
+            });
         }
     } else {
         group.udp_fake_count = payload.udp_fake_count;
         if payload.udp_fake_count > 0 {
-            group.udp_chain.push(UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: payload.udp_fake_count });
+            group.udp_chain.push(UdpChainStep {
+                kind: UdpChainStepKind::FakeBurst,
+                count: payload.udp_fake_count,
+                activation_filter: None,
+            });
         }
     }
 
@@ -550,6 +638,7 @@ mod tests {
             desync_method: "disorder".to_string(),
             split_marker: Some("host+1".to_string()),
             tcp_chain_steps: Vec::new(),
+            group_activation_filter: ProxyUiActivationFilter::default(),
             split_position: 0,
             split_at_host: false,
             fake_ttl: 8,
@@ -602,8 +691,13 @@ mod tests {
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
+            activation_filter: ProxyUiActivationFilter::default(),
         });
-        ui.udp_chain_steps.push(ProxyUiUdpChainStep { kind: "fake_burst".to_string(), count: 3 });
+        ui.udp_chain_steps.push(ProxyUiUdpChainStep {
+            kind: "fake_burst".to_string(),
+            count: 3,
+            activation_filter: ProxyUiActivationFilter::default(),
+        });
         ui.quic_fake_profile = "realistic_initial".to_string();
         ui.quic_fake_host = "Example.COM.".to_string();
 

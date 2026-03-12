@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::net::{
     IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs,
@@ -6,7 +7,7 @@ use std::net::{
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::platform;
 use crate::process;
@@ -19,12 +20,13 @@ use ciadpi_config::{
     DETECT_TORST,
 };
 use ciadpi_desync::{
-    build_fake_packet, build_hostfake_bytes, plan_tcp, plan_udp, resolve_hostfake_span, DesyncAction, DesyncPlan,
+    activation_filter_matches, build_fake_packet, build_hostfake_bytes, plan_tcp, plan_udp, resolve_hostfake_span,
+    ActivationContext, ActivationTransport, DesyncAction, DesyncPlan,
 };
 use ciadpi_session::{
     detect_response_trigger, encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply,
     parse_http_connect_request, parse_socks4_request, parse_socks5_request, ClientRequest,
-    SessionConfig, SessionError, SessionState, SocketType, TriggerEvent, S_ATP_I4, S_ATP_I6,
+    OutboundProgress, SessionConfig, SessionError, SessionState, SocketType, TriggerEvent, S_ATP_I4, S_ATP_I6,
     S_AUTH_BAD, S_AUTH_NONE, S_CMD_CONN, S_ER_CMD, S_ER_CONN, S_ER_GEN, S_VER5,
 };
 use mio::net::TcpListener as MioTcpListener;
@@ -33,6 +35,7 @@ use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
 const LISTENER: Token = Token(0);
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 const DESYNC_SEED_BASE: u32 = 7;
 
 #[derive(Clone)]
@@ -40,6 +43,12 @@ struct RuntimeState {
     config: Arc<RuntimeConfig>,
     cache: Arc<Mutex<RuntimeCache>>,
     active_clients: Arc<AtomicUsize>,
+}
+
+#[derive(Debug, Clone)]
+struct UdpFlowActivationState {
+    session: SessionState,
+    last_used: Instant,
 }
 
 pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
@@ -926,10 +935,13 @@ fn udp_associate_loop(
 ) -> io::Result<()> {
     let mut udp_client_addr = None;
     let mut buffer = [0u8; 65_535];
+    let mut flow_state = HashMap::<(SocketAddr, SocketAddr), UdpFlowActivationState>::new();
 
     while running.load(Ordering::Relaxed) {
         match relay.recv_from(&mut buffer) {
             Ok((n, sender)) => {
+                let now = Instant::now();
+                flow_state.retain(|_, value| now.duration_since(value.last_used) < UDP_FLOW_IDLE_TIMEOUT);
                 let known_client = udp_client_addr;
                 if known_client.is_none() || known_client == Some(sender) {
                     udp_client_addr = Some(sender);
@@ -937,7 +949,15 @@ fn udp_associate_loop(
                     else {
                         continue;
                     };
-                    let actions = plan_udp(&group, payload, config.default_ttl);
+                    let activation = {
+                        let entry = flow_state
+                            .entry((sender, target))
+                            .or_insert_with(|| UdpFlowActivationState { session: SessionState::default(), last_used: now });
+                        entry.last_used = now;
+                        let progress = entry.session.observe_datagram_outbound(payload);
+                        activation_context_from_progress(progress, ActivationTransport::Udp)
+                    };
+                    let actions = plan_udp(&group, payload, config.default_ttl, activation);
                     execute_udp_actions(&relay, target, &actions)?;
                 } else if let Some(client_addr) = udp_client_addr {
                     let packet = encode_socks5_udp_packet(sender, &buffer[..n]);
@@ -1120,10 +1140,10 @@ fn relay(
 
             loop {
                 session_state = SessionState::default();
-                session_state.observe_outbound(&original_request);
+                let progress = session_state.observe_outbound(&original_request);
                 let group = state.config.groups[route.group_index].clone();
                 if let Err(err) =
-                    send_with_group(&mut upstream, &state.config, &group, &original_request, 1)
+                    send_with_group(&mut upstream, &state.config, &group, &original_request, progress)
                 {
                     if !runtime_supports_trigger(state, DETECT_TORST)? {
                         return Err(err);
@@ -1268,6 +1288,16 @@ fn relay_streams(
     up_result?;
     down_result?;
     Ok(())
+}
+
+fn activation_context_from_progress(progress: OutboundProgress, transport: ActivationTransport) -> ActivationContext {
+    ActivationContext {
+        round: progress.round as i64,
+        payload_size: progress.payload_size as i64,
+        stream_start: progress.stream_start as i64,
+        stream_end: progress.stream_end as i64,
+        transport,
+    }
 }
 
 fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
@@ -1589,14 +1619,13 @@ fn copy_outbound_half(
             break;
         }
         let payload = &buffer[..n];
-        let round = {
+        let progress = {
             let mut state = session
                 .lock()
                 .map_err(|_| io::Error::other("session mutex poisoned"))?;
-            state.observe_outbound(payload);
-            state.round_count as i32
+            state.observe_outbound(payload)
         };
-        send_with_group(&mut writer, &config, &group, payload, round)?;
+        send_with_group(&mut writer, &config, &group, payload, progress)?;
     }
     let _ = writer.shutdown(Shutdown::Write);
     let _ = reader.shutdown(Shutdown::Read);
@@ -1608,11 +1637,12 @@ fn send_with_group(
     config: &RuntimeConfig,
     group: &DesyncGroup,
     payload: &[u8],
-    round: i32,
+    progress: OutboundProgress,
 ) -> io::Result<()> {
-    if should_desync_tcp(group, round) {
-        let seed = DESYNC_SEED_BASE + (round.saturating_sub(1) as u32);
-        match plan_tcp(group, payload, seed, config.default_ttl) {
+    let context = activation_context_from_progress(progress, ActivationTransport::Tcp);
+    if should_desync_tcp(group, context) {
+        let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
+        match plan_tcp(group, payload, seed, config.default_ttl, context) {
             Ok(plan) if group
                 .effective_tcp_chain()
                 .iter()
@@ -1635,16 +1665,12 @@ fn send_with_group(
     Ok(())
 }
 
-fn should_desync_tcp(group: &DesyncGroup, round: i32) -> bool {
-    has_tcp_actions(group) && check_round(group.rounds, round)
+fn should_desync_tcp(group: &DesyncGroup, context: ActivationContext) -> bool {
+    has_tcp_actions(group) && activation_filter_matches(group.activation_filter(), context)
 }
 
 fn has_tcp_actions(group: &DesyncGroup) -> bool {
     !group.effective_tcp_chain().is_empty() || group.mod_http != 0 || group.tlsminor.is_some()
-}
-
-fn check_round(rounds: [i32; 2], round: i32) -> bool {
-    (rounds[1] == 0 && round <= 1) || (round >= rounds[0] && round <= rounds[1])
 }
 
 fn execute_tcp_actions(
@@ -1930,7 +1956,7 @@ fn mio_to_std_stream(stream: mio::net::TcpStream) -> TcpStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ciadpi_config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
+    use ciadpi_config::{NumericRange, OffsetExpr, TcpChainStep, TcpChainStepKind};
     use ciadpi_packets::DEFAULT_FAKE_TLS;
     use std::io::{Read, Write};
 
@@ -2144,17 +2170,38 @@ mod tests {
     #[test]
     fn tcp_desync_helpers_require_actionable_groups_and_matching_rounds() {
         let mut group = test_group();
-        group.rounds = [2, 4];
+        group.set_round_activation(Some(NumericRange::new(2, 4)));
+        let round_two = ActivationContext {
+            round: 2,
+            payload_size: 16,
+            stream_start: 0,
+            stream_end: 15,
+            transport: ActivationTransport::Tcp,
+        };
+        let round_five = ActivationContext {
+            round: 5,
+            payload_size: 16,
+            stream_start: 16,
+            stream_end: 31,
+            transport: ActivationTransport::Tcp,
+        };
+        let round_one = ActivationContext {
+            round: 1,
+            payload_size: 16,
+            stream_start: 0,
+            stream_end: 15,
+            transport: ActivationTransport::Tcp,
+        };
 
         assert!(!has_tcp_actions(&group));
-        assert!(!should_desync_tcp(&group, 2));
-        assert!(!check_round(group.rounds, 1));
-        assert!(check_round(group.rounds, 3));
-        assert!(!check_round(group.rounds, 5));
+        assert!(!should_desync_tcp(&group, round_two));
+        assert!(!activation_filter_matches(group.activation_filter(), round_one));
+        assert!(activation_filter_matches(group.activation_filter(), round_two));
+        assert!(!activation_filter_matches(group.activation_filter(), round_five));
 
         group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, test_offset()));
         assert!(has_tcp_actions(&group));
-        assert!(should_desync_tcp(&group, 2));
-        assert!(!should_desync_tcp(&group, 5));
+        assert!(should_desync_tcp(&group, round_two));
+        assert!(!should_desync_tcp(&group, round_five));
     }
 }

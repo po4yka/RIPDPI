@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
@@ -23,6 +24,7 @@ import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveQuicInitialMode
 import com.poyka.ripdpi.data.effectiveQuicSupportV1
 import com.poyka.ripdpi.data.effectiveQuicSupportV2
+import com.poyka.ripdpi.data.effectiveGroupActivationFilter
 import com.poyka.ripdpi.data.effectiveSplitMarker
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveTlsRecordMarker
@@ -32,9 +34,11 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
 import com.poyka.ripdpi.data.normalizeHttpFakeProfile
+import com.poyka.ripdpi.data.normalizeActivationFilter
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeQuicFakeProfile
 import com.poyka.ripdpi.data.normalizeTlsFakeProfile
+import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
@@ -55,6 +59,50 @@ sealed interface RipDpiProxyPreferences {
     fun toNativeConfigJson(): String
 }
 
+@Serializable
+private data class NativeNumericRange(
+    val start: Long? = null,
+    val end: Long? = null,
+)
+
+@Serializable
+private data class NativeActivationFilter(
+    val round: NativeNumericRange? = null,
+    val payloadSize: NativeNumericRange? = null,
+    val streamBytes: NativeNumericRange? = null,
+)
+
+private fun NativeNumericRange.toModel(): NumericRangeModel =
+    NumericRangeModel(start = start, end = end)
+
+private fun NumericRangeModel.toNative(): NativeNumericRange? =
+    if (start == null && end == null) {
+        null
+    } else {
+        NativeNumericRange(start = start, end = end)
+    }
+
+private fun NativeActivationFilter.toModel(): ActivationFilterModel =
+    normalizeActivationFilter(
+        ActivationFilterModel(
+            round = round?.toModel() ?: NumericRangeModel(),
+            payloadSize = payloadSize?.toModel() ?: NumericRangeModel(),
+            streamBytes = streamBytes?.toModel() ?: NumericRangeModel(),
+        ),
+    )
+
+private fun ActivationFilterModel.toNative(): NativeActivationFilter? =
+    normalizeActivationFilter(this).let { normalized ->
+        val round = normalized.round.toNative()
+        val payloadSize = normalized.payloadSize.toNative()
+        val streamBytes = normalized.streamBytes.toNative()
+        if (round == null && payloadSize == null && streamBytes == null) {
+            null
+        } else {
+            NativeActivationFilter(round = round, payloadSize = payloadSize, streamBytes = streamBytes)
+        }
+    }
+
 fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences? {
     val payload = runCatching { NativeProxyJson.decodeFromString<NativeProxyConfig>(configJson) }.getOrNull()
     val ui = payload as? NativeProxyConfig.Ui ?: return null
@@ -70,6 +118,7 @@ fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences
         desyncUdp = ui.desyncUdp,
         desyncMethod = RipDpiProxyUIPreferences.DesyncMethod.fromName(ui.desyncMethod),
         splitMarker = ui.splitMarker,
+        groupActivationFilter = ui.groupActivationFilter?.toModel(),
         tcpChainSteps =
             ui.tcpChainSteps.mapNotNull { step ->
                 val kind = TcpChainStepKind.fromWireName(step.kind) ?: return@mapNotNull null
@@ -81,6 +130,7 @@ fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences
                     fragmentCount = step.fragmentCount,
                     minFragmentSize = step.minFragmentSize,
                     maxFragmentSize = step.maxFragmentSize,
+                    activationFilter = step.activationFilter?.toModel() ?: ActivationFilterModel(),
                 )
             },
         fakeTtl = ui.fakeTtl,
@@ -109,7 +159,11 @@ fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences
         udpChainSteps =
             ui.udpChainSteps.mapNotNull { step ->
                 val kind = UdpChainStepKind.fromWireName(step.kind) ?: return@mapNotNull null
-                UdpChainStepModel(kind = kind, count = step.count)
+                UdpChainStepModel(
+                    kind = kind,
+                    count = step.count,
+                    activationFilter = step.activationFilter?.toModel() ?: ActivationFilterModel(),
+                )
             },
         quicInitialMode = ui.quicInitialMode,
         quicSupportV1 = ui.quicSupportV1,
@@ -156,6 +210,7 @@ class RipDpiProxyUIPreferences(
     desyncUdp: Boolean? = null,
     desyncMethod: DesyncMethod? = null,
     splitMarker: String? = null,
+    groupActivationFilter: ActivationFilterModel? = null,
     tcpChainSteps: List<TcpChainStepModel>? = null,
     fakeTtl: Int? = null,
     fakeSni: String? = null,
@@ -203,6 +258,7 @@ class RipDpiProxyUIPreferences(
     val desyncUdp: Boolean = desyncUdp ?: false
     val desyncMethod: DesyncMethod = desyncMethod ?: DesyncMethod.Disorder
     val splitMarker: String = normalizeOffsetExpression(splitMarker.orEmpty(), DefaultSplitMarker)
+    val groupActivationFilter: ActivationFilterModel = normalizeActivationFilter(groupActivationFilter ?: ActivationFilterModel())
     val tcpChainSteps: List<TcpChainStepModel> =
         tcpChainSteps?.map(::normalizeTcpChainStep)
             ?: buildLegacyTcpChain(
@@ -279,6 +335,7 @@ class RipDpiProxyUIPreferences(
                 .ifEmpty { null }
                 ?.let { DesyncMethod.fromName(it) },
         splitMarker = settings.effectiveSplitMarker(),
+        groupActivationFilter = settings.effectiveGroupActivationFilter(),
         tcpChainSteps = settings.effectiveTcpChainSteps(),
         fakeTtl = settings.fakeTtl.takeIf { it > 0 },
         fakeSni = settings.fakeSni.ifEmpty { null },
@@ -338,6 +395,7 @@ class RipDpiProxyUIPreferences(
                 desyncUdp = desyncUdp,
                 desyncMethod = desyncMethod.wireName,
                 splitMarker = splitMarker,
+                groupActivationFilter = groupActivationFilter.toNative(),
                 tcpChainSteps = tcpChainSteps.map {
                     val step = normalizeTcpChainStepModel(it)
                     NativeProxyConfig.NativeTcpChainStep(
@@ -348,6 +406,7 @@ class RipDpiProxyUIPreferences(
                         fragmentCount = step.fragmentCount,
                         minFragmentSize = step.minFragmentSize,
                         maxFragmentSize = step.maxFragmentSize,
+                        activationFilter = step.activationFilter.toNative(),
                     )
                 },
                 fakeTtl = fakeTtl,
@@ -371,7 +430,11 @@ class RipDpiProxyUIPreferences(
                 tcpFastOpen = tcpFastOpen,
                 udpFakeCount = udpFakeCount,
                 udpChainSteps = udpChainSteps.map {
-                    NativeProxyConfig.NativeUdpChainStep(kind = it.kind.wireName, count = it.count)
+                    NativeProxyConfig.NativeUdpChainStep(
+                        kind = it.kind.wireName,
+                        count = it.count,
+                        activationFilter = it.activationFilter.toNative(),
+                    )
                 },
                 udpFakeProfile = udpFakeProfile,
                 dropSack = dropSack,
@@ -459,12 +522,14 @@ private sealed interface NativeProxyConfig {
         val fragmentCount: Int,
         val minFragmentSize: Int,
         val maxFragmentSize: Int,
+        val activationFilter: NativeActivationFilter? = null,
     )
 
     @Serializable
     data class NativeUdpChainStep(
         val kind: String,
         val count: Int,
+        val activationFilter: NativeActivationFilter? = null,
     )
 
     @Serializable
@@ -488,6 +553,7 @@ private sealed interface NativeProxyConfig {
         val desyncUdp: Boolean,
         val desyncMethod: String,
         val splitMarker: String,
+        val groupActivationFilter: NativeActivationFilter? = null,
         val tcpChainSteps: List<NativeTcpChainStep>,
         val fakeTtl: Int,
         val fakeSni: String,
