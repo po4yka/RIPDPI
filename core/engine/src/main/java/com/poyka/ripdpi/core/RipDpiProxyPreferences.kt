@@ -28,6 +28,8 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeQuicFakeProfile
+import com.poyka.ripdpi.data.isTlsPrelude
+import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.proto.AppSettings
@@ -252,11 +254,15 @@ class RipDpiProxyUIPreferences(
                 desyncMethod = desyncMethod.wireName,
                 splitMarker = splitMarker,
                 tcpChainSteps = tcpChainSteps.map {
+                    val step = normalizeTcpChainStepModel(it)
                     NativeProxyConfig.NativeTcpChainStep(
-                        kind = it.kind.wireName,
-                        marker = it.marker,
-                        midhostMarker = it.midhostMarker,
-                        fakeHostTemplate = it.fakeHostTemplate,
+                        kind = step.kind.wireName,
+                        marker = step.marker,
+                        midhostMarker = step.midhostMarker,
+                        fakeHostTemplate = step.fakeHostTemplate,
+                        fragmentCount = step.fragmentCount,
+                        minFragmentSize = step.minFragmentSize,
+                        maxFragmentSize = step.maxFragmentSize,
                     )
                 },
                 fakeTtl = fakeTtl,
@@ -360,8 +366,11 @@ private sealed interface NativeProxyConfig {
     data class NativeTcpChainStep(
         val kind: String,
         val marker: String,
-        val midhostMarker: String = "",
-        val fakeHostTemplate: String = "",
+        val midhostMarker: String,
+        val fakeHostTemplate: String,
+        val fragmentCount: Int,
+        val minFragmentSize: Int,
+        val maxFragmentSize: Int,
     )
 
     @Serializable
@@ -456,9 +465,9 @@ private fun normalizeMarkerForStep(
     kind: TcpChainStepKind,
     marker: String,
 ): String {
-    val defaultValue = if (kind == TcpChainStepKind.TlsRec) DefaultTlsRecordMarker else DefaultSplitMarker
+    val defaultValue = if (kind.isTlsPrelude) DefaultTlsRecordMarker else DefaultSplitMarker
     return normalizeOffsetExpression(marker, defaultValue)
 }
 
 private fun normalizeTcpChainStep(step: TcpChainStepModel): TcpChainStepModel =
-    step.copy(marker = normalizeMarkerForStep(step.kind, step.marker))
+    normalizeTcpChainStepModel(step.copy(marker = normalizeMarkerForStep(step.kind, step.marker)))

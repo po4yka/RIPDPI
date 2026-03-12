@@ -123,6 +123,42 @@ class ApproachAnalyticsTest {
     }
 
     @Test
+    fun `deriveBypassStrategySignature treats tlsrandrec as tls prelude`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setDesyncHttp(true)
+                .setDesyncHttps(true)
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrandrec")
+                        .setMarker("sniext+4")
+                        .setFragmentCount(5)
+                        .setMinFragmentSize(24)
+                        .setMaxFragmentSize(48)
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("split")
+                        .setMarker("host+1")
+                        .build(),
+                ).build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "6")
+
+        assertTrue(signature.tlsRecordSplitEnabled)
+        assertEquals("sniext+4", signature.tlsRecordMarker)
+        assertEquals("host+1", signature.splitMarker)
+        assertEquals(
+            "tcp: tlsrandrec(sniext+4 count=5 min=24 max=48) -> split(host+1)",
+            signature.chainSummary,
+        )
+    }
+
+    @Test
     fun `deriveBypassStrategySignature includes quic fake profile when active`() {
         val settings =
             AppSettings

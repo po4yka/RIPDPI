@@ -1606,7 +1606,7 @@ fn execute_tcp_plan(
     let send_steps = group
         .effective_tcp_chain()
         .into_iter()
-        .filter(|step| !matches!(step.kind, TcpChainStepKind::TlsRec))
+        .filter(|step| !step.kind.is_tls_prelude())
         .collect::<Vec<_>>();
     if send_steps.len() < plan.steps.len() {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "tcp plan steps exceed configured send steps"));
@@ -1760,8 +1760,11 @@ fn execute_tcp_plan(
                     )?;
                 }
             }
-            TcpChainStepKind::TlsRec => {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "tlsrec step must not appear in tcp send plan"));
+            TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "tls prelude step must not appear in tcp send plan",
+                ));
             }
         }
         cursor = end;

@@ -7,7 +7,7 @@ use ciadpi_config::{
 use ciadpi_packets::{
     build_realistic_quic_initial, default_fake_quic_compat,
     change_tls_sni_seeded_like_c, duplicate_tls_session_id_like_c, http_marker_info, is_http, is_tls_client_hello,
-    mod_http_like_c, padencap_tls_like_c, parse_quic_initial, part_tls_like_c, randomize_tls_seeded_like_c,
+    mod_http_like_c, padencap_tls_like_c, parse_quic_initial, randomize_tls_seeded_like_c,
     randomize_tls_sni_seeded_like_c, second_level_domain_span, tls_marker_info, tune_tls_padding_size_like_c,
     HttpMarkerInfo, OracleRng, TlsMarkerInfo, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, DEFAULT_FAKE_UDP, IS_HTTP, IS_HTTPS,
 };
@@ -69,6 +69,13 @@ pub struct DesyncPlan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DesyncError;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TlsPreludeState {
+    header: [u8; 3],
+    payload: Vec<u8>,
+    boundaries: Vec<usize>,
+}
+
 fn init_proto_info(buffer: &[u8], info: &mut ProtoInfo) {
     if info.http.is_some() || info.tls.is_some() {
         return;
@@ -81,6 +88,48 @@ fn init_proto_info(buffer: &[u8], info: &mut ProtoInfo) {
             info.kind = IS_HTTP;
         }
         info.http = Some(http);
+    }
+}
+
+impl TlsPreludeState {
+    fn from_record(buffer: &[u8]) -> Option<Self> {
+        if !is_tls_client_hello(buffer) || buffer.len() < 5 {
+            return None;
+        }
+        Some(Self {
+            header: [buffer[0], buffer[1], buffer[2]],
+            payload: buffer[5..].to_vec(),
+            boundaries: vec![buffer.len() - 5],
+        })
+    }
+
+    fn synthetic_record(&self) -> Option<Vec<u8>> {
+        let payload_len = u16::try_from(self.payload.len()).ok()?;
+        let mut record = Vec::with_capacity(self.payload.len() + 5);
+        record.extend_from_slice(&self.header);
+        record.extend_from_slice(&payload_len.to_be_bytes());
+        record.extend_from_slice(&self.payload);
+        Some(record)
+    }
+
+    fn serialize(&self) -> Result<Vec<u8>, DesyncError> {
+        let mut output = Vec::with_capacity(self.payload.len() + self.boundaries.len() * 5);
+        let mut start = 0usize;
+        for &end in &self.boundaries {
+            if end < start || end > self.payload.len() {
+                return Err(DesyncError);
+            }
+            let len = end - start;
+            let len = u16::try_from(len).map_err(|_| DesyncError)?;
+            output.extend_from_slice(&self.header);
+            output.extend_from_slice(&len.to_be_bytes());
+            output.extend_from_slice(&self.payload[start..end]);
+            start = end;
+        }
+        if start != self.payload.len() {
+            return Err(DesyncError);
+        }
+        Ok(output)
     }
 }
 
@@ -297,15 +346,136 @@ fn gen_offset(
     Some(pos)
 }
 
-fn apply_tamper_with_tls_records(
+fn insert_boundary(boundaries: &mut Vec<usize>, pos: usize) {
+    let idx = boundaries.iter().position(|&end| end > pos).unwrap_or(boundaries.len());
+    boundaries.insert(idx, pos);
+}
+
+fn random_tail_fragment_lengths(
+    total_len: usize,
+    count: usize,
+    min_size: usize,
+    max_size: usize,
+    rng: &mut OracleRng,
+) -> Option<Vec<usize>> {
+    if count == 0 || min_size == 0 || min_size > max_size {
+        return None;
+    }
+    if total_len < count.saturating_mul(min_size) || total_len > count.saturating_mul(max_size) {
+        return None;
+    }
+
+    let mut remaining_len = total_len;
+    let mut remaining_count = count;
+    let mut lengths = Vec::with_capacity(count);
+    while remaining_count > 0 {
+        if remaining_count == 1 {
+            lengths.push(remaining_len);
+            break;
+        }
+        let min_here = min_size.max(remaining_len.saturating_sub(max_size * (remaining_count - 1)));
+        let max_here = max_size.min(remaining_len.saturating_sub(min_size * (remaining_count - 1)));
+        if min_here > max_here {
+            return None;
+        }
+        let span = max_here - min_here + 1;
+        let next = min_here + rng.next_mod(span.max(1));
+        lengths.push(next);
+        remaining_len -= next;
+        remaining_count -= 1;
+    }
+    Some(lengths)
+}
+
+fn apply_tlsrec_prelude_step(
+    step: &TcpChainStep,
+    state: &mut TlsPreludeState,
+    rng: &mut OracleRng,
+) -> Result<bool, DesyncError> {
+    let Some(record) = state.synthetic_record() else {
+        return Ok(false);
+    };
+    let mut info = ProtoInfo::default();
+    let mut lp = 0i64;
+    let total = step.offset.repeats.max(1);
+    let mut remaining = total;
+    let mut changed = false;
+    while remaining > 0 {
+        let Some(mut pos) = gen_offset(step.offset, &record, record.len(), lp, &mut info, rng) else {
+            break;
+        };
+        if step.offset.needs_tls_record_adjustment() {
+            pos -= 5;
+        }
+        pos += (step.offset.skip as i64) * ((total - remaining) as i64);
+        if pos < lp {
+            break;
+        }
+        if pos < 0 || pos > state.payload.len() as i64 {
+            break;
+        }
+        insert_boundary(&mut state.boundaries, pos as usize);
+        changed = true;
+        lp = pos;
+        remaining -= 1;
+    }
+    Ok(changed)
+}
+
+fn apply_tlsrandrec_prelude_step(
+    step: &TcpChainStep,
+    state: &mut TlsPreludeState,
+    rng: &mut OracleRng,
+) -> Result<bool, DesyncError> {
+    let Some(record) = state.synthetic_record() else {
+        return Ok(false);
+    };
+    let mut info = ProtoInfo::default();
+    let Some(mut marker) = gen_offset(step.offset, &record, record.len(), 0, &mut info, rng) else {
+        return Ok(false);
+    };
+    if step.offset.needs_tls_record_adjustment() {
+        marker -= 5;
+    }
+    if marker < 0 || marker > state.payload.len() as i64 {
+        return Ok(false);
+    }
+
+    let marker = marker as usize;
+    let fragment_count = step.fragment_count.max(1) as usize;
+    let min_fragment_size = step.min_fragment_size.max(1) as usize;
+    let max_fragment_size = step.max_fragment_size.max(min_fragment_size as i32) as usize;
+    let tail_len = state.payload.len().saturating_sub(marker);
+    let Some(lengths) = random_tail_fragment_lengths(tail_len, fragment_count, min_fragment_size, max_fragment_size, rng)
+    else {
+        return Ok(false);
+    };
+
+    let mut boundaries = Vec::with_capacity(lengths.len() + usize::from(marker > 0));
+    if marker > 0 {
+        boundaries.push(marker);
+    }
+    let mut cursor = marker;
+    for len in lengths {
+        cursor += len;
+        boundaries.push(cursor);
+    }
+    if boundaries.last().copied() != Some(state.payload.len()) {
+        return Ok(false);
+    }
+    let changed = boundaries != state.boundaries;
+    state.boundaries = boundaries;
+    Ok(changed)
+}
+
+fn apply_tls_prelude_steps(
     group: &DesyncGroup,
-    tls_records: &[OffsetExpr],
+    prelude_steps: &[TcpChainStep],
     input: &[u8],
     seed: u32,
 ) -> Result<TamperResult, DesyncError> {
     let mut output = input.to_vec();
-    let mut info = ProtoInfo::default();
-    let mut rng = OracleRng::seeded(seed);
+    let info = ProtoInfo::default();
 
     if group.mod_http != 0 && is_http(&output) {
         let mutation = mod_http_like_c(&output, group.mod_http);
@@ -318,43 +488,23 @@ fn apply_tamper_with_tls_records(
             output[2] = tlsminor;
         }
     }
-    if !tls_records.is_empty() && is_tls_client_hello(&output) {
-        let mut lp = 0i64;
-        let mut rc = 0i32;
-        for expr in tls_records {
-            let total = expr.repeats.max(1);
-            let mut remaining = total;
-            while remaining > 0 {
-                let mut pos = (rc as i64) * 5;
-                let Some(offset) = gen_offset(
-                    *expr,
-                    &output,
-                    output.len().saturating_sub(pos.max(0) as usize),
-                    lp,
-                    &mut info,
-                    &mut rng,
-                ) else {
-                    break;
-                };
-                pos += offset;
-                if expr.needs_tls_record_adjustment() {
-                    pos -= 5;
+    if !prelude_steps.is_empty() {
+        let mut rng = OracleRng::seeded(seed);
+        if let Some(mut state) = TlsPreludeState::from_record(&output) {
+            let mut changed = false;
+            for step in prelude_steps {
+                match step.kind {
+                    TcpChainStepKind::TlsRec => {
+                        changed |= apply_tlsrec_prelude_step(step, &mut state, &mut rng)?;
+                    }
+                    TcpChainStepKind::TlsRandRec => {
+                        changed |= apply_tlsrandrec_prelude_step(step, &mut state, &mut rng)?;
+                    }
+                    _ => return Err(DesyncError),
                 }
-                pos += (expr.skip as i64) * ((total - remaining) as i64);
-                if pos < lp {
-                    break;
-                }
-                let tail = part_tls_like_c(&output[lp as usize..], (pos - lp).try_into().map_err(|_| DesyncError)?);
-                if tail.rc <= 0 {
-                    break;
-                }
-                let mut next = Vec::with_capacity(lp as usize + tail.bytes.len());
-                next.extend_from_slice(&output[..lp as usize]);
-                next.extend_from_slice(&tail.bytes);
-                output = next;
-                lp = pos + 5;
-                rc += 1;
-                remaining -= 1;
+            }
+            if changed {
+                output = state.serialize()?;
             }
         }
     }
@@ -363,13 +513,12 @@ fn apply_tamper_with_tls_records(
 }
 
 pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<TamperResult, DesyncError> {
-    let tls_records = group
+    let prelude_steps = group
         .effective_tcp_chain()
         .into_iter()
-        .take_while(|step| matches!(step.kind, TcpChainStepKind::TlsRec))
-        .map(|step| step.offset)
+        .take_while(|step| step.kind.is_tls_prelude())
         .collect::<Vec<_>>();
-    apply_tamper_with_tls_records(group, &tls_records, input, seed)
+    apply_tls_prelude_steps(group, &prelude_steps, input, seed)
 }
 
 fn apply_tls_mutation(output: &mut Vec<u8>, mutation: ciadpi_packets::PacketMutation) {
@@ -463,8 +612,8 @@ fn normalize_fake_tls_size(value: i32, input_len: usize) -> usize {
 
 pub fn plan_tcp(group: &DesyncGroup, input: &[u8], seed: u32, default_ttl: u8) -> Result<DesyncPlan, DesyncError> {
     let chain = group.effective_tcp_chain();
-    let (tls_records, send_steps) = split_tcp_chain(&chain)?;
-    let tampered = apply_tamper_with_tls_records(group, &tls_records, input, seed)?;
+    let (prelude_steps, send_steps) = split_tcp_chain(&chain)?;
+    let tampered = apply_tls_prelude_steps(group, &prelude_steps, input, seed)?;
     let mut info = tampered.proto;
     let mut rng = OracleRng::seeded(seed);
     let mut steps = Vec::new();
@@ -549,7 +698,7 @@ pub fn plan_tcp(group: &DesyncGroup, input: &[u8], seed: u32, default_ttl: u8) -
                     push_split_actions(&mut actions, tampered.bytes[span.host_end..pos as usize].to_vec());
                 }
             }
-            TcpChainStepKind::TlsRec => return Err(DesyncError),
+            TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => return Err(DesyncError),
         }
         steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
         if matches!(planned_kind, TcpChainStepKind::Oob) {
@@ -594,23 +743,24 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8) -> Vec<Des
     actions
 }
 
-fn split_tcp_chain(chain: &[TcpChainStep]) -> Result<(Vec<OffsetExpr>, Vec<TcpChainStep>), DesyncError> {
-    let mut tls_records = Vec::new();
+fn split_tcp_chain(chain: &[TcpChainStep]) -> Result<(Vec<TcpChainStep>, Vec<TcpChainStep>), DesyncError> {
+    let mut prelude_steps = Vec::new();
     let mut send_steps = Vec::new();
     let mut saw_send_step = false;
 
     for step in chain {
-        match step.kind {
-            TcpChainStepKind::TlsRec if saw_send_step => return Err(DesyncError),
-            TcpChainStepKind::TlsRec => tls_records.push(step.offset),
-            _ => {
-                saw_send_step = true;
-                send_steps.push(step.clone());
+        if step.kind.is_tls_prelude() {
+            if saw_send_step {
+                return Err(DesyncError);
             }
+            prelude_steps.push(step.clone());
+        } else {
+            saw_send_step = true;
+            send_steps.push(step.clone());
         }
     }
 
-    Ok((tls_records, send_steps))
+    Ok((prelude_steps, send_steps))
 }
 
 fn udp_fake_payload(group: &DesyncGroup, payload: &[u8]) -> Vec<u8> {
@@ -649,6 +799,30 @@ mod tests {
 
     fn split_expr(pos: i64) -> OffsetExpr {
         OffsetExpr::absolute(pos).with_repeat_skip(1, 0)
+    }
+
+    fn tls_record_lengths(buffer: &[u8]) -> Vec<usize> {
+        let mut cursor = 0usize;
+        let mut lengths = Vec::new();
+        while cursor + 5 <= buffer.len() {
+            let len = u16::from_be_bytes([buffer[cursor + 3], buffer[cursor + 4]]) as usize;
+            lengths.push(len);
+            cursor += 5 + len;
+        }
+        assert_eq!(cursor, buffer.len());
+        lengths
+    }
+
+    fn tlsrandrec_step(marker: i64, count: i32, min_size: i32, max_size: i32) -> TcpChainStep {
+        TcpChainStep {
+            kind: TcpChainStepKind::TlsRandRec,
+            offset: OffsetExpr::absolute(marker),
+            midhost_offset: None,
+            fake_host_template: None,
+            fragment_count: count,
+            min_fragment_size: min_size,
+            max_fragment_size: max_size,
+        }
     }
 
     #[test]
@@ -786,6 +960,89 @@ mod tests {
         ];
 
         assert!(plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64).is_err());
+    }
+
+    #[test]
+    fn apply_tamper_tlsrandrec_is_noop_for_non_tls_payloads() {
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![tlsrandrec_step(0, 4, 16, 32)];
+
+        let tampered = apply_tamper(&group, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n", 7).expect("tamper http");
+
+        assert_eq!(tampered.bytes, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
+    }
+
+    #[test]
+    fn apply_tamper_tlsrandrec_is_noop_when_marker_cannot_be_resolved() {
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![TcpChainStep {
+            kind: TcpChainStepKind::TlsRandRec,
+            offset: OffsetExpr::marker(OffsetBase::Method, 0),
+            midhost_offset: None,
+            fake_host_template: None,
+            fragment_count: 4,
+            min_fragment_size: 16,
+            max_fragment_size: 32,
+        }];
+
+        let tampered = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("tamper tls");
+
+        assert_eq!(tampered.bytes, DEFAULT_FAKE_TLS);
+    }
+
+    #[test]
+    fn apply_tamper_tlsrandrec_is_noop_when_layout_is_impossible() {
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![tlsrandrec_step(0, 16, 4096, 4096)];
+
+        let tampered = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("tamper impossible");
+
+        assert_eq!(tampered.bytes, DEFAULT_FAKE_TLS);
+    }
+
+    #[test]
+    fn apply_tamper_tlsrandrec_rewrites_clienthello_into_expected_record_lengths() {
+        let payload_len = DEFAULT_FAKE_TLS.len() - 5;
+        let marker = (payload_len - 96) as i64;
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![tlsrandrec_step(marker, 3, 32, 32)];
+
+        let tampered = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("tamper tlsrandrec");
+
+        assert_eq!(tls_record_lengths(&tampered.bytes), vec![payload_len - 96, 32, 32, 32]);
+        assert_eq!(tampered.bytes[0], DEFAULT_FAKE_TLS[0]);
+        assert_eq!(tampered.bytes[1], DEFAULT_FAKE_TLS[1]);
+        assert_eq!(tampered.bytes[2], DEFAULT_FAKE_TLS[2]);
+    }
+
+    #[test]
+    fn apply_tamper_tlsrandrec_seed_changes_randomized_layout() {
+        let payload_len = DEFAULT_FAKE_TLS.len() - 5;
+        let marker = (payload_len - 96) as i64;
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![tlsrandrec_step(marker, 3, 24, 40)];
+
+        let seed_a = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("seed a");
+        let seed_b = apply_tamper(&group, DEFAULT_FAKE_TLS, 8).expect("seed b");
+
+        assert_ne!(seed_a.bytes, seed_b.bytes);
+    }
+
+    #[test]
+    fn plan_tcp_supports_mixed_tls_preludes_before_send_steps() {
+        let payload_len = DEFAULT_FAKE_TLS.len() - 5;
+        let marker = (payload_len - 96) as i64;
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![
+            TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)),
+            tlsrandrec_step(marker, 3, 32, 32),
+            TcpChainStep::new(TcpChainStepKind::Split, split_expr(4)),
+        ];
+
+        let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64).expect("mixed tls preludes");
+
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4 }]);
+        assert_eq!(tls_record_lengths(&plan.tampered), vec![payload_len - 96, 32, 32, 32]);
     }
 
     #[test]
@@ -937,6 +1194,9 @@ mod tests {
             offset: OffsetExpr::marker(OffsetBase::PayloadEnd, 0),
             midhost_offset: Some(OffsetExpr::marker(OffsetBase::MidSld, 0)),
             fake_host_template: Some("googlevideo.com".to_string()),
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
         }];
 
         let plan = plan_tcp(&group, payload, 23, 32).expect("plan hostfake");
@@ -975,6 +1235,9 @@ mod tests {
             offset: OffsetExpr::marker(OffsetBase::Host, 0),
             midhost_offset: None,
             fake_host_template: None,
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
         }];
 
         let plan = plan_tcp(&group, payload, 9, 32).expect("plan degraded hostfake");

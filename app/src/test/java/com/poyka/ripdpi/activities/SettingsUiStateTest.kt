@@ -229,6 +229,28 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `tlsrandrec step enables tls record split compatibility state`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrandrec")
+                        .setMarker("sniext+4")
+                        .setFragmentCount(5)
+                        .setMinFragmentSize(24)
+                        .setMaxFragmentSize(48)
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.tlsRecEnabled)
+        assertEquals("sniext+4", state.tlsrecMarker)
+    }
+
+    @Test
     fun `cmd settings enabled`() {
         val settings = defaults.toBuilder().setEnableCmdSettings(true).build()
         assertTrue(settings.toUiState().useCmdSettings)
