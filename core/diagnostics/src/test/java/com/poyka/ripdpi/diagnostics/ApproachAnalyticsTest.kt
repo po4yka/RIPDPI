@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
+import com.poyka.ripdpi.data.AdaptiveMarkerMethod
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
@@ -306,5 +308,26 @@ class ApproachAnalyticsTest {
         assertNull(signature.activationRound)
         assertNull(signature.activationPayloadSize)
         assertNull(signature.activationStreamBytes)
+    }
+
+    @Test
+    fun `deriveBypassStrategySignature keeps raw adaptive markers and humanized chain summary`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("split")
+                        .setMarker(AdaptiveMarkerMethod)
+                        .build(),
+                ).setSplitMarker(AdaptiveMarkerBalanced)
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "11")
+
+        assertEquals(AdaptiveMarkerMethod, signature.splitMarker)
+        assertEquals("tcp: split(adaptive HTTP method)", signature.chainSummary)
     }
 }

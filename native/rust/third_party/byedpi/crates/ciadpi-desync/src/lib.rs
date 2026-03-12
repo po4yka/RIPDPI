@@ -28,12 +28,39 @@ pub enum ActivationTransport {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TcpSegmentHint {
+    pub snd_mss: Option<i64>,
+    pub advmss: Option<i64>,
+    pub pmtu: Option<i64>,
+    pub ip_header_overhead: i64,
+}
+
+impl TcpSegmentHint {
+    pub fn adaptive_budget(self) -> i64 {
+        if self.snd_mss.is_some_and(|value| value >= 64) {
+            return self.snd_mss.unwrap_or(1448);
+        }
+        if self.advmss.is_some_and(|value| value >= 64) {
+            return self.advmss.unwrap_or(1448);
+        }
+        if let Some(value) = self.pmtu {
+            let adjusted = value.saturating_sub(self.ip_header_overhead);
+            if adjusted > 0 {
+                return adjusted;
+            }
+        }
+        1448
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ActivationContext {
     pub round: i64,
     pub payload_size: i64,
     pub stream_start: i64,
     pub stream_end: i64,
     pub transport: ActivationTransport,
+    pub tcp_segment_hint: Option<TcpSegmentHint>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -376,8 +403,104 @@ fn gen_offset(
             init_proto_info(buffer, info);
             info.tls.map(|tls| tls.sni_ext_start as i64 + expr.delta)?
         }
+        OffsetBase::AutoBalanced
+        | OffsetBase::AutoHost
+        | OffsetBase::AutoMidSld
+        | OffsetBase::AutoEndHost
+        | OffsetBase::AutoMethod
+        | OffsetBase::AutoSniExt
+        | OffsetBase::AutoExtLen => return None,
     };
     Some(pos)
+}
+
+fn adaptive_candidate_bases(expr: OffsetExpr, info: &mut ProtoInfo, buffer: &[u8]) -> &'static [OffsetBase] {
+    init_proto_info(buffer, info);
+    match expr.base {
+        OffsetBase::AutoBalanced if info.tls.is_some() => {
+            &[OffsetBase::ExtLen, OffsetBase::SniExt, OffsetBase::Host, OffsetBase::MidSld, OffsetBase::EndHost]
+        }
+        OffsetBase::AutoBalanced => {
+            &[OffsetBase::Method, OffsetBase::Host, OffsetBase::MidSld, OffsetBase::EndHost]
+        }
+        OffsetBase::AutoHost => &[OffsetBase::Host, OffsetBase::MidSld, OffsetBase::EndHost],
+        OffsetBase::AutoMidSld => &[OffsetBase::MidSld, OffsetBase::Host, OffsetBase::EndHost],
+        OffsetBase::AutoEndHost => &[OffsetBase::EndHost, OffsetBase::MidSld, OffsetBase::Host],
+        OffsetBase::AutoMethod => &[OffsetBase::Method, OffsetBase::Host],
+        OffsetBase::AutoSniExt => &[OffsetBase::SniExt, OffsetBase::ExtLen, OffsetBase::Host],
+        OffsetBase::AutoExtLen => &[OffsetBase::ExtLen, OffsetBase::SniExt, OffsetBase::Host],
+        _ => &[],
+    }
+}
+
+fn adaptive_target_end(payload_len: usize, cursor_start: usize, context: ActivationContext) -> Option<i64> {
+    let remaining = payload_len.saturating_sub(cursor_start);
+    if remaining <= 1 {
+        return None;
+    }
+    let budget = context.tcp_segment_hint.map(TcpSegmentHint::adaptive_budget).unwrap_or(1448);
+    let target_end = if budget < (remaining as i64 - 1) {
+        cursor_start as i64 + budget
+    } else {
+        cursor_start as i64 + ((remaining / 2).max(1) as i64)
+    };
+    Some(target_end.min(payload_len.saturating_sub(1) as i64))
+}
+
+fn resolve_adaptive_offset(
+    expr: OffsetExpr,
+    buffer: &[u8],
+    payload_len: usize,
+    cursor_start: usize,
+    info: &mut ProtoInfo,
+    context: ActivationContext,
+    coordinate_adjustment: i64,
+) -> Option<i64> {
+    let target_end = adaptive_target_end(payload_len, cursor_start, context)?;
+    let mut below_or_equal = None;
+    let mut above = None;
+
+    for base in adaptive_candidate_bases(expr, info, buffer) {
+        let candidate_expr = OffsetExpr::marker(*base, 0);
+        let Some(candidate) = gen_offset(
+            candidate_expr,
+            buffer,
+            buffer.len(),
+            cursor_start as i64,
+            info,
+            &mut OracleRng::seeded(0),
+        ) else {
+            continue;
+        };
+        let candidate = candidate.saturating_sub(coordinate_adjustment);
+        if candidate <= cursor_start as i64 || candidate >= payload_len as i64 {
+            continue;
+        }
+        if candidate <= target_end {
+            if below_or_equal.is_none_or(|current| candidate > current) {
+                below_or_equal = Some(candidate);
+            }
+        } else if above.is_none_or(|current| candidate < current) {
+            above = Some(candidate);
+        }
+    }
+
+    below_or_equal.or(above).or(Some(target_end))
+}
+
+fn resolve_offset(
+    expr: OffsetExpr,
+    buffer: &[u8],
+    n: usize,
+    lp: i64,
+    info: &mut ProtoInfo,
+    rng: &mut OracleRng,
+    context: ActivationContext,
+) -> Option<i64> {
+    if expr.base.is_adaptive() {
+        return resolve_adaptive_offset(expr, buffer, n, lp.max(0) as usize, info, context, 0);
+    }
+    gen_offset(expr, buffer, n, lp, info, rng)
 }
 
 fn insert_boundary(boundaries: &mut Vec<usize>, pos: usize) {
@@ -425,6 +548,7 @@ fn apply_tlsrec_prelude_step(
     step: &TcpChainStep,
     state: &mut TlsPreludeState,
     rng: &mut OracleRng,
+    context: ActivationContext,
 ) -> Result<bool, DesyncError> {
     let Some(record) = state.synthetic_record() else {
         return Ok(false);
@@ -435,7 +559,12 @@ fn apply_tlsrec_prelude_step(
     let mut remaining = total;
     let mut changed = false;
     while remaining > 0 {
-        let Some(mut pos) = gen_offset(step.offset, &record, record.len(), lp, &mut info, rng) else {
+        let resolved = if step.offset.base.is_adaptive() {
+            resolve_adaptive_offset(step.offset, &record, state.payload.len(), lp.max(0) as usize, &mut info, context, 5)
+        } else {
+            gen_offset(step.offset, &record, record.len(), lp, &mut info, rng)
+        };
+        let Some(mut pos) = resolved else {
             break;
         };
         if step.offset.needs_tls_record_adjustment() {
@@ -460,12 +589,18 @@ fn apply_tlsrandrec_prelude_step(
     step: &TcpChainStep,
     state: &mut TlsPreludeState,
     rng: &mut OracleRng,
+    context: ActivationContext,
 ) -> Result<bool, DesyncError> {
     let Some(record) = state.synthetic_record() else {
         return Ok(false);
     };
     let mut info = ProtoInfo::default();
-    let Some(mut marker) = gen_offset(step.offset, &record, record.len(), 0, &mut info, rng) else {
+    let resolved = if step.offset.base.is_adaptive() {
+        resolve_adaptive_offset(step.offset, &record, state.payload.len(), 0, &mut info, context, 5)
+    } else {
+        gen_offset(step.offset, &record, record.len(), 0, &mut info, rng)
+    };
+    let Some(mut marker) = resolved else {
         return Ok(false);
     };
     if step.offset.needs_tls_record_adjustment() {
@@ -533,10 +668,10 @@ fn apply_tls_prelude_steps(
                 }
                 match step.kind {
                     TcpChainStepKind::TlsRec => {
-                        changed |= apply_tlsrec_prelude_step(step, &mut state, &mut rng)?;
+                        changed |= apply_tlsrec_prelude_step(step, &mut state, &mut rng, context)?;
                     }
                     TcpChainStepKind::TlsRandRec => {
-                        changed |= apply_tlsrandrec_prelude_step(step, &mut state, &mut rng)?;
+                        changed |= apply_tlsrandrec_prelude_step(step, &mut state, &mut rng, context)?;
                     }
                     _ => return Err(DesyncError),
                 }
@@ -567,6 +702,7 @@ pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<Tamp
             stream_start: 0,
             stream_end: input.len().saturating_sub(1) as i64,
             transport: ActivationTransport::Tcp,
+            tcp_segment_hint: None,
         },
     )
 }
@@ -688,8 +824,12 @@ pub fn plan_tcp(
         if !activation_filter_matches(step.activation_filter, context) {
             continue;
         }
-        let Some(mut pos) = gen_offset(step.offset, &tampered.bytes, tampered.bytes.len(), lp, &mut info, &mut rng)
+        let Some(mut pos) =
+            resolve_offset(step.offset, &tampered.bytes, tampered.bytes.len(), lp, &mut info, &mut rng, context)
         else {
+            if step.offset.base.is_adaptive() {
+                continue;
+            }
             return Err(DesyncError);
         };
         if pos < 0 || pos < lp {
@@ -877,8 +1017,9 @@ mod tests {
         DesyncMode, OffsetBase, PartSpec, QuicFakeProfile, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
     };
     use ciadpi_packets::{
-        build_realistic_quic_initial, parse_http, parse_quic_initial, parse_tls, HttpFakeProfile, TlsFakeProfile,
-        UdpFakeProfile, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, QUIC_V2_VERSION,
+        build_realistic_quic_initial, http_marker_info, parse_http, parse_quic_initial, parse_tls,
+        second_level_domain_span, tls_marker_info, HttpFakeProfile, TlsFakeProfile, UdpFakeProfile,
+        DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, QUIC_V2_VERSION,
     };
 
     fn split_expr(pos: i64) -> OffsetExpr {
@@ -904,6 +1045,7 @@ mod tests {
             stream_start: 0,
             stream_end: payload.len().saturating_sub(1) as i64,
             transport: ActivationTransport::Tcp,
+            tcp_segment_hint: None,
         }
     }
 
@@ -914,7 +1056,12 @@ mod tests {
             stream_start: 0,
             stream_end: payload.len().saturating_sub(1) as i64,
             transport: ActivationTransport::Udp,
+            tcp_segment_hint: None,
         }
+    }
+
+    fn tcp_context_with_hint(payload: &[u8], tcp_segment_hint: TcpSegmentHint) -> ActivationContext {
+        ActivationContext { tcp_segment_hint: Some(tcp_segment_hint), ..tcp_context(payload) }
     }
 
     fn tlsrandrec_step(marker: i64, count: i32, min_size: i32, max_size: i32) -> TcpChainStep {
@@ -928,6 +1075,174 @@ mod tests {
             min_fragment_size: min_size,
             max_fragment_size: max_size,
         }
+    }
+
+    #[test]
+    fn tcp_segment_hint_budget_uses_fallback_order() {
+        assert_eq!(
+            TcpSegmentHint { snd_mss: Some(96), advmss: Some(120), pmtu: Some(1500), ip_header_overhead: 40 }
+                .adaptive_budget(),
+            96,
+        );
+        assert_eq!(
+            TcpSegmentHint { snd_mss: Some(63), advmss: Some(120), pmtu: Some(1500), ip_header_overhead: 40 }
+                .adaptive_budget(),
+            120,
+        );
+        assert_eq!(
+            TcpSegmentHint { snd_mss: None, advmss: Some(63), pmtu: Some(1500), ip_header_overhead: 40 }
+                .adaptive_budget(),
+            1460,
+        );
+        assert_eq!(
+            TcpSegmentHint { snd_mss: None, advmss: None, pmtu: None, ip_header_overhead: 40 }.adaptive_budget(),
+            1448,
+        );
+    }
+
+    #[test]
+    fn plan_tcp_auto_host_uses_hint_budget_and_semantic_markers() {
+        let markers = http_marker_info(DEFAULT_FAKE_HTTP).expect("http markers");
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
+
+        let plan = plan_tcp(
+            &group,
+            DEFAULT_FAKE_HTTP,
+            7,
+            64,
+            tcp_context_with_hint(
+                DEFAULT_FAKE_HTTP,
+                TcpSegmentHint {
+                    snd_mss: None,
+                    advmss: None,
+                    pmtu: Some(markers.host_end as i64 + 40),
+                    ip_header_overhead: 40,
+                },
+            ),
+        )
+        .expect("adaptive host plan");
+
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_end as i64 }]);
+    }
+
+    #[test]
+    fn plan_tcp_auto_marker_is_cursor_aware_across_chain_steps() {
+        let markers = http_marker_info(DEFAULT_FAKE_HTTP).expect("http markers");
+        let host = &DEFAULT_FAKE_HTTP[markers.host_start..markers.host_end];
+        let (sld_start, sld_end) = second_level_domain_span(host).expect("sld span");
+        let midsld = (markers.host_start + sld_start + ((sld_end - sld_start) / 2)) as i64;
+        let remaining = DEFAULT_FAKE_HTTP.len().saturating_sub(markers.host_start);
+        let target_end = markers.host_start as i64 + ((remaining.max(1) / 2) as i64);
+        let expected_second_end = if markers.host_end as i64 <= target_end { markers.host_end as i64 } else { midsld };
+
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![
+            TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0)),
+            TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost)),
+        ];
+
+        let plan = plan_tcp(&group, DEFAULT_FAKE_HTTP, 7, 64, tcp_context(DEFAULT_FAKE_HTTP)).expect("cursor-aware plan");
+
+        assert_eq!(plan.steps[0], PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 });
+        assert_eq!(
+            plan.steps[1],
+            PlannedStep {
+                kind: TcpChainStepKind::Split,
+                start: markers.host_start as i64,
+                end: expected_second_end,
+            },
+        );
+    }
+
+    #[test]
+    fn plan_tcp_auto_marker_falls_back_to_payload_target_without_semantics() {
+        let payload = b"plain payload without semantic markers";
+        let expected = (payload.len() / 2).max(1) as i64;
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoBalanced))];
+
+        let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("fallback plan");
+
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: expected }]);
+    }
+
+    #[test]
+    fn plan_tcp_tlsrec_supports_adaptive_marker_resolution() {
+        let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("tls markers");
+        let mut auto_group = DesyncGroup::new(0);
+        auto_group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))];
+        let mut explicit_group = DesyncGroup::new(0);
+        explicit_group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::SniExt, 0))];
+
+        let auto_plan = plan_tcp(
+            &auto_group,
+            DEFAULT_FAKE_TLS,
+            7,
+            64,
+            tcp_context_with_hint(
+                DEFAULT_FAKE_TLS,
+                TcpSegmentHint {
+                    snd_mss: None,
+                    advmss: None,
+                    pmtu: Some(markers.sni_ext_start as i64 + 41),
+                    ip_header_overhead: 40,
+                },
+            ),
+        )
+        .expect("auto tlsrec plan");
+        let explicit_plan = plan_tcp(&explicit_group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS))
+            .expect("explicit tlsrec plan");
+
+        assert_eq!(auto_plan.tampered, explicit_plan.tampered);
+    }
+
+    #[test]
+    fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
+        let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("tls markers");
+        let mut auto_group = DesyncGroup::new(0);
+        auto_group.tcp_chain = vec![TcpChainStep {
+            kind: TcpChainStepKind::TlsRandRec,
+            offset: OffsetExpr::adaptive(OffsetBase::AutoSniExt),
+            activation_filter: None,
+            midhost_offset: None,
+            fake_host_template: None,
+            fragment_count: 4,
+            min_fragment_size: 16,
+            max_fragment_size: 32,
+        }];
+        let mut explicit_group = DesyncGroup::new(0);
+        explicit_group.tcp_chain = vec![TcpChainStep {
+            kind: TcpChainStepKind::TlsRandRec,
+            offset: OffsetExpr::marker(OffsetBase::SniExt, 0),
+            activation_filter: None,
+            midhost_offset: None,
+            fake_host_template: None,
+            fragment_count: 4,
+            min_fragment_size: 16,
+            max_fragment_size: 32,
+        }];
+
+        let auto_plan = plan_tcp(
+            &auto_group,
+            DEFAULT_FAKE_TLS,
+            7,
+            64,
+            tcp_context_with_hint(
+                DEFAULT_FAKE_TLS,
+                TcpSegmentHint {
+                    snd_mss: None,
+                    advmss: None,
+                    pmtu: Some(markers.sni_ext_start as i64 + 41),
+                    ip_header_overhead: 40,
+                },
+            ),
+        )
+        .expect("auto tlsrandrec plan");
+        let explicit_plan = plan_tcp(&explicit_group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS))
+            .expect("explicit tlsrandrec plan");
+
+        assert_eq!(auto_plan.tampered, explicit_plan.tampered);
     }
 
     #[test]

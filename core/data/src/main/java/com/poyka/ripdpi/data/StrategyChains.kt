@@ -48,6 +48,13 @@ enum class TcpChainStepKind(val wireName: String) {
     }
 }
 
+val TcpChainStepKind.supportsAdaptiveMarker: Boolean
+    get() =
+        when (this) {
+            TcpChainStepKind.HostFake -> false
+            else -> true
+        }
+
 @Serializable
 data class TcpChainStepModel(
     val kind: TcpChainStepKind,
@@ -137,6 +144,23 @@ fun formatStrategyChainDsl(
 
 fun primaryTcpChainStep(tcpSteps: List<TcpChainStepModel>): TcpChainStepModel? =
     tcpSteps.firstOrNull { !it.kind.isTlsPrelude }
+
+fun rewritePrimaryTcpMarker(
+    tcpSteps: List<TcpChainStepModel>,
+    marker: String,
+): List<TcpChainStepModel> {
+    val index = tcpSteps.indexOfFirst { !it.kind.isTlsPrelude }
+    if (index < 0) {
+        return tcpSteps
+    }
+    val step = tcpSteps[index]
+    if (!step.kind.supportsAdaptiveMarker) {
+        return tcpSteps
+    }
+    return tcpSteps.toMutableList().apply {
+        this[index] = normalizeTcpChainStepModel(step.copy(marker = marker))
+    }
+}
 
 fun tlsPreludeTcpChainStep(tcpSteps: List<TcpChainStepModel>): TcpChainStepModel? =
     tcpSteps.firstOrNull { it.kind.isTlsPrelude }
@@ -348,7 +372,7 @@ private fun formatTcpStepSummary(step: TcpChainStepModel): String =
         val normalized = normalizeTcpChainStepModel(step)
         append(normalized.kind.wireName)
         append('(')
-        append(normalizeTcpMarker(normalized))
+        append(formatOffsetExpressionLabel(normalizeTcpMarker(normalized)))
         val normalizedMidhost = normalizeMidhostMarker(normalized.kind, normalized.midhostMarker)
         if (normalizedMidhost.isNotEmpty()) {
             append(" midhost=")
@@ -432,6 +456,9 @@ private fun parseTcpStep(
     require(tokens.isNotEmpty()) { "Missing marker on line $lineNumber" }
     val marker = normalizeTcpMarker(kind, tokens.first())
     require(isValidOffsetExpression(marker)) { "Invalid marker on line $lineNumber" }
+    require(kind.supportsAdaptiveMarker || !isAdaptiveOffsetExpression(marker)) {
+        "Adaptive markers are not supported for ${kind.wireName} on line $lineNumber"
+    }
 
     var midhostMarker = ""
     var fakeHostTemplate = ""
@@ -448,6 +475,9 @@ private fun parseTcpStep(
                 val normalized = normalizeMidhostMarker(kind, value)
                 require(normalized.isNotEmpty() && isValidOffsetExpression(normalized)) {
                     "Invalid midhost marker on line $lineNumber"
+                }
+                require(!isAdaptiveOffsetExpression(normalized)) {
+                    "Adaptive markers are not supported for hostfake midhost on line $lineNumber"
                 }
                 midhostMarker = normalized
             }
@@ -519,6 +549,12 @@ private fun normalizeTcpMarker(
 }
 
 private fun validateTcpStepOptions(step: TcpChainStepModel) {
+    require(step.kind.supportsAdaptiveMarker || !isAdaptiveOffsetExpression(step.marker)) {
+        "${step.kind.wireName} must not declare an adaptive marker"
+    }
+    require(step.kind != TcpChainStepKind.HostFake || !isAdaptiveOffsetExpression(step.midhostMarker)) {
+        "hostfake must not declare an adaptive midhost marker"
+    }
     when (step.kind) {
         TcpChainStepKind.TlsRandRec -> {
             require(step.fragmentCount in 2..16) { "tlsrandrec count must be between 2 and 16" }

@@ -2,6 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
+use ciadpi_desync::TcpSegmentHint;
 use socket2::{Domain, Protocol, Socket, Type};
 
 #[cfg(target_os = "linux")]
@@ -175,6 +176,16 @@ pub fn wait_tcp_stage(
     }
     #[cfg(not(target_os = "windows"))]
     stub::wait_tcp_stage(stream, wait_send, await_interval)
+}
+
+#[cfg(target_os = "linux")]
+pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>> {
+    linux::tcp_segment_hint(stream)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn tcp_segment_hint(_stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>> {
+    Ok(None)
 }
 
 #[cfg(all(test, not(any(target_os = "linux", target_os = "windows"))))]

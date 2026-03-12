@@ -488,4 +488,8 @@ private class FakeMainDiagnosticsManager : com.poyka.ripdpi.diagnostics.Diagnost
     override suspend fun createArchive(sessionId: String?): com.poyka.ripdpi.diagnostics.DiagnosticsArchive {
         error("unused")
     }
+
+    override suspend fun keepResolverRecommendationForSession(sessionId: String) = Unit
+
+    override suspend fun saveResolverRecommendation(sessionId: String) = Unit
 }

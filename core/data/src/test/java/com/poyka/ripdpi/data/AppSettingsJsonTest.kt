@@ -180,6 +180,36 @@ class AppSettingsJsonTest {
     }
 
     @Test
+    fun `adaptive markers round trip through json marker fields unchanged`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setSplitMarker(AdaptiveMarkerBalanced)
+                .setTlsrecEnabled(true)
+                .setTlsrecMarker(AdaptiveMarkerSniExt)
+                .addTcpChainSteps(
+                    com.poyka.ripdpi.proto.StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrec")
+                        .setMarker(AdaptiveMarkerSniExt)
+                        .build(),
+                ).addTcpChainSteps(
+                    com.poyka.ripdpi.proto.StrategyTcpStep
+                        .newBuilder()
+                        .setKind("split")
+                        .setMarker(AdaptiveMarkerMethod)
+                        .build(),
+                ).build()
+
+        val decoded = appSettingsFromJson(settings.toJson())
+
+        assertEquals(AdaptiveMarkerBalanced, decoded.splitMarker)
+        assertEquals(AdaptiveMarkerSniExt, decoded.tlsrecMarker)
+        assertEquals(AdaptiveMarkerSniExt, decoded.tcpChainStepsList[0].marker)
+        assertEquals(AdaptiveMarkerMethod, decoded.tcpChainStepsList[1].marker)
+    }
+
+    @Test
     fun `decoder ignores unknown keys and fills omitted values from defaults`() {
         val decoded =
             appSettingsFromJson(

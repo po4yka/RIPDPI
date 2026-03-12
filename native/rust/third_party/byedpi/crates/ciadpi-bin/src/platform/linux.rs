@@ -7,6 +7,7 @@ use std::ptr;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use ciadpi_desync::TcpSegmentHint;
 use socket2::SockRef;
 
 use super::TcpStageWait;
@@ -465,6 +466,16 @@ fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
 }
 
 fn tcp_has_notsent(fd: libc::c_int) -> io::Result<bool> {
+    let Some(info) = read_tcp_info(fd)? else {
+        return Ok(false);
+    };
+    if info.tcpi_state != TCP_ESTABLISHED {
+        return Ok(false);
+    }
+    Ok(info.tcpi_notsent_bytes != 0)
+}
+
+fn read_tcp_info(fd: libc::c_int) -> io::Result<Option<LinuxTcpInfo>> {
     let mut info = unsafe { zeroed::<LinuxTcpInfo>() };
     let mut info_len = size_of::<LinuxTcpInfo>() as libc::socklen_t;
     // SAFETY: `info` is writable storage for the Linux `tcp_info` prefix that
@@ -482,12 +493,25 @@ fn tcp_has_notsent(fd: libc::c_int) -> io::Result<bool> {
         return Err(io::Error::last_os_error());
     }
     if (info_len as usize) < size_of::<LinuxTcpInfo>() {
-        return Ok(false);
+        return Ok(None);
     }
-    if info.tcpi_state != TCP_ESTABLISHED {
-        return Ok(false);
-    }
-    Ok(info.tcpi_notsent_bytes != 0)
+    Ok(Some(info))
+}
+
+pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>> {
+    let Some(info) = read_tcp_info(stream.as_raw_fd())? else {
+        return Ok(None);
+    };
+    let ip_header_overhead = match stream.peer_addr()? {
+        SocketAddr::V4(_) => 40,
+        SocketAddr::V6(_) => 60,
+    };
+    Ok(Some(TcpSegmentHint {
+        snd_mss: (info.tcpi_snd_mss != 0).then_some(info.tcpi_snd_mss as i64),
+        advmss: (info.tcpi_advmss != 0).then_some(info.tcpi_advmss as i64),
+        pmtu: (info.tcpi_pmtu != 0).then_some(info.tcpi_pmtu as i64),
+        ip_header_overhead,
+    }))
 }
 
 fn wait_tcp_stage_fd(fd: libc::c_int, wait_send: bool, await_interval: Duration) -> io::Result<()> {
