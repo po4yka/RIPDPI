@@ -3979,6 +3979,18 @@ private fun AdaptiveFakeTtlProfileCard(
             uiState.hasAdaptiveFakeTtl -> stringResource(R.string.adaptive_fake_ttl_scope_adaptive)
             else -> stringResource(R.string.adaptive_fake_ttl_scope_fixed)
         }
+    val targetLabels =
+        buildList {
+            if (uiState.isFake) add(stringResource(R.string.adaptive_fake_ttl_targets_fake))
+            if (uiState.hasHostFake) add(stringResource(R.string.adaptive_fake_ttl_targets_hostfake))
+            if (uiState.hasDisoob) add(stringResource(R.string.adaptive_fake_ttl_targets_disoob))
+        }
+    val targetSummary =
+        if (targetLabels.isEmpty()) {
+            stringResource(R.string.adaptive_fake_ttl_targets_none)
+        } else {
+            targetLabels.joinToString()
+        }
     val learningSummary =
         if (uiState.hasAdaptiveFakeTtl) {
             stringResource(R.string.adaptive_fake_ttl_learning_runtime)
@@ -4004,6 +4016,15 @@ private fun AdaptiveFakeTtlProfileCard(
             add(stringResource(R.string.adaptive_fake_ttl_badge_tcp_only) to SummaryCapsuleTone.Info)
             if (uiState.hasAdaptiveFakeTtl) {
                 add(stringResource(R.string.adaptive_fake_ttl_badge_runtime_learned) to SummaryCapsuleTone.Active)
+            }
+            if (uiState.isFake) {
+                add(stringResource(R.string.adaptive_fake_ttl_badge_fake) to SummaryCapsuleTone.Active)
+            }
+            if (uiState.hasHostFake) {
+                add(stringResource(R.string.adaptive_fake_ttl_badge_hostfake) to SummaryCapsuleTone.Info)
+            }
+            if (uiState.hasDisoob) {
+                add(stringResource(R.string.adaptive_fake_ttl_badge_disoob) to SummaryCapsuleTone.Warning)
             }
         }
 
@@ -4037,6 +4058,10 @@ private fun AdaptiveFakeTtlProfileCard(
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_fake_ttl_summary_label_scope),
                 value = scopeSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_fake_ttl_summary_label_targets),
+                value = targetSummary,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.adaptive_fake_ttl_summary_label_learning),
