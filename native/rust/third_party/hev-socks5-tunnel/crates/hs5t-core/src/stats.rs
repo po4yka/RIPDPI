@@ -1,6 +1,6 @@
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
-use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DnsStatsSnapshot {
@@ -89,23 +89,15 @@ impl Stats {
             last_host: self.last_host.lock().ok().and_then(|guard| guard.clone()),
             resolver_endpoint: self.resolver_endpoint.lock().ok().and_then(|guard| guard.clone()),
             resolver_latency_ms: self.resolver_latency_ms.lock().ok().and_then(|guard| *guard),
-            resolver_latency_avg_ms: self
-                .resolver_latency_window
-                .lock()
-                .ok()
-                .and_then(|guard| {
-                    if guard.is_empty() {
-                        None
-                    } else {
-                        Some(guard.iter().sum::<u64>() / guard.len() as u64)
-                    }
-                }),
+            resolver_latency_avg_ms: self.resolver_latency_window.lock().ok().and_then(|guard| {
+                if guard.is_empty() {
+                    None
+                } else {
+                    Some(guard.iter().sum::<u64>() / guard.len() as u64)
+                }
+            }),
             resolver_fallback_active: self.resolver_fallback_active.load(Ordering::Relaxed) != 0,
-            resolver_fallback_reason: self
-                .resolver_fallback_reason
-                .lock()
-                .ok()
-                .and_then(|guard| guard.clone()),
+            resolver_fallback_reason: self.resolver_fallback_reason.lock().ok().and_then(|guard| guard.clone()),
         }
     }
 
@@ -165,8 +157,7 @@ impl Stats {
     }
 
     pub fn configure_resolver_fallback(&self, active: bool, reason: Option<&str>) {
-        self.resolver_fallback_active
-            .store(u64::from(active), Ordering::Relaxed);
+        self.resolver_fallback_active.store(u64::from(active), Ordering::Relaxed);
         if let Ok(mut guard) = self.resolver_fallback_reason.lock() {
             *guard = reason.map(ToString::to_string);
         }

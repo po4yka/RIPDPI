@@ -131,3 +131,13 @@ pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>
 pub fn tcp_segment_hint(_stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>> {
     Ok(None)
 }
+
+#[cfg(target_os = "linux")]
+pub fn tcp_round_trip_time_ms(stream: &TcpStream) -> io::Result<Option<u64>> {
+    linux::tcp_round_trip_time_ms(stream)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn tcp_round_trip_time_ms(_stream: &TcpStream) -> io::Result<Option<u64>> {
+    Ok(None)
+}

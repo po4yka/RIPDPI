@@ -85,6 +85,7 @@ pub struct RouteAdvance<'a> {
     pub trigger: u32,
     pub can_reconnect: bool,
     pub host: Option<String>,
+    pub penalize_strategy_failure: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -243,11 +244,13 @@ impl RuntimeCache {
             return Ok(None);
         }
 
-        if let Some(group) = self.groups.get_mut(route.group_index) {
-            group.fail_count += 1;
+        if request.penalize_strategy_failure {
+            if let Some(group) = self.groups.get_mut(route.group_index) {
+                group.fail_count += 1;
+            }
         }
 
-        if request.transport == TransportProtocol::Tcp {
+        if request.transport == TransportProtocol::Tcp && request.penalize_strategy_failure {
             if let Some(host) = request.host.as_deref() {
                 self.note_host_failure(config, host, route.group_index)?;
             }
@@ -976,7 +979,10 @@ mod tests {
         config.host_autolearn_penalty_ttl_secs = 3_600;
         config.host_autolearn_max_hosts = max_hosts;
         let mut path = std::env::temp_dir();
-        path.push(format!("ripdpi-host-autolearn-{}-{group_count}-{max_hosts}.json", now_millis()));
+        path.push(format!(
+            "ripdpi-host-autolearn-{}-{group_count}-{max_hosts}.json",
+            next_temp_file_nonce()
+        ));
         config.host_autolearn_store_path = Some(path.to_string_lossy().into_owned());
         config
     }

@@ -699,6 +699,53 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `adaptive fake ttl stays relevant for hostfake transport`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("hostfake")
+                        .setMarker("endhost+8")
+                        .setMidhostMarker("midsld")
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.isFake)
+        assertTrue(state.usesFakeTransport)
+        assertTrue(state.hasHostFake)
+        assertFalse(state.hasDisoob)
+        assertTrue(state.fakeTtlControlsRelevant)
+        assertTrue(state.showAdaptiveFakeTtlProfile)
+    }
+
+    @Test
+    fun `adaptive fake ttl stays relevant for disoob chain transport`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("disoob")
+                        .setMarker("host")
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.isFake)
+        assertFalse(state.usesFakeTransport)
+        assertTrue(state.hasDisoob)
+        assertTrue(state.isOob)
+        assertTrue(state.fakeTtlControlsRelevant)
+        assertTrue(state.showAdaptiveFakeTtlProfile)
+    }
+
+    @Test
     fun `adaptive fake ttl stays relevant for disoob`() {
         val settings =
             defaults

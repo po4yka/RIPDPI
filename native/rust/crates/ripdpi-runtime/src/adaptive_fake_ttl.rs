@@ -43,22 +43,14 @@ impl AdaptiveFakeTtlResolver {
                 .map(AdaptiveFakeTtlTarget::Host)
                 .unwrap_or(AdaptiveFakeTtlTarget::Address(dest)),
         };
-        let state = self
-            .states
-            .entry(key)
-            .or_insert_with(|| AdaptiveFakeTtlState::new(config, fallback_ttl));
+        let state = self.states.entry(key).or_insert_with(|| AdaptiveFakeTtlState::new(config, fallback_ttl));
         if state.seed != seed_ttl(config, fallback_ttl) || state.candidates != candidate_order(config, fallback_ttl) {
             *state = AdaptiveFakeTtlState::new(config, fallback_ttl);
         }
         state.current_ttl()
     }
 
-    pub fn note_success(
-        &mut self,
-        group_index: usize,
-        dest: SocketAddr,
-        host: Option<&str>,
-    ) {
+    pub fn note_success(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>) {
         if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
             group_index,
             target: normalized_host(host)
@@ -69,12 +61,7 @@ impl AdaptiveFakeTtlResolver {
         }
     }
 
-    pub fn note_failure(
-        &mut self,
-        group_index: usize,
-        dest: SocketAddr,
-        host: Option<&str>,
-    ) {
+    pub fn note_failure(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>) {
         if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
             group_index,
             target: normalized_host(host)
@@ -91,18 +78,11 @@ impl AdaptiveFakeTtlState {
     fn new(config: AutoTtlConfig, fallback_ttl: Option<u8>) -> Self {
         let candidates = candidate_order(config, fallback_ttl);
         let seed = *candidates.first().unwrap_or(&8);
-        Self {
-            seed,
-            candidates,
-            candidate_index: 0,
-            pinned_ttl: None,
-        }
+        Self { seed, candidates, candidate_index: 0, pinned_ttl: None }
     }
 
     fn current_ttl(&self) -> u8 {
-        self.pinned_ttl
-            .or_else(|| self.candidates.get(self.candidate_index).copied())
-            .unwrap_or(self.seed)
+        self.pinned_ttl.or_else(|| self.candidates.get(self.candidate_index).copied()).unwrap_or(self.seed)
     }
 
     fn advance(&mut self) {

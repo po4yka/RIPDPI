@@ -73,6 +73,8 @@ class DiagnosticsScreenTest {
                     onSaveResolverRecommendation = {},
                     onSelectSession = {},
                     onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
                     onSelectApproachMode = {},
                     onSelectApproach = {},
                     onDismissApproachDetail = {},

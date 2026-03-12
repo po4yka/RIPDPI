@@ -21,7 +21,10 @@ import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.DefaultServiceStateStore
+import com.poyka.ripdpi.services.FailureClass
 import com.poyka.ripdpi.services.FailureReason
+import com.poyka.ripdpi.services.RttBand
+import com.poyka.ripdpi.services.RuntimeFieldTelemetry
 import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,17 +54,25 @@ class RuntimeHistoryRecorderTest {
             Thread.sleep(100)
             serviceStateStore.emitFailed(Sender.Proxy, FailureReason.NativeError("boom"))
 
-            waitUntil { history.usageSessionsState.value.isNotEmpty() && history.nativeEventsState.value.isNotEmpty() }
+            waitUntil {
+                history.usageSessionsState.value.isNotEmpty() &&
+                    history.nativeEventsState.value.isNotEmpty() &&
+                    history.telemetryState.value.isNotEmpty()
+            }
 
             val session = history.usageSessionsState.value.single()
             val event = history.nativeEventsState.value.single()
+            val telemetrySample = history.telemetryState.value.single()
 
             assertEquals("Failed", session.connectionState)
             assertEquals("boom", session.failureMessage)
+            assertEquals("native_io", session.failureClass)
             assertNotNull(session.finishedAt)
             assertEquals(session.id, event.connectionSessionId)
             assertEquals("proxy", event.source)
             assertEquals("error", event.level)
+            assertEquals("Failed", telemetrySample.connectionState)
+            assertEquals("native_io", telemetrySample.failureClass)
         }
 
     @Test
@@ -121,6 +132,17 @@ class RuntimeHistoryRecorderTest {
                             resolverFallbackReason = "UDP DNS showed dns_substitution",
                             networkHandoverClass = "transport_switch",
                         ),
+                    runtimeFieldTelemetry =
+                        RuntimeFieldTelemetry(
+                            failureClass = FailureClass.DnsInterference,
+                            telemetryNetworkFingerprintHash = "v1:abc123",
+                            winningTcpStrategyFamily = "hostfake",
+                            winningQuicStrategyFamily = "quic_burst",
+                            proxyRttBand = RttBand.Between50And99,
+                            resolverRttBand = RttBand.Lt50,
+                            proxyRouteRetryCount = 2,
+                            tunnelRecoveryRetryCount = 1,
+                        ),
                     serviceStartedAt = System.currentTimeMillis(),
                     restartCount = 1,
                     updatedAt = System.currentTimeMillis(),
@@ -156,6 +178,14 @@ class RuntimeHistoryRecorderTest {
             assertEquals("VPN", session.serviceMode)
             assertEquals(1_024L, session.txBytes)
             assertEquals(2_048L, session.rxBytes)
+            assertEquals("dns_interference", session.failureClass)
+            assertEquals("v1:abc123", session.telemetryNetworkFingerprintHash)
+            assertEquals("hostfake", session.winningTcpStrategyFamily)
+            assertEquals("quic_burst", session.winningQuicStrategyFamily)
+            assertEquals("50_99", session.proxyRttBand)
+            assertEquals("lt50", session.resolverRttBand)
+            assertEquals(2L, session.proxyRouteRetryCount)
+            assertEquals(1L, session.tunnelRecoveryRetryCount)
             assertEquals("cloudflare", telemetrySample.resolverId)
             assertEquals("doh", telemetrySample.resolverProtocol)
             assertEquals("https://cloudflare-dns.com/dns-query", telemetrySample.resolverEndpoint)
@@ -164,6 +194,14 @@ class RuntimeHistoryRecorderTest {
             assertTrue(telemetrySample.resolverFallbackActive)
             assertEquals("UDP DNS showed dns_substitution", telemetrySample.resolverFallbackReason)
             assertEquals("transport_switch", telemetrySample.networkHandoverClass)
+            assertEquals("dns_interference", telemetrySample.failureClass)
+            assertEquals("v1:abc123", telemetrySample.telemetryNetworkFingerprintHash)
+            assertEquals("hostfake", telemetrySample.winningTcpStrategyFamily)
+            assertEquals("quic_burst", telemetrySample.winningQuicStrategyFamily)
+            assertEquals("50_99", telemetrySample.proxyRttBand)
+            assertEquals("lt50", telemetrySample.resolverRttBand)
+            assertEquals(2L, telemetrySample.proxyRouteRetryCount)
+            assertEquals(1L, telemetrySample.tunnelRecoveryRetryCount)
             assertEquals(1, history.nativeEventsState.value.size)
             assertTrue(history.snapshotsState.value.all { it.connectionSessionId == session.id })
             assertTrue(history.contextsState.value.all { it.connectionSessionId == session.id })

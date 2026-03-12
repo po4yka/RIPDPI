@@ -164,10 +164,7 @@ pub enum EncryptedDnsError {
 }
 
 impl EncryptedDnsResolver {
-    pub fn new(
-        endpoint: EncryptedDnsEndpoint,
-        transport: EncryptedDnsTransport,
-    ) -> Result<Self, EncryptedDnsError> {
+    pub fn new(endpoint: EncryptedDnsEndpoint, transport: EncryptedDnsTransport) -> Result<Self, EncryptedDnsError> {
         Self::with_timeout(endpoint, transport, DEFAULT_TIMEOUT)
     }
 
@@ -239,9 +236,7 @@ impl EncryptedDnsResolver {
     }
 
     pub async fn exchange(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
-        self.exchange_with_metadata(query_bytes)
-            .await
-            .map(|success| success.response_bytes)
+        self.exchange_with_metadata(query_bytes).await.map(|success| success.response_bytes)
     }
 
     pub fn exchange_blocking_with_metadata(
@@ -263,8 +258,7 @@ impl EncryptedDnsResolver {
     }
 
     pub fn exchange_blocking(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
-        self.exchange_blocking_with_metadata(query_bytes)
-            .map(|success| success.response_bytes)
+        self.exchange_blocking_with_metadata(query_bytes).map(|success| success.response_bytes)
     }
 
     fn endpoint_label(&self) -> String {
@@ -282,12 +276,7 @@ impl EncryptedDnsResolver {
             .doh_client
             .as_ref()
             .ok_or_else(|| EncryptedDnsError::InvalidEndpoint("DoH client not initialized".to_string()))?;
-        let url = self
-            .inner
-            .endpoint
-            .doh_url
-            .as_ref()
-            .ok_or(EncryptedDnsError::MissingDohUrl)?;
+        let url = self.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
 
         let response = client
             .post(url)
@@ -302,28 +291,18 @@ impl EncryptedDnsResolver {
             return Err(EncryptedDnsError::HttpStatus(response.status()));
         }
 
-        response
-            .bytes()
-            .await
-            .map(|value| value.to_vec())
-            .map_err(|err| EncryptedDnsError::Request(err.to_string()))
+        response.bytes().await.map(|value| value.to_vec()).map_err(|err| EncryptedDnsError::Request(err.to_string()))
     }
 
     fn exchange_dot_blocking(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
         let stream = self.connect_plain_tcp_blocking()?;
-        let tls_name = self
-            .inner
-            .endpoint
-            .tls_server_name
-            .clone()
-            .unwrap_or_else(|| self.inner.endpoint.host.clone());
+        let tls_name = self.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| self.inner.endpoint.host.clone());
         let config = Arc::new(
             ClientConfig::builder()
                 .with_root_certificates(default_root_store(&self.inner.tls_roots))
                 .with_no_client_auth(),
         );
-        let server_name =
-            ServerName::try_from(tls_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
+        let server_name = ServerName::try_from(tls_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
         let connection =
             ClientConnection::new(config, server_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
         let mut tls_stream = StreamOwned::new(connection, stream);
@@ -404,11 +383,7 @@ impl EncryptedDnsResolver {
             }
             let certificate = parse_dnscrypt_certificate(&bytes, &verifying_key, &provider_name)?;
             if certificate.valid_from <= now && now <= certificate.valid_until {
-                if best
-                    .as_ref()
-                    .map(|value| value.valid_until < certificate.valid_until)
-                    .unwrap_or(true)
-                {
+                if best.as_ref().map(|value| value.valid_until < certificate.valid_until).unwrap_or(true) {
                     best = Some(certificate);
                 }
             }
@@ -424,9 +399,7 @@ impl EncryptedDnsResolver {
             EncryptedDnsTransport::Direct => self.connect_direct_tcp_blocking()?,
             EncryptedDnsTransport::Socks5 { host, port } => self.connect_socks5_tcp_blocking(host, *port)?,
         };
-        stream
-            .set_read_timeout(Some(self.inner.timeout))
-            .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+        stream.set_read_timeout(Some(self.inner.timeout)).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
         stream
             .set_write_timeout(Some(self.inner.timeout))
             .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
@@ -435,12 +408,8 @@ impl EncryptedDnsResolver {
 
     fn connect_direct_tcp_blocking(&self) -> Result<TcpStream, EncryptedDnsError> {
         let endpoint = &self.inner.endpoint;
-        let addresses = endpoint
-            .bootstrap_ips
-            .iter()
-            .copied()
-            .map(|ip| SocketAddr::new(ip, endpoint.port))
-            .collect::<Vec<_>>();
+        let addresses =
+            endpoint.bootstrap_ips.iter().copied().map(|ip| SocketAddr::new(ip, endpoint.port)).collect::<Vec<_>>();
         let mut last_error = None;
         for address in addresses {
             match TcpStream::connect_timeout(&address, self.inner.timeout) {
@@ -448,16 +417,10 @@ impl EncryptedDnsResolver {
                 Err(err) => last_error = Some(err.to_string()),
             }
         }
-        Err(EncryptedDnsError::Request(
-            last_error.unwrap_or_else(|| "no bootstrap addresses".to_string()),
-        ))
+        Err(EncryptedDnsError::Request(last_error.unwrap_or_else(|| "no bootstrap addresses".to_string())))
     }
 
-    fn connect_socks5_tcp_blocking(
-        &self,
-        proxy_host: &str,
-        proxy_port: u16,
-    ) -> Result<TcpStream, EncryptedDnsError> {
+    fn connect_socks5_tcp_blocking(&self, proxy_host: &str, proxy_port: u16) -> Result<TcpStream, EncryptedDnsError> {
         let proxy_target = resolve_socket_addr(proxy_host, proxy_port)?;
         let mut proxy_stream = TcpStream::connect_timeout(&proxy_target, self.inner.timeout)
             .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
@@ -468,13 +431,9 @@ impl EncryptedDnsResolver {
             .set_write_timeout(Some(self.inner.timeout))
             .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
 
-        proxy_stream
-            .write_all(&[0x05, 0x01, 0x00])
-            .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+        proxy_stream.write_all(&[0x05, 0x01, 0x00]).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
         let mut auth_reply = [0u8; 2];
-        proxy_stream
-            .read_exact(&mut auth_reply)
-            .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+        proxy_stream.read_exact(&mut auth_reply).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
         if auth_reply != [0x05, 0x00] {
             return Err(EncryptedDnsError::Socks5(format!("unexpected auth reply: {auth_reply:?}")));
         }
@@ -488,14 +447,10 @@ impl EncryptedDnsResolver {
         request.extend_from_slice(&[0x05, 0x01, 0x00, 0x03, host_bytes.len() as u8]);
         request.extend_from_slice(host_bytes);
         request.extend_from_slice(&self.inner.endpoint.port.to_be_bytes());
-        proxy_stream
-            .write_all(&request)
-            .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+        proxy_stream.write_all(&request).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
 
         let mut header = [0u8; 4];
-        proxy_stream
-            .read_exact(&mut header)
-            .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+        proxy_stream.read_exact(&mut header).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
         if header[1] != 0x00 {
             return Err(EncryptedDnsError::Socks5(format!("connect reply {:x}", header[1])));
         }
@@ -568,13 +523,7 @@ fn normalize_endpoint(
             if endpoint.host.is_empty() {
                 return Err(EncryptedDnsError::MissingHost);
             }
-            if endpoint
-                .dnscrypt_provider_name
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .is_none()
-            {
+            if endpoint.dnscrypt_provider_name.as_deref().map(str::trim).filter(|value| !value.is_empty()).is_none() {
                 return Err(EncryptedDnsError::MissingDnsCryptProviderName);
             }
             dnscrypt_verifying_key(&endpoint)?;
@@ -590,10 +539,7 @@ fn build_doh_client(
     timeout: Duration,
     tls_roots: &[CertificateDer<'static>],
 ) -> Result<Client, EncryptedDnsError> {
-    let mut builder = Client::builder()
-        .use_rustls_tls()
-        .timeout(timeout)
-        .connect_timeout(timeout);
+    let mut builder = Client::builder().use_rustls_tls().timeout(timeout).connect_timeout(timeout);
 
     for certificate in tls_roots {
         let reqwest_certificate = reqwest::Certificate::from_der(certificate.as_ref())
@@ -603,12 +549,8 @@ fn build_doh_client(
 
     match transport {
         EncryptedDnsTransport::Direct => {
-            let addresses = endpoint
-                .bootstrap_ips
-                .iter()
-                .copied()
-                .map(|ip| SocketAddr::new(ip, endpoint.port))
-                .collect::<Vec<_>>();
+            let addresses =
+                endpoint.bootstrap_ips.iter().copied().map(|ip| SocketAddr::new(ip, endpoint.port)).collect::<Vec<_>>();
             builder = builder.resolve_to_addrs(endpoint.host.as_str(), &addresses);
         }
         EncryptedDnsTransport::Socks5 { host, port } => {
@@ -632,10 +574,7 @@ fn default_root_store(extra_roots: &[CertificateDer<'static>]) -> RootCertStore 
 
 fn complete_tls_handshake(stream: &mut StreamOwned<ClientConnection, TcpStream>) -> Result<(), EncryptedDnsError> {
     while stream.conn.is_handshaking() {
-        stream
-            .conn
-            .complete_io(&mut stream.sock)
-            .map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
+        stream.conn.complete_io(&mut stream.sock).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
     }
     Ok(())
 }
@@ -650,25 +589,17 @@ fn resolve_socket_addr(host: &str, port: u16) -> Result<SocketAddr, EncryptedDns
 fn write_length_prefixed_frame(stream: &mut impl Write, payload: &[u8]) -> Result<(), EncryptedDnsError> {
     let length = u16::try_from(payload.len())
         .map_err(|_| EncryptedDnsError::Request("DNS payload is too large for TCP framing".to_string()))?;
-    stream
-        .write_all(&length.to_be_bytes())
-        .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
-    stream
-        .write_all(payload)
-        .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+    stream.write_all(&length.to_be_bytes()).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+    stream.write_all(payload).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
     stream.flush().map_err(|err| EncryptedDnsError::Request(err.to_string()))
 }
 
 fn read_length_prefixed_frame(stream: &mut impl Read) -> Result<Vec<u8>, EncryptedDnsError> {
     let mut length = [0u8; 2];
-    stream
-        .read_exact(&mut length)
-        .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+    stream.read_exact(&mut length).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
     let frame_len = usize::from(u16::from_be_bytes(length));
     let mut payload = vec![0u8; frame_len];
-    stream
-        .read_exact(&mut payload)
-        .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+    stream.read_exact(&mut payload).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
     Ok(payload)
 }
 
@@ -676,25 +607,17 @@ fn consume_socks5_bind_address(stream: &mut TcpStream, atyp: u8) -> Result<(), E
     match atyp {
         0x01 => {
             let mut address = [0u8; 6];
-            stream
-                .read_exact(&mut address)
-                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))
+            stream.read_exact(&mut address).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))
         }
         0x04 => {
             let mut address = [0u8; 18];
-            stream
-                .read_exact(&mut address)
-                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))
+            stream.read_exact(&mut address).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))
         }
         0x03 => {
             let mut len = [0u8; 1];
-            stream
-                .read_exact(&mut len)
-                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            stream.read_exact(&mut len).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
             let mut address = vec![0u8; len[0] as usize + 2];
-            stream
-                .read_exact(&mut address)
-                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))
+            stream.read_exact(&mut address).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))
         }
         value => Err(EncryptedDnsError::Socks5(format!("unsupported bind atyp: {value}"))),
     }
@@ -718,8 +641,7 @@ fn dnscrypt_verifying_key(endpoint: &EncryptedDnsEndpoint) -> Result<VerifyingKe
     let mut bytes = [0u8; 32];
     hex::decode_to_slice(encoded.trim(), &mut bytes)
         .map_err(|err| EncryptedDnsError::InvalidDnsCryptPublicKey(err.to_string()))?;
-    VerifyingKey::from_bytes(&bytes)
-        .map_err(|err| EncryptedDnsError::InvalidDnsCryptPublicKey(err.to_string()))
+    VerifyingKey::from_bytes(&bytes).map_err(|err| EncryptedDnsError::InvalidDnsCryptPublicKey(err.to_string()))
 }
 
 fn parse_dnscrypt_certificate(
@@ -728,10 +650,7 @@ fn parse_dnscrypt_certificate(
     _provider_name: &str,
 ) -> Result<DnsCryptCachedCertificate, EncryptedDnsError> {
     if bytes.len() != DNSCRYPT_CERT_SIZE {
-        return Err(EncryptedDnsError::DnsCryptCertificate(format!(
-            "unexpected certificate size {}",
-            bytes.len()
-        )));
+        return Err(EncryptedDnsError::DnsCryptCertificate(format!("unexpected certificate size {}", bytes.len())));
     }
     if bytes[..4] != DNSCRYPT_CERT_MAGIC {
         return Err(EncryptedDnsError::DnsCryptCertificate("unexpected cert magic".to_string()));
@@ -745,9 +664,7 @@ fn parse_dnscrypt_certificate(
     signature.copy_from_slice(&bytes[8..72]);
     let signature = Ed25519Signature::from_bytes(&signature);
     let signed = &bytes[72..];
-    verifying_key
-        .verify(signed, &signature)
-        .map_err(|err| EncryptedDnsError::DnsCryptVerification(err.to_string()))?;
+    verifying_key.verify(signed, &signature).map_err(|err| EncryptedDnsError::DnsCryptVerification(err.to_string()))?;
 
     let mut resolver_public_key = [0u8; 32];
     resolver_public_key.copy_from_slice(&bytes[72..104]);
@@ -756,12 +673,7 @@ fn parse_dnscrypt_certificate(
     let valid_from = u32::from_be_bytes([bytes[116], bytes[117], bytes[118], bytes[119]]);
     let valid_until = u32::from_be_bytes([bytes[120], bytes[121], bytes[122], bytes[123]]);
 
-    Ok(DnsCryptCachedCertificate {
-        resolver_public_key,
-        client_magic,
-        valid_from,
-        valid_until,
-    })
+    Ok(DnsCryptCachedCertificate { resolver_public_key, client_magic, valid_from, valid_until })
 }
 
 fn decrypt_dnscrypt_response(
@@ -787,7 +699,10 @@ fn decrypt_dnscrypt_response(
 }
 
 fn dnscrypt_pad(payload: &[u8]) -> Vec<u8> {
-    let mut padded = Vec::with_capacity(((payload.len() + 1 + DNSCRYPT_PADDING_BLOCK_SIZE - 1) / DNSCRYPT_PADDING_BLOCK_SIZE) * DNSCRYPT_PADDING_BLOCK_SIZE);
+    let mut padded = Vec::with_capacity(
+        ((payload.len() + 1 + DNSCRYPT_PADDING_BLOCK_SIZE - 1) / DNSCRYPT_PADDING_BLOCK_SIZE)
+            * DNSCRYPT_PADDING_BLOCK_SIZE,
+    );
     padded.extend_from_slice(payload);
     padded.push(0x80);
     while padded.len() % DNSCRYPT_PADDING_BLOCK_SIZE != 0 {
@@ -811,26 +726,18 @@ fn build_dns_query(name: &str, record_type: RecordType) -> Result<Vec<u8>, Encry
     let mut message = Message::new();
     message
         .add_query(Query::query(
-            Name::from_ascii(name)
-                .map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?,
+            Name::from_ascii(name).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?,
             record_type,
         ))
         .set_id(0x1234)
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Query)
         .set_recursion_desired(true);
-    message
-        .to_vec()
-        .map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))
+    message.to_vec().map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))
 }
 
 fn unix_time_secs() -> u32 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-        .try_into()
-        .unwrap_or(u32::MAX)
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs().try_into().unwrap_or(u32::MAX)
 }
 
 fn format_error_chain(error: &(dyn std::error::Error + 'static)) -> String {
@@ -865,8 +772,8 @@ pub fn extract_ip_answers(packet: &[u8]) -> Result<Vec<String>, EncryptedDnsErro
 mod tests {
     use super::*;
 
-    use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
     use ed25519_dalek::Signer;
+    use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
     use hickory_proto::rr::rdata::{A, TXT};
     use hickory_proto::rr::{Name, RData, Record};
     use rcgen::generate_simple_self_signed;
@@ -900,11 +807,7 @@ mod tests {
         for query in request.queries() {
             response.add_query(query.clone());
             if query.query_type() == RecordType::A {
-                response.add_answer(Record::from_rdata(
-                    query.name().clone(),
-                    60,
-                    RData::A(A(answer_ip)),
-                ));
+                response.add_answer(Record::from_rdata(query.name().clone(), 60, RData::A(A(answer_ip))));
             }
         }
         response.to_vec().expect("response serializes")
@@ -1040,10 +943,7 @@ mod tests {
                 dnscrypt_provider_name: None,
                 dnscrypt_public_key: None,
             },
-            EncryptedDnsTransport::Socks5 {
-                host: "127.0.0.1".to_string(),
-                port: proxy_port,
-            },
+            EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port },
             DEFAULT_TIMEOUT,
             vec![certificate_der],
         )
@@ -1137,10 +1037,7 @@ mod tests {
                 dnscrypt_provider_name: None,
                 dnscrypt_public_key: None,
             },
-            EncryptedDnsTransport::Socks5 {
-                host: "127.0.0.1".to_string(),
-                port: proxy_port,
-            },
+            EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port },
             DEFAULT_TIMEOUT,
             vec![certificate_der],
         )
@@ -1202,10 +1099,7 @@ mod tests {
                 dnscrypt_provider_name: Some(server.provider_name.clone()),
                 dnscrypt_public_key: Some(server.provider_public_key_hex.clone()),
             },
-            EncryptedDnsTransport::Socks5 {
-                host: "127.0.0.1".to_string(),
-                port: proxy_port,
-            },
+            EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port },
         )
         .expect("resolver builds");
 
@@ -1265,18 +1159,9 @@ mod tests {
     #[test]
     fn error_kind_maps_common_failures() {
         assert_eq!(EncryptedDnsError::MissingBootstrapIps.kind(), EncryptedDnsErrorKind::Bootstrap);
-        assert_eq!(
-            EncryptedDnsError::Tls("handshake failed".to_string()).kind(),
-            EncryptedDnsErrorKind::Tls,
-        );
-        assert_eq!(
-            EncryptedDnsError::DnsCryptDecrypt("bad nonce".to_string()).kind(),
-            EncryptedDnsErrorKind::DnsCrypt,
-        );
-        assert_eq!(
-            EncryptedDnsError::DnsParse("bad packet".to_string()).kind(),
-            EncryptedDnsErrorKind::Decode,
-        );
+        assert_eq!(EncryptedDnsError::Tls("handshake failed".to_string()).kind(), EncryptedDnsErrorKind::Tls,);
+        assert_eq!(EncryptedDnsError::DnsCryptDecrypt("bad nonce".to_string()).kind(), EncryptedDnsErrorKind::DnsCrypt,);
+        assert_eq!(EncryptedDnsError::DnsParse("bad packet".to_string()).kind(), EncryptedDnsErrorKind::Decode,);
     }
 
     impl DnsCryptTestServer {
@@ -1348,12 +1233,11 @@ mod tests {
                 let (mut stream, _) = listener.accept().expect("dnscrypt accept");
                 let packet = read_length_prefixed_frame(&mut stream).expect("dnscrypt tcp read");
                 if let Ok(message) = Message::from_vec(&packet) {
-                    let is_txt_cert_query = message
-                        .query()
-                        .map(|query| query.query_type() == RecordType::TXT)
-                        .unwrap_or(false);
+                    let is_txt_cert_query =
+                        message.query().map(|query| query.query_type() == RecordType::TXT).unwrap_or(false);
                     if is_txt_cert_query {
-                        let response = build_dnscrypt_cert_response(&packet, &server.provider_name, &server.certificate_bytes());
+                        let response =
+                            build_dnscrypt_cert_response(&packet, &server.provider_name, &server.certificate_bytes());
                         write_length_prefixed_frame(&mut stream, &response).expect("dnscrypt cert write");
                         continue;
                     }
@@ -1364,9 +1248,7 @@ mod tests {
                 let mut nonce = [0u8; DNSCRYPT_NONCE_SIZE];
                 nonce[..DNSCRYPT_QUERY_NONCE_HALF].copy_from_slice(&packet[40..52]);
                 let crypto_box = ChaChaBox::new(&CryptoPublicKey::from(client_public), &server.resolver_secret);
-                let decrypted = crypto_box
-                    .decrypt((&nonce).into(), &packet[52..])
-                    .expect("dnscrypt request decrypt");
+                let decrypted = crypto_box.decrypt((&nonce).into(), &packet[52..]).expect("dnscrypt request decrypt");
                 let query = dnscrypt_unpad(&decrypted).expect("dnscrypt request unpad");
                 assert_eq!(query, build_query("fixture.test"));
 
@@ -1395,10 +1277,7 @@ mod tests {
             .set_recursion_desired(request.recursion_desired())
             .set_recursion_available(true)
             .set_response_code(ResponseCode::NoError)
-            .add_query(Query::query(
-                Name::from_ascii(provider_name).expect("provider name"),
-                RecordType::TXT,
-            ));
+            .add_query(Query::query(Name::from_ascii(provider_name).expect("provider name"), RecordType::TXT));
         response.add_answer(Record::from_rdata(
             Name::from_ascii(provider_name).expect("provider name"),
             600,
@@ -1407,38 +1286,22 @@ mod tests {
         response.to_vec().expect("cert response encodes")
     }
 
-    fn serve_dot(
-        stream: TcpStream,
-        config: Arc<ServerConfig>,
-        expected_query: &[u8],
-        response_body: &[u8],
-    ) {
+    fn serve_dot(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[u8], response_body: &[u8]) {
         let connection = ServerConnection::new(config).expect("server connection");
         let mut tls_stream = StreamOwned::new(connection, stream);
         while tls_stream.conn.is_handshaking() {
-            tls_stream
-                .conn
-                .complete_io(&mut tls_stream.sock)
-                .expect("TLS handshake completes");
+            tls_stream.conn.complete_io(&mut tls_stream.sock).expect("TLS handshake completes");
         }
         let query = read_length_prefixed_frame(&mut tls_stream).expect("read DoT query");
         assert_eq!(query, expected_query);
         write_length_prefixed_frame(&mut tls_stream, response_body).expect("write DoT response");
     }
 
-    fn serve_https_doh(
-        stream: TcpStream,
-        config: Arc<ServerConfig>,
-        expected_query: &[u8],
-        response_body: &[u8],
-    ) {
+    fn serve_https_doh(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[u8], response_body: &[u8]) {
         let connection = ServerConnection::new(config).expect("server connection");
         let mut tls_stream = StreamOwned::new(connection, stream);
         while tls_stream.conn.is_handshaking() {
-            tls_stream
-                .conn
-                .complete_io(&mut tls_stream.sock)
-                .expect("TLS handshake completes");
+            tls_stream.conn.complete_io(&mut tls_stream.sock).expect("TLS handshake completes");
         }
 
         let (request_line, body) = read_http_request(&mut tls_stream);
@@ -1449,9 +1312,7 @@ mod tests {
             "HTTP/1.1 200 OK\r\nContent-Type: {DNS_MESSAGE_MEDIA_TYPE}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             response_body.len()
         );
-        tls_stream
-            .write_all(response.as_bytes())
-            .expect("write headers");
+        tls_stream.write_all(response.as_bytes()).expect("write headers");
         tls_stream.write_all(response_body).expect("write body");
         tls_stream.flush().expect("flush response");
     }
@@ -1505,9 +1366,7 @@ mod tests {
 
                 let upstream = TcpStream::connect((Ipv4Addr::LOCALHOST, target_port)).expect("proxy upstream");
                 let [p1, p2] = target_port.to_be_bytes();
-                client
-                    .write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, p1, p2])
-                    .expect("proxy success reply");
+                client.write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, p1, p2]).expect("proxy success reply");
                 relay_proxy_streams(client, upstream);
             }
         });
@@ -1530,10 +1389,7 @@ mod tests {
                 let mut port = [0u8; 2];
                 stream.read_exact(&mut host).expect("domain host");
                 stream.read_exact(&mut port).expect("domain port");
-                (
-                    String::from_utf8(host).expect("valid domain"),
-                    u16::from_be_bytes(port),
-                )
+                (String::from_utf8(host).expect("valid domain"), u16::from_be_bytes(port))
             }
             other => panic!("unexpected SOCKS address type: {other}"),
         }
@@ -1551,19 +1407,11 @@ mod tests {
         to_upstream.join().expect("relay join");
     }
 
-    fn serve_h2_doh(
-        stream: TcpStream,
-        config: Arc<ServerConfig>,
-        expected_query: &[u8],
-        response_body: &[u8],
-    ) {
+    fn serve_h2_doh(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[u8], response_body: &[u8]) {
         let connection = ServerConnection::new(config).expect("server connection");
         let mut tls_stream = StreamOwned::new(connection, stream);
         while tls_stream.conn.is_handshaking() {
-            tls_stream
-                .conn
-                .complete_io(&mut tls_stream.sock)
-                .expect("TLS handshake completes");
+            tls_stream.conn.complete_io(&mut tls_stream.sock).expect("TLS handshake completes");
         }
         assert_eq!(tls_stream.conn.alpn_protocol(), Some(b"h2".as_slice()));
 
@@ -1579,8 +1427,7 @@ mod tests {
             let length = ((header[0] as usize) << 16) | ((header[1] as usize) << 8) | header[2] as usize;
             let frame_type = header[3];
             let flags = header[4];
-            let stream_id =
-                u32::from_be_bytes([header[5] & 0x7f, header[6], header[7], header[8]]);
+            let stream_id = u32::from_be_bytes([header[5] & 0x7f, header[6], header[7], header[8]]);
             let mut payload = vec![0u8; length];
             tls_stream.read_exact(&mut payload).expect("frame payload");
             frames.push((frame_type, flags, stream_id, payload.clone()));
@@ -1598,9 +1445,7 @@ mod tests {
         assert_eq!(body, expected_query);
 
         let settings_ack = [0x00, 0x00, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00];
-        let headers_frame = [
-            0x00, 0x00, 0x01, 0x01, 0x04, 0x00, 0x00, 0x00, 0x01, 0x88,
-        ];
+        let headers_frame = [0x00, 0x00, 0x01, 0x01, 0x04, 0x00, 0x00, 0x00, 0x01, 0x88];
         let mut data_frame = vec![
             ((response_body.len() >> 16) & 0xff) as u8,
             ((response_body.len() >> 8) & 0xff) as u8,

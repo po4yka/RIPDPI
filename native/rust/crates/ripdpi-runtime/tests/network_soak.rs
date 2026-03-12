@@ -760,6 +760,14 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
         *self.last_error.lock().expect("lock last error") = Some(error.to_string());
     }
 
+    fn on_failure_classified(
+        &self,
+        _target: SocketAddr,
+        _failure: &ripdpi_failure_classifier::ClassifiedFailure,
+        _host: Option<&str>,
+    ) {
+    }
+
     fn on_route_selected(&self, target: SocketAddr, _group_index: usize, _host: Option<&str>, phase: &'static str) {
         let _ = (target, phase);
         self.route_count.fetch_add(1, Ordering::Relaxed);

@@ -79,10 +79,7 @@ impl DnsCache {
         }
 
         let entry = self.rev.get(&ip)?.clone();
-        self.lru.get(&DnsCacheKey {
-            host: entry.host.clone(),
-            real_ip: entry.real_ip,
-        });
+        self.lru.get(&DnsCacheKey { host: entry.host.clone(), real_ip: entry.real_ip });
         Some(entry)
     }
 
@@ -111,9 +108,7 @@ impl DnsCache {
         }
 
         Ok(DnsRewriteResult {
-            response: message
-                .to_vec()
-                .map_err(|err| DnsCacheError::DnsEncode(err.to_string()))?,
+            response: message.to_vec().map_err(|err| DnsCacheError::DnsEncode(err.to_string()))?,
             host,
             cache_hits,
             cache_misses,
@@ -144,10 +139,7 @@ impl DnsCache {
             return Err(DnsCacheError::EmptyCache);
         }
 
-        let key = DnsCacheKey {
-            host: host.to_string(),
-            real_ip,
-        };
+        let key = DnsCacheKey { host: host.to_string(), real_ip };
 
         if let Some(&idx) = self.lru.get(&key) {
             return Ok((self.net | idx as u32, true));
@@ -169,13 +161,7 @@ impl DnsCache {
         let fake_ip = self.net | idx as u32;
         self.lru.put(key.clone(), idx);
         self.records[idx] = Some(key.clone());
-        self.rev.insert(
-            fake_ip,
-            DnsCacheEntry {
-                host: key.host,
-                real_ip,
-            },
-        );
+        self.rev.insert(fake_ip, DnsCacheEntry { host: key.host, real_ip });
         Ok((fake_ip, false))
     }
 }
@@ -308,9 +294,7 @@ mod tests {
         assert_eq!(rewritten.cache_hits, 0);
         assert_eq!(rewritten.cache_misses, 1);
 
-        let reverse = cache
-            .lookup(u32::from(answers[0]))
-            .expect("reverse lookup must resolve mapped IP");
+        let reverse = cache.lookup(u32::from(answers[0])).expect("reverse lookup must resolve mapped IP");
         assert_eq!(reverse.host, "fixture.test");
         assert_eq!(Ipv4Addr::from(reverse.real_ip), Ipv4Addr::new(203, 0, 113, 10));
     }

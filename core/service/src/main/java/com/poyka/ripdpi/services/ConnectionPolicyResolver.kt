@@ -5,7 +5,11 @@ import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
+import com.poyka.ripdpi.core.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
+import com.poyka.ripdpi.core.stripRipDpiRuntimeContext
+import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
@@ -13,6 +17,7 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
 import com.poyka.ripdpi.data.toActiveDnsSettings
+import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.toPolicyJson
@@ -58,6 +63,7 @@ class DefaultConnectionPolicyResolver
         ): ConnectionPolicyResolution {
             val settings = appSettingsRepository.snapshot()
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
+            val runtimeContext = dnsResolution.activeDns.toRipDpiRuntimeContext()
             val fingerprint = networkFingerprintProvider.capture()
             val networkScopeKey = fingerprint?.scopeKey()
             val hostAutolearnStorePath =
@@ -67,14 +73,19 @@ class DefaultConnectionPolicyResolver
 
             val baselinePreferences =
                 if (settings.enableCmdSettings) {
-                    RipDpiProxyCmdPreferences(settings.cmdArgs)
+                    RipDpiProxyCmdPreferences(settings.cmdArgs, runtimeContext = runtimeContext)
                 } else {
                     RipDpiProxyUIPreferences(
                         settings = settings,
                         hostAutolearnStorePath = hostAutolearnStorePath,
                         networkScopeKey = networkScopeKey,
+                        runtimeContext = runtimeContext,
                     )
                 }
+            val baselineLaneFamilies =
+                (baselinePreferences as? RipDpiProxyUIPreferences)?.deriveStrategyLaneFamilies(
+                    activeDns = dnsResolution.activeDns,
+                )
 
             val baselinePolicy =
                 if (!settings.enableCmdSettings && settings.networkStrategyMemoryEnabled && fingerprint != null && networkScopeKey != null) {
@@ -82,13 +93,16 @@ class DefaultConnectionPolicyResolver
                         fingerprintHash = networkScopeKey,
                         mode = mode.preferenceValue,
                         summary = fingerprint.summary(),
-                        proxyConfigJson = baselinePreferences.toNativeConfigJson(),
+                        proxyConfigJson = stripRipDpiRuntimeContext(baselinePreferences.toNativeConfigJson()),
                         vpnDnsPolicy =
                             if (mode == Mode.VPN) {
                                 dnsResolution.activeDns.toVpnDnsPolicyJson()
                             } else {
                                 null
                             },
+                        winningTcpStrategyFamily = baselineLaneFamilies?.tcpStrategyFamily,
+                        winningQuicStrategyFamily = baselineLaneFamilies?.quicStrategyFamily,
+                        winningDnsStrategyFamily = baselineLaneFamilies?.dnsStrategyFamily,
                     )
                 } else {
                     null
@@ -124,20 +138,37 @@ class DefaultConnectionPolicyResolver
                     )
 
             val rememberedPolicy = matchedPolicy.toPolicyJson()
+            val rememberedLaneFamilies =
+                decodeRipDpiProxyUiPreferences(matchedPolicy.proxyConfigJson)?.deriveStrategyLaneFamilies(
+                    activeDns = dnsResolution.activeDns,
+                )
             val proxyPreferences =
                 RipDpiProxyJsonPreferences(
                     configJson = matchedPolicy.proxyConfigJson,
                     hostAutolearnStorePath = hostAutolearnStorePath,
                     networkScopeKey = networkScopeKey,
+                    runtimeContext = runtimeContext,
                 )
             val vpnDnsOverride = if (mode == Mode.VPN) rememberedPolicy?.vpnDnsPolicy else null
+            val effectiveDns =
+                vpnDnsOverride?.toActiveDnsSettings()
+                    ?: dnsResolution.activeDns
+            val appliedPolicy =
+                rememberedPolicy?.copy(
+                    winningTcpStrategyFamily =
+                        rememberedPolicy.winningTcpStrategyFamily ?: rememberedLaneFamilies?.tcpStrategyFamily,
+                    winningQuicStrategyFamily =
+                        rememberedPolicy.winningQuicStrategyFamily ?: rememberedLaneFamilies?.quicStrategyFamily,
+                    winningDnsStrategyFamily =
+                        rememberedPolicy.winningDnsStrategyFamily ?: effectiveDns.strategyFamily(),
+                )
             return ConnectionPolicyResolution(
                 settings = settings,
                 proxyPreferences = proxyPreferences,
-                activeDns = vpnDnsOverride?.toActiveDnsSettings() ?: dnsResolution.activeDns,
+                activeDns = effectiveDns,
                 vpnDnsOverride = vpnDnsOverride,
                 matchedNetworkPolicy = matchedPolicy,
-                appliedPolicy = rememberedPolicy,
+                appliedPolicy = appliedPolicy,
                 networkScopeKey = networkScopeKey,
                 resolverFallbackReason =
                     if (vpnDnsOverride == null) {

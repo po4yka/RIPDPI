@@ -424,6 +424,16 @@ pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>
     }))
 }
 
+pub fn tcp_round_trip_time_ms(stream: &TcpStream) -> io::Result<Option<u64>> {
+    let Some(info) = read_tcp_info(stream.as_raw_fd())? else {
+        return Ok(None);
+    };
+    if info.tcpi_state != TCP_ESTABLISHED {
+        return Ok(None);
+    }
+    Ok(Some(u64::from(info.tcpi_rtt / 1_000)))
+}
+
 fn wait_tcp_stage_fd(fd: libc::c_int, wait_send: bool, await_interval: Duration) -> io::Result<()> {
     let sleep_for = if await_interval.is_zero() { Duration::from_millis(1) } else { await_interval };
     if wait_send {
