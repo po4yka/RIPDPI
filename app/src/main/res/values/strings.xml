@@ -35,6 +35,11 @@
     <string name="diagnostics_action_cancel">Cancel active scan</string>
     <string name="diagnostics_action_export">Export latest bundle</string>
     <string name="diagnostics_profiles_title">Active profile</string>
+    <string name="diagnostics_probe_profile_title">Automatic probing</string>
+    <string name="diagnostics_probe_path_title">Path restriction</string>
+    <string name="diagnostics_probe_recommendation_title">Recommendation</string>
+    <string name="diagnostics_probe_signature_title">Recommended strategy</string>
+    <string name="diagnostics_probe_status_skipped">Skipped</string>
     <string name="diagnostics_snapshot_title">Current network snapshot</string>
     <string name="diagnostics_history_empty">No diagnostics sessions yet.</string>
     <string name="diagnostics_monitor_empty">Continuous monitor is waiting for an active RIPDPI session.</string>

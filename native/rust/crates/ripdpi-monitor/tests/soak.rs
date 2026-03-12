@@ -10,8 +10,8 @@ use native_soak_support::{
     acquire_global_lock, assert_growth, write_json_artifact, GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW,
 };
 use ripdpi_monitor::{
-    DnsTarget, DomainTarget, MonitorSession, NativeSessionEvent, ScanPathMode, ScanProgress, ScanReport, ScanRequest,
-    TcpTarget,
+    DnsTarget, DomainTarget, MonitorSession, NativeSessionEvent, ScanKind, ScanPathMode, ScanProgress, ScanReport,
+    ScanRequest, TcpTarget,
 };
 use serde_json::json;
 
@@ -219,6 +219,7 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
         profile_id: "fixture-soak".to_string(),
         display_name: "Local diagnostics soak".to_string(),
         path_mode: ScanPathMode::RawPath,
+        kind: ScanKind::Connectivity,
         proxy_host: None,
         proxy_port: None,
         domain_targets: vec![DomainTarget {
@@ -244,7 +245,9 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
             host_header: Some(manifest.fixture_domain.clone()),
             fat_header_requests: Some(4),
         }],
+        quic_targets: vec![],
         whitelist_sni: vec![manifest.fixture_domain.clone()],
+        strategy_probe: None,
     }
 }
 

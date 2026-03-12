@@ -9,6 +9,12 @@ enum class ScanPathMode {
 }
 
 @Serializable
+enum class ScanKind {
+    CONNECTIVITY,
+    STRATEGY_PROBE,
+}
+
+@Serializable
 data class DomainTarget(
     val host: String,
     val connectIp: String? = null,
@@ -38,16 +44,32 @@ data class TcpTarget(
 )
 
 @Serializable
+data class QuicTarget(
+    val host: String,
+    val connectIp: String? = null,
+    val port: Int = 443,
+)
+
+@Serializable
+data class StrategyProbeRequest(
+    val suiteId: String = "quick_v1",
+    val baseProxyConfigJson: String? = null,
+)
+
+@Serializable
 data class ScanRequest(
     val profileId: String,
     val displayName: String,
     val pathMode: ScanPathMode,
+    val kind: ScanKind = ScanKind.CONNECTIVITY,
     val proxyHost: String? = null,
     val proxyPort: Int? = null,
     val domainTargets: List<DomainTarget> = emptyList(),
     val dnsTargets: List<DnsTarget> = emptyList(),
     val tcpTargets: List<TcpTarget> = emptyList(),
+    val quicTargets: List<QuicTarget> = emptyList(),
     val whitelistSni: List<String> = emptyList(),
+    val strategyProbe: StrategyProbeRequest? = null,
 )
 
 @Serializable
@@ -83,6 +105,42 @@ data class ScanReport(
     val finishedAt: Long,
     val summary: String,
     val results: List<ProbeResult> = emptyList(),
+    val strategyProbeReport: StrategyProbeReport? = null,
+)
+
+@Serializable
+data class StrategyProbeReport(
+    val suiteId: String,
+    val tcpCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
+    val quicCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
+    val recommendation: StrategyProbeRecommendation,
+)
+
+@Serializable
+data class StrategyProbeCandidateSummary(
+    val id: String,
+    val label: String,
+    val family: String,
+    val outcome: String,
+    val rationale: String,
+    val succeededTargets: Int,
+    val totalTargets: Int,
+    val weightedSuccessScore: Int,
+    val totalWeight: Int,
+    val qualityScore: Int,
+    val averageLatencyMs: Long? = null,
+    val skipped: Boolean = false,
+)
+
+@Serializable
+data class StrategyProbeRecommendation(
+    val tcpCandidateId: String,
+    val tcpCandidateLabel: String,
+    val quicCandidateId: String,
+    val quicCandidateLabel: String,
+    val rationale: String,
+    val recommendedProxyConfigJson: String,
+    val strategySignature: BypassStrategySignature? = null,
 )
 
 @Serializable

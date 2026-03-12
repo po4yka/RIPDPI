@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
@@ -13,16 +14,22 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.ScanRequest
+import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ShareSummary
+import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
+import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
+import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -95,6 +102,7 @@ data class DiagnosticsProfileOptionUiModel(
     val id: String,
     val name: String,
     val source: String,
+    val kind: ScanKind = ScanKind.CONNECTIVITY,
 )
 
 data class DiagnosticsProgressUiModel(
@@ -154,8 +162,37 @@ data class DiagnosticsSessionDetailUiModel(
     val snapshots: List<DiagnosticsNetworkSnapshotUiModel>,
     val events: List<DiagnosticsEventUiModel>,
     val contextGroups: List<DiagnosticsContextGroupUiModel>,
+    val strategyProbeReport: DiagnosticsStrategyProbeReportUiModel? = null,
     val hasSensitiveDetails: Boolean,
     val sensitiveDetailsVisible: Boolean,
+)
+
+data class DiagnosticsStrategyProbeCandidateUiModel(
+    val id: String,
+    val label: String,
+    val outcome: String,
+    val rationale: String,
+    val metrics: List<DiagnosticsMetricUiModel>,
+    val tone: DiagnosticsTone,
+    val skipped: Boolean,
+)
+
+data class DiagnosticsStrategyProbeFamilyUiModel(
+    val title: String,
+    val candidates: List<DiagnosticsStrategyProbeCandidateUiModel>,
+)
+
+data class DiagnosticsStrategyProbeRecommendationUiModel(
+    val headline: String,
+    val rationale: String,
+    val fields: List<DiagnosticsFieldUiModel>,
+    val signature: List<DiagnosticsFieldUiModel>,
+)
+
+data class DiagnosticsStrategyProbeReportUiModel(
+    val suiteLabel: String,
+    val recommendation: DiagnosticsStrategyProbeRecommendationUiModel,
+    val families: List<DiagnosticsStrategyProbeFamilyUiModel>,
 )
 
 data class DiagnosticsOverviewUiModel(
@@ -177,6 +214,12 @@ data class DiagnosticsScanUiModel(
     val activeProgress: DiagnosticsProgressUiModel? = null,
     val latestSession: DiagnosticsSessionRowUiModel? = null,
     val latestResults: List<DiagnosticsProbeResultUiModel> = emptyList(),
+    val selectedProfileScopeLabel: String? = null,
+    val runRawEnabled: Boolean = true,
+    val runInPathEnabled: Boolean = true,
+    val runRawHint: String? = null,
+    val runInPathHint: String? = null,
+    val strategyProbeReport: DiagnosticsStrategyProbeReportUiModel? = null,
     val isBusy: Boolean = false,
 )
 
@@ -302,6 +345,7 @@ class DiagnosticsViewModel
     @Inject
     constructor(
         private val diagnosticsManager: DiagnosticsManager,
+        private val appSettingsRepository: AppSettingsRepository,
     ) : ViewModel() {
         private val json = Json { ignoreUnknownKeys = true }
         private val timestampFormatter = SimpleDateFormat("MMM d, HH:mm", Locale.US)
@@ -327,6 +371,7 @@ class DiagnosticsViewModel
         val uiState: StateFlow<DiagnosticsUiState> =
             combine(
                 diagnosticsManager.profiles,
+                appSettingsRepository.settings,
                 diagnosticsManager.activeScanProgress,
                 diagnosticsManager.sessions,
                 diagnosticsManager.approachStats,
@@ -354,33 +399,35 @@ class DiagnosticsViewModel
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
                 val profiles = values[0] as List<DiagnosticProfileEntity>
-                val progress = values[1] as ScanProgress?
-                val sessions = values[2] as List<ScanSessionEntity>
-                val approachStats = values[3] as List<BypassApproachSummary>
-                val snapshots = values[4] as List<NetworkSnapshotEntity>
-                val contexts = values[5] as List<DiagnosticContextEntity>
-                val telemetry = values[6] as List<TelemetrySampleEntity>
-                val nativeEvents = values[7] as List<NativeSessionEventEntity>
-                val exports = values[8] as List<ExportRecordEntity>
-                val selectedSectionRequest = values[9] as DiagnosticsSection
-                val selectedProfileId = values[10] as String?
-                val selectedApproachMode = values[11] as DiagnosticsApproachMode
-                val selectedProbe = values[12] as DiagnosticsProbeResultUiModel?
-                val selectedEventId = values[13] as String?
-                val sessionPathMode = values[14] as String?
-                val sessionStatus = values[15] as String?
-                val sessionSearch = values[16] as String
-                val eventSource = values[17] as String?
-                val eventSeverity = values[18] as String?
-                val eventSearch = values[19] as String
-                val eventAutoScroll = values[20] as Boolean
-                val sessionDetail = values[21] as DiagnosticsSessionDetailUiModel?
-                val approachDetail = values[22] as DiagnosticsApproachDetailUiModel?
-                val sensitiveSessionDetailsVisible = values[23] as Boolean
-                val archiveActionState = values[24] as ArchiveActionState
+                val settings = values[1] as com.poyka.ripdpi.proto.AppSettings
+                val progress = values[2] as ScanProgress?
+                val sessions = values[3] as List<ScanSessionEntity>
+                val approachStats = values[4] as List<BypassApproachSummary>
+                val snapshots = values[5] as List<NetworkSnapshotEntity>
+                val contexts = values[6] as List<DiagnosticContextEntity>
+                val telemetry = values[7] as List<TelemetrySampleEntity>
+                val nativeEvents = values[8] as List<NativeSessionEventEntity>
+                val exports = values[9] as List<ExportRecordEntity>
+                val selectedSectionRequest = values[10] as DiagnosticsSection
+                val selectedProfileId = values[11] as String?
+                val selectedApproachMode = values[12] as DiagnosticsApproachMode
+                val selectedProbe = values[13] as DiagnosticsProbeResultUiModel?
+                val selectedEventId = values[14] as String?
+                val sessionPathMode = values[15] as String?
+                val sessionStatus = values[16] as String?
+                val sessionSearch = values[17] as String
+                val eventSource = values[18] as String?
+                val eventSeverity = values[19] as String?
+                val eventSearch = values[20] as String
+                val eventAutoScroll = values[21] as Boolean
+                val sessionDetail = values[22] as DiagnosticsSessionDetailUiModel?
+                val approachDetail = values[23] as DiagnosticsApproachDetailUiModel?
+                val sensitiveSessionDetailsVisible = values[24] as Boolean
+                val archiveActionState = values[25] as ArchiveActionState
 
                 buildUiState(
                     profiles = profiles,
+                    settings = settings,
                     progress = progress,
                     sessions = sessions,
                     approachStats = approachStats,
@@ -595,6 +642,7 @@ class DiagnosticsViewModel
 
         private fun buildUiState(
             profiles: List<DiagnosticProfileEntity>,
+            settings: com.poyka.ripdpi.proto.AppSettings,
             progress: ScanProgress?,
             sessions: List<ScanSessionEntity>,
             approachStats: List<BypassApproachSummary>,
@@ -623,6 +671,7 @@ class DiagnosticsViewModel
             val activeProfile =
                 profiles.firstOrNull { it.id == selectedProfileId }
                     ?: profiles.firstOrNull()
+            val activeProfileRequest = activeProfile?.decodeRequest()
             val latestSnapshot = snapshots.firstOrNull()?.toUiModel(showSensitiveDetails = false)
             val latestContext = (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.decodeContext()
             val eventModels = nativeEvents.map { it.toUiModel() }
@@ -630,8 +679,24 @@ class DiagnosticsViewModel
             val latestCompletedSession = sessions.firstOrNull { it.reportJson != null } ?: sessions.firstOrNull()
             val latestReport = latestCompletedSession?.reportJson?.let(::decodeReport)
             val latestReportResults = latestReport?.results?.mapIndexed(::toProbeResultUiModel).orEmpty()
+            val latestStrategyProbeReport = latestReport?.strategyProbeReport?.toUiModel()
             val currentTelemetry = telemetry.firstOrNull()
             val health = deriveHealth(progress, latestCompletedSession, currentTelemetry, nativeEvents)
+            val strategyProbeSelected = activeProfileRequest?.kind == ScanKind.STRATEGY_PROBE
+            val rawArgsEnabled = settings.enableCmdSettings
+            val runRawEnabled = progress == null && !(strategyProbeSelected && rawArgsEnabled)
+            val runInPathEnabled = progress == null && !strategyProbeSelected
+            val runRawHint =
+                when {
+                    strategyProbeSelected && rawArgsEnabled -> "Automatic probing only works with visual RIPDPI settings. Command-line mode is active."
+                    strategyProbeSelected -> "Automatic probing starts a temporary raw-path RIPDPI runtime and returns a manual recommendation."
+                    else -> null
+                }
+            val runInPathHint =
+                when {
+                    strategyProbeSelected -> "Automatic probing is raw-path only because it launches isolated temporary strategy trials."
+                    else -> null
+                }
             val selectedSection =
                 if (progress != null) {
                     DiagnosticsSection.Scan
@@ -733,6 +798,12 @@ class DiagnosticsViewModel
                         activeProgress = progress?.toUiModel(),
                         latestSession = latestCompletedSession?.let(::toSessionRowUiModel),
                         latestResults = latestReportResults,
+                        selectedProfileScopeLabel = activeProfileRequest.toScopeLabel(rawArgsEnabled = rawArgsEnabled),
+                        runRawEnabled = runRawEnabled,
+                        runInPathEnabled = runInPathEnabled,
+                        runRawHint = runRawHint,
+                        runInPathHint = runInPathHint,
+                        strategyProbeReport = latestStrategyProbeReport,
                         isBusy = progress != null,
                     ),
                 live =
@@ -1092,6 +1163,9 @@ class DiagnosticsViewModel
         private fun decodeReport(reportJson: String): ScanReport? =
             runCatching { json.decodeFromString(ScanReport.serializer(), reportJson) }.getOrNull()
 
+        private fun DiagnosticProfileEntity.decodeRequest(): ScanRequest? =
+            runCatching { json.decodeFromString(ScanRequest.serializer(), requestJson) }.getOrNull()
+
         private fun decodeProbeDetails(detailJson: String): List<ProbeDetail> =
             runCatching { json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson) }.getOrElse { emptyList() }
 
@@ -1120,6 +1194,7 @@ class DiagnosticsViewModel
                 id = id,
                 name = name,
                 source = source,
+                kind = decodeRequest()?.kind ?: ScanKind.CONNECTIVITY,
             )
 
         private fun toSessionRowUiModel(session: ScanSessionEntity): DiagnosticsSessionRowUiModel {
@@ -1184,6 +1259,132 @@ class DiagnosticsViewModel
                 tone = toTone(),
             )
 
+        private fun strategySignatureFields(signature: BypassStrategySignature): List<DiagnosticsFieldUiModel> =
+            buildList {
+                add(DiagnosticsFieldUiModel("Mode", signature.mode))
+                add(DiagnosticsFieldUiModel("Config source", signature.configSource))
+                add(DiagnosticsFieldUiModel("Autolearn", signature.hostAutolearn))
+                add(DiagnosticsFieldUiModel("Chain", signature.chainSummary))
+                add(DiagnosticsFieldUiModel("Desync", signature.desyncMethod))
+                add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
+                add(DiagnosticsFieldUiModel("TLS record split", signature.tlsRecordSplitEnabled.toString()))
+                signature.tlsRecordMarker?.let {
+                    add(DiagnosticsFieldUiModel("TLS record marker", it))
+                }
+                signature.splitMarker?.let {
+                    add(DiagnosticsFieldUiModel("Split marker", it))
+                }
+                signature.fakeTlsBaseMode?.let {
+                    add(DiagnosticsFieldUiModel("Fake TLS base", formatFakeTlsBaseMode(it)))
+                }
+                signature.fakeSniMode?.let {
+                    add(
+                        DiagnosticsFieldUiModel(
+                            "Fake TLS SNI",
+                            formatFakeTlsSni(
+                                mode = it,
+                                fixedValue = signature.fakeSniValue,
+                            ),
+                        ),
+                    )
+                }
+                if (signature.fakeTlsMods.isNotEmpty()) {
+                    add(DiagnosticsFieldUiModel("Fake TLS mods", formatFakeTlsMods(signature.fakeTlsMods)))
+                }
+                signature.fakeTlsSize?.let {
+                    add(DiagnosticsFieldUiModel("Fake TLS size", formatFakeTlsSize(it)))
+                }
+                signature.quicFakeProfile?.let {
+                    add(DiagnosticsFieldUiModel("QUIC fake profile", formatQuicFakeProfile(it)))
+                }
+                signature.quicFakeHost?.let {
+                    add(DiagnosticsFieldUiModel("QUIC fake host", it))
+                }
+                signature.fakeOffsetMarker?.let {
+                    add(DiagnosticsFieldUiModel("Fake offset marker", it))
+                }
+                add(DiagnosticsFieldUiModel("Route group", signature.routeGroup ?: "Unknown"))
+            }
+
+        private fun StrategyProbeCandidateSummary.toUiModel(): DiagnosticsStrategyProbeCandidateUiModel =
+            DiagnosticsStrategyProbeCandidateUiModel(
+                id = id,
+                label = label,
+                outcome = outcome.replaceFirstChar { it.uppercase() },
+                rationale = rationale,
+                metrics =
+                    buildList {
+                        add(DiagnosticsMetricUiModel("Targets", "$succeededTargets/$totalTargets"))
+                        add(DiagnosticsMetricUiModel("Weight", "$weightedSuccessScore/$totalWeight"))
+                        add(
+                            DiagnosticsMetricUiModel(
+                                "Quality",
+                                qualityScore.toString(),
+                                tone =
+                                    when {
+                                        qualityScore >= totalTargets.coerceAtLeast(1) * 3 -> DiagnosticsTone.Positive
+                                        qualityScore > 0 -> DiagnosticsTone.Warning
+                                        else -> DiagnosticsTone.Neutral
+                                    },
+                            ),
+                        )
+                        averageLatencyMs?.let {
+                            add(DiagnosticsMetricUiModel("Latency", "${it} ms", DiagnosticsTone.Info))
+                        }
+                    },
+                tone =
+                    when {
+                        skipped -> DiagnosticsTone.Neutral
+                        outcome.equals("success", ignoreCase = true) -> DiagnosticsTone.Positive
+                        outcome.equals("partial", ignoreCase = true) -> DiagnosticsTone.Warning
+                        else -> DiagnosticsTone.Negative
+                    },
+                skipped = skipped,
+            )
+
+        private fun StrategyProbeRecommendation.toUiModel(): DiagnosticsStrategyProbeRecommendationUiModel =
+            DiagnosticsStrategyProbeRecommendationUiModel(
+                headline = "$tcpCandidateLabel + $quicCandidateLabel",
+                rationale = rationale,
+                fields =
+                    listOf(
+                        DiagnosticsFieldUiModel("TCP recommendation", tcpCandidateLabel),
+                        DiagnosticsFieldUiModel("QUIC recommendation", quicCandidateLabel),
+                        DiagnosticsFieldUiModel("Why it won", rationale),
+                    ),
+                signature = strategySignature?.let(::strategySignatureFields).orEmpty(),
+            )
+
+        private fun StrategyProbeReport.toUiModel(): DiagnosticsStrategyProbeReportUiModel =
+            DiagnosticsStrategyProbeReportUiModel(
+                suiteLabel = suiteId.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                recommendation = recommendation.toUiModel(),
+                families =
+                    listOf(
+                        DiagnosticsStrategyProbeFamilyUiModel(
+                            title = "TCP candidates",
+                            candidates = tcpCandidates.map { it.toUiModel() },
+                        ),
+                        DiagnosticsStrategyProbeFamilyUiModel(
+                            title = "QUIC candidates",
+                            candidates = quicCandidates.map { it.toUiModel() },
+                        ),
+                    ),
+            )
+
+        private fun ScanRequest?.toScopeLabel(rawArgsEnabled: Boolean): String? =
+            when (this?.kind) {
+                ScanKind.STRATEGY_PROBE ->
+                    if (rawArgsEnabled) {
+                        "Automatic probing · raw-path only · blocked by command-line mode"
+                    } else {
+                        "Automatic probing · raw-path only"
+                    }
+                ScanKind.CONNECTIVITY -> "Connectivity profile"
+                null -> null
+                else -> null
+            }
+
         private fun BypassApproachDetail.toUiModel(): DiagnosticsApproachDetailUiModel =
             DiagnosticsApproachDetailUiModel(
                 approach =
@@ -1196,51 +1397,7 @@ class DiagnosticsViewModel
                     ),
                 signature =
                     buildList {
-                        strategySignature?.let { signature ->
-                            add(DiagnosticsFieldUiModel("Mode", signature.mode))
-                            add(DiagnosticsFieldUiModel("Config source", signature.configSource))
-                            add(DiagnosticsFieldUiModel("Autolearn", signature.hostAutolearn))
-                            add(DiagnosticsFieldUiModel("Chain", signature.chainSummary))
-                            add(DiagnosticsFieldUiModel("Desync", signature.desyncMethod))
-                            add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
-                            add(DiagnosticsFieldUiModel("TLS record split", signature.tlsRecordSplitEnabled.toString()))
-                            signature.tlsRecordMarker?.let {
-                                add(DiagnosticsFieldUiModel("TLS record marker", it))
-                            }
-                            signature.splitMarker?.let {
-                                add(DiagnosticsFieldUiModel("Split marker", it))
-                            }
-                            signature.fakeTlsBaseMode?.let {
-                                add(DiagnosticsFieldUiModel("Fake TLS base", formatFakeTlsBaseMode(it)))
-                            }
-                            signature.fakeSniMode?.let {
-                                add(
-                                    DiagnosticsFieldUiModel(
-                                        "Fake TLS SNI",
-                                        formatFakeTlsSni(
-                                            mode = it,
-                                            fixedValue = signature.fakeSniValue,
-                                        ),
-                                    ),
-                                )
-                            }
-                            if (signature.fakeTlsMods.isNotEmpty()) {
-                                add(DiagnosticsFieldUiModel("Fake TLS mods", formatFakeTlsMods(signature.fakeTlsMods)))
-                            }
-                            signature.fakeTlsSize?.let {
-                                add(DiagnosticsFieldUiModel("Fake TLS size", formatFakeTlsSize(it)))
-                            }
-                            signature.quicFakeProfile?.let {
-                                add(DiagnosticsFieldUiModel("QUIC fake profile", formatQuicFakeProfile(it)))
-                            }
-                            signature.quicFakeHost?.let {
-                                add(DiagnosticsFieldUiModel("QUIC fake host", it))
-                            }
-                            signature.fakeOffsetMarker?.let {
-                                add(DiagnosticsFieldUiModel("Fake offset marker", it))
-                            }
-                            add(DiagnosticsFieldUiModel("Route group", signature.routeGroup ?: "Unknown"))
-                        }
+                        strategySignature?.let { addAll(strategySignatureFields(it)) }
                     },
                 breakdown =
                     summary.outcomeBreakdown.map { breakdown ->
@@ -1287,6 +1444,7 @@ class DiagnosticsViewModel
                 snapshots = snapshots.mapNotNull { it.toUiModel(showSensitiveDetails = showSensitiveDetails) },
                 events = events.map { it.toUiModel() },
                 contextGroups = context?.toUiGroups(showSensitiveDetails = showSensitiveDetails).orEmpty(),
+                strategyProbeReport = session.reportJson?.let(::decodeReport)?.strategyProbeReport?.toUiModel(),
                 hasSensitiveDetails = true,
                 sensitiveDetailsVisible = showSensitiveDetails,
             )

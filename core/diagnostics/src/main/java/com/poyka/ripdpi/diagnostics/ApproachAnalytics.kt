@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
@@ -167,6 +168,68 @@ fun deriveBypassStrategySignature(
             settings
                 .effectiveFakeOffsetMarker()
                 .takeUnless { it == DefaultFakeOffsetMarker },
+        routeGroup = routeGroup?.takeUnless { it.isBlank() || it == "unknown" },
+    )
+}
+
+fun deriveBypassStrategySignature(
+    preferences: RipDpiProxyUIPreferences,
+    routeGroup: String?,
+    modeOverride: Mode,
+): BypassStrategySignature {
+    val tcpSteps = preferences.tcpChainSteps
+    val udpSteps = preferences.udpChainSteps
+    val primaryTcpStep = primaryTcpChainStep(tcpSteps)
+    val tlsRecStep = tlsPreludeTcpChainStep(tcpSteps)
+    val protocols =
+        buildList {
+            if (preferences.desyncHttp) add("HTTP")
+            if (preferences.desyncHttps) add("HTTPS")
+            if (preferences.desyncUdp) add("UDP")
+        }.ifEmpty {
+            listOf("NONE")
+        }
+    val hasFakeStep = tcpSteps.any { step -> step.kind == TcpChainStepKind.Fake }
+    val hasCustomFakeTlsProfile =
+        preferences.fakeTlsUseOriginal ||
+            preferences.fakeTlsRandomize ||
+            preferences.fakeTlsDupSessionId ||
+            preferences.fakeTlsPadEncap ||
+            preferences.fakeTlsSize != 0 ||
+            preferences.fakeTlsSniMode != FakeTlsSniModeFixed ||
+            (preferences.fakeTlsSniMode == FakeTlsSniModeFixed &&
+                preferences.fakeSni.isNotBlank() &&
+                preferences.fakeSni != com.poyka.ripdpi.data.DefaultFakeSni)
+    val fakeTlsProfileActive = hasFakeStep && preferences.desyncHttps && hasCustomFakeTlsProfile
+    val quicFakeProfileActive = preferences.desyncUdp && preferences.quicFakeProfile != QuicFakeProfileDisabled
+    val fakeTlsMods =
+        buildList {
+            if (preferences.fakeTlsRandomize) add("rand")
+            if (preferences.fakeTlsDupSessionId) add("dupsid")
+            if (preferences.fakeTlsPadEncap) add("padencap")
+        }
+
+    return BypassStrategySignature(
+        mode = modeOverride.name,
+        configSource = "ui",
+        hostAutolearn = if (preferences.hostAutolearnEnabled) "enabled" else "disabled",
+        desyncMethod = preferences.desyncMethod.wireName,
+        chainSummary = preferences.chainSummary,
+        protocolToggles = protocols,
+        tlsRecordSplitEnabled = tlsRecStep != null,
+        tlsRecordMarker = tlsRecStep?.marker,
+        splitMarker = primaryTcpStep?.marker,
+        fakeSniMode = preferences.fakeTlsSniMode.takeIf { fakeTlsProfileActive },
+        fakeSniValue = preferences.fakeSni.takeIf { fakeTlsProfileActive && preferences.fakeTlsSniMode == FakeTlsSniModeFixed },
+        fakeTlsBaseMode = if (fakeTlsProfileActive) if (preferences.fakeTlsUseOriginal) "original" else "default" else null,
+        fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
+        fakeTlsSize = preferences.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
+        quicFakeProfile = preferences.quicFakeProfile.takeIf { quicFakeProfileActive },
+        quicFakeHost =
+            preferences
+                .quicFakeHost
+                .takeIf { quicFakeProfileActive && preferences.quicFakeProfile == QuicFakeProfileRealisticInitial && it.isNotBlank() },
+        fakeOffsetMarker = preferences.fakeOffsetMarker.takeUnless { it == DefaultFakeOffsetMarker },
         routeGroup = routeGroup?.takeUnless { it.isBlank() || it == "unknown" },
     )
 }

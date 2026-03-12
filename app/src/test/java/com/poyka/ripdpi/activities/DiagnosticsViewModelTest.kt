@@ -25,11 +25,18 @@ import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.QuicTarget
+import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
+import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import com.poyka.ripdpi.diagnostics.ShareSummary
+import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
+import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
+import com.poyka.ripdpi.diagnostics.StrategyProbeReport
+import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -136,7 +143,7 @@ class DiagnosticsViewModelTest {
                     )
             }
 
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -191,7 +198,7 @@ class DiagnosticsViewModelTest {
                         )
                 }
 
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             viewModel.selectSection(DiagnosticsSection.Share)
             viewModel.selectProfile("custom")
@@ -202,6 +209,91 @@ class DiagnosticsViewModelTest {
             assertEquals("custom", manager.lastActiveProfileId)
             assertEquals("custom", state.scan.selectedProfileId)
             assertNotNull(state.scan.activeProgress)
+            collector.cancel()
+        }
+
+    @Test
+    fun `automatic probing profile disables in path and blocks raw run in command line mode`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = "automatic-probing",
+                                name = "Automatic probing",
+                                source = "bundled",
+                                version = 1,
+                                requestJson = strategyProbeProfileRequest(json),
+                                updatedAt = 1L,
+                            ),
+                        )
+                }
+            val settings =
+                com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setEnableCmdSettings(true)
+                    .build()
+
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository(settings))
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val scan = viewModel.uiState.value.scan
+            assertFalse(scan.runRawEnabled)
+            assertFalse(scan.runInPathEnabled)
+            assertTrue(scan.selectedProfileScopeLabel.orEmpty().contains("raw-path only"))
+            assertTrue(scan.runRawHint.orEmpty().contains("Command-line mode", ignoreCase = true))
+            collector.cancel()
+        }
+
+    @Test
+    fun `automatic probing recommendation renders in scan state`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = "automatic-probing",
+                                name = "Automatic probing",
+                                source = "bundled",
+                                version = 1,
+                                requestJson = strategyProbeProfileRequest(json),
+                                updatedAt = 1L,
+                            ),
+                        )
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "probe-session",
+                                profileId = "automatic-probing",
+                                pathMode = "RAW_PATH",
+                                summary = "Recommended hostfake",
+                                reportJson =
+                                    json.encodeToString(
+                                        ScanReport.serializer(),
+                                        strategyProbeScanReport(),
+                                    ),
+                            ),
+                        )
+                }
+
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val strategyProbe = viewModel.uiState.value.scan.strategyProbeReport
+            assertNotNull(strategyProbe)
+            assertEquals("TLS record + hostfake + QUIC realistic burst", strategyProbe?.recommendation?.headline)
+            assertEquals(2, strategyProbe?.families?.size)
+            assertEquals("TCP candidates", strategyProbe?.families?.first()?.title)
+            assertTrue(
+                strategyProbe
+                    ?.recommendation
+                    ?.signature
+                    ?.any { it.label == "Chain" && it.value.contains("hostfake") } == true,
+            )
             collector.cancel()
         }
 
@@ -238,7 +330,7 @@ class DiagnosticsViewModelTest {
                         ),
                 )
             val manager = FakeDiagnosticsManager(detail = detail)
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
 
             viewModel.selectSession("session-1")
@@ -279,7 +371,7 @@ class DiagnosticsViewModelTest {
                             ),
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -334,7 +426,7 @@ class DiagnosticsViewModelTest {
                             routeGroup = "2",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -391,7 +483,7 @@ class DiagnosticsViewModelTest {
                             routeGroup = "4",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -441,7 +533,7 @@ class DiagnosticsViewModelTest {
                             routeGroup = "6",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -483,7 +575,7 @@ class DiagnosticsViewModelTest {
                             routeGroup = "2",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -519,7 +611,7 @@ class DiagnosticsViewModelTest {
                     events = emptyList(),
                 )
             val manager = FakeDiagnosticsManager(detail = wifiDetail)
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
 
             viewModel.selectSession("session-wifi")
@@ -583,7 +675,7 @@ class DiagnosticsViewModelTest {
                         ),
                     )
             }
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -637,7 +729,7 @@ class DiagnosticsViewModelTest {
                         ),
                     )
             }
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -666,7 +758,7 @@ class DiagnosticsViewModelTest {
                             ),
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager)
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -685,6 +777,26 @@ class DiagnosticsViewModelTest {
         profileId: String,
         pathMode: String,
         summary: String,
+        reportJson: String? =
+            json.encodeToString(
+                ScanReport(
+                    sessionId = id,
+                    profileId = profileId,
+                    pathMode = ScanPathMode.valueOf(pathMode),
+                    startedAt = 1L,
+                    finishedAt = 2L,
+                    summary = summary,
+                    results =
+                        listOf(
+                            com.poyka.ripdpi.diagnostics.ProbeResult(
+                                probeType = "dns",
+                                target = "example.org",
+                                outcome = "ok",
+                                details = listOf(ProbeDetail("resolver", "1.1.1.1")),
+                            ),
+                        ),
+                ),
+            ),
     ): ScanSessionEntity =
         ScanSessionEntity(
             id = id,
@@ -693,28 +805,93 @@ class DiagnosticsViewModelTest {
             serviceMode = "VPN",
             status = "completed",
             summary = summary,
-            reportJson =
-                json.encodeToString(
-                    ScanReport(
-                        sessionId = id,
-                        profileId = profileId,
-                        pathMode = ScanPathMode.valueOf(pathMode),
-                        startedAt = 1L,
-                        finishedAt = 2L,
-                        summary = summary,
-                        results =
-                            listOf(
-                                com.poyka.ripdpi.diagnostics.ProbeResult(
-                                    probeType = "dns",
-                                    target = "example.org",
-                                    outcome = "ok",
-                                    details = listOf(ProbeDetail("resolver", "1.1.1.1")),
-                                ),
-                            ),
-                    ),
-                ),
+            reportJson = reportJson,
             startedAt = 1L,
             finishedAt = 2L,
+        )
+
+    private fun strategyProbeProfileRequest(json: Json): String =
+        json.encodeToString(
+            ScanRequest.serializer(),
+            ScanRequest(
+                profileId = "automatic-probing",
+                displayName = "Automatic probing",
+                pathMode = ScanPathMode.RAW_PATH,
+                kind = ScanKind.STRATEGY_PROBE,
+                domainTargets = emptyList(),
+                quicTargets = listOf(QuicTarget(host = "example.org")),
+                strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
+            ),
+        )
+
+    private fun strategyProbeScanReport(): ScanReport =
+        ScanReport(
+            sessionId = "probe-session",
+            profileId = "automatic-probing",
+            pathMode = ScanPathMode.RAW_PATH,
+            startedAt = 10L,
+            finishedAt = 20L,
+            summary = "Recommended hostfake",
+            results = emptyList(),
+            strategyProbeReport =
+                StrategyProbeReport(
+                    suiteId = "quick_v1",
+                    tcpCandidates =
+                        listOf(
+                            StrategyProbeCandidateSummary(
+                                id = "tlsrec_hostfake",
+                                label = "TLS record + hostfake",
+                                family = "hostfake",
+                                outcome = "success",
+                                rationale = "Best HTTPS score",
+                                succeededTargets = 6,
+                                totalTargets = 6,
+                                weightedSuccessScore = 9,
+                                totalWeight = 9,
+                                qualityScore = 24,
+                                averageLatencyMs = 180,
+                            ),
+                        ),
+                    quicCandidates =
+                        listOf(
+                            StrategyProbeCandidateSummary(
+                                id = "quic_realistic_burst",
+                                label = "QUIC realistic burst",
+                                family = "quic_burst",
+                                outcome = "success",
+                                rationale = "Best QUIC score",
+                                succeededTargets = 2,
+                                totalTargets = 2,
+                                weightedSuccessScore = 4,
+                                totalWeight = 4,
+                                qualityScore = 8,
+                                averageLatencyMs = 240,
+                            ),
+                        ),
+                    recommendation =
+                        StrategyProbeRecommendation(
+                            tcpCandidateId = "tlsrec_hostfake",
+                            tcpCandidateLabel = "TLS record + hostfake",
+                            quicCandidateId = "quic_realistic_burst",
+                            quicCandidateLabel = "QUIC realistic burst",
+                            rationale = "Won by full HTTPS and QUIC success",
+                            recommendedProxyConfigJson = "{}",
+                            strategySignature =
+                                BypassStrategySignature(
+                                    mode = "VPN",
+                                    configSource = "ui",
+                                    hostAutolearn = "disabled",
+                                    desyncMethod = "fake",
+                                    chainSummary = "tcp: tlsrec(extlen) -> hostfake(endhost+8)",
+                                    protocolToggles = listOf("HTTP", "HTTPS", "UDP"),
+                                    tlsRecordSplitEnabled = true,
+                                    tlsRecordMarker = "extlen",
+                                    splitMarker = "endhost+8",
+                                    quicFakeProfile = "realistic_initial",
+                                    routeGroup = null,
+                                ),
+                        ),
+                ),
         )
 
     private fun snapshot(

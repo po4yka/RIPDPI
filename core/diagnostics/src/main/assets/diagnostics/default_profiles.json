@@ -28,5 +28,28 @@
         "2gis.com"
       ]
     }
+  },
+  {
+    "id": "automatic-probing",
+    "name": "Automatic probing",
+    "version": 1,
+    "request": {
+      "profileId": "automatic-probing",
+      "displayName": "Automatic probing",
+      "pathMode": "RAW_PATH",
+      "kind": "STRATEGY_PROBE",
+      "domainTargets": [
+        { "host": "www.youtube.com" },
+        { "host": "discord.com" },
+        { "host": "proton.me" }
+      ],
+      "quicTargets": [
+        { "host": "www.youtube.com" },
+        { "host": "discord.com" }
+      ],
+      "strategyProbe": {
+        "suiteId": "quick_v1"
+      }
+    }
   }
 ]

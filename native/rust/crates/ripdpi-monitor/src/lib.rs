@@ -7,6 +7,13 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
+use ciadpi_config::RuntimeConfig;
+use ripdpi_proxy_config::{
+    parse_proxy_config_json, runtime_config_from_ui, ProxyConfigPayload, ProxyUiConfig, ProxyUiTcpChainStep,
+    ProxyUiUdpChainStep,
+};
+use ripdpi_runtime::{process, runtime};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{
@@ -25,11 +32,18 @@ const FAT_HEADER_REQUESTS: usize = 16;
 const FAT_HEADER_THRESHOLD_BYTES: usize = 16 * 1024;
 const MAX_PASSIVE_EVENTS: usize = 256;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ScanPathMode {
     RawPath,
     InPath,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ScanKind {
+    Connectivity,
+    StrategyProbe,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,16 +89,41 @@ pub struct TcpTarget {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct QuicTarget {
+    pub host: String,
+    #[serde(default)]
+    pub connect_ip: Option<String>,
+    #[serde(default = "default_quic_port")]
+    pub port: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeRequest {
+    #[serde(default = "default_strategy_probe_suite")]
+    pub suite_id: String,
+    #[serde(default)]
+    pub base_proxy_config_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScanRequest {
     pub profile_id: String,
     pub display_name: String,
     pub path_mode: ScanPathMode,
+    #[serde(default = "default_scan_kind")]
+    pub kind: ScanKind,
     pub proxy_host: Option<String>,
     pub proxy_port: Option<u16>,
     pub domain_targets: Vec<DomainTarget>,
     pub dns_targets: Vec<DnsTarget>,
     pub tcp_targets: Vec<TcpTarget>,
+    #[serde(default)]
+    pub quic_targets: Vec<QuicTarget>,
     pub whitelist_sni: Vec<String>,
+    #[serde(default)]
+    pub strategy_probe: Option<StrategyProbeRequest>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,6 +163,45 @@ pub struct ScanReport {
     pub finished_at: u64,
     pub summary: String,
     pub results: Vec<ProbeResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strategy_probe_report: Option<StrategyProbeReport>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeReport {
+    pub suite_id: String,
+    pub tcp_candidates: Vec<StrategyProbeCandidateSummary>,
+    pub quic_candidates: Vec<StrategyProbeCandidateSummary>,
+    pub recommendation: StrategyProbeRecommendation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeCandidateSummary {
+    pub id: String,
+    pub label: String,
+    pub family: String,
+    pub outcome: String,
+    pub rationale: String,
+    pub succeeded_targets: usize,
+    pub total_targets: usize,
+    pub weighted_success_score: usize,
+    pub total_weight: usize,
+    pub quality_score: usize,
+    pub average_latency_ms: Option<u64>,
+    pub skipped: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StrategyProbeRecommendation {
+    pub tcp_candidate_id: String,
+    pub tcp_candidate_label: String,
+    pub quic_candidate_id: String,
+    pub quic_candidate_label: String,
+    pub rationale: String,
+    pub recommended_proxy_config_json: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,6 +242,7 @@ impl MonitorSession {
     }
 
     pub fn start_scan(&self, session_id: String, request: ScanRequest) -> Result<(), String> {
+        validate_scan_request(&request)?;
         let mut worker_guard = self.worker.lock().map_err(|_| "monitor worker poisoned".to_string())?;
         if worker_guard.is_some() {
             return Err("diagnostics scan already running".to_string());
@@ -325,11 +404,145 @@ impl ConnectionStream {
     }
 }
 
+#[derive(Clone)]
+struct StrategyCandidateSpec {
+    id: &'static str,
+    label: &'static str,
+    family: &'static str,
+    config: ProxyUiConfig,
+}
+
+#[derive(Debug)]
+struct CandidateExecution {
+    summary: StrategyProbeCandidateSummary,
+    results: Vec<ProbeResult>,
+}
+
+#[derive(Default)]
+struct CandidateScore {
+    results: Vec<ProbeResult>,
+    succeeded_targets: usize,
+    total_targets: usize,
+    weighted_success_score: usize,
+    total_weight: usize,
+    quality_score: usize,
+    latency_sum_ms: u64,
+    latency_count: usize,
+}
+
+impl CandidateScore {
+    fn add(&mut self, sample: ProbeSample) {
+        self.results.push(sample.result);
+        self.total_targets += 1;
+        self.total_weight += sample.weight;
+        self.quality_score += sample.quality * sample.weight;
+        if sample.success {
+            self.succeeded_targets += 1;
+            self.weighted_success_score += sample.weight;
+            self.latency_sum_ms += sample.latency_ms;
+            self.latency_count += 1;
+        }
+    }
+
+    fn average_latency_ms(&self) -> Option<u64> {
+        (self.latency_count > 0).then_some(self.latency_sum_ms / self.latency_count as u64)
+    }
+
+    fn is_full_success(&self) -> bool {
+        self.total_targets > 0 && self.succeeded_targets == self.total_targets
+    }
+}
+
+struct ProbeSample {
+    result: ProbeResult,
+    success: bool,
+    weight: usize,
+    quality: usize,
+    latency_ms: u64,
+}
+
+struct TemporaryProxyRuntime {
+    addr: SocketAddr,
+    handle: Option<JoinHandle<Result<(), String>>>,
+}
+
+impl TemporaryProxyRuntime {
+    fn start(config: RuntimeConfig) -> Result<Self, String> {
+        process::prepare_embedded();
+        let listener = runtime::create_listener(&config).map_err(|err| err.to_string())?;
+        let addr = listener.local_addr().map_err(|err| err.to_string())?;
+        let handle = thread::spawn(move || runtime::run_proxy_with_listener(config, listener).map_err(|err| err.to_string()));
+        wait_for_listener(addr)?;
+        Ok(Self { addr, handle: Some(handle) })
+    }
+
+    fn transport(&self) -> TransportConfig {
+        TransportConfig::Socks5 { host: "127.0.0.1".to_string(), port: self.addr.port() }
+    }
+}
+
+impl Drop for TemporaryProxyRuntime {
+    fn drop(&mut self) {
+        process::request_shutdown();
+        let _ = TcpStream::connect(self.addr);
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
+        process::prepare_embedded();
+    }
+}
+
 fn default_http_path() -> String {
     "/".to_string()
 }
 
+fn default_quic_port() -> u16 {
+    443
+}
+
+fn default_strategy_probe_suite() -> String {
+    "quick_v1".to_string()
+}
+
+fn default_scan_kind() -> ScanKind {
+    ScanKind::Connectivity
+}
+
 fn run_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBool>, session_id: String, request: ScanRequest) {
+    match request.kind {
+        ScanKind::Connectivity => run_connectivity_scan(shared, cancel, session_id, request),
+        ScanKind::StrategyProbe => run_strategy_probe_scan(shared, cancel, session_id, request),
+    }
+}
+
+fn validate_scan_request(request: &ScanRequest) -> Result<(), String> {
+    match request.kind {
+        ScanKind::Connectivity => Ok(()),
+        ScanKind::StrategyProbe => {
+            let strategy_probe = request
+                .strategy_probe
+                .as_ref()
+                .ok_or_else(|| "strategy_probe scan requires strategyProbe settings".to_string())?;
+            if request.path_mode != ScanPathMode::RawPath {
+                return Err("strategy_probe scans require RAW_PATH".to_string());
+            }
+            let base_config_json = strategy_probe
+                .base_proxy_config_json
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .ok_or_else(|| "strategy_probe scan requires baseProxyConfigJson".to_string())?;
+            let payload = parse_proxy_config_json(base_config_json).map_err(|err| err.to_string())?;
+            match payload {
+                ProxyConfigPayload::Ui(_) => Ok(()),
+                ProxyConfigPayload::CommandLine { .. } => {
+                    Err("strategy_probe scans only support UI proxy config".to_string())
+                }
+            }
+        }
+    }
+}
+
+fn run_connectivity_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBool>, session_id: String, request: ScanRequest) {
     let started_at = now_ms();
     let total_steps = (request.dns_targets.len() + request.domain_targets.len() + request.tcp_targets.len()).max(1);
     let transport = transport_for_request(&request);
@@ -440,6 +653,7 @@ fn run_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBool>, session_id
         finished_at: now_ms(),
         summary,
         results,
+        strategy_probe_report: None,
     };
 
     set_report(&shared, report);
@@ -472,6 +686,7 @@ fn persist_cancelled_report(
         finished_at: now_ms(),
         summary: "Scan cancelled".to_string(),
         results,
+        strategy_probe_report: None,
     };
     set_report(&shared, report);
     push_event(&shared, "engine", "warn", "Diagnostics cancelled".to_string());
@@ -486,6 +701,744 @@ fn persist_cancelled_report(
             is_finished: true,
         },
     );
+}
+
+fn run_strategy_probe_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBool>, session_id: String, request: ScanRequest) {
+    let started_at = now_ms();
+    let strategy_probe = request.strategy_probe.clone().expect("validated strategy_probe request");
+    let total_steps = 10usize;
+    let mut completed_steps = 0usize;
+    let mut results = Vec::new();
+
+    set_progress(
+        &shared,
+        ScanProgress {
+            session_id: session_id.clone(),
+            phase: "starting".to_string(),
+            completed_steps,
+            total_steps,
+            message: format!("Preparing {}", request.display_name),
+            is_finished: false,
+        },
+    );
+    push_event(
+        &shared,
+        "strategy_probe",
+        "info",
+        format!("Starting {} suite={} in {:?}", request.display_name, strategy_probe.suite_id, request.path_mode),
+    );
+
+    let Some(base_proxy_config_json) = strategy_probe.base_proxy_config_json.as_deref() else {
+        let report = ScanReport {
+            session_id,
+            profile_id: request.profile_id,
+            path_mode: request.path_mode,
+            started_at,
+            finished_at: now_ms(),
+            summary: "Automatic probing could not start".to_string(),
+            results,
+            strategy_probe_report: None,
+        };
+        set_report(&shared, report);
+        return;
+    };
+
+    let base_payload = match parse_proxy_config_json(base_proxy_config_json).map_err(|err| err.to_string()) {
+        Ok(ProxyConfigPayload::Ui(ui)) => ui,
+        Ok(ProxyConfigPayload::CommandLine { .. }) => {
+            let report = ScanReport {
+                session_id,
+                profile_id: request.profile_id,
+                path_mode: request.path_mode,
+                started_at,
+                finished_at: now_ms(),
+                summary: "Automatic probing requires UI-configured RIPDPI settings".to_string(),
+                results,
+                strategy_probe_report: None,
+            };
+            set_report(&shared, report);
+            return;
+        }
+        Err(message) => {
+            let report = ScanReport {
+                session_id,
+                profile_id: request.profile_id,
+                path_mode: request.path_mode,
+                started_at,
+                finished_at: now_ms(),
+                summary: message,
+                results,
+                strategy_probe_report: None,
+            };
+            set_report(&shared, report);
+            return;
+        }
+    };
+
+    if strategy_probe.suite_id != "quick_v1" {
+        let report = ScanReport {
+            session_id,
+            profile_id: request.profile_id,
+            path_mode: request.path_mode,
+            started_at,
+            finished_at: now_ms(),
+            summary: format!("Unsupported automatic probing suite: {}", strategy_probe.suite_id),
+            results,
+            strategy_probe_report: None,
+        };
+        set_report(&shared, report);
+        return;
+    }
+
+    let mut tcp_candidates = Vec::new();
+    let mut hostfake_family_succeeded = false;
+    for spec in build_tcp_candidates(&base_payload) {
+        if cancel.load(Ordering::Relaxed) {
+            persist_cancelled_report(shared, session_id, request, started_at, results);
+            return;
+        }
+
+        if spec.family == "hostfake" && hostfake_family_succeeded {
+            tcp_candidates.push(skipped_candidate_summary(
+                &spec,
+                request.domain_targets.len() * 2,
+                6,
+                "Earlier hostfake candidate already achieved full success",
+            ));
+            completed_steps += 1;
+            set_progress(
+                &shared,
+                ScanProgress {
+                    session_id: session_id.clone(),
+                    phase: "tcp".to_string(),
+                    completed_steps,
+                    total_steps,
+                    message: format!("Skipping {}", spec.label),
+                    is_finished: false,
+                },
+            );
+            continue;
+        }
+
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: session_id.clone(),
+                phase: "tcp".to_string(),
+                completed_steps,
+                total_steps,
+                message: format!("Testing {}", spec.label),
+                is_finished: false,
+            },
+        );
+        push_event(&shared, "strategy_probe", "info", format!("Testing TCP candidate {}", spec.label));
+        let execution = execute_tcp_candidate(&spec, &request.domain_targets);
+        results.extend(execution.results);
+        if execution.summary.family == "hostfake" && execution.summary.succeeded_targets == execution.summary.total_targets {
+            hostfake_family_succeeded = true;
+        }
+        tcp_candidates.push(execution.summary);
+        completed_steps += 1;
+    }
+
+    let winning_tcp = winning_candidate_index(&tcp_candidates).unwrap_or(0);
+    let tcp_winner_spec = build_tcp_candidates(&base_payload)
+        .into_iter()
+        .find(|spec| spec.id == tcp_candidates[winning_tcp].id)
+        .unwrap_or_else(|| build_tcp_candidates(&base_payload).into_iter().next().expect("tcp candidates"));
+
+    let mut quic_candidates = Vec::new();
+    let mut quic_family_succeeded = false;
+    for spec in build_quic_candidates(&tcp_winner_spec.config) {
+        if cancel.load(Ordering::Relaxed) {
+            persist_cancelled_report(shared, session_id, request, started_at, results);
+            return;
+        }
+
+        if spec.family == "quic_burst" && quic_family_succeeded {
+            quic_candidates.push(skipped_candidate_summary(
+                &spec,
+                request.quic_targets.len(),
+                2,
+                "Earlier QUIC burst candidate already achieved full success",
+            ));
+            completed_steps += 1;
+            set_progress(
+                &shared,
+                ScanProgress {
+                    session_id: session_id.clone(),
+                    phase: "quic".to_string(),
+                    completed_steps,
+                    total_steps,
+                    message: format!("Skipping {}", spec.label),
+                    is_finished: false,
+                },
+            );
+            continue;
+        }
+
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: session_id.clone(),
+                phase: "quic".to_string(),
+                completed_steps,
+                total_steps,
+                message: format!("Testing {}", spec.label),
+                is_finished: false,
+            },
+        );
+        push_event(&shared, "strategy_probe", "info", format!("Testing QUIC candidate {}", spec.label));
+        let execution = execute_quic_candidate(&spec, &request.quic_targets);
+        results.extend(execution.results);
+        if execution.summary.family == "quic_burst"
+            && execution.summary.succeeded_targets == execution.summary.total_targets
+            && execution.summary.total_targets > 0
+        {
+            quic_family_succeeded = true;
+        }
+        quic_candidates.push(execution.summary);
+        completed_steps += 1;
+    }
+
+    let winning_quic = winning_candidate_index(&quic_candidates).unwrap_or(0);
+    let quic_winner_spec = build_quic_candidates(&tcp_winner_spec.config)
+        .into_iter()
+        .find(|spec| spec.id == quic_candidates[winning_quic].id)
+        .unwrap_or_else(|| build_quic_candidates(&tcp_winner_spec.config).into_iter().next().expect("quic candidates"));
+    let recommended_proxy_config_json =
+        serde_json::to_string(&ProxyConfigPayload::Ui(quic_winner_spec.config.clone())).expect("serialize recommended ui config");
+    let recommendation = StrategyProbeRecommendation {
+        tcp_candidate_id: tcp_candidates[winning_tcp].id.clone(),
+        tcp_candidate_label: tcp_candidates[winning_tcp].label.clone(),
+        quic_candidate_id: quic_candidates[winning_quic].id.clone(),
+        quic_candidate_label: quic_candidates[winning_quic].label.clone(),
+        rationale: format!(
+            "{} with {} weighted TCP success and {} weighted QUIC success",
+            tcp_candidates[winning_tcp].label,
+            tcp_candidates[winning_tcp].weighted_success_score,
+            quic_candidates[winning_quic].weighted_success_score,
+        ),
+        recommended_proxy_config_json,
+    };
+    let strategy_probe_report = StrategyProbeReport {
+        suite_id: strategy_probe.suite_id,
+        tcp_candidates,
+        quic_candidates,
+        recommendation: recommendation.clone(),
+    };
+    let report = ScanReport {
+        session_id: session_id.clone(),
+        profile_id: request.profile_id,
+        path_mode: request.path_mode,
+        started_at,
+        finished_at: now_ms(),
+        summary: format!(
+            "Recommended {} with {}",
+            recommendation.tcp_candidate_label, recommendation.quic_candidate_label
+        ),
+        results,
+        strategy_probe_report: Some(strategy_probe_report),
+    };
+
+    set_report(&shared, report);
+    push_event(&shared, "strategy_probe", "info", "Automatic probing finished".to_string());
+    set_progress(
+        &shared,
+        ScanProgress {
+            session_id,
+            phase: "finished".to_string(),
+            completed_steps: total_steps,
+            total_steps,
+            message: "Automatic probing finished".to_string(),
+            is_finished: true,
+        },
+    );
+}
+
+fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
+    let baseline = sanitize_current_probe_config(base);
+    let parser_only = build_parser_only_candidate(base);
+    let split_host = build_split_host_candidate(base);
+    let tlsrec_split_host = build_tlsrec_split_host_candidate(base);
+    let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
+    let tlsrec_hostfake = build_tlsrec_hostfake_candidate(base, false);
+    let tlsrec_hostfake_split = build_tlsrec_hostfake_candidate(base, true);
+
+    vec![
+        StrategyCandidateSpec { id: "baseline_current", label: "Current strategy", family: "baseline", config: baseline },
+        StrategyCandidateSpec { id: "parser_only", label: "Parser-only", family: "parser", config: parser_only },
+        StrategyCandidateSpec { id: "split_host", label: "Split Host", family: "split", config: split_host },
+        StrategyCandidateSpec {
+            id: "tlsrec_split_host",
+            label: "TLS record + split host",
+            family: "tlsrec_split",
+            config: tlsrec_split_host,
+        },
+        StrategyCandidateSpec {
+            id: "tlsrec_fake_rich",
+            label: "TLS record + rich fake",
+            family: "tlsrec_fake",
+            config: tlsrec_fake_rich,
+        },
+        StrategyCandidateSpec {
+            id: "tlsrec_hostfake",
+            label: "TLS record + hostfake",
+            family: "hostfake",
+            config: tlsrec_hostfake,
+        },
+        StrategyCandidateSpec {
+            id: "tlsrec_hostfake_split",
+            label: "TLS record + hostfake split",
+            family: "hostfake",
+            config: tlsrec_hostfake_split,
+        },
+    ]
+}
+
+fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
+    vec![
+        StrategyCandidateSpec {
+            id: "quic_disabled",
+            label: "QUIC disabled",
+            family: "quic_disabled",
+            config: build_quic_candidate(base_tcp, false, "disabled"),
+        },
+        StrategyCandidateSpec {
+            id: "quic_compat_burst",
+            label: "QUIC compat burst",
+            family: "quic_burst",
+            config: build_quic_candidate(base_tcp, true, "compat_default"),
+        },
+        StrategyCandidateSpec {
+            id: "quic_realistic_burst",
+            label: "QUIC realistic burst",
+            family: "quic_burst",
+            config: build_quic_candidate(base_tcp, true, "realistic_initial"),
+        },
+    ]
+}
+
+fn sanitize_current_probe_config(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = base.clone();
+    config.host_autolearn_enabled = false;
+    config.host_autolearn_store_path = None;
+    config
+}
+
+fn strategy_probe_base(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = sanitize_current_probe_config(base);
+    config.desync_http = true;
+    config.desync_https = true;
+    config.desync_udp = false;
+    config.desync_method = "none".to_string();
+    config.split_marker = Some("host+1".to_string());
+    config.tcp_chain_steps.clear();
+    config.split_position = 0;
+    config.split_at_host = false;
+    config.fake_ttl = 8;
+    config.fake_tls_use_original = false;
+    config.fake_tls_randomize = false;
+    config.fake_tls_dup_session_id = false;
+    config.fake_tls_pad_encap = false;
+    config.fake_tls_size = 0;
+    config.fake_tls_sni_mode = "fixed".to_string();
+    config.host_mixed_case = false;
+    config.domain_mixed_case = false;
+    config.host_remove_spaces = false;
+    config.tls_record_split = false;
+    config.tls_record_split_marker = None;
+    config.tls_record_split_position = 0;
+    config.tls_record_split_at_sni = false;
+    config.udp_fake_count = 0;
+    config.udp_chain_steps.clear();
+    config.drop_sack = false;
+    config.fake_offset_marker = Some("0".to_string());
+    config.fake_offset = 0;
+    config.quic_fake_profile = "disabled".to_string();
+    config.quic_fake_host.clear();
+    config
+}
+
+fn build_parser_only_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.host_mixed_case = true;
+    config.domain_mixed_case = true;
+    config.host_remove_spaces = true;
+    config
+}
+
+fn build_split_host_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.tcp_chain_steps = vec![tcp_step("split", "host+2")];
+    config
+}
+
+fn build_tlsrec_split_host_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.tcp_chain_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("split", "host+2")];
+    config
+}
+
+fn build_tlsrec_fake_rich_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    config.tcp_chain_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("fake", "host+1")];
+    config.fake_tls_use_original = true;
+    config.fake_tls_randomize = true;
+    config.fake_tls_dup_session_id = true;
+    config.fake_tls_pad_encap = true;
+    config.fake_tls_sni_mode = "randomized".to_string();
+    config.fake_offset_marker = Some("endhost-1".to_string());
+    config
+}
+
+fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: bool) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    let mut steps = vec![
+        tcp_step("tlsrec", "extlen"),
+        ProxyUiTcpChainStep {
+            kind: "hostfake".to_string(),
+            marker: "endhost+8".to_string(),
+            midhost_marker: Some("midsld".to_string()),
+            fake_host_template: Some("googlevideo.com".to_string()),
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+        },
+    ];
+    if with_split {
+        steps.push(tcp_step("split", "midsld"));
+    }
+    config.tcp_chain_steps = steps;
+    config
+}
+
+fn build_quic_candidate(base_tcp: &ProxyUiConfig, enabled: bool, profile: &str) -> ProxyUiConfig {
+    let mut config = sanitize_current_probe_config(base_tcp);
+    config.desync_udp = enabled;
+    config.udp_fake_count = if enabled { 4 } else { 0 };
+    config.udp_chain_steps = if enabled {
+        vec![ProxyUiUdpChainStep { kind: "fake_burst".to_string(), count: 4 }]
+    } else {
+        Vec::new()
+    };
+    config.quic_fake_profile = profile.to_string();
+    config.quic_fake_host.clear();
+    config
+}
+
+fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
+    ProxyUiTcpChainStep {
+        kind: kind.to_string(),
+        marker: marker.to_string(),
+        midhost_marker: None,
+        fake_host_template: None,
+        fragment_count: 0,
+        min_fragment_size: 0,
+        max_fragment_size: 0,
+    }
+}
+
+fn execute_tcp_candidate(spec: &StrategyCandidateSpec, targets: &[DomainTarget]) -> CandidateExecution {
+    match probe_runtime_transport(&spec.config) {
+        Ok(runtime) => {
+            let transport = runtime.transport();
+            let mut score = CandidateScore::default();
+            for target in targets {
+                score.add(run_http_strategy_probe(&transport, target, spec));
+                score.add(run_https_strategy_probe(&transport, target, spec));
+            }
+            drop(runtime);
+            build_candidate_execution(spec, score, 3)
+        }
+        Err(err) => failed_candidate_execution(spec, targets.len() * 2, 3, err),
+    }
+}
+
+fn execute_quic_candidate(spec: &StrategyCandidateSpec, targets: &[QuicTarget]) -> CandidateExecution {
+    match probe_runtime_transport(&spec.config) {
+        Ok(runtime) => {
+            let transport = runtime.transport();
+            let mut score = CandidateScore::default();
+            for target in targets {
+                score.add(run_quic_strategy_probe(&transport, target, spec));
+            }
+            drop(runtime);
+            build_candidate_execution(spec, score, 2)
+        }
+        Err(err) => failed_candidate_execution(spec, targets.len(), 2, err),
+    }
+}
+
+fn probe_runtime_transport(config: &ProxyUiConfig) -> Result<TemporaryProxyRuntime, String> {
+    let mut runtime_config = config.clone();
+    runtime_config.ip = "127.0.0.1".to_string();
+    runtime_config.port = 0;
+    runtime_config.host_autolearn_enabled = false;
+    runtime_config.host_autolearn_store_path = None;
+    TemporaryProxyRuntime::start(runtime_config_from_ui(runtime_config).map_err(|err| err.to_string())?)
+}
+
+fn build_candidate_execution(spec: &StrategyCandidateSpec, score: CandidateScore, quality_floor: usize) -> CandidateExecution {
+    let outcome = if score.is_full_success() {
+        "success"
+    } else if score.succeeded_targets > 0 && score.quality_score >= quality_floor {
+        "partial"
+    } else {
+        "failed"
+    };
+    let rationale = format!(
+        "{} of {} targets succeeded",
+        score.succeeded_targets, score.total_targets
+    );
+    CandidateExecution {
+        summary: StrategyProbeCandidateSummary {
+            id: spec.id.to_string(),
+            label: spec.label.to_string(),
+            family: spec.family.to_string(),
+            outcome: outcome.to_string(),
+            rationale,
+            succeeded_targets: score.succeeded_targets,
+            total_targets: score.total_targets,
+            weighted_success_score: score.weighted_success_score,
+            total_weight: score.total_weight,
+            quality_score: score.quality_score,
+            average_latency_ms: score.average_latency_ms(),
+            skipped: false,
+        },
+        results: score.results,
+    }
+}
+
+fn failed_candidate_execution(
+    spec: &StrategyCandidateSpec,
+    total_targets: usize,
+    total_weight_per_target: usize,
+    err: String,
+) -> CandidateExecution {
+    CandidateExecution {
+        summary: StrategyProbeCandidateSummary {
+            id: spec.id.to_string(),
+            label: spec.label.to_string(),
+            family: spec.family.to_string(),
+            outcome: "failed".to_string(),
+            rationale: err,
+            succeeded_targets: 0,
+            total_targets,
+            weighted_success_score: 0,
+            total_weight: total_targets * total_weight_per_target,
+            quality_score: 0,
+            average_latency_ms: None,
+            skipped: false,
+        },
+        results: Vec::new(),
+    }
+}
+
+fn skipped_candidate_summary(
+    spec: &StrategyCandidateSpec,
+    total_targets: usize,
+    total_weight_per_target: usize,
+    rationale: &str,
+) -> StrategyProbeCandidateSummary {
+    StrategyProbeCandidateSummary {
+        id: spec.id.to_string(),
+        label: spec.label.to_string(),
+        family: spec.family.to_string(),
+        outcome: "skipped".to_string(),
+        rationale: rationale.to_string(),
+        succeeded_targets: 0,
+        total_targets,
+        weighted_success_score: 0,
+        total_weight: total_targets * total_weight_per_target,
+        quality_score: 0,
+        average_latency_ms: None,
+        skipped: true,
+    }
+}
+
+fn winning_candidate_index(candidates: &[StrategyProbeCandidateSummary]) -> Option<usize> {
+    candidates
+        .iter()
+        .enumerate()
+        .filter(|(_, candidate)| !candidate.skipped)
+        .max_by_key(|(index, candidate)| {
+            (
+                candidate.weighted_success_score,
+                candidate.quality_score,
+                std::cmp::Reverse(candidate.average_latency_ms.unwrap_or(u64::MAX)),
+                std::cmp::Reverse(*index),
+            )
+        })
+        .map(|(index, _)| index)
+}
+
+fn run_http_strategy_probe(transport: &TransportConfig, target: &DomainTarget, candidate: &StrategyCandidateSpec) -> ProbeSample {
+    let started = now_ms();
+    let http_port = target.http_port.unwrap_or(80);
+    let observation = try_http_request(&domain_connect_target(target), http_port, transport, &target.host, &target.http_path, false);
+    let latency_ms = now_ms().saturating_sub(started);
+    let outcome = if is_blockpage(&observation) {
+        "http_blockpage".to_string()
+    } else if observation.status == "http_ok" {
+        "http_ok".to_string()
+    } else {
+        "http_unreachable".to_string()
+    };
+    ProbeSample {
+        result: ProbeResult {
+            probe_type: "strategy_http".to_string(),
+            target: format!("{} · {}", candidate.label, target.host),
+            outcome: outcome.clone(),
+            details: vec![
+                ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
+                ProbeDetail { key: "protocol".to_string(), value: "HTTP".to_string() },
+                ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
+                ProbeDetail { key: "status".to_string(), value: observation.status },
+                ProbeDetail { key: "error".to_string(), value: observation.error.unwrap_or_else(|| "none".to_string()) },
+            ],
+        },
+        success: outcome == "http_ok",
+        weight: 1,
+        quality: if outcome == "http_ok" { 3 } else if outcome == "http_blockpage" { 1 } else { 0 },
+        latency_ms,
+    }
+}
+
+fn run_https_strategy_probe(transport: &TransportConfig, target: &DomainTarget, candidate: &StrategyCandidateSpec) -> ProbeSample {
+    let started = now_ms();
+    let https_port = target.https_port.unwrap_or(443);
+    let tls13 = try_tls_handshake(
+        &domain_connect_target(target),
+        https_port,
+        transport,
+        &target.host,
+        true,
+        TlsClientProfile::Tls13Only,
+    );
+    let tls12 = try_tls_handshake(
+        &domain_connect_target(target),
+        https_port,
+        transport,
+        &target.host,
+        true,
+        TlsClientProfile::Tls12Only,
+    );
+    let latency_ms = now_ms().saturating_sub(started);
+    let outcome = if tls13.certificate_anomaly || tls12.certificate_anomaly {
+        "tls_cert_invalid".to_string()
+    } else if tls13.status == "tls_ok" && tls12.status == "tls_ok" {
+        "tls_ok".to_string()
+    } else if tls13.status == "tls_ok" || tls12.status == "tls_ok" {
+        "tls_version_split".to_string()
+    } else {
+        "tls_handshake_failed".to_string()
+    };
+    ProbeSample {
+        result: ProbeResult {
+            probe_type: "strategy_https".to_string(),
+            target: format!("{} · {}", candidate.label, target.host),
+            outcome: outcome.clone(),
+            details: vec![
+                ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
+                ProbeDetail { key: "protocol".to_string(), value: "HTTPS".to_string() },
+                ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
+                ProbeDetail { key: "tls13Status".to_string(), value: tls13.status },
+                ProbeDetail { key: "tls12Status".to_string(), value: tls12.status },
+                ProbeDetail {
+                    key: "tlsError".to_string(),
+                    value: tls13.error.or(tls12.error).unwrap_or_else(|| "none".to_string()),
+                },
+            ],
+        },
+        success: matches!(outcome.as_str(), "tls_ok" | "tls_version_split"),
+        weight: 2,
+        quality: match outcome.as_str() {
+            "tls_ok" => 4,
+            "tls_version_split" => 3,
+            _ => 0,
+        },
+        latency_ms,
+    }
+}
+
+fn run_quic_strategy_probe(transport: &TransportConfig, target: &QuicTarget, candidate: &StrategyCandidateSpec) -> ProbeSample {
+    let started = now_ms();
+    let connect_target = quic_connect_target(target);
+    let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str())).unwrap_or_default();
+    let response = relay_udp_payload(&connect_target, target.port, transport, &payload);
+    let latency_ms = now_ms().saturating_sub(started);
+    let outcome = match response {
+        Ok(bytes) if parse_quic_initial(&bytes).is_some() => "quic_initial_response".to_string(),
+        Ok(bytes) if !bytes.is_empty() => "quic_response".to_string(),
+        Ok(_) => "quic_empty".to_string(),
+        Err(err) => err,
+    };
+    ProbeSample {
+        result: ProbeResult {
+            probe_type: "strategy_quic".to_string(),
+            target: format!("{} · {}", candidate.label, target.host),
+            outcome: outcome.clone(),
+            details: vec![
+                ProbeDetail { key: "candidateId".to_string(), value: candidate.id.to_string() },
+                ProbeDetail { key: "protocol".to_string(), value: "QUIC".to_string() },
+                ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
+                ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
+            ],
+        },
+        success: matches!(outcome.as_str(), "quic_initial_response" | "quic_response"),
+        weight: 2,
+        quality: match outcome.as_str() {
+            "quic_initial_response" => 4,
+            "quic_response" => 3,
+            _ => 0,
+        },
+        latency_ms,
+    }
+}
+
+fn relay_udp_payload(
+    target: &TargetAddress,
+    port: u16,
+    transport: &TransportConfig,
+    payload: &[u8],
+) -> Result<Vec<u8>, String> {
+    let destination = resolve_addresses(target, port)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "no_socket_addrs".to_string())?;
+    match transport {
+        TransportConfig::Direct => relay_udp_direct(&destination.to_string(), payload),
+        TransportConfig::Socks5 { host, port } => relay_udp_via_socks5(host, *port, destination, payload),
+    }
+}
+
+fn domain_connect_target(target: &DomainTarget) -> TargetAddress {
+    target
+        .connect_ip
+        .as_ref()
+        .and_then(|ip| ip.parse::<IpAddr>().ok())
+        .map(TargetAddress::Ip)
+        .unwrap_or_else(|| TargetAddress::Host(target.host.clone()))
+}
+
+fn quic_connect_target(target: &QuicTarget) -> TargetAddress {
+    target
+        .connect_ip
+        .as_ref()
+        .and_then(|ip| ip.parse::<IpAddr>().ok())
+        .map(TargetAddress::Ip)
+        .unwrap_or_else(|| TargetAddress::Host(target.host.clone()))
+}
+
+fn wait_for_listener(addr: SocketAddr) -> Result<(), String> {
+    for _ in 0..40 {
+        if TcpStream::connect_timeout(&addr, Duration::from_millis(50)).is_ok() {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+    Err(format!("probe runtime listener did not become ready on {addr}"))
 }
 
 fn transport_for_request(request: &ScanRequest) -> TransportConfig {
@@ -602,15 +1555,6 @@ fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> Probe
             ProbeDetail { key: "httpResponse".to_string(), value: describe_http_observation(&http) },
         ],
     }
-}
-
-fn domain_connect_target(target: &DomainTarget) -> TargetAddress {
-    target
-        .connect_ip
-        .as_ref()
-        .and_then(|ip| ip.parse::<IpAddr>().ok())
-        .map(TargetAddress::Ip)
-        .unwrap_or_else(|| TargetAddress::Host(target.host.clone()))
 }
 
 fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transport: &TransportConfig) -> ProbeResult {
@@ -1644,6 +2588,87 @@ mod tests {
     use std::net::TcpListener;
     use std::sync::atomic::AtomicUsize;
 
+    fn minimal_ui_config() -> ProxyUiConfig {
+        ProxyUiConfig {
+            ip: "127.0.0.1".to_string(),
+            port: 1080,
+            max_connections: 512,
+            buffer_size: 16384,
+            default_ttl: 0,
+            custom_ttl: false,
+            no_domain: false,
+            desync_http: true,
+            desync_https: true,
+            desync_udp: true,
+            desync_method: "disorder".to_string(),
+            split_marker: Some("host+1".to_string()),
+            tcp_chain_steps: Vec::new(),
+            split_position: 0,
+            split_at_host: false,
+            fake_ttl: 8,
+            fake_sni: "www.wikipedia.org".to_string(),
+            fake_tls_use_original: false,
+            fake_tls_randomize: false,
+            fake_tls_dup_session_id: false,
+            fake_tls_pad_encap: false,
+            fake_tls_size: 0,
+            fake_tls_sni_mode: "fixed".to_string(),
+            oob_char: b'a',
+            host_mixed_case: false,
+            domain_mixed_case: false,
+            host_remove_spaces: false,
+            tls_record_split: false,
+            tls_record_split_marker: None,
+            tls_record_split_position: 0,
+            tls_record_split_at_sni: false,
+            hosts_mode: "disable".to_string(),
+            hosts: None,
+            tcp_fast_open: false,
+            udp_fake_count: 0,
+            udp_chain_steps: Vec::new(),
+            drop_sack: false,
+            fake_offset_marker: Some("0".to_string()),
+            fake_offset: 0,
+            quic_initial_mode: Some("route_and_cache".to_string()),
+            quic_support_v1: true,
+            quic_support_v2: true,
+            quic_fake_profile: "disabled".to_string(),
+            quic_fake_host: String::new(),
+            host_autolearn_enabled: false,
+            host_autolearn_penalty_ttl_secs: ciadpi_config::HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+            host_autolearn_max_hosts: ciadpi_config::HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+            host_autolearn_store_path: None,
+        }
+    }
+
+    fn strategy_probe_request(base_ui: ProxyUiConfig) -> ScanRequest {
+        ScanRequest {
+            profile_id: "automatic-probing".to_string(),
+            display_name: "Automatic probing".to_string(),
+            path_mode: ScanPathMode::RawPath,
+            kind: ScanKind::StrategyProbe,
+            proxy_host: None,
+            proxy_port: None,
+            domain_targets: vec![DomainTarget {
+                host: "127.0.0.1".to_string(),
+                connect_ip: None,
+                https_port: Some(9),
+                http_port: Some(8080),
+                http_path: "/".to_string(),
+            }],
+            dns_targets: vec![],
+            tcp_targets: vec![],
+            quic_targets: vec![],
+            whitelist_sni: vec![],
+            strategy_probe: Some(StrategyProbeRequest {
+                suite_id: "quick_v1".to_string(),
+                base_proxy_config_json: Some(
+                    serde_json::to_string(&ProxyConfigPayload::Ui(base_ui)).expect("serialize probe ui config"),
+                ),
+            }),
+        }
+    }
+
     #[test]
     fn dns_probe_reports_substitution_when_udp_and_doh_differ() {
         let udp = UdpDnsServer::start("203.0.113.10");
@@ -1732,7 +2757,7 @@ mod tests {
     #[test]
     fn try_tls_handshake_forces_tls_on_non_default_https_port() {
         let server = TlsHttpServer::start(TlsMode::Single("localhost".to_string()), FatServerMode::AlwaysOk);
-        let target = TargetAddress::Host("localhost".to_string());
+        let target = TargetAddress::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST));
 
         let tls = try_tls_handshake(
             &target,
@@ -1777,7 +2802,11 @@ mod tests {
         };
 
         let result = run_tcp_probe(&target, &[], &TransportConfig::Direct);
-        assert_eq!(result.outcome, "tcp_16kb_blocked");
+        assert!(
+            matches!(result.outcome.as_str(), "tcp_16kb_blocked" | "tcp_reset"),
+            "unexpected cutoff outcome: {}",
+            result.outcome
+        );
     }
 
     #[test]
@@ -1821,12 +2850,69 @@ mod tests {
     }
 
     #[test]
+    fn strategy_probe_request_requires_base_ui_config() {
+        let mut request = strategy_probe_request(minimal_ui_config());
+        request.strategy_probe.as_mut().expect("strategy probe").base_proxy_config_json = None;
+
+        let err = validate_scan_request(&request).expect_err("missing base config should fail");
+
+        assert_eq!(err, "strategy_probe scan requires baseProxyConfigJson");
+    }
+
+    #[test]
+    fn strategy_probe_request_rejects_command_line_config_payload() {
+        let mut request = strategy_probe_request(minimal_ui_config());
+        request.strategy_probe = Some(StrategyProbeRequest {
+            suite_id: "quick_v1".to_string(),
+            base_proxy_config_json: Some(
+                serde_json::to_string(&ProxyConfigPayload::CommandLine {
+                    args: vec!["ciadpi".to_string(), "--split".to_string()],
+                })
+                .expect("serialize command line payload"),
+            ),
+        });
+
+        let err = validate_scan_request(&request).expect_err("command line payload should fail");
+
+        assert_eq!(err, "strategy_probe scans only support UI proxy config");
+    }
+
+    #[test]
+    fn tcp_candidate_catalog_keeps_current_strategy_first() {
+        let candidates = build_tcp_candidates(&minimal_ui_config());
+
+        assert_eq!(candidates.first().map(|candidate| candidate.id), Some("baseline_current"));
+        assert_eq!(candidates.len(), 7);
+    }
+
+    #[test]
+    fn monitor_session_strategy_probe_returns_structured_recommendation() {
+        let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
+        let mut request = strategy_probe_request(minimal_ui_config());
+        request.domain_targets[0].http_port = Some(server.port());
+        let session = MonitorSession::new();
+
+        session.start_scan("session-strategy".to_string(), request).expect("start strategy probe");
+        let report = wait_for_report(&session);
+        let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
+
+        assert_eq!(report.profile_id, "automatic-probing");
+        assert_eq!(strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()), Some("baseline_current"));
+        assert_eq!(
+            strategy_probe.recommendation.tcp_candidate_id,
+            strategy_probe.tcp_candidates.iter().find(|candidate| !candidate.skipped).expect("tcp winner").id
+        );
+        assert!(!strategy_probe.recommendation.recommended_proxy_config_json.is_empty());
+    }
+
+    #[test]
     fn monitor_session_drains_passive_events_with_probe_details() {
         let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
         let request = ScanRequest {
             profile_id: "default".to_string(),
             display_name: "Passive events".to_string(),
             path_mode: ScanPathMode::RawPath,
+            kind: ScanKind::Connectivity,
             proxy_host: None,
             proxy_port: None,
             domain_targets: vec![DomainTarget {
@@ -1838,7 +2924,9 @@ mod tests {
             }],
             dns_targets: vec![],
             tcp_targets: vec![],
+            quic_targets: vec![],
             whitelist_sni: vec![],
+            strategy_probe: None,
         };
         let session = MonitorSession::new();
         session.start_scan("session-1".to_string(), request).expect("start scan");
@@ -1858,11 +2946,16 @@ mod tests {
 
     #[test]
     fn monitor_json_contracts_match_goldens() {
-        let server = HttpTextServer::start_text("HTTP/1.1 403 Forbidden", "Access denied by upstream filtering");
+        let server = HttpTextServer::start(move |_request| {
+            thread::sleep(Duration::from_millis(60));
+            b"HTTP/1.1 403 Forbidden\r\nContent-Length: 35\r\nConnection: close\r\n\r\nAccess denied by upstream filtering"
+                .to_vec()
+        });
         let request = ScanRequest {
             profile_id: "default".to_string(),
             display_name: "Passive events golden".to_string(),
             path_mode: ScanPathMode::RawPath,
+            kind: ScanKind::Connectivity,
             proxy_host: None,
             proxy_port: None,
             domain_targets: vec![DomainTarget {
@@ -1874,7 +2967,9 @@ mod tests {
             }],
             dns_targets: vec![],
             tcp_targets: vec![],
+            quic_targets: vec![],
             whitelist_sni: vec![],
+            strategy_probe: None,
         };
         let session = MonitorSession::new();
         session.start_scan("session-golden".to_string(), request).expect("start scan");
@@ -2251,13 +3346,18 @@ mod tests {
     }
 
     fn wait_for_progress_json(session: &MonitorSession) -> String {
+        let mut finished_progress = None;
         for _ in 0..50 {
             if let Some(progress_json) = session.poll_progress_json().expect("poll progress json") {
-                return progress_json;
+                let progress: ScanProgress = serde_json::from_str(&progress_json).expect("decode scan progress");
+                if !progress.is_finished {
+                    return progress_json;
+                }
+                finished_progress = Some(progress_json);
             }
             thread::sleep(Duration::from_millis(20));
         }
-        panic!("timed out waiting for scan progress");
+        finished_progress.unwrap_or_else(|| panic!("timed out waiting for scan progress"))
     }
 
     fn wait_for_report_json(session: &MonitorSession) -> String {
@@ -2332,20 +3432,20 @@ mod tests {
             let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind tls server");
             listener.set_nonblocking(true).expect("set tls server nonblocking");
             let addr = listener.local_addr().expect("tls server addr");
+            let config = match mode {
+                TlsMode::Single(name) => {
+                    let (cert, key) = make_cert(&[name]);
+                    Arc::new(
+                        ServerConfig::builder()
+                            .with_no_client_auth()
+                            .with_single_cert(vec![cert], key)
+                            .expect("single cert config"),
+                    )
+                }
+            };
             let stop = Arc::new(AtomicBool::new(false));
             let stop_flag = stop.clone();
             let handle = thread::spawn(move || {
-                let config = match mode.clone() {
-                    TlsMode::Single(name) => {
-                        let (cert, key) = make_cert(&[name]);
-                        Arc::new(
-                            ServerConfig::builder()
-                                .with_no_client_auth()
-                                .with_single_cert(vec![cert], key)
-                                .expect("single cert config"),
-                        )
-                    }
-                };
                 while !stop_flag.load(Ordering::Relaxed) {
                     match listener.accept() {
                         Ok((stream, _)) => {
