@@ -401,6 +401,73 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `saved fake approximation stays visible when http and https are off`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttp(false)
+                .setDesyncHttps(false)
+                .setDesyncUdp(true)
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("fakedsplit")
+                        .setMarker("host+1")
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.hasFakeApproximation)
+        assertTrue(state.isFake)
+        assertFalse(state.fakeApproximationControlsRelevant)
+        assertTrue(state.showFakeApproximationProfile)
+        assertFalse(state.httpFakeProfileActiveInStrategy)
+        assertFalse(state.tlsFakeProfileActiveInStrategy)
+        assertFalse(state.fakeTlsControlsRelevant)
+    }
+
+    @Test
+    fun `primary fake approximation step ignores tls prelude and hostfake steps ahead of it`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrec")
+                        .setMarker("extlen")
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("hostfake")
+                        .setMarker("endhost+8")
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("fakeddisorder")
+                        .setMarker("host+1")
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("fakedsplit")
+                        .setMarker("endhost")
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.hasHostFake)
+        assertTrue(state.hasFakeApproximation)
+        assertEquals(2, state.fakeApproximationStepCount)
+        assertEquals(TcpChainStepKind.FakeDisorder, state.primaryFakeApproximationStep?.kind)
+        assertEquals("host+1", state.primaryFakeApproximationStep?.marker)
+    }
+
+    @Test
     fun `hostfake profile remains visible in command line mode`() {
         val settings =
             defaults
