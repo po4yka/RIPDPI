@@ -166,7 +166,7 @@ fun ConfigScreen(
                     showDivider = true,
                 )
                 SettingsRow(
-                    title = stringResource(R.string.dbs_ip_setting),
+                    title = stringResource(R.string.title_dns_settings),
                     subtitle =
                         stringResource(
                             if (uiState.draft.mode == Mode.VPN) {
@@ -175,9 +175,8 @@ fun ConfigScreen(
                                 R.string.config_dns_summary_disabled
                             },
                         ),
-                    value = uiState.draft.dnsIp,
+                    value = uiState.draft.dnsSummary,
                     onClick = onOpenDnsSettings,
-                    monospaceValue = true,
                     showDivider = true,
                 )
                 SettingsRow(
