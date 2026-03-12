@@ -1,5 +1,5 @@
 use ciadpi_config::{DesyncGroup, DesyncMode, OffsetExpr, PartSpec};
-use ciadpi_desync::{plan_tcp, ActivationContext, ActivationTransport, DesyncAction};
+use ciadpi_desync::{plan_tcp, ActivationContext, ActivationTransport, AdaptivePlannerHints, DesyncAction};
 
 fn tcp_context(payload: &[u8]) -> ActivationContext {
     ActivationContext {
@@ -10,6 +10,7 @@ fn tcp_context(payload: &[u8]) -> ActivationContext {
         transport: ActivationTransport::Tcp,
         tcp_segment_hint: None,
         resolved_fake_ttl: None,
+        adaptive: AdaptivePlannerHints::default(),
     }
 }
 

@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 pub mod adaptive_fake_ttl;
+pub mod adaptive_tuning;
 pub mod platform;
 pub mod process;
 pub mod runtime;
