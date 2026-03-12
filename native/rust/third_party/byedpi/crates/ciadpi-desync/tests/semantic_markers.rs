@@ -10,6 +10,7 @@ fn tcp_context(payload: &[u8]) -> ActivationContext {
         stream_end: payload.len().saturating_sub(1) as i64,
         transport: ActivationTransport::Tcp,
         tcp_segment_hint: None,
+        resolved_fake_ttl: None,
     }
 }
 

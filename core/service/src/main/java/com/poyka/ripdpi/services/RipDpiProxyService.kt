@@ -21,13 +21,13 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
@@ -125,13 +125,18 @@ class RipDpiProxyService : LifecycleService() {
         }
     }
 
-    private suspend fun stop() {
+    private suspend fun stop(skipProxyShutdown: Boolean = false) {
         logcat(LogPriority.INFO) { "Stopping proxy" }
 
         mutex.withLock {
             stopping = true
             try {
-                stopProxy()
+                if (!skipProxyShutdown) {
+                    stopProxy()
+                } else {
+                    proxyJob = null
+                    proxy = null
+                }
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR) { "Failed to stop proxy\n${e.asLog()}" }
             } finally {
@@ -156,30 +161,47 @@ class RipDpiProxyService : LifecycleService() {
         val proxyInstance = ripDpiProxyFactory.create()
         proxy = proxyInstance
 
-        proxyJob =
+        val exitResult = CompletableDeferred<Result<Int>>()
+        val job =
             lifecycleScope.launch(Dispatchers.IO) {
-                val code = proxyInstance.startProxy(preferences)
-
-                withContext(Dispatchers.Main) {
-                    if (code != 0) {
-                        logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
-                        updateStatus(ServiceStatus.Failed, FailureReason.NativeError("Proxy exited with code $code"))
-                    } else if (!stopping) {
-                        updateStatus(ServiceStatus.Disconnected)
+                try {
+                    exitResult.complete(runCatching { proxyInstance.startProxy(preferences) })
+                } finally {
+                    if (!exitResult.isCompleted) {
+                        exitResult.complete(Result.failure(IllegalStateException("Proxy job cancelled")))
                     }
                 }
             }
+        proxyJob = job
+
+        try {
+            proxyInstance.awaitReady()
+        } catch (e: Exception) {
+            runCatching {
+                if (job.isActive) {
+                    proxyInstance.stopProxy()
+                }
+            }
+            job.join()
+            proxyJob = null
+            proxy = null
+            throw e
+        }
+
+        job.invokeOnCompletion {
+            if (stopping) {
+                return@invokeOnCompletion
+            }
+            lifecycleScope.launch {
+                handleProxyExit(exitResult.await())
+            }
+        }
 
         logcat(LogPriority.INFO) { "Proxy started" }
     }
 
     private suspend fun stopProxy() {
         logcat(LogPriority.INFO) { "Stopping proxy" }
-
-        if (status == ServiceStatus.Disconnected) {
-            logcat(LogPriority.WARN) { "Proxy already disconnected" }
-            return
-        }
 
         val proxyInstance = proxy
         if (proxyInstance == null) {
@@ -194,6 +216,30 @@ class RipDpiProxyService : LifecycleService() {
         proxy = null
 
         logcat(LogPriority.INFO) { "Proxy stopped" }
+    }
+
+    private suspend fun handleProxyExit(result: Result<Int>) {
+        if (stopping) {
+            return
+        }
+
+        val failureReason =
+            result.exceptionOrNull()?.let { throwable ->
+                val error = throwable as? Exception ?: IllegalStateException("Proxy runtime failed", throwable)
+                logcat(LogPriority.ERROR) { "Proxy failed\n${error.asLog()}" }
+                classifyFailureReason(error)
+            } ?: result.getOrNull()
+                ?.takeIf { it != 0 }
+                ?.let { code ->
+                    logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
+                    FailureReason.NativeError("Proxy exited with code $code")
+                }
+
+        if (failureReason != null) {
+            updateStatus(ServiceStatus.Failed, failureReason)
+        }
+
+        stop(skipProxyShutdown = true)
     }
 
     private fun updateStatus(newStatus: ServiceStatus, failureReason: FailureReason? = null) {

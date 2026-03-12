@@ -2,11 +2,16 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.activeHttpParserEvasions
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.effectiveGroupActivationFilter
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.effectiveHttpFakeProfile
@@ -61,6 +66,10 @@ data class BypassStrategySignature(
     val activationRound: String? = null,
     val activationPayloadSize: String? = null,
     val activationStreamBytes: String? = null,
+    val fakeTtlMode: String? = null,
+    val adaptiveFakeTtlWindow: String? = null,
+    val adaptiveFakeTtlFallback: Int? = null,
+    val adaptiveFakeTtlBias: Int? = null,
     val fakeSniMode: String? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val fakeSniValue: String? = null,
@@ -170,6 +179,8 @@ fun deriveBypassStrategySignature(
         }
     val activationFilter = settings.effectiveGroupActivationFilter()
     val activationFiltersActive = !settings.enableCmdSettings
+    val adaptiveFakeTtlActive = !settings.enableCmdSettings && settings.adaptiveFakeTtlEnabled
+    val adaptiveFakeTtlDelta = settings.effectiveAdaptiveFakeTtlDelta()
     val httpParserEvasions =
         settings
             .activeHttpParserEvasions()
@@ -195,6 +206,22 @@ fun deriveBypassStrategySignature(
         activationRound = formatNumericRange(activationFilter.round).takeIf { activationFiltersActive },
         activationPayloadSize = formatNumericRange(activationFilter.payloadSize).takeIf { activationFiltersActive },
         activationStreamBytes = formatNumericRange(activationFilter.streamBytes).takeIf { activationFiltersActive },
+        fakeTtlMode =
+            if (settings.enableCmdSettings) {
+                null
+            } else if (settings.adaptiveFakeTtlEnabled) {
+                if (adaptiveFakeTtlDelta == DefaultAdaptiveFakeTtlDelta) "adaptive" else "adaptive_custom"
+            } else {
+                "fixed"
+            },
+        adaptiveFakeTtlWindow =
+            if (adaptiveFakeTtlActive) {
+                "${settings.effectiveAdaptiveFakeTtlMin()}-${settings.effectiveAdaptiveFakeTtlMax()}"
+            } else {
+                null
+            },
+        adaptiveFakeTtlFallback = settings.effectiveAdaptiveFakeTtlFallback().takeIf { adaptiveFakeTtlActive },
+        adaptiveFakeTtlBias = adaptiveFakeTtlDelta.takeIf { adaptiveFakeTtlActive && it != DefaultAdaptiveFakeTtlDelta },
         fakeSniMode = fakeTlsSniMode.takeIf { fakeTlsProfileActive },
         fakeSniValue = settings.fakeSni.ifBlank { null }?.takeIf { fakeTlsProfileActive && fakeTlsSniMode == FakeTlsSniModeFixed },
         fakeTlsBaseMode = if (fakeTlsProfileActive) if (settings.fakeTlsUseOriginal) "original" else "default" else null,
@@ -247,6 +274,7 @@ fun deriveBypassStrategySignature(
                 preferences.fakeSni != com.poyka.ripdpi.data.DefaultFakeSni)
     val fakeTlsProfileActive = hasFakeStep && preferences.desyncHttps && hasCustomFakeTlsProfile
     val quicFakeProfileActive = preferences.desyncUdp && preferences.quicFakeProfile != QuicFakeProfileDisabled
+    val adaptiveFakeTtlActive = preferences.adaptiveFakeTtlEnabled
     val fakeTlsMods =
         buildList {
             if (preferences.fakeTlsRandomize) add("rand")
@@ -276,6 +304,23 @@ fun deriveBypassStrategySignature(
         activationRound = formatNumericRange(preferences.groupActivationFilter.round),
         activationPayloadSize = formatNumericRange(preferences.groupActivationFilter.payloadSize),
         activationStreamBytes = formatNumericRange(preferences.groupActivationFilter.streamBytes),
+        fakeTtlMode =
+            if (preferences.adaptiveFakeTtlEnabled) {
+                if (preferences.adaptiveFakeTtlDelta == DefaultAdaptiveFakeTtlDelta) "adaptive" else "adaptive_custom"
+            } else {
+                "fixed"
+            },
+        adaptiveFakeTtlWindow =
+            if (adaptiveFakeTtlActive) {
+                "${preferences.adaptiveFakeTtlMin}-${preferences.adaptiveFakeTtlMax}"
+            } else {
+                null
+            },
+        adaptiveFakeTtlFallback = preferences.adaptiveFakeTtlFallback.takeIf { adaptiveFakeTtlActive },
+        adaptiveFakeTtlBias =
+            preferences.adaptiveFakeTtlDelta.takeIf {
+                adaptiveFakeTtlActive && it != DefaultAdaptiveFakeTtlDelta
+            },
         fakeSniMode = preferences.fakeTlsSniMode.takeIf { fakeTlsProfileActive },
         fakeSniValue = preferences.fakeSni.takeIf { fakeTlsProfileActive && preferences.fakeTlsSniMode == FakeTlsSniModeFixed },
         fakeTlsBaseMode = if (fakeTlsProfileActive) if (preferences.fakeTlsUseOriginal) "original" else "default" else null,

@@ -267,6 +267,13 @@ pub struct UpstreamSocksConfig {
     pub addr: SocketAddr,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AutoTtlConfig {
+    pub delta: i8,
+    pub min_ttl: u8,
+    pub max_ttl: u8,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DesyncGroup {
     pub id: usize,
@@ -274,6 +281,7 @@ pub struct DesyncGroup {
     pub detect: u32,
     pub proto: u32,
     pub ttl: Option<u8>,
+    pub auto_ttl: Option<AutoTtlConfig>,
     pub md5sig: bool,
     pub fake_data: Option<Vec<u8>>,
     pub udp_fake_count: i32,
@@ -314,6 +322,7 @@ impl DesyncGroup {
             detect: 0,
             proto: 0,
             ttl: None,
+            auto_ttl: None,
             md5sig: false,
             fake_data: None,
             udp_fake_count: 0,
@@ -745,6 +754,34 @@ pub fn parse_payload_size_range_spec(spec: &str) -> Result<NumericRange<i64>, Co
 
 pub fn parse_stream_byte_range_spec(spec: &str) -> Result<NumericRange<i64>, ConfigError> {
     parse_range_core(spec, "--stream-byte-range", 0)
+}
+
+pub fn parse_auto_ttl_spec(spec: &str) -> Result<AutoTtlConfig, ConfigError> {
+    let trimmed = spec.trim();
+    let (delta_raw, range_raw) =
+        trimmed.split_once(',').ok_or_else(|| ConfigError::invalid("--auto-ttl", Some(spec)))?;
+    let delta = delta_raw
+        .trim()
+        .parse::<i8>()
+        .map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;
+    let (min_raw, max_raw) =
+        range_raw.split_once('-').ok_or_else(|| ConfigError::invalid("--auto-ttl", Some(spec)))?;
+    let min_ttl = min_raw
+        .trim()
+        .parse::<u16>()
+        .map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;
+    let max_ttl = max_raw
+        .trim()
+        .parse::<u16>()
+        .map_err(|_| ConfigError::invalid("--auto-ttl", Some(spec)))?;
+    if min_ttl == 0 || max_ttl == 0 || min_ttl > max_ttl || max_ttl > 255 {
+        return Err(ConfigError::invalid("--auto-ttl", Some(spec)));
+    }
+    Ok(AutoTtlConfig {
+        delta,
+        min_ttl: min_ttl as u8,
+        max_ttl: max_ttl as u8,
+    })
 }
 
 pub fn parse_hosts_spec(spec: &str) -> Result<Vec<String>, ConfigError> {
@@ -1352,6 +1389,10 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 }
                 group!().ttl = Some(ttl as u8);
             }
+            "--auto-ttl" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                group!().auto_ttl = Some(parse_auto_ttl_spec(value)?);
+            }
             "-O" | "--fake-offset" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let expr = parse_offset_expr(value)?;
@@ -1741,6 +1782,30 @@ mod tests {
     }
 
     #[test]
+    fn parse_auto_ttl_spec_validates_bounds() {
+        assert_eq!(
+            parse_auto_ttl_spec("-1,3-12").unwrap(),
+            AutoTtlConfig {
+                delta: -1,
+                min_ttl: 3,
+                max_ttl: 12,
+            }
+        );
+        assert_eq!(
+            parse_auto_ttl_spec("0,8-8").unwrap(),
+            AutoTtlConfig {
+                delta: 0,
+                min_ttl: 8,
+                max_ttl: 8,
+            }
+        );
+
+        for value in ["", "-1", "-1,3", "-1,0-12", "-1,12-3", "-1,3-256", "x,3-12"] {
+            assert!(parse_auto_ttl_spec(value).is_err(), "{value} should fail");
+        }
+    }
+
+    #[test]
     fn parse_cli_maps_activation_ranges_into_group_filter() {
         let args = vec![
             "--round".to_string(),
@@ -1761,6 +1826,31 @@ mod tests {
         assert_eq!(activation.round, Some(NumericRange::new(2, 4)));
         assert_eq!(activation.payload_size, Some(NumericRange::new(64, 512)));
         assert_eq!(activation.stream_bytes, Some(NumericRange::new(0, 2047)));
+    }
+
+    #[test]
+    fn parse_cli_reads_auto_ttl_and_fixed_ttl_fallback() {
+        let args = vec![
+            "--ttl".to_string(),
+            "9".to_string(),
+            "--auto-ttl".to_string(),
+            "-1,3-12".to_string(),
+        ];
+
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse cli") else {
+            panic!("expected runnable config");
+        };
+        let group = &config.groups[0];
+
+        assert_eq!(group.ttl, Some(9));
+        assert_eq!(
+            group.auto_ttl,
+            Some(AutoTtlConfig {
+                delta: -1,
+                min_ttl: 3,
+                max_ttl: 12,
+            })
+        );
     }
 
     #[test]

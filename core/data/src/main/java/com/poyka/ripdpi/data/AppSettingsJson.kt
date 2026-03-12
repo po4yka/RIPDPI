@@ -71,6 +71,11 @@ internal data class AppSettingsSnapshot(
     val splitAtHost: Boolean = defaultSettings.splitAtHost,
     val splitMarker: String = defaultSettings.splitMarker,
     val fakeTtl: Int = defaultSettings.fakeTtl,
+    val adaptiveFakeTtlEnabled: Boolean = defaultSettings.adaptiveFakeTtlEnabled,
+    val adaptiveFakeTtlDelta: Int = defaultSettings.adaptiveFakeTtlDelta,
+    val adaptiveFakeTtlMin: Int = defaultSettings.adaptiveFakeTtlMin,
+    val adaptiveFakeTtlMax: Int = defaultSettings.adaptiveFakeTtlMax,
+    val adaptiveFakeTtlFallback: Int = defaultSettings.adaptiveFakeTtlFallback,
     val fakeSni: String = defaultSettings.fakeSni,
     val fakeOffset: Int = defaultSettings.fakeOffset,
     val fakeOffsetMarker: String = defaultSettings.fakeOffsetMarker,
@@ -158,6 +163,11 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
         splitAtHost = splitAtHost,
         splitMarker = splitMarker,
         fakeTtl = fakeTtl,
+        adaptiveFakeTtlEnabled = adaptiveFakeTtlEnabled,
+        adaptiveFakeTtlDelta = effectiveAdaptiveFakeTtlDelta(),
+        adaptiveFakeTtlMin = effectiveAdaptiveFakeTtlMin(),
+        adaptiveFakeTtlMax = effectiveAdaptiveFakeTtlMax(),
+        adaptiveFakeTtlFallback = effectiveAdaptiveFakeTtlFallback(),
         fakeSni = fakeSni,
         fakeOffset = fakeOffset,
         fakeOffsetMarker = fakeOffsetMarker,
@@ -284,6 +294,16 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setSplitAtHost(splitAtHost)
         .setSplitMarker(splitMarker)
         .setFakeTtl(fakeTtl)
+        .setAdaptiveFakeTtlEnabled(adaptiveFakeTtlEnabled)
+        .setAdaptiveFakeTtlDelta(normalizeAdaptiveFakeTtlDelta(adaptiveFakeTtlDelta))
+        .setAdaptiveFakeTtlMin(normalizeAdaptiveFakeTtlMin(adaptiveFakeTtlMin))
+        .setAdaptiveFakeTtlMax(normalizeAdaptiveFakeTtlMax(adaptiveFakeTtlMax, normalizeAdaptiveFakeTtlMin(adaptiveFakeTtlMin)))
+        .setAdaptiveFakeTtlFallback(
+            normalizeAdaptiveFakeTtlFallback(
+                adaptiveFakeTtlFallback,
+                fakeTtl.takeIf { it > 0 } ?: DefaultAdaptiveFakeTtlFallback,
+            ),
+        )
         .setFakeSni(fakeSni)
         .setFakeOffset(fakeOffset)
         .setFakeOffsetMarker(fakeOffsetMarker)
