@@ -20,6 +20,8 @@ import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.proto.StrategyTcpStep
+import com.poyka.ripdpi.proto.ActivationFilter
+import com.poyka.ripdpi.proto.NumericRange
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import org.junit.Assert.assertEquals
@@ -274,6 +276,25 @@ class SettingsUiStateTest {
         assertFalse(state.httpFakeProfileActiveInStrategy)
         assertFalse(state.tlsFakeProfileActiveInStrategy)
         assertFalse(state.udpFakeProfileActiveInStrategy)
+    }
+
+    @Test
+    fun `group activation filter produces custom activation window summary`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setGroupActivationFilter(
+                    ActivationFilter
+                        .newBuilder()
+                        .setRound(NumericRange.newBuilder().setStart(2).setEnd(4))
+                        .setPayloadSize(NumericRange.newBuilder().setStart(64).setEnd(512))
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.hasCustomActivationWindow)
+        assertEquals("round=2-4 size=64-512", state.activationWindowSummary)
     }
 
     @Test

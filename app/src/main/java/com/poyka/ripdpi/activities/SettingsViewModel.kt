@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
@@ -20,9 +21,13 @@ import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModeDoh
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
@@ -35,6 +40,7 @@ import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.effectiveHttpFakeProfile
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
+import com.poyka.ripdpi.data.effectiveGroupActivationFilter
 import com.poyka.ripdpi.data.effectiveQuicFakeHost
 import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.effectiveQuicInitialMode
@@ -46,6 +52,7 @@ import com.poyka.ripdpi.data.effectiveTlsFakeProfile
 import com.poyka.ripdpi.data.effectiveTlsRecordMarker
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpFakeProfile
+import com.poyka.ripdpi.data.formatActivationFilterSummary
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.isTlsPrelude
@@ -108,11 +115,19 @@ data class SettingsUiState(
     val themedAppIconEnabled: Boolean = true,
     val ripdpiMode: String = "vpn",
     val dnsIp: String = "1.1.1.1",
-    val dnsMode: String = "doh",
+    val dnsMode: String = "encrypted",
     val dnsProviderId: String = "cloudflare",
     val dnsDohUrl: String = "https://cloudflare-dns.com/dns-query",
     val dnsDohBootstrapIps: List<String> = listOf("1.1.1.1", "1.0.0.1"),
-    val dnsSummary: String = "DoH · Cloudflare",
+    val encryptedDnsProtocol: String = EncryptedDnsProtocolDoh,
+    val encryptedDnsHost: String = "cloudflare-dns.com",
+    val encryptedDnsPort: Int = 443,
+    val encryptedDnsTlsServerName: String = "cloudflare-dns.com",
+    val encryptedDnsBootstrapIps: List<String> = listOf("1.1.1.1", "1.0.0.1"),
+    val encryptedDnsDohUrl: String = "https://cloudflare-dns.com/dns-query",
+    val encryptedDnsDnscryptProviderName: String = "",
+    val encryptedDnsDnscryptPublicKey: String = "",
+    val dnsSummary: String = "Encrypted DNS · Cloudflare (DoH)",
     val ipv6Enable: Boolean = false,
     val enableCmdSettings: Boolean = false,
     val cmdArgs: String = "",
@@ -127,6 +142,7 @@ data class SettingsUiState(
     val desyncMethod: String = "disorder",
     val tcpChainSteps: List<TcpChainStepModel> = emptyList(),
     val udpChainSteps: List<UdpChainStepModel> = emptyList(),
+    val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
     val chainSummary: String = "tcp: none",
     val chainDsl: String = "",
     val splitMarker: String = DefaultSplitMarker,
@@ -300,6 +316,12 @@ data class SettingsUiState(
                 fakeTlsSize != 0 ||
                 fakeTlsSniMode != FakeTlsSniModeFixed ||
                 (fakeTlsSniMode == FakeTlsSniModeFixed && fakeSni != DefaultFakeSni)
+
+    val hasCustomActivationWindow: Boolean
+        get() = formatActivationFilterSummary(groupActivationFilter).isNotBlank()
+
+    val activationWindowSummary: String
+        get() = formatActivationFilterSummary(groupActivationFilter).ifBlank { "Always active" }
 }
 
 data class HostPackCatalogUiState(
@@ -352,6 +374,14 @@ internal fun AppSettings.toUiState(
         dnsProviderId = activeDns.providerId,
         dnsDohUrl = activeDns.dohUrl,
         dnsDohBootstrapIps = activeDns.dohBootstrapIps,
+        encryptedDnsProtocol = activeDns.encryptedDnsProtocol,
+        encryptedDnsHost = activeDns.encryptedDnsHost,
+        encryptedDnsPort = activeDns.encryptedDnsPort,
+        encryptedDnsTlsServerName = activeDns.encryptedDnsTlsServerName,
+        encryptedDnsBootstrapIps = activeDns.encryptedDnsBootstrapIps,
+        encryptedDnsDohUrl = activeDns.encryptedDnsDohUrl,
+        encryptedDnsDnscryptProviderName = activeDns.encryptedDnsDnscryptProviderName,
+        encryptedDnsDnscryptPublicKey = activeDns.encryptedDnsDnscryptPublicKey,
         dnsSummary = activeDns.summary(),
         ipv6Enable = ipv6Enable,
         enableCmdSettings = enableCmdSettings,
@@ -367,6 +397,7 @@ internal fun AppSettings.toUiState(
         desyncMethod = normalizedDesyncMethod,
         tcpChainSteps = tcpChainSteps,
         udpChainSteps = udpChainSteps,
+        groupActivationFilter = effectiveGroupActivationFilter(),
         chainSummary = formatChainSummary(tcpChainSteps, udpChainSteps),
         chainDsl = formatStrategyChainDsl(tcpChainSteps, udpChainSteps),
         splitMarker = primaryTcpStep?.marker ?: effectiveSplitMarker(),
@@ -517,12 +548,44 @@ class SettingsViewModel
             key = "dnsProviderId",
             value = providerId,
         ) {
-            setDnsMode(DnsModeDoh)
+            setDnsMode(DnsModeEncrypted)
             setDnsProviderId(resolver.providerId)
             setDnsIp(resolver.primaryIp)
-            setDnsDohUrl(resolver.dohUrl)
+            setDnsDohUrl(resolver.dohUrl.orEmpty())
             clearDnsDohBootstrapIps()
             addAllDnsDohBootstrapIps(resolver.bootstrapIps)
+            setEncryptedDnsProtocol(resolver.protocol)
+            setEncryptedDnsHost(resolver.host)
+            setEncryptedDnsPort(resolver.port)
+            setEncryptedDnsTlsServerName(resolver.tlsServerName)
+            clearEncryptedDnsBootstrapIps()
+            addAllEncryptedDnsBootstrapIps(resolver.bootstrapIps)
+            setEncryptedDnsDohUrl(resolver.dohUrl.orEmpty())
+            setEncryptedDnsDnscryptProviderName(resolver.dnscryptProviderName.orEmpty())
+            setEncryptedDnsDnscryptPublicKey(resolver.dnscryptPublicKey.orEmpty())
+        }
+    }
+
+    fun setEncryptedDnsProtocol(protocol: String) {
+        updateSetting(
+            key = "encryptedDnsProtocol",
+            value = protocol,
+        ) {
+            setDnsMode(DnsModeEncrypted)
+            setDnsProviderId(DnsProviderCustom)
+            setEncryptedDnsProtocol(protocol)
+            if (protocol != EncryptedDnsProtocolDoh) {
+                setDnsDohUrl("")
+                clearDnsDohBootstrapIps()
+                setEncryptedDnsDohUrl("")
+            }
+            if (protocol != EncryptedDnsProtocolDnsCrypt) {
+                setEncryptedDnsDnscryptProviderName("")
+                setEncryptedDnsDnscryptPublicKey("")
+            }
+            if (protocol != EncryptedDnsProtocolDot && protocol != EncryptedDnsProtocolDoh) {
+                setEncryptedDnsTlsServerName("")
+            }
         }
     }
 
@@ -536,6 +599,14 @@ class SettingsViewModel
             setDnsIp(dnsIp)
             setDnsDohUrl("")
             clearDnsDohBootstrapIps()
+            setEncryptedDnsProtocol("")
+            setEncryptedDnsHost("")
+            setEncryptedDnsPort(0)
+            setEncryptedDnsTlsServerName("")
+            clearEncryptedDnsBootstrapIps()
+            setEncryptedDnsDohUrl("")
+            setEncryptedDnsDnscryptProviderName("")
+            setEncryptedDnsDnscryptPublicKey("")
         }
     }
 
@@ -548,12 +619,84 @@ class SettingsViewModel
             key = "dnsDohUrl",
             value = dohUrl,
         ) {
-            setDnsMode(DnsModeDoh)
+            val host = runCatching { java.net.URI(dohUrl.trim()).host.orEmpty() }.getOrDefault("")
+            val port =
+                runCatching {
+                    val uri = java.net.URI(dohUrl.trim())
+                    if (uri.port > 0) uri.port else 443
+                }.getOrDefault(443)
+            setDnsMode(DnsModeEncrypted)
             setDnsProviderId(DnsProviderCustom)
             setDnsDohUrl(dohUrl.trim())
             setDnsIp(normalizedBootstrapIps.firstOrNull().orEmpty())
             clearDnsDohBootstrapIps()
             addAllDnsDohBootstrapIps(normalizedBootstrapIps)
+            setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
+            setEncryptedDnsHost(host)
+            setEncryptedDnsPort(port)
+            setEncryptedDnsTlsServerName(host)
+            clearEncryptedDnsBootstrapIps()
+            addAllEncryptedDnsBootstrapIps(normalizedBootstrapIps)
+            setEncryptedDnsDohUrl(dohUrl.trim())
+            setEncryptedDnsDnscryptProviderName("")
+            setEncryptedDnsDnscryptPublicKey("")
+        }
+    }
+
+    fun setCustomDotResolver(
+        host: String,
+        port: Int,
+        tlsServerName: String,
+        bootstrapIps: List<String>,
+    ) {
+        val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
+        updateSetting(
+            key = "encryptedDnsHost",
+            value = host,
+        ) {
+            setDnsMode(DnsModeEncrypted)
+            setDnsProviderId(DnsProviderCustom)
+            setDnsIp(normalizedBootstrapIps.firstOrNull().orEmpty())
+            setDnsDohUrl("")
+            clearDnsDohBootstrapIps()
+            setEncryptedDnsProtocol(EncryptedDnsProtocolDot)
+            setEncryptedDnsHost(host.trim())
+            setEncryptedDnsPort(port)
+            setEncryptedDnsTlsServerName(tlsServerName.trim())
+            clearEncryptedDnsBootstrapIps()
+            addAllEncryptedDnsBootstrapIps(normalizedBootstrapIps)
+            setEncryptedDnsDohUrl("")
+            setEncryptedDnsDnscryptProviderName("")
+            setEncryptedDnsDnscryptPublicKey("")
+        }
+    }
+
+    fun setCustomDnsCryptResolver(
+        host: String,
+        port: Int,
+        providerName: String,
+        publicKey: String,
+        bootstrapIps: List<String>,
+    ) {
+        val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
+        updateSetting(
+            key = "encryptedDnsDnscryptProviderName",
+            value = providerName,
+        ) {
+            setDnsMode(DnsModeEncrypted)
+            setDnsProviderId(DnsProviderCustom)
+            setDnsIp(normalizedBootstrapIps.firstOrNull().orEmpty())
+            setDnsDohUrl("")
+            clearDnsDohBootstrapIps()
+            setEncryptedDnsProtocol(EncryptedDnsProtocolDnsCrypt)
+            setEncryptedDnsHost(host.trim())
+            setEncryptedDnsPort(port)
+            setEncryptedDnsTlsServerName("")
+            clearEncryptedDnsBootstrapIps()
+            addAllEncryptedDnsBootstrapIps(normalizedBootstrapIps)
+            setEncryptedDnsDohUrl("")
+            setEncryptedDnsDnscryptProviderName(providerName.trim())
+            setEncryptedDnsDnscryptPublicKey(publicKey.trim())
         }
     }
 

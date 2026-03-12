@@ -57,6 +57,7 @@ data class TcpChainStepModel(
     val fragmentCount: Int = 0,
     val minFragmentSize: Int = 0,
     val maxFragmentSize: Int = 0,
+    val activationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
 @Serializable
@@ -73,6 +74,7 @@ enum class UdpChainStepKind(val wireName: String) {
 data class UdpChainStepModel(
     val count: Int,
     val kind: UdpChainStepKind = UdpChainStepKind.FakeBurst,
+    val activationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
 @Serializable
@@ -108,7 +110,7 @@ fun formatChainSummary(
             formatTcpStepSummary(it)
         },
         udpSteps.takeIf { it.isNotEmpty() }?.joinToString(prefix = "udp: ", separator = " -> ") {
-            "${it.kind.wireName}(${it.count.coerceAtLeast(0)})"
+            formatUdpStepSummary(it)
         },
     ).ifEmpty {
         listOf("tcp: none")
@@ -128,7 +130,7 @@ fun formatStrategyChainDsl(
             lines += ""
         }
         lines += "[udp]"
-        lines += udpSteps.map { "${it.kind.wireName} ${it.count.coerceAtLeast(0)}" }
+        lines += udpSteps.map(::formatUdpStepDsl)
     }
     return lines.joinToString("\n")
 }
@@ -191,9 +193,22 @@ fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
                 UdpSection -> {
                     val kind = UdpChainStepKind.fromWireName(parts[0])
                         ?: error("Unknown UDP step '${parts[0]}' on line ${index + 1}")
-                    val count = parts[1].toIntOrNull() ?: error("Invalid UDP count on line ${index + 1}")
+                    val tokens = parts[1].split(Regex("\\s+")).filter { it.isNotBlank() }
+                    val count = tokens.firstOrNull()?.toIntOrNull() ?: error("Invalid UDP count on line ${index + 1}")
                     require(count >= 0) { "Invalid UDP count on line ${index + 1}" }
-                    udpSteps += UdpChainStepModel(kind = kind, count = count)
+                    var activationFilter = ActivationFilterModel()
+                    tokens.drop(1).forEach { token ->
+                        val (key, value) = token.split('=', limit = 2).takeIf { it.size == 2 }
+                            ?: error("Invalid UDP step option '$token' on line ${index + 1}")
+                        activationFilter =
+                            parseActivationToken(
+                                activationFilter = activationFilter,
+                                key = key,
+                                value = value,
+                                lineNumber = index + 1,
+                            )
+                    }
+                    udpSteps += UdpChainStepModel(kind = kind, count = count, activationFilter = activationFilter)
                 }
 
                 else -> error("Unknown chain section '$section'")
@@ -270,13 +285,18 @@ private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
             fragmentCount = fragmentCount,
             minFragmentSize = minFragmentSize,
             maxFragmentSize = maxFragmentSize,
+            activationFilter = if (hasActivationFilter()) activationFilter.toModel() else ActivationFilterModel(),
         ),
     )
 }
 
 private fun StrategyUdpStep.toModelOrNull(): UdpChainStepModel? {
     val resolvedKind = UdpChainStepKind.fromWireName(kind) ?: return null
-    return UdpChainStepModel(kind = resolvedKind, count = count)
+    return UdpChainStepModel(
+        kind = resolvedKind,
+        count = count,
+        activationFilter = if (hasActivationFilter()) activationFilter.toModel() else ActivationFilterModel(),
+    )
 }
 
 private fun TcpChainStepModel.toProto(): StrategyTcpStep =
@@ -290,7 +310,11 @@ private fun TcpChainStepModel.toProto(): StrategyTcpStep =
             .setFragmentCount(normalizeFragmentCount(step.kind, step.fragmentCount))
             .setMinFragmentSize(normalizeMinFragmentSize(step.kind, step.minFragmentSize))
             .setMaxFragmentSize(normalizeMaxFragmentSize(step.kind, step.maxFragmentSize))
-            .build()
+            .apply {
+                if (!step.activationFilter.isEmpty) {
+                    setActivationFilter(step.activationFilter.toProto())
+                }
+            }.build()
     }
 
 private fun UdpChainStepModel.toProto(): StrategyUdpStep =
@@ -298,7 +322,11 @@ private fun UdpChainStepModel.toProto(): StrategyUdpStep =
         .newBuilder()
         .setKind(kind.wireName)
         .setCount(count.coerceAtLeast(0))
-        .build()
+        .apply {
+            if (!this@toProto.activationFilter.isEmpty) {
+                setActivationFilter(this@toProto.activationFilter.toProto())
+            }
+        }.build()
 
 private fun validateTcpChain(steps: List<TcpChainStepModel>) {
     var sawSendStep = false
@@ -339,6 +367,11 @@ private fun formatTcpStepSummary(step: TcpChainStepModel): String =
             append(" max=")
             append(normalized.maxFragmentSize)
         }
+        val filterSummary = formatActivationFilterSummary(normalized.activationFilter)
+        if (filterSummary.isNotBlank()) {
+            append(' ')
+            append(filterSummary)
+        }
         append(')')
     }
 
@@ -366,6 +399,28 @@ private fun formatTcpStepDsl(step: TcpChainStepModel): String =
             append(" max=")
             append(normalized.maxFragmentSize)
         }
+        appendActivationDsl(this, normalized.activationFilter)
+    }
+
+private fun formatUdpStepSummary(step: UdpChainStepModel): String =
+    buildString {
+        append(step.kind.wireName)
+        append('(')
+        append(step.count.coerceAtLeast(0))
+        val filterSummary = formatActivationFilterSummary(step.activationFilter)
+        if (filterSummary.isNotBlank()) {
+            append(' ')
+            append(filterSummary)
+        }
+        append(')')
+    }
+
+private fun formatUdpStepDsl(step: UdpChainStepModel): String =
+    buildString {
+        append(step.kind.wireName)
+        append(' ')
+        append(step.count.coerceAtLeast(0))
+        appendActivationDsl(this, step.activationFilter)
     }
 
 private fun parseTcpStep(
@@ -383,6 +438,7 @@ private fun parseTcpStep(
     var fragmentCount = 0
     var minFragmentSize = 0
     var maxFragmentSize = 0
+    var activationFilter = ActivationFilterModel()
     tokens.drop(1).forEach { token ->
         val (key, value) = token.split('=', limit = 2).takeIf { it.size == 2 }
             ?: error("Invalid TCP step option '$token' on line $lineNumber")
@@ -418,6 +474,18 @@ private fun parseTcpStep(
                 maxFragmentSize = value.toIntOrNull() ?: error("Invalid max on line $lineNumber")
             }
 
+            "when_round",
+            "when_size",
+            "when_stream",
+            ->
+                activationFilter =
+                    parseActivationToken(
+                        activationFilter = activationFilter,
+                        key = key,
+                        value = value,
+                        lineNumber = lineNumber,
+                    )
+
             else -> error("Unknown TCP step option '$key' on line $lineNumber")
         }
     }
@@ -437,6 +505,7 @@ private fun parseTcpStep(
             fragmentCount = fragmentCount,
             minFragmentSize = minFragmentSize,
             maxFragmentSize = maxFragmentSize,
+            activationFilter = activationFilter,
         ),
     )
 }
@@ -490,6 +559,7 @@ fun normalizeTcpChainStepModel(step: TcpChainStepModel): TcpChainStepModel =
         fragmentCount = normalizeFragmentCount(step.kind, step.fragmentCount),
         minFragmentSize = normalizeMinFragmentSize(step.kind, step.minFragmentSize),
         maxFragmentSize = normalizeMaxFragmentSize(step.kind, step.maxFragmentSize),
+        activationFilter = normalizeActivationFilter(step.activationFilter),
     )
 
 val TcpChainStepKind.isTlsPrelude: Boolean
@@ -525,3 +595,55 @@ private fun normalizeFakeHostTemplate(
             }
     return if (isIpv4Literal) "" else trimmed
 }
+
+private fun appendActivationDsl(
+    builder: StringBuilder,
+    activationFilter: ActivationFilterModel,
+) {
+    formatNumericRange(activationFilter.round)?.let {
+        builder.append(" when_round=")
+        builder.append(it)
+    }
+    formatNumericRange(activationFilter.payloadSize)?.let {
+        builder.append(" when_size=")
+        builder.append(it)
+    }
+    formatNumericRange(activationFilter.streamBytes)?.let {
+        builder.append(" when_stream=")
+        builder.append(it)
+    }
+}
+
+private fun parseActivationToken(
+    activationFilter: ActivationFilterModel,
+    key: String,
+    value: String,
+    lineNumber: Int,
+): ActivationFilterModel =
+    when (key.lowercase()) {
+        "when_round" ->
+            activationFilter.copy(
+                round =
+                    runCatching { parseRoundRange(value) }.getOrElse {
+                        error("Invalid round filter on line $lineNumber")
+                    },
+            )
+
+        "when_size" ->
+            activationFilter.copy(
+                payloadSize =
+                    runCatching { parsePayloadSizeRange(value) }.getOrElse {
+                        error("Invalid payload size filter on line $lineNumber")
+                    },
+            )
+
+        "when_stream" ->
+            activationFilter.copy(
+                streamBytes =
+                    runCatching { parseStreamBytesRange(value) }.getOrElse {
+                        error("Invalid stream byte filter on line $lineNumber")
+                    },
+            )
+
+        else -> error("Unknown activation filter '$key' on line $lineNumber")
+    }

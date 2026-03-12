@@ -94,12 +94,21 @@ pub enum TriggerEvent {
     Torst,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OutboundProgress {
+    pub round: u32,
+    pub payload_size: usize,
+    pub stream_start: usize,
+    pub stream_end: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionState {
     pub phase: SessionPhase,
     pub round_count: u32,
     pub recv_count: usize,
     pub sent_this_round: usize,
+    pub outbound_bytes_total: usize,
     pub saw_tls_client_hello: bool,
 }
 
@@ -110,19 +119,41 @@ impl Default for SessionState {
             round_count: 0,
             recv_count: 0,
             sent_this_round: 0,
+            outbound_bytes_total: 0,
             saw_tls_client_hello: false,
         }
     }
 }
 
 impl SessionState {
-    pub fn observe_outbound(&mut self, payload: &[u8]) {
+    pub fn observe_outbound(&mut self, payload: &[u8]) -> OutboundProgress {
         if self.sent_this_round == 0 {
             self.round_count += 1;
         }
+        let stream_start = self.outbound_bytes_total;
         self.sent_this_round += payload.len();
+        self.outbound_bytes_total = self.outbound_bytes_total.saturating_add(payload.len());
         if is_tls_client_hello(payload) {
             self.saw_tls_client_hello = true;
+        }
+        OutboundProgress {
+            round: self.round_count,
+            payload_size: payload.len(),
+            stream_start,
+            stream_end: stream_start.saturating_add(payload.len().saturating_sub(1)),
+        }
+    }
+
+    pub fn observe_datagram_outbound(&mut self, payload: &[u8]) -> OutboundProgress {
+        self.round_count += 1;
+        self.sent_this_round = payload.len();
+        let stream_start = self.outbound_bytes_total;
+        self.outbound_bytes_total = self.outbound_bytes_total.saturating_add(payload.len());
+        OutboundProgress {
+            round: self.round_count,
+            payload_size: payload.len(),
+            stream_start,
+            stream_end: stream_start.saturating_add(payload.len().saturating_sub(1)),
         }
     }
 
@@ -477,16 +508,38 @@ mod tests {
     fn session_state_tracks_rounds_and_resets_after_inbound() {
         let mut state = SessionState::default();
 
-        state.observe_outbound(b"hello");
-        state.observe_outbound(b"world");
+        let first = state.observe_outbound(b"hello");
+        let second = state.observe_outbound(b"world");
         assert_eq!(state.round_count, 1);
         assert_eq!(state.sent_this_round, 10);
+        assert_eq!(first.stream_start, 0);
+        assert_eq!(first.stream_end, 4);
+        assert_eq!(second.stream_start, 5);
+        assert_eq!(second.stream_end, 9);
 
         state.observe_inbound(b"reply");
         assert_eq!(state.recv_count, 5);
         assert_eq!(state.sent_this_round, 0);
 
-        state.observe_outbound(b"next");
+        let third = state.observe_outbound(b"next");
         assert_eq!(state.round_count, 2);
+        assert_eq!(third.stream_start, 10);
+        assert_eq!(third.stream_end, 13);
+    }
+
+    #[test]
+    fn session_state_tracks_udp_datagram_progress_separately() {
+        let mut state = SessionState::default();
+
+        let first = state.observe_datagram_outbound(b"hello");
+        let second = state.observe_datagram_outbound(b"world!");
+
+        assert_eq!(first.round, 1);
+        assert_eq!(first.stream_start, 0);
+        assert_eq!(first.stream_end, 4);
+        assert_eq!(second.round, 2);
+        assert_eq!(second.stream_start, 5);
+        assert_eq!(second.stream_end, 10);
+        assert_eq!(state.outbound_bytes_total, 11);
     }
 }

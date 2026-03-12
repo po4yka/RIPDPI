@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
+import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import kotlinx.serialization.encodeToString
@@ -332,6 +334,118 @@ class NativeConfigContractSnapshotTest {
     }
 
     @Test
+    fun proxyActivationFilterUiPayloadMatchesSnapshot() {
+        val payload =
+            RipDpiProxyUIPreferences(
+                groupActivationFilter =
+                    ActivationFilterModel(
+                        round = NumericRangeModel(start = 2, end = 4),
+                        payloadSize = NumericRangeModel(start = 64, end = 512),
+                        streamBytes = NumericRangeModel(start = 0, end = 2047),
+                    ),
+                tcpChainSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.Fake,
+                            marker = "host",
+                            activationFilter =
+                                ActivationFilterModel(
+                                    round = NumericRangeModel(start = 1, end = 2),
+                                    payloadSize = NumericRangeModel(start = 32, end = 256),
+                                ),
+                        ),
+                    ),
+            ).toNativeConfigJson()
+
+        assertJsonSnapshot(
+            actualJson = payload,
+            expectedJson =
+                """
+                {
+                  "kind": "ui",
+                  "ip": "127.0.0.1",
+                  "port": 1080,
+                  "maxConnections": 512,
+                  "bufferSize": 16384,
+                  "defaultTtl": 0,
+                  "customTtl": false,
+                  "noDomain": false,
+                  "desyncHttp": true,
+                  "desyncHttps": true,
+                  "desyncUdp": false,
+                  "desyncMethod": "disorder",
+                  "splitMarker": "1",
+                  "groupActivationFilter": {
+                    "round": {
+                      "start": 2,
+                      "end": 4
+                    },
+                    "payloadSize": {
+                      "start": 64,
+                      "end": 512
+                    },
+                    "streamBytes": {
+                      "start": 0,
+                      "end": 2047
+                    }
+                  },
+                  "tcpChainSteps": [
+                    {
+                      "kind": "fake",
+                      "marker": "host",
+                      "midhostMarker": "",
+                      "fakeHostTemplate": "",
+                      "fragmentCount": 0,
+                      "minFragmentSize": 0,
+                      "maxFragmentSize": 0,
+                      "activationFilter": {
+                        "round": {
+                          "start": 1,
+                          "end": 2
+                        },
+                        "payloadSize": {
+                          "start": 32,
+                          "end": 256
+                        }
+                      }
+                    }
+                  ],
+                  "fakeTtl": 8,
+                  "fakeSni": "www.iana.org",
+                  "fakeTlsUseOriginal": false,
+                  "fakeTlsRandomize": false,
+                  "fakeTlsDupSessionId": false,
+                  "fakeTlsPadEncap": false,
+                  "fakeTlsSize": 0,
+                  "fakeTlsSniMode": "fixed",
+                  "oobChar": 97,
+                  "hostMixedCase": false,
+                  "domainMixedCase": false,
+                  "hostRemoveSpaces": false,
+                  "tlsRecordSplit": false,
+                  "tlsRecordSplitMarker": "0",
+                  "hostsMode": "disable",
+                  "hosts": null,
+                  "tcpFastOpen": false,
+                  "udpFakeCount": 0,
+                  "udpChainSteps": [],
+                  "dropSack": false,
+                  "fakeOffsetMarker": "0",
+                  "quicInitialMode": "route_and_cache",
+                  "quicSupportV1": true,
+                  "quicSupportV2": true,
+                  "quicFakeProfile": "disabled",
+                  "quicFakeHost": "",
+                  "hostAutolearnEnabled": false,
+                  "hostAutolearnPenaltyTtlSecs": 21600,
+                  "hostAutolearnMaxHosts": 512,
+                  "hostAutolearnStorePath": null
+                }
+                """,
+        )
+    }
+
+    @Test
     fun proxyTlsRandRecUiPayloadMatchesSnapshot() {
         val payload =
             RipDpiProxyUIPreferences(
@@ -433,9 +547,13 @@ class NativeConfigContractSnapshotTest {
                     mapdnsNetwork = "10.0.0.0",
                     mapdnsNetmask = "255.255.255.0",
                     mapdnsCacheSize = 4096,
-                    dohResolverId = "cloudflare",
-                    dohUrl = "https://cloudflare-dns.com/dns-query",
-                    dohBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                    encryptedDnsResolverId = "cloudflare",
+                    encryptedDnsProtocol = "doh",
+                    encryptedDnsHost = "cloudflare-dns.com",
+                    encryptedDnsPort = 443,
+                    encryptedDnsTlsServerName = "cloudflare-dns.com",
+                    encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                    encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
                     dnsQueryTimeoutMs = 4000,
                     taskStackSize = 65536,
                     tcpBufferSize = 32768,
@@ -472,12 +590,16 @@ class NativeConfigContractSnapshotTest {
                   "mapdnsNetwork": "10.0.0.0",
                   "mapdnsNetmask": "255.255.255.0",
                   "mapdnsCacheSize": 4096,
-                  "dohResolverId": "cloudflare",
-                  "dohUrl": "https://cloudflare-dns.com/dns-query",
-                  "dohBootstrapIps": [
+                  "encryptedDnsResolverId": "cloudflare",
+                  "encryptedDnsProtocol": "doh",
+                  "encryptedDnsHost": "cloudflare-dns.com",
+                  "encryptedDnsPort": 443,
+                  "encryptedDnsTlsServerName": "cloudflare-dns.com",
+                  "encryptedDnsBootstrapIps": [
                     "1.1.1.1",
                     "1.0.0.1"
                   ],
+                  "encryptedDnsDohUrl": "https://cloudflare-dns.com/dns-query",
                   "dnsQueryTimeoutMs": 4000,
                   "taskStackSize": 65536,
                   "tcpBufferSize": 32768,
