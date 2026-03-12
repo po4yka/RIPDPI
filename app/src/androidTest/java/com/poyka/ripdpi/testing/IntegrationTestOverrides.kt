@@ -89,6 +89,7 @@ class RecordingRipDpiProxyRuntime(
     private val events: MutableList<String>,
 ) : RipDpiProxyRuntime {
     private var exitCode = CompletableDeferred<Int>()
+    private var ready = CompletableDeferred<Unit>()
     var startFailure: Throwable? = null
     var telemetryValue: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy")
     val faults = FaultQueue<ProxyRuntimeFaultTarget>()
@@ -102,8 +103,16 @@ class RecordingRipDpiProxyRuntime(
         lastPreferences = preferences
         events += "proxy:start"
         faults.next(ProxyRuntimeFaultTarget.START)?.throwOrIgnore()
-        startFailure?.let { throw it }
+        startFailure?.let {
+            ready.completeExceptionally(it)
+            throw it
+        }
+        ready.complete(Unit)
         return exitCode.await()
+    }
+
+    override suspend fun awaitReady(timeoutMillis: Long) {
+        ready.await()
     }
 
     override suspend fun stopProxy() {
@@ -131,6 +140,7 @@ class RecordingRipDpiProxyRuntime(
 
     fun reset() {
         exitCode = CompletableDeferred()
+        ready = CompletableDeferred()
         lastPreferences = null
         stopCount = 0
         startFailure = null
@@ -171,7 +181,12 @@ class RecordingTun2SocksBridge(
     var failOnStop: Throwable? = null
     var failOnTelemetry: Throwable? = null
     var statsValue: TunnelStats = TunnelStats()
-    var telemetryValue: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel")
+    var telemetryValue: NativeRuntimeSnapshot =
+        NativeRuntimeSnapshot(
+            source = "tunnel",
+            state = "running",
+            health = "healthy",
+        )
     val faults = FaultQueue<TunnelBridgeFaultTarget>()
 
     override suspend fun start(
@@ -201,7 +216,7 @@ class RecordingTun2SocksBridge(
     override suspend fun telemetry(): NativeRuntimeSnapshot {
         faults.next(TunnelBridgeFaultTarget.TELEMETRY)?.throwOrIgnore()
         failOnTelemetry?.let { throw it }
-        return telemetryValue
+        return telemetryValue.copy(tunnelStats = statsValue)
     }
 
     fun reset() {
@@ -213,7 +228,12 @@ class RecordingTun2SocksBridge(
         failOnStop = null
         failOnTelemetry = null
         statsValue = TunnelStats()
-        telemetryValue = NativeRuntimeSnapshot.idle(source = "tunnel")
+        telemetryValue =
+            NativeRuntimeSnapshot(
+                source = "tunnel",
+                state = "running",
+                health = "healthy",
+            )
         faults.clear()
     }
 }

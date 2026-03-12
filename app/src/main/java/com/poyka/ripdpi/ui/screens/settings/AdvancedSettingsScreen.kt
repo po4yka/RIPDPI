@@ -35,6 +35,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
+import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeAdaptive
+import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeCustom
+import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeFixed
 import com.poyka.ripdpi.activities.AdaptiveSplitPresetCustom
 import com.poyka.ripdpi.activities.AdaptiveSplitPresetManual
 import com.poyka.ripdpi.activities.SettingsEffect
@@ -42,6 +45,9 @@ import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AdaptiveMarkerEndHost
 import com.poyka.ripdpi.data.AdaptiveMarkerHost
@@ -164,6 +170,9 @@ private enum class AdvancedTextSetting {
     ActivationStreamBytesTo,
     SplitMarker,
     FakeTtl,
+    AdaptiveFakeTtlMin,
+    AdaptiveFakeTtlMax,
+    AdaptiveFakeTtlFallback,
     FakeSni,
     FakeOffsetMarker,
     FakeTlsSize,
@@ -183,6 +192,7 @@ private enum class AdvancedTextSetting {
 private enum class AdvancedOptionSetting {
     DesyncMethod,
     AdaptiveSplitPreset,
+    AdaptiveFakeTtlMode,
     TlsPreludeMode,
     HttpFakeProfile,
     FakeTlsBase,
@@ -205,6 +215,14 @@ private data class AdaptiveSplitPresetUiModel(
     val title: String,
     val body: String,
     val isRecommended: Boolean = false,
+)
+
+private data class AdaptiveFakeTtlModeUiModel(
+    val value: String,
+    val title: String,
+    val body: String,
+    val badgeLabel: String? = null,
+    val badgeTone: StatusIndicatorTone = StatusIndicatorTone.Active,
 )
 
 private data class AdvancedNotice(
@@ -454,6 +472,45 @@ private fun rememberAdaptiveSplitPresetOptions(
                             R.string.adaptive_split_preset_custom_body,
                             formatOffsetExpressionLabel(uiState.splitMarker),
                         ),
+                ),
+            )
+        }
+    }
+
+@Composable
+private fun rememberAdaptiveFakeTtlModeOptions(
+    uiState: SettingsUiState,
+    includeCustom: Boolean = uiState.hasCustomAdaptiveFakeTtl,
+): List<AdaptiveFakeTtlModeUiModel> =
+    buildList {
+        add(
+            AdaptiveFakeTtlModeUiModel(
+                value = AdaptiveFakeTtlModeFixed,
+                title = stringResource(R.string.adaptive_fake_ttl_mode_fixed_title),
+                body = stringResource(R.string.adaptive_fake_ttl_mode_fixed_body),
+            ),
+        )
+        add(
+            AdaptiveFakeTtlModeUiModel(
+                value = AdaptiveFakeTtlModeAdaptive,
+                title = stringResource(R.string.adaptive_fake_ttl_mode_adaptive_title),
+                body = stringResource(R.string.adaptive_fake_ttl_mode_adaptive_body),
+                badgeLabel = stringResource(R.string.adaptive_fake_ttl_mode_recommended),
+            ),
+        )
+        if (includeCustom) {
+            add(
+                1,
+                AdaptiveFakeTtlModeUiModel(
+                    value = AdaptiveFakeTtlModeCustom,
+                    title = stringResource(R.string.adaptive_fake_ttl_mode_custom_title),
+                    body =
+                        stringResource(
+                            R.string.adaptive_fake_ttl_mode_custom_body,
+                            uiState.adaptiveFakeTtlDelta,
+                        ),
+                    badgeLabel = stringResource(R.string.adaptive_fake_ttl_mode_custom_badge),
+                    badgeTone = StatusIndicatorTone.Info,
                 ),
             )
         }
@@ -935,6 +992,48 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
+                AdvancedTextSetting.AdaptiveFakeTtlMin -> {
+                    value.toIntOrNull()?.let { minTtl ->
+                        val normalized = minTtl.coerceIn(1, 255)
+                        val maxTtl = uiState.adaptiveFakeTtlMax.coerceAtLeast(normalized)
+                        viewModel.updateSetting(
+                            key = "adaptiveFakeTtlMin",
+                            value = normalized.toString(),
+                        ) {
+                            setAdaptiveFakeTtlEnabled(true)
+                            setAdaptiveFakeTtlMin(normalized)
+                            setAdaptiveFakeTtlMax(maxTtl)
+                        }
+                    }
+                }
+
+                AdvancedTextSetting.AdaptiveFakeTtlMax -> {
+                    value.toIntOrNull()?.let { maxTtl ->
+                        val minTtl = uiState.adaptiveFakeTtlMin.coerceIn(1, 255)
+                        val normalized = maxTtl.coerceIn(minTtl, 255)
+                        viewModel.updateSetting(
+                            key = "adaptiveFakeTtlMax",
+                            value = normalized.toString(),
+                        ) {
+                            setAdaptiveFakeTtlEnabled(true)
+                            setAdaptiveFakeTtlMax(normalized)
+                        }
+                    }
+                }
+
+                AdvancedTextSetting.AdaptiveFakeTtlFallback -> {
+                    value.toIntOrNull()?.let { fallbackTtl ->
+                        val normalized = fallbackTtl.coerceIn(1, 255)
+                        viewModel.updateSetting(
+                            key = "adaptiveFakeTtlFallback",
+                            value = normalized.toString(),
+                        ) {
+                            setAdaptiveFakeTtlEnabled(true)
+                            setAdaptiveFakeTtlFallback(normalized)
+                        }
+                    }
+                }
+
                 AdvancedTextSetting.FakeSni -> {
                     viewModel.updateSetting(
                         key = "fakeSni",
@@ -1119,6 +1218,31 @@ fun AdvancedSettingsRoute(
                     }
                 }
 
+                AdvancedOptionSetting.AdaptiveFakeTtlMode -> {
+                    when (value) {
+                        AdaptiveFakeTtlModeCustom -> Unit
+                        AdaptiveFakeTtlModeFixed ->
+                            viewModel.updateSetting(
+                                key = "adaptiveFakeTtlEnabled",
+                                value = "false",
+                            ) {
+                                setAdaptiveFakeTtlEnabled(false)
+                            }
+
+                        AdaptiveFakeTtlModeAdaptive ->
+                            viewModel.updateSetting(
+                                key = "adaptiveFakeTtlEnabled",
+                                value = "true",
+                            ) {
+                                setAdaptiveFakeTtlEnabled(true)
+                                setAdaptiveFakeTtlDelta(-1)
+                                setAdaptiveFakeTtlMin(uiState.adaptiveFakeTtlMin.coerceIn(1, 255))
+                                setAdaptiveFakeTtlMax(uiState.adaptiveFakeTtlMax.coerceIn(uiState.adaptiveFakeTtlMin.coerceIn(1, 255), 255))
+                                setAdaptiveFakeTtlFallback(uiState.fakeTtl.takeIf { it in 1..255 } ?: DefaultAdaptiveFakeTtlFallback)
+                            }
+                    }
+                }
+
                 AdvancedOptionSetting.TlsPreludeMode -> {
                     updateTlsPreludeProfile(
                         viewModel = viewModel,
@@ -1250,6 +1374,7 @@ fun AdvancedSettingsRoute(
                 marker = manualSplitMarkerFallback(uiState),
             )
         },
+        onResetAdaptiveFakeTtlProfile = viewModel::resetAdaptiveFakeTtlProfile,
         onResetActivationWindow = viewModel::resetActivationWindow,
         onResetHttpParserEvasions = viewModel::resetHttpParserEvasions,
         onResetFakePayloadLibrary = viewModel::resetFakePayloadLibrary,
@@ -1272,6 +1397,7 @@ private fun AdvancedSettingsScreen(
     onForgetLearnedHosts: () -> Unit,
     onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -> Unit,
     onResetAdaptiveSplit: () -> Unit,
+    onResetAdaptiveFakeTtlProfile: () -> Unit,
     onResetActivationWindow: () -> Unit,
     onResetHttpParserEvasions: () -> Unit,
     onResetFakePayloadLibrary: () -> Unit,
@@ -1285,6 +1411,7 @@ private fun AdvancedSettingsScreen(
     val showHostFakeSection = uiState.showHostFakeProfile
     val showQuicFakeSection = uiState.showQuicFakeProfile
     val showFakePayloadLibrary = uiState.showFakePayloadLibrary
+    val showAdaptiveFakeTtlSection = uiState.showAdaptiveFakeTtlProfile
     val showFakeTlsSection =
         uiState.desyncHttpsEnabled ||
             uiState.isFake ||
@@ -1331,6 +1458,7 @@ private fun AdvancedSettingsScreen(
             valueArrayRes = R.array.udp_fake_profiles_entries,
         )
     val adaptiveSplitPresetOptions = rememberAdaptiveSplitPresetOptions(uiState)
+    val adaptiveFakeTtlModeOptions = rememberAdaptiveFakeTtlModeOptions(uiState)
     var pendingHostPack by remember { mutableStateOf<HostPackPreset?>(null) }
     var selectedHostPackTargetMode by rememberSaveable { mutableStateOf(defaultHostPackTargetMode(uiState)) }
     var selectedHostPackApplyMode by rememberSaveable { mutableStateOf(HostPackApplyDialogDefaultMode) }
@@ -1625,34 +1753,102 @@ private fun AdvancedSettingsScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
                         setting = AdvancedTextSetting.ChainDsl,
                         onConfirm = onTextConfirmed,
-                        showDivider = showHostFakeSection || uiState.usesFakeTransport || uiState.isOob,
+                        showDivider = showHostFakeSection || showAdaptiveFakeTtlSection || showFakeTlsSection || uiState.isOob,
                     )
                     if (showHostFakeSection) {
                         HostFakeProfileCard(
                             uiState = uiState,
                             modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                         )
-                        if (uiState.usesFakeTransport || showFakeTlsSection || uiState.isOob) {
+                        if (showAdaptiveFakeTtlSection || showFakeTlsSection || uiState.isOob) {
                             HorizontalDivider(color = colors.divider)
                         }
                     }
-                    if (uiState.usesFakeTransport) {
-                        AdvancedTextSetting(
-                            title = stringResource(R.string.ripdpi_fake_ttl_setting),
-                            value = uiState.fakeTtl.toString(),
-                            enabled = visualEditorEnabled,
-                            validator = { validateIntRange(it, 1, 255) },
-                            invalidMessage = stringResource(R.string.config_error_out_of_range),
-                            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                            keyboardOptions =
-                                KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done,
-                                ),
-                            setting = AdvancedTextSetting.FakeTtl,
-                            onConfirm = onTextConfirmed,
-                            showDivider = uiState.isFake || showFakeTlsSection || uiState.isOob,
+                    if (showAdaptiveFakeTtlSection) {
+                        AdaptiveFakeTtlProfileCard(
+                            uiState = uiState,
+                            onResetAdaptiveFakeTtlProfile = onResetAdaptiveFakeTtlProfile,
+                            modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                         )
+                        HorizontalDivider(color = colors.divider)
+                        AdaptiveFakeTtlModeSelector(
+                            uiState = uiState,
+                            presets = adaptiveFakeTtlModeOptions,
+                            enabled = visualEditorEnabled,
+                            onModeSelected = { onOptionSelected(AdvancedOptionSetting.AdaptiveFakeTtlMode, it) },
+                        )
+                        HorizontalDivider(color = colors.divider)
+                        if (uiState.adaptiveFakeTtlMode == AdaptiveFakeTtlModeFixed) {
+                            AdvancedTextSetting(
+                                title = stringResource(R.string.ripdpi_fake_ttl_setting),
+                                description = stringResource(R.string.adaptive_fake_ttl_fixed_body),
+                                value = uiState.fakeTtl.toString(),
+                                enabled = visualEditorEnabled,
+                                validator = { validateIntRange(it, 1, 255) },
+                                invalidMessage = stringResource(R.string.config_error_out_of_range),
+                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                                keyboardOptions =
+                                    KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done,
+                                    ),
+                                setting = AdvancedTextSetting.FakeTtl,
+                                onConfirm = onTextConfirmed,
+                                showDivider = uiState.isFake || showFakeTlsSection || uiState.isOob,
+                            )
+                        } else {
+                            AdvancedTextSetting(
+                                title = stringResource(R.string.adaptive_fake_ttl_min_title),
+                                description = stringResource(R.string.adaptive_fake_ttl_min_body),
+                                value = uiState.adaptiveFakeTtlMin.toString(),
+                                enabled = visualEditorEnabled,
+                                validator = { validateIntRange(it, 1, 255) },
+                                invalidMessage = stringResource(R.string.config_error_out_of_range),
+                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                                keyboardOptions =
+                                    KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done,
+                                    ),
+                                setting = AdvancedTextSetting.AdaptiveFakeTtlMin,
+                                onConfirm = onTextConfirmed,
+                                showDivider = true,
+                            )
+                            AdvancedTextSetting(
+                                title = stringResource(R.string.adaptive_fake_ttl_max_title),
+                                description = stringResource(R.string.adaptive_fake_ttl_max_body),
+                                value = uiState.adaptiveFakeTtlMax.toString(),
+                                enabled = visualEditorEnabled,
+                                validator = { validateIntRange(it, uiState.adaptiveFakeTtlMin.coerceIn(1, 255), 255) },
+                                invalidMessage = stringResource(R.string.config_error_out_of_range),
+                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                                keyboardOptions =
+                                    KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done,
+                                    ),
+                                setting = AdvancedTextSetting.AdaptiveFakeTtlMax,
+                                onConfirm = onTextConfirmed,
+                                showDivider = true,
+                            )
+                            AdvancedTextSetting(
+                                title = stringResource(R.string.adaptive_fake_ttl_fallback_title),
+                                description = stringResource(R.string.adaptive_fake_ttl_fallback_body),
+                                value = uiState.adaptiveFakeTtlFallback.toString(),
+                                enabled = visualEditorEnabled,
+                                validator = { validateIntRange(it, 1, 255) },
+                                invalidMessage = stringResource(R.string.config_error_out_of_range),
+                                disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+                                keyboardOptions =
+                                    KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done,
+                                    ),
+                                setting = AdvancedTextSetting.AdaptiveFakeTtlFallback,
+                                onConfirm = onTextConfirmed,
+                                showDivider = uiState.isFake || showFakeTlsSection || uiState.isOob,
+                            )
+                        }
                         if (uiState.isFake) {
                             AdvancedTextSetting(
                                 title = stringResource(R.string.ripdpi_fake_offset_setting),
@@ -3048,6 +3244,12 @@ private data class AdaptiveSplitStatusContent(
     val tone: StatusIndicatorTone,
 )
 
+private data class AdaptiveFakeTtlStatusContent(
+    val label: String,
+    val body: String,
+    val tone: StatusIndicatorTone,
+)
+
 private data class HttpParserEvasionStatusContent(
     val label: String,
     val body: String,
@@ -3737,6 +3939,262 @@ private fun rememberAdaptiveSplitStatus(uiState: SettingsUiState): AdaptiveSplit
                 tone = StatusIndicatorTone.Idle,
             )
     }
+
+@Composable
+private fun AdaptiveFakeTtlProfileCard(
+    uiState: SettingsUiState,
+    onResetAdaptiveFakeTtlProfile: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val status = rememberAdaptiveFakeTtlStatus(uiState)
+    val modeSummary =
+        when (uiState.adaptiveFakeTtlMode) {
+            AdaptiveFakeTtlModeAdaptive -> stringResource(R.string.adaptive_fake_ttl_summary_mode_adaptive)
+            AdaptiveFakeTtlModeCustom -> stringResource(R.string.adaptive_fake_ttl_summary_mode_custom, uiState.adaptiveFakeTtlDelta)
+            else -> stringResource(R.string.adaptive_fake_ttl_summary_mode_fixed)
+        }
+    val windowSummary =
+        if (uiState.hasAdaptiveFakeTtl) {
+            stringResource(
+                R.string.adaptive_fake_ttl_summary_window_value,
+                uiState.adaptiveFakeTtlMin,
+                uiState.adaptiveFakeTtlMax,
+            )
+        } else {
+            stringResource(R.string.adaptive_fake_ttl_summary_window_fixed)
+        }
+    val fallbackSummary =
+        if (uiState.hasAdaptiveFakeTtl) {
+            stringResource(R.string.adaptive_fake_ttl_summary_fallback_value, uiState.adaptiveFakeTtlFallback)
+        } else {
+            stringResource(R.string.adaptive_fake_ttl_summary_fallback_fixed, uiState.fakeTtl)
+        }
+    val scopeSummary =
+        when {
+            uiState.enableCmdSettings -> stringResource(R.string.adaptive_fake_ttl_scope_cli)
+            !uiState.fakeTtlControlsRelevant -> stringResource(R.string.adaptive_fake_ttl_scope_idle)
+            uiState.hasAdaptiveFakeTtl -> stringResource(R.string.adaptive_fake_ttl_scope_adaptive)
+            else -> stringResource(R.string.adaptive_fake_ttl_scope_fixed)
+        }
+    val learningSummary =
+        if (uiState.hasAdaptiveFakeTtl) {
+            stringResource(R.string.adaptive_fake_ttl_learning_runtime)
+        } else {
+            stringResource(R.string.adaptive_fake_ttl_learning_fixed)
+        }
+    val badges =
+        buildList {
+            add(
+                (
+                    when (uiState.adaptiveFakeTtlMode) {
+                        AdaptiveFakeTtlModeAdaptive -> stringResource(R.string.adaptive_fake_ttl_badge_adaptive)
+                        AdaptiveFakeTtlModeCustom -> stringResource(R.string.adaptive_fake_ttl_badge_custom)
+                        else -> stringResource(R.string.adaptive_fake_ttl_badge_fixed)
+                    }
+                ) to
+                    when (uiState.adaptiveFakeTtlMode) {
+                        AdaptiveFakeTtlModeAdaptive -> SummaryCapsuleTone.Active
+                        AdaptiveFakeTtlModeCustom -> SummaryCapsuleTone.Info
+                        else -> SummaryCapsuleTone.Neutral
+                    },
+            )
+            add(stringResource(R.string.adaptive_fake_ttl_badge_tcp_only) to SummaryCapsuleTone.Info)
+            if (uiState.hasAdaptiveFakeTtl) {
+                add(stringResource(R.string.adaptive_fake_ttl_badge_runtime_learned) to SummaryCapsuleTone.Active)
+            }
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Elevated,
+    ) {
+        StatusIndicator(
+            label = status.label,
+            tone = status.tone,
+        )
+        Text(
+            text = status.body,
+            style = type.secondaryBody,
+            color = colors.foreground,
+        )
+        SummaryCapsuleFlow(items = badges)
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_fake_ttl_summary_label_mode),
+                value = modeSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_fake_ttl_summary_label_window),
+                value = windowSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_fake_ttl_summary_label_fallback),
+                value = fallbackSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_fake_ttl_summary_label_scope),
+                value = scopeSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.adaptive_fake_ttl_summary_label_learning),
+                value = learningSummary,
+            )
+        }
+        if (uiState.canResetAdaptiveFakeTtlProfile) {
+            RipDpiButton(
+                text = stringResource(R.string.adaptive_fake_ttl_reset_action),
+                onClick = onResetAdaptiveFakeTtlProfile,
+                variant = RipDpiButtonVariant.Outline,
+                modifier = Modifier.align(Alignment.End),
+            )
+        }
+    }
+}
+
+@Composable
+private fun rememberAdaptiveFakeTtlStatus(uiState: SettingsUiState): AdaptiveFakeTtlStatusContent =
+    when {
+        uiState.enableCmdSettings ->
+            AdaptiveFakeTtlStatusContent(
+                label = stringResource(R.string.adaptive_fake_ttl_cli_title),
+                body = stringResource(R.string.adaptive_fake_ttl_cli_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        !uiState.fakeTtlControlsRelevant && uiState.hasAdaptiveFakeTtl ->
+            AdaptiveFakeTtlStatusContent(
+                label = stringResource(R.string.adaptive_fake_ttl_saved_title),
+                body = stringResource(R.string.adaptive_fake_ttl_saved_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        !uiState.fakeTtlControlsRelevant ->
+            AdaptiveFakeTtlStatusContent(
+                label = stringResource(R.string.adaptive_fake_ttl_fixed_title),
+                body = stringResource(R.string.adaptive_fake_ttl_fixed_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+
+        uiState.isServiceRunning && uiState.hasAdaptiveFakeTtl ->
+            AdaptiveFakeTtlStatusContent(
+                label = stringResource(R.string.adaptive_fake_ttl_restart_title),
+                body = stringResource(R.string.adaptive_fake_ttl_restart_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+
+        uiState.hasCustomAdaptiveFakeTtl ->
+            AdaptiveFakeTtlStatusContent(
+                label = stringResource(R.string.adaptive_fake_ttl_custom_title),
+                body = stringResource(R.string.adaptive_fake_ttl_custom_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        uiState.hasAdaptiveFakeTtl ->
+            AdaptiveFakeTtlStatusContent(
+                label = stringResource(R.string.adaptive_fake_ttl_adaptive_title),
+                body = stringResource(R.string.adaptive_fake_ttl_adaptive_body),
+                tone = StatusIndicatorTone.Active,
+            )
+
+        else ->
+            AdaptiveFakeTtlStatusContent(
+                label = stringResource(R.string.adaptive_fake_ttl_fixed_title),
+                body = stringResource(R.string.adaptive_fake_ttl_fixed_body),
+                tone = StatusIndicatorTone.Idle,
+            )
+    }
+
+@Composable
+private fun AdaptiveFakeTtlModeSelector(
+    uiState: SettingsUiState,
+    presets: List<AdaptiveFakeTtlModeUiModel>,
+    enabled: Boolean,
+    onModeSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Text(
+            text = stringResource(R.string.adaptive_fake_ttl_selector_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        Text(
+            text = stringResource(R.string.adaptive_fake_ttl_selector_body),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        presets.forEach { preset ->
+            AdaptiveFakeTtlModeCard(
+                preset = preset,
+                selected = uiState.adaptiveFakeTtlMode == preset.value,
+                enabled = enabled && preset.value != AdaptiveFakeTtlModeCustom,
+                onClick = { onModeSelected(preset.value) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdaptiveFakeTtlModeCard(
+    preset: AdaptiveFakeTtlModeUiModel,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = if (selected) RipDpiCardVariant.Tonal else RipDpiCardVariant.Outlined,
+        enabled = enabled,
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                Text(
+                    text = preset.title,
+                    style = type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Text(
+                    text = preset.body,
+                    style = type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+            val badgeLabel =
+                when {
+                    selected -> stringResource(R.string.adaptive_fake_ttl_mode_selected)
+                    preset.badgeLabel != null -> preset.badgeLabel
+                    else -> null
+                }
+            badgeLabel?.let {
+                StatusIndicator(
+                    label = it,
+                    tone = if (selected) StatusIndicatorTone.Active else preset.badgeTone,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun ActivationRangeEditorCard(
@@ -5350,6 +5808,7 @@ private fun AdvancedSettingsScreenPreview() {
             onForgetLearnedHosts = {},
             onSaveActivationRange = { _, _, _ -> },
             onResetAdaptiveSplit = {},
+            onResetAdaptiveFakeTtlProfile = {},
             onResetActivationWindow = {},
             onResetHttpParserEvasions = {},
             onResetFakePayloadLibrary = {},
@@ -5418,6 +5877,7 @@ private fun AdvancedSettingsScreenDarkPreview() {
             onForgetLearnedHosts = {},
             onSaveActivationRange = { _, _, _ -> },
             onResetAdaptiveSplit = {},
+            onResetAdaptiveFakeTtlProfile = {},
             onResetActivationWindow = {},
             onResetHttpParserEvasions = {},
             onResetFakePayloadLibrary = {},

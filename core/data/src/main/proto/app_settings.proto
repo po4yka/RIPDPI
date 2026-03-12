@@ -133,4 +133,9 @@ message AppSettings {
   string encrypted_dns_dnscrypt_public_key = 103;
   bool http_method_eol = 104;
   bool http_unix_eol = 105;
+  bool adaptive_fake_ttl_enabled = 106;
+  int32 adaptive_fake_ttl_delta = 107;
+  int32 adaptive_fake_ttl_min = 108;
+  int32 adaptive_fake_ttl_max = 109;
+  int32 adaptive_fake_ttl_fallback = 110;
 }

@@ -44,6 +44,11 @@ class AppSettingsJsonTest {
                 .setFakeSni("example.org")
                 .setFakeOffset(4)
                 .setFakeOffsetMarker("method+4")
+                .setAdaptiveFakeTtlEnabled(true)
+                .setAdaptiveFakeTtlDelta(-1)
+                .setAdaptiveFakeTtlMin(3)
+                .setAdaptiveFakeTtlMax(12)
+                .setAdaptiveFakeTtlFallback(11)
                 .setFakeTlsUseOriginal(true)
                 .setFakeTlsRandomize(true)
                 .setFakeTlsDupSessionId(true)
@@ -181,6 +186,11 @@ class AppSettingsJsonTest {
         assertEquals(AppSettingsSerializer.defaultValue.udpFakeProfile, decoded.udpFakeProfile)
         assertEquals(AppSettingsSerializer.defaultValue.httpMethodEol, decoded.httpMethodEol)
         assertEquals(AppSettingsSerializer.defaultValue.httpUnixEol, decoded.httpUnixEol)
+        assertEquals(AppSettingsSerializer.defaultValue.adaptiveFakeTtlEnabled, decoded.adaptiveFakeTtlEnabled)
+        assertEquals(AppSettingsSerializer.defaultValue.adaptiveFakeTtlDelta, decoded.adaptiveFakeTtlDelta)
+        assertEquals(AppSettingsSerializer.defaultValue.adaptiveFakeTtlMin, decoded.adaptiveFakeTtlMin)
+        assertEquals(AppSettingsSerializer.defaultValue.adaptiveFakeTtlMax, decoded.adaptiveFakeTtlMax)
+        assertEquals(AppSettingsSerializer.defaultValue.adaptiveFakeTtlFallback, decoded.adaptiveFakeTtlFallback)
     }
 
     @Test

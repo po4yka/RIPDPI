@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
@@ -10,6 +14,10 @@ import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.effectiveHttpFakeProfile
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.effectiveQuicFakeHost
 import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.effectiveTlsFakeProfile
@@ -35,6 +43,10 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
 import com.poyka.ripdpi.data.normalizeHttpFakeProfile
 import com.poyka.ripdpi.data.normalizeActivationFilter
+import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlDelta
+import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMax
+import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeQuicFakeProfile
 import com.poyka.ripdpi.data.normalizeTlsFakeProfile
@@ -134,6 +146,11 @@ fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences
                 )
             },
         fakeTtl = ui.fakeTtl,
+        adaptiveFakeTtlEnabled = ui.adaptiveFakeTtlEnabled,
+        adaptiveFakeTtlDelta = ui.adaptiveFakeTtlDelta,
+        adaptiveFakeTtlMin = ui.adaptiveFakeTtlMin,
+        adaptiveFakeTtlMax = ui.adaptiveFakeTtlMax,
+        adaptiveFakeTtlFallback = ui.adaptiveFakeTtlFallback,
         fakeSni = ui.fakeSni,
         httpFakeProfile = ui.httpFakeProfile,
         fakeTlsUseOriginal = ui.fakeTlsUseOriginal,
@@ -215,6 +232,11 @@ class RipDpiProxyUIPreferences(
     groupActivationFilter: ActivationFilterModel? = null,
     tcpChainSteps: List<TcpChainStepModel>? = null,
     fakeTtl: Int? = null,
+    adaptiveFakeTtlEnabled: Boolean? = null,
+    adaptiveFakeTtlDelta: Int? = null,
+    adaptiveFakeTtlMin: Int? = null,
+    adaptiveFakeTtlMax: Int? = null,
+    adaptiveFakeTtlFallback: Int? = null,
     fakeSni: String? = null,
     httpFakeProfile: String? = null,
     fakeTlsUseOriginal: Boolean? = null,
@@ -271,7 +293,20 @@ class RipDpiProxyUIPreferences(
                 tlsRecordSplit = tlsRecordSplit ?: false,
                 tlsRecordSplitMarker = tlsRecordSplitMarker,
             )
-    val fakeTtl: Int = fakeTtl ?: 8
+    private val normalizedFakeTtl: Int = fakeTtl ?: 8
+    private val normalizedAdaptiveFakeTtlMin: Int =
+        normalizeAdaptiveFakeTtlMin(adaptiveFakeTtlMin ?: DefaultAdaptiveFakeTtlMin)
+    val fakeTtl: Int = normalizedFakeTtl
+    val adaptiveFakeTtlEnabled: Boolean = adaptiveFakeTtlEnabled ?: false
+    val adaptiveFakeTtlDelta: Int = normalizeAdaptiveFakeTtlDelta(adaptiveFakeTtlDelta ?: DefaultAdaptiveFakeTtlDelta)
+    val adaptiveFakeTtlMin: Int = normalizedAdaptiveFakeTtlMin
+    val adaptiveFakeTtlMax: Int =
+        normalizeAdaptiveFakeTtlMax(adaptiveFakeTtlMax ?: DefaultAdaptiveFakeTtlMax, normalizedAdaptiveFakeTtlMin)
+    val adaptiveFakeTtlFallback: Int =
+        normalizeAdaptiveFakeTtlFallback(
+            adaptiveFakeTtlFallback ?: normalizedFakeTtl,
+            normalizedFakeTtl.takeIf { it > 0 } ?: DefaultAdaptiveFakeTtlFallback,
+        )
     val fakeSni: String = fakeSni ?: DefaultFakeSni
     val httpFakeProfile: String = normalizeHttpFakeProfile(httpFakeProfile.orEmpty().ifBlank { FakePayloadProfileCompatDefault })
     val fakeTlsUseOriginal: Boolean = fakeTlsUseOriginal ?: false
@@ -344,6 +379,11 @@ class RipDpiProxyUIPreferences(
         groupActivationFilter = settings.effectiveGroupActivationFilter(),
         tcpChainSteps = settings.effectiveTcpChainSteps(),
         fakeTtl = settings.fakeTtl.takeIf { it > 0 },
+        adaptiveFakeTtlEnabled = settings.adaptiveFakeTtlEnabled,
+        adaptiveFakeTtlDelta = settings.effectiveAdaptiveFakeTtlDelta(),
+        adaptiveFakeTtlMin = settings.effectiveAdaptiveFakeTtlMin(),
+        adaptiveFakeTtlMax = settings.effectiveAdaptiveFakeTtlMax(),
+        adaptiveFakeTtlFallback = settings.effectiveAdaptiveFakeTtlFallback(),
         fakeSni = settings.fakeSni.ifEmpty { null },
         httpFakeProfile = settings.effectiveHttpFakeProfile(),
         fakeTlsUseOriginal = settings.fakeTlsUseOriginal,
@@ -418,6 +458,11 @@ class RipDpiProxyUIPreferences(
                     )
                 },
                 fakeTtl = fakeTtl,
+                adaptiveFakeTtlEnabled = adaptiveFakeTtlEnabled,
+                adaptiveFakeTtlDelta = adaptiveFakeTtlDelta,
+                adaptiveFakeTtlMin = adaptiveFakeTtlMin,
+                adaptiveFakeTtlMax = adaptiveFakeTtlMax,
+                adaptiveFakeTtlFallback = adaptiveFakeTtlFallback,
                 fakeSni = fakeSni,
                 httpFakeProfile = httpFakeProfile,
                 fakeTlsUseOriginal = fakeTlsUseOriginal,
@@ -566,6 +611,11 @@ private sealed interface NativeProxyConfig {
         val groupActivationFilter: NativeActivationFilter? = null,
         val tcpChainSteps: List<NativeTcpChainStep>,
         val fakeTtl: Int,
+        val adaptiveFakeTtlEnabled: Boolean = false,
+        val adaptiveFakeTtlDelta: Int = DefaultAdaptiveFakeTtlDelta,
+        val adaptiveFakeTtlMin: Int = DefaultAdaptiveFakeTtlMin,
+        val adaptiveFakeTtlMax: Int = DefaultAdaptiveFakeTtlMax,
+        val adaptiveFakeTtlFallback: Int = DefaultAdaptiveFakeTtlFallback,
         val fakeSni: String,
         val httpFakeProfile: String = FakePayloadProfileCompatDefault,
         val fakeTlsUseOriginal: Boolean,

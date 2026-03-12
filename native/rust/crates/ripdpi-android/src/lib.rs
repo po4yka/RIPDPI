@@ -22,7 +22,7 @@ use ripdpi_proxy_config::{
     ProxyConfigPayload, ProxyConfigError, ProxyUiActivationFilter, ProxyUiConfig, ProxyUiTcpChainStep, FAKE_TLS_SNI_MODE_FIXED,
     FAKE_TLS_SNI_MODE_RANDOMIZED, QUIC_FAKE_PROFILE_DISABLED,
 };
-use ripdpi_runtime::{clear_runtime_telemetry, install_runtime_telemetry, process, runtime, RuntimeTelemetrySink};
+use ripdpi_runtime::{runtime, EmbeddedProxyControl, RuntimeTelemetrySink};
 use serde::Serialize;
 
 const HOSTS_DISABLE: &str = "disable";
@@ -83,7 +83,7 @@ struct ProxySession {
 
 enum ProxySessionState {
     Idle,
-    Running { listener_fd: i32 },
+    Running { listener_fd: i32, control: Arc<EmbeddedProxyControl> },
 }
 
 /// Returns true for I/O errors caused by transient network conditions
@@ -772,19 +772,20 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
         }
     };
 
+    session.telemetry.clear_last_error();
+    let control = Arc::new(EmbeddedProxyControl::new(Some(Arc::new(ProxyTelemetryObserver {
+        state: session.telemetry.clone(),
+    }))));
+
     {
         let mut state = session.state.lock().expect("proxy session poisoned");
-        if let Err(message) = try_mark_proxy_running(&mut state, listener_fd) {
+        if let Err(message) = try_mark_proxy_running(&mut state, listener_fd, control.clone()) {
             throw_illegal_state(env, message);
             return libc::EINVAL;
         }
     }
 
-    session.telemetry.clear_last_error();
-    install_runtime_telemetry(Arc::new(ProxyTelemetryObserver { state: session.telemetry.clone() }));
-    process::prepare_embedded();
-    let result = runtime::run_proxy_with_listener(config, listener);
-    clear_runtime_telemetry();
+    let result = runtime::run_proxy_with_embedded_control(config, listener, control);
 
     let mut state = session.state.lock().expect("proxy session poisoned");
     *state = ProxySessionState::Idle;
@@ -807,10 +808,10 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
         }
     };
 
-    let listener_fd = {
+    let (listener_fd, control) = {
         let state = session.state.lock().expect("proxy session poisoned");
         match listener_fd_for_proxy_stop(&state) {
-            Ok(listener_fd) => listener_fd,
+            Ok(parts) => parts,
             Err(message) => {
                 throw_illegal_state(env, message);
                 return;
@@ -818,7 +819,7 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
         }
     };
 
-    process::request_shutdown();
+    control.request_shutdown();
     if let Err(err) = shutdown_proxy_listener(listener_fd) {
         throw_io_exception(env, format!("Failed to stop proxy listener: {err}"));
         session.telemetry.on_client_error(err.to_string());
@@ -977,20 +978,24 @@ fn remove_proxy_session(handle: jlong) -> Result<std::sync::Arc<ProxySession>, J
         .ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))
 }
 
-fn try_mark_proxy_running(state: &mut ProxySessionState, listener_fd: i32) -> Result<(), &'static str> {
+fn try_mark_proxy_running(
+    state: &mut ProxySessionState,
+    listener_fd: i32,
+    control: Arc<EmbeddedProxyControl>,
+) -> Result<(), &'static str> {
     match *state {
         ProxySessionState::Idle => {
-            *state = ProxySessionState::Running { listener_fd };
+            *state = ProxySessionState::Running { listener_fd, control };
             Ok(())
         }
         ProxySessionState::Running { .. } => Err("Proxy session is already running"),
     }
 }
 
-fn listener_fd_for_proxy_stop(state: &ProxySessionState) -> Result<i32, &'static str> {
-    match *state {
+fn listener_fd_for_proxy_stop(state: &ProxySessionState) -> Result<(i32, Arc<EmbeddedProxyControl>), &'static str> {
+    match state {
         ProxySessionState::Idle => Err("Proxy session is not running"),
-        ProxySessionState::Running { listener_fd } => Ok(listener_fd),
+        ProxySessionState::Running { listener_fd, control } => Ok((*listener_fd, control.clone())),
     }
 }
 
@@ -1152,6 +1157,11 @@ mod tests {
                 split_position,
                 split_at_host,
                 fake_ttl,
+                adaptive_fake_ttl_enabled: false,
+                adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+                adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+                adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+                adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
                 fake_sni,
                 http_fake_profile: "compat_default".to_string(),
                 fake_tls_use_original: false,
@@ -1213,6 +1223,11 @@ mod tests {
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
+            adaptive_fake_ttl_enabled: false,
+            adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+            adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+            adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+            adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
             fake_sni: "www.iana.org".to_string(),
             http_fake_profile: "compat_default".to_string(),
             fake_tls_use_original: true,
@@ -1298,6 +1313,11 @@ mod tests {
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
+            adaptive_fake_ttl_enabled: false,
+            adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+            adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+            adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+            adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
             fake_sni: "www.iana.org".to_string(),
             http_fake_profile: "compat_default".to_string(),
             fake_tls_use_original: false,
@@ -1517,6 +1537,11 @@ mod tests {
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
+            adaptive_fake_ttl_enabled: false,
+            adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+            adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+            adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+            adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
             fake_sni: "www.iana.org".to_string(),
             http_fake_profile: "compat_default".to_string(),
             fake_tls_use_original: false,
@@ -1632,6 +1657,11 @@ mod tests {
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
+            adaptive_fake_ttl_enabled: false,
+            adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+            adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+            adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+            adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
             fake_sni: "www.iana.org".to_string(),
             http_fake_profile: "compat_default".to_string(),
             fake_tls_use_original: false,
@@ -1695,6 +1725,11 @@ mod tests {
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
+            adaptive_fake_ttl_enabled: false,
+            adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+            adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+            adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+            adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
             fake_sni: "www.iana.org".to_string(),
             http_fake_profile: "compat_default".to_string(),
             fake_tls_use_original: false,
@@ -1758,6 +1793,11 @@ mod tests {
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
+            adaptive_fake_ttl_enabled: false,
+            adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+            adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+            adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+            adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
             fake_sni: "www.iana.org".to_string(),
             http_fake_profile: "compat_default".to_string(),
             fake_tls_use_original: false,
@@ -1830,6 +1870,11 @@ mod tests {
             split_position: 1,
             split_at_host: false,
             fake_ttl: 8,
+            adaptive_fake_ttl_enabled: false,
+            adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+            adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+            adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+            adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
             fake_sni: "www.iana.org".to_string(),
             http_fake_profile: "compat_default".to_string(),
             fake_tls_use_original: false,
@@ -1915,9 +1960,11 @@ mod tests {
     #[test]
     fn proxy_state_rejects_duplicate_start() {
         let mut state = ProxySessionState::Idle;
+        let first = Arc::new(EmbeddedProxyControl::default());
+        let second = Arc::new(EmbeddedProxyControl::default());
 
-        try_mark_proxy_running(&mut state, 7).expect("first start");
-        let err = try_mark_proxy_running(&mut state, 8).expect_err("duplicate start");
+        try_mark_proxy_running(&mut state, 7, first).expect("first start");
+        let err = try_mark_proxy_running(&mut state, 8, second).expect_err("duplicate start");
 
         assert_eq!(err, "Proxy session is already running");
     }
@@ -1932,7 +1979,11 @@ mod tests {
     #[test]
     fn proxy_state_rejects_destroy_when_running() {
         let err =
-            ensure_proxy_destroyable(&ProxySessionState::Running { listener_fd: 9 }).expect_err("running destroy");
+            ensure_proxy_destroyable(&ProxySessionState::Running {
+                listener_fd: 9,
+                control: Arc::new(EmbeddedProxyControl::default()),
+            })
+                .expect_err("running destroy");
 
         assert_eq!(err, "Cannot destroy a running proxy session");
     }
@@ -2113,7 +2164,7 @@ mod tests {
             let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
             let listener_fd = self.next_listener_fd;
             let mut state = session.state.lock().expect("proxy state lock");
-            try_mark_proxy_running(&mut state, listener_fd)?;
+            try_mark_proxy_running(&mut state, listener_fd, Arc::new(EmbeddedProxyControl::default()))?;
             self.next_listener_fd += 1;
             Ok(listener_fd)
         }
@@ -2121,7 +2172,7 @@ mod tests {
         fn stop(&mut self) -> Result<i32, String> {
             let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
             let mut state = session.state.lock().expect("proxy state lock");
-            let listener_fd = listener_fd_for_proxy_stop(&state)?;
+            let (listener_fd, _) = listener_fd_for_proxy_stop(&state)?;
             *state = ProxySessionState::Idle;
             Ok(listener_fd)
         }
@@ -2250,6 +2301,11 @@ mod tests {
                 split_position,
                 split_at_host,
                 fake_ttl: 8,
+                adaptive_fake_ttl_enabled: false,
+                adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+                adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+                adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+                adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
                 fake_sni: "www.iana.org".to_string(),
                 http_fake_profile: "compat_default".to_string(),
                 fake_tls_use_original: false,

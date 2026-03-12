@@ -58,6 +58,62 @@ class NativeBridgeWrappersTest {
         }
 
     @Test
+    fun proxyWrapperAwaitReadyCompletesAfterRunningTelemetryAppears() =
+        runTest {
+            val blocker = CompletableDeferred<Unit>()
+            val startedSignal = CompletableDeferred<Long>()
+            val bindings =
+                FakeRipDpiProxyBindings().apply {
+                    this.startedSignal = startedSignal
+                    startBlocker = blocker
+                }
+            val proxy = RipDpiProxy(bindings)
+
+            val start =
+                async {
+                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1082))
+                }
+
+            assertEquals(1L, startedSignal.await())
+            bindings.telemetryJson =
+                json.encodeToString(
+                    NativeRuntimeSnapshot.serializer(),
+                    NativeRuntimeSnapshot(source = "proxy", state = "running", health = "healthy"),
+                )
+
+            proxy.awaitReady()
+
+            blocker.complete(Unit)
+            assertEquals(0, start.await())
+        }
+
+    @Test
+    fun proxyWrapperAwaitReadyPropagatesNativeStartFailure() =
+        runTest {
+            val startedSignal = CompletableDeferred<Long>()
+            val bindings =
+                FakeRipDpiProxyBindings().apply {
+                    this.startedSignal = startedSignal
+                    startFailure = IOException("proxy boom")
+                }
+            val proxy = RipDpiProxy(bindings)
+
+            val start =
+                async {
+                    runCatching {
+                        proxy.startProxy(RipDpiProxyUIPreferences(port = 1082))
+                    }.exceptionOrNull()
+                }
+
+            assertEquals(1L, startedSignal.await())
+
+            val error = runCatching { proxy.awaitReady() }.exceptionOrNull()
+
+            assertTrue(error is IOException)
+            assertTrue(start.await() is IOException)
+        }
+
+    @Test
     fun proxyWrapperDestroysSessionWhenNativeStartFails() =
         runTest {
             val bindings =

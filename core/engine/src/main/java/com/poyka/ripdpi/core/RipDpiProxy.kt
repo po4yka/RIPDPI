@@ -1,19 +1,27 @@
 package com.poyka.ripdpi.core
 
 import javax.inject.Inject
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 
 interface RipDpiProxyRuntime {
     suspend fun startProxy(preferences: RipDpiProxyPreferences): Int
 
+    suspend fun awaitReady(timeoutMillis: Long = DEFAULT_PROXY_READY_TIMEOUT_MS)
+
     suspend fun stopProxy()
 
     suspend fun pollTelemetry(): NativeRuntimeSnapshot
 }
+
+internal const val DEFAULT_PROXY_READY_TIMEOUT_MS = 5_000L
 
 interface RipDpiProxyBindings {
     fun create(configJson: String): Long
@@ -64,27 +72,43 @@ class RipDpiProxyNativeBindings
 class RipDpiProxy(
     private val nativeBindings: RipDpiProxyBindings,
 ) : RipDpiProxyRuntime {
+    private companion object {
+        private const val READY_POLL_INTERVAL_MS = 50L
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
     private val mutex = Mutex()
     private var handle = 0L
+    private var readinessSignal: CompletableDeferred<Unit>? = null
 
     override suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
+        val startupSignal = CompletableDeferred<Unit>()
         val handle =
             mutex.withLock {
                 if (this.handle != 0L) {
                     throw NativeError.AlreadyRunning("Proxy")
                 }
 
-                val createdHandle = nativeBindings.create(preferences.toNativeConfigJson())
-                if (createdHandle == 0L) {
-                    throw NativeError.SessionCreationFailed("proxy")
+                readinessSignal = startupSignal
+                try {
+                    val createdHandle = nativeBindings.create(preferences.toNativeConfigJson())
+                    if (createdHandle == 0L) {
+                        throw NativeError.SessionCreationFailed("proxy")
+                    }
+                    this.handle = createdHandle
+                    createdHandle
+                } catch (error: Exception) {
+                    readinessSignal = null
+                    startupSignal.completeExceptionally(error)
+                    throw error
                 }
-                this.handle = createdHandle
-                createdHandle
             }
 
         try {
             return withContext(Dispatchers.IO) { nativeBindings.start(handle) }
+        } catch (error: Exception) {
+            startupSignal.completeExceptionally(error)
+            throw error
         } finally {
             mutex.withLock {
                 if (this.handle == handle) {
@@ -94,7 +118,41 @@ class RipDpiProxy(
                         this.handle = 0L
                     }
                 }
+                if (!startupSignal.isCompleted) {
+                    startupSignal.completeExceptionally(IllegalStateException("Proxy exited before becoming ready"))
+                }
+                if (readinessSignal === startupSignal) {
+                    readinessSignal = null
+                }
             }
+        }
+    }
+
+    override suspend fun awaitReady(timeoutMillis: Long) {
+        val startupSignal =
+            mutex.withLock {
+                readinessSignal
+            } ?: throw NativeError.NotRunning("Proxy")
+
+        try {
+            withTimeout(timeoutMillis) {
+                while (true) {
+                    if (startupSignal.isCompleted) {
+                        startupSignal.await()
+                        return@withTimeout
+                    }
+
+                    if (pollTelemetry().state == "running") {
+                        startupSignal.complete(Unit)
+                        startupSignal.await()
+                        return@withTimeout
+                    }
+
+                    delay(READY_POLL_INTERVAL_MS)
+                }
+            }
+        } catch (error: TimeoutCancellationException) {
+            throw IllegalStateException("Timed out waiting for proxy readiness", error)
         }
     }
 

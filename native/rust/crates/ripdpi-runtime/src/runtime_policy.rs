@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ciadpi_config::{
@@ -822,7 +823,7 @@ fn atomic_write(path: &Path, payload: &[u8]) -> io::Result<()> {
         ".{}.tmp-{}-{}",
         path.file_name().and_then(|name| name.to_str()).unwrap_or("autolearn"),
         std::process::id(),
-        now_millis()
+        next_temp_file_nonce()
     );
     let tmp_path = parent.join(tmp_name);
     fs::write(&tmp_path, payload)?;
@@ -865,6 +866,13 @@ fn now_unix() -> i64 {
 
 fn now_millis() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+}
+
+fn next_temp_file_nonce() -> u64 {
+    static TEMP_FILE_NONCE: AtomicU64 = AtomicU64::new(0);
+    let timestamp = now_millis() << 16;
+    let sequence = TEMP_FILE_NONCE.fetch_add(1, Ordering::Relaxed) & 0xFFFF;
+    timestamp | sequence
 }
 
 #[cfg(test)]

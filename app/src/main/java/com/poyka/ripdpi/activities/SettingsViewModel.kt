@@ -8,6 +8,10 @@ import com.poyka.ripdpi.core.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
+import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AdaptiveMarkerEndHost
 import com.poyka.ripdpi.data.AdaptiveMarkerHost
@@ -45,6 +49,10 @@ import com.poyka.ripdpi.data.effectiveHttpFakeProfile
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.effectiveGroupActivationFilter
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.effectiveQuicFakeHost
 import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.effectiveQuicInitialMode
@@ -98,6 +106,9 @@ import kotlinx.coroutines.launch
 
 internal const val AdaptiveSplitPresetManual = "manual"
 internal const val AdaptiveSplitPresetCustom = "custom"
+internal const val AdaptiveFakeTtlModeFixed = "fixed"
+internal const val AdaptiveFakeTtlModeAdaptive = "adaptive"
+internal const val AdaptiveFakeTtlModeCustom = "custom"
 
 sealed interface SettingsEffect {
     data class SettingChanged(
@@ -157,6 +168,11 @@ data class SettingsUiState(
     val chainDsl: String = "",
     val splitMarker: String = DefaultSplitMarker,
     val fakeTtl: Int = 8,
+    val adaptiveFakeTtlEnabled: Boolean = false,
+    val adaptiveFakeTtlDelta: Int = DefaultAdaptiveFakeTtlDelta,
+    val adaptiveFakeTtlMin: Int = DefaultAdaptiveFakeTtlMin,
+    val adaptiveFakeTtlMax: Int = DefaultAdaptiveFakeTtlMax,
+    val adaptiveFakeTtlFallback: Int = DefaultAdaptiveFakeTtlFallback,
     val fakeSni: String = DefaultFakeSni,
     val fakeOffsetMarker: String = DefaultFakeOffsetMarker,
     val httpFakeProfile: String = FakePayloadProfileCompatDefault,
@@ -239,6 +255,9 @@ data class SettingsUiState(
     val canResetFakeTlsProfile: Boolean
         get() = !enableCmdSettings && hasCustomFakeTlsProfile
 
+    val canResetAdaptiveFakeTtlProfile: Boolean
+        get() = !enableCmdSettings && hasAdaptiveFakeTtl
+
     val canResetFakePayloadLibrary: Boolean
         get() = !enableCmdSettings && hasCustomFakePayloadProfiles
 
@@ -271,6 +290,26 @@ data class SettingsUiState(
 
     val fakeTlsControlsRelevant: Boolean
         get() = desyncHttpsEnabled && isFake
+
+    val fakeTtlControlsRelevant: Boolean
+        get() = usesFakeTransport || isOob
+
+    val adaptiveFakeTtlMode: String
+        get() =
+            when {
+                !adaptiveFakeTtlEnabled -> AdaptiveFakeTtlModeFixed
+                adaptiveFakeTtlDelta == DefaultAdaptiveFakeTtlDelta -> AdaptiveFakeTtlModeAdaptive
+                else -> AdaptiveFakeTtlModeCustom
+            }
+
+    val hasAdaptiveFakeTtl: Boolean
+        get() = adaptiveFakeTtlEnabled
+
+    val hasCustomAdaptiveFakeTtl: Boolean
+        get() = adaptiveFakeTtlMode == AdaptiveFakeTtlModeCustom
+
+    val showAdaptiveFakeTtlProfile: Boolean
+        get() = enableCmdSettings || fakeTtlControlsRelevant || hasAdaptiveFakeTtl
 
     val hasUdpFakeBurst: Boolean
         get() = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 }
@@ -477,6 +516,11 @@ internal fun AppSettings.toUiState(
         chainDsl = formatStrategyChainDsl(tcpChainSteps, udpChainSteps),
         splitMarker = primaryTcpStep?.marker ?: effectiveSplitMarker(),
         fakeTtl = fakeTtl.takeIf { it > 0 } ?: 8,
+        adaptiveFakeTtlEnabled = adaptiveFakeTtlEnabled,
+        adaptiveFakeTtlDelta = effectiveAdaptiveFakeTtlDelta(),
+        adaptiveFakeTtlMin = effectiveAdaptiveFakeTtlMin(),
+        adaptiveFakeTtlMax = effectiveAdaptiveFakeTtlMax(),
+        adaptiveFakeTtlFallback = effectiveAdaptiveFakeTtlFallback(),
         fakeSni = fakeSni.ifEmpty { DefaultFakeSni },
         fakeOffsetMarker = effectiveFakeOffsetMarker(),
         httpFakeProfile = effectiveHttpFakeProfile(),
@@ -1000,6 +1044,33 @@ class SettingsViewModel
                     SettingsEffect.Notice(
                         title = "Fake TLS profile reset",
                         message = "RIPDPI will use the default fake ClientHello, fixed SNI, and input-sized payload on the next start.",
+                        tone = SettingsNoticeTone.Info,
+                    )
+                }
+            _effects.send(effect)
+        }
+    }
+
+    fun resetAdaptiveFakeTtlProfile() {
+        viewModelScope.launch {
+            appSettingsRepository.update {
+                setAdaptiveFakeTtlEnabled(false)
+                setAdaptiveFakeTtlDelta(DefaultAdaptiveFakeTtlDelta)
+                setAdaptiveFakeTtlMin(DefaultAdaptiveFakeTtlMin)
+                setAdaptiveFakeTtlMax(DefaultAdaptiveFakeTtlMax)
+                setAdaptiveFakeTtlFallback(fakeTtl.takeIf { it > 0 } ?: DefaultAdaptiveFakeTtlFallback)
+            }
+            val effect =
+                if (serviceStateStore.status.value.first == AppStatus.Running) {
+                    SettingsEffect.Notice(
+                        title = "Adaptive fake TTL reset for next start",
+                        message = "RIPDPI will go back to a fixed fake TTL for the active group after the next restart or reconnect.",
+                        tone = SettingsNoticeTone.Info,
+                    )
+                } else {
+                    SettingsEffect.Notice(
+                        title = "Adaptive fake TTL reset",
+                        message = "RIPDPI will stop learning fake TTL values and use the fixed fake TTL on the next start.",
                         tone = SettingsNoticeTone.Info,
                     )
                 }

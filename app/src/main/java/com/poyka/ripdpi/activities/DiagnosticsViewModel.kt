@@ -1359,6 +1359,18 @@ class DiagnosticsViewModel
                 signature.activationStreamBytes?.let {
                     add(DiagnosticsFieldUiModel("Activation stream bytes", it))
                 }
+                signature.fakeTtlMode?.let {
+                    add(DiagnosticsFieldUiModel("Fake TTL mode", formatFakeTtlMode(it)))
+                }
+                signature.adaptiveFakeTtlWindow?.let {
+                    add(DiagnosticsFieldUiModel("Adaptive fake TTL window", it))
+                }
+                signature.adaptiveFakeTtlFallback?.let {
+                    add(DiagnosticsFieldUiModel("Adaptive fake TTL fallback", it.toString()))
+                }
+                signature.adaptiveFakeTtlBias?.let {
+                    add(DiagnosticsFieldUiModel("Adaptive fake TTL bias", formatAdaptiveFakeTtlBias(it)))
+                }
                 signature.fakeTlsBaseMode?.let {
                     add(DiagnosticsFieldUiModel("Fake TLS base", formatFakeTlsBaseMode(it)))
                 }
@@ -1937,6 +1949,21 @@ class DiagnosticsViewModel
                 "default" -> "Default fake ClientHello"
                 "original" -> "Original ClientHello"
                 else -> value
+            }
+
+        private fun formatFakeTtlMode(value: String): String =
+            when (value.lowercase(Locale.US)) {
+                "fixed" -> "Fixed TTL"
+                "adaptive" -> "Adaptive TTL"
+                "adaptive_custom" -> "Custom adaptive TTL"
+                else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
+            }
+
+        private fun formatAdaptiveFakeTtlBias(value: Int): String =
+            when {
+                value < 0 -> "Prefer lower TTLs first ($value)"
+                value > 0 -> "Prefer higher TTLs first (+$value)"
+                else -> "Alternate around the seed (0)"
             }
 
         private fun formatFakeTlsSni(

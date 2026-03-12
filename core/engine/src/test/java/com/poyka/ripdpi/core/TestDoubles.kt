@@ -36,6 +36,10 @@ class FakeRipDpiProxyRuntime : RipDpiProxyRuntime {
         return startResult
     }
 
+    override suspend fun awaitReady(timeoutMillis: Long) {
+        // Fake runtime is ready as soon as startProxy is invoked.
+    }
+
     override suspend fun stopProxy() {
         stopCount += 1
     }
