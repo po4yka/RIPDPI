@@ -200,4 +200,49 @@ class StrategyChainsTest {
         assertTrue(result.isFailure)
         assertFalse(result.exceptionOrNull()?.message.isNullOrBlank())
     }
+
+    @Test
+    fun `replaceTlsPreludeTcpChainSteps replaces stacked preludes and preserves send steps`() {
+        val updated =
+            replaceTlsPreludeTcpChainSteps(
+                tcpSteps =
+                    listOf(
+                        TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.TlsRandRec,
+                            marker = "sniext+4",
+                            fragmentCount = 5,
+                            minFragmentSize = 24,
+                            maxFragmentSize = 48,
+                        ),
+                        TcpChainStepModel(TcpChainStepKind.HostFake, "endhost+8", fakeHostTemplate = "googlevideo.com"),
+                        TcpChainStepModel(TcpChainStepKind.Split, "midsld"),
+                    ),
+                newPreludeSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.TlsRandRec,
+                            marker = "extlen",
+                            fragmentCount = 4,
+                            minFragmentSize = 16,
+                            maxFragmentSize = 96,
+                        ),
+                    ),
+            )
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(
+                    kind = TcpChainStepKind.TlsRandRec,
+                    marker = "extlen",
+                    fragmentCount = 4,
+                    minFragmentSize = 16,
+                    maxFragmentSize = 96,
+                ),
+                TcpChainStepModel(TcpChainStepKind.HostFake, "endhost+8", fakeHostTemplate = "googlevideo.com"),
+                TcpChainStepModel(TcpChainStepKind.Split, "midsld"),
+            ),
+            updated,
+        )
+    }
 }

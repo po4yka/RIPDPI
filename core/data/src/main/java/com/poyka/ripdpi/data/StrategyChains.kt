@@ -139,6 +139,20 @@ fun primaryTcpChainStep(tcpSteps: List<TcpChainStepModel>): TcpChainStepModel? =
 fun tlsPreludeTcpChainStep(tcpSteps: List<TcpChainStepModel>): TcpChainStepModel? =
     tcpSteps.firstOrNull { it.kind.isTlsPrelude }
 
+fun tlsPreludeTcpChainSteps(tcpSteps: List<TcpChainStepModel>): List<TcpChainStepModel> =
+    tcpSteps.filter { it.kind.isTlsPrelude }
+
+fun replaceTlsPreludeTcpChainSteps(
+    tcpSteps: List<TcpChainStepModel>,
+    newPreludeSteps: List<TcpChainStepModel>,
+): List<TcpChainStepModel> {
+    val updated =
+        newPreludeSteps.map(::normalizeTcpChainStepModel) +
+            tcpSteps.filterNot { it.kind.isTlsPrelude }
+    validateTcpChain(updated)
+    return updated
+}
+
 fun legacyDesyncMethod(tcpSteps: List<TcpChainStepModel>): String =
     primaryTcpChainStep(tcpSteps)?.kind?.legacyMethod ?: "none"
 

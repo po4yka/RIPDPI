@@ -8,11 +8,15 @@ import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultQuicFakeHost
 import com.poyka.ripdpi.data.DefaultSplitMarker
+import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
+import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
+import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
+import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.proto.StrategyTcpStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -57,6 +61,15 @@ class SettingsUiStateTest {
         assertEquals("", state.quicFakeEffectiveHost)
         assertFalse(state.showQuicFakeProfile)
         assertFalse(state.tlsRecEnabled)
+        assertEquals("disabled", state.tlsPreludeMode)
+        assertEquals(0, state.tlsPreludeStepCount)
+        assertEquals(DefaultTlsRandRecFragmentCount, state.tlsRandRecFragmentCount)
+        assertEquals(DefaultTlsRandRecMinFragmentSize, state.tlsRandRecMinFragmentSize)
+        assertEquals(DefaultTlsRandRecMaxFragmentSize, state.tlsRandRecMaxFragmentSize)
+        assertTrue(state.tlsPreludeControlsRelevant)
+        assertTrue(state.showTlsPreludeProfile)
+        assertFalse(state.tlsPreludeUsesRandomRecords)
+        assertFalse(state.hasStackedTlsPreludeSteps)
         assertFalse(state.webrtcProtectionEnabled)
         assertFalse(state.biometricEnabled)
         assertEquals("", state.backupPin)
@@ -248,6 +261,41 @@ class SettingsUiStateTest {
 
         assertTrue(state.tlsRecEnabled)
         assertEquals("sniext+4", state.tlsrecMarker)
+        assertEquals(TcpChainStepKind.TlsRandRec.wireName, state.tlsPreludeMode)
+        assertEquals(1, state.tlsPreludeStepCount)
+        assertEquals(5, state.tlsRandRecFragmentCount)
+        assertEquals(24, state.tlsRandRecMinFragmentSize)
+        assertEquals(48, state.tlsRandRecMaxFragmentSize)
+        assertTrue(state.tlsPreludeUsesRandomRecords)
+    }
+
+    @Test
+    fun `stacked tls prelude steps are surfaced in ui state`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrec")
+                        .setMarker("extlen")
+                        .build(),
+                ).addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrandrec")
+                        .setMarker("sniext+4")
+                        .setFragmentCount(4)
+                        .setMinFragmentSize(16)
+                        .setMaxFragmentSize(96)
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertEquals(TcpChainStepKind.TlsRec.wireName, state.tlsPreludeMode)
+        assertEquals(2, state.tlsPreludeStepCount)
+        assertTrue(state.hasStackedTlsPreludeSteps)
     }
 
     @Test
