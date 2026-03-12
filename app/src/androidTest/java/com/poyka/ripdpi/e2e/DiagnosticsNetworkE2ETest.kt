@@ -6,7 +6,9 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
+import androidx.datastore.core.DataStoreFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.START_ACTION
@@ -16,16 +18,22 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.TcpTarget
+import com.poyka.ripdpi.services.ResolverOverrideStore
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.cancel
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -54,6 +62,9 @@ class DiagnosticsNetworkE2ETest {
 
     @Inject
     lateinit var serviceStateStore: ServiceStateStore
+
+    @Inject
+    lateinit var resolverOverrideStore: ResolverOverrideStore
 
     private val appContext: Context
         get() = ApplicationProvider.getApplicationContext()
@@ -205,6 +216,95 @@ class DiagnosticsNetworkE2ETest {
         awaitServiceStatus(AppStatus.Running, Mode.Proxy)
     }
 
+    @Test
+    fun inPathVpnScanAppliesTemporaryResolverOverrideFromConnectivityRecommendation() {
+        ensureVpnPrepared(appContext)
+        runBlocking {
+            appSettingsRepository.update {
+                diagnosticsActiveProfileId = "resolver-recommendation"
+                diagnosticsAutoResumeAfterRawScan = true
+                proxyIp = "127.0.0.1"
+                proxyPort = reserveLoopbackPort()
+                dnsMode = "plain_udp"
+                dnsIp = "9.9.9.9"
+            }
+            seedResolverRecommendationProfile()
+        }
+        fixtureClient.setFault(
+            FixtureFaultSpecDto(
+                target = FixtureFaultTargetDto.DNS_UDP,
+                outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+            ),
+        )
+
+        startService(RipDpiVpnService::class.java)
+        awaitServiceStatus(AppStatus.Running, Mode.VPN)
+
+        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.IN_PATH) }
+        val detail = awaitCompletedSession(sessionId)
+        val persisted =
+            json.decodeFromString(
+                ScanReport.serializer(),
+                runBlocking { historyRepository.getScanSession(sessionId)?.reportJson }.orEmpty(),
+            )
+
+        assertTrue(detail.results.any { it.probeType == "dns_integrity" && it.outcome == "udp_blocked" })
+        assertEquals("cloudflare", persisted.resolverRecommendation?.selectedResolverId)
+        assertTrue(persisted.resolverRecommendation?.appliedTemporarily == true)
+        assertEquals("cloudflare", resolverOverrideStore.override.value?.resolverId)
+
+        awaitUntil(timeoutMs = 20_000, pollMs = 250) {
+            val tunnelTelemetry = serviceStateStore.telemetry.value.tunnelTelemetry
+            tunnelTelemetry.resolverFallbackActive &&
+                tunnelTelemetry.resolverId == "cloudflare" &&
+                tunnelTelemetry.resolverProtocol == "doh"
+        }
+    }
+
+    @Test
+    fun saveResolverRecommendationPersistsEncryptedDnsToFreshDatastoreRead() {
+        runBlocking {
+            appSettingsRepository.update {
+                diagnosticsActiveProfileId = "resolver-recommendation"
+                dnsMode = "plain_udp"
+                dnsIp = "9.9.9.9"
+            }
+            seedResolverRecommendationProfile()
+        }
+        fixtureClient.setFault(
+            FixtureFaultSpecDto(
+                target = FixtureFaultTargetDto.DNS_UDP,
+                outcome = FixtureFaultOutcomeDto.DNS_TIMEOUT,
+            ),
+        )
+
+        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.RAW_PATH) }
+        awaitCompletedSession(sessionId)
+        runBlocking {
+            diagnosticsManager.saveResolverRecommendation(sessionId)
+        }
+
+        val persisted = runBlocking { appSettingsRepository.snapshot() }
+        assertEquals("encrypted", persisted.dnsMode)
+        assertEquals("cloudflare", persisted.dnsProviderId)
+
+        val scope = CoroutineScope(Dispatchers.IO)
+        try {
+            val freshStore =
+                DataStoreFactory.create(
+                    serializer = AppSettingsSerializer,
+                    scope = scope,
+                    produceFile = { appContext.filesDir.resolve("datastore/app_settings.pb") },
+                )
+            val reread = runBlocking { freshStore.data.first() }
+            assertEquals("encrypted", reread.dnsMode)
+            assertEquals("cloudflare", reread.dnsProviderId)
+            assertEquals("cloudflare-dns.com", reread.encryptedDnsHost)
+        } finally {
+            scope.cancel()
+        }
+    }
+
     private suspend fun seedLocalProfile() {
         val listenPort = reserveLoopbackPort()
         val request =
@@ -261,6 +361,64 @@ class DiagnosticsNetworkE2ETest {
             proxyIp = "127.0.0.1"
             proxyPort = listenPort
         }
+    }
+
+    private suspend fun seedResolverRecommendationProfile() {
+        val request =
+            ScanRequest(
+                profileId = "resolver-recommendation",
+                displayName = "Resolver Recommendation",
+                pathMode = ScanPathMode.IN_PATH,
+                domainTargets =
+                    listOf(
+                        DomainTarget(
+                            host = fixture.fixtureDomain,
+                            connectIp = fixture.androidHost,
+                            httpsPort = 9,
+                            httpPort = fixture.dnsHttpPort,
+                            httpPath = "/",
+                        ),
+                    ),
+                dnsTargets =
+                    listOf(
+                        DnsTarget(
+                            domain = fixture.fixtureDomain,
+                            udpServer = "${fixture.androidHost}:${fixture.dnsUdpPort}",
+                            encryptedResolverId = "cloudflare",
+                            encryptedProtocol = "doh",
+                            encryptedHost = fixture.androidHost,
+                            encryptedPort = fixture.dnsHttpPort,
+                            encryptedTlsServerName = fixture.androidHost,
+                            encryptedBootstrapIps = listOf(fixture.androidHost),
+                            encryptedDohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query",
+                            dohUrl = "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query",
+                            expectedIps = listOf(fixture.dnsAnswerIpv4),
+                        ),
+                    ),
+                tcpTargets =
+                    listOf(
+                        TcpTarget(
+                            id = "fixture-fat",
+                            provider = "fixture-http",
+                            ip = fixture.androidHost,
+                            port = fixture.dnsHttpPort,
+                            hostHeader = fixture.fixtureDomain,
+                            fatHeaderRequests = 2,
+                        ),
+                    ),
+                whitelistSni = listOf(fixture.fixtureDomain),
+            )
+
+        historyRepository.upsertProfile(
+            DiagnosticProfileEntity(
+                id = "resolver-recommendation",
+                name = "Resolver recommendation profile",
+                source = "androidTest",
+                version = 1,
+                requestJson = json.encodeToString(ScanRequest.serializer(), request),
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
     }
 
     private fun awaitCompletedSession(sessionId: String): com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail {

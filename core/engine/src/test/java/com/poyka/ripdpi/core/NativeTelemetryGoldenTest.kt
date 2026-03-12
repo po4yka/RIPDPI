@@ -5,6 +5,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NativeTelemetryGoldenTest {
@@ -56,6 +58,43 @@ class NativeTelemetryGoldenTest {
             "tunnel_ready.json",
             json.encodeToString(NativeRuntimeSnapshot.serializer(), parsed),
         )
+    }
+
+    @Test
+    fun resolverTelemetryFieldsRoundTripThroughSnapshotJson() {
+        val snapshot =
+            NativeRuntimeSnapshot(
+                source = "tunnel",
+                state = "running",
+                resolverId = "cloudflare",
+                resolverProtocol = "doh",
+                resolverEndpoint = "https://cloudflare-dns.com/dns-query",
+                resolverLatencyMs = 42,
+                resolverLatencyAvgMs = 38,
+                resolverFallbackActive = true,
+                resolverFallbackReason = "UDP DNS showed udp_blocked",
+                networkHandoverClass = "transport_switch",
+                dnsFailuresTotal = 3,
+                lastDnsHost = "example.org",
+                lastDnsError = "timeout",
+                capturedAt = 99L,
+            )
+
+        val parsed =
+            json.decodeFromString(
+                NativeRuntimeSnapshot.serializer(),
+                json.encodeToString(NativeRuntimeSnapshot.serializer(), snapshot),
+            )
+
+        assertEquals("cloudflare", parsed.resolverId)
+        assertEquals("doh", parsed.resolverProtocol)
+        assertEquals("https://cloudflare-dns.com/dns-query", parsed.resolverEndpoint)
+        assertEquals(42L, parsed.resolverLatencyMs)
+        assertEquals(38L, parsed.resolverLatencyAvgMs)
+        assertTrue(parsed.resolverFallbackActive)
+        assertEquals("UDP DNS showed udp_blocked", parsed.resolverFallbackReason)
+        assertEquals("transport_switch", parsed.networkHandoverClass)
+        assertEquals(3L, parsed.dnsFailuresTotal)
     }
 
     private fun proxyTelemetryPayload(includeEvents: Boolean): String =

@@ -178,6 +178,42 @@ class NativeBridgeInstrumentedTest {
         tunnelBindings.destroy(tunnelHandle)
     }
 
+    @Test
+    fun rawBindingsAcceptEncryptedDnsTunnelConfig() {
+        val tunnelBindings = Tun2SocksNativeBindings()
+
+        val tunnelHandle =
+            tunnelBindings.create(
+                """
+                {
+                  "tunnelName":"tun0",
+                  "socks5Address":"127.0.0.1",
+                  "socks5Port":1080,
+                  "mapdnsAddress":"198.18.0.53",
+                  "mapdnsPort":53,
+                  "mapdnsNetwork":"198.18.0.0",
+                  "mapdnsNetmask":"255.254.0.0",
+                  "mapdnsCacheSize":10000,
+                  "encryptedDnsResolverId":"cloudflare",
+                  "encryptedDnsProtocol":"doh",
+                  "encryptedDnsHost":"cloudflare-dns.com",
+                  "encryptedDnsPort":443,
+                  "encryptedDnsTlsServerName":"cloudflare-dns.com",
+                  "encryptedDnsBootstrapIps":["1.1.1.1","1.0.0.1"],
+                  "encryptedDnsDohUrl":"https://cloudflare-dns.com/dns-query",
+                  "dnsQueryTimeoutMs":4000,
+                  "resolverFallbackActive":true,
+                  "resolverFallbackReason":"UDP DNS showed udp_blocked",
+                  "logLevel":"warn"
+                }
+                """.trimIndent(),
+            )
+
+        assertTrue(tunnelHandle > 0)
+
+        tunnelBindings.destroy(tunnelHandle)
+    }
+
     private suspend fun awaitPortOpen(
         port: Int,
         timeoutMs: Long = 5_000,
