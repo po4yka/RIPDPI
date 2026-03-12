@@ -27,6 +27,9 @@ use serde::{Deserialize, Serialize};
 const HOSTS_DISABLE: &str = "disable";
 const HOSTS_BLACKLIST: &str = "blacklist";
 const HOSTS_WHITELIST: &str = "whitelist";
+const TLS_RANDREC_DEFAULT_FRAGMENT_COUNT: i32 = 4;
+const TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE: i32 = 16;
+const TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE: i32 = 96;
 const FAKE_TLS_SNI_MODE_FIXED: &str = "fixed";
 const FAKE_TLS_SNI_MODE_RANDOMIZED: &str = "randomized";
 const QUIC_FAKE_PROFILE_DISABLED: &str = "disabled";
@@ -116,6 +119,12 @@ struct ProxyUiTcpChainStep {
     midhost_marker: Option<String>,
     #[serde(default)]
     fake_host_template: Option<String>,
+    #[serde(default)]
+    fragment_count: i32,
+    #[serde(default)]
+    min_fragment_size: i32,
+    #[serde(default)]
+    max_fragment_size: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1099,7 +1108,30 @@ fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniPr
                 .map(ciadpi_config::normalize_fake_host_template)
                 .transpose()
                 .map_err(|_| JniProxyError::InvalidConfig("Invalid tcpChainSteps fakeHostTemplate".to_string()))?;
-            group.tcp_chain.push(TcpChainStep { kind, offset, midhost_offset, fake_host_template });
+            let (fragment_count, min_fragment_size, max_fragment_size) = match kind {
+                TcpChainStepKind::TlsRandRec => (
+                    normalize_tlsrandrec_step_field(step.fragment_count, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT),
+                    normalize_tlsrandrec_step_field(step.min_fragment_size, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE),
+                    normalize_tlsrandrec_step_field(step.max_fragment_size, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE),
+                ),
+                _ => {
+                    if step.fragment_count != 0 || step.min_fragment_size != 0 || step.max_fragment_size != 0 {
+                        return Err(JniProxyError::InvalidConfig(
+                            "tlsrandrec fragment fields are only supported for tcpChainSteps kind=tlsrandrec".to_string(),
+                        ));
+                    }
+                    (0, 0, 0)
+                }
+            };
+            group.tcp_chain.push(TcpChainStep {
+                kind,
+                offset,
+                midhost_offset,
+                fake_host_template,
+                fragment_count,
+                min_fragment_size,
+                max_fragment_size,
+            });
         }
     } else {
         let part_offset = parse_offset_expr_field(
@@ -1207,8 +1239,13 @@ fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, JniProxyEr
             "oob" => Ok(TcpChainStepKind::Oob),
             "disoob" => Ok(TcpChainStepKind::Disoob),
             "tlsrec" => Ok(TcpChainStepKind::TlsRec),
+            "tlsrandrec" => Ok(TcpChainStepKind::TlsRandRec),
         _ => Err(JniProxyError::InvalidConfig(format!("Unknown tcpChainSteps kind: {value}"))),
     }
+}
+
+fn normalize_tlsrandrec_step_field(value: i32, default: i32) -> i32 {
+    if value > 0 { value } else { default }
 }
 
 fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, JniProxyError> {
@@ -1697,6 +1734,9 @@ mod tests {
                 marker: "endhost+8".to_string(),
                 midhost_marker: Some("midsld".to_string()),
                 fake_host_template: Some("googlevideo.com".to_string()),
+                fragment_count: 0,
+                min_fragment_size: 0,
+                max_fragment_size: 0,
             }],
             split_position: 1,
             split_at_host: false,
@@ -1742,6 +1782,130 @@ mod tests {
         assert!(matches!(group.tcp_chain[0].kind, TcpChainStepKind::HostFake));
         assert_eq!(group.tcp_chain[0].midhost_offset, Some(ciadpi_config::OffsetExpr::marker(ciadpi_config::OffsetBase::MidSld, 0)));
         assert_eq!(group.tcp_chain[0].fake_host_template.as_deref(), Some("googlevideo.com"));
+    }
+
+    #[test]
+    fn parses_tlsrandrec_tcp_chain_step_payload() {
+        let payload = parse_proxy_config_json(
+            &serde_json::json!({
+                "kind": "ui",
+                "ip": "127.0.0.1",
+                "port": 1080,
+                "maxConnections": 512,
+                "bufferSize": 16384,
+                "defaultTtl": 0,
+                "customTtl": false,
+                "noDomain": false,
+                "desyncHttp": true,
+                "desyncHttps": true,
+                "desyncUdp": false,
+                "desyncMethod": "disorder",
+                "splitMarker": "1",
+                "tcpChainSteps": [
+                    {
+                        "kind": "tlsrandrec",
+                        "marker": "sniext+4",
+                        "fragmentCount": 5,
+                        "minFragmentSize": 24,
+                        "maxFragmentSize": 48
+                    }
+                ],
+                "splitPosition": 1,
+                "splitAtHost": false,
+                "fakeTtl": 8,
+                "fakeSni": "www.iana.org",
+                "oobChar": 97,
+                "hostMixedCase": false,
+                "domainMixedCase": false,
+                "hostRemoveSpaces": false,
+                "tlsRecordSplit": false,
+                "tlsRecordSplitMarker": null,
+                "tlsRecordSplitPosition": 0,
+                "tlsRecordSplitAtSni": false,
+                "hostsMode": "disable",
+                "hosts": null,
+                "tcpFastOpen": false,
+                "udpFakeCount": 0,
+                "udpChainSteps": [],
+                "dropSack": false,
+                "fakeOffsetMarker": null,
+                "fakeOffset": 0,
+                "quicInitialMode": "route_and_cache",
+                "quicSupportV1": true,
+                "quicSupportV2": true,
+                "quicFakeProfile": "disabled",
+                "quicFakeHost": ""
+            })
+            .to_string(),
+        )
+        .expect("parse tlsrandrec payload");
+
+        let config = runtime_config_from_payload(payload).expect("tlsrandrec ui config");
+        let step = &config.groups[0].tcp_chain[0];
+
+        assert!(matches!(step.kind, TcpChainStepKind::TlsRandRec));
+        assert_eq!(step.fragment_count, 5);
+        assert_eq!(step.min_fragment_size, 24);
+        assert_eq!(step.max_fragment_size, 48);
+    }
+
+    #[test]
+    fn rejects_tlsrandrec_fragment_fields_on_non_tlsrandrec_steps() {
+        let payload = parse_proxy_config_json(
+            &serde_json::json!({
+                "kind": "ui",
+                "ip": "127.0.0.1",
+                "port": 1080,
+                "maxConnections": 512,
+                "bufferSize": 16384,
+                "defaultTtl": 0,
+                "customTtl": false,
+                "noDomain": false,
+                "desyncHttp": true,
+                "desyncHttps": true,
+                "desyncUdp": false,
+                "desyncMethod": "disorder",
+                "splitMarker": "1",
+                "tcpChainSteps": [
+                    {
+                        "kind": "split",
+                        "marker": "host+1",
+                        "fragmentCount": 5
+                    }
+                ],
+                "splitPosition": 1,
+                "splitAtHost": false,
+                "fakeTtl": 8,
+                "fakeSni": "www.iana.org",
+                "oobChar": 97,
+                "hostMixedCase": false,
+                "domainMixedCase": false,
+                "hostRemoveSpaces": false,
+                "tlsRecordSplit": false,
+                "tlsRecordSplitMarker": null,
+                "tlsRecordSplitPosition": 0,
+                "tlsRecordSplitAtSni": false,
+                "hostsMode": "disable",
+                "hosts": null,
+                "tcpFastOpen": false,
+                "udpFakeCount": 0,
+                "udpChainSteps": [],
+                "dropSack": false,
+                "fakeOffsetMarker": null,
+                "fakeOffset": 0,
+                "quicInitialMode": "route_and_cache",
+                "quicSupportV1": true,
+                "quicSupportV2": true,
+                "quicFakeProfile": "disabled",
+                "quicFakeHost": ""
+            })
+            .to_string(),
+        )
+        .expect("parse invalid payload");
+
+        let err = runtime_config_from_payload(payload).expect_err("non-tlsrandrec fragment fields should fail");
+
+        assert!(err.to_string().contains("tlsrandrec fragment fields are only supported"));
     }
 
     #[test]

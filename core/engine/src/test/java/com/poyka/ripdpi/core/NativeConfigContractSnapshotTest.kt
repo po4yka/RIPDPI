@@ -76,7 +76,12 @@ class NativeConfigContractSnapshotTest {
                   "tcpChainSteps": [
                     {
                       "kind": "disorder",
-                      "marker": "1"
+                      "marker": "1",
+                      "midhostMarker": "",
+                      "fakeHostTemplate": "",
+                      "fragmentCount": 0,
+                      "minFragmentSize": 0,
+                      "maxFragmentSize": 0
                     }
                   ],
                   "fakeTtl": 8,
@@ -181,11 +186,21 @@ class NativeConfigContractSnapshotTest {
                   "tcpChainSteps": [
                     {
                       "kind": "tlsrec",
-                      "marker": "sniext+3"
+                      "marker": "sniext+3",
+                      "midhostMarker": "",
+                      "fakeHostTemplate": "",
+                      "fragmentCount": 0,
+                      "minFragmentSize": 0,
+                      "maxFragmentSize": 0
                     },
                     {
                       "kind": "fake",
-                      "marker": "host+2"
+                      "marker": "host+2",
+                      "midhostMarker": "",
+                      "fakeHostTemplate": "",
+                      "fragmentCount": 0,
+                      "minFragmentSize": 0,
+                      "maxFragmentSize": 0
                     }
                   ],
                   "fakeTtl": 9,
@@ -266,7 +281,90 @@ class NativeConfigContractSnapshotTest {
                       "kind": "hostfake",
                       "marker": "endhost+8",
                       "midhostMarker": "midsld",
-                      "fakeHostTemplate": "googlevideo.com"
+                      "fakeHostTemplate": "googlevideo.com",
+                      "fragmentCount": 0,
+                      "minFragmentSize": 0,
+                      "maxFragmentSize": 0
+                    }
+                  ],
+                  "fakeTtl": 8,
+                  "fakeSni": "www.iana.org",
+                  "fakeTlsUseOriginal": false,
+                  "fakeTlsRandomize": false,
+                  "fakeTlsDupSessionId": false,
+                  "fakeTlsPadEncap": false,
+                  "fakeTlsSize": 0,
+                  "fakeTlsSniMode": "fixed",
+                  "oobChar": 97,
+                  "hostMixedCase": false,
+                  "domainMixedCase": false,
+                  "hostRemoveSpaces": false,
+                  "tlsRecordSplit": false,
+                  "tlsRecordSplitMarker": "0",
+                  "hostsMode": "disable",
+                  "hosts": null,
+                  "tcpFastOpen": false,
+                  "udpFakeCount": 0,
+                  "udpChainSteps": [],
+                  "dropSack": false,
+                  "fakeOffsetMarker": "0",
+                  "quicInitialMode": "route_and_cache",
+                  "quicSupportV1": true,
+                  "quicSupportV2": true,
+                  "quicFakeProfile": "disabled",
+                  "quicFakeHost": "",
+                  "hostAutolearnEnabled": false,
+                  "hostAutolearnPenaltyTtlSecs": 21600,
+                  "hostAutolearnMaxHosts": 512,
+                  "hostAutolearnStorePath": null
+                }
+                """,
+        )
+    }
+
+    @Test
+    fun proxyTlsRandRecUiPayloadMatchesSnapshot() {
+        val payload =
+            RipDpiProxyUIPreferences(
+                tcpChainSteps =
+                    listOf(
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.TlsRandRec,
+                            marker = "sniext+4",
+                            fragmentCount = 5,
+                            minFragmentSize = 24,
+                            maxFragmentSize = 48,
+                        ),
+                    ),
+            ).toNativeConfigJson()
+
+        assertJsonSnapshot(
+            actualJson = payload,
+            expectedJson =
+                """
+                {
+                  "kind": "ui",
+                  "ip": "127.0.0.1",
+                  "port": 1080,
+                  "maxConnections": 512,
+                  "bufferSize": 16384,
+                  "defaultTtl": 0,
+                  "customTtl": false,
+                  "noDomain": false,
+                  "desyncHttp": true,
+                  "desyncHttps": true,
+                  "desyncUdp": false,
+                  "desyncMethod": "disorder",
+                  "splitMarker": "1",
+                  "tcpChainSteps": [
+                    {
+                      "kind": "tlsrandrec",
+                      "marker": "sniext+4",
+                      "midhostMarker": "",
+                      "fakeHostTemplate": "",
+                      "fragmentCount": 5,
+                      "minFragmentSize": 24,
+                      "maxFragmentSize": 48
                     }
                   ],
                   "fakeTtl": 8,

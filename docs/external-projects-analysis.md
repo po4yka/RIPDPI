@@ -90,14 +90,14 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 |-------|-------|
 | Repository | [GVCoder09/NoDPI](https://github.com/GVCoder09/NoDPI) |
 | Description | Lightweight Windows DPI bypass tool with minimal dependencies |
-| Language | C# |
+| Language | Python |
 | Last analyzed | 2026-03-11 |
 
 **Ideas extracted:**
 
 | # | Idea | Status | Notes |
 |---|------|--------|-------|
-| 1 | Random ClientHello fragmentation with variable-length segments | PARTIAL | RIPDPI supports splitting at fixed/SNI-relative offsets and `+r` (random position). NoDPI generates multiple random-length fragments per ClientHello rather than splitting at a single point. Multi-fragment random splitting could make patterns harder for DPI to fingerprint. |
+| 1 | Random ClientHello fragmentation with variable-length segments | IMPLEMENTED | RIPDPI now supports `tlsrandrec` in the structured TCP chain model and raw DSL, allowing multiple randomized TLS record splits after a semantic marker while preserving safe no-op behavior when a layout cannot be applied. |
 | 2 | SNI-based fragmentation (4-section split based on SNI location) | IMPLEMENTED | RIPDPI's offset expressions (`+s`, `+e`, `+m` for SNI start/end/mid) with repeat syntax (`1:3:5`) already support multi-point SNI-aware splitting. |
 | 3 | TLS version spoofing to create malformed packets DPI ignores | IMPLEMENTED | RIPDPI's `tlsminor` option changes the TLS minor version byte in record headers, achieving the same effect. |
 | 4 | Minimal-dependency, no-admin-privilege design philosophy | REFERENCE | NoDPI runs without admin rights on Windows. RIPDPI requires VPN permission on Android (standard for all VPN-based tools). The principle of minimizing required permissions is worth keeping in mind -- avoid requesting unnecessary Android permissions. |
@@ -128,7 +128,7 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Category-based filtering | -- | Yes | -- | -- | NOT IMPLEMENTED |
 | Diagnostic-first mode | -- | -- | Yes | -- | NOT IMPLEMENTED |
 | Auto MSS/segmentation | Yes | -- | -- | -- | NOT IMPLEMENTED |
-| Multi-fragment random split | -- | -- | -- | Yes | NOT IMPLEMENTED |
+| Multi-fragment random split | -- | -- | -- | Yes | IMPLEMENTED |
 | Granular error classification | -- | -- | Yes | -- | PARTIAL |
 | Binary fake packet templates | Yes | -- | -- | -- | PARTIAL |
 
@@ -145,5 +145,4 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 - Lua/scripting engine for user-defined strategies
 - Per-app desync routing
 - Category-based domain filtering
-- Multi-fragment random splitting
 - Deeper zapret2-style range filters (sequence/data-volume aware activation)

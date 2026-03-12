@@ -78,6 +78,15 @@ class AppSettingsJsonTest {
                         .setMidhostMarker("midsld")
                         .setFakeHostTemplate("googlevideo.com")
                         .build(),
+                ).addTcpChainSteps(
+                    com.poyka.ripdpi.proto.StrategyTcpStep
+                        .newBuilder()
+                        .setKind("tlsrandrec")
+                        .setMarker("sniext+4")
+                        .setFragmentCount(5)
+                        .setMinFragmentSize(24)
+                        .setMaxFragmentSize(48)
+                        .build(),
                 )
                 .build()
 
