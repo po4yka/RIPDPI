@@ -72,6 +72,51 @@ The wrapper also keeps the previous host-group arrangement used by the Android U
 
 That behavior matches the old JNI C wrapper, even though the naming comes from the Android settings model.
 
+## Current RIPDPI-native Strategy Surface
+
+The proxy engine now exposes a substantially broader typed strategy surface than the original Android wrapper around standalone ByeDPI flags.
+
+### Config translation
+
+Android UI mode, diagnostics recommendation drafts, and automatic-probing candidate overlays all pass through the shared `ripdpi-proxy-config` crate before the runtime starts. That keeps the Kotlin UI model, diagnostics monitor, and native runtime aligned around one config shape instead of three loosely matching serializers.
+
+### Markers and chains
+
+The runtime now supports:
+
+- semantic marker offsets such as `host`, `endhost`, `midsld`, `method`, `extlen`, and `sniext`
+- adaptive markers such as `auto(balanced)` and `auto(host)` that resolve per payload from live `TCP_INFO`
+- ordered TCP and UDP chain steps with per-step activation filters and group activation windows
+
+Notable TCP step kinds now include:
+
+- `hostfake`
+- partial Linux/Android-focused `fakedsplit`
+- partial Linux/Android-focused `fakeddisorder`
+
+These remain typed RIPDPI steps rather than direct zapret2 parity features.
+
+### Fake payload and fake transport surface
+
+The fake-transport path now includes:
+
+- built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
+- richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
+- fixed or adaptive fake TTL for TCP fake sends
+- `md5sig`, fake offset markers, and QUIC fake Initial profile selection
+
+`hostfake`, `fakedsplit`, and `fakeddisorder` reuse that same fake-payload and fake-transport pipeline instead of shipping separate blob knobs.
+
+### Runtime adaptation
+
+The shared runtime layer now also adds:
+
+- host autolearn and per-host preferred group promotion
+- automatic diagnostics probing with a fixed raw-path candidate suite and manual recommendation output
+- activation windows keyed by outbound round, payload size, and stream-byte ranges
+
+Those features are implemented in the native runtime and diagnostics monitor rather than in Kotlin-only glue.
+
 ## Implemented Diagnostic Mechanisms
 
 The diagnostics path linked into `libripdpi.so` currently implements:
@@ -117,6 +162,7 @@ This path still goes through `ciadpi_config::parse_cli`, so CLI flags are interp
 The proxy stack is currently covered by:
 
 - Rust unit, property-based, state-machine, fault-injection, and telemetry-golden tests in `ripdpi-android`
+- Rust config and planner coverage for markers, fake payload profiles, fake TLS mutations, activation windows, adaptive split placement, adaptive fake TTL, host autolearn, and fake-step approximations
 - repo-owned local-network E2E for the proxy runtime in `ripdpi-runtime`
 - Kotlin wrapper and service-layer tests in `core:engine` and `core:service`
 - Android instrumentation integration and network E2E through the real `libripdpi.so`

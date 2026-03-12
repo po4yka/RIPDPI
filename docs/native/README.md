@@ -11,6 +11,19 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 | `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, diagnostics session state |
 | `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `hs5t-core` for DoH/DoT/DNSCrypt exchange, metadata collection, and IP answer extraction |
 
+## Shared Strategy Bridge
+
+The Android UI mode, diagnostics recommendation flow, and native monitor candidate overlays now share one config-translation path through `native/rust/crates/ripdpi-proxy-config`.
+
+That crate is not built as a standalone `.so`, but it is a first-class part of the native surface because it keeps:
+
+- UI-configured strategy JSON
+- diagnostics recommendation drafts
+- automatic-probing candidate overlays
+- vendored CLI-compatible runtime config
+
+aligned around the same `RuntimeConfig` shape.
+
 ## Runtime Topology
 
 ```mermaid
@@ -47,6 +60,19 @@ The service layer polls those native snapshots once per second while the service
 - last native error plus a bounded event ring
 
 No packet payloads or packet captures are persisted.
+
+## Current Proxy Strategy Surface
+
+The local proxy runtime is no longer limited to a small set of legacy ByeDPI toggles. The in-repo Rust stack currently exposes:
+
+- semantic marker offsets such as `host`, `endhost`, `midsld`, `method`, `extlen`, and `sniext`
+- adaptive `auto(...)` split markers backed by `TCP_INFO` hints (`snd_mss`, `advmss`, `pmtu`)
+- ordered TCP and UDP strategy chains with per-step activation filters
+- richer fake TLS mutation controls and built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
+- host-oriented fake steps such as `hostfake` plus partial `fakedsplit` / `fakeddisorder` approximations on Linux/Android
+- host autolearn, adaptive fake TTL, and automatic diagnostics probing with manual recommendations
+
+See [byedpi.md](byedpi.md) for the proxy-specific details.
 
 ## Build Integration
 
@@ -85,6 +111,7 @@ Structured telemetry and diagnostics-event payloads are treated as compatibility
 - `native/rust/crates/hs5t-android`
 - `native/rust/crates/ripdpi-monitor`
 - `native/rust/crates/ripdpi-dns-resolver`
+- `native/rust/crates/ripdpi-proxy-config`
 - `native/rust/crates/ripdpi-runtime`
 - `native/rust/crates/android-support`
 
