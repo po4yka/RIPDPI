@@ -858,6 +858,51 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `approaches detail preserves fake approximation chain labels`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    approachStatsState.value =
+                        listOf(
+                            sampleApproachSummary(
+                                kind = BypassApproachKind.Strategy,
+                                id = "strategy-fakedsplit",
+                            ),
+                        )
+                    strategySignatureOverride =
+                        BypassStrategySignature(
+                            mode = "VPN",
+                            configSource = "ui",
+                            hostAutolearn = "enabled",
+                            desyncMethod = "fake",
+                            chainSummary = "tcp: tlsrec(extlen) -> fakedsplit(host+1)",
+                            protocolToggles = listOf("HTTPS"),
+                            tlsRecordSplitEnabled = true,
+                            tlsRecordMarker = "extlen",
+                            splitMarker = "host+1",
+                            fakeTlsBaseMode = "original",
+                            fakeTlsMods = listOf("dupsid"),
+                            routeGroup = "22",
+                        )
+                }
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.selectSection(DiagnosticsSection.Approaches)
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            advanceUntilIdle()
+
+            viewModel.selectApproach("strategy-fakedsplit")
+            advanceUntilIdle()
+
+            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            assertTrue(signature.any { it.label == "Chain" && it.value.contains("fakedsplit(host+1)") })
+            assertTrue(signature.any { it.label == "Fake TLS base" && it.value == "Original ClientHello" })
+            collector.cancel()
+        }
+
+    @Test
     fun `approaches detail renders activation window fields`() =
         runTest {
             val manager =

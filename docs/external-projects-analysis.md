@@ -44,6 +44,7 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | 13 | Lua-based runtime scripting engine | NOT IMPLEMENTED | RIPDPI intentionally chose typed Rust/Kotlin structures over a Lua runtime. This keeps the Android/JNI surface smaller and safer, but it means users cannot define arbitrary runtime packet logic the way zapret2 can. |
 | 14 | Multi-instance processing pipeline architecture | NOT IMPLEMENTED | RIPDPI still uses its current local proxy/VPN routing model rather than independent parallel desync instances in the zapret2 sense. |
 | 15 | Automatic segmentation without manual MSS configuration | NOT IMPLEMENTED | Marker-aware chains improve split targeting, but RIPDPI still relies on explicit split markers rather than inferred MSS/MTU-aware auto-segmentation. |
+| 16 | Partial `fakedsplit` / `fakeddisorder` approximations | IMPLEMENTED (PARTIAL) | RIPDPI now ships `fakedsplit` and `fakeddisorder` TCP chain steps as Linux/Android-focused approximations built on the existing fake-send/retransmission primitive. They intentionally do not reproduce zapret2's raw sequence-overlap parity, but they approximate fake/retransmission ambiguity with the existing fake payload library, fake TLS mutations, fake offset, and adaptive fake TTL pipeline. |
 
 ---
 
@@ -141,6 +142,7 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | ECH support | -- | Yes | -- | -- | NOT IMPLEMENTED |
 | Category-based filtering | -- | Yes | -- | -- | NOT IMPLEMENTED |
 | Auto MSS/segmentation | Yes | -- | -- | -- | NOT IMPLEMENTED |
+| Partial fakedsplit/fakeddisorder approximations | Yes | -- | -- | -- | IMPLEMENTED (PARTIAL) |
 | Multi-fragment random split | -- | -- | -- | Yes | IMPLEMENTED |
 | Granular error classification | -- | -- | Yes | -- | PARTIAL |
 | Binary fake packet templates | Yes | -- | -- | -- | IMPLEMENTED |

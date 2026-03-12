@@ -466,8 +466,19 @@ internal fun AppSettings.toUiState(
     val isVpn = normalizedMode == "vpn"
     val useCmdSettings = enableCmdSettings
     val desyncEnabled = primaryTcpStep != null
-    val isFake = tcpChainSteps.any { it.kind == TcpChainStepKind.Fake }
-    val usesFakeTransport = tcpChainSteps.any { it.kind == TcpChainStepKind.Fake || it.kind == TcpChainStepKind.HostFake }
+    val isFake =
+        tcpChainSteps.any {
+            it.kind == TcpChainStepKind.Fake ||
+                it.kind == TcpChainStepKind.FakeSplit ||
+                it.kind == TcpChainStepKind.FakeDisorder
+        }
+    val usesFakeTransport =
+        tcpChainSteps.any {
+            it.kind == TcpChainStepKind.Fake ||
+                it.kind == TcpChainStepKind.FakeSplit ||
+                it.kind == TcpChainStepKind.FakeDisorder ||
+                it.kind == TcpChainStepKind.HostFake
+        }
     val hasHostFake = tcpChainSteps.any { it.kind == TcpChainStepKind.HostFake }
     val hasDisoob = tcpChainSteps.any { it.kind == TcpChainStepKind.Disoob }
     val isOob = tcpChainSteps.any { it.kind == TcpChainStepKind.Oob || it.kind == TcpChainStepKind.Disoob }

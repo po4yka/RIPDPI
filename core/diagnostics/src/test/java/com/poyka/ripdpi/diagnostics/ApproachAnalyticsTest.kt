@@ -238,6 +238,30 @@ class ApproachAnalyticsTest {
     }
 
     @Test
+    fun `deriveBypassStrategySignature treats fakedsplit as fake payload consumer`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setDesyncHttps(true)
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("fakedsplit")
+                        .setMarker("host+1")
+                        .build(),
+                ).setFakeTlsUseOriginal(true)
+                .setFakeTlsDupSessionId(true)
+                .build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "21")
+
+        assertEquals("tcp: fakedsplit(host+1)", signature.chainSummary)
+        assertEquals("original", signature.fakeTlsBaseMode)
+        assertEquals(listOf("dupsid"), signature.fakeTlsMods)
+    }
+
+    @Test
     fun `deriveBypassStrategySignature treats tlsrandrec as tls prelude`() {
         val settings =
             AppSettings

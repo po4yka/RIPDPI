@@ -278,6 +278,51 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `fake approximation steps activate fake payload and fake tls controls`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncHttps(true)
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("fakedsplit")
+                        .setMarker("host+1")
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.isFake)
+        assertTrue(state.usesFakeTransport)
+        assertTrue(state.httpFakeProfileActiveInStrategy)
+        assertTrue(state.tlsFakeProfileActiveInStrategy)
+        assertTrue(state.fakeTlsControlsRelevant)
+        assertTrue(state.showAdaptiveFakeTtlProfile)
+    }
+
+    @Test
+    fun `fakeddisorder keeps adaptive fake ttl relevant`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("fakeddisorder")
+                        .setMarker("endhost")
+                        .build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.isFake)
+        assertTrue(state.usesFakeTransport)
+        assertTrue(state.showAdaptiveFakeTtlProfile)
+        assertEquals("tcp: fakeddisorder(endhost)", state.chainSummary)
+    }
+
+    @Test
     fun `hostfake profile remains visible in command line mode`() {
         val settings =
             defaults

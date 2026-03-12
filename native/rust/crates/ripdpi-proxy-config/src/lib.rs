@@ -492,12 +492,8 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         )?;
         let desync_mode = parse_desync_mode(&payload.desync_method)?;
         if desync_mode != DesyncMode::None {
+        validate_tcp_chain(&group.tcp_chain)?;
             group.parts.push(PartSpec { mode: desync_mode, offset: part_offset });
-            if let Some(kind) = TcpChainStepKind::from_mode(desync_mode) {
-                group.tcp_chain.push(TcpChainStep::new(kind, part_offset));
-            }
-        }
-
         if payload.tls_record_split {
             let expr = parse_offset_expr_field(
                 payload.tls_record_split_marker.as_deref(),
@@ -507,6 +503,12 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             group.tls_records.push(expr);
             group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, expr));
         }
+
+            if let Some(kind) = TcpChainStepKind::from_mode(desync_mode) {
+                group.tcp_chain.push(TcpChainStep::new(kind, part_offset));
+            }
+        }
+        validate_tcp_chain(&group.tcp_chain)?;
     }
 
     if !payload.udp_chain_steps.is_empty() {
@@ -534,7 +536,10 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         }
     }
 
-    let has_fake_step = group.effective_tcp_chain().iter().any(|step| matches!(step.kind, TcpChainStepKind::Fake));
+    let has_fake_step = group
+        .effective_tcp_chain()
+        .iter()
+        .any(|step| matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder));
     let has_oob_step = group
         .effective_tcp_chain()
         .iter()
@@ -611,6 +616,8 @@ pub fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, ProxyC
         _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown tcpChainSteps kind: {value}"))),
     }
 }
+        "fakedsplit" => Ok(TcpChainStepKind::FakeSplit),
+        "fakeddisorder" => Ok(TcpChainStepKind::FakeDisorder),
 
 fn normalize_tlsrandrec_step_field(value: i32, default: i32) -> i32 {
     if value > 0 { value } else { default }
@@ -624,6 +631,38 @@ pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyC
 }
 
 pub fn parse_quic_initial_mode(value: &str) -> Result<QuicInitialMode, ProxyConfigError> {
+fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
+    let mut saw_send_step = false;
+    for (index, step) in steps.iter().enumerate() {
+        if step.kind.is_tls_prelude() {
+            if saw_send_step {
+                return Err(ProxyConfigError::InvalidConfig(format!(
+                    "{} must be declared before tcp send steps",
+                    match step.kind {
+                        TcpChainStepKind::TlsRec => "tlsrec",
+                        TcpChainStepKind::TlsRandRec => "tlsrandrec",
+                        _ => unreachable!(),
+                    }
+                )));
+            }
+        } else {
+            saw_send_step = true;
+        }
+
+        if matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder) && index + 1 != steps.len() {
+            return Err(ProxyConfigError::InvalidConfig(format!(
+                "{} must be the last tcp send step",
+                match step.kind {
+                    TcpChainStepKind::FakeSplit => "fakedsplit",
+                    TcpChainStepKind::FakeDisorder => "fakeddisorder",
+                    _ => unreachable!(),
+                }
+            )));
+        }
+    }
+    Ok(())
+}
+
     match value.trim().to_lowercase().as_str() {
         "disabled" => Ok(QuicInitialMode::Disabled),
         "route" => Ok(QuicInitialMode::Route),
@@ -803,6 +842,65 @@ mod tests {
         ui.udp_fake_profile = "dns_query".to_string();
 
         let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
+
+    #[test]
+    fn ui_payload_treats_fake_approx_steps_as_fake_payload_consumers() {
+        for kind in ["fakedsplit", "fakeddisorder"] {
+            let mut ui = minimal_ui();
+            ui.tcp_chain_steps.push(ProxyUiTcpChainStep {
+                kind: kind.to_string(),
+                marker: "host+1".to_string(),
+                midhost_marker: None,
+                fake_host_template: None,
+                fragment_count: 0,
+                min_fragment_size: 0,
+                max_fragment_size: 0,
+                activation_filter: ProxyUiActivationFilter::default(),
+            });
+            ui.fake_tls_use_original = true;
+            ui.fake_tls_dup_session_id = true;
+            ui.fake_offset_marker = Some("host+1".to_string());
+
+            let config = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect("runtime config");
+            let group = &config.groups[0];
+
+            let expected_mode = if kind == "fakedsplit" { DesyncMode::Fake } else { DesyncMode::Disorder };
+
+            assert_eq!(group.tcp_chain[0].kind.as_mode(), Some(expected_mode));
+            assert_eq!(group.fake_offset.map(|offset| offset.delta), Some(1));
+            assert_ne!(group.fake_mod & FM_ORIG, 0);
+            assert_ne!(group.fake_mod & FM_DUPSID, 0);
+        }
+    }
+
+    #[test]
+    fn ui_payload_rejects_non_terminal_fake_approx_step() {
+        let mut ui = minimal_ui();
+        ui.tcp_chain_steps.push(ProxyUiTcpChainStep {
+            kind: "fakedsplit".to_string(),
+            marker: "host+1".to_string(),
+            midhost_marker: None,
+            fake_host_template: None,
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            activation_filter: ProxyUiActivationFilter::default(),
+        });
+        ui.tcp_chain_steps.push(ProxyUiTcpChainStep {
+            kind: "split".to_string(),
+            marker: "endhost".to_string(),
+            midhost_marker: None,
+            fake_host_template: None,
+            fragment_count: 0,
+            min_fragment_size: 0,
+            max_fragment_size: 0,
+            activation_filter: ProxyUiActivationFilter::default(),
+        });
+
+        let err = runtime_config_from_payload(ProxyConfigPayload::Ui(ui)).expect_err("non-terminal fakedsplit");
+
+        assert!(err.to_string().contains("fakedsplit"));
+    }
 
         assert_eq!(config.groups[0].http_fake_profile, HttpFakeProfile::CloudflareGet);
         assert_eq!(config.groups[0].tls_fake_profile, TlsFakeProfile::GoogleChrome);
