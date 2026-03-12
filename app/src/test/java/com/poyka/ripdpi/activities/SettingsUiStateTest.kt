@@ -77,6 +77,12 @@ class SettingsUiStateTest {
         assertFalse(state.desyncUdpEnabled)
         assertFalse(state.httpMethodEol)
         assertFalse(state.httpUnixEol)
+        assertFalse(state.hasSafeHttpParserTweaks)
+        assertFalse(state.hasAggressiveHttpParserEvasions)
+        assertFalse(state.hasCustomHttpParserEvasions)
+        assertFalse(state.canResetHttpParserEvasions)
+        assertTrue(state.httpParserControlsRelevant)
+        assertTrue(state.showHttpParserProfile)
         assertEquals(QuicFakeProfileDisabled, state.quicFakeProfile)
         assertEquals("", state.quicFakeHost)
         assertFalse(state.quicFakeProfileActive)
@@ -165,6 +171,50 @@ class SettingsUiStateTest {
         assertTrue(state.hostRemoveSpaces)
         assertTrue(state.httpMethodEol)
         assertTrue(state.httpUnixEol)
+        assertTrue(state.hasSafeHttpParserTweaks)
+        assertTrue(state.hasAggressiveHttpParserEvasions)
+        assertTrue(state.hasCustomHttpParserEvasions)
+        assertEquals(3, state.httpParserSafeCount)
+        assertEquals(2, state.httpParserAggressiveCount)
+        assertTrue(state.canResetHttpParserEvasions)
+    }
+
+    @Test
+    fun `http parser profile remains visible in command line mode`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setEnableCmdSettings(true)
+                .setDesyncHttp(false)
+                .setHostMixedCase(true)
+                .setHttpMethodEol(true)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.enableCmdSettings)
+        assertFalse(state.httpParserControlsRelevant)
+        assertTrue(state.hasCustomHttpParserEvasions)
+        assertTrue(state.showHttpParserProfile)
+        assertFalse(state.canResetHttpParserEvasions)
+    }
+
+    @Test
+    fun `saved http parser evasions stay visible when http desync is off`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncMethod("none")
+                .setDesyncHttp(false)
+                .setDesyncHttps(true)
+                .setHostRemoveSpaces(true)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertFalse(state.httpParserControlsRelevant)
+        assertTrue(state.hasCustomHttpParserEvasions)
+        assertTrue(state.showHttpParserProfile)
     }
 
     @Test
