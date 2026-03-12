@@ -284,4 +284,27 @@ class ApproachAnalyticsTest {
         assertEquals("64-512", signature.activationPayloadSize)
         assertEquals("0-2047", signature.activationStreamBytes)
     }
+
+    @Test
+    fun `deriveBypassStrategySignature omits activation filter ranges in command line mode`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setRipdpiMode("vpn")
+                .setEnableCmdSettings(true)
+                .setGroupActivationFilter(
+                    ActivationFilter
+                        .newBuilder()
+                        .setRound(NumericRange.newBuilder().setStart(2).setEnd(4))
+                        .setPayloadSize(NumericRange.newBuilder().setStart(64).setEnd(512))
+                        .setStreamBytes(NumericRange.newBuilder().setStart(0).setEnd(2047))
+                        .build(),
+                ).build()
+
+        val signature = deriveBypassStrategySignature(settings = settings, routeGroup = "9")
+
+        assertNull(signature.activationRound)
+        assertNull(signature.activationPayloadSize)
+        assertNull(signature.activationStreamBytes)
+    }
 }

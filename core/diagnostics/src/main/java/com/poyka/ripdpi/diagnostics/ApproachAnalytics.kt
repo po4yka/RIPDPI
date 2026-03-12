@@ -167,6 +167,7 @@ fun deriveBypassStrategySignature(
             if (settings.fakeTlsPadEncap) add("padencap")
         }
     val activationFilter = settings.effectiveGroupActivationFilter()
+    val activationFiltersActive = !settings.enableCmdSettings
 
     return BypassStrategySignature(
         mode = mode,
@@ -183,9 +184,9 @@ fun deriveBypassStrategySignature(
         tlsRecordSplitEnabled = tlsRecStep != null,
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
-        activationRound = formatNumericRange(activationFilter.round),
-        activationPayloadSize = formatNumericRange(activationFilter.payloadSize),
-        activationStreamBytes = formatNumericRange(activationFilter.streamBytes),
+        activationRound = formatNumericRange(activationFilter.round).takeIf { activationFiltersActive },
+        activationPayloadSize = formatNumericRange(activationFilter.payloadSize).takeIf { activationFiltersActive },
+        activationStreamBytes = formatNumericRange(activationFilter.streamBytes).takeIf { activationFiltersActive },
         fakeSniMode = fakeTlsSniMode.takeIf { fakeTlsProfileActive },
         fakeSniValue = settings.fakeSni.ifBlank { null }?.takeIf { fakeTlsProfileActive && fakeTlsSniMode == FakeTlsSniModeFixed },
         fakeTlsBaseMode = if (fakeTlsProfileActive) if (settings.fakeTlsUseOriginal) "original" else "default" else null,
