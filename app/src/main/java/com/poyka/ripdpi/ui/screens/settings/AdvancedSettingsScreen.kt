@@ -894,6 +894,7 @@ fun AdvancedSettingsRoute(
         onApplyHostPackPreset = viewModel::applyHostPackPreset,
         onRefreshHostPackCatalog = viewModel::refreshHostPackCatalog,
         onForgetLearnedHosts = viewModel::forgetLearnedHosts,
+        onResetFakePayloadLibrary = viewModel::resetFakePayloadLibrary,
         onResetFakeTlsProfile = viewModel::resetFakeTlsProfile,
         modifier = modifier,
     )
@@ -911,6 +912,7 @@ private fun AdvancedSettingsScreen(
     onApplyHostPackPreset: (HostPackPreset, String, String) -> Unit,
     onRefreshHostPackCatalog: () -> Unit,
     onForgetLearnedHosts: () -> Unit,
+    onResetFakePayloadLibrary: () -> Unit,
     onResetFakeTlsProfile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1288,38 +1290,222 @@ private fun AdvancedSettingsScreen(
                         )
                         FakePayloadLibraryCard(
                             uiState = uiState,
+                            onResetFakePayloadLibrary = onResetFakePayloadLibrary,
                             modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                         )
-                        HorizontalDivider(color = colors.divider)
-                        AdvancedDropdownSetting(
+                        FakePayloadProfileCard(
                             title = stringResource(R.string.http_fake_profile_title),
                             description = stringResource(R.string.http_fake_profile_body),
+                            profileLabel = formatHttpFakeProfileLabel(uiState.httpFakeProfile),
+                            statusLabel =
+                                when {
+                                    uiState.enableCmdSettings -> stringResource(R.string.fake_payload_library_cli_title)
+                                    !uiState.desyncHttpEnabled -> stringResource(R.string.fake_payload_profile_status_off)
+                                    uiState.httpFakeProfileActiveInStrategy ->
+                                        stringResource(R.string.fake_payload_profile_status_live)
+                                    uiState.hasHostFake -> stringResource(R.string.fake_payload_profile_status_separate)
+                                    else -> stringResource(R.string.fake_payload_profile_status_ready)
+                                },
+                            statusTone =
+                                when {
+                                    uiState.enableCmdSettings -> StatusIndicatorTone.Warning
+                                    !uiState.desyncHttpEnabled -> StatusIndicatorTone.Idle
+                                    uiState.httpFakeProfileActiveInStrategy -> StatusIndicatorTone.Active
+                                    uiState.hasHostFake -> StatusIndicatorTone.Idle
+                                    else -> StatusIndicatorTone.Idle
+                                },
+                            badges =
+                                buildList {
+                                    add(
+                                        (
+                                            if (uiState.desyncHttpEnabled) {
+                                                stringResource(R.string.fake_payload_badge_http_on)
+                                            } else {
+                                                stringResource(R.string.fake_payload_badge_http_off)
+                                            }
+                                        ) to SummaryCapsuleTone.Neutral,
+                                    )
+                                    add(
+                                        (
+                                            if (uiState.httpFakeProfileActiveInStrategy) {
+                                                stringResource(R.string.fake_payload_badge_fake_step_live)
+                                            } else if (uiState.hasHostFake) {
+                                                stringResource(R.string.fake_payload_badge_hostfake_separate)
+                                            } else {
+                                                stringResource(R.string.fake_payload_badge_fake_step_needed)
+                                            }
+                                        ) to
+                                            when {
+                                                uiState.httpFakeProfileActiveInStrategy -> SummaryCapsuleTone.Active
+                                                uiState.hasHostFake -> SummaryCapsuleTone.Info
+                                                else -> SummaryCapsuleTone.Warning
+                                            },
+                                    )
+                                },
+                            appliesSummary =
+                                when {
+                                    !uiState.desyncHttpEnabled ->
+                                        stringResource(R.string.http_fake_profile_scope_off)
+                                    uiState.httpFakeProfileActiveInStrategy ->
+                                        stringResource(R.string.http_fake_profile_scope_live)
+                                    uiState.hasHostFake ->
+                                        stringResource(R.string.http_fake_profile_scope_hostfake)
+                                    else -> stringResource(R.string.http_fake_profile_scope_ready)
+                                },
+                            interactionSummary = stringResource(R.string.http_fake_profile_interaction),
                             value = uiState.httpFakeProfile,
                             options = httpFakeProfileOptions,
                             setting = AdvancedOptionSetting.HttpFakeProfile,
                             onSelected = onOptionSelected,
                             enabled = visualEditorEnabled,
-                            showDivider = true,
+                            modifier = Modifier.padding(bottom = spacing.sm),
                         )
-                        AdvancedDropdownSetting(
+                        FakePayloadProfileCard(
                             title = stringResource(R.string.tls_fake_profile_title),
                             description = stringResource(R.string.tls_fake_profile_body),
+                            profileLabel = formatTlsFakeProfileLabel(uiState.tlsFakeProfile),
+                            statusLabel =
+                                when {
+                                    uiState.enableCmdSettings -> stringResource(R.string.fake_payload_library_cli_title)
+                                    !uiState.desyncHttpsEnabled -> stringResource(R.string.fake_payload_profile_status_off)
+                                    uiState.tlsFakeProfileActiveInStrategy ->
+                                        stringResource(R.string.fake_payload_profile_status_live)
+                                    uiState.hasHostFake -> stringResource(R.string.fake_payload_profile_status_separate)
+                                    else -> stringResource(R.string.fake_payload_profile_status_ready)
+                                },
+                            statusTone =
+                                when {
+                                    uiState.enableCmdSettings -> StatusIndicatorTone.Warning
+                                    !uiState.desyncHttpsEnabled -> StatusIndicatorTone.Idle
+                                    uiState.tlsFakeProfileActiveInStrategy -> StatusIndicatorTone.Active
+                                    uiState.hasHostFake -> StatusIndicatorTone.Idle
+                                    else -> StatusIndicatorTone.Idle
+                                },
+                            badges =
+                                buildList {
+                                    add(
+                                        (
+                                            if (uiState.desyncHttpsEnabled) {
+                                                stringResource(R.string.fake_payload_badge_https_on)
+                                            } else {
+                                                stringResource(R.string.fake_payload_badge_https_off)
+                                            }
+                                        ) to SummaryCapsuleTone.Neutral,
+                                    )
+                                    add(
+                                        (
+                                            if (uiState.tlsFakeProfileActiveInStrategy) {
+                                                stringResource(R.string.fake_payload_badge_fake_step_live)
+                                            } else if (uiState.hasHostFake) {
+                                                stringResource(R.string.fake_payload_badge_hostfake_separate)
+                                            } else {
+                                                stringResource(R.string.fake_payload_badge_fake_step_needed)
+                                            }
+                                        ) to
+                                            when {
+                                                uiState.tlsFakeProfileActiveInStrategy -> SummaryCapsuleTone.Active
+                                                uiState.hasHostFake -> SummaryCapsuleTone.Info
+                                                else -> SummaryCapsuleTone.Warning
+                                            },
+                                    )
+                                    add(
+                                        stringResource(R.string.fake_payload_badge_fake_tls_layers) to SummaryCapsuleTone.Info,
+                                    )
+                                },
+                            appliesSummary =
+                                when {
+                                    !uiState.desyncHttpsEnabled ->
+                                        stringResource(R.string.tls_fake_profile_scope_off)
+                                    uiState.tlsFakeProfileActiveInStrategy ->
+                                        stringResource(R.string.tls_fake_profile_scope_live)
+                                    uiState.hasHostFake ->
+                                        stringResource(R.string.tls_fake_profile_scope_hostfake)
+                                    else -> stringResource(R.string.tls_fake_profile_scope_ready)
+                                },
+                            interactionSummary = stringResource(R.string.tls_fake_profile_interaction),
                             value = uiState.tlsFakeProfile,
                             options = tlsFakeProfileOptions,
                             setting = AdvancedOptionSetting.TlsFakeProfile,
                             onSelected = onOptionSelected,
                             enabled = visualEditorEnabled,
-                            showDivider = true,
+                            modifier = Modifier.padding(bottom = spacing.sm),
                         )
-                        AdvancedDropdownSetting(
+                        FakePayloadProfileCard(
                             title = stringResource(R.string.udp_fake_profile_title),
                             description = stringResource(R.string.udp_fake_profile_body),
+                            profileLabel = formatUdpFakeProfileLabel(uiState.udpFakeProfile),
+                            statusLabel =
+                                when {
+                                    uiState.enableCmdSettings -> stringResource(R.string.fake_payload_library_cli_title)
+                                    !uiState.desyncUdpEnabled -> stringResource(R.string.fake_payload_profile_status_off)
+                                    uiState.udpFakeProfileActiveInStrategy ->
+                                        stringResource(R.string.fake_payload_profile_status_live)
+                                    else -> stringResource(R.string.fake_payload_profile_status_ready)
+                                },
+                            statusTone =
+                                when {
+                                    uiState.enableCmdSettings -> StatusIndicatorTone.Warning
+                                    !uiState.desyncUdpEnabled -> StatusIndicatorTone.Idle
+                                    uiState.udpFakeProfileActiveInStrategy -> StatusIndicatorTone.Active
+                                    else -> StatusIndicatorTone.Idle
+                                },
+                            badges =
+                                buildList {
+                                    add(
+                                        (
+                                            if (uiState.desyncUdpEnabled) {
+                                                stringResource(R.string.fake_payload_badge_udp_on)
+                                            } else {
+                                                stringResource(R.string.fake_payload_badge_udp_off)
+                                            }
+                                        ) to SummaryCapsuleTone.Neutral,
+                                    )
+                                    add(
+                                        (
+                                            if (uiState.udpFakeProfileActiveInStrategy) {
+                                                stringResource(
+                                                    R.string.fake_payload_badge_burst_ready,
+                                                    uiState.udpFakeCount,
+                                                )
+                                            } else {
+                                                stringResource(R.string.fake_payload_badge_burst_needed)
+                                            }
+                                        ) to
+                                            if (uiState.udpFakeProfileActiveInStrategy) {
+                                                SummaryCapsuleTone.Active
+                                            } else {
+                                                SummaryCapsuleTone.Warning
+                                            },
+                                    )
+                                    if (uiState.quicFakeProfileActive) {
+                                        add(
+                                            stringResource(R.string.fake_payload_badge_quic_separate) to SummaryCapsuleTone.Info,
+                                        )
+                                    }
+                                },
+                            appliesSummary =
+                                when {
+                                    !uiState.desyncUdpEnabled ->
+                                        stringResource(R.string.udp_fake_profile_scope_off)
+                                    uiState.udpFakeProfileActiveInStrategy ->
+                                        stringResource(
+                                            R.string.udp_fake_profile_scope_live,
+                                            uiState.udpFakeCount,
+                                        )
+                                    else -> stringResource(R.string.udp_fake_profile_scope_ready)
+                                },
+                            interactionSummary =
+                                if (uiState.quicFakeProfileActive) {
+                                    stringResource(R.string.udp_fake_profile_interaction_quic_override)
+                                } else {
+                                    stringResource(R.string.udp_fake_profile_interaction)
+                                },
                             value = uiState.udpFakeProfile,
                             options = udpFakeProfileOptions,
                             setting = AdvancedOptionSetting.UdpFakeProfile,
                             onSelected = onOptionSelected,
                             enabled = visualEditorEnabled,
-                            showDivider = true,
+                            modifier = Modifier.padding(bottom = spacing.sm),
                         )
                     }
                     if (showFakeTlsSection) {
@@ -2899,16 +3085,46 @@ private data class FakePayloadLibraryStatusContent(
 @Composable
 private fun FakePayloadLibraryCard(
     uiState: SettingsUiState,
+    onResetFakePayloadLibrary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberFakePayloadLibraryStatus(uiState)
     val scopeSummary =
         when {
             uiState.enableCmdSettings -> stringResource(R.string.fake_payload_library_scope_cli)
             !uiState.fakePayloadLibraryControlsRelevant -> stringResource(R.string.fake_payload_library_scope_protocols_disabled)
+            uiState.httpFakeProfileActiveInStrategy && uiState.udpFakeProfileActiveInStrategy ->
+                stringResource(R.string.fake_payload_library_scope_tcp_and_udp_live)
+            uiState.httpFakeProfileActiveInStrategy || uiState.tlsFakeProfileActiveInStrategy ->
+                stringResource(R.string.fake_payload_library_scope_tcp_live)
+            uiState.udpFakeProfileActiveInStrategy -> stringResource(R.string.fake_payload_library_scope_udp_live)
+            uiState.hasHostFake -> stringResource(R.string.fake_payload_library_scope_hostfake_only)
             else -> stringResource(R.string.fake_payload_library_scope_active)
+        }
+    val badges =
+        buildList {
+            if (uiState.hasCustomFakePayloadProfiles) {
+                add(stringResource(R.string.fake_payload_library_badge_custom) to SummaryCapsuleTone.Active)
+            } else {
+                add(stringResource(R.string.fake_payload_library_badge_default) to SummaryCapsuleTone.Neutral)
+            }
+            if (uiState.isFake) {
+                add(stringResource(R.string.fake_payload_library_badge_tcp_fake_live) to SummaryCapsuleTone.Active)
+            } else if (uiState.hasHostFake) {
+                add(stringResource(R.string.fake_payload_library_badge_hostfake_only) to SummaryCapsuleTone.Info)
+            }
+            if (uiState.hasUdpFakeBurst) {
+                add(
+                    stringResource(R.string.fake_payload_library_badge_udp_burst, uiState.udpFakeCount) to
+                        SummaryCapsuleTone.Active,
+                )
+            }
+            if (uiState.quicFakeProfileActive) {
+                add(stringResource(R.string.fake_payload_library_badge_quic_separate) to SummaryCapsuleTone.Info)
+            }
         }
 
     RipDpiCard(
@@ -2924,7 +3140,8 @@ private fun FakePayloadLibraryCard(
             style = type.secondaryBody,
             color = colors.foreground,
         )
-        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+        SummaryCapsuleFlow(items = badges)
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             ProfileSummaryLine(
                 label = stringResource(R.string.fake_payload_library_summary_label_http),
                 value = formatHttpFakeProfileLabel(uiState.httpFakeProfile),
@@ -2942,6 +3159,77 @@ private fun FakePayloadLibraryCard(
                 value = scopeSummary,
             )
         }
+        if (uiState.canResetFakePayloadLibrary) {
+            RipDpiButton(
+                text = stringResource(R.string.fake_payload_library_reset_action),
+                onClick = onResetFakePayloadLibrary,
+                variant = RipDpiButtonVariant.Outline,
+                modifier = Modifier.align(Alignment.End),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FakePayloadProfileCard(
+    title: String,
+    description: String,
+    profileLabel: String,
+    statusLabel: String,
+    statusTone: StatusIndicatorTone,
+    badges: List<Pair<String, SummaryCapsuleTone>>,
+    appliesSummary: String,
+    interactionSummary: String,
+    value: String,
+    options: List<RipDpiDropdownOption<String>>,
+    setting: AdvancedOptionSetting,
+    onSelected: (AdvancedOptionSetting, String) -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Outlined,
+    ) {
+        StatusIndicator(
+            label = statusLabel,
+            tone = statusTone,
+        )
+        Text(
+            text = title,
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Text(
+            text = description,
+            style = type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        SummaryCapsuleFlow(items = badges)
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            ProfileSummaryLine(
+                label = stringResource(R.string.fake_payload_profile_summary_label_current),
+                value = profileLabel,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.fake_payload_profile_summary_label_when_used),
+                value = appliesSummary,
+            )
+            ProfileSummaryLine(
+                label = stringResource(R.string.fake_payload_profile_summary_label_interaction),
+                value = interactionSummary,
+            )
+        }
+        RipDpiDropdown(
+            options = options,
+            selectedValue = value,
+            onValueSelected = { selectedValue -> onSelected(setting, selectedValue) },
+            enabled = enabled,
+        )
     }
 }
 
@@ -3676,6 +3964,7 @@ private fun AdvancedSettingsScreenPreview() {
             onApplyHostPackPreset = { _, _, _ -> },
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
+            onResetFakePayloadLibrary = {},
             onResetFakeTlsProfile = {},
         )
     }
@@ -3739,6 +4028,7 @@ private fun AdvancedSettingsScreenDarkPreview() {
             onApplyHostPackPreset = { _, _, _ -> },
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
+            onResetFakePayloadLibrary = {},
             onResetFakeTlsProfile = {},
         )
     }

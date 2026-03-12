@@ -50,6 +50,10 @@ class SettingsUiStateTest {
         assertEquals(FakePayloadProfileCompatDefault, state.tlsFakeProfile)
         assertEquals(FakePayloadProfileCompatDefault, state.udpFakeProfile)
         assertFalse(state.hasCustomFakePayloadProfiles)
+        assertFalse(state.canResetFakePayloadLibrary)
+        assertFalse(state.httpFakeProfileActiveInStrategy)
+        assertFalse(state.tlsFakeProfileActiveInStrategy)
+        assertFalse(state.udpFakeProfileActiveInStrategy)
         assertTrue(state.fakePayloadLibraryControlsRelevant)
         assertTrue(state.showFakePayloadLibrary)
         assertFalse(state.fakeTlsControlsRelevant)
@@ -117,6 +121,9 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
         assertTrue(state.isFake)
         assertTrue(state.usesFakeTransport)
+        assertTrue(state.httpFakeProfileActiveInStrategy)
+        assertTrue(state.tlsFakeProfileActiveInStrategy)
+        assertFalse(state.udpFakeProfileActiveInStrategy)
         assertTrue(state.desyncEnabled)
     }
 
@@ -207,6 +214,36 @@ class SettingsUiStateTest {
         assertTrue(state.desyncHttpEnabled)
         assertTrue(state.desyncHttpsEnabled)
         assertTrue(state.desyncUdpEnabled)
+    }
+
+    @Test
+    fun `udp fake burst activates generic udp fake profile`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setDesyncUdp(true)
+                .setUdpFakeCount(3)
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.hasUdpFakeBurst)
+        assertTrue(state.udpFakeProfileActiveInStrategy)
+    }
+
+    @Test
+    fun `custom fake payload profiles can be reset outside command line mode`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .setHttpFakeProfile("cloudflare_get")
+                .setTlsFakeProfile("google_chrome")
+                .build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.hasCustomFakePayloadProfiles)
+        assertTrue(state.canResetFakePayloadLibrary)
     }
 
     @Test

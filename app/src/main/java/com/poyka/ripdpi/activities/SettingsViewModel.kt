@@ -200,11 +200,23 @@ data class SettingsUiState(
     val canResetFakeTlsProfile: Boolean
         get() = !enableCmdSettings && hasCustomFakeTlsProfile
 
+    val canResetFakePayloadLibrary: Boolean
+        get() = !enableCmdSettings && hasCustomFakePayloadProfiles
+
     val hasCustomFakePayloadProfiles: Boolean
         get() =
             httpFakeProfile != FakePayloadProfileCompatDefault ||
                 tlsFakeProfile != FakePayloadProfileCompatDefault ||
                 udpFakeProfile != FakePayloadProfileCompatDefault
+
+    val httpFakeProfileActiveInStrategy: Boolean
+        get() = desyncHttpEnabled && isFake
+
+    val tlsFakeProfileActiveInStrategy: Boolean
+        get() = desyncHttpsEnabled && isFake
+
+    val udpFakeProfileActiveInStrategy: Boolean
+        get() = desyncUdpEnabled && hasUdpFakeBurst
 
     val fakePayloadLibraryControlsRelevant: Boolean
         get() = desyncHttpEnabled || desyncHttpsEnabled || desyncUdpEnabled
@@ -705,6 +717,31 @@ class SettingsViewModel
                     SettingsEffect.Notice(
                         title = "Fake TLS profile reset",
                         message = "RIPDPI will use the default fake ClientHello, fixed SNI, and input-sized payload on the next start.",
+                        tone = SettingsNoticeTone.Info,
+                    )
+                }
+            _effects.send(effect)
+        }
+    }
+
+    fun resetFakePayloadLibrary() {
+        viewModelScope.launch {
+            appSettingsRepository.update {
+                setHttpFakeProfile(FakePayloadProfileCompatDefault)
+                setTlsFakeProfile(FakePayloadProfileCompatDefault)
+                setUdpFakeProfile(FakePayloadProfileCompatDefault)
+            }
+            val effect =
+                if (serviceStateStore.status.value.first == AppStatus.Running) {
+                    SettingsEffect.Notice(
+                        title = "Fake payload presets reset for next start",
+                        message = "HTTP, TLS, and UDP fake payloads are back to compatibility defaults. Restart RIPDPI to apply them to the active session.",
+                        tone = SettingsNoticeTone.Info,
+                    )
+                } else {
+                    SettingsEffect.Notice(
+                        title = "Fake payload presets reset",
+                        message = "RIPDPI will use the compatibility fake payload defaults for HTTP, TLS, and UDP on the next start.",
                         tone = SettingsNoticeTone.Info,
                     )
                 }
