@@ -9,30 +9,25 @@ use android_support::{
     init_android_logging, throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception,
     HandleRegistry, JNI_VERSION,
 };
-use ciadpi_config::{
-    DesyncGroup, DesyncMode, OffsetExpr, PartSpec, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv,
-    TcpChainStep,
-    TcpChainStepKind, UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
-    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
-    HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
-};
-use ciadpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_SPACE};
+use ciadpi_config::{QuicFakeProfile, QuicInitialMode, RuntimeConfig, TcpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS};
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jstring};
 use jni::{JNIEnv, JavaVM};
 use ripdpi_monitor::{MonitorSession, ScanRequest};
+use ripdpi_proxy_config::{
+    parse_proxy_config_json as shared_parse_proxy_config_json,
+    runtime_config_from_command_line as shared_runtime_config_from_command_line,
+    runtime_config_from_payload as shared_runtime_config_from_payload,
+    runtime_config_from_ui as shared_runtime_config_from_ui,
+    ProxyConfigPayload, ProxyConfigError, ProxyUiConfig, ProxyUiTcpChainStep, FAKE_TLS_SNI_MODE_FIXED,
+    FAKE_TLS_SNI_MODE_RANDOMIZED, QUIC_FAKE_PROFILE_DISABLED,
+};
 use ripdpi_runtime::{clear_runtime_telemetry, install_runtime_telemetry, process, runtime, RuntimeTelemetrySink};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 const HOSTS_DISABLE: &str = "disable";
 const HOSTS_BLACKLIST: &str = "blacklist";
 const HOSTS_WHITELIST: &str = "whitelist";
-const TLS_RANDREC_DEFAULT_FRAGMENT_COUNT: i32 = 4;
-const TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE: i32 = 16;
-const TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE: i32 = 96;
-const FAKE_TLS_SNI_MODE_FIXED: &str = "fixed";
-const FAKE_TLS_SNI_MODE_RANDOMIZED: &str = "randomized";
-const QUIC_FAKE_PROFILE_DISABLED: &str = "disabled";
 
 static SESSIONS: once_cell::sync::Lazy<HandleRegistry<ProxySession>> = once_cell::sync::Lazy::new(HandleRegistry::new);
 static DIAGNOSTIC_SESSIONS: once_cell::sync::Lazy<HandleRegistry<MonitorSession>> =
@@ -103,141 +98,10 @@ fn is_transient_network_error(error: &std::io::Error) -> bool {
     )
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-enum ProxyConfigPayload {
-    CommandLine { args: Vec<String> },
-    Ui(ProxyUiConfig),
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ProxyUiTcpChainStep {
-    kind: String,
-    marker: String,
-    #[serde(default)]
-    midhost_marker: Option<String>,
-    #[serde(default)]
-    fake_host_template: Option<String>,
-    #[serde(default)]
-    fragment_count: i32,
-    #[serde(default)]
-    min_fragment_size: i32,
-    #[serde(default)]
-    max_fragment_size: i32,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ProxyUiUdpChainStep {
-    kind: String,
-    count: i32,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ProxyUiConfig {
-    ip: String,
-    port: i32,
-    max_connections: i32,
-    buffer_size: i32,
-    default_ttl: i32,
-    custom_ttl: bool,
-    no_domain: bool,
-    desync_http: bool,
-    desync_https: bool,
-    desync_udp: bool,
-    desync_method: String,
-    #[serde(default)]
-    split_marker: Option<String>,
-    #[serde(default)]
-    tcp_chain_steps: Vec<ProxyUiTcpChainStep>,
-    #[serde(default)]
-    split_position: i32,
-    #[serde(default)]
-    split_at_host: bool,
-    fake_ttl: i32,
-    fake_sni: String,
-    #[serde(default)]
-    fake_tls_use_original: bool,
-    #[serde(default)]
-    fake_tls_randomize: bool,
-    #[serde(default)]
-    fake_tls_dup_session_id: bool,
-    #[serde(default)]
-    fake_tls_pad_encap: bool,
-    #[serde(default)]
-    fake_tls_size: i32,
-    #[serde(default = "default_fake_tls_sni_mode")]
-    fake_tls_sni_mode: String,
-    oob_char: u8,
-    host_mixed_case: bool,
-    domain_mixed_case: bool,
-    host_remove_spaces: bool,
-    tls_record_split: bool,
-    #[serde(default)]
-    tls_record_split_marker: Option<String>,
-    #[serde(default)]
-    tls_record_split_position: i32,
-    #[serde(default)]
-    tls_record_split_at_sni: bool,
-    hosts_mode: String,
-    hosts: Option<String>,
-    tcp_fast_open: bool,
-    udp_fake_count: i32,
-    #[serde(default)]
-    udp_chain_steps: Vec<ProxyUiUdpChainStep>,
-    drop_sack: bool,
-    #[serde(default)]
-    fake_offset_marker: Option<String>,
-    fake_offset: i32,
-    #[serde(default)]
-    quic_initial_mode: Option<String>,
-    #[serde(default = "default_true")]
-    quic_support_v1: bool,
-    #[serde(default = "default_true")]
-    quic_support_v2: bool,
-    #[serde(default = "default_quic_fake_profile")]
-    quic_fake_profile: String,
-    #[serde(default)]
-    quic_fake_host: String,
-    #[serde(default)]
-    host_autolearn_enabled: bool,
-    #[serde(default = "default_host_autolearn_penalty_ttl_secs")]
-    host_autolearn_penalty_ttl_secs: i64,
-    #[serde(default = "default_host_autolearn_max_hosts")]
-    host_autolearn_max_hosts: usize,
-    #[serde(default)]
-    host_autolearn_store_path: Option<String>,
-}
-
 const MAX_PROXY_EVENTS: usize = 128;
-
-fn default_true() -> bool {
-    true
-}
 
 fn default_fake_tls_sni_mode() -> String {
     FAKE_TLS_SNI_MODE_FIXED.to_string()
-}
-
-fn default_quic_fake_profile() -> String {
-    QUIC_FAKE_PROFILE_DISABLED.to_string()
-}
-
-fn default_host_autolearn_penalty_ttl_secs() -> i64 {
-    HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS
-}
-
-fn default_host_autolearn_max_hosts() -> usize {
-    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS
-}
-
-fn normalize_fake_tls_sni_mode(value: &str) -> &'static str {
-    match value.trim().to_ascii_lowercase().as_str() {
-        FAKE_TLS_SNI_MODE_RANDOMIZED => FAKE_TLS_SNI_MODE_RANDOMIZED,
-        _ => FAKE_TLS_SNI_MODE_FIXED,
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -980,344 +844,23 @@ fn destroy_session(env: &mut JNIEnv, handle: jlong) {
 }
 
 fn runtime_config_from_payload(payload: ProxyConfigPayload) -> Result<RuntimeConfig, JniProxyError> {
-    match payload {
-        ProxyConfigPayload::CommandLine { args } => runtime_config_from_command_line(args),
-        ProxyConfigPayload::Ui(config) => runtime_config_from_ui(config),
-    }
+    shared_runtime_config_from_payload(payload).map_err(proxy_config_error)
 }
 
-fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<RuntimeConfig, JniProxyError> {
-    if args.first().is_some_and(|value| !value.starts_with('-')) {
-        args.remove(0);
-    }
-
-    let parsed = ciadpi_config::parse_cli(&args, &StartupEnv::default())
-        .map_err(|err| JniProxyError::InvalidConfig(format!("Invalid command-line proxy config: {}", err.option)))?;
-
-    match parsed {
-        ciadpi_config::ParseResult::Run(config) => Ok(config),
-        _ => Err(JniProxyError::InvalidConfig(
-            "Command-line proxy config must resolve to a runnable config".to_string(),
-        )),
-    }
+fn runtime_config_from_command_line(args: Vec<String>) -> Result<RuntimeConfig, JniProxyError> {
+    shared_runtime_config_from_command_line(args).map_err(proxy_config_error)
 }
 
 fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniProxyError> {
-    let listen_ip =
-        IpAddr::from_str(&payload.ip).map_err(|_| JniProxyError::InvalidConfig("Invalid proxy IP".to_string()))?;
-    let mut config = RuntimeConfig::default();
-    config.listen.listen_ip = listen_ip;
-    config.listen.listen_port =
-        u16::try_from(payload.port).map_err(|_| JniProxyError::InvalidConfig("Invalid proxy port".to_string()))?;
-    if config.listen.listen_port == 0 {
-        return Err(JniProxyError::InvalidConfig("Invalid proxy port".to_string()));
-    }
-    if payload.max_connections <= 0 {
-        return Err(JniProxyError::InvalidConfig("maxConnections must be positive".to_string()));
-    }
-    config.max_open = payload.max_connections;
-    config.buffer_size = usize::try_from(payload.buffer_size)
-        .map_err(|_| JniProxyError::InvalidConfig("Invalid bufferSize".to_string()))?;
-    if config.buffer_size == 0 {
-        return Err(JniProxyError::InvalidConfig("bufferSize must be positive".to_string()));
-    }
-    if payload.udp_fake_count < 0 {
-        return Err(JniProxyError::InvalidConfig("udpFakeCount must be non-negative".to_string()));
-    }
-    config.resolve = !payload.no_domain;
-    config.tfo = payload.tcp_fast_open;
-    config.quic_initial_mode =
-        parse_quic_initial_mode(payload.quic_initial_mode.as_deref().unwrap_or("route_and_cache"))?;
-    config.quic_support_v1 = payload.quic_support_v1;
-    config.quic_support_v2 = payload.quic_support_v2;
-    config.host_autolearn_enabled = payload.host_autolearn_enabled;
-    config.host_autolearn_penalty_ttl_secs = payload.host_autolearn_penalty_ttl_secs.max(1);
-    config.host_autolearn_max_hosts = payload.host_autolearn_max_hosts.max(1);
-    config.host_autolearn_store_path = payload
-        .host_autolearn_store_path
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned);
-    if payload.custom_ttl {
-        let ttl = u8::try_from(payload.default_ttl)
-            .map_err(|_| JniProxyError::InvalidConfig("Invalid defaultTtl".to_string()))?;
-        if ttl == 0 {
-            return Err(JniProxyError::InvalidConfig(
-                "defaultTtl must be positive when customTtl is enabled".to_string(),
-            ));
-        }
-        config.default_ttl = ttl;
-        config.custom_ttl = true;
-    }
-
-    let mut groups = Vec::new();
-    if payload.hosts_mode == HOSTS_WHITELIST {
-        let mut whitelist = DesyncGroup::new(0);
-        whitelist.filters.hosts = parse_hosts(payload.hosts.as_deref())?;
-        groups.push(whitelist);
-    }
-
-    let mut group = DesyncGroup::new(groups.len());
-    match payload.hosts_mode.as_str() {
-        HOSTS_DISABLE | HOSTS_WHITELIST => {}
-        HOSTS_BLACKLIST => {
-            group.filters.hosts = parse_hosts(payload.hosts.as_deref())?;
-        }
-        _ => return Err(JniProxyError::InvalidConfig("Unknown hostsMode".to_string())),
-    }
-
-    if payload.fake_ttl > 0 {
-        group.ttl =
-            Some(u8::try_from(payload.fake_ttl).map_err(|_| JniProxyError::InvalidConfig("Invalid fakeTtl".to_string()))?);
-    }
-    group.drop_sack = payload.drop_sack;
-    group.proto = (u32::from(payload.desync_http) * IS_HTTP)
-        | (u32::from(payload.desync_https) * IS_HTTPS)
-        | (u32::from(payload.desync_udp) * IS_UDP);
-    group.quic_fake_profile = parse_quic_fake_profile(&payload.quic_fake_profile)?;
-    group.quic_fake_host = {
-        let host = payload.quic_fake_host.trim();
-        if host.is_empty() {
-            None
-        } else {
-            ciadpi_config::normalize_quic_fake_host(host).ok()
-        }
-    };
-    group.mod_http = (u32::from(payload.host_mixed_case) * MH_HMIX)
-        | (u32::from(payload.domain_mixed_case) * MH_DMIX)
-        | (u32::from(payload.host_remove_spaces) * MH_SPACE);
-
-    if !payload.tcp_chain_steps.is_empty() {
-        for step in &payload.tcp_chain_steps {
-            let kind = parse_tcp_chain_step_kind(&step.kind)?;
-            let offset = parse_offset_expr_field(Some(step.marker.as_str()), || "0".to_string(), "tcpChainSteps")?;
-            let midhost_offset = step
-                .midhost_marker
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(ciadpi_config::parse_offset_expr)
-                .transpose()
-                .map_err(|_| JniProxyError::InvalidConfig("Invalid tcpChainSteps midhostMarker".to_string()))?;
-            let fake_host_template = step
-                .fake_host_template
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(ciadpi_config::normalize_fake_host_template)
-                .transpose()
-                .map_err(|_| JniProxyError::InvalidConfig("Invalid tcpChainSteps fakeHostTemplate".to_string()))?;
-            let (fragment_count, min_fragment_size, max_fragment_size) = match kind {
-                TcpChainStepKind::TlsRandRec => (
-                    normalize_tlsrandrec_step_field(step.fragment_count, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT),
-                    normalize_tlsrandrec_step_field(step.min_fragment_size, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE),
-                    normalize_tlsrandrec_step_field(step.max_fragment_size, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE),
-                ),
-                _ => {
-                    if step.fragment_count != 0 || step.min_fragment_size != 0 || step.max_fragment_size != 0 {
-                        return Err(JniProxyError::InvalidConfig(
-                            "tlsrandrec fragment fields are only supported for tcpChainSteps kind=tlsrandrec".to_string(),
-                        ));
-                    }
-                    (0, 0, 0)
-                }
-            };
-            group.tcp_chain.push(TcpChainStep {
-                kind,
-                offset,
-                midhost_offset,
-                fake_host_template,
-                fragment_count,
-                min_fragment_size,
-                max_fragment_size,
-            });
-        }
-    } else {
-        let part_offset = parse_offset_expr_field(
-            payload.split_marker.as_deref(),
-            || legacy_marker_expression(payload.split_position, payload.split_at_host),
-            "splitMarker",
-        )?;
-        let desync_mode = parse_desync_mode(&payload.desync_method)?;
-        if desync_mode != DesyncMode::None {
-            group.parts.push(PartSpec { mode: desync_mode, offset: part_offset });
-            if let Some(kind) = TcpChainStepKind::from_mode(desync_mode) {
-                group.tcp_chain.push(TcpChainStep::new(kind, part_offset));
-            }
-        }
-
-        if payload.tls_record_split {
-            let expr = parse_offset_expr_field(
-                payload.tls_record_split_marker.as_deref(),
-                || legacy_marker_expression(payload.tls_record_split_position, payload.tls_record_split_at_sni),
-                "tlsRecordSplitMarker",
-            )?;
-            group.tls_records.push(expr);
-            group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, expr));
-        }
-    }
-
-    if !payload.udp_chain_steps.is_empty() {
-        for step in &payload.udp_chain_steps {
-            if step.count < 0 {
-                return Err(JniProxyError::InvalidConfig("udpChainSteps count must be non-negative".to_string()));
-            }
-            group.udp_chain.push(UdpChainStep { kind: parse_udp_chain_step_kind(&step.kind)?, count: step.count });
-        }
-    } else {
-        group.udp_fake_count = payload.udp_fake_count;
-        if payload.udp_fake_count > 0 {
-            group.udp_chain.push(UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: payload.udp_fake_count });
-        }
-    }
-
-    let has_fake_step = group.effective_tcp_chain().iter().any(|step| matches!(step.kind, TcpChainStepKind::Fake));
-    let has_oob_step = group
-        .effective_tcp_chain()
-        .iter()
-        .any(|step| matches!(step.kind, TcpChainStepKind::Oob | TcpChainStepKind::Disoob));
-
-    if has_fake_step {
-        let fake_tls_sni_mode = normalize_fake_tls_sni_mode(&payload.fake_tls_sni_mode);
-        group.fake_offset = Some(parse_offset_expr_field(
-            payload.fake_offset_marker.as_deref(),
-            || payload.fake_offset.to_string(),
-            "fakeOffsetMarker",
-        )?);
-        if payload.fake_tls_use_original {
-            group.fake_mod |= FM_ORIG;
-        }
-        if payload.fake_tls_randomize {
-            group.fake_mod |= FM_RAND;
-        }
-        if payload.fake_tls_dup_session_id {
-            group.fake_mod |= FM_DUPSID;
-        }
-        if payload.fake_tls_pad_encap {
-            group.fake_mod |= FM_PADENCAP;
-        }
-        if fake_tls_sni_mode == FAKE_TLS_SNI_MODE_RANDOMIZED {
-            group.fake_mod |= FM_RNDSNI;
-        } else {
-            group.fake_sni_list.push(payload.fake_sni);
-        }
-        group.fake_tls_size = payload.fake_tls_size;
-    }
-
-    if has_oob_step {
-        group.oob_data = Some(payload.oob_char);
-    }
-
-    group.sync_legacy_views_from_chains();
-
-    let action_proto = group.proto;
-    groups.push(group);
-    if action_proto != 0 {
-        groups.push(DesyncGroup::new(groups.len()));
-    }
-
-    config.groups = groups;
-    if !matches!(config.listen.bind_ip, IpAddr::V6(_)) {
-        config.ipv6 = false;
-    }
-    if config.host_autolearn_enabled && config.host_autolearn_store_path.is_none() {
-        return Err(JniProxyError::InvalidConfig(
-            "hostAutolearnStorePath is required when hostAutolearnEnabled is true".to_string(),
-        ));
-    }
-
-    Ok(config)
-}
-
-fn parse_tcp_chain_step_kind(value: &str) -> Result<TcpChainStepKind, JniProxyError> {
-    match value {
-            "split" => Ok(TcpChainStepKind::Split),
-            "disorder" => Ok(TcpChainStepKind::Disorder),
-            "fake" => Ok(TcpChainStepKind::Fake),
-            "hostfake" => Ok(TcpChainStepKind::HostFake),
-            "oob" => Ok(TcpChainStepKind::Oob),
-            "disoob" => Ok(TcpChainStepKind::Disoob),
-            "tlsrec" => Ok(TcpChainStepKind::TlsRec),
-            "tlsrandrec" => Ok(TcpChainStepKind::TlsRandRec),
-        _ => Err(JniProxyError::InvalidConfig(format!("Unknown tcpChainSteps kind: {value}"))),
-    }
-}
-
-fn normalize_tlsrandrec_step_field(value: i32, default: i32) -> i32 {
-    if value > 0 { value } else { default }
-}
-
-fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, JniProxyError> {
-    match value {
-        "fake_burst" => Ok(UdpChainStepKind::FakeBurst),
-        _ => Err(JniProxyError::InvalidConfig(format!("Unknown udpChainSteps kind: {value}"))),
-    }
-}
-
-fn parse_quic_initial_mode(value: &str) -> Result<QuicInitialMode, JniProxyError> {
-    match value.trim().to_lowercase().as_str() {
-        "disabled" => Ok(QuicInitialMode::Disabled),
-        "route" => Ok(QuicInitialMode::Route),
-        "route_and_cache" => Ok(QuicInitialMode::RouteAndCache),
-        _ => Err(JniProxyError::InvalidConfig(format!("Unknown quicInitialMode: {value}"))),
-    }
-}
-
-fn parse_quic_fake_profile(value: &str) -> Result<QuicFakeProfile, JniProxyError> {
-    match value.trim().to_lowercase().as_str() {
-        "disabled" | "" => Ok(QuicFakeProfile::Disabled),
-        "compat_default" => Ok(QuicFakeProfile::CompatDefault),
-        "realistic_initial" => Ok(QuicFakeProfile::RealisticInitial),
-        _ => Err(JniProxyError::InvalidConfig(format!("Unknown quicFakeProfile: {value}"))),
-    }
-}
-
-fn parse_desync_mode(value: &str) -> Result<DesyncMode, JniProxyError> {
-    match value {
-        "none" => Ok(DesyncMode::None),
-        "split" => Ok(DesyncMode::Split),
-        "disorder" => Ok(DesyncMode::Disorder),
-        "fake" => Ok(DesyncMode::Fake),
-        "oob" => Ok(DesyncMode::Oob),
-        "disoob" => Ok(DesyncMode::Disoob),
-        _ => Err(JniProxyError::InvalidConfig("Unknown desyncMethod".to_string())),
-    }
-}
-
-fn parse_hosts(hosts: Option<&str>) -> Result<Vec<String>, JniProxyError> {
-    let hosts = hosts.unwrap_or_default();
-    ciadpi_config::parse_hosts_spec(hosts).map_err(|_| JniProxyError::InvalidConfig("Invalid hosts list".to_string()))
-}
-
-fn parse_offset_expr_field<F>(marker: Option<&str>, legacy: F, field_name: &str) -> Result<OffsetExpr, JniProxyError>
-where
-    F: FnOnce() -> String,
-{
-    let spec = marker.map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned).unwrap_or_else(legacy);
-    ciadpi_config::parse_offset_expr(&spec)
-        .map_err(|_| JniProxyError::InvalidConfig(format!("Invalid {field_name}")))
-}
-
-fn legacy_marker_expression(position: i32, use_host_marker: bool) -> String {
-    if use_host_marker {
-        marker_expression("host", position)
-    } else {
-        position.to_string()
-    }
-}
-
-fn marker_expression(base: &str, delta: i32) -> String {
-    match delta.cmp(&0) {
-        std::cmp::Ordering::Equal => base.to_string(),
-        std::cmp::Ordering::Greater => format!("{base}+{delta}"),
-        std::cmp::Ordering::Less => format!("{base}{delta}"),
-    }
+    shared_runtime_config_from_ui(payload).map_err(proxy_config_error)
 }
 
 fn parse_proxy_config_json(json: &str) -> Result<ProxyConfigPayload, JniProxyError> {
-    serde_json::from_str::<ProxyConfigPayload>(json)
-        .map_err(|err| JniProxyError::InvalidConfig(format!("Invalid proxy config JSON: {err}")))
+    shared_parse_proxy_config_json(json).map_err(proxy_config_error)
+}
+
+fn proxy_config_error(err: ProxyConfigError) -> JniProxyError {
+    JniProxyError::InvalidConfig(err.to_string())
 }
 
 fn diagnostics_session(env: &mut JNIEnv, handle: jlong) -> Option<std::sync::Arc<MonitorSession>> {

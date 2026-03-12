@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveQuicInitialMode
@@ -45,6 +46,71 @@ private val NativeProxyJson =
 
 sealed interface RipDpiProxyPreferences {
     fun toNativeConfigJson(): String
+}
+
+fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences? {
+    val payload = runCatching { NativeProxyJson.decodeFromString<NativeProxyConfig>(configJson) }.getOrNull()
+    val ui = payload as? NativeProxyConfig.Ui ?: return null
+    return RipDpiProxyUIPreferences(
+        ip = ui.ip,
+        port = ui.port,
+        maxConnections = ui.maxConnections,
+        bufferSize = ui.bufferSize,
+        defaultTtl = if (ui.customTtl) ui.defaultTtl else null,
+        noDomain = ui.noDomain,
+        desyncHttp = ui.desyncHttp,
+        desyncHttps = ui.desyncHttps,
+        desyncUdp = ui.desyncUdp,
+        desyncMethod = RipDpiProxyUIPreferences.DesyncMethod.fromName(ui.desyncMethod),
+        splitMarker = ui.splitMarker,
+        tcpChainSteps =
+            ui.tcpChainSteps.mapNotNull { step ->
+                val kind = TcpChainStepKind.fromWireName(step.kind) ?: return@mapNotNull null
+                TcpChainStepModel(
+                    kind = kind,
+                    marker = step.marker,
+                    midhostMarker = step.midhostMarker,
+                    fakeHostTemplate = step.fakeHostTemplate,
+                    fragmentCount = step.fragmentCount,
+                    minFragmentSize = step.minFragmentSize,
+                    maxFragmentSize = step.maxFragmentSize,
+                )
+            },
+        fakeTtl = ui.fakeTtl,
+        fakeSni = ui.fakeSni,
+        fakeTlsUseOriginal = ui.fakeTlsUseOriginal,
+        fakeTlsRandomize = ui.fakeTlsRandomize,
+        fakeTlsDupSessionId = ui.fakeTlsDupSessionId,
+        fakeTlsPadEncap = ui.fakeTlsPadEncap,
+        fakeTlsSize = ui.fakeTlsSize,
+        fakeTlsSniMode = ui.fakeTlsSniMode,
+        oobChar = ui.oobChar.toChar().toString(),
+        hostMixedCase = ui.hostMixedCase,
+        domainMixedCase = ui.domainMixedCase,
+        hostRemoveSpaces = ui.hostRemoveSpaces,
+        tlsRecordSplit = ui.tlsRecordSplit,
+        tlsRecordSplitMarker = ui.tlsRecordSplitMarker,
+        hostsMode = RipDpiProxyUIPreferences.HostsMode.fromName(ui.hostsMode),
+        hosts = ui.hosts,
+        tcpFastOpen = ui.tcpFastOpen,
+        udpFakeCount = ui.udpFakeCount,
+        dropSack = ui.dropSack,
+        fakeOffsetMarker = ui.fakeOffsetMarker,
+        udpChainSteps =
+            ui.udpChainSteps.mapNotNull { step ->
+                val kind = UdpChainStepKind.fromWireName(step.kind) ?: return@mapNotNull null
+                UdpChainStepModel(kind = kind, count = step.count)
+            },
+        quicInitialMode = ui.quicInitialMode,
+        quicSupportV1 = ui.quicSupportV1,
+        quicSupportV2 = ui.quicSupportV2,
+        quicFakeProfile = ui.quicFakeProfile,
+        quicFakeHost = ui.quicFakeHost,
+        hostAutolearnEnabled = ui.hostAutolearnEnabled,
+        hostAutolearnPenaltyTtlHours = ui.hostAutolearnPenaltyTtlSecs / 3600,
+        hostAutolearnMaxHosts = ui.hostAutolearnMaxHosts,
+        hostAutolearnStorePath = ui.hostAutolearnStorePath,
+    )
 }
 
 class RipDpiProxyCmdPreferences(

@@ -1214,6 +1214,7 @@ dependencies = [
  "once_cell",
  "proptest",
  "ripdpi-monitor",
+ "ripdpi-proxy-config",
  "ripdpi-runtime",
  "serde",
  "serde_json",
@@ -1225,15 +1226,31 @@ dependencies = [
 name = "ripdpi-monitor"
 version = "0.1.0"
 dependencies = [
+ "ciadpi-config",
+ "ciadpi-packets",
  "golden-test-support",
  "local-network-fixture",
  "native-soak-support",
  "rcgen",
+ "ripdpi-proxy-config",
+ "ripdpi-runtime",
  "rustls",
  "serde",
  "serde_json",
  "url",
  "webpki-roots 0.26.11",
+]
+
+[[package]]
+name = "ripdpi-proxy-config"
+version = "0.1.0"
+dependencies = [
+ "ciadpi-config",
+ "ciadpi-packets",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

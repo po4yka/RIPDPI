@@ -1,0 +1,18 @@
+[package]
+name = "ripdpi-proxy-config"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ciadpi-config = { workspace = true }
+ciadpi-packets = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
