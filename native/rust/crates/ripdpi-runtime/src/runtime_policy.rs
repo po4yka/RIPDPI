@@ -3,8 +3,8 @@ use std::fs;
 use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
-use std::sync::LazyLock;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ciadpi_config::{
@@ -247,8 +247,10 @@ impl RuntimeCache {
             group.fail_count += 1;
         }
 
-        if let Some(host) = request.host.as_deref() {
-            self.note_host_failure(config, host, route.group_index)?;
+        if request.transport == TransportProtocol::Tcp {
+            if let Some(host) = request.host.as_deref() {
+                self.note_host_failure(config, host, route.group_index)?;
+            }
         }
 
         let next = select_next_group(
@@ -302,14 +304,23 @@ impl RuntimeCache {
         transport: TransportProtocol,
     ) -> Option<ConnectionRoute> {
         let record = self.learned_hosts(config).get(host)?;
-        if let Some(route) =
-            self.preferred_host_candidate(config, record, dest, payload, allow_unknown_payload, transport, 0, true, false)
-        {
+        if let Some(route) = self.preferred_host_candidate(
+            config,
+            record,
+            dest,
+            payload,
+            allow_unknown_payload,
+            transport,
+            0,
+            true,
+            false,
+        ) {
             return Some(route);
         }
-        let mut attempted_mask = record.preferred_groups.iter().fold(0u64, |mask, &index| {
-            mask | config.groups.get(index).map_or(0, |group| group.bit)
-        });
+        let mut attempted_mask = record
+            .preferred_groups
+            .iter()
+            .fold(0u64, |mask, &index| mask | config.groups.get(index).map_or(0, |group| group.bit));
 
         for &idx in self.ordered_indices() {
             let group = config.groups.get(idx)?;
@@ -322,7 +333,17 @@ impl RuntimeCache {
             attempted_mask |= group.bit;
         }
 
-        self.preferred_host_candidate(config, record, dest, payload, allow_unknown_payload, transport, attempted_mask, true, true)
+        self.preferred_host_candidate(
+            config,
+            record,
+            dest,
+            payload,
+            allow_unknown_payload,
+            transport,
+            attempted_mask,
+            true,
+            true,
+        )
     }
 
     fn select_host_route_after(
@@ -351,9 +372,10 @@ impl RuntimeCache {
         ) {
             return Some(route);
         }
-        attempted_mask |= record.preferred_groups.iter().fold(0u64, |mask, &index| {
-            mask | config.groups.get(index).map_or(0, |group| group.bit)
-        });
+        attempted_mask |= record
+            .preferred_groups
+            .iter()
+            .fold(0u64, |mask, &index| mask | config.groups.get(index).map_or(0, |group| group.bit));
 
         for &idx in self.ordered_indices() {
             let group = config.groups.get(idx)?;
@@ -411,10 +433,7 @@ impl RuntimeCache {
                 next_mask |= group.bit;
                 continue;
             }
-            let is_penalized = record
-                .group_stats
-                .get(&idx)
-                .is_some_and(|stats| stats.penalty_until_ms > now_ms);
+            let is_penalized = record.group_stats.get(&idx).is_some_and(|stats| stats.penalty_until_ms > now_ms);
             if is_penalized != penalized {
                 next_mask |= group.bit;
                 continue;
@@ -434,10 +453,25 @@ impl RuntimeCache {
         route: &ConnectionRoute,
         host: Option<&str>,
     ) -> io::Result<()> {
-        let normalized_host = host.and_then(normalize_learned_host);
-        self.store(config, dest, route.group_index, route.attempted_mask, normalized_host.clone())?;
-        if let Some(host) = normalized_host {
-            self.note_host_success(config, &host, route.group_index)?;
+        self.note_route_success_for_transport(config, dest, route, host, TransportProtocol::Tcp)
+    }
+
+    pub fn note_route_success_for_transport(
+        &mut self,
+        config: &RuntimeConfig,
+        dest: SocketAddr,
+        route: &ConnectionRoute,
+        host: Option<&str>,
+        transport: TransportProtocol,
+    ) -> io::Result<()> {
+        if transport == TransportProtocol::Tcp {
+            let normalized_host = host.and_then(normalize_learned_host);
+            self.store(config, dest, route.group_index, route.attempted_mask, normalized_host.clone())?;
+            if let Some(host) = normalized_host {
+                self.note_host_success(config, &host, route.group_index)?;
+            }
+        } else {
+            self.store(config, dest, route.group_index, route.attempted_mask, host.map(str::to_owned))?;
         }
         Ok(())
     }
@@ -448,11 +482,8 @@ impl RuntimeCache {
 
     pub fn autolearn_state(&self, config: &RuntimeConfig) -> (bool, usize, usize) {
         let now_ms = now_millis();
-        let penalized = self
-            .learned_hosts(config)
-            .values()
-            .filter(|record| host_has_active_penalty(record, now_ms))
-            .count();
+        let penalized =
+            self.learned_hosts(config).values().filter(|record| host_has_active_penalty(record, now_ms)).count();
         (config.host_autolearn_enabled, self.learned_hosts(config).len(), penalized)
     }
 
@@ -485,15 +516,11 @@ impl RuntimeCache {
     }
 
     fn learned_hosts(&self, config: &RuntimeConfig) -> &BTreeMap<String, LearnedHostRecord> {
-        self.learned_hosts_by_scope
-            .get(network_scope_key(config))
-            .unwrap_or(&EMPTY_LEARNED_HOSTS)
+        self.learned_hosts_by_scope.get(network_scope_key(config)).unwrap_or(&EMPTY_LEARNED_HOSTS)
     }
 
     fn learned_hosts_mut(&mut self, config: &RuntimeConfig) -> &mut BTreeMap<String, LearnedHostRecord> {
-        self.learned_hosts_by_scope
-            .entry(network_scope_key(config).to_owned())
-            .or_default()
+        self.learned_hosts_by_scope.entry(network_scope_key(config).to_owned()).or_default()
     }
 
     fn note_host_failure(&mut self, config: &RuntimeConfig, host: &str, group_index: usize) -> io::Result<()> {
@@ -508,8 +535,7 @@ impl RuntimeCache {
         let stats = record.group_stats.entry(group_index).or_default();
         stats.failure_count = stats.failure_count.saturating_add(1);
         stats.last_failure_at_ms = now_ms;
-        stats.penalty_until_ms =
-            now_ms.saturating_add(config.host_autolearn_penalty_ttl_secs.max(1) as u64 * 1_000);
+        stats.penalty_until_ms = now_ms.saturating_add(config.host_autolearn_penalty_ttl_secs.max(1) as u64 * 1_000);
         record.updated_at_ms = now_ms;
         ensure_host_order(record, group_index);
         self.enforce_autolearn_limit(config, now_ms);
@@ -549,7 +575,8 @@ impl RuntimeCache {
         while self.learned_hosts(config).len() > max_hosts {
             let host_to_remove = {
                 let hosts = self.learned_hosts(config);
-                hosts.iter()
+                hosts
+                    .iter()
                     .filter(|(_, record)| !host_has_active_penalty(record, now_ms))
                     .min_by_key(|(_, record)| record.updated_at_ms)
                     .or_else(|| hosts.iter().min_by_key(|(_, record)| record.updated_at_ms))
@@ -593,10 +620,10 @@ pub fn select_initial_group(
     allow_unknown_payload: bool,
     transport: TransportProtocol,
 ) -> Option<ConnectionRoute> {
-    if let Some(normalized_host) =
-        host.filter(|_| transport == TransportProtocol::Tcp).and_then(normalize_learned_host)
+    if let Some(normalized_host) = host.filter(|_| transport == TransportProtocol::Tcp).and_then(normalize_learned_host)
     {
-        if let Some(route) = cache.select_host_route(config, &normalized_host, dest, payload, allow_unknown_payload, transport)
+        if let Some(route) =
+            cache.select_host_route(config, &normalized_host, dest, payload, allow_unknown_payload, transport)
         {
             return Some(route);
         }
@@ -632,8 +659,7 @@ pub fn select_next_group(
     trigger: u32,
     can_reconnect: bool,
 ) -> Option<ConnectionRoute> {
-    if let Some(normalized_host) =
-        host.filter(|_| transport == TransportProtocol::Tcp).and_then(normalize_learned_host)
+    if let Some(normalized_host) = host.filter(|_| transport == TransportProtocol::Tcp).and_then(normalize_learned_host)
     {
         if let Some(next) = cache.select_host_route_after(
             config,
@@ -793,7 +819,8 @@ fn load_learned_host_store(
         return Ok(BTreeMap::new());
     }
     let payload = fs::read(path).map_err(|_| LoadLearnedHostStoreError::Io)?;
-    let store = serde_json::from_slice::<LearnedHostStore>(&payload).map_err(|_| LoadLearnedHostStoreError::Invalidated)?;
+    let store =
+        serde_json::from_slice::<LearnedHostStore>(&payload).map_err(|_| LoadLearnedHostStoreError::Invalidated)?;
     if store.version != HOST_AUTOLEARN_STORE_VERSION || store.fingerprint != config_fingerprint(config) {
         return Err(LoadLearnedHostStoreError::Invalidated);
     }
@@ -801,20 +828,19 @@ fn load_learned_host_store(
         .scopes
         .into_iter()
         .map(|(scope, scope_store)| {
-            let hosts =
-                scope_store
-                    .hosts
-                    .into_iter()
-                    .filter_map(|(host, mut record)| {
-                        let Some(normalized_host) = normalize_learned_host(&host) else {
-                            return None;
-                        };
-                        record.preferred_groups.retain(|group_index| *group_index < config.groups.len());
-                        record.group_stats.retain(|group_index, _| *group_index < config.groups.len());
-                        (!record.preferred_groups.is_empty() || !record.group_stats.is_empty())
-                            .then_some((normalized_host, record))
-                    })
-                    .collect::<BTreeMap<_, _>>();
+            let hosts = scope_store
+                .hosts
+                .into_iter()
+                .filter_map(|(host, mut record)| {
+                    let Some(normalized_host) = normalize_learned_host(&host) else {
+                        return None;
+                    };
+                    record.preferred_groups.retain(|group_index| *group_index < config.groups.len());
+                    record.group_stats.retain(|group_index, _| *group_index < config.groups.len());
+                    (!record.preferred_groups.is_empty() || !record.group_stats.is_empty())
+                        .then_some((normalized_host, record))
+                })
+                .collect::<BTreeMap<_, _>>();
             (scope, hosts)
         })
         .filter(|(_, hosts)| !hosts.is_empty())
@@ -985,8 +1011,9 @@ mod tests {
         let config = config_with_groups(vec![first, second]);
         let mut cache = RuntimeCache::load(&config);
 
-        let route = select_initial_group(&config, &mut cache, sample_dest(80), None, None, true, TransportProtocol::Tcp)
-            .expect("fallback route");
+        let route =
+            select_initial_group(&config, &mut cache, sample_dest(80), None, None, true, TransportProtocol::Tcp)
+                .expect("fallback route");
 
         assert_eq!(route.group_index, 1);
         assert_eq!(route.attempted_mask, 0);
@@ -1207,8 +1234,9 @@ mod tests {
             )
             .expect("learn host route");
 
-        let route = select_initial_group(&config, &mut cache, dest, None, Some("example.org"), true, TransportProtocol::Tcp)
-            .expect("host-aware route");
+        let route =
+            select_initial_group(&config, &mut cache, dest, None, Some("example.org"), true, TransportProtocol::Tcp)
+                .expect("host-aware route");
 
         assert_eq!(route.group_index, 1);
     }
@@ -1312,11 +1340,7 @@ mod tests {
                 Some("first.example"),
             )
             .expect("learn first host");
-        cache
-            .learned_hosts_mut(&config)
-            .get_mut("first.example")
-            .expect("first host")
-            .updated_at_ms = 1;
+        cache.learned_hosts_mut(&config).get_mut("first.example").expect("first host").updated_at_ms = 1;
         cache
             .note_route_success(
                 &config,
@@ -1385,7 +1409,8 @@ mod tests {
                 }
             }
         });
-        fs::write(&path, serde_json::to_vec_pretty(&payload).expect("serialize legacy payload")).expect("write legacy store");
+        fs::write(&path, serde_json::to_vec_pretty(&payload).expect("serialize legacy payload"))
+            .expect("write legacy store");
 
         let mut cache = RuntimeCache::load(&config);
 

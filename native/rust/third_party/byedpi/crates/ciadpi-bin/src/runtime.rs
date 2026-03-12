@@ -1376,6 +1376,7 @@ fn activation_context_from_progress(
         transport,
         tcp_segment_hint,
         resolved_fake_ttl,
+        adaptive: ciadpi_desync::AdaptivePlannerHints::default(),
     }
 }
 
@@ -2376,6 +2377,7 @@ mod tests {
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
             resolved_fake_ttl: None,
+            adaptive: ciadpi_desync::AdaptivePlannerHints::default(),
         };
         let round_five = ActivationContext {
             round: 5,
@@ -2385,6 +2387,7 @@ mod tests {
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
             resolved_fake_ttl: None,
+            adaptive: ciadpi_desync::AdaptivePlannerHints::default(),
         };
         let round_one = ActivationContext {
             round: 1,
@@ -2394,6 +2397,7 @@ mod tests {
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
             resolved_fake_ttl: None,
+            adaptive: ciadpi_desync::AdaptivePlannerHints::default(),
         };
 
         assert!(!has_tcp_actions(&group));

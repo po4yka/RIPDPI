@@ -2,16 +2,14 @@
 
 use ciadpi_config::{
     ActivationFilter, DesyncGroup, NumericRange, OffsetBase, OffsetExpr, OffsetProto, QuicFakeProfile, TcpChainStep,
-    TcpChainStepKind, UdpChainStepKind,
-    FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    TcpChainStepKind, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ciadpi_packets::{
-    build_realistic_quic_initial, default_fake_quic_compat,
-    change_tls_sni_seeded_like_c, duplicate_tls_session_id_like_c, http_marker_info, is_http, is_tls_client_hello,
+    build_realistic_quic_initial, change_tls_sni_seeded_like_c, default_fake_quic_compat,
+    duplicate_tls_session_id_like_c, http_fake_profile_bytes, http_marker_info, is_http, is_tls_client_hello,
     mod_http_like_c, padencap_tls_like_c, parse_quic_initial, randomize_tls_seeded_like_c,
-    randomize_tls_sni_seeded_like_c, second_level_domain_span, tls_marker_info, tune_tls_padding_size_like_c,
-    udp_fake_profile_bytes, HttpMarkerInfo, OracleRng, TlsMarkerInfo, IS_HTTP, IS_HTTPS, http_fake_profile_bytes,
-    tls_fake_profile_bytes,
+    randomize_tls_sni_seeded_like_c, second_level_domain_span, tls_fake_profile_bytes, tls_marker_info,
+    tune_tls_padding_size_like_c, udp_fake_profile_bytes, HttpMarkerInfo, OracleRng, TlsMarkerInfo, IS_HTTP, IS_HTTPS,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -62,6 +60,32 @@ pub struct ActivationContext {
     pub transport: ActivationTransport,
     pub tcp_segment_hint: Option<TcpSegmentHint>,
     pub resolved_fake_ttl: Option<u8>,
+    pub adaptive: AdaptivePlannerHints,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AdaptivePlannerHints {
+    pub split_offset_base: Option<OffsetBase>,
+    pub tls_record_offset_base: Option<OffsetBase>,
+    pub tlsrandrec_profile: Option<AdaptiveTlsRandRecProfile>,
+    pub udp_burst_profile: Option<AdaptiveUdpBurstProfile>,
+    pub quic_fake_profile: Option<QuicFakeProfile>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum AdaptiveTlsRandRecProfile {
+    #[default]
+    Balanced,
+    Tight,
+    Wide,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum AdaptiveUdpBurstProfile {
+    #[default]
+    Balanced,
+    Conservative,
+    Aggressive,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -281,9 +305,7 @@ fn normalize_fake_host_template(value: &str) -> Option<String> {
     if trimmed.starts_with('.') || trimmed.ends_with('.') || trimmed.contains("..") {
         return None;
     }
-    if trimmed
-        .bytes()
-        .any(|byte| !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'.'))
+    if trimmed.bytes().any(|byte| !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'.'))
     {
         return None;
     }
@@ -445,9 +467,7 @@ fn adaptive_candidate_bases(expr: OffsetExpr, info: &mut ProtoInfo, buffer: &[u8
         OffsetBase::AutoBalanced if info.tls.is_some() => {
             &[OffsetBase::ExtLen, OffsetBase::SniExt, OffsetBase::Host, OffsetBase::MidSld, OffsetBase::EndHost]
         }
-        OffsetBase::AutoBalanced => {
-            &[OffsetBase::Method, OffsetBase::Host, OffsetBase::MidSld, OffsetBase::EndHost]
-        }
+        OffsetBase::AutoBalanced => &[OffsetBase::Method, OffsetBase::Host, OffsetBase::MidSld, OffsetBase::EndHost],
         OffsetBase::AutoHost => &[OffsetBase::Host, OffsetBase::MidSld, OffsetBase::EndHost],
         OffsetBase::AutoMidSld => &[OffsetBase::MidSld, OffsetBase::Host, OffsetBase::EndHost],
         OffsetBase::AutoEndHost => &[OffsetBase::EndHost, OffsetBase::MidSld, OffsetBase::Host],
@@ -479,27 +499,24 @@ fn resolve_adaptive_offset(
     cursor_start: usize,
     info: &mut ProtoInfo,
     context: ActivationContext,
+    preferred_base: Option<OffsetBase>,
     coordinate_adjustment: i64,
 ) -> Option<i64> {
     let target_end = adaptive_target_end(payload_len, cursor_start, context)?;
+    let candidate_bases = adaptive_candidate_bases(expr, info, buffer);
     let mut below_or_equal = None;
     let mut above = None;
 
-    for base in adaptive_candidate_bases(expr, info, buffer) {
-        let candidate_expr = OffsetExpr::marker(*base, 0);
-        let Some(candidate) = gen_offset(
-            candidate_expr,
-            buffer,
-            buffer.len(),
-            cursor_start as i64,
-            info,
-            &mut OracleRng::seeded(0),
-        ) else {
-            continue;
+    let mut evaluate_base = |base: OffsetBase| {
+        let candidate_expr = OffsetExpr::marker(base, 0);
+        let Some(candidate) =
+            gen_offset(candidate_expr, buffer, buffer.len(), cursor_start as i64, info, &mut OracleRng::seeded(0))
+        else {
+            return;
         };
         let candidate = candidate.saturating_sub(coordinate_adjustment);
         if candidate <= cursor_start as i64 || candidate >= payload_len as i64 {
-            continue;
+            return;
         }
         if candidate <= target_end {
             if below_or_equal.is_none_or(|current| candidate > current) {
@@ -508,6 +525,16 @@ fn resolve_adaptive_offset(
         } else if above.is_none_or(|current| candidate < current) {
             above = Some(candidate);
         }
+    };
+
+    if let Some(base) = preferred_base.filter(|value| candidate_bases.contains(value)) {
+        evaluate_base(base);
+    }
+    for base in candidate_bases {
+        if Some(*base) == preferred_base {
+            continue;
+        }
+        evaluate_base(*base);
     }
 
     below_or_equal.or(above).or(Some(target_end))
@@ -521,9 +548,10 @@ fn resolve_offset(
     info: &mut ProtoInfo,
     rng: &mut OracleRng,
     context: ActivationContext,
+    preferred_base: Option<OffsetBase>,
 ) -> Option<i64> {
     if expr.base.is_adaptive() {
-        return resolve_adaptive_offset(expr, buffer, n, lp.max(0) as usize, info, context, 0);
+        return resolve_adaptive_offset(expr, buffer, n, lp.max(0) as usize, info, context, preferred_base, 0);
     }
     gen_offset(expr, buffer, n, lp, info, rng)
 }
@@ -585,7 +613,16 @@ fn apply_tlsrec_prelude_step(
     let mut changed = false;
     while remaining > 0 {
         let resolved = if step.offset.base.is_adaptive() {
-            resolve_adaptive_offset(step.offset, &record, state.payload.len(), lp.max(0) as usize, &mut info, context, 5)
+            resolve_adaptive_offset(
+                step.offset,
+                &record,
+                state.payload.len(),
+                lp.max(0) as usize,
+                &mut info,
+                context,
+                context.adaptive.tls_record_offset_base,
+                5,
+            )
         } else {
             gen_offset(step.offset, &record, record.len(), lp, &mut info, rng)
         };
@@ -621,7 +658,16 @@ fn apply_tlsrandrec_prelude_step(
     };
     let mut info = ProtoInfo::default();
     let resolved = if step.offset.base.is_adaptive() {
-        resolve_adaptive_offset(step.offset, &record, state.payload.len(), 0, &mut info, context, 5)
+        resolve_adaptive_offset(
+            step.offset,
+            &record,
+            state.payload.len(),
+            0,
+            &mut info,
+            context,
+            context.adaptive.tls_record_offset_base,
+            5,
+        )
     } else {
         gen_offset(step.offset, &record, record.len(), 0, &mut info, rng)
     };
@@ -637,10 +683,10 @@ fn apply_tlsrandrec_prelude_step(
 
     let marker = marker as usize;
     let fragment_count = step.fragment_count.max(1) as usize;
-    let min_fragment_size = step.min_fragment_size.max(1) as usize;
-    let max_fragment_size = step.max_fragment_size.max(min_fragment_size as i32) as usize;
+    let (min_fragment_size, max_fragment_size) = resolve_tlsrandrec_fragment_sizes(step, context, fragment_count);
     let tail_len = state.payload.len().saturating_sub(marker);
-    let Some(lengths) = random_tail_fragment_lengths(tail_len, fragment_count, min_fragment_size, max_fragment_size, rng)
+    let Some(lengths) =
+        random_tail_fragment_lengths(tail_len, fragment_count, min_fragment_size, max_fragment_size, rng)
     else {
         return Ok(false);
     };
@@ -660,6 +706,33 @@ fn apply_tlsrandrec_prelude_step(
     let changed = boundaries != state.boundaries;
     state.boundaries = boundaries;
     Ok(changed)
+}
+
+fn resolve_tlsrandrec_fragment_sizes(
+    step: &TcpChainStep,
+    context: ActivationContext,
+    fragment_count: usize,
+) -> (usize, usize) {
+    let min_fragment_size = step.min_fragment_size.max(1) as usize;
+    let max_fragment_size = step.max_fragment_size.max(min_fragment_size as i32) as usize;
+    let budget = context
+        .tcp_segment_hint
+        .map(TcpSegmentHint::adaptive_budget)
+        .unwrap_or((max_fragment_size * fragment_count.max(1)) as i64)
+        .max(min_fragment_size as i64) as usize;
+    match context.adaptive.tlsrandrec_profile.unwrap_or(AdaptiveTlsRandRecProfile::Balanced) {
+        AdaptiveTlsRandRecProfile::Balanced => (min_fragment_size, max_fragment_size),
+        AdaptiveTlsRandRecProfile::Tight => {
+            let adjusted_min = min_fragment_size.min(16).max(1);
+            let adjusted_max = max_fragment_size.min((budget / fragment_count.max(1)).max(adjusted_min));
+            (adjusted_min, adjusted_max.max(adjusted_min))
+        }
+        AdaptiveTlsRandRecProfile::Wide => {
+            let adjusted_min = min_fragment_size.max(24);
+            let adjusted_max = max_fragment_size.max(adjusted_min).min(budget.max(adjusted_min));
+            (adjusted_min, adjusted_max.max(adjusted_min))
+        }
+    }
 }
 
 fn apply_tls_prelude_steps(
@@ -711,11 +784,8 @@ fn apply_tls_prelude_steps(
 }
 
 pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<TamperResult, DesyncError> {
-    let prelude_steps = group
-        .effective_tcp_chain()
-        .into_iter()
-        .take_while(|step| step.kind.is_tls_prelude())
-        .collect::<Vec<_>>();
+    let prelude_steps =
+        group.effective_tcp_chain().into_iter().take_while(|step| step.kind.is_tls_prelude()).collect::<Vec<_>>();
     apply_tls_prelude_steps(
         group,
         &prelude_steps,
@@ -729,6 +799,7 @@ pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<Tamp
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
             resolved_fake_ttl: None,
+            adaptive: AdaptivePlannerHints::default(),
         },
     )
 }
@@ -744,10 +815,7 @@ fn tls_sni_capacity(current: &[u8], target_size: usize, new_host: &[u8]) -> usiz
         return current.len().max(target_size);
     };
     let current_host_len = markers.host_end.saturating_sub(markers.host_start);
-    current
-        .len()
-        .max(target_size)
-        .max(current.len().saturating_add(new_host.len().saturating_sub(current_host_len)))
+    current.len().max(target_size).max(current.len().saturating_add(new_host.len().saturating_sub(current_host_len)))
 }
 
 pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<FakePacketPlan, DesyncError> {
@@ -851,9 +919,16 @@ pub fn plan_tcp(
         if !activation_filter_matches(step.activation_filter, context) {
             continue;
         }
-        let Some(mut pos) =
-            resolve_offset(step.offset, &tampered.bytes, tampered.bytes.len(), lp, &mut info, &mut rng, context)
-        else {
+        let Some(mut pos) = resolve_offset(
+            step.offset,
+            &tampered.bytes,
+            tampered.bytes.len(),
+            lp,
+            &mut info,
+            &mut rng,
+            context,
+            context.adaptive.split_offset_base,
+        ) else {
             if step.offset.base.is_adaptive() {
                 continue;
             }
@@ -964,12 +1039,7 @@ pub fn plan_tcp(
     Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions })
 }
 
-pub fn plan_udp(
-    group: &DesyncGroup,
-    payload: &[u8],
-    default_ttl: u8,
-    context: ActivationContext,
-) -> Vec<DesyncAction> {
+pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: ActivationContext) -> Vec<DesyncAction> {
     if !activation_filter_matches(group.activation_filter(), context) {
         return vec![DesyncAction::Write(payload.to_vec())];
     }
@@ -979,7 +1049,7 @@ pub fn plan_udp(
         actions.push(DesyncAction::AttachDropSack);
     }
     if !chain.is_empty() {
-        let fake = udp_fake_payload(group, payload);
+        let fake = udp_fake_payload(group, payload, context);
         for step in chain {
             if !activation_filter_matches(step.activation_filter, context) {
                 continue;
@@ -987,8 +1057,9 @@ pub fn plan_udp(
             if !matches!(step.kind, UdpChainStepKind::FakeBurst) || step.count <= 0 {
                 continue;
             }
+            let burst_count = adjusted_udp_burst_count(step.count, context);
             actions.push(DesyncAction::SetTtl(group.ttl.unwrap_or(8)));
-            for _ in 0..step.count {
+            for _ in 0..burst_count {
                 actions.push(DesyncAction::Write(fake.clone()));
             }
             actions.push(DesyncAction::RestoreDefaultTtl);
@@ -1029,10 +1100,20 @@ fn split_tcp_chain(chain: &[TcpChainStep]) -> Result<(Vec<TcpChainStep>, Vec<Tcp
     Ok((prelude_steps, send_steps))
 }
 
-fn udp_fake_payload(group: &DesyncGroup, payload: &[u8]) -> Vec<u8> {
-    if group.quic_fake_profile != QuicFakeProfile::Disabled {
+fn adjusted_udp_burst_count(base_count: i32, context: ActivationContext) -> i32 {
+    let base_count = base_count.max(1);
+    match context.adaptive.udp_burst_profile.unwrap_or(AdaptiveUdpBurstProfile::Balanced) {
+        AdaptiveUdpBurstProfile::Balanced => base_count,
+        AdaptiveUdpBurstProfile::Conservative => base_count.saturating_sub(1).max(1),
+        AdaptiveUdpBurstProfile::Aggressive => base_count.saturating_add(1).min(16),
+    }
+}
+
+fn udp_fake_payload(group: &DesyncGroup, payload: &[u8], context: ActivationContext) -> Vec<u8> {
+    let quic_fake_profile = context.adaptive.quic_fake_profile.unwrap_or(group.quic_fake_profile);
+    if quic_fake_profile != QuicFakeProfile::Disabled {
         if let Some(quic) = parse_quic_initial(payload) {
-            match group.quic_fake_profile {
+            match quic_fake_profile {
                 QuicFakeProfile::Disabled => {}
                 QuicFakeProfile::CompatDefault => return default_fake_quic_compat(),
                 QuicFakeProfile::RealisticInitial => {
@@ -1044,10 +1125,7 @@ fn udp_fake_payload(group: &DesyncGroup, payload: &[u8]) -> Vec<u8> {
         }
     }
 
-    let mut fake = group
-        .fake_data
-        .clone()
-        .unwrap_or_else(|| udp_fake_profile_bytes(group.udp_fake_profile).to_vec());
+    let mut fake = group.fake_data.clone().unwrap_or_else(|| udp_fake_profile_bytes(group.udp_fake_profile).to_vec());
     if let Some(offset) = group.fake_offset {
         if let Some(pos) = offset.absolute_positive().filter(|pos| (*pos as usize) < fake.len()) {
             fake = fake[pos as usize..].to_vec();
@@ -1062,13 +1140,13 @@ fn udp_fake_payload(group: &DesyncGroup, payload: &[u8]) -> Vec<u8> {
 mod tests {
     use super::*;
     use ciadpi_config::{
-        DesyncMode, OffsetBase, PartSpec, QuicFakeProfile, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+        DesyncMode, OffsetBase, PartSpec, QuicFakeProfile, TcpChainStep, TcpChainStepKind, UdpChainStep,
+        UdpChainStepKind,
     };
     use ciadpi_packets::{
         build_realistic_quic_initial, http_marker_info, parse_http, parse_quic_initial, parse_tls,
-        second_level_domain_span, tls_marker_info, HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, MH_METHODEOL,
-        MH_UNIXEOL,
-        DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, QUIC_V2_VERSION,
+        second_level_domain_span, tls_marker_info, HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, DEFAULT_FAKE_HTTP,
+        DEFAULT_FAKE_TLS, MH_METHODEOL, MH_UNIXEOL, QUIC_V2_VERSION,
     };
 
     fn split_expr(pos: i64) -> OffsetExpr {
@@ -1096,6 +1174,7 @@ mod tests {
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
             resolved_fake_ttl: None,
+            adaptive: AdaptivePlannerHints::default(),
         }
     }
 
@@ -1108,6 +1187,7 @@ mod tests {
             transport: ActivationTransport::Udp,
             tcp_segment_hint: None,
             resolved_fake_ttl: None,
+            adaptive: AdaptivePlannerHints::default(),
         }
     }
 
@@ -1174,7 +1254,10 @@ mod tests {
         )
         .expect("adaptive host plan");
 
-        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_end as i64 }]);
+        assert_eq!(
+            plan.steps,
+            vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_end as i64 }]
+        );
     }
 
     #[test]
@@ -1193,16 +1276,16 @@ mod tests {
             TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost)),
         ];
 
-        let plan = plan_tcp(&group, DEFAULT_FAKE_HTTP, 7, 64, tcp_context(DEFAULT_FAKE_HTTP)).expect("cursor-aware plan");
+        let plan =
+            plan_tcp(&group, DEFAULT_FAKE_HTTP, 7, 64, tcp_context(DEFAULT_FAKE_HTTP)).expect("cursor-aware plan");
 
-        assert_eq!(plan.steps[0], PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 });
+        assert_eq!(
+            plan.steps[0],
+            PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 }
+        );
         assert_eq!(
             plan.steps[1],
-            PlannedStep {
-                kind: TcpChainStepKind::Split,
-                start: markers.host_start as i64,
-                end: expected_second_end,
-            },
+            PlannedStep { kind: TcpChainStepKind::Split, start: markers.host_start as i64, end: expected_second_end },
         );
     }
 
@@ -1211,7 +1294,8 @@ mod tests {
         let payload = b"plain payload without semantic markers";
         let expected = (payload.len() / 2).max(1) as i64;
         let mut group = DesyncGroup::new(0);
-        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoBalanced))];
+        group.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoBalanced))];
 
         let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("fallback plan");
 
@@ -1222,9 +1306,11 @@ mod tests {
     fn plan_tcp_tlsrec_supports_adaptive_marker_resolution() {
         let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("tls markers");
         let mut auto_group = DesyncGroup::new(0);
-        auto_group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))];
+        auto_group.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))];
         let mut explicit_group = DesyncGroup::new(0);
-        explicit_group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::SniExt, 0))];
+        explicit_group.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::SniExt, 0))];
 
         let auto_plan = plan_tcp(
             &auto_group,
@@ -1297,6 +1383,52 @@ mod tests {
     }
 
     #[test]
+    fn plan_tcp_prefers_adaptive_split_hint_when_candidate_is_valid() {
+        let markers = http_marker_info(DEFAULT_FAKE_HTTP).expect("http markers");
+        let host = &DEFAULT_FAKE_HTTP[markers.host_start..markers.host_end];
+        let (sld_start, sld_end) = second_level_domain_span(host).expect("sld span");
+        let midsld = (markers.host_start + sld_start + ((sld_end - sld_start) / 2)) as i64;
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
+        let mut hinted = tcp_context_with_hint(
+            DEFAULT_FAKE_HTTP,
+            TcpSegmentHint { snd_mss: None, advmss: None, pmtu: Some(midsld + 40), ip_header_overhead: 40 },
+        );
+        hinted.adaptive.split_offset_base = Some(OffsetBase::MidSld);
+
+        let plan = plan_tcp(&group, DEFAULT_FAKE_HTTP, 7, 64, hinted).expect("hinted split plan");
+
+        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: midsld }]);
+    }
+
+    #[test]
+    fn tlsrandrec_profiles_adjust_fragment_lengths() {
+        let payload_len = DEFAULT_FAKE_TLS.len() - 5;
+        let marker = (payload_len - 96) as i64;
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![tlsrandrec_step(marker, 3, 24, 40)];
+
+        let balanced = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("balanced");
+        let mut tight_context = tcp_context(DEFAULT_FAKE_TLS);
+        tight_context.adaptive.tlsrandrec_profile = Some(AdaptiveTlsRandRecProfile::Tight);
+        let tight =
+            apply_tls_prelude_steps(&group, &group.tcp_chain, DEFAULT_FAKE_TLS, 7, tight_context).expect("tight");
+        let mut wide_context = tcp_context(DEFAULT_FAKE_TLS);
+        wide_context.adaptive.tlsrandrec_profile = Some(AdaptiveTlsRandRecProfile::Wide);
+        let wide = apply_tls_prelude_steps(&group, &group.tcp_chain, DEFAULT_FAKE_TLS, 7, wide_context).expect("wide");
+
+        let balanced_lengths = tls_record_lengths(&balanced.bytes);
+        let tight_lengths = tls_record_lengths(&tight.bytes);
+        let wide_lengths = tls_record_lengths(&wide.bytes);
+
+        assert_eq!(balanced_lengths.len(), 4);
+        assert_eq!(tight_lengths.len(), 4);
+        assert_eq!(wide_lengths.len(), 4);
+        assert!(tight_lengths.iter().max() <= balanced_lengths.iter().max());
+        assert!(wide_lengths.iter().max() >= balanced_lengths.iter().max());
+    }
+
+    #[test]
     fn plan_tcp_split_emits_chunk_and_tail_actions() {
         let mut group = DesyncGroup::new(0);
         group.parts.push(PartSpec { mode: DesyncMode::Split, offset: split_expr(5) });
@@ -1364,11 +1496,7 @@ mod tests {
 
     #[test]
     fn build_fake_region_bytes_repeats_fake_stream_from_offset() {
-        let fake = FakePacketPlan {
-            bytes: b"ABCDEFG".to_vec(),
-            fake_offset: 2,
-            proto: ProtoInfo::default(),
-        };
+        let fake = FakePacketPlan { bytes: b"ABCDEFG".to_vec(), fake_offset: 2, proto: ProtoInfo::default() };
 
         assert_eq!(build_fake_region_bytes(&fake, 0, 6), b"CDEFGC".to_vec());
         assert_eq!(build_fake_region_bytes(&fake, 3, 5), b"FGCDE".to_vec());
@@ -1377,11 +1505,7 @@ mod tests {
 
     #[test]
     fn build_fake_region_bytes_falls_back_to_zeroes_when_fake_stream_is_empty() {
-        let fake = FakePacketPlan {
-            bytes: b"ABC".to_vec(),
-            fake_offset: 3,
-            proto: ProtoInfo::default(),
-        };
+        let fake = FakePacketPlan { bytes: b"ABC".to_vec(), fake_offset: 3, proto: ProtoInfo::default() };
 
         assert_eq!(build_fake_region_bytes(&fake, 7, 4), vec![0, 0, 0, 0]);
     }
@@ -1491,7 +1615,10 @@ mod tests {
         )
         .expect("adaptive fakeddisorder");
 
-        assert_eq!(split_plan.steps[0], PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: markers.host_start as i64 });
+        assert_eq!(
+            split_plan.steps[0],
+            PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: markers.host_start as i64 }
+        );
         assert_eq!(
             disorder_plan.steps[0],
             PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: markers.host_start as i64 },
@@ -1762,7 +1889,8 @@ mod tests {
             TcpChainStep::new(TcpChainStepKind::Split, split_expr(4)),
         ];
 
-        let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS)).expect("mixed tls preludes");
+        let plan =
+            plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS)).expect("mixed tls preludes");
 
         assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4 }]);
         assert_eq!(tls_record_lengths(&plan.tampered), vec![payload_len - 96, 32, 32, 32]);
@@ -1902,7 +2030,9 @@ mod tests {
         let fake = build_hostfake_bytes(b"video.example.com", Some("googlevideo.com"), 17);
 
         assert_eq!(fake.len(), b"video.example.com".len());
-        assert!(fake.iter().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')));
+        assert!(fake
+            .iter()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')));
         assert!(std::str::from_utf8(&fake).unwrap().ends_with("video.com"));
     }
 
@@ -1925,14 +2055,21 @@ mod tests {
 
         let plan = plan_tcp(&group, payload, 23, 32, tcp_context(payload)).expect("plan hostfake");
 
-        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: payload.len() as i64 }]);
+        assert_eq!(
+            plan.steps,
+            vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: payload.len() as i64 }]
+        );
         assert_eq!(
             plan.actions,
             vec![
                 DesyncAction::Write(payload[..markers.host_start].to_vec()),
                 DesyncAction::AwaitWritable,
                 DesyncAction::SetTtl(9),
-                DesyncAction::Write(build_hostfake_bytes(&payload[markers.host_start..markers.host_end], Some("googlevideo.com"), 23)),
+                DesyncAction::Write(build_hostfake_bytes(
+                    &payload[markers.host_start..markers.host_end],
+                    Some("googlevideo.com"),
+                    23
+                )),
                 DesyncAction::RestoreDefaultTtl,
                 DesyncAction::SetTtl(32),
                 DesyncAction::Write(payload[markers.host_start..markers.host_start + 7].to_vec()),
@@ -1940,7 +2077,11 @@ mod tests {
                 DesyncAction::Write(payload[markers.host_start + 7..markers.host_end].to_vec()),
                 DesyncAction::AwaitWritable,
                 DesyncAction::SetTtl(9),
-                DesyncAction::Write(build_hostfake_bytes(&payload[markers.host_start..markers.host_end], Some("googlevideo.com"), 23)),
+                DesyncAction::Write(build_hostfake_bytes(
+                    &payload[markers.host_start..markers.host_end],
+                    Some("googlevideo.com"),
+                    23
+                )),
                 DesyncAction::RestoreDefaultTtl,
                 DesyncAction::SetTtl(32),
                 DesyncAction::Write(payload[markers.host_end..].to_vec()),
@@ -1967,7 +2108,10 @@ mod tests {
 
         let plan = plan_tcp(&group, payload, 9, 32, tcp_context(payload)).expect("plan degraded hostfake");
 
-        assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 }]);
+        assert_eq!(
+            plan.steps,
+            vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: markers.host_start as i64 }]
+        );
         assert_eq!(
             plan.actions,
             vec![
@@ -2069,6 +2213,28 @@ mod tests {
         assert_eq!(parsed.version, QUIC_V2_VERSION);
         assert_eq!(parsed.host(), b"video.example.test");
         assert_eq!(actions.last(), Some(&DesyncAction::Write(payload)));
+    }
+
+    #[test]
+    fn plan_udp_adaptive_profiles_tune_burst_count_and_quic_fake_payload() {
+        let mut group = DesyncGroup::new(0);
+        group.quic_fake_profile = QuicFakeProfile::RealisticInitial;
+        group.quic_fake_host = Some("video.example.test".to_string());
+        group.udp_chain = vec![UdpChainStep { kind: UdpChainStepKind::FakeBurst, count: 2, activation_filter: None }];
+        let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("source.example.test")).expect("input quic");
+
+        let balanced = plan_udp(&group, &payload, 64, udp_context(&payload));
+        assert_eq!(balanced.iter().filter(|action| matches!(action, DesyncAction::Write(_))).count(), 3,);
+
+        let mut conservative = udp_context(&payload);
+        conservative.adaptive.udp_burst_profile = Some(AdaptiveUdpBurstProfile::Conservative);
+        conservative.adaptive.quic_fake_profile = Some(QuicFakeProfile::CompatDefault);
+        let adaptive_actions = plan_udp(&group, &payload, 64, conservative);
+        assert_eq!(adaptive_actions.iter().filter(|action| matches!(action, DesyncAction::Write(_))).count(), 2,);
+        let DesyncAction::Write(fake_packet) = &adaptive_actions[1] else {
+            panic!("expected fake packet write");
+        };
+        assert_eq!(fake_packet, &default_fake_quic_compat());
     }
 
     #[test]
