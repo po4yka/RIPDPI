@@ -118,6 +118,27 @@ class NativeTelemetryGoldenTest {
         assertEquals(87L, parsed.upstreamRttMs)
     }
 
+    @Test
+    fun proxyFailureClassificationFieldsRoundTripThroughSnapshotJson() {
+        val snapshot =
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                state = "running",
+                lastFailureClass = "dns_tampering",
+                lastFallbackAction = "resolver_override_recommended",
+                capturedAt = 77L,
+            )
+
+        val parsed =
+            json.decodeFromString(
+                NativeRuntimeSnapshot.serializer(),
+                json.encodeToString(NativeRuntimeSnapshot.serializer(), snapshot),
+            )
+
+        assertEquals("dns_tampering", parsed.lastFailureClass)
+        assertEquals("resolver_override_recommended", parsed.lastFallbackAction)
+    }
+
     private fun proxyTelemetryPayload(includeEvents: Boolean): String =
         json.encodeToString(
             NativeRuntimeSnapshot.serializer(),

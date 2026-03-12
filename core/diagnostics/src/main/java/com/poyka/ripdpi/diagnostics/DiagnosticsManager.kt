@@ -704,6 +704,7 @@ class DefaultDiagnosticsManager
                     buildString {
                         appendLine(
                             "createdAt,activeMode,connectionState,networkType,publicIp,failureClass," +
+                                "lastFailureClass,lastFallbackAction," +
                                 "telemetryNetworkFingerprintHash,winningTcpStrategyFamily,winningQuicStrategyFamily," +
                                 "winningStrategyFamily,proxyRttBand,resolverRttBand,rttBand,proxyRouteRetryCount," +
                                 "tunnelRecoveryRetryCount,retryCount,resolverId,resolverProtocol," +
@@ -719,6 +720,8 @@ class DefaultDiagnosticsManager
                                     sample.networkType,
                                     sample.publicIp.orEmpty(),
                                     sample.failureClass.orEmpty(),
+                                    sample.lastFailureClass.orEmpty(),
+                                    sample.lastFallbackAction.orEmpty(),
                                     sample.telemetryNetworkFingerprintHash.orEmpty(),
                                     sample.winningTcpStrategyFamily.orEmpty(),
                                     sample.winningQuicStrategyFamily.orEmpty(),
@@ -974,6 +977,8 @@ class DefaultDiagnosticsManager
             telemetry.firstOrNull()?.let { sample ->
                 appendLine("networkType=${sample.networkType}")
                 appendLine("failureClass=${sample.failureClass ?: "none"}")
+                appendLine("lastFailureClass=${sample.lastFailureClass ?: \"none\"}")
+                appendLine("lastFallbackAction=${sample.lastFallbackAction ?: \"none\"}")
                 appendLine("winningStrategyFamily=${sample.winningStrategyFamily() ?: "none"}")
                 appendLine("telemetryNetworkFingerprintHash=${sample.telemetryNetworkFingerprintHash ?: "none"}")
                 appendLine("rttBand=${sample.rttBand()}")
@@ -1716,6 +1721,8 @@ private fun TelemetrySampleEntity.toArchiveTelemetrySummary(): ArchiveTelemetryS
         retryCount = retryCount(),
     )
 
+        lastFailureClass = lastFailureClass,
+        lastFallbackAction = lastFallbackAction,
 @Serializable
 internal data class DiagnosticsArchiveManifest(
     val fileName: String,
@@ -1756,6 +1763,8 @@ internal data class ArchiveTelemetrySummary(
     val retryCount: Long = 0,
 )
 
+    val lastFailureClass: String? = null,
+    val lastFallbackAction: String? = null,
 @Serializable
 internal data class RedactedNetworkSummary(
     val transport: String,

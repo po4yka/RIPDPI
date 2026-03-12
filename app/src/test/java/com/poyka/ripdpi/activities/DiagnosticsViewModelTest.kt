@@ -111,6 +111,8 @@ class DiagnosticsViewModelTest {
                             connectionState = "Running",
                             networkType = "wifi",
                             publicIp = "198.51.100.8",
+                            lastFailureClass = "dns_tampering",
+                            lastFallbackAction = "resolver_override_recommended",
                             txPackets = 3,
                             txBytes = 4_000,
                             rxPackets = 5,
@@ -157,6 +159,14 @@ class DiagnosticsViewModelTest {
             assertEquals(DiagnosticsSection.Overview, state.selectedSection)
             assertEquals("Default", state.overview.activeProfile?.name)
             assertEquals("Running", state.live.statusLabel)
+            assertTrue(state.live.body.contains("dns_tampering"))
+            assertTrue(state.live.body.contains("resolver_override_recommended"))
+            assertTrue(state.live.metrics.any { it.label == "Latest native failure" && it.value == "dns_tampering" })
+            assertTrue(
+                state.live.metrics.any {
+                    it.label == "Fallback action" && it.value == "resolver_override_recommended"
+                },
+            )
             assertEquals(1, state.sessions.sessions.size)
             assertEquals("report.zip", state.share.latestArchiveFileName)
             assertEquals("Support context", state.overview.contextSummary?.title)

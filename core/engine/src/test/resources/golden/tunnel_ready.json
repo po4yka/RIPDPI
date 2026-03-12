@@ -13,6 +13,8 @@
     "lastDnsError": null,
     "lastDnsHost": null,
     "lastError": null,
+    "lastFailureClass": null,
+    "lastFallbackAction": null,
     "lastHost": null,
     "lastRouteGroup": null,
     "lastTarget": null,
