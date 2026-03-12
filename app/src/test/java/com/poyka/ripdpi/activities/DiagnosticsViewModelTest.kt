@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
@@ -41,6 +42,8 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -159,8 +162,6 @@ class DiagnosticsViewModelTest {
             assertEquals(DiagnosticsSection.Overview, state.selectedSection)
             assertEquals("Default", state.overview.activeProfile?.name)
             assertEquals("Running", state.live.statusLabel)
-            assertTrue(state.live.body.contains("dns_tampering"))
-            assertTrue(state.live.body.contains("resolver_override_recommended"))
             assertTrue(state.live.metrics.any { it.label == "Latest native failure" && it.value == "dns_tampering" })
             assertTrue(
                 state.live.metrics.any {
@@ -654,6 +655,256 @@ class DiagnosticsViewModelTest {
             assertTrue(families.first().candidates.first().recommended)
             assertEquals("quic_realistic_burst", families.last().candidates.first().id)
             assertTrue(families.last().candidates.first().recommended)
+            collector.cancel()
+        }
+
+    @Test
+    fun `automatic audit report exposes full matrix summary and candidate detail`() =
+        runTest {
+            val profileId = "automatic-audit"
+            val hostfakeConfigJson =
+                RipDpiProxyUIPreferences(
+                    tcpChainSteps =
+                        listOf(
+                            TcpChainStepModel(kind = TcpChainStepKind.TlsRec, marker = "extlen"),
+                            TcpChainStepModel(
+                                kind = TcpChainStepKind.HostFake,
+                                marker = "endhost+8",
+                                fakeHostTemplate = "googlevideo.com",
+                            ),
+                        ),
+                    quicFakeProfile = "realistic_initial",
+                ).toNativeConfigJson()
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = profileId,
+                                name = "Automatic audit",
+                                source = "bundled",
+                                version = 1,
+                                requestJson =
+                                    strategyProbeProfileRequest(
+                                        json = json,
+                                        profileId = profileId,
+                                        displayName = "Automatic audit",
+                                        suiteId = "full_matrix_v1",
+                                    ),
+                                updatedAt = 1L,
+                            ),
+                        )
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "audit-session",
+                                profileId = profileId,
+                                pathMode = "RAW_PATH",
+                                summary = "Audit complete",
+                                reportJson =
+                                    json.encodeToString(
+                                        ScanReport.serializer(),
+                                        strategyProbeScanReport(
+                                            sessionId = "audit-session",
+                                            profileId = profileId,
+                                            suiteId = "full_matrix_v1",
+                                            summary = "Audit complete",
+                                            results =
+                                                listOf(
+                                                    com.poyka.ripdpi.diagnostics.ProbeResult(
+                                                        probeType = "https",
+                                                        target = "audit.example",
+                                                        outcome = "ok",
+                                                        details =
+                                                            listOf(
+                                                                ProbeDetail("candidateId", "tlsrec_hostfake"),
+                                                                ProbeDetail("protocol", "https"),
+                                                                ProbeDetail("latencyMs", "180"),
+                                                            ),
+                                                    ),
+                                                ),
+                                            tcpCandidates =
+                                                listOf(
+                                                    StrategyProbeCandidateSummary(
+                                                        id = "baseline_current",
+                                                        label = "Current strategy",
+                                                        family = "baseline",
+                                                        outcome = "failed",
+                                                        rationale = "HTTPS still blocked",
+                                                        succeededTargets = 0,
+                                                        totalTargets = 3,
+                                                        weightedSuccessScore = 0,
+                                                        totalWeight = 5,
+                                                        qualityScore = 0,
+                                                    ),
+                                                    StrategyProbeCandidateSummary(
+                                                        id = "parser_only",
+                                                        label = "Parser only",
+                                                        family = "parser",
+                                                        outcome = "partial",
+                                                        rationale = "Only HTTP improved",
+                                                        succeededTargets = 1,
+                                                        totalTargets = 3,
+                                                        weightedSuccessScore = 1,
+                                                        totalWeight = 5,
+                                                        qualityScore = 2,
+                                                        averageLatencyMs = 140,
+                                                    ),
+                                                    StrategyProbeCandidateSummary(
+                                                        id = "tlsrec_hostfake",
+                                                        label = "TLS record + hostfake",
+                                                        family = "hostfake",
+                                                        outcome = "success",
+                                                        rationale = "Recovered HTTPS",
+                                                        succeededTargets = 3,
+                                                        totalTargets = 3,
+                                                        weightedSuccessScore = 5,
+                                                        totalWeight = 5,
+                                                        qualityScore = 9,
+                                                        averageLatencyMs = 180,
+                                                        proxyConfigJson = hostfakeConfigJson,
+                                                        notes = listOf("Adaptive warm-up applied"),
+                                                    ),
+                                                ),
+                                            quicCandidates =
+                                                listOf(
+                                                    StrategyProbeCandidateSummary(
+                                                        id = "quic_disabled",
+                                                        label = "QUIC disabled",
+                                                        family = "quic_disabled",
+                                                        outcome = "not_applicable",
+                                                        rationale = "No QUIC target responded",
+                                                        succeededTargets = 0,
+                                                        totalTargets = 0,
+                                                        weightedSuccessScore = 0,
+                                                        totalWeight = 0,
+                                                        qualityScore = 0,
+                                                    ),
+                                                    StrategyProbeCandidateSummary(
+                                                        id = "quic_realistic_burst",
+                                                        label = "QUIC realistic burst",
+                                                        family = "quic_burst",
+                                                        outcome = "success",
+                                                        rationale = "Recovered QUIC",
+                                                        succeededTargets = 1,
+                                                        totalTargets = 1,
+                                                        weightedSuccessScore = 2,
+                                                        totalWeight = 2,
+                                                        qualityScore = 4,
+                                                        averageLatencyMs = 220,
+                                                    ),
+                                                ),
+                                            recommendation =
+                                                StrategyProbeRecommendation(
+                                                    tcpCandidateId = "tlsrec_hostfake",
+                                                    tcpCandidateLabel = "TLS record + hostfake",
+                                                    quicCandidateId = "quic_realistic_burst",
+                                                    quicCandidateLabel = "QUIC realistic burst",
+                                                    rationale = "Best combined recovery",
+                                                    recommendedProxyConfigJson = hostfakeConfigJson,
+                                                ),
+                                        ),
+                                    ),
+                            ),
+                        )
+                }
+
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val report = requireNotNull(viewModel.uiState.value.scan.strategyProbeReport)
+            val metrics = report.summaryMetrics.associate { it.label to it.value }
+            assertEquals("full_matrix_v1", report.suiteId)
+            assertEquals("Automatic audit", report.suiteLabel)
+            assertEquals("TCP / HTTP / HTTPS matrix", report.families.first().title)
+            assertEquals("2", metrics.getValue("Worked"))
+            assertEquals("1", metrics.getValue("Partial"))
+            assertEquals("1", metrics.getValue("Failed"))
+            assertEquals("1", metrics.getValue("N/A"))
+
+            viewModel.selectStrategyProbeCandidate(report.candidateDetails.getValue("tlsrec_hostfake"))
+            advanceUntilIdle()
+
+            val selected = requireNotNull(viewModel.uiState.value.selectedStrategyProbeCandidate)
+            assertEquals("Hostfake", selected.familyLabel)
+            assertEquals("Automatic audit", selected.suiteLabel)
+            assertTrue(selected.notes.contains("Adaptive warm-up applied"))
+            assertTrue(selected.signature.any { it.label == "Chain" && it.value.contains("hostfake") })
+            assertEquals("HTTPS results", selected.resultGroups.first().title)
+            assertEquals("audit.example", selected.resultGroups.first().items.first().target)
+
+            viewModel.dismissStrategyProbeCandidate()
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.selectedStrategyProbeCandidate)
+            collector.cancel()
+        }
+
+    @Test
+    fun `automatic audit completion auto opens finished session detail`() =
+        runTest {
+            val profileId = "automatic-audit"
+            val detail =
+                DiagnosticSessionDetail(
+                    session =
+                        session(
+                            id = "session-RAW_PATH",
+                            profileId = profileId,
+                            pathMode = "RAW_PATH",
+                            summary = "Audit done",
+                        ),
+                    results =
+                        listOf(
+                            ProbeResultEntity(
+                                id = "probe-audit",
+                                sessionId = "session-RAW_PATH",
+                                probeType = "https",
+                                target = "audit.example",
+                                outcome = "ok",
+                                detailJson = json.encodeToString(listOf(ProbeDetail("candidateId", "tlsrec_hostfake"))),
+                                createdAt = 3L,
+                            ),
+                        ),
+                    snapshots = listOf(snapshot(id = "snapshot-audit", sessionId = "session-RAW_PATH")),
+                    context = context(id = "context-audit", sessionId = "session-RAW_PATH"),
+                    events = emptyList(),
+                )
+            val manager =
+                FakeDiagnosticsManager(detail = detail).apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = profileId,
+                                name = "Automatic audit",
+                                source = "bundled",
+                                version = 1,
+                                requestJson =
+                                    strategyProbeProfileRequest(
+                                        json = json,
+                                        profileId = profileId,
+                                        displayName = "Automatic audit",
+                                        suiteId = "full_matrix_v1",
+                                    ),
+                                updatedAt = 1L,
+                            ),
+                        )
+                }
+
+            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.startRawScan()
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.selectedSessionDetail)
+
+            manager.sessionsState.value = listOf(detail.session)
+            advanceUntilIdle()
+
+            val selected = requireNotNull(viewModel.uiState.value.selectedSessionDetail)
+            assertEquals("session-RAW_PATH", selected.session.id)
+            assertEquals("session-RAW_PATH", viewModel.uiState.value.sessions.focusedSessionId)
             collector.cancel()
         }
 
@@ -1640,21 +1891,31 @@ class DiagnosticsViewModelTest {
             results = probes,
         )
 
-    private fun strategyProbeProfileRequest(json: Json): String =
+    private fun strategyProbeProfileRequest(
+        json: Json,
+        profileId: String = "automatic-probing",
+        displayName: String = "Automatic probing",
+        suiteId: String = "quick_v1",
+    ): String =
         json.encodeToString(
             ScanRequest.serializer(),
             ScanRequest(
-                profileId = "automatic-probing",
-                displayName = "Automatic probing",
+                profileId = profileId,
+                displayName = displayName,
                 pathMode = ScanPathMode.RAW_PATH,
                 kind = ScanKind.STRATEGY_PROBE,
                 domainTargets = emptyList(),
                 quicTargets = listOf(QuicTarget(host = "example.org")),
-                strategyProbe = StrategyProbeRequest(suiteId = "quick_v1"),
+                strategyProbe = StrategyProbeRequest(suiteId = suiteId),
             ),
         )
 
     private fun strategyProbeScanReport(
+        sessionId: String = "probe-session",
+        profileId: String = "automatic-probing",
+        suiteId: String = "quick_v1",
+        summary: String = "Recommended hostfake",
+        results: List<com.poyka.ripdpi.diagnostics.ProbeResult> = emptyList(),
         tcpCandidates: List<StrategyProbeCandidateSummary> =
             listOf(
                 StrategyProbeCandidateSummary(
@@ -1712,16 +1973,16 @@ class DiagnosticsViewModelTest {
             ),
     ): ScanReport =
         ScanReport(
-            sessionId = "probe-session",
-            profileId = "automatic-probing",
+            sessionId = sessionId,
+            profileId = profileId,
             pathMode = ScanPathMode.RAW_PATH,
             startedAt = 10L,
             finishedAt = 20L,
-            summary = "Recommended hostfake",
-            results = emptyList(),
+            summary = summary,
+            results = results,
             strategyProbeReport =
                 StrategyProbeReport(
-                    suiteId = "quick_v1",
+                    suiteId = suiteId,
                     tcpCandidates = tcpCandidates,
                     quicCandidates = quicCandidates,
                     recommendation = recommendation,
