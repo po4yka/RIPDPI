@@ -997,6 +997,19 @@ fn note_adaptive_fake_ttl_failure(
     Ok(())
 }
 
+fn note_server_ttl_for_route(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    host: Option<&str>,
+    observed_ttl: u8,
+) -> io::Result<()> {
+    let mut resolver =
+        state.adaptive_fake_ttl.lock().map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
+    resolver.note_server_ttl(group_index, target, host, observed_ttl);
+    Ok(())
+}
+
 fn resolve_adaptive_fake_ttl(
     state: &RuntimeState,
     target: SocketAddr,
@@ -1543,10 +1556,13 @@ fn relay(
                     &state.config,
                     &original_request,
                 )? {
-                    FirstResponse::Forward(bytes) => {
+                    FirstResponse::Forward(bytes, server_ttl) => {
                         session_state.observe_inbound(&bytes);
                         client.write_all(&bytes)?;
                         if session_state.recv_count > 0 {
+                            if let Some(ttl) = server_ttl {
+                                note_server_ttl_for_route(state, target, route.group_index, host.as_deref(), ttl)?;
+                            }
                             note_adaptive_tcp_success(
                                 state,
                                 target,
@@ -1714,14 +1730,26 @@ fn read_first_response(
     config: &RuntimeConfig,
     request: &[u8],
 ) -> io::Result<FirstResponse> {
+    let _ = platform::enable_recv_ttl(upstream);
     let mut collected = Vec::new();
     let mut chunk = vec![0u8; config.buffer_size.max(16_384)];
     let mut tls_partial = TlsRecordTracker::new(request, config);
     let mut timeout_count = 0i32;
+    let mut observed_server_ttl: Option<u8> = None;
 
     loop {
         upstream.set_read_timeout(first_response_timeout(config, &tls_partial))?;
-        let result = match upstream.read(&mut chunk) {
+        let read_result = if collected.is_empty() {
+            platform::read_chunk_with_ttl(upstream, &mut chunk).map(|(n, ttl)| {
+                if ttl.is_some() {
+                    observed_server_ttl = ttl;
+                }
+                n
+            })
+        } else {
+            upstream.read(&mut chunk)
+        };
+        let result = match read_result {
             Ok(0) => Ok(FirstResponse::Failure {
                 failure: ClassifiedFailure::new(
                     FailureClass::SilentDrop,
@@ -1745,7 +1773,7 @@ fn read_first_response(
                         response_bytes: Some(collected),
                     })
                 } else {
-                    Ok(FirstResponse::Forward(collected))
+                    Ok(FirstResponse::Forward(collected, observed_server_ttl))
                 }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
@@ -1945,7 +1973,7 @@ fn trigger_flag(trigger: TriggerEvent) -> u32 {
 }
 
 enum FirstResponse {
-    Forward(Vec<u8>),
+    Forward(Vec<u8>, Option<u8>),
     Failure {
         failure: ClassifiedFailure,
         response_bytes: Option<Vec<u8>>,
