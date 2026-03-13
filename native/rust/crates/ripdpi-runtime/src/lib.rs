@@ -10,6 +10,7 @@ pub mod adaptive_fake_ttl;
 pub mod adaptive_tuning;
 pub mod platform;
 pub mod process;
+pub mod retry_stealth;
 pub mod runtime;
 pub mod runtime_policy;
 
@@ -38,6 +39,8 @@ pub trait RuntimeTelemetrySink: Send + Sync {
         trigger: u32,
         host: Option<&str>,
     );
+
+    fn on_retry_paced(&self, _target: SocketAddr, _group_index: usize, _reason: &'static str, _backoff_ms: u64) {}
 
     fn on_host_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize);
 
@@ -171,6 +174,8 @@ mod tests {
             _host: Option<&str>,
         ) {
         }
+
+        fn on_retry_paced(&self, _target: SocketAddr, _group_index: usize, _reason: &'static str, _backoff_ms: u64) {}
 
         fn on_host_autolearn_state(&self, _enabled: bool, _learned_host_count: usize, _penalized_host_count: usize) {}
 
