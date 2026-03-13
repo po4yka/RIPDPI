@@ -13,22 +13,28 @@ These run through Gradle on the host JVM and cover the Android-facing logic with
   - config contract snapshots
   - state-machine tests
   - fault-injection tests
-  - advanced strategy JSON coverage for markers, fake payload profiles, activation windows, adaptive fake TTL, and UI/native bridge parity
+  - advanced strategy JSON coverage for markers, fake payload profiles, activation windows, adaptive fake TTL, per-network `networkScopeKey`, and UI/native bridge parity
   - native telemetry golden contracts
+- `core:data`
+  - app settings and serializer coverage for network-strategy memory toggles
+  - fingerprint hashing and privacy-preserving network summaries
+  - encrypted DNS path candidate planning, ordering, and persistence-backed migration coverage
 - `core:service`
   - service state store
   - lifecycle coordination
   - diagnostics runtime coordination
+  - connection-policy resolution, remembered-policy replay, and active-policy signature tracking
+  - handover monitor debounce/classification and service restart behavior
   - merged service telemetry golden contracts
 - `core:diagnostics`
   - diagnostics manager orchestration
-  - automatic probing profile wiring and recommendation persistence
-  - resolver recommendation ranking and temporary encrypted-DNS override flow
-  - runtime-history persistence of resolver telemetry
+  - automatic probing profile wiring, hidden handover-triggered `quick_v1` probes, and recommendation persistence
+  - resolver recommendation ranking, diversified encrypted-DNS path planning, and temporary encrypted-DNS override flow
+  - runtime-history persistence of resolver telemetry and remembered-network proof/suppression state
   - export/archive contents
   - persisted passive-monitor and native-event golden contracts
 - `app`
-  - settings and diagnostics ViewModel coverage for chain DSL, fake payload/fake TLS controls, adaptive split placement, activation windows, adaptive fake TTL, and automatic probing presentation
+  - settings and diagnostics ViewModel coverage for chain DSL, fake payload/fake TLS controls, adaptive split placement, activation windows, adaptive fake TTL, remembered-network presentation, and automatic probing presentation
 
 Main command:
 
@@ -40,6 +46,7 @@ Focused command set:
 
 ```bash
 ./gradlew \
+  :core:data:testDebugUnitTest \
   :core:engine:testDebugUnitTest \
   :core:service:testDebugUnitTest \
   :core:diagnostics:testDebugUnitTest
@@ -52,8 +59,8 @@ The Rust workspace contains several test styles:
 - unit tests for JNI adapters and helpers
 - property-based and fuzz-style parsing coverage with `proptest`
 - config and planner coverage for semantic markers, adaptive `auto(...)` markers, activation filters, fake payload profile selection, QUIC fake Initial profiles, and HTTP parser evasions
-- runtime policy coverage for host autolearn, route advancement, and adaptive fake TTL learning
-- diagnostics monitor coverage for automatic probing candidate catalogs and recommendation assembly
+- runtime policy coverage for host autolearn scoping, route advancement, adaptive fake TTL learning, retry-stealth pacing, and candidate diversification
+- diagnostics monitor coverage for automatic probing candidate catalogs, probe pacing, target-order shuffling, and recommendation assembly
 - state-machine coverage for proxy and tunnel session registries
 - deterministic fault-injection tests
 - telemetry/logging golden tests
@@ -71,6 +78,17 @@ That script runs:
 - `cargo clippy --workspace --all-targets -D warnings`
 - workspace Rust tests through `cargo nextest`
 - focused vendored `byedpi` smoke coverage
+
+Focused native commands for the current policy/runtime surface:
+
+```bash
+cargo test -p ripdpi-runtime --lib
+cargo test -p ripdpi-monitor --lib
+cargo test -p ripdpi-android --lib
+./gradlew :core:engine:testDebugUnitTest \
+  --tests com.poyka.ripdpi.core.NativeTelemetryGoldenTest \
+  -x :core:engine:buildRustNativeLibs
+```
 
 ## Local network E2E
 
@@ -158,7 +176,9 @@ Semantic fields remain strict:
 - event order
 - level and message text
 - route group and target metadata
+- retry pacing/diversification counters and reasons
 - strategy signature and recommendation metadata
+- per-lane TCP/QUIC/DNS winning-family metadata
 - resolver metadata, fallback state, and handover classification
 
 ## Linux TUN E2E and soak

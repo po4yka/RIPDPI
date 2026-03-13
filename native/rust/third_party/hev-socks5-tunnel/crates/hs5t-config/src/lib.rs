@@ -515,6 +515,7 @@ mod proptest_tests {
             prop_assert_eq!(cfg.misc.tcp_read_write_timeout, 300000);
             prop_assert_eq!(cfg.misc.udp_read_write_timeout, 60000);
             prop_assert_eq!(cfg.misc.limit_nofile, 65535);
+            prop_assert_eq!(cfg.misc.filter_injected_resets, false);
         }
 
         /// tunnel defaults are applied whenever the tunnel section is absent.
