@@ -1316,8 +1316,36 @@ fn detect_strategy_probe_dns_tampering(
                     value: resolver_label.clone(),
                 },
                 ProbeDetail {
+                    key: "encryptedHost".to_string(),
+                    value: resolver_context.host.clone(),
+                },
+                ProbeDetail {
+                    key: "encryptedPort".to_string(),
+                    value: resolver_context.port.to_string(),
+                },
+                ProbeDetail {
+                    key: "encryptedTlsServerName".to_string(),
+                    value: resolver_context.tls_server_name.clone().unwrap_or_default(),
+                },
+                ProbeDetail {
                     key: "encryptedBootstrapIps".to_string(),
                     value: resolver_context.bootstrap_ips.join("|"),
+                },
+                ProbeDetail {
+                    key: "encryptedBootstrapValidated".to_string(),
+                    value: (!encrypted_addresses.is_empty() && !resolver_context.bootstrap_ips.is_empty()).to_string(),
+                },
+                ProbeDetail {
+                    key: "encryptedDohUrl".to_string(),
+                    value: resolver_context.doh_url.clone().unwrap_or_default(),
+                },
+                ProbeDetail {
+                    key: "encryptedDnscryptProviderName".to_string(),
+                    value: resolver_context.dnscrypt_provider_name.clone().unwrap_or_default(),
+                },
+                ProbeDetail {
+                    key: "encryptedDnscryptPublicKey".to_string(),
+                    value: resolver_context.dnscrypt_public_key.clone().unwrap_or_default(),
                 },
                 ProbeDetail {
                     key: "encryptedAddresses".to_string(),
@@ -2478,7 +2506,35 @@ fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &Sc
                     .clone()
                     .unwrap_or_else(|| format!("{}:{}", encrypted_endpoint.host, encrypted_endpoint.port)),
             },
+            ProbeDetail {
+                key: "encryptedHost".to_string(),
+                value: encrypted_endpoint.host.clone(),
+            },
+            ProbeDetail {
+                key: "encryptedPort".to_string(),
+                value: encrypted_endpoint.port.to_string(),
+            },
+            ProbeDetail {
+                key: "encryptedTlsServerName".to_string(),
+                value: encrypted_endpoint.tls_server_name.clone().unwrap_or_default(),
+            },
             ProbeDetail { key: "encryptedBootstrapIps".to_string(), value: encrypted_bootstrap_ips.join("|") },
+            ProbeDetail {
+                key: "encryptedBootstrapValidated".to_string(),
+                value: (encrypted_result.is_ok() && !encrypted_bootstrap_ips.is_empty()).to_string(),
+            },
+            ProbeDetail {
+                key: "encryptedDohUrl".to_string(),
+                value: encrypted_endpoint.doh_url.clone().unwrap_or_default(),
+            },
+            ProbeDetail {
+                key: "encryptedDnscryptProviderName".to_string(),
+                value: encrypted_endpoint.dnscrypt_provider_name.clone().unwrap_or_default(),
+            },
+            ProbeDetail {
+                key: "encryptedDnscryptPublicKey".to_string(),
+                value: encrypted_endpoint.dnscrypt_public_key.clone().unwrap_or_default(),
+            },
             ProbeDetail { key: "encryptedAddresses".to_string(), value: format_result_set(&encrypted_result) },
             ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms },
             ProbeDetail {

@@ -460,4 +460,99 @@ class DiagnosticsDatabaseMigrationTest {
             java.io.File(databaseFile.parentFile, "${databaseFile.name}-journal").delete()
         }
     }
+
+    @Test
+    fun `migration 8 to 9 creates network dns path preferences table`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "diagnostics-migration-${System.nanoTime()}.db"
+        val databaseFile = context.getDatabasePath(databaseName)
+        databaseFile.parentFile?.mkdirs()
+        if (databaseFile.exists()) {
+            databaseFile.delete()
+        }
+
+        val helper =
+            FrameworkSQLiteOpenHelperFactory().create(
+                SupportSQLiteOpenHelper.Configuration.builder(context)
+                    .name(databaseName)
+                    .callback(
+                        object : SupportSQLiteOpenHelper.Callback(8) {
+                            override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) = Unit
+
+                            override fun onUpgrade(
+                                db: androidx.sqlite.db.SupportSQLiteDatabase,
+                                oldVersion: Int,
+                                newVersion: Int,
+                            ) = Unit
+                        },
+                    ).build(),
+            )
+
+        try {
+            val database = helper.writableDatabase
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS scan_sessions (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    profileId TEXT NOT NULL,
+                    approachProfileId TEXT,
+                    approachProfileName TEXT,
+                    strategyId TEXT,
+                    strategyLabel TEXT,
+                    strategyJson TEXT,
+                    pathMode TEXT NOT NULL,
+                    serviceMode TEXT,
+                    status TEXT NOT NULL,
+                    summary TEXT NOT NULL,
+                    reportJson TEXT,
+                    startedAt INTEGER NOT NULL,
+                    finishedAt INTEGER
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                INSERT INTO scan_sessions (
+                    id, profileId, pathMode, status, summary, reportJson, startedAt, finishedAt
+                ) VALUES (
+                    'session-1', 'default', 'RAW_PATH', 'completed', 'ok', NULL, 10, 20
+                )
+                """.trimIndent(),
+            )
+
+            DiagnosticsDatabaseMigration8To9.migrate(database)
+
+            val tables =
+                database.query("SELECT name FROM sqlite_master WHERE type = 'table'").use { cursor ->
+                    buildSet {
+                        val nameIndex = cursor.getColumnIndexOrThrow("name")
+                        while (cursor.moveToNext()) {
+                            add(cursor.getString(nameIndex))
+                        }
+                    }
+                }
+            assertTrue(tables.contains("network_dns_path_preferences"))
+
+            val indexes =
+                database.query("PRAGMA index_list(`network_dns_path_preferences`)").use { cursor ->
+                    buildSet {
+                        val nameIndex = cursor.getColumnIndexOrThrow("name")
+                        while (cursor.moveToNext()) {
+                            add(cursor.getString(nameIndex))
+                        }
+                    }
+                }
+            assertTrue(indexes.contains("index_network_dns_path_preferences_fingerprintHash"))
+            assertTrue(indexes.contains("index_network_dns_path_preferences_updatedAt"))
+
+            database.query("SELECT COUNT(*) FROM scan_sessions WHERE id = 'session-1'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+            }
+        } finally {
+            helper.close()
+            databaseFile.delete()
+            java.io.File(databaseFile.parentFile, "${databaseFile.name}-journal").delete()
+        }
+    }
 }
