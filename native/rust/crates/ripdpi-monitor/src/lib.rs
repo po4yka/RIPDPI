@@ -30,10 +30,10 @@ use rustls::{
 };
 use serde::{Deserialize, Serialize};
 
-const DEFAULT_DNS_SERVER: &str = "1.1.1.1:53";
-const DEFAULT_DOH_URL: &str = "https://cloudflare-dns.com/dns-query";
-const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["1.1.1.1", "1.0.0.1"];
-const DEFAULT_DOH_HOST: &str = "cloudflare-dns.com";
+const DEFAULT_DNS_SERVER: &str = "8.8.8.8:53";
+const DEFAULT_DOH_URL: &str = "https://dns.google/dns-query";
+const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["8.8.8.8", "8.8.4.4"];
+const DEFAULT_DOH_HOST: &str = "dns.google";
 const DEFAULT_DOH_PORT: u16 = 443;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(4);
 const IO_TIMEOUT: Duration = Duration::from_millis(1200);
@@ -1206,7 +1206,7 @@ fn strategy_probe_config_json(config: &ProxyUiConfig) -> String {
 
 fn default_runtime_encrypted_dns_context() -> ProxyEncryptedDnsContext {
     ProxyEncryptedDnsContext {
-        resolver_id: Some("cloudflare".to_string()),
+        resolver_id: Some("google".to_string()),
         protocol: "doh".to_string(),
         host: DEFAULT_DOH_HOST.to_string(),
         port: DEFAULT_DOH_PORT,
@@ -4885,5 +4885,13 @@ mod tests {
         let cert = certified.cert.der().clone();
         let key = PrivateKeyDer::Pkcs8(certified.key_pair.serialize_der().into());
         (cert, key)
+    }
+
+    #[test]
+    fn default_runtime_encrypted_dns_context_uses_google() {
+        let ctx = default_runtime_encrypted_dns_context();
+        assert_eq!(ctx.resolver_id.as_deref(), Some("google"));
+        assert!(ctx.doh_url.as_deref().unwrap_or("").contains("dns.google"));
+        assert!(ctx.bootstrap_ips.iter().any(|ip| ip == "8.8.8.8"));
     }
 }
