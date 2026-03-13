@@ -1,24 +1,21 @@
+mod listeners;
+mod state;
+
 use std::collections::{BTreeMap, HashMap};
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::platform;
-use crate::process;
-use crate::retry_stealth::{
-    adaptive_signature_hash, target_key, RetryDecision, RetryLane, RetryPacer, RetrySignature,
-};
+use crate::retry_stealth::{adaptive_signature_hash, target_key, RetryDecision, RetryLane, RetrySignature};
 use crate::runtime_policy::{
     extract_host, extract_host_info, group_requires_payload, route_matches_payload, select_initial_group,
-    select_next_group, ConnectionRoute, HostSource, RetrySelectionPenalty, RouteAdvance, RuntimeCache,
-    TransportProtocol,
+    select_next_group, ConnectionRoute, HostSource, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
 };
-use crate::{current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
+use crate::EmbeddedProxyControl;
 use ciadpi_config::{
     DesyncGroup, QuicInitialMode, RuntimeConfig, TcpChainStepKind, DETECT_CONNECT, DETECT_DNS_TAMPER,
     DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT,
@@ -35,32 +32,18 @@ use ciadpi_session::{
     SessionConfig, SessionError, SessionState, SocketType, TriggerEvent, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE,
     S_CMD_CONN, S_ER_CMD, S_ER_CONN, S_ER_GEN, S_VER5,
 };
-use mio::net::TcpListener as MioTcpListener;
-use mio::{Events, Interest, Poll, Token};
-use ripdpi_dns_resolver::{extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport};
+use ripdpi_dns_resolver::{
+    extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
+};
 use ripdpi_failure_classifier::{
     classify_http_blockpage, classify_redirect_failure, classify_tls_alert, classify_tls_handshake_failure,
     classify_transport_error, confirm_dns_tampering, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
-use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
+use ripdpi_proxy_config::ProxyEncryptedDnsContext;
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
-const LISTENER: Token = Token(0);
-const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
-const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
-const DESYNC_SEED_BASE: u32 = 7;
-
-#[derive(Clone)]
-struct RuntimeState {
-    config: Arc<RuntimeConfig>,
-    cache: Arc<Mutex<RuntimeCache>>,
-    adaptive_fake_ttl: Arc<Mutex<AdaptiveFakeTtlResolver>>,
-    adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
-    retry_stealth: Arc<Mutex<RetryPacer>>,
-    active_clients: Arc<AtomicUsize>,
-    telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
-    runtime_context: Option<ProxyRuntimeContext>,
-}
+use self::listeners::{build_listener, run_proxy_with_listener_internal};
+use self::state::{flush_autolearn_updates, RuntimeState, DESYNC_SEED_BASE, HANDSHAKE_TIMEOUT, UDP_FLOW_IDLE_TIMEOUT};
 
 #[derive(Debug, Clone)]
 struct UdpFlowActivationState {
@@ -91,152 +74,6 @@ pub fn run_proxy_with_embedded_control(
     control: Arc<EmbeddedProxyControl>,
 ) -> io::Result<()> {
     run_proxy_with_listener_internal(config, listener, Some(control))
-}
-
-fn run_proxy_with_listener_internal(
-    config: RuntimeConfig,
-    listener: TcpListener,
-    control: Option<Arc<EmbeddedProxyControl>>,
-) -> io::Result<()> {
-    let mut config = config;
-    if config.default_ttl == 0 {
-        config.default_ttl = platform::detect_default_ttl()?;
-    }
-    let cache = RuntimeCache::load(&config);
-    let state = RuntimeState {
-        config: Arc::new(config),
-        cache: Arc::new(Mutex::new(cache)),
-        adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
-        adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
-        retry_stealth: Arc::new(Mutex::new(RetryPacer::default())),
-        active_clients: Arc::new(AtomicUsize::new(0)),
-        telemetry: control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry),
-        runtime_context: control.as_ref().and_then(|value| value.runtime_context()),
-    };
-    let _cleanup = RuntimeCleanup { config: state.config.clone(), cache: state.cache.clone() };
-    listener.set_nonblocking(true)?;
-    let mut listener = MioTcpListener::from_std(listener);
-    let mut poll = Poll::new()?;
-    poll.registry().register(&mut listener, LISTENER, Interest::READABLE)?;
-    let mut events = Events::with_capacity(256);
-    if let Some(telemetry) = &state.telemetry {
-        telemetry.on_listener_started(
-            SocketAddr::new(state.config.listen.listen_ip, state.config.listen.listen_port),
-            state.config.max_open as usize,
-            state.config.groups.len(),
-        );
-    }
-    if let Ok(mut cache) = state.cache.lock() {
-        flush_autolearn_updates(&state, &mut cache);
-    }
-
-    let result = loop {
-        let shutdown_requested =
-            control.as_ref().map_or_else(process::shutdown_requested, |value| value.shutdown_requested());
-        if shutdown_requested {
-            break Ok(());
-        }
-        poll.poll(&mut events, Some(Duration::from_millis(250)))?;
-        for event in &events {
-            if event.token() != LISTENER {
-                continue;
-            }
-            loop {
-                match listener.accept() {
-                    Ok((stream, _addr)) => {
-                        let state = state.clone();
-                        let client = mio_to_std_stream(stream);
-                        client.set_nonblocking(false)?;
-                        let Some(_slot) =
-                            ClientSlotGuard::acquire(state.active_clients.clone(), state.config.max_open as usize)
-                        else {
-                            let _ = SockRef::from(&client).set_linger(Some(Duration::ZERO));
-                            drop(client);
-                            continue;
-                        };
-                        if let Some(telemetry) = &state.telemetry {
-                            telemetry.on_client_accepted();
-                        }
-                        thread::Builder::new()
-                            .name("ripdpi-client".into())
-                            .spawn(move || {
-                                let _slot = _slot;
-                                let result = handle_client(client, &state);
-                                if let Err(err) = &result {
-                                    log::error!("ciadpi client error: {err}");
-                                    if let Some(telemetry) = &state.telemetry {
-                                        telemetry.on_client_error(err);
-                                    }
-                                }
-                                if let Some(telemetry) = &state.telemetry {
-                                    telemetry.on_client_finished();
-                                }
-                            })
-                            .expect("failed to spawn client thread");
-                    }
-                    Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
-                    Err(err) => return Err(err),
-                }
-            }
-        }
-    };
-    if let Some(telemetry) = &state.telemetry {
-        telemetry.on_listener_stopped();
-    }
-    result
-}
-
-struct RuntimeCleanup {
-    config: Arc<RuntimeConfig>,
-    cache: Arc<Mutex<RuntimeCache>>,
-}
-
-impl Drop for RuntimeCleanup {
-    fn drop(&mut self) {
-        let Ok(cache) = self.cache.lock() else {
-            return;
-        };
-        let _ = cache.dump_stdout_groups(&self.config, std::io::stdout());
-    }
-}
-
-struct ClientSlotGuard {
-    active: Arc<AtomicUsize>,
-}
-
-impl ClientSlotGuard {
-    fn acquire(active: Arc<AtomicUsize>, limit: usize) -> Option<Self> {
-        loop {
-            let current = active.load(Ordering::Relaxed);
-            if current >= limit {
-                return None;
-            }
-            if active.compare_exchange(current, current + 1, Ordering::AcqRel, Ordering::Relaxed).is_ok() {
-                return Some(Self { active });
-            }
-        }
-    }
-}
-
-impl Drop for ClientSlotGuard {
-    fn drop(&mut self) {
-        self.active.fetch_sub(1, Ordering::AcqRel);
-    }
-}
-
-fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
-    let listen_addr = SocketAddr::new(config.listen.listen_ip, config.listen.listen_port);
-    let domain = match listen_addr {
-        SocketAddr::V4(_) => Domain::IPV4,
-        SocketAddr::V6(_) => Domain::IPV6,
-    };
-    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
-    socket.set_reuse_address(true)?;
-    socket.bind(&SockAddr::from(listen_addr))?;
-    socket.listen(1024)?;
-    let listener: TcpListener = socket.into();
-    listener.set_nonblocking(true)?;
-    Ok(listener)
 }
 
 fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
@@ -745,18 +582,6 @@ fn connect_target_with_route(
     }
 }
 
-fn flush_autolearn_updates(state: &RuntimeState, cache: &mut RuntimeCache) {
-    let Some(telemetry) = &state.telemetry else {
-        let _ = cache.drain_autolearn_events();
-        return;
-    };
-    let (enabled, learned_host_count, penalized_host_count) = cache.autolearn_state(&state.config);
-    telemetry.on_host_autolearn_state(enabled, learned_host_count, penalized_host_count);
-    for event in cache.drain_autolearn_events() {
-        telemetry.on_host_autolearn_event(event.action, event.host.as_deref(), event.group_index);
-    }
-}
-
 fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
     match failure.class {
         FailureClass::DnsTampering => DETECT_DNS_TAMPER,
@@ -784,12 +609,7 @@ fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
     )
 }
 
-fn emit_failure_classified(
-    state: &RuntimeState,
-    target: SocketAddr,
-    failure: &ClassifiedFailure,
-    host: Option<&str>,
-) {
+fn emit_failure_classified(state: &RuntimeState, target: SocketAddr, failure: &ClassifiedFailure, host: Option<&str>) {
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_failure_classified(target, failure, host);
     }
@@ -804,18 +624,14 @@ fn advance_route_for_failure(
     failure: &ClassifiedFailure,
 ) -> io::Result<Option<ConnectionRoute>> {
     let trigger = failure_trigger_mask(failure);
-    if failure.action != FailureAction::RetryWithMatchingGroup || trigger == 0 || !runtime_supports_trigger(state, trigger)? {
+    if failure.action != FailureAction::RetryWithMatchingGroup
+        || trigger == 0
+        || !runtime_supports_trigger(state, trigger)?
+    {
         return Ok(None);
     }
 
-    let _ = note_retry_failure(
-        state,
-        target,
-        route.group_index,
-        host.as_deref(),
-        payload,
-        TransportProtocol::Tcp,
-    )?;
+    let _ = note_retry_failure(state, target, route.group_index, host.as_deref(), payload, TransportProtocol::Tcp)?;
     let penalize = failure_penalizes_strategy(failure);
     if penalize {
         if let Some(payload) = payload {
@@ -824,13 +640,8 @@ fn advance_route_for_failure(
         note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
     }
 
-    let retry_penalties = build_retry_selection_penalties(
-        state,
-        target,
-        host.as_deref(),
-        payload,
-        TransportProtocol::Tcp,
-    )?;
+    let retry_penalties =
+        build_retry_selection_penalties(state, target, host.as_deref(), payload, TransportProtocol::Tcp)?;
     let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
     let next = cache.advance_route(
         &state.config,
@@ -888,19 +699,15 @@ fn classify_response_failure(
 }
 
 fn confirm_dns_tampering_for_host(state: &RuntimeState, host: &str, target_ip: IpAddr) -> Option<ClassifiedFailure> {
-    let resolver_context =
-        state
-            .runtime_context
-            .as_ref()
-            .and_then(|context| context.encrypted_dns.as_ref())
-            .cloned()
-            .or_else(default_encrypted_dns_context);
+    let resolver_context = state
+        .runtime_context
+        .as_ref()
+        .and_then(|context| context.encrypted_dns.as_ref())
+        .cloned()
+        .or_else(default_encrypted_dns_context);
     let resolver_context = resolver_context?;
-    let resolver = EncryptedDnsResolver::new(
-        encrypted_dns_endpoint(&resolver_context)?,
-        EncryptedDnsTransport::Direct,
-    )
-    .ok()?;
+    let resolver =
+        EncryptedDnsResolver::new(encrypted_dns_endpoint(&resolver_context)?, EncryptedDnsTransport::Direct).ok()?;
     let query_id = ((SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_nanos() as u64) & 0xffff) as u16;
     let query = build_dns_query(host, query_id.max(1)).ok()?;
     let response = resolver.exchange_blocking(&query).ok()?;
@@ -1138,8 +945,12 @@ fn build_retry_signature(
     };
     let resolved_fake_ttl = resolve_adaptive_fake_ttl(state, target, group_index, group, host)?;
     let adaptive_hints = match (transport, payload) {
-        (TransportProtocol::Tcp, Some(bytes)) => resolve_adaptive_tcp_hints(state, target, group_index, group, host, bytes)?,
-        (TransportProtocol::Udp, Some(bytes)) => resolve_adaptive_udp_hints(state, target, group_index, group, host, bytes)?,
+        (TransportProtocol::Tcp, Some(bytes)) => {
+            resolve_adaptive_tcp_hints(state, target, group_index, group, host, bytes)?
+        }
+        (TransportProtocol::Udp, Some(bytes)) => {
+            resolve_adaptive_udp_hints(state, target, group_index, group, host, bytes)?
+        }
         _ => AdaptivePlannerHints::default(),
     };
     Ok(Some(RetrySignature::new(
@@ -1155,7 +966,9 @@ fn retry_lane(transport: TransportProtocol, payload: Option<&[u8]>) -> RetryLane
     match transport {
         TransportProtocol::Tcp if payload.is_some_and(ciadpi_packets::is_tls_client_hello) => RetryLane::TcpTls,
         TransportProtocol::Tcp => RetryLane::TcpOther,
-        TransportProtocol::Udp if payload.is_some_and(|bytes| parse_quic_initial(bytes).is_some()) => RetryLane::UdpQuic,
+        TransportProtocol::Udp if payload.is_some_and(|bytes| parse_quic_initial(bytes).is_some()) => {
+            RetryLane::UdpQuic
+        }
         TransportProtocol::Udp => RetryLane::UdpOther,
     }
 }
@@ -1219,10 +1032,10 @@ fn maybe_emit_candidate_diversification(
         return;
     };
     let cooled_alternative_exists = penalties.iter().any(|(group_index, penalty)| {
-        *group_index != route.group_index
-            && (penalty.same_signature_cooldown_ms > 0 || penalty.family_cooldown_ms > 0)
+        *group_index != route.group_index && (penalty.same_signature_cooldown_ms > 0 || penalty.family_cooldown_ms > 0)
     });
-    if !cooled_alternative_exists || (selected_penalty.same_signature_cooldown_ms > 0 && selected_penalty.family_cooldown_ms > 0)
+    if !cooled_alternative_exists
+        || (selected_penalty.same_signature_cooldown_ms > 0 && selected_penalty.family_cooldown_ms > 0)
     {
         return;
     }
@@ -1238,7 +1051,8 @@ fn apply_retry_pacing_before_connect(
     host: Option<&str>,
     payload: Option<&[u8]>,
 ) -> io::Result<()> {
-    let Some(signature) = build_retry_signature(state, target, route.group_index, host, payload, TransportProtocol::Tcp)?
+    let Some(signature) =
+        build_retry_signature(state, target, route.group_index, host, payload, TransportProtocol::Tcp)?
     else {
         return Ok(());
     };
@@ -1735,8 +1549,14 @@ fn relay(
                 ) {
                     let failure = classify_transport_error(FailureStage::FirstWrite, &err);
                     emit_failure_classified(state, target, &failure, host.as_deref());
-                    let next =
-                        advance_route_for_failure(state, target, &route, host.clone(), Some(&original_request), &failure)?;
+                    let next = advance_route_for_failure(
+                        state,
+                        target,
+                        &route,
+                        host.clone(),
+                        Some(&original_request),
+                        &failure,
+                    )?;
                     let Some(next) = next else {
                         return Err(err);
                     };
@@ -1795,7 +1615,8 @@ fn relay(
                         if let Some(next) = next {
                             route = next;
                             upstream =
-                                reconnect_target(target, state, route.clone(), host.clone(), Some(&original_request))?.0;
+                                reconnect_target(target, state, route.clone(), host.clone(), Some(&original_request))?
+                                    .0;
                             continue;
                         }
                         if failure.action == FailureAction::ResolverOverrideRecommended {
@@ -1981,10 +1802,7 @@ fn read_first_response(
                 }
 
                 if let Some(failure) = classify_response_failure(state, target, request, &collected, host) {
-                    Ok(FirstResponse::Failure {
-                        failure,
-                        response_bytes: Some(collected),
-                    })
+                    Ok(FirstResponse::Failure { failure, response_bytes: Some(collected) })
                 } else {
                     Ok(FirstResponse::Forward(collected, observed_server_ttl))
                 }
@@ -2043,11 +1861,15 @@ fn first_response_timeout(config: &RuntimeConfig, tls_partial: &TlsRecordTracker
         Some(Duration::from_millis(config.partial_timeout_ms as u64))
     } else if config.timeout_ms != 0 {
         Some(Duration::from_millis(config.timeout_ms as u64))
-    } else if config
-        .groups
-        .iter()
-        .any(|group| group.detect & (DETECT_HTTP_LOCAT | DETECT_HTTP_BLOCKPAGE | DETECT_TLS_HANDSHAKE_FAILURE | DETECT_TLS_ALERT | DETECT_TORST) != 0)
-    {
+    } else if config.groups.iter().any(|group| {
+        group.detect
+            & (DETECT_HTTP_LOCAT
+                | DETECT_HTTP_BLOCKPAGE
+                | DETECT_TLS_HANDSHAKE_FAILURE
+                | DETECT_TLS_ALERT
+                | DETECT_TORST)
+            != 0
+    }) {
         Some(Duration::from_millis(250))
     } else {
         None
@@ -2188,10 +2010,7 @@ fn trigger_flag(trigger: TriggerEvent) -> u32 {
 
 enum FirstResponse {
     Forward(Vec<u8>, Option<u8>),
-    Failure {
-        failure: ClassifiedFailure,
-        response_bytes: Option<Vec<u8>>,
-    },
+    Failure { failure: ClassifiedFailure, response_bytes: Option<Vec<u8>> },
     NoData,
 }
 
@@ -2635,21 +2454,14 @@ fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
     }
 }
 
-fn mio_to_std_stream(stream: mio::net::TcpStream) -> TcpStream {
-    use std::os::fd::{FromRawFd, IntoRawFd};
-
-    let fd = stream.into_raw_fd();
-    // SAFETY: ownership of the file descriptor is moved out of the mio stream
-    // and transferred directly into the std stream without duplication.
-    unsafe { TcpStream::from_raw_fd(fd) }
-}
-
 #[cfg(test)]
 mod tests {
+    use super::state::ClientSlotGuard;
     use super::*;
     use ciadpi_config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
     use ciadpi_packets::DEFAULT_FAKE_TLS;
     use std::io::{Read, Write};
+    use std::sync::atomic::AtomicUsize;
 
     fn connected_pair() -> (TcpStream, TcpStream) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
@@ -2866,5 +2678,200 @@ mod tests {
         group.tcp_chain.clear();
         group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, test_offset()));
         assert!(requires_special_tcp_execution(&group));
+    }
+
+    // ── Characterization: UDP codec round-trip across address families ──
+
+    #[test]
+    fn udp_packet_round_trip_preserves_ipv6_sender_and_payload() {
+        let mut config = RuntimeConfig { ipv6: true, ..RuntimeConfig::default() };
+        let sender = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)), 8443);
+        let payload = b"quic-initial-stub";
+        let packet = encode_socks5_udp_packet(sender, payload);
+
+        let (decoded_sender, decoded_payload) =
+            parse_socks5_udp_packet(&packet, &config).expect("parse ipv6 udp packet");
+        assert_eq!(decoded_sender, sender);
+        assert_eq!(decoded_payload, payload);
+
+        // IPv6 rejected when ipv6 disabled
+        config.ipv6 = false;
+        assert!(parse_socks5_udp_packet(&packet, &config).is_none());
+    }
+
+    #[test]
+    fn udp_packet_round_trip_empty_payload() {
+        let config = RuntimeConfig::default();
+        let sender = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 443);
+        let packet = encode_socks5_udp_packet(sender, b"");
+
+        let (decoded_sender, decoded_payload) = parse_socks5_udp_packet(&packet, &config).expect("parse empty payload");
+        assert_eq!(decoded_sender, sender);
+        assert!(decoded_payload.is_empty());
+    }
+
+    #[test]
+    fn udp_packet_parse_rejects_malformed_packets() {
+        let config = RuntimeConfig::default();
+
+        // Too short
+        assert!(parse_socks5_udp_packet(&[0, 0, 0], &config).is_none());
+
+        // Non-zero fragment byte (index 2)
+        assert!(parse_socks5_udp_packet(&[0, 0, 1, S_ATP_I4, 127, 0, 0, 1, 0, 80], &config).is_none());
+
+        // IPv4 truncated (missing port)
+        assert!(parse_socks5_udp_packet(&[0, 0, 0, S_ATP_I4, 127, 0, 0, 1], &config).is_none());
+
+        // Unknown address type
+        assert!(parse_socks5_udp_packet(&[0, 0, 0, 0x05, 0, 0, 0, 0, 0, 0], &config).is_none());
+    }
+
+    // ── Characterization: TLS record tracker state transitions ──
+
+    #[test]
+    fn tls_record_tracker_inactive_without_partial_timeout() {
+        let config = RuntimeConfig { partial_timeout_ms: 0, ..RuntimeConfig::default() };
+        let tracker = TlsRecordTracker::new(DEFAULT_FAKE_TLS, &config);
+        assert!(!tracker.active());
+        assert!(!tracker.waiting_for_tls_record());
+    }
+
+    #[test]
+    fn tls_record_tracker_inactive_for_non_tls_request() {
+        let config = RuntimeConfig { partial_timeout_ms: 50, ..RuntimeConfig::default() };
+        let non_tls = b"GET / HTTP/1.1\r\n";
+        let tracker = TlsRecordTracker::new(non_tls, &config);
+        assert!(!tracker.active());
+    }
+
+    #[test]
+    fn tls_record_tracker_multi_record_observation() {
+        let config = RuntimeConfig { partial_timeout_ms: 50, ..RuntimeConfig::default() };
+        let mut tracker = TlsRecordTracker::new(DEFAULT_FAKE_TLS, &config);
+        assert!(tracker.active());
+
+        // First record: content type 0x16 (handshake), size 3
+        tracker.observe(&[0x16, 0x03, 0x03, 0x00, 0x03]);
+        assert!(tracker.waiting_for_tls_record());
+        tracker.observe(&[0xaa, 0xbb, 0xcc]);
+        assert!(!tracker.waiting_for_tls_record());
+
+        // Second record: content type 0x14 (change cipher spec), size 1
+        tracker.observe(&[0x14, 0x03, 0x03, 0x00, 0x01, 0xff]);
+        assert!(!tracker.waiting_for_tls_record());
+        assert!(tracker.active());
+    }
+
+    // ── Characterization: protocol reply byte sequences ──
+
+    #[test]
+    fn socks4_success_reply_byte_sequence() {
+        let reply = encode_socks4_reply(true);
+        let bytes = reply.as_bytes();
+        assert_eq!(bytes[0], 0x00, "VN must be 0");
+        assert_eq!(bytes[1], 0x5a, "CD must be 0x5a (granted)");
+        assert_eq!(bytes.len(), 8, "SOCKS4 reply is always 8 bytes");
+    }
+
+    #[test]
+    fn socks4_failure_reply_byte_sequence() {
+        let reply = encode_socks4_reply(false);
+        let bytes = reply.as_bytes();
+        assert_eq!(bytes[0], 0x00);
+        assert_eq!(bytes[1], 0x5b, "CD must be 0x5b (rejected)");
+    }
+
+    #[test]
+    fn socks5_success_reply_preserves_bind_address() {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 100)), 8080);
+        let reply = encode_socks5_reply(0, addr);
+        let bytes = reply.as_bytes();
+        assert_eq!(bytes[0], S_VER5);
+        assert_eq!(bytes[1], 0x00, "REP success");
+        assert_eq!(bytes[3], S_ATP_I4);
+        assert_eq!(&bytes[4..8], &[192, 168, 1, 100]);
+        assert_eq!(&bytes[8..10], &8080u16.to_be_bytes());
+    }
+
+    #[test]
+    fn socks5_error_reply_carries_error_code() {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+        let reply = encode_socks5_reply(S_ER_CONN, addr);
+        let bytes = reply.as_bytes();
+        assert_eq!(bytes[1], S_ER_CONN);
+    }
+
+    #[test]
+    fn http_connect_success_reply_is_200_ok() {
+        let reply = encode_http_connect_reply(true);
+        let text = std::str::from_utf8(reply.as_bytes()).expect("utf8");
+        assert!(text.starts_with("HTTP/1.1 200 OK\r\n"));
+        assert!(text.ends_with("\r\n\r\n"));
+    }
+
+    #[test]
+    fn http_connect_failure_reply_is_503() {
+        let reply = encode_http_connect_reply(false);
+        let text = std::str::from_utf8(reply.as_bytes()).expect("utf8");
+        assert!(text.starts_with("HTTP/1.1 503 Fail\r\n"));
+    }
+
+    // ── Characterization: failure classification trigger mapping ──
+
+    #[test]
+    fn failure_trigger_mask_covers_all_detection_classes() {
+        let cases = [
+            (FailureClass::TcpReset, DETECT_TCP_RESET),
+            (FailureClass::SilentDrop, DETECT_SILENT_DROP),
+            (FailureClass::TlsAlert, DETECT_TLS_ALERT),
+            (FailureClass::HttpBlockpage, DETECT_HTTP_BLOCKPAGE),
+            (FailureClass::Redirect, DETECT_HTTP_LOCAT),
+            (FailureClass::TlsHandshakeFailure, DETECT_TLS_HANDSHAKE_FAILURE),
+            (FailureClass::DnsTampering, DETECT_DNS_TAMPER),
+            (FailureClass::ConnectFailure, DETECT_CONNECT),
+        ];
+
+        for (class, expected_mask) in cases {
+            let failure =
+                ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
+            assert_eq!(failure_trigger_mask(&failure), expected_mask, "trigger mask mismatch for {class:?}");
+        }
+
+        // Classes with zero trigger mask
+        for class in [FailureClass::QuicBreakage, FailureClass::Unknown] {
+            let failure =
+                ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
+            assert_eq!(failure_trigger_mask(&failure), 0, "{class:?} should have zero mask");
+        }
+    }
+
+    #[test]
+    fn failure_penalizes_strategy_for_expected_classes() {
+        let penalizing = [
+            FailureClass::TcpReset,
+            FailureClass::SilentDrop,
+            FailureClass::TlsAlert,
+            FailureClass::HttpBlockpage,
+            FailureClass::Redirect,
+            FailureClass::TlsHandshakeFailure,
+        ];
+        let non_penalizing = [
+            FailureClass::DnsTampering,
+            FailureClass::ConnectFailure,
+            FailureClass::QuicBreakage,
+            FailureClass::Unknown,
+        ];
+
+        for class in penalizing {
+            let failure =
+                ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
+            assert!(failure_penalizes_strategy(&failure), "{class:?} should penalize");
+        }
+        for class in non_penalizing {
+            let failure =
+                ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
+            assert!(!failure_penalizes_strategy(&failure), "{class:?} should not penalize");
+        }
     }
 }
