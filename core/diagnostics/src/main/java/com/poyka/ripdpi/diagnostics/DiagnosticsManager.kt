@@ -46,7 +46,10 @@ import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.services.DefaultResolverOverrideStore
+import com.poyka.ripdpi.services.DefaultPolicyHandoverEventStore
 import com.poyka.ripdpi.services.NetworkFingerprintProvider
+import com.poyka.ripdpi.services.PolicyHandoverEvent
+import com.poyka.ripdpi.services.PolicyHandoverEventStore
 import com.poyka.ripdpi.services.ResolverOverrideStore
 import com.poyka.ripdpi.services.TemporaryResolverOverride
 import com.poyka.ripdpi.services.ServiceStateStore
@@ -58,6 +61,7 @@ import dagger.hilt.components.SingletonComponent
 import java.io.File
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import javax.inject.Inject
@@ -135,6 +139,10 @@ class DefaultDiagnosticsManager
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
         private val serviceStateStore: ServiceStateStore,
         private val resolverOverrideStore: ResolverOverrideStore = DefaultResolverOverrideStore(),
+        private val policyHandoverEventStore: PolicyHandoverEventStore = DefaultPolicyHandoverEventStore(),
+        private val automaticHandoverProbeDelayMs: Long = AutomaticHandoverProbeDelayMs,
+        private val automaticHandoverProbeCooldownMs: Long = AutomaticHandoverProbeCooldownMs,
+        private val importBundledProfilesOnInitialize: Boolean = true,
     ) : DiagnosticsManager {
     private companion object {
         private const val DiagnosticsArchiveDirectory = "diagnostics-archives"
@@ -150,6 +158,9 @@ class DefaultDiagnosticsManager
         private const val ArchiveSnapshotLimit = 250
         private const val FinishedReportPollAttempts = 5
         private const val FinishedReportPollDelayMs = 100L
+        private const val AutomaticProbeProfileId = "automatic-probing"
+        private const val AutomaticHandoverProbeDelayMs = 15_000L
+        private const val AutomaticHandoverProbeCooldownMs = 24L * 60L * 60L * 1_000L
     }
 
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
@@ -176,6 +187,9 @@ class DefaultDiagnosticsManager
     private var initialized = false
     private val scanSessionFingerprints = mutableMapOf<String, NetworkFingerprint?>()
     private val scanSessionPreferredDnsPaths = mutableMapOf<String, EncryptedDnsPathCandidate?>()
+    private val pendingAutomaticProbeJobs = mutableMapOf<Mode, kotlinx.coroutines.Job>()
+    private val recentAutomaticProbeRuns = mutableMapOf<String, Long>()
+    private val hiddenScanCount = AtomicInteger(0)
 
     override suspend fun initialize() {
         if (initialized) {
@@ -183,13 +197,38 @@ class DefaultDiagnosticsManager
         }
         initialized = true
         cleanupArchiveCache()
-        importBundledProfiles()
+        if (importBundledProfilesOnInitialize) {
+            importBundledProfiles()
+        }
+        scope.launch {
+            policyHandoverEventStore.events.collect { event ->
+                scheduleAutomaticHandoverProbe(event)
+            }
+        }
     }
 
     override suspend fun startScan(pathMode: ScanPathMode): String {
         val settings = appSettingsRepository.snapshot()
         val profileId = settings.diagnosticsActiveProfileId.ifEmpty { "default" }
         val profile = requireNotNull(historyRepository.getProfile(profileId)) { "Unknown diagnostics profile: $profileId" }
+        return startScanInternal(
+            profile = profile,
+            settings = settings,
+            pathMode = pathMode,
+            exposeProgress = true,
+            registerActiveBridge = true,
+            rawPathRunner = { block -> runtimeCoordinator.runRawPathScan(block) },
+        )
+    }
+
+    private suspend fun startScanInternal(
+        profile: DiagnosticProfileEntity,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+        pathMode: ScanPathMode,
+        exposeProgress: Boolean,
+        registerActiveBridge: Boolean,
+        rawPathRunner: suspend (suspend () -> Unit) -> Unit,
+    ): String {
         val request = json.decodeFromString(ScanRequest.serializer(), profile.requestJson)
         val networkFingerprint = networkFingerprintProvider.capture()
         val preferredDnsPath =
@@ -255,7 +294,7 @@ class DefaultDiagnosticsManager
         historyRepository.upsertScanSession(
             ScanSessionEntity(
                 id = sessionId,
-                profileId = profileId,
+                profileId = profile.id,
                 approachProfileId = approachSnapshot.profileId,
                 approachProfileName = approachSnapshot.profileName,
                 strategyId = approachSnapshot.strategyId,
@@ -289,7 +328,12 @@ class DefaultDiagnosticsManager
             ),
         )
 
-        val bridge = networkDiagnosticsBridgeFactory.create().also { activeDiagnosticsBridge = it }
+        val bridge = networkDiagnosticsBridgeFactory.create()
+        if (registerActiveBridge) {
+            activeDiagnosticsBridge = bridge
+        } else {
+            hiddenScanCount.incrementAndGet()
+        }
         try {
             bridge.startScan(
                 requestJson = json.encodeToString(ScanRequest.serializer(), requestForPath),
@@ -298,29 +342,43 @@ class DefaultDiagnosticsManager
         } catch (error: Throwable) {
             scanSessionFingerprints.remove(sessionId)
             scanSessionPreferredDnsPaths.remove(sessionId)
-            activeDiagnosticsBridge = null
+            if (activeDiagnosticsBridge === bridge) {
+                activeDiagnosticsBridge = null
+            }
+            if (!registerActiveBridge) {
+                hiddenScanCount.decrementAndGet()
+            }
             runCatching { bridge.destroy() }
-            _activeScanProgress.value = null
+            if (exposeProgress) {
+                _activeScanProgress.value = null
+            }
             persistScanFailure(sessionId, error.message ?: "Diagnostics scan failed to start")
             throw error
         }
-        _activeScanProgress.value =
-            ScanProgress(
-                sessionId = sessionId,
-                phase = "preparing",
-                completedSteps = 0,
-                totalSteps = 1,
-                message = "Preparing diagnostics session",
-            )
+        if (exposeProgress) {
+            _activeScanProgress.value =
+                ScanProgress(
+                    sessionId = sessionId,
+                    phase = "preparing",
+                    completedSteps = 0,
+                    totalSteps = 1,
+                    message = "Preparing diagnostics session",
+                )
+        }
 
         scope.launch {
             try {
                 val scanBlock: suspend () -> Unit = {
-                    pollScanResult(sessionId, bridge, settings)
+                    pollScanResult(
+                        sessionId = sessionId,
+                        bridge = bridge,
+                        settings = settings,
+                        exposeProgress = exposeProgress,
+                    )
                 }
 
                 when (pathMode) {
-                    ScanPathMode.RAW_PATH -> runtimeCoordinator.runRawPathScan(scanBlock)
+                    ScanPathMode.RAW_PATH -> rawPathRunner(scanBlock)
                     ScanPathMode.IN_PATH -> scanBlock()
                 }
             } catch (error: Throwable) {
@@ -328,10 +386,15 @@ class DefaultDiagnosticsManager
             } finally {
                 scanSessionFingerprints.remove(sessionId)
                 scanSessionPreferredDnsPaths.remove(sessionId)
-                _activeScanProgress.value = null
+                if (exposeProgress) {
+                    _activeScanProgress.value = null
+                }
                 runCatching { bridge.destroy() }
                 if (activeDiagnosticsBridge === bridge) {
                     activeDiagnosticsBridge = null
+                }
+                if (!registerActiveBridge) {
+                    hiddenScanCount.decrementAndGet()
                 }
             }
         }
@@ -341,6 +404,43 @@ class DefaultDiagnosticsManager
     override suspend fun cancelActiveScan() {
         activeDiagnosticsBridge?.cancelScan()
         _activeScanProgress.value = null
+    }
+
+    private fun scheduleAutomaticHandoverProbe(event: PolicyHandoverEvent) {
+        pendingAutomaticProbeJobs[event.mode]?.cancel()
+        pendingAutomaticProbeJobs[event.mode] =
+            scope.launch {
+                delay(automaticHandoverProbeDelayMs)
+                launchAutomaticHandoverProbe(event)
+            }
+    }
+
+    private suspend fun launchAutomaticHandoverProbe(event: PolicyHandoverEvent) {
+        val settings = appSettingsRepository.snapshot()
+        if (!settings.networkStrategyMemoryEnabled || settings.enableCmdSettings || event.usedRememberedPolicy) {
+            return
+        }
+        if (_activeScanProgress.value != null || activeDiagnosticsBridge != null || hiddenScanCount.get() > 0) {
+            return
+        }
+
+        val probeKey = "${event.mode.preferenceValue}|${event.currentFingerprintHash}"
+        val now = System.currentTimeMillis()
+        val lastRunAt = recentAutomaticProbeRuns[probeKey]
+        if (lastRunAt != null && now - lastRunAt < automaticHandoverProbeCooldownMs) {
+            return
+        }
+
+        val profile = historyRepository.getProfile(AutomaticProbeProfileId) ?: return
+        startScanInternal(
+            profile = profile,
+            settings = settings,
+            pathMode = ScanPathMode.RAW_PATH,
+            exposeProgress = false,
+            registerActiveBridge = false,
+            rawPathRunner = { block -> runtimeCoordinator.runAutomaticRawPathScan(block) },
+        )
+        recentAutomaticProbeRuns[probeKey] = now
     }
 
     override suspend fun setActiveProfile(profileId: String) {
@@ -1102,6 +1202,7 @@ class DefaultDiagnosticsManager
         sessionId: String,
         bridge: NetworkDiagnosticsBridge,
         settings: com.poyka.ripdpi.proto.AppSettings,
+        exposeProgress: Boolean,
     ) {
         while (true) {
             persistNativeEvents(
@@ -1111,7 +1212,9 @@ class DefaultDiagnosticsManager
             val progress =
                 bridge.pollProgressJson()
                     ?.let { json.decodeFromString(ScanProgress.serializer(), it) }
-            _activeScanProgress.value = progress
+            if (exposeProgress) {
+                _activeScanProgress.value = progress
+            }
             if (progress != null && progress.isFinished) {
                 val report =
                     awaitFinishedReportJson(bridge)
@@ -1144,7 +1247,9 @@ class DefaultDiagnosticsManager
                     sessionId = sessionId,
                     payload = bridge.pollPassiveEventsJson(),
                 )
-                _activeScanProgress.value = null
+                if (exposeProgress) {
+                    _activeScanProgress.value = null
+                }
                 break
             }
             delay(400L)

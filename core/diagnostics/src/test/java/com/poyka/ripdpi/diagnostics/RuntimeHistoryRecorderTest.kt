@@ -6,7 +6,11 @@ import com.poyka.ripdpi.core.TunnelStats
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
+import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
@@ -21,6 +25,8 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.ActiveConnectionPolicy
+import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.services.DefaultServiceStateStore
 import com.poyka.ripdpi.services.FailureClass
 import com.poyka.ripdpi.services.FailureReason
@@ -216,7 +222,111 @@ class RuntimeHistoryRecorderTest {
             waitUntil { history.usageSessionsState.value.single().finishedAt != null }
             assertFalse(history.usageSessionsState.value.single().finishedAt == null)
         }
+
+    @Test
+    fun `handover policy rotation keeps previous remembered policy neutral`() =
+        runTest {
+            val history = InMemoryDiagnosticsHistoryRepository()
+            val serviceStateStore = DefaultServiceStateStore()
+            val activePolicyStore = FakeActiveConnectionPolicyStore()
+            val rememberedPolicyStore = DefaultRememberedNetworkPolicyStore(history)
+            val firstPolicy =
+                rememberedPolicyStore.rememberValidatedPolicy(
+                    policy = rememberedPolicyJson("fingerprint-a", Mode.VPN),
+                    source = RememberedNetworkPolicySourceManualSession,
+                    now = 100L,
+                )
+            val secondPolicy =
+                rememberedPolicyStore.rememberValidatedPolicy(
+                    policy = rememberedPolicyJson("fingerprint-b", Mode.VPN),
+                    source = RememberedNetworkPolicySourceManualSession,
+                    now = 200L,
+                )
+            val recorder =
+                DefaultRuntimeHistoryRecorder(
+                    appSettingsRepository = RecorderFakeAppSettingsRepository(),
+                    historyRepository = history,
+                    rememberedNetworkPolicyStore = rememberedPolicyStore,
+                    networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = RecorderFakeDiagnosticsContextProvider(),
+                    serviceStateStore = serviceStateStore,
+                    activeConnectionPolicyStore = activePolicyStore,
+                )
+
+            recorder.start()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            waitUntil { history.usageSessionsState.value.isNotEmpty() }
+
+            activePolicyStore.set(
+                ActiveConnectionPolicy(
+                    mode = Mode.VPN,
+                    policy = rememberedPolicyJson("fingerprint-a", Mode.VPN),
+                    matchedPolicy = firstPolicy,
+                    usedRememberedPolicy = true,
+                    fingerprintHash = "fingerprint-a",
+                    policySignature = "policy-signature-a",
+                    appliedAt = 1_000L,
+                ),
+            )
+            waitUntil {
+                history.rememberedPoliciesState.value.any {
+                    it.fingerprintHash == "fingerprint-a" &&
+                        it.mode == Mode.VPN.preferenceValue &&
+                        it.lastAppliedAt == 1_000L
+                }
+            }
+
+            activePolicyStore.set(
+                ActiveConnectionPolicy(
+                    mode = Mode.VPN,
+                    policy = rememberedPolicyJson("fingerprint-b", Mode.VPN),
+                    matchedPolicy = secondPolicy,
+                    usedRememberedPolicy = true,
+                    fingerprintHash = "fingerprint-b",
+                    policySignature = "policy-signature-b",
+                    appliedAt = 2_000L,
+                    restartReason = "network_handover",
+                    handoverClassification = "transport_switch",
+                ),
+            )
+            waitUntil {
+                history.rememberedPoliciesState.value.any {
+                    it.fingerprintHash == "fingerprint-b" &&
+                        it.mode == Mode.VPN.preferenceValue &&
+                        it.lastAppliedAt == 2_000L
+                }
+            }
+
+            val firstPersisted = requireNotNull(history.getRememberedNetworkPolicy("fingerprint-a", Mode.VPN.preferenceValue))
+            val secondPersisted = requireNotNull(history.getRememberedNetworkPolicy("fingerprint-b", Mode.VPN.preferenceValue))
+
+            assertEquals(0, firstPersisted.failureCount)
+            assertEquals(0, firstPersisted.consecutiveFailureCount)
+            assertEquals(1_000L, firstPersisted.lastAppliedAt)
+            assertEquals(2_000L, secondPersisted.lastAppliedAt)
+        }
 }
+
+private fun rememberedPolicyJson(
+    fingerprintHash: String,
+    mode: Mode,
+): RememberedNetworkPolicyJson =
+    RememberedNetworkPolicyJson(
+        fingerprintHash = fingerprintHash,
+        mode = mode.preferenceValue,
+        summary =
+            NetworkFingerprintSummary(
+                transport = "wifi",
+                networkState = "validated",
+                identityKind = "wifi",
+                privateDnsMode = "system",
+                dnsServerCount = 1,
+            ),
+        proxyConfigJson = """{"kind":"ui","listen_port":1080}""",
+        winningTcpStrategyFamily = "hostfake",
+        winningQuicStrategyFamily = "quic_burst",
+        winningDnsStrategyFamily = "dns_doh",
+    )
 
 private class RecorderFakeAppSettingsRepository(
     initialSettings: AppSettings = defaultAppSettings(),
@@ -494,4 +604,18 @@ private fun waitUntil(
         Thread.sleep(25)
     }
     assertTrue("Timed out waiting for condition", predicate())
+}
+
+private class FakeActiveConnectionPolicyStore : ActiveConnectionPolicyStore {
+    private val state = MutableStateFlow<ActiveConnectionPolicy?>(null)
+
+    override val activePolicy = state
+
+    override fun set(policy: ActiveConnectionPolicy) {
+        state.value = policy
+    }
+
+    override fun clear() {
+        state.value = null
+    }
 }

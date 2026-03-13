@@ -13,6 +13,7 @@ import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
@@ -56,17 +57,28 @@ class RipDpiProxyService : LifecycleService() {
     @Inject
     lateinit var rememberedNetworkPolicyStore: RememberedNetworkPolicyStore
 
+    @Inject
+    lateinit var networkHandoverMonitor: NetworkHandoverMonitor
+
+    @Inject
+    lateinit var policyHandoverEventStore: PolicyHandoverEventStore
+
     private var proxy: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
     private var telemetryJob: Job? = null
+    private var handoverMonitorJob: Job? = null
     private val mutex = Mutex()
     private var stopping: Boolean = false
+    private var pendingNetworkHandoverClass: String? = null
+    private var lastSuccessfulHandoverFingerprintHash: String? = null
+    private var lastSuccessfulHandoverAt: Long = 0L
 
     private var status: ServiceStatus = ServiceStatus.Disconnected
 
     companion object {
         private const val FOREGROUND_SERVICE_ID: Int = 2
         private const val NOTIFICATION_CHANNEL_ID: String = "RIPDPI Proxy"
+        private const val HandoverCooldownMs: Long = 10_000L
     }
 
     override fun onCreate() {
@@ -115,20 +127,16 @@ class RipDpiProxyService : LifecycleService() {
         try {
             val resolution = connectionPolicyResolver.resolve(mode = Mode.Proxy)
             matchedRememberedPolicy = resolution.matchedNetworkPolicy
-            resolution.appliedPolicy?.let { policy ->
-                activeConnectionPolicyStore.set(
-                    ActiveConnectionPolicy(
-                        mode = Mode.Proxy,
-                        policy = policy,
-                        matchedPolicy = resolution.matchedNetworkPolicy,
-                        usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
-                    ),
-                )
-            }
+            applyActiveConnectionPolicy(
+                resolution = resolution,
+                restartReason = "initial_start",
+                appliedAt = System.currentTimeMillis(),
+            )
             mutex.withLock {
                 startProxy(resolution.proxyPreferences)
             }
             updateStatus(ServiceStatus.Connected)
+            startNetworkHandoverMonitoring()
             startTelemetryUpdates()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start proxy\n${e.asLog()}" }
@@ -160,6 +168,8 @@ class RipDpiProxyService : LifecycleService() {
         mutex.withLock {
             stopping = true
             try {
+                handoverMonitorJob?.cancel()
+                handoverMonitorJob = null
                 if (!skipProxyShutdown) {
                     stopProxy()
                 } else {
@@ -175,6 +185,9 @@ class RipDpiProxyService : LifecycleService() {
         updateStatus(ServiceStatus.Disconnected)
         telemetryJob?.cancel()
         telemetryJob = null
+        pendingNetworkHandoverClass = null
+        lastSuccessfulHandoverFingerprintHash = null
+        lastSuccessfulHandoverAt = 0L
         activeConnectionPolicyStore.clear()
         stopSelf()
     }
@@ -283,11 +296,13 @@ class RipDpiProxyService : LifecycleService() {
                 currentTelemetry.proxyTelemetry
             }
         val tunnelTelemetry =
-            if (newStatus == ServiceStatus.Connected) {
-                NativeRuntimeSnapshot.idle(source = "tunnel")
-            } else {
-                currentTelemetry.tunnelTelemetry
-            }
+            applyPendingNetworkHandoverClass(
+                if (newStatus == ServiceStatus.Connected) {
+                    NativeRuntimeSnapshot.idle(source = "tunnel")
+                } else {
+                    currentTelemetry.tunnelTelemetry
+                },
+            )
         val (winningTcpStrategyFamily, winningQuicStrategyFamily, winningDnsStrategyFamily) =
             currentWinningFamilies(currentTelemetry.runtimeFieldTelemetry)
 
@@ -348,13 +363,17 @@ class RipDpiProxyService : LifecycleService() {
                             ?: NativeRuntimeSnapshot.idle(source = "proxy")
                     val (winningTcpStrategyFamily, winningQuicStrategyFamily, winningDnsStrategyFamily) =
                         currentWinningFamilies(serviceStateStore.telemetry.value.runtimeFieldTelemetry)
+                    val tunnelTelemetry =
+                        applyPendingNetworkHandoverClass(
+                            NativeRuntimeSnapshot.idle(source = "tunnel"),
+                        )
                     serviceStateStore.updateTelemetry(
                         ServiceTelemetrySnapshot(
                             mode = Mode.Proxy,
                             status = AppStatus.Running,
                             tunnelStats = proxyTelemetry.tunnelStats,
                             proxyTelemetry = proxyTelemetry,
-                            tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
+                            tunnelTelemetry = tunnelTelemetry,
                             runtimeFieldTelemetry =
                                 deriveRuntimeFieldTelemetry(
                                     telemetryNetworkFingerprintHash =
@@ -365,7 +384,7 @@ class RipDpiProxyService : LifecycleService() {
                                     winningQuicStrategyFamily = winningQuicStrategyFamily,
                                     winningDnsStrategyFamily = winningDnsStrategyFamily,
                                     proxyTelemetry = proxyTelemetry,
-                                    tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
+                                    tunnelTelemetry = tunnelTelemetry,
                                     tunnelRecoveryRetryCount = 0,
                                 ),
                             updatedAt = maxOf(System.currentTimeMillis(), proxyTelemetry.capturedAt),
@@ -396,6 +415,111 @@ class RipDpiProxyService : LifecycleService() {
     private fun currentTelemetryFingerprintHash(fallback: RuntimeFieldTelemetry): String? =
         telemetryFingerprintHasher.hash(networkFingerprintProvider.capture())
             ?: fallback.telemetryNetworkFingerprintHash
+
+    private fun startNetworkHandoverMonitoring() {
+        handoverMonitorJob?.cancel()
+        handoverMonitorJob =
+            lifecycleScope.launch {
+                networkHandoverMonitor.events.collect { event ->
+                    pendingNetworkHandoverClass = event.classification
+                    if (!event.isActionable) {
+                        return@collect
+                    }
+                    handleNetworkHandover(event)
+                }
+            }
+    }
+
+    private suspend fun handleNetworkHandover(event: NetworkHandoverEvent) {
+        if (status != ServiceStatus.Connected || stopping) {
+            return
+        }
+        val currentFingerprint = event.currentFingerprint ?: return
+        val fingerprintHash = currentFingerprint.scopeKey()
+        val now = System.currentTimeMillis()
+        if (
+            lastSuccessfulHandoverFingerprintHash == fingerprintHash &&
+            now - lastSuccessfulHandoverAt < HandoverCooldownMs
+        ) {
+            return
+        }
+
+        val previousFingerprintHash = activeConnectionPolicyStore.activePolicy.value?.fingerprintHash
+        try {
+            val resolution =
+                connectionPolicyResolver.resolve(
+                    mode = Mode.Proxy,
+                    fingerprint = currentFingerprint,
+                    handoverClassification = event.classification,
+                )
+            mutex.withLock {
+                if (status != ServiceStatus.Connected || stopping) {
+                    return
+                }
+                stopping = true
+                try {
+                    stopProxy()
+                    applyActiveConnectionPolicy(
+                        resolution = resolution,
+                        restartReason = "network_handover",
+                        appliedAt = now,
+                    )
+                    startProxy(resolution.proxyPreferences)
+                } finally {
+                    stopping = false
+                }
+            }
+
+            lastSuccessfulHandoverFingerprintHash = fingerprintHash
+            lastSuccessfulHandoverAt = now
+            policyHandoverEventStore.publish(
+                PolicyHandoverEvent(
+                    mode = Mode.Proxy,
+                    previousFingerprintHash = previousFingerprintHash,
+                    currentFingerprintHash = fingerprintHash,
+                    classification = event.classification,
+                    usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
+                    policySignature = resolution.policySignature,
+                    occurredAt = now,
+                ),
+            )
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR) { "Failed to restart proxy after handover\n${e.asLog()}" }
+            val reason = classifyFailureReason(e)
+            updateStatus(ServiceStatus.Failed, reason)
+            stop()
+        }
+    }
+
+    private fun applyActiveConnectionPolicy(
+        resolution: ConnectionPolicyResolution,
+        restartReason: String,
+        appliedAt: Long,
+    ) {
+        val policy = resolution.appliedPolicy ?: run {
+            activeConnectionPolicyStore.clear()
+            return
+        }
+        activeConnectionPolicyStore.set(
+            ActiveConnectionPolicy(
+                mode = Mode.Proxy,
+                policy = policy,
+                matchedPolicy = resolution.matchedNetworkPolicy,
+                usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
+                fingerprintHash = resolution.fingerprintHash,
+                policySignature = resolution.policySignature,
+                appliedAt = appliedAt,
+                restartReason = restartReason,
+                handoverClassification = resolution.handoverClassification,
+            ),
+        )
+    }
+
+    private fun applyPendingNetworkHandoverClass(snapshot: NativeRuntimeSnapshot): NativeRuntimeSnapshot {
+        val classification = pendingNetworkHandoverClass ?: return snapshot
+        pendingNetworkHandoverClass = null
+        return snapshot.copy(networkHandoverClass = classification)
+    }
 
     private fun createNotification(): Notification =
         createConnectionNotification(

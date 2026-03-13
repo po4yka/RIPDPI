@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.CellularNetworkIdentityTuple
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -141,21 +144,47 @@ class VpnResolverRuntimeTest {
     fun `network handover classification distinguishes transport refresh and loss`() {
         val wifi =
             NetworkFingerprint(
-                transportLabel = "wifi",
-                interfaceName = "wlan0",
+                transport = "wifi",
+                networkValidated = true,
+                captivePortalDetected = false,
+                privateDnsMode = "system",
                 dnsServers = listOf("1.1.1.1"),
+                wifi =
+                    WifiNetworkIdentityTuple(
+                        ssid = "home",
+                        bssid = "00:11:22:33:44:55",
+                        gateway = "192.168.1.1",
+                    ),
             )
         val refreshedWifi =
             NetworkFingerprint(
-                transportLabel = "wifi",
-                interfaceName = "wlan0",
+                transport = "wifi",
+                networkValidated = true,
+                captivePortalDetected = false,
+                privateDnsMode = "system",
                 dnsServers = listOf("8.8.8.8"),
+                wifi =
+                    WifiNetworkIdentityTuple(
+                        ssid = "home",
+                        bssid = "00:11:22:33:44:55",
+                        gateway = "192.168.1.1",
+                    ),
             )
         val cellular =
             NetworkFingerprint(
-                transportLabel = "cellular",
-                interfaceName = "rmnet0",
+                transport = "cellular",
+                networkValidated = true,
+                captivePortalDetected = false,
+                privateDnsMode = "system",
                 dnsServers = listOf("1.1.1.1"),
+                cellular =
+                    CellularNetworkIdentityTuple(
+                        operatorCode = "25001",
+                        simOperatorCode = "25001",
+                        carrierId = 1,
+                        dataNetworkType = "lte",
+                        roaming = false,
+                    ),
             )
 
         assertEquals("link_refresh", classifyNetworkHandover(wifi, refreshedWifi))
