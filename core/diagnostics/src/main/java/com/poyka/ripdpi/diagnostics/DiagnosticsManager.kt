@@ -3,25 +3,15 @@ package com.poyka.ripdpi.diagnostics
 import android.content.Context
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
-import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
-import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
-import com.poyka.ripdpi.core.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
-import com.poyka.ripdpi.core.stripRipDpiRuntimeContext
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.BuiltInDnsProviders
-import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
-import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySourceStrategyProbe
 import com.poyka.ripdpi.data.activeDnsSettings
-import com.poyka.ripdpi.data.strategyFamily
-import com.poyka.ripdpi.data.strategyLabel
-import com.poyka.ripdpi.data.toVpnDnsPolicyJson
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
@@ -42,7 +32,6 @@ import com.poyka.ripdpi.services.NetworkFingerprintProvider
 import com.poyka.ripdpi.services.PolicyHandoverEvent
 import com.poyka.ripdpi.services.PolicyHandoverEventStore
 import com.poyka.ripdpi.services.ResolverOverrideStore
-import com.poyka.ripdpi.services.TemporaryResolverOverride
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.Binds
 import dagger.Module
@@ -136,7 +125,6 @@ class DefaultDiagnosticsManager
         private val importBundledProfilesOnInitialize: Boolean = true,
     ) : DiagnosticsManager {
     private companion object {
-        private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
         private const val FinishedReportPollAttempts = 5
         private const val FinishedReportPollDelayMs = 100L
         private const val AutomaticProbeProfileId = "automatic-probing"
@@ -402,17 +390,16 @@ class DefaultDiagnosticsManager
 
     private suspend fun launchAutomaticHandoverProbe(event: PolicyHandoverEvent) {
         val settings = appSettingsRepository.snapshot()
-        if (!settings.networkStrategyMemoryEnabled || settings.enableCmdSettings || event.usedRememberedPolicy) {
-            return
-        }
-        if (_activeScanProgress.value != null || activeDiagnosticsBridge != null || hiddenScanCount.get() > 0) {
-            return
-        }
-
-        val probeKey = "${event.mode.preferenceValue}|${event.currentFingerprintHash}"
-        val now = System.currentTimeMillis()
-        val lastRunAt = recentAutomaticProbeRuns[probeKey]
-        if (lastRunAt != null && now - lastRunAt < automaticHandoverProbeCooldownMs) {
+        val hasActiveScan =
+            _activeScanProgress.value != null || activeDiagnosticsBridge != null || hiddenScanCount.get() > 0
+        if (!AutomaticProbeCoordinator.shouldLaunchProbe(
+                settings = settings,
+                event = event,
+                hasActiveScan = hasActiveScan,
+                recentRuns = recentAutomaticProbeRuns,
+                cooldownMs = automaticHandoverProbeCooldownMs,
+            )
+        ) {
             return
         }
 
@@ -425,7 +412,7 @@ class DefaultDiagnosticsManager
             registerActiveBridge = false,
             rawPathRunner = { block -> runtimeCoordinator.runAutomaticRawPathScan(block) },
         )
-        recentAutomaticProbeRuns[probeKey] = now
+        recentAutomaticProbeRuns[AutomaticProbeCoordinator.probeKey(event)] = System.currentTimeMillis()
     }
 
     override suspend fun setActiveProfile(profileId: String) {
@@ -610,52 +597,12 @@ class DefaultDiagnosticsManager
     private fun enrichScanReport(
         report: ScanReport,
         settings: com.poyka.ripdpi.proto.AppSettings,
-    ): ScanReport {
-        val activeDns = settings.activeDnsSettings()
-        val strategyProbe =
-            report.strategyProbeReport?.let { strategyProbe ->
-                val recommendation = strategyProbe.recommendation
-                val laneFamilies =
-                    decodeRipDpiProxyUiPreferences(recommendation.recommendedProxyConfigJson)
-                        ?.deriveStrategyLaneFamilies(activeDns = activeDns)
-                val strategySignature =
-                    decodeRipDpiProxyUiPreferences(recommendation.recommendedProxyConfigJson)
-                        ?.let { preferences ->
-                            deriveBypassStrategySignature(
-                                preferences = preferences,
-                                routeGroup = null,
-                                modeOverride = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" }),
-                            )
-                        }?.copy(
-                            dnsStrategyFamily = activeDns.strategyFamily(),
-                            dnsStrategyLabel = activeDns.strategyLabel(),
-                        )
-                val winningTcpCandidate =
-                    strategyProbe.tcpCandidates.firstOrNull { it.id == recommendation.tcpCandidateId }
-                val winningQuicCandidate =
-                    strategyProbe.quicCandidates.firstOrNull { it.id == recommendation.quicCandidateId }
-                strategyProbe.copy(
-                    recommendation =
-                        recommendation.copy(
-                            tcpCandidateFamily = winningTcpCandidate?.family ?: laneFamilies?.tcpStrategyFamily,
-                            quicCandidateFamily = winningQuicCandidate?.family ?: laneFamilies?.quicStrategyFamily,
-                            dnsStrategyFamily = activeDns.strategyFamily(),
-                            dnsStrategyLabel = activeDns.strategyLabel(),
-                            strategySignature = strategySignature,
-                        ),
-                )
-            }
-        val resolverRecommendation =
-            ResolverRecommendationEngine.compute(
-                report = report,
-                settings = settings,
-                preferredPath = scanSessionPreferredDnsPaths[report.sessionId],
-            )
-        return report.copy(
-            strategyProbeReport = strategyProbe,
-            resolverRecommendation = resolverRecommendation,
+    ): ScanReport =
+        DiagnosticsScanWorkflow.enrichScanReport(
+            report = report,
+            settings = settings,
+            preferredDnsPath = scanSessionPreferredDnsPaths[report.sessionId],
         )
-    }
 
     private suspend fun maybeApplyTemporaryResolverOverride(
         report: ScanReport,
@@ -663,12 +610,7 @@ class DefaultDiagnosticsManager
     ): ScanReport {
         val recommendation = report.resolverRecommendation ?: return report
         val (status, mode) = serviceStateStore.status.value
-        if (
-            report.strategyProbeReport != null ||
-            mode != Mode.VPN ||
-            status != com.poyka.ripdpi.data.AppStatus.Running ||
-            settings.activeDnsSettings().mode != DnsModePlainUdp
-        ) {
+        if (!DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(report, settings, status, mode)) {
             return report
         }
         installTemporaryResolverOverride(recommendation)
@@ -693,21 +635,8 @@ class DefaultDiagnosticsManager
     }
 
     private fun installTemporaryResolverOverride(recommendation: ResolverRecommendation) {
-        val selectedPath = with(ResolverRecommendationEngine) { recommendation.toEncryptedDnsPathCandidate() }
         resolverOverrideStore.setTemporaryOverride(
-            TemporaryResolverOverride(
-                resolverId = selectedPath.resolverId,
-                protocol = selectedPath.protocol,
-                host = selectedPath.host,
-                port = selectedPath.port,
-                tlsServerName = selectedPath.tlsServerName,
-                bootstrapIps = selectedPath.bootstrapIps,
-                dohUrl = selectedPath.dohUrl,
-                dnscryptProviderName = selectedPath.dnscryptProviderName,
-                dnscryptPublicKey = selectedPath.dnscryptPublicKey,
-                reason = recommendation.rationale,
-                appliedAt = System.currentTimeMillis(),
-            ),
+            DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation),
         )
     }
 
@@ -720,64 +649,20 @@ class DefaultDiagnosticsManager
             return
         }
         val strategyProbe = report.strategyProbeReport ?: return
-        if (strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1) {
-            return
-        }
-        val recommendedCandidateIds =
-            setOf(
-                strategyProbe.recommendation.tcpCandidateId,
-                strategyProbe.recommendation.quicCandidateId,
-            )
-        val hasWinningTarget =
-            (strategyProbe.tcpCandidates + strategyProbe.quicCandidates).any { candidate ->
-                candidate.id in recommendedCandidateIds && candidate.succeededTargets > 0
-            }
-        if (!hasWinningTarget) {
-            return
-        }
-        val winningTcpStrategyFamily =
-            strategyProbe.tcpCandidates.firstOrNull { it.id == strategyProbe.recommendation.tcpCandidateId }?.family
-        val winningQuicStrategyFamily =
-            strategyProbe.quicCandidates.firstOrNull { it.id == strategyProbe.recommendation.quicCandidateId }?.family
-        val winningDnsStrategyFamily =
-            strategyProbe.recommendation.dnsStrategyFamily ?: settings.activeDnsSettings().strategyFamily()
         val fingerprint = networkFingerprintProvider.capture() ?: return
-        val networkScopeKey = fingerprint.scopeKey()
-        val normalizedProxyConfigJson =
-            stripRipDpiRuntimeContext(
-                RipDpiProxyJsonPreferences(
-                    configJson = strategyProbe.recommendation.recommendedProxyConfigJson,
-                    hostAutolearnStorePath =
-                        settings
-                            .takeIf { it.hostAutolearnEnabled }
-                            ?.let { resolveHostAutolearnStorePath(context) },
-                    networkScopeKey = networkScopeKey,
-                    runtimeContext = settings.activeDnsSettings().toRipDpiRuntimeContext(),
-                ).toNativeConfigJson(),
-            )
-        val mode = Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue })
-        val dnsPolicy =
-            if (mode == Mode.VPN) {
-                settings.activeDnsSettings().toVpnDnsPolicyJson()
-            } else {
-                null
-            }
+        val policy = DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
+            strategyProbe = strategyProbe,
+            settings = settings,
+            fingerprint = fingerprint,
+            hostAutolearnStorePath =
+                settings
+                    .takeIf { it.hostAutolearnEnabled }
+                    ?.let { resolveHostAutolearnStorePath(context) },
+            json = json,
+            finishedAt = report.finishedAt,
+        ) ?: return
         rememberedNetworkPolicyStore.rememberValidatedPolicy(
-            policy =
-                RememberedNetworkPolicyJson(
-                    fingerprintHash = networkScopeKey,
-                    mode = mode.preferenceValue,
-                    summary = fingerprint.summary(),
-                    proxyConfigJson = normalizedProxyConfigJson,
-                    vpnDnsPolicy = dnsPolicy,
-                    strategySignatureJson =
-                        strategyProbe.recommendation.strategySignature?.let {
-                            json.encodeToString(BypassStrategySignature.serializer(), it)
-                        },
-                    winningTcpStrategyFamily = winningTcpStrategyFamily,
-                    winningQuicStrategyFamily = winningQuicStrategyFamily,
-                    winningDnsStrategyFamily = winningDnsStrategyFamily,
-                ),
+            policy = policy,
             source = RememberedNetworkPolicySourceStrategyProbe,
             now = report.finishedAt,
         )
