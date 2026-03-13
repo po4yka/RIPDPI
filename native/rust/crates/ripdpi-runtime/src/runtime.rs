@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -10,9 +10,13 @@ use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::platform;
 use crate::process;
+use crate::retry_stealth::{
+    adaptive_signature_hash, target_key, RetryDecision, RetryLane, RetryPacer, RetrySignature,
+};
 use crate::runtime_policy::{
     extract_host, extract_host_info, group_requires_payload, route_matches_payload, select_initial_group,
-    select_next_group, ConnectionRoute, HostSource, RouteAdvance, RuntimeCache, TransportProtocol,
+    select_next_group, ConnectionRoute, HostSource, RetrySelectionPenalty, RouteAdvance, RuntimeCache,
+    TransportProtocol,
 };
 use crate::{current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
 use ciadpi_config::{
@@ -24,6 +28,7 @@ use ciadpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes, plan_tcp, plan_udp,
     resolve_hostfake_span, ActivationContext, ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan,
 };
+use ciadpi_packets::parse_quic_initial;
 use ciadpi_session::{
     detect_response_trigger, encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply,
     parse_http_connect_request, parse_socks4_request, parse_socks5_request, ClientRequest, OutboundProgress,
@@ -51,6 +56,7 @@ struct RuntimeState {
     cache: Arc<Mutex<RuntimeCache>>,
     adaptive_fake_ttl: Arc<Mutex<AdaptiveFakeTtlResolver>>,
     adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
+    retry_stealth: Arc<Mutex<RetryPacer>>,
     active_clients: Arc<AtomicUsize>,
     telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
@@ -102,6 +108,7 @@ fn run_proxy_with_listener_internal(
         cache: Arc::new(Mutex::new(cache)),
         adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
         adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
+        retry_stealth: Arc::new(Mutex::new(RetryPacer::default())),
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry),
         runtime_context: control.as_ref().and_then(|value| value.runtime_context()),
@@ -587,6 +594,7 @@ fn maybe_delay_connect(
             TransportProtocol::Tcp,
             0,
             true,
+            None,
         )
         .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
     };
@@ -800,6 +808,14 @@ fn advance_route_for_failure(
         return Ok(None);
     }
 
+    let _ = note_retry_failure(
+        state,
+        target,
+        route.group_index,
+        host.as_deref(),
+        payload,
+        TransportProtocol::Tcp,
+    )?;
     let penalize = failure_penalizes_strategy(failure);
     if penalize {
         if let Some(payload) = payload {
@@ -808,6 +824,13 @@ fn advance_route_for_failure(
         note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
     }
 
+    let retry_penalties = build_retry_selection_penalties(
+        state,
+        target,
+        host.as_deref(),
+        payload,
+        TransportProtocol::Tcp,
+    )?;
     let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
     let next = cache.advance_route(
         &state.config,
@@ -820,9 +843,14 @@ fn advance_route_for_failure(
             can_reconnect: true,
             host: host.clone(),
             penalize_strategy_failure: penalize,
+            retry_penalties: Some(&retry_penalties),
         },
     )?;
     flush_autolearn_updates(state, &mut cache);
+    drop(cache);
+    if let Some(next_route) = next.as_ref() {
+        maybe_emit_candidate_diversification(state, target, next_route, &retry_penalties);
+    }
     if let (Some(telemetry), Some(next_route)) = (&state.telemetry, next.as_ref()) {
         telemetry.on_route_advanced(target, route.group_index, next_route.group_index, trigger, host.as_deref());
     }
@@ -1034,7 +1062,7 @@ fn resolve_adaptive_tcp_hints(
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
-    Ok(resolver.resolve_tcp_hints(group_index, target, host, group, payload))
+    Ok(resolver.resolve_tcp_hints(network_scope_key(&state.config), group_index, target, host, group, payload))
 }
 
 fn resolve_adaptive_udp_hints(
@@ -1046,7 +1074,7 @@ fn resolve_adaptive_udp_hints(
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
-    Ok(resolver.resolve_udp_hints(group_index, target, host, group, payload))
+    Ok(resolver.resolve_udp_hints(network_scope_key(&state.config), group_index, target, host, group, payload))
 }
 
 fn note_adaptive_tcp_success(
@@ -1057,7 +1085,7 @@ fn note_adaptive_tcp_success(
     payload: &[u8],
 ) -> io::Result<()> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
-    resolver.note_tcp_success(group_index, target, host, payload);
+    resolver.note_tcp_success(network_scope_key(&state.config), group_index, target, host, payload);
     Ok(())
 }
 
@@ -1069,7 +1097,7 @@ fn note_adaptive_tcp_failure(
     payload: &[u8],
 ) -> io::Result<()> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
-    resolver.note_tcp_failure(group_index, target, host, payload);
+    resolver.note_tcp_failure(network_scope_key(&state.config), group_index, target, host, payload);
     Ok(())
 }
 
@@ -1081,7 +1109,7 @@ fn note_adaptive_udp_success(
     payload: &[u8],
 ) -> io::Result<()> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
-    resolver.note_udp_success(group_index, target, host, payload);
+    resolver.note_udp_success(network_scope_key(&state.config), group_index, target, host, payload);
     Ok(())
 }
 
@@ -1093,8 +1121,150 @@ fn note_adaptive_udp_failure(
     payload: &[u8],
 ) -> io::Result<()> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
-    resolver.note_udp_failure(group_index, target, host, payload);
+    resolver.note_udp_failure(network_scope_key(&state.config), group_index, target, host, payload);
     Ok(())
+}
+
+fn build_retry_signature(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    host: Option<&str>,
+    payload: Option<&[u8]>,
+    transport: TransportProtocol,
+) -> io::Result<Option<RetrySignature>> {
+    let Some(group) = state.config.groups.get(group_index) else {
+        return Ok(None);
+    };
+    let resolved_fake_ttl = resolve_adaptive_fake_ttl(state, target, group_index, group, host)?;
+    let adaptive_hints = match (transport, payload) {
+        (TransportProtocol::Tcp, Some(bytes)) => resolve_adaptive_tcp_hints(state, target, group_index, group, host, bytes)?,
+        (TransportProtocol::Udp, Some(bytes)) => resolve_adaptive_udp_hints(state, target, group_index, group, host, bytes)?,
+        _ => AdaptivePlannerHints::default(),
+    };
+    Ok(Some(RetrySignature::new(
+        network_scope_key(&state.config).unwrap_or("default"),
+        retry_lane(transport, payload),
+        target_key(host, target),
+        group_index,
+        adaptive_signature_hash(resolved_fake_ttl, &adaptive_hints),
+    )))
+}
+
+fn retry_lane(transport: TransportProtocol, payload: Option<&[u8]>) -> RetryLane {
+    match transport {
+        TransportProtocol::Tcp if payload.is_some_and(ciadpi_packets::is_tls_client_hello) => RetryLane::TcpTls,
+        TransportProtocol::Tcp => RetryLane::TcpOther,
+        TransportProtocol::Udp if payload.is_some_and(|bytes| parse_quic_initial(bytes).is_some()) => RetryLane::UdpQuic,
+        TransportProtocol::Udp => RetryLane::UdpOther,
+    }
+}
+
+fn note_retry_success(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    host: Option<&str>,
+    payload: Option<&[u8]>,
+    transport: TransportProtocol,
+) -> io::Result<()> {
+    let Some(signature) = build_retry_signature(state, target, group_index, host, payload, transport)? else {
+        return Ok(());
+    };
+    let mut pacer = state.retry_stealth.lock().map_err(|_| io::Error::other("retry pacing mutex poisoned"))?;
+    pacer.clear_success(&signature);
+    Ok(())
+}
+
+fn note_retry_failure(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    host: Option<&str>,
+    payload: Option<&[u8]>,
+    transport: TransportProtocol,
+) -> io::Result<Option<RetryDecision>> {
+    let Some(signature) = build_retry_signature(state, target, group_index, host, payload, transport)? else {
+        return Ok(None);
+    };
+    let mut pacer = state.retry_stealth.lock().map_err(|_| io::Error::other("retry pacing mutex poisoned"))?;
+    Ok(Some(pacer.record_failure(&signature, now_millis())))
+}
+
+fn build_retry_selection_penalties(
+    state: &RuntimeState,
+    target: SocketAddr,
+    host: Option<&str>,
+    payload: Option<&[u8]>,
+    transport: TransportProtocol,
+) -> io::Result<BTreeMap<usize, RetrySelectionPenalty>> {
+    let now_ms = now_millis();
+    let mut penalties = BTreeMap::new();
+    let pacer = state.retry_stealth.lock().map_err(|_| io::Error::other("retry pacing mutex poisoned"))?;
+    for group_index in 0..state.config.groups.len() {
+        if let Some(signature) = build_retry_signature(state, target, group_index, host, payload, transport)? {
+            penalties.insert(group_index, pacer.penalty_for(&signature, now_ms));
+        }
+    }
+    Ok(penalties)
+}
+
+fn maybe_emit_candidate_diversification(
+    state: &RuntimeState,
+    target: SocketAddr,
+    route: &ConnectionRoute,
+    penalties: &BTreeMap<usize, RetrySelectionPenalty>,
+) {
+    let Some(selected_penalty) = penalties.get(&route.group_index).copied() else {
+        return;
+    };
+    let cooled_alternative_exists = penalties.iter().any(|(group_index, penalty)| {
+        *group_index != route.group_index
+            && (penalty.same_signature_cooldown_ms > 0 || penalty.family_cooldown_ms > 0)
+    });
+    if !cooled_alternative_exists || (selected_penalty.same_signature_cooldown_ms > 0 && selected_penalty.family_cooldown_ms > 0)
+    {
+        return;
+    }
+    if let Some(telemetry) = &state.telemetry {
+        telemetry.on_retry_paced(target, route.group_index, "candidate_order_diversified", 0);
+    }
+}
+
+fn apply_retry_pacing_before_connect(
+    state: &RuntimeState,
+    target: SocketAddr,
+    route: &ConnectionRoute,
+    host: Option<&str>,
+    payload: Option<&[u8]>,
+) -> io::Result<()> {
+    let Some(signature) = build_retry_signature(state, target, route.group_index, host, payload, TransportProtocol::Tcp)?
+    else {
+        return Ok(());
+    };
+    let decision = {
+        let pacer = state.retry_stealth.lock().map_err(|_| io::Error::other("retry pacing mutex poisoned"))?;
+        pacer.retry_delay_for(&signature, now_millis())
+    };
+    let Some(decision) = decision.filter(|value| value.backoff_ms > 0) else {
+        return Ok(());
+    };
+    if let Some(telemetry) = &state.telemetry {
+        telemetry.on_retry_paced(target, route.group_index, decision.reason, decision.backoff_ms);
+    }
+    thread::sleep(Duration::from_millis(decision.backoff_ms));
+    Ok(())
+}
+
+fn network_scope_key(config: &RuntimeConfig) -> Option<&str> {
+    config.network_scope_key.as_deref().map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map_or(0, |value| value.as_millis().min(u128::from(u64::MAX)) as u64)
 }
 
 fn connect_target_via_group(target: SocketAddr, state: &RuntimeState, group_index: usize) -> io::Result<TcpStream> {
@@ -1296,6 +1466,14 @@ fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running: Arc<Atomic
                                 entry.host.as_deref(),
                                 &entry.payload,
                             )?;
+                            note_retry_success(
+                                &state,
+                                sender,
+                                entry.route.group_index,
+                                entry.host.as_deref(),
+                                Some(&entry.payload),
+                                TransportProtocol::Udp,
+                            )?;
                             note_route_success_for_transport(
                                 &state,
                                 sender,
@@ -1335,7 +1513,22 @@ fn expire_udp_flows(
         if !entry.awaiting_response {
             continue;
         }
+        let _ = note_retry_failure(
+            state,
+            target,
+            entry.route.group_index,
+            entry.host.as_deref(),
+            Some(entry.payload.as_slice()),
+            TransportProtocol::Udp,
+        )?;
         note_adaptive_udp_failure(state, target, entry.route.group_index, entry.host.as_deref(), &entry.payload)?;
+        let retry_penalties = build_retry_selection_penalties(
+            state,
+            target,
+            entry.host.as_deref(),
+            Some(entry.payload.as_slice()),
+            TransportProtocol::Udp,
+        )?;
         let next = {
             let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
             let next = cache.advance_route(
@@ -1349,11 +1542,15 @@ fn expire_udp_flows(
                     can_reconnect: true,
                     host: entry.host.clone(),
                     penalize_strategy_failure: false,
+                    retry_penalties: Some(&retry_penalties),
                 },
             )?;
             flush_autolearn_updates(state, &mut cache);
             next
         };
+        if let Some(next_route) = next.as_ref() {
+            maybe_emit_candidate_diversification(state, target, next_route, &retry_penalties);
+        }
         if let (Some(telemetry), Some(next)) = (&state.telemetry, next) {
             telemetry.on_route_advanced(
                 target,
@@ -1570,6 +1767,14 @@ fn relay(
                                 host.as_deref(),
                                 &original_request,
                             )?;
+                            note_retry_success(
+                                state,
+                                target,
+                                route.group_index,
+                                host.as_deref(),
+                                Some(&original_request),
+                                TransportProtocol::Tcp,
+                            )?;
                             note_adaptive_fake_ttl_success(state, target, route.group_index, host.as_deref())?;
                             note_route_success(state, target, &route, host.as_deref())?;
                             success_recorded = true;
@@ -1615,6 +1820,14 @@ fn relay(
     if !success_recorded && final_state.recv_count > 0 {
         if let Some(ref request) = success_payload {
             note_adaptive_tcp_success(state, target, route.group_index, success_host.as_deref(), request)?;
+            note_retry_success(
+                state,
+                target,
+                route.group_index,
+                success_host.as_deref(),
+                Some(request),
+                TransportProtocol::Tcp,
+            )?;
         }
         note_adaptive_fake_ttl_success(state, target, route.group_index, success_host.as_deref())?;
         note_route_success(state, target, &route, success_host.as_deref())?;
@@ -1942,6 +2155,7 @@ fn reconnect_target(
     payload: Option<&[u8]>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
     loop {
+        apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
         match connect_target_via_group(target, state, route.group_index) {
             Ok(stream) => return Ok((stream, route)),
             Err(err) => {

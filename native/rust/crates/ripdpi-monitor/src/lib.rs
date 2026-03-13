@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::fmt::Debug;
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpStream, ToSocketAddrs, UdpSocket};
@@ -861,6 +861,7 @@ fn run_strategy_probe_scan(
         short_circuit_hostfake,
         short_circuit_quic_burst,
     } = suite;
+    let probe_seed = probe_session_seed(base_payload.network_scope_key.as_deref(), &session_id);
 
     if let Some(baseline) = detect_strategy_probe_dns_tampering(&request.domain_targets, runtime_context.as_ref()) {
         push_event(
@@ -963,7 +964,12 @@ fn run_strategy_probe_scan(
         "info",
         format!("Testing TCP candidate {}", baseline_spec.label),
     );
-    let baseline_execution = execute_tcp_candidate(baseline_spec, &request.domain_targets, runtime_context.as_ref());
+    let baseline_execution = execute_tcp_candidate(
+        baseline_spec,
+        &request.domain_targets,
+        runtime_context.as_ref(),
+        probe_seed,
+    );
     let baseline_failure = classify_strategy_probe_baseline_results(&baseline_execution.results);
     results.extend(baseline_execution.results);
     if let Some(failure) = &baseline_failure {
@@ -986,9 +992,27 @@ fn run_strategy_probe_scan(
     }
     tcp_candidates.push(baseline_execution.summary);
     completed_steps += 1;
+    if !tcp_specs.is_empty() && tcp_specs.len() > 1 {
+        thread::sleep(Duration::from_millis(candidate_pause_ms(
+            probe_seed,
+            baseline_spec,
+            baseline_failure.is_some(),
+        )));
+    }
 
-    let ordered_tcp_specs = reorder_tcp_candidates_for_failure(&tcp_specs, baseline_failure.as_ref().map(|value| value.class));
-    for spec in ordered_tcp_specs.iter().skip(1) {
+    let ordered_tcp_specs = interleave_candidate_families(
+        reorder_tcp_candidates_for_failure(&tcp_specs, baseline_failure.as_ref().map(|value| value.class))
+            .into_iter()
+            .skip(1)
+            .collect(),
+        probe_seed,
+    );
+    let mut pending_tcp_specs = ordered_tcp_specs;
+    let mut blocked_tcp_family = None::<&'static str>;
+    let mut last_failed_tcp_family = None::<&'static str>;
+    let mut consecutive_tcp_family_failures = 0usize;
+    while !pending_tcp_specs.is_empty() {
+        let spec = pending_tcp_specs.remove(next_candidate_index(&pending_tcp_specs, blocked_tcp_family));
         if cancel.load(Ordering::Relaxed) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
             return;
@@ -996,7 +1020,7 @@ fn run_strategy_probe_scan(
 
         if short_circuit_hostfake && spec.family == "hostfake" && hostfake_family_succeeded {
             tcp_candidates.push(skipped_candidate_summary(
-                spec,
+                &spec,
                 request.domain_targets.len() * 2,
                 6,
                 "Earlier hostfake candidate already achieved full success",
@@ -1028,7 +1052,7 @@ fn run_strategy_probe_scan(
             },
         );
         push_event(&shared, "strategy_probe", "info", format!("Testing TCP candidate {}", spec.label));
-        let execution = execute_tcp_candidate(spec, &request.domain_targets, runtime_context.as_ref());
+        let execution = execute_tcp_candidate(&spec, &request.domain_targets, runtime_context.as_ref(), probe_seed);
         results.extend(execution.results);
         if execution.summary.family == "hostfake"
             && execution.summary.succeeded_targets == execution.summary.total_targets
@@ -1037,6 +1061,29 @@ fn run_strategy_probe_scan(
         }
         tcp_candidates.push(execution.summary);
         completed_steps += 1;
+        let failed = tcp_candidates.last().is_some_and(|summary| summary.outcome == "failed");
+        if failed {
+            if last_failed_tcp_family == Some(spec.family) {
+                consecutive_tcp_family_failures += 1;
+            } else {
+                last_failed_tcp_family = Some(spec.family);
+                consecutive_tcp_family_failures = 1;
+            }
+            if consecutive_tcp_family_failures >= 2 {
+                blocked_tcp_family = Some(spec.family);
+                consecutive_tcp_family_failures = 0;
+            }
+        } else {
+            last_failed_tcp_family = None;
+            consecutive_tcp_family_failures = 0;
+            blocked_tcp_family = None;
+        }
+        if blocked_tcp_family.is_some() && spec.family != blocked_tcp_family.unwrap_or_default() {
+            blocked_tcp_family = None;
+        }
+        if !pending_tcp_specs.is_empty() {
+            thread::sleep(Duration::from_millis(candidate_pause_ms(probe_seed, &spec, failed)));
+        }
     }
 
     let winning_tcp = winning_candidate_index(&tcp_candidates).unwrap_or(0);
@@ -1051,7 +1098,12 @@ fn run_strategy_probe_scan(
         build_quic_candidates_for_suite(suite_id, &tcp_winner_spec.config).unwrap_or_else(|_| preview_quic_specs.clone()),
         baseline_failure.as_ref().map(|value| value.class),
     );
-    for spec in &quic_specs {
+    let mut pending_quic_specs = interleave_candidate_families(quic_specs.clone(), stable_probe_hash(probe_seed, "quic"));
+    let mut blocked_quic_family = None::<&'static str>;
+    let mut last_failed_quic_family = None::<&'static str>;
+    let mut consecutive_quic_family_failures = 0usize;
+    while !pending_quic_specs.is_empty() {
+        let spec = pending_quic_specs.remove(next_candidate_index(&pending_quic_specs, blocked_quic_family));
         if cancel.load(Ordering::Relaxed) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
             return;
@@ -1059,7 +1111,7 @@ fn run_strategy_probe_scan(
 
         if short_circuit_quic_burst && spec.family == "quic_burst" && quic_family_succeeded {
             quic_candidates.push(skipped_candidate_summary(
-                spec,
+                &spec,
                 request.quic_targets.len(),
                 2,
                 "Earlier QUIC burst candidate already achieved full success",
@@ -1091,7 +1143,7 @@ fn run_strategy_probe_scan(
             },
         );
         push_event(&shared, "strategy_probe", "info", format!("Testing QUIC candidate {}", spec.label));
-        let execution = execute_quic_candidate(spec, &request.quic_targets, runtime_context.as_ref());
+        let execution = execute_quic_candidate(&spec, &request.quic_targets, runtime_context.as_ref(), probe_seed);
         results.extend(execution.results);
         if execution.summary.family == "quic_burst"
             && execution.summary.succeeded_targets == execution.summary.total_targets
@@ -1101,6 +1153,29 @@ fn run_strategy_probe_scan(
         }
         quic_candidates.push(execution.summary);
         completed_steps += 1;
+        let failed = quic_candidates.last().is_some_and(|summary| summary.outcome == "failed");
+        if failed {
+            if last_failed_quic_family == Some(spec.family) {
+                consecutive_quic_family_failures += 1;
+            } else {
+                last_failed_quic_family = Some(spec.family);
+                consecutive_quic_family_failures = 1;
+            }
+            if consecutive_quic_family_failures >= 2 {
+                blocked_quic_family = Some(spec.family);
+                consecutive_quic_family_failures = 0;
+            }
+        } else {
+            last_failed_quic_family = None;
+            consecutive_quic_family_failures = 0;
+            blocked_quic_family = None;
+        }
+        if blocked_quic_family.is_some() && spec.family != blocked_quic_family.unwrap_or_default() {
+            blocked_quic_family = None;
+        }
+        if !pending_quic_specs.is_empty() {
+            thread::sleep(Duration::from_millis(candidate_pause_ms(probe_seed, &spec, failed)));
+        }
     }
 
     if let Some(quic_failure) = classify_strategy_probe_baseline_results(
@@ -1538,6 +1613,80 @@ fn filter_quic_candidates_for_failure(
         .collect()
 }
 
+fn probe_session_seed(network_scope_key: Option<&str>, session_id: &str) -> u64 {
+    stable_probe_hash(
+        stable_probe_hash(0x9e37_79b9_7f4a_7c15, network_scope_key.unwrap_or("default")),
+        session_id,
+    )
+}
+
+fn interleave_candidate_families(mut candidates: Vec<StrategyCandidateSpec>, seed: u64) -> Vec<StrategyCandidateSpec> {
+    let mut families = BTreeMap::<&'static str, Vec<StrategyCandidateSpec>>::new();
+    for candidate in candidates.drain(..) {
+        families.entry(candidate.family).or_default().push(candidate);
+    }
+    let mut family_order = families.keys().copied().collect::<Vec<_>>();
+    family_order.sort_by_key(|family| stable_probe_hash(seed, family));
+    for family in &family_order {
+        if let Some(entries) = families.get_mut(family) {
+            entries.sort_by_key(|candidate| stable_probe_hash(seed, candidate.id));
+        }
+    }
+    let mut ordered = Vec::new();
+    loop {
+        let mut progressed = false;
+        for family in &family_order {
+            let Some(entries) = families.get_mut(family) else {
+                continue;
+            };
+            if entries.is_empty() {
+                continue;
+            }
+            ordered.push(entries.remove(0));
+            progressed = true;
+        }
+        if !progressed {
+            break;
+        }
+    }
+    ordered
+}
+
+fn next_candidate_index(candidates: &[StrategyCandidateSpec], blocked_family: Option<&str>) -> usize {
+    blocked_family
+        .and_then(|blocked| candidates.iter().position(|candidate| candidate.family != blocked))
+        .unwrap_or(0)
+}
+
+fn candidate_pause_ms(seed: u64, candidate: &StrategyCandidateSpec, failed: bool) -> u64 {
+    if failed {
+        ranged_probe_delay(seed, candidate.id, "candidate_failed", 400, 900)
+    } else {
+        ranged_probe_delay(seed, candidate.id, "candidate_gap", 120, 350)
+    }
+}
+
+fn target_probe_pause_ms(seed: u64, candidate: &StrategyCandidateSpec, target_key: &str) -> u64 {
+    ranged_probe_delay(seed, candidate.id, target_key, 120, 350)
+}
+
+fn ranged_probe_delay(seed: u64, lhs: &str, rhs: &str, min_ms: u64, max_ms: u64) -> u64 {
+    if max_ms <= min_ms {
+        return min_ms;
+    }
+    let spread = max_ms - min_ms;
+    min_ms + (stable_probe_hash(stable_probe_hash(seed, lhs), rhs) % (spread + 1))
+}
+
+fn stable_probe_hash(seed: u64, value: &str) -> u64 {
+    let mut hash = seed ^ 0xcbf29ce484222325;
+    for byte in value.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
 fn build_strategy_probe_suite(suite_id: &str, base: &ProxyUiConfig) -> Result<StrategyProbeSuite, String> {
     match suite_id {
         STRATEGY_PROBE_SUITE_QUICK_V1 => Ok(StrategyProbeSuite {
@@ -1923,6 +2072,7 @@ fn execute_tcp_candidate(
     spec: &StrategyCandidateSpec,
     targets: &[DomainTarget],
     runtime_context: Option<&ProxyRuntimeContext>,
+    probe_seed: u64,
 ) -> CandidateExecution {
     if targets.is_empty() {
         return not_applicable_candidate_execution(spec, 0, 3, "No HTTP or HTTPS targets configured");
@@ -1932,7 +2082,12 @@ fn execute_tcp_candidate(
             let transport = runtime.transport();
             run_candidate_warmup(spec, &transport, targets);
             let mut score = CandidateScore::default();
-            for target in targets {
+            let mut ordered_targets = targets.to_vec();
+            ordered_targets.sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
+            for (index, target) in ordered_targets.iter().enumerate() {
+                if index > 0 {
+                    thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &target.host)));
+                }
                 score.add(run_http_strategy_probe(&transport, target, spec));
                 score.add(run_https_strategy_probe(&transport, target, spec));
             }
@@ -1947,6 +2102,7 @@ fn execute_quic_candidate(
     spec: &StrategyCandidateSpec,
     targets: &[QuicTarget],
     runtime_context: Option<&ProxyRuntimeContext>,
+    probe_seed: u64,
 ) -> CandidateExecution {
     if targets.is_empty() {
         return not_applicable_candidate_execution(spec, 0, 2, "No QUIC targets configured");
@@ -1955,7 +2111,12 @@ fn execute_quic_candidate(
         Ok(runtime) => {
             let transport = runtime.transport();
             let mut score = CandidateScore::default();
-            for target in targets {
+            let mut ordered_targets = targets.to_vec();
+            ordered_targets.sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
+            for (index, target) in ordered_targets.iter().enumerate() {
+                if index > 0 {
+                    thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &target.host)));
+                }
                 score.add(run_quic_strategy_probe(&transport, target, spec));
             }
             drop(runtime);
@@ -4026,6 +4187,39 @@ mod tests {
         let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
         assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake"]);
+    }
+
+    #[test]
+    fn interleaving_probe_candidates_breaks_same_family_blocks() {
+        let base = minimal_ui_config();
+        let ordered = interleave_candidate_families(
+            vec![
+                candidate_spec("parser_a", "Parser A", "parser", base.clone()),
+                candidate_spec("parser_b", "Parser B", "parser", base.clone()),
+                candidate_spec("split_a", "Split A", "split", base.clone()),
+                candidate_spec("hostfake_a", "Hostfake A", "hostfake", base),
+            ],
+            42,
+        );
+        let families = ordered.iter().map(|candidate| candidate.family).collect::<Vec<_>>();
+
+        assert_eq!(families.len(), 4);
+        assert_ne!(families[0], families[1]);
+        assert!(families.windows(3).any(|window| window[0] != window[1] && window[1] != window[2]));
+    }
+
+    #[test]
+    fn blocked_family_selection_prefers_another_family_when_available() {
+        let base = minimal_ui_config();
+        let candidates = vec![
+            candidate_spec("parser_a", "Parser A", "parser", base.clone()),
+            candidate_spec("parser_b", "Parser B", "parser", base.clone()),
+            candidate_spec("split_a", "Split A", "split", base),
+        ];
+
+        let index = next_candidate_index(&candidates, Some("parser"));
+
+        assert_eq!(candidates[index].family, "split");
     }
 
     #[test]

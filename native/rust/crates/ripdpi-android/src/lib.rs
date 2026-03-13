@@ -147,6 +147,10 @@ struct NativeRuntimeSnapshot {
     total_errors: u64,
     network_errors: u64,
     route_changes: u64,
+    retry_paced_count: u64,
+    last_retry_backoff_ms: Option<u64>,
+    last_retry_reason: Option<String>,
+    candidate_diversification_count: u64,
     last_route_group: Option<i32>,
     last_failure_class: Option<String>,
     last_fallback_action: Option<String>,
@@ -176,6 +180,7 @@ struct TelemetryStrings {
     last_error: Option<String>,
     last_failure_class: Option<String>,
     last_fallback_action: Option<String>,
+    last_retry_reason: Option<String>,
     last_autolearn_host: Option<String>,
     last_autolearn_action: Option<String>,
     events: VecDeque<NativeRuntimeEvent>,
@@ -188,6 +193,9 @@ struct ProxyTelemetryState {
     total_errors: AtomicU64,
     network_errors: AtomicU64,
     route_changes: AtomicU64,
+    retry_paced_count: AtomicU64,
+    last_retry_backoff_ms: AtomicU64,
+    candidate_diversification_count: AtomicU64,
     last_route_group: AtomicI64,
     autolearn_enabled: AtomicBool,
     learned_host_count: AtomicU64,
@@ -205,6 +213,9 @@ impl ProxyTelemetryState {
             total_errors: AtomicU64::new(0),
             network_errors: AtomicU64::new(0),
             route_changes: AtomicU64::new(0),
+            retry_paced_count: AtomicU64::new(0),
+            last_retry_backoff_ms: AtomicU64::new(0),
+            candidate_diversification_count: AtomicU64::new(0),
             last_route_group: AtomicI64::new(-1),
             autolearn_enabled: AtomicBool::new(false),
             learned_host_count: AtomicU64::new(0),
@@ -219,6 +230,7 @@ impl ProxyTelemetryState {
                 last_error: None,
                 last_failure_class: None,
                 last_fallback_action: None,
+                last_retry_reason: None,
                 last_autolearn_host: None,
                 last_autolearn_action: None,
                 events: VecDeque::with_capacity(MAX_PROXY_EVENTS),
@@ -345,6 +357,25 @@ impl ProxyTelemetryState {
         }
     }
 
+    fn on_retry_paced(&self, target: String, group_index: usize, reason: &'static str, backoff_ms: u64) {
+        if backoff_ms > 0 {
+            self.retry_paced_count.fetch_add(1, Ordering::Relaxed);
+        }
+        self.last_retry_backoff_ms.store(backoff_ms, Ordering::Relaxed);
+        if reason == "candidate_order_diversified" {
+            self.candidate_diversification_count.fetch_add(1, Ordering::Relaxed);
+        }
+        let message = format!(
+            "retry pacing target={} group={} reason={} backoffMs={}",
+            target, group_index, reason, backoff_ms
+        );
+        if let Ok(mut guard) = self.strings.lock() {
+            guard.last_target = Some(target);
+            guard.last_retry_reason = Some(reason.to_string());
+            Self::push_event_to(&mut guard.events, "proxy", "info", message);
+        }
+    }
+
     fn on_upstream_connected(&self, upstream_address: String, upstream_rtt_ms: Option<u64>) {
         if let Ok(mut guard) = self.strings.lock() {
             guard.upstream_address = Some(upstream_address);
@@ -389,6 +420,7 @@ impl ProxyTelemetryState {
             last_error,
             last_failure_class,
             last_fallback_action,
+            last_retry_reason,
             last_autolearn_host,
             last_autolearn_action,
             native_events,
@@ -402,12 +434,13 @@ impl ProxyTelemetryState {
                 guard.last_error.clone(),
                 guard.last_failure_class.clone(),
                 guard.last_fallback_action.clone(),
+                guard.last_retry_reason.clone(),
                 guard.last_autolearn_host.clone(),
                 guard.last_autolearn_action.clone(),
                 guard.events.drain(..).collect(),
             )
         } else {
-            (None, None, None, None, None, None, None, None, None, None, Vec::new())
+            (None, None, None, None, None, None, None, None, None, None, None, Vec::new())
         };
 
         NativeRuntimeSnapshot {
@@ -427,6 +460,13 @@ impl ProxyTelemetryState {
             total_errors: self.total_errors.load(Ordering::Relaxed),
             network_errors: self.network_errors.load(Ordering::Relaxed),
             route_changes: self.route_changes.load(Ordering::Relaxed),
+            retry_paced_count: self.retry_paced_count.load(Ordering::Relaxed),
+            last_retry_backoff_ms: match self.last_retry_backoff_ms.load(Ordering::Relaxed) {
+                0 => None,
+                value => Some(value),
+            },
+            last_retry_reason,
+            candidate_diversification_count: self.candidate_diversification_count.load(Ordering::Relaxed),
             last_route_group: match self.last_route_group.load(Ordering::Relaxed) {
                 value if value >= 0 => i32::try_from(value).ok(),
                 _ => None,
@@ -546,6 +586,16 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         host: Option<&str>,
     ) {
         self.state.on_route_advanced(target.to_string(), from_group, to_group, trigger, host.map(ToOwned::to_owned));
+    }
+
+    fn on_retry_paced(
+        &self,
+        target: std::net::SocketAddr,
+        group_index: usize,
+        reason: &'static str,
+        backoff_ms: u64,
+    ) {
+        self.state.on_retry_paced(target.to_string(), group_index, reason, backoff_ms);
     }
 
     fn on_host_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
