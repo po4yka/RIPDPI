@@ -600,4 +600,55 @@ mod tests {
         assert_eq!(isolated.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Balanced));
         assert_eq!(isolated.quic_fake_profile, Some(QuicFakeProfile::RealisticInitial));
     }
+
+    #[test]
+    fn tcp_feedback_is_scoped_by_network_scope_key() {
+        let payload = b"GET / HTTP/1.1\r\nHost: video.example.test\r\n\r\n";
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost))];
+
+        let mut resolver = AdaptivePlannerResolver::default();
+        let target = addr(443);
+
+        let baseline = resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("video.example.test"), &group, payload);
+        resolver.note_tcp_failure(Some("scope-a"), 0, target, Some("video.example.test"), payload);
+        let advanced = resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("video.example.test"), &group, payload);
+        let isolated = resolver.resolve_tcp_hints(Some("scope-b"), 0, target, Some("video.example.test"), &group, payload);
+
+        assert_ne!(baseline.split_offset_base, advanced.split_offset_base);
+        assert_eq!(isolated.split_offset_base, baseline.split_offset_base);
+    }
+
+    #[test]
+    fn adaptive_dimension_order_is_stable_within_same_scope() {
+        let payload = b"GET / HTTP/1.1\r\nHost: docs.example.test\r\n\r\n";
+        let mut group = DesyncGroup::new(0);
+        group.tcp_chain = vec![
+            TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost)),
+            TcpChainStep {
+                kind: TcpChainStepKind::TlsRandRec,
+                offset: OffsetExpr::adaptive(OffsetBase::AutoSniExt),
+                activation_filter: None,
+                midhost_offset: None,
+                fake_host_template: None,
+                fragment_count: 3,
+                min_fragment_size: 12,
+                max_fragment_size: 64,
+            },
+        ];
+        let target = addr(443);
+
+        let mut first = AdaptivePlannerResolver::default();
+        let base_first = first.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
+        first.note_tcp_failure(Some("scope-a"), 0, target, Some("docs.example.test"), payload);
+        let next_first = first.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
+
+        let mut second = AdaptivePlannerResolver::default();
+        let base_second = second.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
+        second.note_tcp_failure(Some("scope-a"), 0, target, Some("docs.example.test"), payload);
+        let next_second = second.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
+
+        assert_eq!(base_first, base_second);
+        assert_eq!(next_first, next_second);
+    }
 }

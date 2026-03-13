@@ -4223,6 +4223,41 @@ mod tests {
     }
 
     #[test]
+    fn probe_session_seed_is_stable_and_scope_sensitive() {
+        let stable_a = probe_session_seed(Some("scope-a"), "session-1");
+        let stable_b = probe_session_seed(Some("scope-a"), "session-1");
+        let different_scope = probe_session_seed(Some("scope-b"), "session-1");
+        let different_session = probe_session_seed(Some("scope-a"), "session-2");
+
+        assert_eq!(stable_a, stable_b);
+        assert_ne!(stable_a, different_scope);
+        assert_ne!(stable_a, different_session);
+    }
+
+    #[test]
+    fn candidate_pause_ranges_match_success_and_failure_budgets() {
+        let candidate = candidate_spec("parser_a", "Parser A", "parser", minimal_ui_config());
+        let normal = candidate_pause_ms(42, &candidate, false);
+        let failed = candidate_pause_ms(42, &candidate, true);
+
+        assert!((120..=350).contains(&normal));
+        assert!((400..=900).contains(&failed));
+    }
+
+    #[test]
+    fn target_probe_pause_is_deterministic_for_same_seed_candidate_and_target() {
+        let candidate = candidate_spec("parser_a", "Parser A", "parser", minimal_ui_config());
+
+        let first = target_probe_pause_ms(77, &candidate, "example.org");
+        let second = target_probe_pause_ms(77, &candidate, "example.org");
+        let different = target_probe_pause_ms(78, &candidate, "example.org");
+
+        assert_eq!(first, second);
+        assert!((120..=350).contains(&first));
+        assert_ne!(first, different);
+    }
+
+    #[test]
     fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
         let doh = HttpTextServer::start_dns_message("198.51.100.11");
         let runtime_context =

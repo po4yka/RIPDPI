@@ -139,6 +139,31 @@ class NativeTelemetryGoldenTest {
         assertEquals("resolver_override_recommended", parsed.lastFallbackAction)
     }
 
+    @Test
+    fun proxyRetryStealthFieldsRoundTripThroughSnapshotJson() {
+        val snapshot =
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                state = "running",
+                retryPacedCount = 3,
+                lastRetryBackoffMs = 1500L,
+                lastRetryReason = "same_signature_retry",
+                candidateDiversificationCount = 2,
+                capturedAt = 88L,
+            )
+
+        val parsed =
+            json.decodeFromString(
+                NativeRuntimeSnapshot.serializer(),
+                json.encodeToString(NativeRuntimeSnapshot.serializer(), snapshot),
+            )
+
+        assertEquals(3L, parsed.retryPacedCount)
+        assertEquals(1500L, parsed.lastRetryBackoffMs)
+        assertEquals("same_signature_retry", parsed.lastRetryReason)
+        assertEquals(2L, parsed.candidateDiversificationCount)
+    }
+
     private fun proxyTelemetryPayload(includeEvents: Boolean): String =
         json.encodeToString(
             NativeRuntimeSnapshot.serializer(),

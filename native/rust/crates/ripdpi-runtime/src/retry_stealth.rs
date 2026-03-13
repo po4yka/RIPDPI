@@ -347,4 +347,29 @@ mod tests {
         assert_eq!(penalty.same_signature_cooldown_ms, 0);
         assert!(penalty.family_cooldown_ms > 0);
     }
+
+    #[test]
+    fn retry_delay_for_sibling_signature_uses_same_family_reason() {
+        let mut pacer = RetryPacer::new(RetryStealthPolicy { jitter_ratio: 0.0, ..RetryStealthPolicy::default() });
+        let failed = sample_signature(0);
+        let sibling = RetrySignature::new("scope-a", RetryLane::TcpTls, "example.org", 0, 18);
+
+        pacer.record_failure(&failed, 1_000);
+        let decision = pacer.retry_delay_for(&sibling, 1_001).expect("family retry decision");
+
+        assert_eq!(decision.reason, "same_family_retry");
+        assert!((80..=200).contains(&decision.backoff_ms));
+        assert_eq!(decision.suppress_same_signature_until_ms, 0);
+    }
+
+    #[test]
+    fn retry_delay_clears_after_signature_window_expires() {
+        let mut pacer = RetryPacer::new(RetryStealthPolicy { jitter_ratio: 0.0, ..RetryStealthPolicy::default() });
+        let signature = sample_signature(0);
+
+        let first = pacer.record_failure(&signature, 1_000);
+        let after_window = first.suppress_same_signature_until_ms.saturating_add(1);
+
+        assert!(pacer.retry_delay_for(&signature, after_window).is_none());
+    }
 }
