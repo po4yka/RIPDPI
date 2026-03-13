@@ -77,14 +77,11 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
-import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
-import com.poyka.ripdpi.utility.validatePort
 
 internal const val TlsPreludeModeDisabled = "disabled"
 internal const val HostPackApplyDialogDefaultMode = HostPackApplyModeMerge
@@ -422,175 +419,27 @@ internal fun AdvancedSettingsScreen(
             }
         }
 
-        item(key = "advanced_diagnostics_history") {
-            SettingsSection(title = stringResource(R.string.diagnostics_history_section)) {
-                RipDpiCard {
-                    SettingsRow(
-                        title = stringResource(R.string.settings_diagnostics_monitor_title),
-                        subtitle = stringResource(R.string.settings_diagnostics_monitor_body),
-                        checked = uiState.diagnosticsMonitorEnabled,
-                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DiagnosticsMonitorEnabled, it) },
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.settings_diagnostics_sample_title),
-                        description = stringResource(R.string.settings_diagnostics_sample_body),
-                        value = uiState.diagnosticsSampleIntervalSeconds.toString(),
-                        enabled = uiState.diagnosticsMonitorEnabled,
-                        validator = { validateIntRange(it, 5, 300) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.settings_diagnostics_monitor_disabled),
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
-                        setting = AdvancedTextSetting.DiagnosticsSampleIntervalSeconds,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.settings_diagnostics_retention_title),
-                        description = stringResource(R.string.settings_diagnostics_retention_body),
-                        value = uiState.diagnosticsHistoryRetentionDays.toString(),
-                        validator = { validateIntRange(it, 1, 365) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
-                        setting = AdvancedTextSetting.DiagnosticsHistoryRetentionDays,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    SettingsRow(
-                        title = stringResource(R.string.settings_diagnostics_export_history_title),
-                        subtitle = stringResource(R.string.settings_diagnostics_export_history_body),
-                        checked = uiState.diagnosticsExportIncludeHistory,
-                        onCheckedChange = {
-                            onToggleChanged(
-                                AdvancedToggleSetting.DiagnosticsExportIncludeHistory,
-                                it,
-                            )
-                        },
-                    )
-                }
-            }
-        }
+        diagnosticsHistorySection(
+            uiState = uiState,
+            onToggleChanged = onToggleChanged,
+            onTextConfirmed = onTextConfirmed,
+        )
 
-        item(key = "advanced_overrides") {
-            SettingsSection(title = stringResource(R.string.config_overrides_section)) {
-                RipDpiCard {
-                    SettingsRow(
-                        title = stringResource(R.string.use_command_line_settings),
-                        subtitle = stringResource(R.string.config_command_line_caption),
-                        checked = uiState.enableCmdSettings,
-                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.UseCommandLine, it) },
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.command_line_arguments),
-                        description = stringResource(R.string.config_command_line_helper),
-                        value = uiState.cmdArgs,
-                        placeholder = stringResource(R.string.config_placeholder_command_line),
-                        enabled = uiState.enableCmdSettings,
-                        multiline = true,
-                        disabledMessage = stringResource(R.string.advanced_settings_command_line_disabled),
-                        setting = AdvancedTextSetting.CommandLineArgs,
-                        onConfirm = onTextConfirmed,
-                    )
-                }
-            }
-        }
+        commandLineOverridesSection(
+            uiState = uiState,
+            onToggleChanged = onToggleChanged,
+            onTextConfirmed = onTextConfirmed,
+        )
 
-        item(key = "advanced_proxy") {
-            SettingsSection(title = stringResource(R.string.ripdpi_proxy)) {
-                RipDpiCard {
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.bye_dpi_proxy_ip_setting),
-                        description = stringResource(R.string.config_proxy_helper),
-                        value = uiState.proxyIp,
-                        placeholder = stringResource(R.string.config_placeholder_proxy_ip),
-                        enabled = visualEditorEnabled,
-                        validator = ::checkIp,
-                        invalidMessage = stringResource(R.string.config_error_invalid_proxy_ip),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        setting = AdvancedTextSetting.ProxyIp,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.ripdpi_proxy_port_setting),
-                        description = stringResource(R.string.config_port_helper),
-                        value = uiState.proxyPort.toString(),
-                        placeholder = stringResource(R.string.config_placeholder_proxy_port),
-                        enabled = visualEditorEnabled,
-                        validator = ::validatePort,
-                        invalidMessage = stringResource(R.string.config_error_invalid_port),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
-                        setting = AdvancedTextSetting.ProxyPort,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.ripdpi_max_connections_setting),
-                        description = stringResource(R.string.config_max_connections_helper),
-                        value = uiState.maxConnections.toString(),
-                        enabled = visualEditorEnabled,
-                        validator = { validateIntRange(it, 1, Short.MAX_VALUE.toInt()) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
-                        setting = AdvancedTextSetting.MaxConnections,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    AdvancedTextSetting(
-                        title = stringResource(R.string.ripdpi_buffer_size_setting),
-                        description = stringResource(R.string.config_buffer_helper),
-                        value = uiState.bufferSize.toString(),
-                        enabled = visualEditorEnabled,
-                        validator = { validateIntRange(it, 1, Int.MAX_VALUE / 4) },
-                        invalidMessage = stringResource(R.string.config_error_out_of_range),
-                        disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done,
-                            ),
-                        setting = AdvancedTextSetting.BufferSize,
-                        onConfirm = onTextConfirmed,
-                        showDivider = true,
-                    )
-                    SettingsRow(
-                        title = stringResource(R.string.ripdpi_no_domain_setting),
-                        checked = uiState.noDomain,
-                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
-                        enabled = visualEditorEnabled,
-                        showDivider = true,
-                    )
-                    SettingsRow(
-                        title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
-                        checked = uiState.tcpFastOpen,
-                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
-                        enabled = visualEditorEnabled,
-                    )
-                }
-            }
-        }
+        proxySection(
+            uiState = uiState,
+            visualEditorEnabled = visualEditorEnabled,
+            onToggleChanged = onToggleChanged,
+            onTextConfirmed = onTextConfirmed,
+        )
 
         item(key = "advanced_desync") {
-            SettingsSection(title = stringResource(R.string.ripdpi_desync)) {
+            AdvancedSettingsSection(title = stringResource(R.string.ripdpi_desync)) {
                 RipDpiCard {
                     AdvancedTextSetting(
                         title = stringResource(R.string.ripdpi_default_ttl_setting),
@@ -1153,7 +1002,7 @@ internal fun AdvancedSettingsScreen(
 
         if (uiState.showActivationWindowProfile) {
             item(key = "advanced_activation_window") {
-                SettingsSection(title = stringResource(R.string.activation_window_section_title)) {
+                AdvancedSettingsSection(title = stringResource(R.string.activation_window_section_title)) {
                     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         ActivationWindowProfileCard(
                             uiState = uiState,
@@ -1194,41 +1043,14 @@ internal fun AdvancedSettingsScreen(
             }
         }
 
-        item(key = "advanced_protocols") {
-            SettingsSection(title = stringResource(R.string.ripdpi_protocols_category)) {
-                RipDpiCard {
-                    Text(
-                        text = stringResource(R.string.ripdpi_protocols_hint),
-                        style = RipDpiThemeTokens.type.caption,
-                        color = colors.mutedForeground,
-                    )
-                    HorizontalDivider(color = colors.divider)
-                    SettingsRow(
-                        title = stringResource(R.string.desync_http),
-                        checked = uiState.desyncHttp,
-                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncHttp, it) },
-                        enabled = visualEditorEnabled,
-                        showDivider = true,
-                    )
-                    SettingsRow(
-                        title = stringResource(R.string.desync_https),
-                        checked = uiState.desyncHttps,
-                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncHttps, it) },
-                        enabled = visualEditorEnabled,
-                        showDivider = true,
-                    )
-                    SettingsRow(
-                        title = stringResource(R.string.desync_udp),
-                        checked = uiState.desyncUdp,
-                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncUdp, it) },
-                        enabled = visualEditorEnabled,
-                    )
-                }
-            }
-        }
+        protocolsSection(
+            uiState = uiState,
+            visualEditorEnabled = visualEditorEnabled,
+            onToggleChanged = onToggleChanged,
+        )
 
         item(key = "advanced_host_autolearn") {
-            SettingsSection(title = stringResource(R.string.host_autolearn_section_title)) {
+            AdvancedSettingsSection(title = stringResource(R.string.host_autolearn_section_title)) {
                 RipDpiCard {
                     SettingsRow(
                         title = stringResource(R.string.host_autolearn_enabled_title),
@@ -1307,49 +1129,15 @@ internal fun AdvancedSettingsScreen(
             }
         }
 
-        item(key = "advanced_network_strategy_memory") {
-            SettingsSection(title = stringResource(R.string.network_strategy_memory_section_title)) {
-                RipDpiCard {
-                    SettingsRow(
-                        title = stringResource(R.string.network_strategy_memory_enabled_title),
-                        subtitle = stringResource(R.string.network_strategy_memory_enabled_body),
-                        checked = uiState.networkStrategyMemoryEnabled,
-                        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NetworkStrategyMemoryEnabled, it) },
-                        enabled = visualEditorEnabled,
-                        showDivider = true,
-                    )
-                    Text(
-                        text =
-                            stringResource(
-                                R.string.network_strategy_memory_count_summary,
-                                uiState.rememberedNetworkCount,
-                            ),
-                        style = RipDpiThemeTokens.type.caption,
-                        color = colors.mutedForeground,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        RipDpiButton(
-                            text = stringResource(R.string.network_strategy_memory_clear_action),
-                            onClick = onClearRememberedNetworks,
-                            enabled = uiState.canClearRememberedNetworks,
-                            variant = RipDpiButtonVariant.Outline,
-                            trailingIcon = RipDpiIcons.Close,
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.network_strategy_memory_helper),
-                        style = RipDpiThemeTokens.type.caption,
-                        color = colors.mutedForeground,
-                    )
-                }
-            }
-        }
+        networkStrategyMemorySection(
+            uiState = uiState,
+            visualEditorEnabled = visualEditorEnabled,
+            onToggleChanged = onToggleChanged,
+            onClearRememberedNetworks = onClearRememberedNetworks,
+        )
 
         item(key = "advanced_http") {
-            SettingsSection(title = stringResource(R.string.desync_http_category)) {
+            AdvancedSettingsSection(title = stringResource(R.string.desync_http_category)) {
                 HttpParserEvasionsProfileCard(
                     uiState = uiState,
                     onResetHttpParserEvasions = onResetHttpParserEvasions,
@@ -1458,7 +1246,7 @@ internal fun AdvancedSettingsScreen(
         }
 
         item(key = "advanced_https") {
-            SettingsSection(title = stringResource(R.string.desync_https_category)) {
+            AdvancedSettingsSection(title = stringResource(R.string.desync_https_category)) {
                 RipDpiCard {
                     Text(
                         text = stringResource(R.string.ripdpi_tls_prelude_section_body),
@@ -1573,7 +1361,7 @@ internal fun AdvancedSettingsScreen(
         }
 
         item(key = "advanced_udp") {
-            SettingsSection(title = stringResource(R.string.desync_udp_category)) {
+            AdvancedSettingsSection(title = stringResource(R.string.desync_udp_category)) {
                 RipDpiCard {
                     Text(
                         text = stringResource(R.string.config_udp_chain_hint),
@@ -1585,7 +1373,7 @@ internal fun AdvancedSettingsScreen(
         }
 
         item(key = "advanced_quic") {
-            SettingsSection(title = stringResource(R.string.quic_initial_section_title)) {
+            AdvancedSettingsSection(title = stringResource(R.string.quic_initial_section_title)) {
                 RipDpiCard {
                     Text(
                         text = stringResource(R.string.quic_initial_section_body),
@@ -1648,7 +1436,7 @@ internal fun AdvancedSettingsScreen(
         }
 
         item(key = "advanced_hosts") {
-            SettingsSection(title = stringResource(R.string.ripdpi_hosts_mode_setting)) {
+            AdvancedSettingsSection(title = stringResource(R.string.ripdpi_hosts_mode_setting)) {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                     HostPackCatalogStatusCard(
                         hostPackCatalog = hostPackCatalog,
@@ -2027,19 +1815,6 @@ private fun HostPackDialogDropdown(
             selectedValue = value,
             onValueSelected = onSelected,
         )
-    }
-}
-
-@Composable
-private fun SettingsSection(
-    title: String,
-    content: @Composable () -> Unit,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-        SettingsCategoryHeader(title = title)
-        content()
     }
 }
 
