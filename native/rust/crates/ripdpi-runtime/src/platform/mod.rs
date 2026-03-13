@@ -141,3 +141,24 @@ pub fn tcp_round_trip_time_ms(stream: &TcpStream) -> io::Result<Option<u64>> {
 pub fn tcp_round_trip_time_ms(_stream: &TcpStream) -> io::Result<Option<u64>> {
     Ok(None)
 }
+
+#[cfg(target_os = "linux")]
+pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
+    linux::enable_recv_ttl(stream)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn enable_recv_ttl(_stream: &TcpStream) -> io::Result<()> {
+    Ok(()) // best-effort; no-op on non-Linux
+}
+
+#[cfg(target_os = "linux")]
+pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
+    linux::read_chunk_with_ttl(stream, buf)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
+    use std::io::Read;
+    Ok(((&*stream).read(buf)?, None))
+}

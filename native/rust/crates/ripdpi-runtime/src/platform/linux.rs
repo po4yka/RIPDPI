@@ -241,6 +241,61 @@ pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
     }
 }
 
+pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
+    let yes = 1i32;
+    // SAFETY: `yes` is a valid c_int payload for IP_RECVTTL and `stream` is a
+    // live TCP socket.
+    let rc = unsafe {
+        libc::setsockopt(
+            stream.as_raw_fd(),
+            libc::IPPROTO_IP,
+            libc::IP_RECVTTL,
+            (&yes as *const i32).cast(),
+            size_of::<i32>() as libc::socklen_t,
+        )
+    };
+    if rc == 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
+}
+
+pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
+    let fd = stream.as_raw_fd();
+    let ctrl_len = unsafe { libc::CMSG_SPACE(size_of::<libc::c_int>() as u32) } as usize;
+    let mut ctrl = vec![0u8; ctrl_len];
+    let mut iov = libc::iovec { iov_base: buf.as_mut_ptr().cast(), iov_len: buf.len() };
+    let mut msg: libc::msghdr = unsafe { zeroed() };
+    msg.msg_iov = &mut iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = ctrl.as_mut_ptr().cast();
+    msg.msg_controllen = ctrl_len;
+
+    // SAFETY: `msg` references live stack/heap storage for the iov and control
+    // buffers, and `fd` is a valid TCP socket descriptor owned by `stream`.
+    let n = unsafe { libc::recvmsg(fd, &mut msg, 0) };
+    if n < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    if n == 0 {
+        return Ok((0, None));
+    }
+
+    let mut ttl: Option<u8> = None;
+    // SAFETY: `msg` was just populated by `recvmsg`; CMSG_FIRSTHDR/CMSG_NXTHDR
+    // iterate over the ancillary data buffer we provided.
+    let mut cmsg = unsafe { libc::CMSG_FIRSTHDR(&msg) };
+    while !cmsg.is_null() {
+        let cmsg_ref = unsafe { &*cmsg };
+        if cmsg_ref.cmsg_level == libc::IPPROTO_IP && cmsg_ref.cmsg_type == libc::IP_TTL {
+            // SAFETY: cmsg_data points into the control buffer we own; the
+            // kernel wrote a c_int there per the IP_TTL cmsg spec.
+            let value: libc::c_int = unsafe { ptr::read_unaligned(libc::CMSG_DATA(cmsg).cast()) };
+            ttl = u8::try_from(value).ok();
+            break;
+        }
+        cmsg = unsafe { libc::CMSG_NXTHDR(&msg, cmsg) };
+    }
+    Ok((n as usize, ttl))
+}
+
 pub fn send_fake_tcp(
     stream: &TcpStream,
     original_prefix: &[u8],
@@ -558,6 +613,29 @@ mod tests {
 
         let err = wait_tcp_stage_fd(-1, false, Duration::ZERO).expect_err("invalid fd should fail");
         assert_eq!(err.raw_os_error(), Some(libc::EBADF));
+    }
+
+    #[test]
+    fn enable_recv_ttl_succeeds_on_connected_tcp_socket() {
+        let (client, _server) = connected_pair();
+        enable_recv_ttl(&client).expect("enable IP_RECVTTL on connected socket");
+    }
+
+    #[test]
+    fn read_chunk_with_ttl_reads_data_from_connected_pair() {
+        use std::io::Write;
+        let (client, server) = connected_pair();
+        enable_recv_ttl(&client).expect("enable recv ttl");
+        let handle = std::thread::spawn(move || {
+            (&server).write_all(b"hello").expect("server write");
+        });
+        let mut buf = [0u8; 16];
+        client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let (n, _ttl) = read_chunk_with_ttl(&client, &mut buf).expect("read with ttl");
+        handle.join().unwrap();
+        assert_eq!(n, 5);
+        assert_eq!(&buf[..n], b"hello");
+        // TTL may or may not be populated for loopback; just verify no panic
     }
 
     #[test]
