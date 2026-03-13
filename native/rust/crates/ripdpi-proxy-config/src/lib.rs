@@ -14,6 +14,8 @@ use ciadpi_packets::{
 };
 use serde::{Deserialize, Serialize};
 
+pub mod presets;
+
 const HOSTS_DISABLE: &str = "disable";
 const HOSTS_BLACKLIST: &str = "blacklist";
 const HOSTS_WHITELIST: &str = "whitelist";
@@ -231,6 +233,8 @@ pub struct ProxyUiConfig {
     pub host_autolearn_store_path: Option<String>,
     #[serde(default)]
     pub network_scope_key: Option<String>,
+    #[serde(default)]
+    pub strategy_preset: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -396,7 +400,10 @@ pub fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<Runtime
     }
 }
 
-pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, ProxyConfigError> {
+pub fn runtime_config_from_ui(mut payload: ProxyUiConfig) -> Result<RuntimeConfig, ProxyConfigError> {
+    if let Some(preset_id) = payload.strategy_preset.as_deref().map(str::to_owned) {
+        presets::apply_preset(&preset_id, &mut payload)?;
+    }
     let listen_ip =
         IpAddr::from_str(&payload.ip).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy IP".to_string()))?;
     let mut config = RuntimeConfig::default();
@@ -899,6 +906,7 @@ mod tests {
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
             network_scope_key: None,
+            strategy_preset: None,
         }
     }
 
@@ -1155,5 +1163,37 @@ mod tests {
 
         assert_eq!(group.auto_ttl, None);
         assert_eq!(group.ttl, Some(13));
+    }
+
+    #[test]
+    fn known_preset_applies_without_error() {
+        let base = minimal_ui();
+        let mut cfg = base.clone();
+        crate::presets::apply_preset("russia_rostelecom", &mut cfg).unwrap();
+        assert!(cfg.desync_https, "rostelecom preset should enable HTTPS desync");
+        assert!(cfg.adaptive_fake_ttl_enabled, "rostelecom preset should enable adaptive TTL");
+    }
+
+    #[test]
+    fn unknown_preset_returns_error() {
+        let mut cfg = minimal_ui();
+        let result = crate::presets::apply_preset("not_a_real_preset", &mut cfg);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn russia_mgts_preset_produces_valid_runtime_config() {
+        let mut cfg = minimal_ui();
+        crate::presets::apply_preset("russia_mgts", &mut cfg).unwrap();
+        runtime_config_from_ui(cfg).unwrap();
+    }
+
+    #[test]
+    fn preset_field_in_ui_config_round_trips_json() {
+        let mut cfg = minimal_ui();
+        cfg.strategy_preset = Some("byedpi_default".to_string());
+        let json = serde_json::to_string(&cfg).unwrap();
+        let decoded: ProxyUiConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.strategy_preset.as_deref(), Some("byedpi_default"));
     }
 }
