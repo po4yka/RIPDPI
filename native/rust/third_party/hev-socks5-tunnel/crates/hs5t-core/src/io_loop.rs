@@ -115,7 +115,7 @@ fn is_injected_rst(pkt: &[u8]) -> bool {
         return false;
     }
     let ihl = ((pkt[0] & 0x0f) as usize) * 4;
-    if pkt.len() < ihl + 14 {
+    if ihl < 20 || pkt.len() < ihl + 14 {
         return false;
     }
     // TCP RST flag is bit 2 (0x04) in the flags byte
@@ -996,5 +996,16 @@ mod tests {
     #[test]
     fn short_packet_is_not_injected_rst() {
         assert!(!is_injected_rst(&[0x45, 0x00, 0x00]));
+    }
+
+    #[test]
+    fn packet_with_zero_ihl_is_not_injected_rst() {
+        let mut pkt = vec![0u8; 40];
+        pkt[0] = 0x40; // IPv4, IHL=0 (malformed)
+        pkt[3] = 40;
+        pkt[9] = 6;    // TCP
+        // IP ID = 0x0000 (would look like injected without the guard)
+        pkt[33] = 0x04; // RST flag (at byte 33, which is IHL+13 only if IHL=20)
+        assert!(!is_injected_rst(&pkt), "malformed IHL=0 packet should not be detected as injected RST");
     }
 }

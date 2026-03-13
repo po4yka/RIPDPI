@@ -10,6 +10,10 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 
 - in-repository Rust native modules
 - integrated diagnostics and passive telemetry
+- per-network remembered policy memory with privacy-preserving network fingerprints
+- handover-aware live policy re-evaluation and hidden `quick_v1` follow-up probing
+- smarter encrypted DNS path selection with exact DoH/DoT/DNSCrypt path memory
+- separate TCP/QUIC/DNS strategy lanes plus retry-stealth pacing and diversification
 - local-network E2E and soak-oriented native test coverage
 
 ---
@@ -23,7 +27,7 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Repository | [bol-van/zapret2](https://github.com/bol-van/zapret2) |
 | Description | DPI circumvention tool for Linux/OpenWRT/FreeBSD with nfqueue/tproxy |
 | Language | C, Lua |
-| Last analyzed | 2026-03-12 (commit: HEAD at time of analysis, status refreshed after activation windows, adaptive split placement, HTTP parser evasions, adaptive fake TTL, and fake approximation ports) |
+| Last analyzed | 2026-03-13 (commit: HEAD at time of analysis, status refreshed after per-network strategy memory, handover-aware re-evaluation, smarter encrypted DNS path selection, strategy-lane separation, and retry-stealth hardening) |
 
 **Ideas extracted:**
 
@@ -36,10 +40,10 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | 5 | QUIC Initial parsing/decryption for hostname-aware UDP handling | IMPLEMENTED | RIPDPI now decrypts QUIC v1/v2 Initial packets, defragments CRYPTO frames, extracts the embedded ClientHello, and uses the recovered SNI for UDP route selection, host filters, cache records, and telemetry. On top of that base, RIPDPI now also ships QUIC fake Initial profile generation for UDP fake bursts. |
 | 6 | Host-targeted fake chunks around HTTP Host / TLS SNI (`hostfakesplit` core) | IMPLEMENTED | RIPDPI now has a dedicated `hostfake` TCP chain step that resolves `host..endhost`, emits fake host chunks around the real span, optionally splits the real host once at a semantic marker, and safely degrades to normal split/write behavior when the host span is not usable. |
 | 7 | Richer fake TLS mutation pipeline (`rndsni`, `dupsid`, `padencap`, `orig`, `rand`, size tuning) | IMPLEMENTED | RIPDPI now supports the practical socket-layer TLS fake mutations that map well from zapret2: randomized SNI mode, duplicated Session ID, padding-aware encapsulation, original-ClientHello base mode, generalized TLS fake size handling, and the existing fixed fake SNI / fake offset path. |
-| 8 | Host autolearn / autohostlist-style preferred-group memory and penalties | IMPLEMENTED | RIPDPI now learns preferred TCP groups per normalized HTTP Host / TLS SNI, persists that state across restarts, penalizes failing groups on trigger conditions, and exposes the learned-host state through Android settings and diagnostics. |
+| 8 | Host autolearn / autohostlist-style preferred-group memory and penalties | IMPLEMENTED | RIPDPI now learns preferred TCP groups per normalized HTTP Host / TLS SNI, persists that state across restarts, scopes it by hashed network fingerprint so one network cannot poison another, penalizes failing groups on trigger conditions, and exposes the learned-host state through Android settings and diagnostics. |
 | 9 | QUIC fake Initial profiles (`compat_default`, `realistic_initial`) | IMPLEMENTED | RIPDPI now generates QUIC fake payloads for UDP `fake_burst` using either a zapret-compatible compatibility blob or a realistic IETF QUIC Initial built from the production QUIC Initial encoder with optional fake host override. |
 | 10 | Built-in fake payload profile library for HTTP/TLS/UDP | IMPLEMENTED | RIPDPI no longer relies on a single default HTTP/TLS/UDP fake payload. It now ships a curated built-in profile library, selectable through CLI, Android settings, JNI/native config, and diagnostics, while still preserving raw custom fake payloads as the highest-priority override. |
-| 11 | Blockcheck-style automatic probing and recommendation flow | IMPLEMENTED | RIPDPI diagnostics now includes a separate `Automatic probing` profile that runs a fixed raw-path candidate suite across HTTP, HTTPS, and QUIC, scores TCP and QUIC candidates separately, and returns a manual recommendation plus scoreboard rather than silently changing user settings. |
+| 11 | Blockcheck-style automatic probing and recommendation flow | IMPLEMENTED | RIPDPI diagnostics now includes a separate `Automatic probing` profile that runs a fixed raw-path candidate suite across HTTP, HTTPS, and QUIC, scores TCP and QUIC candidates separately, returns a manual recommendation plus scoreboard rather than silently changing user settings, and can schedule hidden `quick_v1` probes after successful handover-driven restarts on first-seen networks. |
 | 12 | Range-based filtering (packet count, data size, sequence offset) | IMPLEMENTED | RIPDPI now has structured activation windows at both group and per-step levels across TCP and UDP. The model uses round, payload-size, and outbound stream-byte ranges instead of raw TCP sequence numbers, but it covers the practical selectivity surface that maps cleanly into RIPDPI's proxy architecture. |
 | 13 | Lua-based runtime scripting engine | NOT IMPLEMENTED | RIPDPI intentionally chose typed Rust/Kotlin structures over a Lua runtime. This keeps the Android/JNI surface smaller and safer, but it means users cannot define arbitrary runtime packet logic the way zapret2 can. |
 | 14 | Multi-instance processing pipeline architecture | NOT IMPLEMENTED | RIPDPI still uses its current local proxy/VPN routing model rather than independent parallel desync instances in the zapret2 sense. |
@@ -57,19 +61,19 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 | Repository | [celzero/rethink-app](https://github.com/celzero/rethink-app) |
 | Description | Android firewall + DNS changer with per-app rules and encrypted DNS |
 | Language | Kotlin, Golang |
-| Last analyzed | 2026-03-12 (status refreshed after encrypted DNS, resolver telemetry, and diagnostics-driven resolver selection landed in RIPDPI) |
+| Last analyzed | 2026-03-13 (status refreshed after encrypted DNS path diversification, per-network DNS preference memory, and handover-aware resolver re-evaluation landed in RIPDPI) |
 
 **Ideas extracted:**
 
 | # | Idea | Status | Notes |
 |---|------|--------|-------|
-| 1 | DNS encryption (DoH/DoT/DNSCrypt) as first defense layer | IMPLEMENTED | RIPDPI now ships a shared native encrypted DNS resolver reused by diagnostics and VPN mode. VPN sessions can switch to mapped-DNS interception with DoH/DoT/DNSCrypt, while connectivity diagnostics can validate and recommend encrypted resolvers before escalating to stronger packet-level bypass. Built-in auto-selection is DoH-first in v1; custom DoT and DNSCrypt are supported manually. |
+| 1 | DNS encryption (DoH/DoT/DNSCrypt) as first defense layer | IMPLEMENTED | RIPDPI now ships a shared native encrypted DNS resolver reused by diagnostics and VPN mode. VPN sessions can switch to mapped-DNS interception with DoH/DoT/DNSCrypt, while connectivity diagnostics can validate and recommend diversified encrypted DNS paths before escalating to stronger packet-level bypass. Exact DoH/DoT/DNSCrypt paths are now ranked with bootstrap validation and can be remembered per network. |
 | 2 | Per-application network controls and state-aware firewall rules | NOT IMPLEMENTED | rethink-app allows users to set network rules per app (block WiFi, allow cellular, etc.). RIPDPI still applies desync uniformly. Per-app routing remains a plausible next step if the app needs coarse exemptions or app-specific strategies. |
 | 3 | Kotlin + Golang (`firestack`) network stack integration pattern | REFERENCE | The useful lesson was architectural, not language-specific: keep the network data plane native and let Android orchestrate it. RIPDPI kept its Rust + JNI stack, but followed the same "thin Android wrapper over native networking core" direction rather than moving resolver logic into Kotlin. |
 | 4 | Encrypted Client Hello (ECH) for hiding TLS SNI | NOT IMPLEMENTED | ECH remains attractive as a protocol-level complement to desync, but RIPDPI's current encrypted DNS stack does not make third-party app traffic use ECH. The current implementation preserves encrypted DNS and resolver metadata; it does not add an ECH-capable client path. |
 | 5 | Domain/IP category-based filtering | NOT IMPLEMENTED | rethink-app categorizes domains (ads, trackers, malware, social media) and applies rules by category. RIPDPI still works in terms of host/IP lists and bypass strategies rather than category policy. |
 | 6 | Resolver and transport telemetry expansion through existing polled snapshots | IMPLEMENTED | RIPDPI expanded the existing native JSON snapshot model instead of adding callback-heavy JNI. Tunnel/runtime telemetry now carries resolver endpoint, query latency, rolling average, failure count, fallback state/reason, and network handover classification, and that data is persisted into diagnostics history and archive output. |
-| 7 | Diagnostics-driven resolver selection before stronger bypass escalation | IMPLEMENTED | Connectivity diagnostics now expand built-in encrypted resolvers, rank them by `dns_match` count and latency, and can apply a temporary session-local encrypted DNS override when VPN is running on plain UDP DNS. The diagnostics UI surfaces this recommendation ahead of strategy probing, with `Keep for this session` and `Save as DNS setting` actions. |
+| 7 | Diagnostics-driven resolver selection before stronger bypass escalation | IMPLEMENTED | Connectivity diagnostics now expand built-in encrypted resolvers into exact DoH/DoT/DNSCrypt paths, rank them by `dns_match` count, bootstrap validity, and latency, and can apply a temporary session-local encrypted DNS override when VPN is running on plain UDP DNS. The diagnostics UI surfaces this recommendation ahead of strategy probing, with `Keep for this session` and `Save as DNS setting` actions, while per-network path memory keeps the winning exact endpoint available for future scans. |
 
 ---
 
@@ -167,6 +171,10 @@ The baseline assumed by this analysis is the current RIPDPI architecture:
 - QUIC fake Initial profiles
 - host autolearn and diagnostics-side automatic probing
 - activation windows, adaptive split placement, aggressive HTTP parser evasions, and adaptive fake TTL
+- per-network remembered policy memory and per-network host-autolearn scoping
+- smarter encrypted DNS path selection with exact per-network path memory
+- handover-aware live policy re-evaluation plus hidden handover probes
+- TCP/QUIC/DNS strategy-lane separation and retry-stealth hardening
 
 ### Exploratory Ideas (interesting but larger scope)
 

@@ -7,7 +7,8 @@
 - local proxy mode
 - local VPN redirection mode
 - шифрованным DNS в VPN-режиме через DoH/DoT/DNSCrypt
-- расширенной стратегической настройкой: semantic markers, adaptive split placement, fake payload profiles и automatic probing
+- расширенной стратегической настройкой: semantic markers, adaptive split placement, разделением TCP/QUIC/DNS strategy lanes, per-network policy memory и automatic probing
+- handover-aware live policy re-evaluation при переходах между Wi-Fi, cellular и roaming
 - встроенной диагностикой и пассивной telemetry
 - in-repository Rust native modules
 
@@ -20,19 +21,19 @@ RIPDPI локально запускает SOCKS5-прокси на основе
 Реализованные механизмы диагностики:
 
 - Ручные сканы в режимах `RAW_PATH` и `IN_PATH`
-- `Automatic probing` в режиме `RAW_PATH` с фиксированным набором кандидатов и ручной рекомендацией
+- `Automatic probing` в режиме `RAW_PATH`, плюс скрытые `quick_v1` перепроверки после first-seen network handover
 - Проверка целостности DNS через UDP DNS и шифрованные резолверы (DoH/DoT/DNSCrypt)
 - Проверка доступности доменов с классификацией TLS и HTTP
 - Детект блокировки на пороге 16-20 КБ через fat-header requests
 - Поиск обхода через whitelist SNI для заблокированных TLS-path
-- Рекомендации по резолверу с временным session override и сохранением в настройки DNS
+- Рекомендации по резолверу с diversified DoH/DoT/DNSCrypt path candidates, bootstrap validation, временным session override и сохранением в настройки DNS
 - Пассивная native-телеметрия во время работы proxy или VPN service
 - Экспорт bundle с `summary.txt`, `report.json`, `telemetry.csv` и `manifest.json`
 
 Что приложение сохраняет:
 
 - Android network snapshot: transport, capabilities, DNS, MTU, локальные адреса, public IP/ASN, captive portal, validation state
-- Native-телеметрию proxy runtime: lifecycle listener-а, принятых клиентов, выбор и переключение route, native-ошибки
+- Native-телеметрию proxy runtime: lifecycle listener-а, принятых клиентов, выбор и переключение route, retry pacing/diversification, host-autolearn state и native-ошибки
 - Native-телеметрию tunnel runtime: lifecycle туннеля, счётчики пакетов и байтов, resolver id/protocol/endpoint, DNS latency и failure counters, fallback reason, network handover class
 
 Что приложение не сохраняет:
@@ -55,7 +56,11 @@ RIPDPI сохраняет совместимость с legacy ByeDPI CLI, но 
 - richer fake TLS mutations: `orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning
 - built-in fake payload profile library для HTTP, TLS, UDP и QUIC Initial
 - host-targeted fake chunks (`hostfake`) и Linux/Android-focused приближения `fakedsplit` / `fakeddisorder`
-- per-host route learning, activation windows и adaptive fake TTL для TCP fake sends
+- replay валидированных per-network policies через hash-only network fingerprint и optional VPN-only DNS override
+- per-network host autolearn scoping, activation windows и adaptive fake TTL для TCP fake sends
+- отдельные TCP, QUIC и DNS strategy families для diagnostics, telemetry и remembered policy scoring
+- full restart при actionable handover с фоновыми `quick_v1` strategy probes для first-seen networks
+- retry-stealth pacing с jitter, diversified candidate order и adaptive tuning beyond fake TTL
 - diagnostics-side automatic probing с candidate scoreboard и ручной рекомендацией
 
 Подробности по native call path и текущей strategy surface: [docs/native/byedpi.md](docs/native/byedpi.md).
@@ -111,7 +116,7 @@ APK:
 
 ## Тестирование
 
-В проекте есть многоуровневое покрытие для Kotlin, Rust, JNI, services, diagnostics, local-network E2E, Linux TUN E2E, golden contracts и native soak-запусков.
+В проекте есть многоуровневое покрытие для Kotlin, Rust, JNI, services, diagnostics, local-network E2E, Linux TUN E2E, golden contracts и native soak-запусков. Отдельно покрыты per-network policy memory, handover-aware restart logic, encrypted DNS path planning, retry-stealth pacing и telemetry contract goldens.
 
 Основные команды:
 

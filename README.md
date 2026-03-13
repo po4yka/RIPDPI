@@ -7,7 +7,8 @@ Android application for bypassing DPI (Deep Packet Inspection) and censorship wi
 - local proxy mode
 - local VPN redirection mode
 - encrypted DNS in VPN mode with DoH/DoT/DNSCrypt
-- advanced strategy controls with semantic markers, adaptive split placement, fake payload profiles, and automatic probing
+- advanced strategy controls with semantic markers, adaptive split placement, QUIC/TLS/DNS lane separation, per-network policy memory, and automatic probing
+- handover-aware live policy re-evaluation across Wi-Fi, cellular, and roaming changes
 - integrated diagnostics and passive telemetry
 - in-repository Rust native modules
 
@@ -20,20 +21,20 @@ RIPDPI includes an integrated diagnostics screen for active DPI checks and passi
 Implemented diagnostic mechanisms:
 
 - Manual scans in `RAW_PATH` and `IN_PATH` modes
-- Automatic probing in `RAW_PATH` with a fixed candidate suite and manual recommendation output
+- Automatic probing profiles in `RAW_PATH`, plus hidden `quick_v1` re-checks after first-seen network handovers
 - DNS integrity checks across UDP DNS and encrypted resolvers (DoH/DoT/DNSCrypt)
 - Domain reachability checks with TLS and HTTP classification
 - TCP 16-20 KB cutoff detection with repeated fat-header requests
 - Whitelist SNI retry detection for blocked TLS paths
-- Resolver recommendations with temporary session overrides and save-to-settings actions
+- Resolver recommendations with diversified DoH/DoT/DNSCrypt path candidates, bootstrap validation, temporary session overrides, and save-to-settings actions
 - Passive native telemetry while proxy or VPN service is running
 - Export bundles with `summary.txt`, `report.json`, `telemetry.csv`, and `manifest.json`
 
 What the app records:
 
 - Android network snapshot: transport, capabilities, DNS, MTU, local addresses, public IP/ASN, captive portal, validation state
-- Native proxy runtime telemetry: listener lifecycle, accepted clients, route selection and route advances, native errors
-- Native tunnel runtime telemetry: tunnel lifecycle, packet and byte counters, resolver id/protocol/endpoint, DNS latency and failure counters, fallback reason, network handover class
+- Native proxy runtime telemetry: listener lifecycle, accepted clients, route selection and route advances, retry pacing/diversification, host-autolearn state, and native errors
+- Native tunnel runtime telemetry: tunnel lifecycle, packet and byte counters, resolver id/protocol/endpoint, DNS latency and failure counters, fallback reason, and network handover class
 
 What the app does not record:
 
@@ -55,7 +56,11 @@ RIPDPI's current Android and native strategy stack includes:
 - richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
 - built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - host-targeted fake chunks (`hostfake`) and Linux/Android-focused `fakedsplit` / `fakeddisorder` approximations
-- per-host route learning, activation windows, and adaptive fake TTL for TCP fake sends
+- per-network remembered policy replay with hashed network fingerprints and optional VPN-only DNS override
+- per-network host autolearn scoping, activation windows, and adaptive fake TTL for TCP fake sends
+- separate TCP, QUIC, and DNS strategy families for diagnostics, telemetry, and remembered-policy scoring
+- handover-aware full restarts with background `quick_v1` strategy probes for first-seen networks
+- retry-stealth pacing with jitter, diversified candidate order, and adaptive tuning beyond fake TTL
 - diagnostics-side automatic probing with a candidate scoreboard and manual recommendation
 
 Implementation details and the native call path are documented in [docs/native/byedpi.md](docs/native/byedpi.md).
@@ -111,7 +116,7 @@ APK outputs:
 
 ## Testing
 
-The project now has layered coverage for Kotlin, Rust, JNI, services, diagnostics, local-network E2E, Linux TUN E2E, golden contracts, and native soak runs.
+The project now has layered coverage for Kotlin, Rust, JNI, services, diagnostics, local-network E2E, Linux TUN E2E, golden contracts, and native soak runs. Recent focused coverage includes per-network policy memory, handover-aware restart logic, encrypted DNS path planning, retry-stealth pacing, and telemetry contract goldens.
 
 Common commands:
 
