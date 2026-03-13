@@ -249,10 +249,11 @@ fun activeDnsSettings(
 
     val normalizedBootstrapIps =
         normalizeDnsBootstrapIps(
-            if (encryptedDnsBootstrapIps.any()) {
-                encryptedDnsBootstrapIps
-            } else {
-                legacyBootstrapIps
+            when {
+                encryptedDnsBootstrapIps.any() -> encryptedDnsBootstrapIps
+                legacyBootstrapIps.isNotEmpty() -> legacyBootstrapIps
+                builtIn != null -> builtIn.bootstrapIps
+                else -> emptyList()
             },
         )
     val effectiveDnsIp =
@@ -261,13 +262,14 @@ fun activeDnsSettings(
     val effectiveDohUrl = firstNonBlank(encryptedDnsDohUrl, dnsDohUrl)
     val derivedHost =
         when (normalizedProtocol) {
-            EncryptedDnsProtocolDoh -> parseHostFromUrl(effectiveDohUrl)
-            else -> ""
+            EncryptedDnsProtocolDoh -> firstNonBlank(parseHostFromUrl(effectiveDohUrl), builtIn?.host)
+            else -> builtIn?.host.orEmpty()
         }
     val effectiveHost = firstNonBlank(encryptedDnsHost, derivedHost)
     val effectivePort =
         when {
             encryptedDnsPort > 0 -> encryptedDnsPort
+            builtIn != null && normalizedProtocol == EncryptedDnsProtocolDoh -> builtIn.port
             normalizedProtocol == EncryptedDnsProtocolDoh -> parsePortFromUrl(effectiveDohUrl).takeIf { it > 0 } ?: 443
             normalizedProtocol == EncryptedDnsProtocolDot -> 853
             else -> 443
@@ -275,16 +277,17 @@ fun activeDnsSettings(
     val effectiveTlsServerName =
         firstNonBlank(
             encryptedDnsTlsServerName,
-            if (normalizedProtocol == EncryptedDnsProtocolDot || normalizedProtocol == EncryptedDnsProtocolDoh) {
-                effectiveHost
-            } else {
-                ""
+            builtIn?.tlsServerName,
+            when {
+                normalizedProtocol == EncryptedDnsProtocolDot ||
+                    normalizedProtocol == EncryptedDnsProtocolDoh -> effectiveHost
+                else -> ""
             },
         )
 
     return ActiveDnsSettings(
         mode = DnsModeEncrypted,
-        providerId = DnsProviderCustom,
+        providerId = normalizedProviderId.ifBlank { DnsProviderCustom },
         dnsIp = effectiveDnsIp,
         encryptedDnsProtocol = normalizedProtocol,
         encryptedDnsHost = effectiveHost,

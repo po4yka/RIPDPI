@@ -11,22 +11,29 @@ import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.core.testing.faultThrowable
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DnsProviderGoogle
+import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
+import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.diagnostics.decodePath
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.services.FailureReason
@@ -145,7 +152,7 @@ class DiagnosticsManagerTest {
         }
 
     @Test
-    fun `connectivity scan expands default dns targets to all built in resolvers`() =
+    fun `connectivity scan expands default dns targets to diversified encrypted dns plan`() =
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
@@ -166,8 +173,10 @@ class DiagnosticsManagerTest {
             waitForCompletion(history, sessionId, minNativeEvents = 0)
 
             val request = json.decodeFromString(ScanRequest.serializer(), bridgeFactory.bridge.startedRequestJson!!)
-            assertEquals(4, request.dnsTargets.size)
+            assertEquals(builtInEncryptedDnsPathCandidates().size, request.dnsTargets.size)
             assertTrue(request.dnsTargets.all { !it.encryptedResolverId.isNullOrBlank() })
+            assertTrue(request.dnsTargets.any { it.encryptedProtocol == EncryptedDnsProtocolDoh })
+            assertTrue(request.dnsTargets.any { it.encryptedProtocol == EncryptedDnsProtocolDot })
         }
 
     @Test
@@ -247,7 +256,11 @@ class DiagnosticsManagerTest {
 
             waitForCompletion(history, sessionId, minNativeEvents = 0)
 
-            val persisted = json.decodeFromString(ScanReport.serializer(), history.getScanSession(sessionId)?.reportJson.orEmpty())
+            val persisted =
+                json.decodeFromString(
+                    ScanReport.serializer(),
+                    history.getScanSession(sessionId)?.reportJson.orEmpty(),
+                )
             assertEquals("cloudflare", persisted.resolverRecommendation?.selectedResolverId)
             assertTrue(persisted.resolverRecommendation?.appliedTemporarily == true)
             assertEquals("cloudflare", overrideStore.override.value?.resolverId)
@@ -265,7 +278,7 @@ class DiagnosticsManagerTest {
         }
 
     @Test
-    fun `resolver recommendation prefers current provider when match count and latency tie`() =
+    fun `resolver recommendation prefers current provider when match and bootstrap scores tie`() =
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
@@ -321,6 +334,7 @@ class DiagnosticsManagerTest {
                                 target = "blocked.example",
                                 outcome = "dns_substitution",
                                 resolverId = "cloudflare",
+                                bootstrapValidated = false,
                                 latencyMs = 30,
                             ),
                             dnsProbeResult(
@@ -343,8 +357,155 @@ class DiagnosticsManagerTest {
 
             waitForCompletion(history, sessionId, minNativeEvents = 0)
 
-            val persisted = json.decodeFromString(ScanReport.serializer(), history.getScanSession(sessionId)?.reportJson.orEmpty())
+            val persisted =
+                json.decodeFromString(
+                    ScanReport.serializer(),
+                    history.getScanSession(sessionId)?.reportJson.orEmpty(),
+                )
             assertEquals("google", persisted.resolverRecommendation?.selectedResolverId)
+        }
+
+    @Test
+    fun `connectivity scan uses remembered network dns path to lead diversified resolver plan`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val fingerprint = FakeNetworkFingerprintProvider().capture()
+            val preferredPath =
+                EncryptedDnsPathCandidate(
+                    resolverId = DnsProviderGoogle,
+                    resolverLabel = "Google Public DNS",
+                    protocol = EncryptedDnsProtocolDot,
+                    host = "dns.google",
+                    port = 853,
+                    tlsServerName = "dns.google",
+                    bootstrapIps = listOf("8.8.8.8", "8.8.4.4"),
+                )
+            history.networkDnsPathPreferencesState.value =
+                listOf(
+                    NetworkDnsPathPreferenceEntity(
+                        id = 1L,
+                        fingerprintHash = fingerprint.scopeKey(),
+                        summaryJson = json.encodeToString(fingerprint.summary()),
+                        pathJson = json.encodeToString(EncryptedDnsPathCandidate.serializer(), preferredPath),
+                        updatedAt = 1L,
+                    ),
+                )
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.RAW_PATH)
+            val startedRequest =
+                json.decodeFromString(
+                    ScanRequest.serializer(),
+                    requireNotNull(bridgeFactory.bridge.startedRequestJson),
+                )
+
+            assertEquals(EncryptedDnsProtocolDot, startedRequest.dnsTargets.first().encryptedProtocol)
+            assertEquals(DnsProviderGoogle, startedRequest.dnsTargets.first().encryptedResolverId)
+            assertTrue(startedRequest.dnsTargets.any { it.encryptedProtocol == EncryptedDnsProtocolDoh })
+            assertTrue(startedRequest.dnsTargets.any { it.encryptedProtocol == EncryptedDnsProtocolDot })
+
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
+        }
+
+    @Test
+    fun `resolver recommendation persists exact dot settings and updates per-network preference`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                bridge.autoCompleteOnStart = false
+            }
+            val appSettingsRepository = FakeAppSettingsRepository()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = appSettingsRepository,
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                    resolverOverrideStore = FakeResolverOverrideStore(),
+                )
+
+            val sessionId = manager.startScan(ScanPathMode.RAW_PATH)
+            bridgeFactory.bridge.enqueueProgress(
+                ScanProgress(
+                    sessionId = sessionId,
+                    phase = "done",
+                    completedSteps = 1,
+                    totalSteps = 1,
+                    message = "done",
+                    isFinished = true,
+                ),
+            )
+            bridgeFactory.bridge.enqueueReport(
+                ScanReport(
+                    sessionId = sessionId,
+                    profileId = "default",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                    summary = "Finished",
+                    results =
+                        listOf(
+                            dnsProbeResult(
+                                target = "blocked.example",
+                                outcome = "dns_substitution",
+                                resolverId = DnsProviderGoogle,
+                                protocol = EncryptedDnsProtocolDot,
+                                endpoint = "dns.google:853",
+                                host = "dns.google",
+                                port = 853,
+                                tlsServerName = "dns.google",
+                                bootstrapIps = "8.8.8.8|8.8.4.4",
+                                bootstrapValidated = true,
+                                latencyMs = 25,
+                            ),
+                        ),
+                ),
+            )
+
+            waitForCompletion(history, sessionId, minNativeEvents = 0)
+
+            val persisted =
+                json.decodeFromString(
+                    ScanReport.serializer(),
+                    history.getScanSession(sessionId)?.reportJson.orEmpty(),
+                )
+            assertEquals(EncryptedDnsProtocolDot, persisted.resolverRecommendation?.selectedProtocol)
+            assertEquals("dns.google", persisted.resolverRecommendation?.selectedHost)
+            assertEquals(853, persisted.resolverRecommendation?.selectedPort)
+            assertEquals("dns.google", persisted.resolverRecommendation?.selectedTlsServerName)
+            assertEquals(
+                EncryptedDnsProtocolDot,
+                history.networkDnsPathPreferencesState.value.single().decodePath(json)?.protocol,
+            )
+
+            manager.saveResolverRecommendation(sessionId)
+
+            val savedSettings = appSettingsRepository.snapshot()
+            assertEquals("encrypted", savedSettings.dnsMode)
+            assertEquals(DnsProviderGoogle, savedSettings.dnsProviderId)
+            assertEquals(EncryptedDnsProtocolDot, savedSettings.encryptedDnsProtocol)
+            assertEquals("dns.google", savedSettings.encryptedDnsHost)
+            assertEquals(853, savedSettings.encryptedDnsPort)
+            assertEquals("dns.google", savedSettings.encryptedDnsTlsServerName)
+            assertTrue(savedSettings.encryptedDnsDohUrl.isEmpty())
+            assertEquals(listOf("8.8.8.8", "8.8.4.4"), savedSettings.encryptedDnsBootstrapIpsList)
         }
 
     @Test
@@ -1824,6 +1985,7 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
     val usageSessionsState = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
     val rememberedPoliciesState = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
+    val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
     private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
 
@@ -1884,6 +2046,11 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
         mode: String,
     ): RememberedNetworkPolicyEntity? =
         rememberedPoliciesState.value.find { it.fingerprintHash == fingerprintHash && it.mode == mode }
+
+    override suspend fun getNetworkDnsPathPreference(
+        fingerprintHash: String,
+    ): NetworkDnsPathPreferenceEntity? =
+        networkDnsPathPreferencesState.value.find { it.fingerprintHash == fingerprintHash }
 
     override suspend fun findValidatedRememberedNetworkPolicy(
         fingerprintHash: String,
@@ -1953,11 +2120,24 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
         return persisted.id
     }
 
+    override suspend fun upsertNetworkDnsPathPreference(preference: NetworkDnsPathPreferenceEntity): Long {
+        val persisted =
+            if (preference.id == 0L) {
+                preference.copy(id = (networkDnsPathPreferencesState.value.maxOfOrNull { it.id } ?: 0L) + 1L)
+            } else {
+                preference
+            }
+        networkDnsPathPreferencesState.value = networkDnsPathPreferencesState.value.upsertById(persisted) { it.id }
+        return persisted.id
+    }
+
     override suspend fun clearRememberedNetworkPolicies() {
         rememberedPoliciesState.value = emptyList()
     }
 
     override suspend fun pruneRememberedNetworkPolicies() = Unit
+
+    override suspend fun pruneNetworkDnsPathPreferences() = Unit
 
     override suspend fun trimOldData(retentionDays: Int) = Unit
 
@@ -2339,22 +2519,82 @@ private fun dnsProbeResult(
     outcome: String,
     resolverId: String,
     endpoint: String = "https://cloudflare-dns.com/dns-query",
+    protocol: String = "doh",
+    host: String = "",
+    port: Int = 0,
+    tlsServerName: String = "",
     bootstrapIps: String = "1.1.1.1|1.0.0.1",
+    bootstrapValidated: Boolean = true,
+    dohUrl: String = "",
+    dnscryptProviderName: String = "",
+    dnscryptPublicKey: String = "",
     latencyMs: Long,
-): ProbeResult =
-    ProbeResult(
+): ProbeResult {
+    val resolvedHost =
+        host.ifBlank {
+            runCatching {
+                when {
+                    endpoint.startsWith("http://") || endpoint.startsWith("https://") ->
+                        java.net.URI(endpoint).host.orEmpty()
+                    ':' in endpoint -> endpoint.substringBefore(':')
+                    else -> endpoint
+                }
+            }.getOrDefault("")
+        }
+    val resolvedPort =
+        port.takeIf { it > 0 }
+            ?: runCatching {
+                when {
+                    endpoint.startsWith("http://") || endpoint.startsWith("https://") -> {
+                        val uri = java.net.URI(endpoint)
+                        if (uri.port > 0) {
+                            uri.port
+                        } else {
+                            443
+                        }
+                    }
+                    ':' in endpoint -> endpoint.substringAfterLast(':').toIntOrNull() ?: 443
+                    protocol == EncryptedDnsProtocolDot -> 853
+                    else -> 443
+                }
+            }.getOrDefault(if (protocol == EncryptedDnsProtocolDot) 853 else 443)
+    val resolvedTlsServerName =
+        tlsServerName.ifBlank {
+            if (protocol == com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt) {
+                ""
+            } else {
+                resolvedHost
+            }
+        }
+    val resolvedDohUrl =
+        dohUrl.ifBlank {
+            if (protocol == EncryptedDnsProtocolDoh) {
+                endpoint
+            } else {
+                ""
+            }
+        }
+    return ProbeResult(
         probeType = "dns_integrity",
         target = target,
         outcome = outcome,
         details =
             listOf(
                 ProbeDetail("encryptedResolverId", resolverId),
-                ProbeDetail("encryptedProtocol", "doh"),
+                ProbeDetail("encryptedProtocol", protocol),
                 ProbeDetail("encryptedEndpoint", endpoint),
+                ProbeDetail("encryptedHost", resolvedHost),
+                ProbeDetail("encryptedPort", resolvedPort.toString()),
+                ProbeDetail("encryptedTlsServerName", resolvedTlsServerName),
                 ProbeDetail("encryptedBootstrapIps", bootstrapIps),
+                ProbeDetail("encryptedBootstrapValidated", bootstrapValidated.toString()),
+                ProbeDetail("encryptedDohUrl", resolvedDohUrl),
+                ProbeDetail("encryptedDnscryptProviderName", dnscryptProviderName),
+                ProbeDetail("encryptedDnscryptPublicKey", dnscryptPublicKey),
                 ProbeDetail("encryptedLatencyMs", latencyMs.toString()),
             ),
     )
+}
 
 private class FakeServiceStateStore(
     initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,

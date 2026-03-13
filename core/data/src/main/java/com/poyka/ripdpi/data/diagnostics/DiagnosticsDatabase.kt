@@ -292,6 +292,29 @@ data class RememberedNetworkPolicyEntity(
     val updatedAt: Long,
 )
 
+@Entity(
+    tableName = "network_dns_path_preferences",
+    indices = [
+        Index(
+            name = "index_network_dns_path_preferences_fingerprintHash",
+            value = ["fingerprintHash"],
+            unique = true,
+        ),
+        Index(
+            name = "index_network_dns_path_preferences_updatedAt",
+            value = ["updatedAt"],
+        ),
+    ],
+)
+@Serializable
+data class NetworkDnsPathPreferenceEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val fingerprintHash: String,
+    val summaryJson: String,
+    val pathJson: String,
+    val updatedAt: Long,
+)
+
 @Dao
 interface DiagnosticsDao {
     @Query("SELECT * FROM diagnostic_profiles ORDER BY updatedAt DESC")
@@ -490,6 +513,33 @@ interface DiagnosticsDao {
     )
     suspend fun trimRememberedNetworkPoliciesToCount(retainCount: Int)
 
+    @Query(
+        """
+        SELECT * FROM network_dns_path_preferences
+        WHERE fingerprintHash = :fingerprintHash
+        LIMIT 1
+        """,
+    )
+    suspend fun getNetworkDnsPathPreference(fingerprintHash: String): NetworkDnsPathPreferenceEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertNetworkDnsPathPreference(preference: NetworkDnsPathPreferenceEntity): Long
+
+    @Query("DELETE FROM network_dns_path_preferences WHERE updatedAt < :threshold")
+    suspend fun deleteNetworkDnsPathPreferencesOlderThan(threshold: Long)
+
+    @Query(
+        """
+        DELETE FROM network_dns_path_preferences
+        WHERE id NOT IN (
+            SELECT id FROM network_dns_path_preferences
+            ORDER BY updatedAt DESC
+            LIMIT :retainCount
+        )
+        """,
+    )
+    suspend fun trimNetworkDnsPathPreferencesToCount(retainCount: Int)
+
     @Query("DELETE FROM probe_results WHERE createdAt < :threshold")
     suspend fun deleteProbeResultsOlderThan(threshold: Long)
 
@@ -510,8 +560,9 @@ interface DiagnosticsDao {
         ExportRecordEntity::class,
         BypassUsageSessionEntity::class,
         RememberedNetworkPolicyEntity::class,
+        NetworkDnsPathPreferenceEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -570,6 +621,8 @@ interface DiagnosticsHistoryRepository {
         mode: String,
     ): RememberedNetworkPolicyEntity?
 
+    suspend fun getNetworkDnsPathPreference(fingerprintHash: String): NetworkDnsPathPreferenceEntity?
+
     suspend fun findValidatedRememberedNetworkPolicy(
         fingerprintHash: String,
         mode: String,
@@ -603,9 +656,13 @@ interface DiagnosticsHistoryRepository {
 
     suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long
 
+    suspend fun upsertNetworkDnsPathPreference(preference: NetworkDnsPathPreferenceEntity): Long
+
     suspend fun clearRememberedNetworkPolicies()
 
     suspend fun pruneRememberedNetworkPolicies()
+
+    suspend fun pruneNetworkDnsPathPreferences()
 
     suspend fun trimOldData(retentionDays: Int)
 }
@@ -698,6 +755,11 @@ class RoomDiagnosticsHistoryRepository
             mode = mode,
         )
 
+    override suspend fun getNetworkDnsPathPreference(
+        fingerprintHash: String,
+    ): NetworkDnsPathPreferenceEntity? =
+        dao.getNetworkDnsPathPreference(fingerprintHash)
+
     override suspend fun findValidatedRememberedNetworkPolicy(
         fingerprintHash: String,
         mode: String,
@@ -762,6 +824,11 @@ class RoomDiagnosticsHistoryRepository
     override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long =
         dao.upsertRememberedNetworkPolicy(policy)
 
+    override suspend fun upsertNetworkDnsPathPreference(
+        preference: NetworkDnsPathPreferenceEntity,
+    ): Long =
+        dao.upsertNetworkDnsPathPreference(preference)
+
     override suspend fun clearRememberedNetworkPolicies() {
         dao.clearRememberedNetworkPolicies()
     }
@@ -771,6 +838,13 @@ class RoomDiagnosticsHistoryRepository
             System.currentTimeMillis() - com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionMaxAgeMs
         dao.deleteRememberedNetworkPoliciesOlderThan(staleThreshold)
         dao.trimRememberedNetworkPoliciesToCount(com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit)
+    }
+
+    override suspend fun pruneNetworkDnsPathPreferences() {
+        val staleThreshold =
+            System.currentTimeMillis() - com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionMaxAgeMs
+        dao.deleteNetworkDnsPathPreferencesOlderThan(staleThreshold)
+        dao.trimNetworkDnsPathPreferencesToCount(com.poyka.ripdpi.data.NetworkDnsPathPreferenceRetentionLimit)
     }
 
     override suspend fun trimOldData(retentionDays: Int) {
@@ -786,6 +860,7 @@ class RoomDiagnosticsHistoryRepository
         dao.deleteNativeEventsOlderThan(threshold)
         dao.deleteExportRecordsOlderThan(threshold)
         dao.deleteBypassUsageSessionsOlderThan(threshold)
+        dao.deleteNetworkDnsPathPreferencesOlderThan(threshold)
     }
 }
 
@@ -984,6 +1059,35 @@ internal val DiagnosticsDatabaseMigration7To8 =
         }
     }
 
+internal val DiagnosticsDatabaseMigration8To9 =
+    object : Migration(8, 9) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS network_dns_path_preferences (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    fingerprintHash TEXT NOT NULL,
+                    summaryJson TEXT NOT NULL,
+                    pathJson TEXT NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS index_network_dns_path_preferences_fingerprintHash
+                ON network_dns_path_preferences(fingerprintHash)
+                """.trimIndent(),
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_network_dns_path_preferences_updatedAt
+                ON network_dns_path_preferences(updatedAt)
+                """.trimIndent(),
+            )
+        }
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DiagnosticsHistoryRepositoryModule {
@@ -1012,6 +1116,7 @@ object DiagnosticsDatabaseModule {
             DiagnosticsDatabaseMigration5To6,
             DiagnosticsDatabaseMigration6To7,
             DiagnosticsDatabaseMigration7To8,
+            DiagnosticsDatabaseMigration8To9,
         ).build()
 
     @Provides

@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -258,6 +259,7 @@ private class InMemoryDiagnosticsHistoryRepository : DiagnosticsHistoryRepositor
     val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
     val usageSessionsState = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
     val rememberedPoliciesState = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
+    val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
 
     override fun observeProfiles(): Flow<List<DiagnosticProfileEntity>> = profilesState
 
@@ -315,6 +317,11 @@ private class InMemoryDiagnosticsHistoryRepository : DiagnosticsHistoryRepositor
         mode: String,
     ): RememberedNetworkPolicyEntity? =
         rememberedPoliciesState.value.firstOrNull { it.fingerprintHash == fingerprintHash && it.mode == mode }
+
+    override suspend fun getNetworkDnsPathPreference(
+        fingerprintHash: String,
+    ): NetworkDnsPathPreferenceEntity? =
+        networkDnsPathPreferencesState.value.firstOrNull { it.fingerprintHash == fingerprintHash }
 
     override suspend fun findValidatedRememberedNetworkPolicy(
         fingerprintHash: String,
@@ -380,11 +387,25 @@ private class InMemoryDiagnosticsHistoryRepository : DiagnosticsHistoryRepositor
         return persisted.id
     }
 
+    override suspend fun upsertNetworkDnsPathPreference(preference: NetworkDnsPathPreferenceEntity): Long {
+        val persisted =
+            if (preference.id == 0L) {
+                preference.copy(id = (networkDnsPathPreferencesState.value.maxOfOrNull { it.id } ?: 0L) + 1L)
+            } else {
+                preference
+            }
+        networkDnsPathPreferencesState.value =
+            networkDnsPathPreferencesState.value.filterNot { it.id == persisted.id } + persisted
+        return persisted.id
+    }
+
     override suspend fun clearRememberedNetworkPolicies() {
         rememberedPoliciesState.value = emptyList()
     }
 
     override suspend fun pruneRememberedNetworkPolicies() = Unit
+
+    override suspend fun pruneNetworkDnsPathPreferences() = Unit
 
     override suspend fun trimOldData(retentionDays: Int) = Unit
 }

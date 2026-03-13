@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -99,6 +100,10 @@ class DiagnosticsContextProviderTest {
                         mode: String,
                     ): RememberedNetworkPolicyEntity? = null
 
+                    override suspend fun getNetworkDnsPathPreference(
+                        fingerprintHash: String,
+                    ): NetworkDnsPathPreferenceEntity? = null
+
                     override suspend fun findValidatedRememberedNetworkPolicy(
                         fingerprintHash: String,
                         mode: String,
@@ -129,11 +134,17 @@ class DiagnosticsContextProviderTest {
 
                     override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long = policy.id
 
+                    override suspend fun upsertNetworkDnsPathPreference(
+                        preference: NetworkDnsPathPreferenceEntity,
+                    ): Long = preference.id
+
                     override suspend fun trimOldData(retentionDays: Int) = Unit
 
                     override suspend fun clearRememberedNetworkPolicies() = Unit
 
                     override suspend fun pruneRememberedNetworkPolicies() = Unit
+
+                    override suspend fun pruneNetworkDnsPathPreferences() = Unit
                 }
             val settingsRepository =
                 object : AppSettingsRepository {
