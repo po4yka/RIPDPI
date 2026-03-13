@@ -105,6 +105,28 @@ fn is_tcp_syn(pkt: &[u8]) -> bool {
     pkt[ihl + 13] & 0x12 == 0x02 // SYN=1, ACK=0
 }
 
+/// Return `true` if the raw IPv4 packet looks like an injected TCP RST.
+///
+/// Passive DPI boxes (e.g. Russian SORM/MGTS) inject spoofed RST packets
+/// with IP ID 0x0000 or 0x0001, which is never used by real endpoints.
+fn is_injected_rst(pkt: &[u8]) -> bool {
+    // Need IPv4 header (20 bytes) + TCP header through flags (ihl + 14 bytes)
+    if pkt.len() < 20 || pkt[0] >> 4 != 4 || pkt[9] != 6 {
+        return false;
+    }
+    let ihl = ((pkt[0] & 0x0f) as usize) * 4;
+    if pkt.len() < ihl + 14 {
+        return false;
+    }
+    // TCP RST flag is bit 2 (0x04) in the flags byte
+    if pkt[ihl + 13] & 0x04 == 0 {
+        return false;
+    }
+    // Injected RSTs have IP ID 0x0000 or 0x0001
+    let ip_id = u16::from_be_bytes([pkt[4], pkt[5]]);
+    ip_id <= 1
+}
+
 /// Build a raw IPv4/UDP packet for a DNS response.
 ///
 /// `src` — the mapdns address (e.g. 198.18.0.0:53)
@@ -501,6 +523,7 @@ pub async fn io_loop_task(
     });
 
     let max_sessions = config.misc.max_session_count as usize;
+    let filter_injected_resets = config.misc.filter_injected_resets;
 
     // Tracks pending LISTEN sockets added on-demand per TCP SYN.
     // Key: TCP destination port, Value: smoltcp SocketHandle.
@@ -584,25 +607,29 @@ pub async fn io_loop_task(
             // Decision B: classify before handing to smoltcp.
             match classify_ip_packet(pkt, mapdns_classify) {
                 IpClass::TcpOrOther => {
-                    // On-demand LISTEN socket creation for new TCP flows.
-                    if is_tcp_syn(pkt) {
-                        if let Some(dst_port) = tcp_dst_port(pkt) {
-                            if let std::collections::hash_map::Entry::Vacant(e) = pending_listens.entry(dst_port) {
-                                let mut sock = TcpSocket::new(
-                                    tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
-                                    tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
-                                );
-                                if sock.listen(dst_port).is_ok() {
-                                    let h = socket_set.add(sock);
-                                    e.insert(h);
-                                    debug!("Added LISTEN socket for port {}", dst_port);
-                                } else {
-                                    warn!("listen({}) failed (port already bound?)", dst_port);
+                    if filter_injected_resets && is_injected_rst(pkt) {
+                        // Drop injected RST before it reaches smoltcp
+                    } else {
+                        // On-demand LISTEN socket creation for new TCP flows.
+                        if is_tcp_syn(pkt) {
+                            if let Some(dst_port) = tcp_dst_port(pkt) {
+                                if let std::collections::hash_map::Entry::Vacant(e) = pending_listens.entry(dst_port) {
+                                    let mut sock = TcpSocket::new(
+                                        tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+                                        tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]),
+                                    );
+                                    if sock.listen(dst_port).is_ok() {
+                                        let h = socket_set.add(sock);
+                                        e.insert(h);
+                                        debug!("Added LISTEN socket for port {}", dst_port);
+                                    } else {
+                                        warn!("listen({}) failed (port already bound?)", dst_port);
+                                    }
                                 }
                             }
                         }
+                        device.rx_queue.push_back(pkt.to_vec());
                     }
-                    device.rx_queue.push_back(pkt.to_vec());
                 }
 
                 IpClass::UdpDns { src, payload } => {
@@ -913,4 +940,61 @@ pub async fn io_loop_task(
 
     info!("io_loop exited cleanly");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ipv4_tcp_rst(ip_id: u16) -> Vec<u8> {
+        let mut pkt = vec![0u8; 40];
+        pkt[0] = 0x45;                                // IPv4, IHL=5
+        pkt[3] = 40;                                  // total length
+        pkt[4] = (ip_id >> 8) as u8;                 // IP ID high
+        pkt[5] = (ip_id & 0xFF) as u8;               // IP ID low
+        pkt[8] = 64;                                  // TTL
+        pkt[9] = 6;                                   // TCP
+        pkt[12..16].copy_from_slice(&[10, 0, 0, 1]); // src IP
+        pkt[16..20].copy_from_slice(&[10, 0, 0, 2]); // dst IP
+        pkt[32] = 0x50;                               // TCP data offset = 5
+        pkt[33] = 0x04;                               // RST flag
+        pkt
+    }
+
+    fn ipv4_tcp_syn() -> Vec<u8> {
+        let mut pkt = vec![0u8; 40];
+        pkt[0] = 0x45;
+        pkt[3] = 40;
+        pkt[9] = 6;
+        pkt[12..16].copy_from_slice(&[10, 0, 0, 1]);
+        pkt[16..20].copy_from_slice(&[10, 0, 0, 2]);
+        pkt[32] = 0x50;
+        pkt[33] = 0x02; // SYN
+        pkt
+    }
+
+    #[test]
+    fn injected_rst_with_ip_id_zero_is_detected() {
+        assert!(is_injected_rst(&ipv4_tcp_rst(0x0000)));
+    }
+
+    #[test]
+    fn injected_rst_with_ip_id_one_is_detected() {
+        assert!(is_injected_rst(&ipv4_tcp_rst(0x0001)));
+    }
+
+    #[test]
+    fn real_rst_with_normal_ip_id_is_not_injected() {
+        assert!(!is_injected_rst(&ipv4_tcp_rst(0x1234)));
+    }
+
+    #[test]
+    fn tcp_syn_is_not_injected_rst() {
+        assert!(!is_injected_rst(&ipv4_tcp_syn()));
+    }
+
+    #[test]
+    fn short_packet_is_not_injected_rst() {
+        assert!(!is_injected_rst(&[0x45, 0x00, 0x00]));
+    }
 }
