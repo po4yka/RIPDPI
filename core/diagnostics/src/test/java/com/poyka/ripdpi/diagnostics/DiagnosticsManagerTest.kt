@@ -2026,6 +2026,436 @@ class DiagnosticsManagerTest {
             assertTrue((history.getScanSession(sessionId)?.summary ?: "").isNotBlank())
         }
 
+    // -- Characterization tests for loadSessionDetail --
+
+    @Test
+    fun `loadSessionDetail returns session with results snapshots events and context`() =
+        runTest {
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    seedDefaultProfile(json)
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "s1",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "completed scan",
+                            ),
+                        )
+                    replaceProbeResults(
+                        "s1",
+                        listOf(
+                            ProbeResultEntity(
+                                id = "pr1",
+                                sessionId = "s1",
+                                probeType = "dns",
+                                target = "example.org",
+                                outcome = "ok",
+                                detailJson = "[]",
+                                createdAt = 15L,
+                            ),
+                        ),
+                    )
+                    snapshotsState.value = listOf(snapshot(id = "snap1", sessionId = "s1"))
+                    contextsState.value = listOf(context(id = "ctx1", sessionId = "s1"))
+                    nativeEventsState.value =
+                        listOf(event(id = "ev1", sessionId = "s1", source = "native", level = "info"))
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val detail = manager.loadSessionDetail("s1")
+
+            assertEquals("s1", detail.session.id)
+            assertEquals(1, detail.results.size)
+            assertEquals("dns", detail.results.first().probeType)
+            assertEquals(1, detail.snapshots.size)
+            assertEquals(1, detail.events.size)
+            assertEquals("ctx1", detail.context?.id)
+        }
+
+    @Test
+    fun `loadSessionDetail filters snapshots and events to requested session`() =
+        runTest {
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    seedDefaultProfile(json)
+                    sessionsState.value =
+                        listOf(
+                            session(id = "s1", profileId = "default", pathMode = "RAW_PATH", summary = "ok"),
+                            session(id = "s2", profileId = "default", pathMode = "RAW_PATH", summary = "ok"),
+                        )
+                    snapshotsState.value =
+                        listOf(
+                            snapshot(id = "snap-s1", sessionId = "s1"),
+                            snapshot(id = "snap-s2", sessionId = "s2"),
+                            snapshot(id = "snap-null", sessionId = null),
+                        )
+                    nativeEventsState.value =
+                        listOf(
+                            event(id = "ev-s1", sessionId = "s1", source = "native", level = "info"),
+                            event(id = "ev-s2", sessionId = "s2", source = "native", level = "warn"),
+                        )
+                    contextsState.value =
+                        listOf(
+                            context(id = "ctx-s1", sessionId = "s1"),
+                            context(id = "ctx-s2", sessionId = "s2"),
+                        )
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val detail = manager.loadSessionDetail("s1")
+
+            assertEquals(1, detail.snapshots.size)
+            assertEquals("snap-s1", detail.snapshots.first().id)
+            assertEquals(1, detail.events.size)
+            assertEquals("ev-s1", detail.events.first().id)
+            assertEquals("ctx-s1", detail.context?.id)
+        }
+
+    // -- Characterization tests for loadApproachDetail --
+
+    @Test
+    fun `loadApproachDetail returns profile approach with matching sessions and usage`() =
+        runTest {
+            val strategySignature =
+                BypassStrategySignature(
+                    mode = "VPN",
+                    configSource = "ui",
+                    hostAutolearn = "enabled",
+                    desyncMethod = "split",
+                    chainSummary = "tcp: split(1)",
+                    protocolToggles = listOf("HTTP", "HTTPS"),
+                    tlsRecordSplitEnabled = true,
+                )
+            val strategyJson = Json.encodeToString(BypassStrategySignature.serializer(), strategySignature)
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "s-p1",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "ok",
+                            ).copy(
+                                approachProfileId = "default",
+                                approachProfileName = "Default",
+                                strategyJson = strategyJson,
+                            ),
+                        )
+                    usageSessionsState.value =
+                        listOf(
+                            BypassUsageSessionEntity(
+                                id = "u-p1",
+                                startedAt = 100L,
+                                finishedAt = 200L,
+                                serviceMode = "VPN",
+                                approachProfileId = "default",
+                                approachProfileName = "Default",
+                                strategyId = "test-strategy",
+                                strategyLabel = "Default VPN",
+                                strategyJson = strategyJson,
+                                networkType = "wifi",
+                                txBytes = 100L,
+                                rxBytes = 200L,
+                                totalErrors = 0L,
+                                routeChanges = 0L,
+                                restartCount = 0,
+                                endedReason = "stopped",
+                            ),
+                        )
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val detail = manager.loadApproachDetail(BypassApproachKind.Profile, "default")
+
+            assertEquals(BypassApproachKind.Profile, detail.summary.approachId.kind)
+            assertEquals("default", detail.summary.approachId.value)
+            assertEquals(1, detail.recentValidatedSessions.size)
+            assertEquals(1, detail.recentUsageSessions.size)
+            assertEquals("VPN", detail.strategySignature?.mode)
+        }
+
+    @Test
+    fun `loadApproachDetail for unknown approach throws`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            try {
+                manager.loadApproachDetail(BypassApproachKind.Profile, "nonexistent")
+                assertTrue("Expected IllegalArgumentException", false)
+            } catch (e: IllegalArgumentException) {
+                assertTrue(e.message?.contains("nonexistent") == true)
+            }
+        }
+
+    // -- Characterization tests for buildShareSummary --
+
+    @Test
+    fun `buildShareSummary with explicit session includes session fields and compact metrics`() =
+        runTest {
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    seedDefaultProfile(json)
+                    sessionsState.value =
+                        listOf(
+                            session(id = "s1", profileId = "default", pathMode = "RAW_PATH", summary = "All passed"),
+                        )
+                    replaceProbeResults(
+                        "s1",
+                        listOf(
+                            ProbeResultEntity(
+                                id = "pr1",
+                                sessionId = "s1",
+                                probeType = "dns",
+                                target = "example.org",
+                                outcome = "ok",
+                                detailJson = "[]",
+                                createdAt = 15L,
+                            ),
+                        ),
+                    )
+                    snapshotsState.value = listOf(snapshot(id = "snap1", sessionId = "s1"))
+                    contextsState.value = listOf(context(id = "ctx1", sessionId = "s1"))
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val summary = manager.buildShareSummary("s1")
+
+            assertTrue(summary.title.contains("s1".take(8)))
+            assertTrue(summary.body.contains("session=s1"))
+            assertTrue(summary.body.contains("pathMode=RAW_PATH"))
+            assertTrue(summary.body.contains("status=completed"))
+            assertTrue(summary.body.contains("dns:example.org=ok"))
+            assertTrue(summary.compactMetrics.any { it.label == "Path" && it.value == "RAW_PATH" })
+            assertTrue(summary.compactMetrics.any { it.label == "Transport" && it.value == "wifi" })
+        }
+
+    @Test
+    fun `buildShareSummary without session falls back to latest completed session`() =
+        runTest {
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    seedDefaultProfile(json)
+                    sessionsState.value =
+                        listOf(
+                            session(id = "latest", profileId = "default", pathMode = "IN_PATH", summary = "Fallback"),
+                        )
+                    snapshotsState.value = listOf(snapshot(id = "snap1", sessionId = "latest"))
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val summary = manager.buildShareSummary(null)
+
+            assertTrue(summary.body.contains("session=latest"))
+            assertTrue(summary.body.contains("pathMode=IN_PATH"))
+        }
+
+    @Test
+    fun `buildShareSummary includes warning events in body`() =
+        runTest {
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    seedDefaultProfile(json)
+                    sessionsState.value =
+                        listOf(
+                            session(id = "s1", profileId = "default", pathMode = "RAW_PATH", summary = "ok"),
+                        )
+                    nativeEventsState.value =
+                        listOf(
+                            event(id = "w1", sessionId = "s1", source = "proxy", level = "warn"),
+                            event(id = "e1", sessionId = "s1", source = "tunnel", level = "error"),
+                            event(id = "i1", sessionId = "s1", source = "native", level = "info"),
+                        )
+                }
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                )
+
+            val summary = manager.buildShareSummary("s1")
+
+            assertTrue(summary.body.contains("warnings="))
+            assertTrue(summary.body.contains("proxy: proxy-warn"))
+            assertTrue(summary.body.contains("tunnel: tunnel-error"))
+            assertFalse(summary.body.contains("native: native-info"))
+        }
+
+    // -- Characterization tests for keepResolverRecommendationForSession --
+
+    @Test
+    fun `keepResolverRecommendationForSession installs temporary override from session report`() =
+        runTest {
+            val recommendation =
+                ResolverRecommendation(
+                    triggerOutcome = "dns_substitution",
+                    selectedResolverId = "cloudflare",
+                    selectedProtocol = "doh",
+                    selectedEndpoint = "https://cloudflare-dns.com/dns-query",
+                    selectedBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                    rationale = "DoH resolved correctly while UDP DNS was tampered",
+                    appliedTemporarily = true,
+                    persistable = true,
+                )
+            val report =
+                ScanReport(
+                    sessionId = "s1",
+                    profileId = "default",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                    summary = "DNS tampering detected",
+                    resolverRecommendation = recommendation,
+                )
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "s1",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "DNS tampering detected",
+                                reportJson = json.encodeToString(ScanReport.serializer(), report),
+                            ),
+                        )
+                }
+            val overrideStore = FakeResolverOverrideStore()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    resolverOverrideStore = overrideStore,
+                )
+
+            manager.keepResolverRecommendationForSession("s1")
+
+            val override = overrideStore.override.value
+            assertEquals("cloudflare", override?.resolverId)
+            assertEquals("doh", override?.protocol)
+            assertEquals("https://cloudflare-dns.com/dns-query", override?.dohUrl)
+            assertEquals(listOf("1.1.1.1", "1.0.0.1"), override?.bootstrapIps)
+        }
+
+    @Test
+    fun `keepResolverRecommendationForSession is no-op when report has no recommendation`() =
+        runTest {
+            val report =
+                ScanReport(
+                    sessionId = "s1",
+                    profileId = "default",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    startedAt = 10L,
+                    finishedAt = 20L,
+                    summary = "No DNS issues",
+                )
+            val history =
+                FakeDiagnosticsHistoryRepository().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "s1",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "No DNS issues",
+                                reportJson = json.encodeToString(ScanReport.serializer(), report),
+                            ),
+                        )
+                }
+            val overrideStore = FakeResolverOverrideStore()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator(),
+                    serviceStateStore = FakeServiceStateStore(),
+                    resolverOverrideStore = overrideStore,
+                )
+
+            manager.keepResolverRecommendationForSession("s1")
+
+            assertNull(overrideStore.override.value)
+        }
+
     private suspend fun waitForCompletion(
         history: FakeDiagnosticsHistoryRepository,
         sessionId: String,
