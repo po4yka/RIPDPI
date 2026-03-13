@@ -38,6 +38,8 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.services.FailureReason
 import com.poyka.ripdpi.services.NetworkFingerprintProvider
+import com.poyka.ripdpi.services.PolicyHandoverEvent
+import com.poyka.ripdpi.services.PolicyHandoverEventStore
 import com.poyka.ripdpi.services.ResolverOverrideStore
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
@@ -928,6 +930,138 @@ class DiagnosticsManagerTest {
             val remembered = history.rememberedPoliciesState.value.single()
             assertEquals("hostfake", remembered.winningTcpStrategyFamily)
             assertEquals("quic_burst", remembered.winningQuicStrategyFamily)
+        }
+
+    @Test
+    fun `handover event schedules hidden automatic quick probe without mutating active profile`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }
+            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
+            val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
+            val handoverEventStore = FakePolicyHandoverEventStore()
+            val appSettingsRepository =
+                FakeAppSettingsRepository(
+                    defaultAppSettings()
+                        .toBuilder()
+                        .setNetworkStrategyMemoryEnabled(true)
+                        .setDiagnosticsActiveProfileId("default")
+                        .build(),
+                )
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository = appSettingsRepository,
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = bridgeFactory,
+                    runtimeCoordinator = runtimeCoordinator,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
+                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                    policyHandoverEventStore = handoverEventStore,
+                    automaticHandoverProbeDelayMs = 0L,
+                    importBundledProfilesOnInitialize = false,
+                )
+
+            manager.initialize()
+            Thread.sleep(100)
+            handoverEventStore.publish(
+                PolicyHandoverEvent(
+                    mode = Mode.VPN,
+                    previousFingerprintHash = "old-network",
+                    currentFingerprintHash = "new-network",
+                    classification = "transport_switch",
+                    usedRememberedPolicy = false,
+                    policySignature = "signature-a",
+                    occurredAt = 123L,
+                ),
+            )
+
+            waitUntilCondition(timeoutMillis = 4_000) {
+                runtimeCoordinator.automaticRawScanCount.get() == 1 && history.sessionsState.value.size == 1
+            }
+
+            val request = json.decodeFromString(ScanRequest.serializer(), bridgeFactory.bridge.startedRequestJson!!)
+            val session = history.sessionsState.value.single()
+
+            assertEquals(1, runtimeCoordinator.automaticRawScanCount.get())
+            assertEquals(0, runtimeCoordinator.rawScanCount.get())
+            assertEquals(ScanKind.STRATEGY_PROBE, request.kind)
+            assertEquals("automatic-probing", request.profileId)
+            assertEquals("quick_v1", request.strategyProbe?.suiteId)
+            assertEquals(ScanPathMode.RAW_PATH.name, session.pathMode)
+            assertNull(manager.activeScanProgress.value)
+            assertEquals("default", appSettingsRepository.snapshot().diagnosticsActiveProfileId)
+        }
+
+    @Test
+    fun `handover probe is skipped for remembered policy and duplicate cooldown window`() =
+        runTest {
+            val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }
+            val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
+            val handoverEventStore = FakePolicyHandoverEventStore()
+            val manager =
+                DefaultDiagnosticsManager(
+                    context = TestContext(),
+                    appSettingsRepository =
+                        FakeAppSettingsRepository(
+                            defaultAppSettings()
+                                .toBuilder()
+                                .setNetworkStrategyMemoryEnabled(true)
+                                .build(),
+                        ),
+                    historyRepository = history,
+                    networkMetadataProvider = FakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+                    networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
+                    runtimeCoordinator = runtimeCoordinator,
+                    serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy),
+                    policyHandoverEventStore = handoverEventStore,
+                    automaticHandoverProbeDelayMs = 0L,
+                    automaticHandoverProbeCooldownMs = 86_400_000L,
+                    importBundledProfilesOnInitialize = false,
+                )
+
+            manager.initialize()
+            Thread.sleep(100)
+            handoverEventStore.publish(
+                PolicyHandoverEvent(
+                    mode = Mode.Proxy,
+                    currentFingerprintHash = "remembered-network",
+                    classification = "link_refresh",
+                    usedRememberedPolicy = true,
+                    policySignature = "signature-remembered",
+                    occurredAt = 10L,
+                ),
+            )
+            Thread.sleep(100)
+            assertEquals(0, runtimeCoordinator.automaticRawScanCount.get())
+
+            handoverEventStore.publish(
+                PolicyHandoverEvent(
+                    mode = Mode.Proxy,
+                    currentFingerprintHash = "fresh-network",
+                    classification = "transport_switch",
+                    usedRememberedPolicy = false,
+                    policySignature = "signature-fresh",
+                    occurredAt = 20L,
+                ),
+            )
+            waitUntilCondition(timeoutMillis = 4_000) { runtimeCoordinator.automaticRawScanCount.get() == 1 }
+
+            handoverEventStore.publish(
+                PolicyHandoverEvent(
+                    mode = Mode.Proxy,
+                    currentFingerprintHash = "fresh-network",
+                    classification = "link_refresh",
+                    usedRememberedPolicy = false,
+                    policySignature = "signature-fresh-2",
+                    occurredAt = 30L,
+                ),
+            )
+            Thread.sleep(200)
+
+            assertEquals(1, runtimeCoordinator.automaticRawScanCount.get())
         }
 
     @Test
@@ -1937,6 +2071,19 @@ class DiagnosticsManagerTest {
             }
         }
     }
+
+    private suspend fun waitUntilCondition(
+        timeoutMillis: Long = 2_000,
+        predicate: () -> Boolean,
+    ) {
+        kotlinx.coroutines.withContext(Dispatchers.Default.limitedParallelism(1)) {
+            withTimeout(timeoutMillis) {
+                while (!predicate()) {
+                    delay(25)
+                }
+            }
+        }
+    }
 }
 
 private class FakeAppSettingsRepository(
@@ -2476,9 +2623,15 @@ private class FakeNetworkDiagnosticsBridge(
 
 private class FakeDiagnosticsRuntimeCoordinator : DiagnosticsRuntimeCoordinator {
     val rawScanCount = AtomicInteger(0)
+    val automaticRawScanCount = AtomicInteger(0)
 
     override suspend fun runRawPathScan(block: suspend () -> Unit) {
         rawScanCount.incrementAndGet()
+        block()
+    }
+
+    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
+        automaticRawScanCount.incrementAndGet()
         block()
     }
 }
@@ -2511,6 +2664,16 @@ private class FakeResolverOverrideStore : ResolverOverrideStore {
 
     override fun clear() {
         state.value = null
+    }
+}
+
+private class FakePolicyHandoverEventStore : PolicyHandoverEventStore {
+    private val state = MutableSharedFlow<PolicyHandoverEvent>(extraBufferCapacity = 8)
+
+    override val events: SharedFlow<PolicyHandoverEvent> = state.asSharedFlow()
+
+    override fun publish(event: PolicyHandoverEvent) {
+        state.tryEmit(event)
     }
 }
 

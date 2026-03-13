@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.services.ActiveConnectionPolicy
 import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore
 import com.poyka.ripdpi.services.FailureReason
@@ -97,6 +98,12 @@ class DefaultRuntimeHistoryRecorder
                     when (event) {
                         is ServiceEvent.Failed -> handleFailure(event.sender, event.reason)
                     }
+                }
+            }
+
+            scope.launch {
+                activeConnectionPolicyStore.activePolicy.collectLatest { policy ->
+                    handleActiveConnectionPolicyChange(policy)
                 }
             }
         }
@@ -203,6 +210,16 @@ class DefaultRuntimeHistoryRecorder
             )
         }
 
+        private suspend fun handleActiveConnectionPolicyChange(policy: ActiveConnectionPolicy?) {
+            stateMutex.withLock {
+                if (serviceStateStore.status.value.first != AppStatus.Running) {
+                    return
+                }
+                val session = activeUsageSession ?: return
+                syncRememberedPolicySession(session = session, activePolicy = policy)
+            }
+        }
+
     private fun startSampling() {
         if (samplingJob?.isActive == true) {
             return
@@ -281,7 +298,10 @@ class DefaultRuntimeHistoryRecorder
             )
         activeUsageSession = session
         historyRepository.upsertBypassUsageSession(session)
-        ensureActiveRememberedPolicySession(session)
+        syncRememberedPolicySession(
+            session = session,
+            activePolicy = activeConnectionPolicyStore.activePolicy.value,
+        )
     }
 
     private suspend fun createFailedUsageSession(
@@ -576,27 +596,41 @@ class DefaultRuntimeHistoryRecorder
         }
     }
 
-    private suspend fun ensureActiveRememberedPolicySession(session: BypassUsageSessionEntity) {
-        val activePolicy = activeConnectionPolicyStore.activePolicy.value ?: run {
+    private suspend fun syncRememberedPolicySession(
+        session: BypassUsageSessionEntity,
+        activePolicy: ActiveConnectionPolicy?,
+    ) {
+        val policy = activePolicy ?: run {
             activeRememberedPolicySession = null
             return
         }
+        val existing = activeRememberedPolicySession
+        if (
+            existing != null &&
+            existing.usedRememberedPolicy == policy.usedRememberedPolicy &&
+            existing.fingerprintHash == policy.fingerprintHash &&
+            existing.policySignature == policy.policySignature
+        ) {
+            return
+        }
         val entity =
-            if (activePolicy.usedRememberedPolicy) {
-                activePolicy.matchedPolicy?.let { rememberedNetworkPolicyStore.recordApplied(it, session.startedAt) }
+            if (policy.usedRememberedPolicy) {
+                policy.matchedPolicy?.let { rememberedNetworkPolicyStore.recordApplied(it, policy.appliedAt) }
                     ?: return
             } else {
                 rememberedNetworkPolicyStore.upsertObservedPolicy(
-                    policy = activePolicy.policy.copy(strategySignatureJson = session.strategyJson),
+                    policy = policy.policy.copy(strategySignatureJson = session.strategyJson),
                     source = RememberedNetworkPolicySourceManualSession,
-                    now = session.startedAt,
+                    now = policy.appliedAt,
                 )
             }
         activeRememberedPolicySession =
             ActiveRememberedPolicySession(
                 entity = entity,
-                usedRememberedPolicy = activePolicy.usedRememberedPolicy,
-                startedAt = session.startedAt,
+                usedRememberedPolicy = policy.usedRememberedPolicy,
+                startedAt = policy.appliedAt,
+                fingerprintHash = policy.fingerprintHash,
+                policySignature = policy.policySignature,
             )
     }
 
@@ -645,6 +679,8 @@ class DefaultRuntimeHistoryRecorder
         val entity: RememberedNetworkPolicyEntity,
         val usedRememberedPolicy: Boolean,
         val startedAt: Long,
+        val fingerprintHash: String?,
+        val policySignature: String,
     )
 }
 

@@ -18,6 +18,11 @@ data class ActiveConnectionPolicy(
     val policy: RememberedNetworkPolicyJson,
     val matchedPolicy: RememberedNetworkPolicyEntity? = null,
     val usedRememberedPolicy: Boolean = false,
+    val fingerprintHash: String? = null,
+    val policySignature: String,
+    val appliedAt: Long,
+    val restartReason: String = "initial_start",
+    val handoverClassification: String? = null,
 )
 
 interface ActiveConnectionPolicyStore {
