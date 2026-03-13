@@ -1,77 +1,225 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
-  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>ComposableParamOrder:HomeScreen.kt$HomeRoute</ID>
-    <ID>ComposableParamOrder:RipDpiNavHost.kt$RipDpiNavHost</ID>
-    <ID>ComposableParamOrder:VpnPermissionScreen.kt$VpnPermissionRoute</ID>
-    <ID>CompositionLocalAllowlist:Color.kt$LocalRipDpiExtendedColors</ID>
-    <ID>CompositionLocalAllowlist:Shape.kt$LocalRipDpiShapes</ID>
-    <ID>CompositionLocalAllowlist:Spacing.kt$LocalRipDpiIntroLayout</ID>
-    <ID>CompositionLocalAllowlist:Spacing.kt$LocalRipDpiLayout</ID>
-    <ID>CompositionLocalAllowlist:Spacing.kt$LocalRipDpiSpacing</ID>
-    <ID>CompositionLocalAllowlist:Type.kt$LocalRipDpiTextStyles</ID>
-    <ID>CyclomaticComplexMethod:AdvancedSettingsScreen.kt$@Composable fun AdvancedSettingsRoute( onBack: () -&gt; Unit, modifier: Modifier = Modifier, viewModel: SettingsViewModel = viewModel(), )</ID>
-    <ID>CyclomaticComplexMethod:RipDpiTextField.kt$@Composable fun RipDpiTextField( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, label: String? = null, placeholder: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, singleLine: Boolean = true, forceFocused: Boolean = false, textStyle: TextStyle = RipDpiThemeTokens.type.monoValue, keyboardOptions: KeyboardOptions = KeyboardOptions.Default, keyboardActions: KeyboardActions = KeyboardActions.Default, visualTransformation: VisualTransformation = VisualTransformation.None, trailingContent: (@Composable () -&gt; Unit)? = null, )</ID>
-    <ID>LambdaParameterEventTrailing:PresetCard.kt$onClick</ID>
-    <ID>LambdaParameterInRestartableEffect:BiometricPromptScreen.kt$onAuthenticated</ID>
-    <ID>LambdaParameterInRestartableEffect:ModeEditorScreen.kt$onBack</ID>
-    <ID>LambdaParameterInRestartableEffect:OnboardingScreen.kt$onComplete</ID>
-    <ID>LambdaParameterInRestartableEffect:OnboardingScreen.kt$onPageChanged</ID>
-    <ID>LambdaParameterInRestartableEffect:RipDpiNavHost.kt$onLaunchHomeHandled</ID>
-    <ID>LambdaParameterInRestartableEffect:SplashScreen.kt$onFinished</ID>
-    <ID>LambdaParameterInRestartableEffect:VpnPermissionScreen.kt$onGranted</ID>
+    <ID>ComplexCondition:AdvancedSettingsScreen.kt$showFakeApproxSection || showAdaptiveFakeTtlSection || showFakeTlsSection || uiState.isOob</ID>
+    <ID>ComplexCondition:LogsScreen.kt$uiState.isAutoScroll &amp;&amp; latestLog.type in uiState.activeFilters &amp;&amp; filteredLogs.isNotEmpty() &amp;&amp; isAtLiveEdge</ID>
+    <ID>CyclomaticComplexMethod:AdvancedSettingsRoute.kt$@Composable fun AdvancedSettingsRoute( onBack: () -&gt; Unit, modifier: Modifier = Modifier, viewModel: SettingsViewModel = hiltViewModel(), )</ID>
+    <ID>CyclomaticComplexMethod:AdvancedSettingsScreen.kt$@Composable internal fun AdvancedSettingsScreen( uiState: SettingsUiState, hostPackCatalog: HostPackCatalogUiState, notice: AdvancedNotice?, onBack: () -&gt; Unit, onToggleChanged: (AdvancedToggleSetting, Boolean) -&gt; Unit, onTextConfirmed: (AdvancedTextSetting, String) -&gt; Unit, onOptionSelected: (AdvancedOptionSetting, String) -&gt; Unit, onApplyHostPackPreset: (HostPackPreset, String, String) -&gt; Unit, onRefreshHostPackCatalog: () -&gt; Unit, onForgetLearnedHosts: () -&gt; Unit, onClearRememberedNetworks: () -&gt; Unit, onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -&gt; Unit, onResetAdaptiveSplit: () -&gt; Unit, onResetAdaptiveFakeTtlProfile: () -&gt; Unit, onResetActivationWindow: () -&gt; Unit, onResetHttpParserEvasions: () -&gt; Unit, onResetFakePayloadLibrary: () -&gt; Unit, onResetFakeTlsProfile: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:AdvancedSettingsScreen.kt$@Composable private fun AdaptiveFakeTtlProfileCard( uiState: SettingsUiState, onResetAdaptiveFakeTtlProfile: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:AdvancedSettingsScreen.kt$@Composable private fun AdaptiveSplitProfileCard( uiState: SettingsUiState, onResetAdaptiveSplit: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:AdvancedSettingsScreen.kt$@Composable private fun FakeApproximationProfileCard( uiState: SettingsUiState, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:DiagnosticsScreen.kt$@Composable private fun DiagnosticsScanWorkflowCard( profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel, scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel, strategyProbeSelected: Boolean, isFullAudit: Boolean, onRunRawScan: () -&gt; Unit, onRunInPathScan: () -&gt; Unit, onCancelScan: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:DiagnosticsScreen.kt$@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) @Composable fun DiagnosticsScreen( uiState: DiagnosticsUiState, pagerState: androidx.compose.foundation.pager.PagerState, onSelectSection: (DiagnosticsSection) -&gt; Unit, onSelectProfile: (String) -&gt; Unit, onRunRawScan: () -&gt; Unit, onRunInPathScan: () -&gt; Unit, onCancelScan: () -&gt; Unit, onKeepResolverRecommendation: (String?) -&gt; Unit, onSaveResolverRecommendation: (String?) -&gt; Unit, onSelectSession: (String) -&gt; Unit, onDismissSessionDetail: () -&gt; Unit, onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -&gt; Unit, onDismissStrategyProbeCandidate: () -&gt; Unit, onSelectApproachMode: (DiagnosticsApproachMode) -&gt; Unit, onSelectApproach: (String) -&gt; Unit, onDismissApproachDetail: () -&gt; Unit, onSelectEvent: (String) -&gt; Unit, onDismissEventDetail: () -&gt; Unit, onSelectProbe: (DiagnosticsProbeResultUiModel) -&gt; Unit, onDismissProbeDetail: () -&gt; Unit, onToggleSensitiveSessionDetails: () -&gt; Unit, onSessionPathFilter: (String?) -&gt; Unit, onSessionStatusFilter: (String?) -&gt; Unit, onSessionSearch: (String) -&gt; Unit, onToggleEventFilter: (String?, String?) -&gt; Unit, onEventSearch: (String) -&gt; Unit, onEventAutoScroll: (Boolean) -&gt; Unit, onShareSummary: (String?) -&gt; Unit, onShareArchive: (String?) -&gt; Unit, onSaveArchive: (String?) -&gt; Unit, onSaveLogs: () -&gt; Unit, onOpenHistory: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:DiagnosticsViewModel.kt$DiagnosticsViewModel$private fun buildUiState( profiles: List&lt;DiagnosticProfileEntity&gt;, settings: com.poyka.ripdpi.proto.AppSettings, progress: ScanProgress?, sessions: List&lt;ScanSessionEntity&gt;, approachStats: List&lt;BypassApproachSummary&gt;, snapshots: List&lt;NetworkSnapshotEntity&gt;, contexts: List&lt;DiagnosticContextEntity&gt;, telemetry: List&lt;TelemetrySampleEntity&gt;, nativeEvents: List&lt;NativeSessionEventEntity&gt;, exports: List&lt;ExportRecordEntity&gt;, rememberedPolicies: List&lt;RememberedNetworkPolicyEntity&gt;, activeConnectionPolicy: ActiveConnectionPolicy?, selectedSectionRequest: DiagnosticsSection, selectedProfileId: String?, selectedApproachMode: DiagnosticsApproachMode, selectedProbe: DiagnosticsProbeResultUiModel?, selectedEventId: String?, sessionPathMode: String?, sessionStatus: String?, sessionSearch: String, eventSource: String?, eventSeverity: String?, eventSearch: String, eventAutoScroll: Boolean, selectedSessionDetail: DiagnosticsSessionDetailUiModel?, selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?, selectedApproachDetail: DiagnosticsApproachDetailUiModel?, sensitiveSessionDetailsVisible: Boolean, archiveActionState: ArchiveActionState, ): DiagnosticsUiState</ID>
+    <ID>CyclomaticComplexMethod:DiagnosticsViewModel.kt$DiagnosticsViewModel$private fun strategySignatureFields(signature: BypassStrategySignature): List&lt;DiagnosticsFieldUiModel&gt;</ID>
+    <ID>CyclomaticComplexMethod:DiagnosticsViewModel.kt$DiagnosticsViewModel$private fun transportSpecificFields( snapshot: NetworkSnapshotModel, showSensitiveDetails: Boolean, ): List&lt;DiagnosticsFieldUiModel&gt;</ID>
+    <ID>CyclomaticComplexMethod:DnsSettingsScreen.kt$@Composable internal fun DnsSettingsScreen( uiState: SettingsUiState, onBack: () -&gt; Unit, onModeSelected: (String) -&gt; Unit, onProtocolSelected: (String) -&gt; Unit, onResolverSelected: (DnsResolverOption) -&gt; Unit, onSaveCustomDoh: (String, List&lt;String&gt;) -&gt; Unit, onSaveCustomDot: (String, Int, String, List&lt;String&gt;) -&gt; Unit, onSaveCustomDnsCrypt: (String, Int, String, String, List&lt;String&gt;) -&gt; Unit, onSavePlainDns: (String) -&gt; Unit, onIpv6Changed: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:DnsSettingsScreen.kt$@Composable private fun CustomEncryptedDnsSection( uiState: SettingsUiState, dohUrl: String, onDohUrlChange: (String) -&gt; Unit, dotHost: String, onDotHostChange: (String) -&gt; Unit, dnscryptHost: String, onDnscryptHostChange: (String) -&gt; Unit, portInput: String, onPortInputChange: (String) -&gt; Unit, tlsServerNameInput: String, onTlsServerNameChange: (String) -&gt; Unit, bootstrapInput: String, onBootstrapInputChange: (String) -&gt; Unit, dnscryptProviderInput: String, onDnscryptProviderChange: (String) -&gt; Unit, dnscryptPublicKeyInput: String, onDnscryptPublicKeyChange: (String) -&gt; Unit, customDohValid: Boolean, customDohDirty: Boolean, customDotValid: Boolean, customDotDirty: Boolean, customDnsCryptValid: Boolean, customDnsCryptDirty: Boolean, dnscryptPublicKeyValid: Boolean, bootstrapIpsValid: Boolean, onSaveCustomDoh: () -&gt; Unit, onSaveCustomDot: () -&gt; Unit, onSaveCustomDnsCrypt: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:HomeScreen.kt$@Composable private fun HomeConnectionButton( state: ConnectionState, label: String, modeLabel: String, onClick: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:RipDpiButton.kt$@Composable fun RipDpiButton( text: String, onClick: () -&gt; Unit, modifier: Modifier = Modifier, variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary, enabled: Boolean = true, loading: Boolean = false, density: RipDpiControlDensity = RipDpiControlDensity.Default, leadingIcon: ImageVector? = null, trailingIcon: ImageVector? = null, interactionSource: MutableInteractionSource? = null, hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action, )</ID>
+    <ID>CyclomaticComplexMethod:RipDpiChip.kt$@Composable fun RipDpiChip( text: String, onClick: () -&gt; Unit, modifier: Modifier = Modifier, selected: Boolean = false, enabled: Boolean = true, density: RipDpiControlDensity = RipDpiControlDensity.Default, leadingIcon: ImageVector? = if (selected) RipDpiIcons.Check else null, hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Selection, )</ID>
+    <ID>CyclomaticComplexMethod:RipDpiDropdown.kt$@Composable fun &lt;T&gt; RipDpiDropdown( options: List&lt;RipDpiDropdownOption&lt;T&gt;&gt;, selectedValue: T?, onValueSelected: (T) -&gt; Unit, modifier: Modifier = Modifier, label: String? = null, placeholder: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, density: RipDpiControlDensity = RipDpiControlDensity.Default, interactionSource: MutableInteractionSource? = null, )</ID>
+    <ID>CyclomaticComplexMethod:RipDpiIconButton.kt$@Composable fun RipDpiIconButton( icon: ImageVector, contentDescription: String, onClick: () -&gt; Unit, modifier: Modifier = Modifier, style: RipDpiIconButtonStyle = RipDpiIconButtonStyle.Ghost, enabled: Boolean = true, loading: Boolean = false, selected: Boolean = false, density: RipDpiControlDensity = RipDpiControlDensity.Default, interactionSource: MutableInteractionSource? = null, hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action, )</ID>
+    <ID>CyclomaticComplexMethod:RipDpiSwitch.kt$@Composable fun RipDpiSwitch( checked: Boolean, onCheckedChange: ((Boolean) -&gt; Unit)?, modifier: Modifier = Modifier, label: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, interactionSource: MutableInteractionSource? = null, )</ID>
+    <ID>CyclomaticComplexMethod:RipDpiTextField.kt$@Composable fun RipDpiTextField( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, label: String? = null, placeholder: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, density: RipDpiControlDensity = RipDpiControlDensity.Default, singleLine: Boolean = true, textStyle: TextStyle = RipDpiThemeTokens.type.monoValue, keyboardOptions: KeyboardOptions = KeyboardOptions.Default, keyboardActions: KeyboardActions = KeyboardActions.Default, visualTransformation: VisualTransformation = VisualTransformation.None, minHeight: androidx.compose.ui.unit.Dp? = null, trailingContent: (@Composable () -&gt; Unit)? = null, interactionSource: MutableInteractionSource? = null, )</ID>
+    <ID>CyclomaticComplexMethod:SettingsRow.kt$@Composable fun SettingsRow( title: String, modifier: Modifier = Modifier, subtitle: String? = null, value: String? = null, checked: Boolean? = null, onClick: (() -&gt; Unit)? = null, onCheckedChange: ((Boolean) -&gt; Unit)? = null, leadingIcon: ImageVector? = null, enabled: Boolean = true, showChevron: Boolean = value != null &amp;&amp; onClick != null, showDivider: Boolean = false, monospaceValue: Boolean = false, variant: SettingsRowVariant = SettingsRowVariant.Default, )</ID>
+    <ID>CyclomaticComplexMethod:SettingsViewModel.kt$@VisibleForTesting internal fun AppSettings.toUiState( isHydrated: Boolean = true, serviceStatus: AppStatus = AppStatus.Halted, proxyTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy"), hostAutolearnStorePresent: Boolean = false, rememberedNetworkCount: Int = 0, ): SettingsUiState</ID>
+    <ID>LargeClass:DiagnosticsViewModel.kt$DiagnosticsViewModel : ViewModel</ID>
+    <ID>LargeClass:DiagnosticsViewModelTest.kt$DiagnosticsViewModelTest</ID>
+    <ID>LargeClass:MainViewModel.kt$MainViewModel : ViewModel</ID>
+    <ID>LargeClass:SettingsUiStateTest.kt$SettingsUiStateTest</ID>
     <ID>LongMethod:AboutScreen.kt$@Composable internal fun AboutScreen( onBack: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable fun AdvancedSettingsRoute( onBack: () -&gt; Unit, modifier: Modifier = Modifier, viewModel: SettingsViewModel = viewModel(), )</ID>
-    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun AdvancedSettingsScreen( uiState: SettingsUiState, onBack: () -&gt; Unit, onToggleChanged: (AdvancedToggleSetting, Boolean) -&gt; Unit, onTextConfirmed: (AdvancedTextSetting, String) -&gt; Unit, onOptionSelected: (AdvancedOptionSetting, String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun AdvancedTextSetting( title: String, value: String, setting: AdvancedTextSetting, onConfirm: (AdvancedTextSetting, String) -&gt; Unit, modifier: Modifier = Modifier, description: String? = null, placeholder: String? = null, enabled: Boolean = true, multiline: Boolean = false, validator: (String) -&gt; Boolean = { true }, invalidMessage: String? = null, disabledMessage: String? = null, keyboardOptions: KeyboardOptions = KeyboardOptions( keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done, ), showDivider: Boolean = false, )</ID>
+    <ID>LongMethod:AdvancedSettingsComponents.kt$@Composable internal fun ActivationRangeEditorCard( title: String, description: String, currentRange: NumericRangeModel, emptySummary: String, effectSummary: String, enabled: Boolean, minValue: Long, onSave: (Long?, Long?) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsRoute.kt$@Composable fun AdvancedSettingsRoute( onBack: () -&gt; Unit, modifier: Modifier = Modifier, viewModel: SettingsViewModel = hiltViewModel(), )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable internal fun AdvancedSettingsScreen( uiState: SettingsUiState, hostPackCatalog: HostPackCatalogUiState, notice: AdvancedNotice?, onBack: () -&gt; Unit, onToggleChanged: (AdvancedToggleSetting, Boolean) -&gt; Unit, onTextConfirmed: (AdvancedTextSetting, String) -&gt; Unit, onOptionSelected: (AdvancedOptionSetting, String) -&gt; Unit, onApplyHostPackPreset: (HostPackPreset, String, String) -&gt; Unit, onRefreshHostPackCatalog: () -&gt; Unit, onForgetLearnedHosts: () -&gt; Unit, onClearRememberedNetworks: () -&gt; Unit, onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -&gt; Unit, onResetAdaptiveSplit: () -&gt; Unit, onResetAdaptiveFakeTtlProfile: () -&gt; Unit, onResetActivationWindow: () -&gt; Unit, onResetHttpParserEvasions: () -&gt; Unit, onResetFakePayloadLibrary: () -&gt; Unit, onResetFakeTlsProfile: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun ActivationWindowProfileCard( uiState: SettingsUiState, onResetActivationWindow: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun AdaptiveFakeTtlProfileCard( uiState: SettingsUiState, onResetAdaptiveFakeTtlProfile: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun AdaptiveSplitProfileCard( uiState: SettingsUiState, onResetAdaptiveSplit: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun FakeApproximationProfileCard( uiState: SettingsUiState, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun FakePayloadLibraryCard( uiState: SettingsUiState, onResetFakePayloadLibrary: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun FakeTlsProfileCard( uiState: SettingsUiState, onResetFakeTlsProfile: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun HostFakeProfileCard( uiState: SettingsUiState, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun HostPackCatalogStatusCard( hostPackCatalog: HostPackCatalogUiState, onRefreshCatalog: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun HttpParserEvasionsProfileCard( uiState: SettingsUiState, onResetHttpParserEvasions: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun QuicFakeProfileCard( uiState: SettingsUiState, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsScreen.kt$@Composable private fun TlsPreludeProfileCard( uiState: SettingsUiState, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AdvancedSettingsSections.kt$internal fun LazyListScope.proxySection( uiState: SettingsUiState, visualEditorEnabled: Boolean, onToggleChanged: (AdvancedToggleSetting, Boolean) -&gt; Unit, onTextConfirmed: (AdvancedTextSetting, String) -&gt; Unit, )</ID>
     <ID>LongMethod:AppCustomizationScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun AppCustomizationScreen( uiState: SettingsUiState, onBack: () -&gt; Unit, onIconSelected: (String) -&gt; Unit, onThemedIconChanged: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:BiometricPromptScreen.kt$@Composable fun BiometricPromptScreen( uiState: SettingsUiState, stage: BiometricPromptStage, pin: String, pinError: String?, onAuthenticate: () -&gt; Unit, onUseBackupPin: () -&gt; Unit, onBackToBiometric: () -&gt; Unit, onPinChanged: (String) -&gt; Unit, onSubmitPin: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:BottomNavBar.kt$@Composable fun BottomNavBar( currentRoute: String?, onNavigate: (Route) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:ConfigScreen.kt$@Composable fun ConfigScreen( uiState: ConfigUiState, onModeSelected: (Mode) -&gt; Unit, onPresetSelected: (ConfigPreset) -&gt; Unit, onEditCurrent: () -&gt; Unit, onOpenDnsSettings: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>LongMethod:DnsSettingsScreen.kt$@Composable internal fun DnsSettingsScreen( uiState: SettingsUiState, onBack: () -&gt; Unit, onResolverSelected: (DnsResolverOption) -&gt; Unit, onSaveCustomDns: (String) -&gt; Unit, onIpv6Changed: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:DiagnosticsScreen.kt$@Composable private fun DiagnosticsScanWorkflowCard( profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel, scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel, strategyProbeSelected: Boolean, isFullAudit: Boolean, onRunRawScan: () -&gt; Unit, onRunInPathScan: () -&gt; Unit, onCancelScan: () -&gt; Unit, )</ID>
+    <ID>LongMethod:DiagnosticsScreen.kt$@Composable private fun LiveHeroCard( live: DiagnosticsLiveUiModel, health: DiagnosticsHealth, )</ID>
+    <ID>LongMethod:DiagnosticsScreen.kt$@Composable private fun ScanSection( uiState: DiagnosticsUiState, onSelectProfile: (String) -&gt; Unit, onRunRawScan: () -&gt; Unit, onRunInPathScan: () -&gt; Unit, onCancelScan: () -&gt; Unit, onKeepResolverRecommendation: (String?) -&gt; Unit, onSaveResolverRecommendation: (String?) -&gt; Unit, onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -&gt; Unit, onSelectProbe: (DiagnosticsProbeResultUiModel) -&gt; Unit, )</ID>
+    <ID>LongMethod:DiagnosticsScreen.kt$@Composable private fun StrategyProbeReportCard( report: DiagnosticsStrategyProbeReportUiModel, onSelectCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -&gt; Unit, )</ID>
+    <ID>LongMethod:DiagnosticsScreen.kt$@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) @Composable fun DiagnosticsScreen( uiState: DiagnosticsUiState, pagerState: androidx.compose.foundation.pager.PagerState, onSelectSection: (DiagnosticsSection) -&gt; Unit, onSelectProfile: (String) -&gt; Unit, onRunRawScan: () -&gt; Unit, onRunInPathScan: () -&gt; Unit, onCancelScan: () -&gt; Unit, onKeepResolverRecommendation: (String?) -&gt; Unit, onSaveResolverRecommendation: (String?) -&gt; Unit, onSelectSession: (String) -&gt; Unit, onDismissSessionDetail: () -&gt; Unit, onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -&gt; Unit, onDismissStrategyProbeCandidate: () -&gt; Unit, onSelectApproachMode: (DiagnosticsApproachMode) -&gt; Unit, onSelectApproach: (String) -&gt; Unit, onDismissApproachDetail: () -&gt; Unit, onSelectEvent: (String) -&gt; Unit, onDismissEventDetail: () -&gt; Unit, onSelectProbe: (DiagnosticsProbeResultUiModel) -&gt; Unit, onDismissProbeDetail: () -&gt; Unit, onToggleSensitiveSessionDetails: () -&gt; Unit, onSessionPathFilter: (String?) -&gt; Unit, onSessionStatusFilter: (String?) -&gt; Unit, onSessionSearch: (String) -&gt; Unit, onToggleEventFilter: (String?, String?) -&gt; Unit, onEventSearch: (String) -&gt; Unit, onEventAutoScroll: (Boolean) -&gt; Unit, onShareSummary: (String?) -&gt; Unit, onShareArchive: (String?) -&gt; Unit, onSaveArchive: (String?) -&gt; Unit, onSaveLogs: () -&gt; Unit, onOpenHistory: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:DiagnosticsViewModel.kt$DiagnosticsViewModel$private fun buildLiveMetrics( telemetry: TelemetrySampleEntity?, events: List&lt;NativeSessionEventEntity&gt;, ): List&lt;DiagnosticsMetricUiModel&gt;</ID>
+    <ID>LongMethod:DiagnosticsViewModel.kt$DiagnosticsViewModel$private fun buildUiState( profiles: List&lt;DiagnosticProfileEntity&gt;, settings: com.poyka.ripdpi.proto.AppSettings, progress: ScanProgress?, sessions: List&lt;ScanSessionEntity&gt;, approachStats: List&lt;BypassApproachSummary&gt;, snapshots: List&lt;NetworkSnapshotEntity&gt;, contexts: List&lt;DiagnosticContextEntity&gt;, telemetry: List&lt;TelemetrySampleEntity&gt;, nativeEvents: List&lt;NativeSessionEventEntity&gt;, exports: List&lt;ExportRecordEntity&gt;, rememberedPolicies: List&lt;RememberedNetworkPolicyEntity&gt;, activeConnectionPolicy: ActiveConnectionPolicy?, selectedSectionRequest: DiagnosticsSection, selectedProfileId: String?, selectedApproachMode: DiagnosticsApproachMode, selectedProbe: DiagnosticsProbeResultUiModel?, selectedEventId: String?, sessionPathMode: String?, sessionStatus: String?, sessionSearch: String, eventSource: String?, eventSeverity: String?, eventSearch: String, eventAutoScroll: Boolean, selectedSessionDetail: DiagnosticsSessionDetailUiModel?, selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?, selectedApproachDetail: DiagnosticsApproachDetailUiModel?, sensitiveSessionDetailsVisible: Boolean, archiveActionState: ArchiveActionState, ): DiagnosticsUiState</ID>
+    <ID>LongMethod:DiagnosticsViewModel.kt$DiagnosticsViewModel$private fun strategySignatureFields(signature: BypassStrategySignature): List&lt;DiagnosticsFieldUiModel&gt;</ID>
+    <ID>LongMethod:DiagnosticsViewModelTest.kt$DiagnosticsViewModelTest$@Test fun `automatic audit report exposes full matrix summary and candidate detail`()</ID>
+    <ID>LongMethod:DiagnosticsViewModelTest.kt$DiagnosticsViewModelTest$@Test fun `automatic probing promotes recommended candidates to the top of each family`()</ID>
+    <ID>LongMethod:DiagnosticsViewModelTest.kt$DiagnosticsViewModelTest$@Test fun `ui state groups overview live sessions and share models`()</ID>
+    <ID>LongMethod:DnsSettingsScreen.kt$@Composable internal fun DnsSettingsScreen( uiState: SettingsUiState, onBack: () -&gt; Unit, onModeSelected: (String) -&gt; Unit, onProtocolSelected: (String) -&gt; Unit, onResolverSelected: (DnsResolverOption) -&gt; Unit, onSaveCustomDoh: (String, List&lt;String&gt;) -&gt; Unit, onSaveCustomDot: (String, Int, String, List&lt;String&gt;) -&gt; Unit, onSaveCustomDnsCrypt: (String, Int, String, String, List&lt;String&gt;) -&gt; Unit, onSavePlainDns: (String) -&gt; Unit, onIpv6Changed: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:DnsSettingsScreen.kt$@Composable private fun CustomEncryptedDnsSection( uiState: SettingsUiState, dohUrl: String, onDohUrlChange: (String) -&gt; Unit, dotHost: String, onDotHostChange: (String) -&gt; Unit, dnscryptHost: String, onDnscryptHostChange: (String) -&gt; Unit, portInput: String, onPortInputChange: (String) -&gt; Unit, tlsServerNameInput: String, onTlsServerNameChange: (String) -&gt; Unit, bootstrapInput: String, onBootstrapInputChange: (String) -&gt; Unit, dnscryptProviderInput: String, onDnscryptProviderChange: (String) -&gt; Unit, dnscryptPublicKeyInput: String, onDnscryptPublicKeyChange: (String) -&gt; Unit, customDohValid: Boolean, customDohDirty: Boolean, customDotValid: Boolean, customDotDirty: Boolean, customDnsCryptValid: Boolean, customDnsCryptDirty: Boolean, dnscryptPublicKeyValid: Boolean, bootstrapIpsValid: Boolean, onSaveCustomDoh: () -&gt; Unit, onSaveCustomDot: () -&gt; Unit, onSaveCustomDnsCrypt: () -&gt; Unit, )</ID>
+    <ID>LongMethod:DnsSettingsScreen.kt$@Composable private fun DnsActiveConfigurationCard( uiState: SettingsUiState, selectedResolver: DnsResolverOption?, )</ID>
+    <ID>LongMethod:HistoryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun HistoryScreen( uiState: HistoryUiState, onBack: () -&gt; Unit, onSelectSection: (HistorySection) -&gt; Unit, onConnectionModeFilter: (String?) -&gt; Unit, onConnectionStatusFilter: (String?) -&gt; Unit, onConnectionSearch: (String) -&gt; Unit, onSelectConnection: (String) -&gt; Unit, onDismissConnectionDetail: () -&gt; Unit, onDiagnosticsPathFilter: (String?) -&gt; Unit, onDiagnosticsStatusFilter: (String?) -&gt; Unit, onDiagnosticsSearch: (String) -&gt; Unit, onSelectDiagnosticsSession: (String) -&gt; Unit, onDismissDiagnosticsDetail: () -&gt; Unit, onToggleEventFilter: (String?, String?) -&gt; Unit, onEventSearch: (String) -&gt; Unit, onEventAutoScroll: (Boolean) -&gt; Unit, onSelectEvent: (String) -&gt; Unit, onDismissEventDetail: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:HomeScreen.kt$@Composable fun HomeScreen( uiState: MainUiState, onToggleConnection: () -&gt; Unit, onOpenDiagnostics: () -&gt; Unit, onOpenHistory: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:HomeScreen.kt$@Composable private fun HomeConnectionButton( state: ConnectionState, label: String, modeLabel: String, onClick: () -&gt; Unit, )</ID>
+    <ID>LongMethod:LogsScreen.kt$@Composable internal fun LogsScreen( uiState: LogsUiState, onToggleFilter: (LogType) -&gt; Unit, onAutoScrollChanged: (Boolean) -&gt; Unit, onClearLogs: () -&gt; Unit, onSaveLogs: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:LogsScreen.kt$@Composable private fun LogsOverviewCard( uiState: LogsUiState, onSaveLogs: () -&gt; Unit, onClearLogs: () -&gt; Unit, )</ID>
-    <ID>LongMethod:ModeEditorScreen.kt$@Composable fun ModeEditorScreen( uiState: ConfigUiState, snackbarHostState: SnackbarHostState, onBack: () -&gt; Unit, onModeSelected: (Mode) -&gt; Unit, onDnsIpChanged: (String) -&gt; Unit, onProxyIpChanged: (String) -&gt; Unit, onProxyPortChanged: (String) -&gt; Unit, onMaxConnectionsChanged: (String) -&gt; Unit, onBufferSizeChanged: (String) -&gt; Unit, onDesyncMethodChanged: (String) -&gt; Unit, onDefaultTtlChanged: (String) -&gt; Unit, onCommandLineEnabledChanged: (Boolean) -&gt; Unit, onCommandLineArgsChanged: (String) -&gt; Unit, onSave: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:ModeEditorScreen.kt$@Composable fun ModeEditorScreen( uiState: ConfigUiState, snackbarHostState: SnackbarHostState, onBack: () -&gt; Unit, onModeSelected: (Mode) -&gt; Unit, onDnsIpChanged: (String) -&gt; Unit, onProxyIpChanged: (String) -&gt; Unit, onProxyPortChanged: (String) -&gt; Unit, onMaxConnectionsChanged: (String) -&gt; Unit, onBufferSizeChanged: (String) -&gt; Unit, onChainDslChanged: (String) -&gt; Unit, onDefaultTtlChanged: (String) -&gt; Unit, onCommandLineEnabledChanged: (Boolean) -&gt; Unit, onCommandLineArgsChanged: (String) -&gt; Unit, onSave: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:OnboardingScreen.kt$@Composable fun OnboardingScreen( uiState: OnboardingUiState, onPageChanged: (Int) -&gt; Unit, onSkip: () -&gt; Unit, onContinue: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>LongMethod:OnboardingScreen.kt$@Composable private fun OnboardingIllustration( illustration: OnboardingIllustration, modifier: Modifier = Modifier, )</ID>
-    <ID>LongMethod:RipDpiNavHost.kt$@Composable fun RipDpiNavHost( modifier: Modifier = Modifier, onSaveLogs: () -&gt; Unit = {}, mainViewModel: MainViewModel, launchHomeRequested: Boolean = false, onLaunchHomeHandled: () -&gt; Unit = {}, snackbarHostState: SnackbarHostState? = null, )</ID>
-    <ID>LongMethod:RipDpiTextField.kt$@Composable fun RipDpiTextField( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, label: String? = null, placeholder: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, singleLine: Boolean = true, forceFocused: Boolean = false, textStyle: TextStyle = RipDpiThemeTokens.type.monoValue, keyboardOptions: KeyboardOptions = KeyboardOptions.Default, keyboardActions: KeyboardActions = KeyboardActions.Default, visualTransformation: VisualTransformation = VisualTransformation.None, trailingContent: (@Composable () -&gt; Unit)? = null, )</ID>
-    <ID>LongMethod:SettingsPreferencesScreen.kt$@Composable internal fun SettingsScreen( uiState: SettingsUiState, onOpenDnsSettings: () -&gt; Unit, onOpenAdvancedSettings: () -&gt; Unit, onOpenCustomization: () -&gt; Unit, onOpenAbout: () -&gt; Unit, onThemeSelected: (String) -&gt; Unit, onWebRtcProtectionChanged: (Boolean) -&gt; Unit, onBiometricChanged: (Boolean) -&gt; Unit, onSaveBackupPin: (String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>LongMethod:SettingsRow.kt$@Composable fun SettingsRow( title: String, modifier: Modifier = Modifier, subtitle: String? = null, value: String? = null, checked: Boolean? = null, onClick: (() -&gt; Unit)? = null, onCheckedChange: ((Boolean) -&gt; Unit)? = null, leadingIcon: ImageVector? = null, enabled: Boolean = true, showChevron: Boolean = value != null &amp;&amp; onClick != null, showDivider: Boolean = false, monospaceValue: Boolean = false, )</ID>
+    <ID>LongMethod:RipDpiButton.kt$@Composable fun RipDpiButton( text: String, onClick: () -&gt; Unit, modifier: Modifier = Modifier, variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary, enabled: Boolean = true, loading: Boolean = false, density: RipDpiControlDensity = RipDpiControlDensity.Default, leadingIcon: ImageVector? = null, trailingIcon: ImageVector? = null, interactionSource: MutableInteractionSource? = null, hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action, )</ID>
+    <ID>LongMethod:RipDpiChip.kt$@Composable fun RipDpiChip( text: String, onClick: () -&gt; Unit, modifier: Modifier = Modifier, selected: Boolean = false, enabled: Boolean = true, density: RipDpiControlDensity = RipDpiControlDensity.Default, leadingIcon: ImageVector? = if (selected) RipDpiIcons.Check else null, hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Selection, )</ID>
+    <ID>LongMethod:RipDpiDesignSystemPreviewMatrix.kt$@Composable private fun RipDpiDesignSystemCatalog( themePreference: String, includeInteractiveStates: Boolean, )</ID>
+    <ID>LongMethod:RipDpiDropdown.kt$@Composable fun &lt;T&gt; RipDpiDropdown( options: List&lt;RipDpiDropdownOption&lt;T&gt;&gt;, selectedValue: T?, onValueSelected: (T) -&gt; Unit, modifier: Modifier = Modifier, label: String? = null, placeholder: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, density: RipDpiControlDensity = RipDpiControlDensity.Default, interactionSource: MutableInteractionSource? = null, )</ID>
+    <ID>LongMethod:RipDpiIconButton.kt$@Composable fun RipDpiIconButton( icon: ImageVector, contentDescription: String, onClick: () -&gt; Unit, modifier: Modifier = Modifier, style: RipDpiIconButtonStyle = RipDpiIconButtonStyle.Ghost, enabled: Boolean = true, loading: Boolean = false, selected: Boolean = false, density: RipDpiControlDensity = RipDpiControlDensity.Default, interactionSource: MutableInteractionSource? = null, hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action, )</ID>
+    <ID>LongMethod:RipDpiNavHost.kt$@Composable fun RipDpiNavHost( modifier: Modifier = Modifier, startDestination: String = Route.Home.route, onSaveLogs: () -&gt; Unit = {}, onShareDebugBundle: () -&gt; Unit = {}, onSaveDiagnosticsArchive: (String, String) -&gt; Unit = { _, _ -&gt; }, onShareDiagnosticsArchive: (String, String) -&gt; Unit = { _, _ -&gt; }, onShareDiagnosticsSummary: (String, String) -&gt; Unit = { _, _ -&gt; }, mainViewModel: MainViewModel, openVpnPermissionRequested: Boolean = false, onOpenVpnPermissionHandled: () -&gt; Unit = {}, launchHomeRequested: Boolean = false, onLaunchHomeHandled: () -&gt; Unit = {}, onStartConfiguredMode: () -&gt; Unit = {}, onOpenVpnPermission: () -&gt; Unit = {}, onRequestVpnPermission: () -&gt; Unit = {}, onRepairPermission: (PermissionKind) -&gt; Unit = {}, snackbarHostState: SnackbarHostState? = null, )</ID>
+    <ID>LongMethod:RipDpiSwitch.kt$@Composable fun RipDpiSwitch( checked: Boolean, onCheckedChange: ((Boolean) -&gt; Unit)?, modifier: Modifier = Modifier, label: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, interactionSource: MutableInteractionSource? = null, )</ID>
+    <ID>LongMethod:RipDpiTextField.kt$@Composable fun RipDpiTextField( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, label: String? = null, placeholder: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, density: RipDpiControlDensity = RipDpiControlDensity.Default, singleLine: Boolean = true, textStyle: TextStyle = RipDpiThemeTokens.type.monoValue, keyboardOptions: KeyboardOptions = KeyboardOptions.Default, keyboardActions: KeyboardActions = KeyboardActions.Default, visualTransformation: VisualTransformation = VisualTransformation.None, minHeight: androidx.compose.ui.unit.Dp? = null, trailingContent: (@Composable () -&gt; Unit)? = null, interactionSource: MutableInteractionSource? = null, )</ID>
+    <ID>LongMethod:SettingsPreferencesScreen.kt$@Composable internal fun SettingsScreen( uiState: SettingsUiState, onOpenDnsSettings: () -&gt; Unit, onOpenAdvancedSettings: () -&gt; Unit, onOpenCustomization: () -&gt; Unit, onOpenAbout: () -&gt; Unit, onShareDebugBundle: () -&gt; Unit, permissionSummary: PermissionSummaryUiState, onRepairPermission: (PermissionKind) -&gt; Unit, onThemeSelected: (String) -&gt; Unit, onWebRtcProtectionChanged: (Boolean) -&gt; Unit, onBiometricChanged: (Boolean) -&gt; Unit, onSaveBackupPin: (String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:SettingsRow.kt$@Composable fun SettingsRow( title: String, modifier: Modifier = Modifier, subtitle: String? = null, value: String? = null, checked: Boolean? = null, onClick: (() -&gt; Unit)? = null, onCheckedChange: ((Boolean) -&gt; Unit)? = null, leadingIcon: ImageVector? = null, enabled: Boolean = true, showChevron: Boolean = value != null &amp;&amp; onClick != null, showDivider: Boolean = false, monospaceValue: Boolean = false, variant: SettingsRowVariant = SettingsRowVariant.Default, )</ID>
+    <ID>LongMethod:SettingsUiStateTest.kt$SettingsUiStateTest$@Test fun `default settings produce correct ui state`()</ID>
+    <ID>LongMethod:SettingsViewModel.kt$@VisibleForTesting internal fun AppSettings.toUiState( isHydrated: Boolean = true, serviceStatus: AppStatus = AppStatus.Halted, proxyTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy"), hostAutolearnStorePresent: Boolean = false, rememberedNetworkCount: Int = 0, ): SettingsUiState</ID>
+    <ID>LongMethod:StatusIndicator.kt$@Composable fun StatusIndicator( label: String, modifier: Modifier = Modifier, tone: StatusIndicatorTone = StatusIndicatorTone.Active, )</ID>
     <ID>LongMethod:VpnPermissionScreen.kt$@Composable internal fun AuthPromptScaffold( title: String, message: String, illustration: AuthPromptIllustration, modifier: Modifier = Modifier, topActionText: String? = null, onTopAction: (() -&gt; Unit)? = null, banner: (@Composable () -&gt; Unit)? = null, content: (@Composable ColumnScope.() -&gt; Unit)? = null, progress: (@Composable () -&gt; Unit)? = null, footer: @Composable ColumnScope.() -&gt; Unit, )</ID>
     <ID>LongMethod:VpnPermissionScreen.kt$@Composable private fun AuthPromptBadge( illustration: AuthPromptIllustration, modifier: Modifier = Modifier, )</ID>
-    <ID>LongParameterList:ModeEditorScreen.kt$( uiState: ConfigUiState, snackbarHostState: SnackbarHostState, onBack: () -&gt; Unit, onModeSelected: (Mode) -&gt; Unit, onDnsIpChanged: (String) -&gt; Unit, onProxyIpChanged: (String) -&gt; Unit, onProxyPortChanged: (String) -&gt; Unit, onMaxConnectionsChanged: (String) -&gt; Unit, onBufferSizeChanged: (String) -&gt; Unit, onDesyncMethodChanged: (String) -&gt; Unit, onDefaultTtlChanged: (String) -&gt; Unit, onCommandLineEnabledChanged: (Boolean) -&gt; Unit, onCommandLineArgsChanged: (String) -&gt; Unit, onSave: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
-    <ID>LongParameterList:RipDpiTextField.kt$( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, label: String? = null, placeholder: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, singleLine: Boolean = true, forceFocused: Boolean = false, textStyle: TextStyle = RipDpiThemeTokens.type.monoValue, keyboardOptions: KeyboardOptions = KeyboardOptions.Default, keyboardActions: KeyboardActions = KeyboardActions.Default, visualTransformation: VisualTransformation = VisualTransformation.None, trailingContent: (@Composable () -&gt; Unit)? = null, )</ID>
-    <ID>MagicNumber:AdvancedSettingsScreen.kt$0.38f</ID>
+    <ID>LongParameterList:AdvancedSettingsScreen.kt$( uiState: SettingsUiState, hostPackCatalog: HostPackCatalogUiState, notice: AdvancedNotice?, onBack: () -&gt; Unit, onToggleChanged: (AdvancedToggleSetting, Boolean) -&gt; Unit, onTextConfirmed: (AdvancedTextSetting, String) -&gt; Unit, onOptionSelected: (AdvancedOptionSetting, String) -&gt; Unit, onApplyHostPackPreset: (HostPackPreset, String, String) -&gt; Unit, onRefreshHostPackCatalog: () -&gt; Unit, onForgetLearnedHosts: () -&gt; Unit, onClearRememberedNetworks: () -&gt; Unit, onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -&gt; Unit, onResetAdaptiveSplit: () -&gt; Unit, onResetAdaptiveFakeTtlProfile: () -&gt; Unit, onResetActivationWindow: () -&gt; Unit, onResetHttpParserEvasions: () -&gt; Unit, onResetFakePayloadLibrary: () -&gt; Unit, onResetFakeTlsProfile: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongParameterList:DiagnosticsScreen.kt$( uiState: DiagnosticsUiState, pagerState: androidx.compose.foundation.pager.PagerState, onSelectSection: (DiagnosticsSection) -&gt; Unit, onSelectProfile: (String) -&gt; Unit, onRunRawScan: () -&gt; Unit, onRunInPathScan: () -&gt; Unit, onCancelScan: () -&gt; Unit, onKeepResolverRecommendation: (String?) -&gt; Unit, onSaveResolverRecommendation: (String?) -&gt; Unit, onSelectSession: (String) -&gt; Unit, onDismissSessionDetail: () -&gt; Unit, onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -&gt; Unit, onDismissStrategyProbeCandidate: () -&gt; Unit, onSelectApproachMode: (DiagnosticsApproachMode) -&gt; Unit, onSelectApproach: (String) -&gt; Unit, onDismissApproachDetail: () -&gt; Unit, onSelectEvent: (String) -&gt; Unit, onDismissEventDetail: () -&gt; Unit, onSelectProbe: (DiagnosticsProbeResultUiModel) -&gt; Unit, onDismissProbeDetail: () -&gt; Unit, onToggleSensitiveSessionDetails: () -&gt; Unit, onSessionPathFilter: (String?) -&gt; Unit, onSessionStatusFilter: (String?) -&gt; Unit, onSessionSearch: (String) -&gt; Unit, onToggleEventFilter: (String?, String?) -&gt; Unit, onEventSearch: (String) -&gt; Unit, onEventAutoScroll: (Boolean) -&gt; Unit, onShareSummary: (String?) -&gt; Unit, onShareArchive: (String?) -&gt; Unit, onSaveArchive: (String?) -&gt; Unit, onSaveLogs: () -&gt; Unit, onOpenHistory: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongParameterList:DiagnosticsViewModel.kt$DiagnosticsViewModel$( profiles: List&lt;DiagnosticProfileEntity&gt;, settings: com.poyka.ripdpi.proto.AppSettings, progress: ScanProgress?, sessions: List&lt;ScanSessionEntity&gt;, approachStats: List&lt;BypassApproachSummary&gt;, snapshots: List&lt;NetworkSnapshotEntity&gt;, contexts: List&lt;DiagnosticContextEntity&gt;, telemetry: List&lt;TelemetrySampleEntity&gt;, nativeEvents: List&lt;NativeSessionEventEntity&gt;, exports: List&lt;ExportRecordEntity&gt;, rememberedPolicies: List&lt;RememberedNetworkPolicyEntity&gt;, activeConnectionPolicy: ActiveConnectionPolicy?, selectedSectionRequest: DiagnosticsSection, selectedProfileId: String?, selectedApproachMode: DiagnosticsApproachMode, selectedProbe: DiagnosticsProbeResultUiModel?, selectedEventId: String?, sessionPathMode: String?, sessionStatus: String?, sessionSearch: String, eventSource: String?, eventSeverity: String?, eventSearch: String, eventAutoScroll: Boolean, selectedSessionDetail: DiagnosticsSessionDetailUiModel?, selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?, selectedApproachDetail: DiagnosticsApproachDetailUiModel?, sensitiveSessionDetailsVisible: Boolean, archiveActionState: ArchiveActionState, )</ID>
+    <ID>LongParameterList:DnsSettingsScreen.kt$( uiState: SettingsUiState, dohUrl: String, onDohUrlChange: (String) -&gt; Unit, dotHost: String, onDotHostChange: (String) -&gt; Unit, dnscryptHost: String, onDnscryptHostChange: (String) -&gt; Unit, portInput: String, onPortInputChange: (String) -&gt; Unit, tlsServerNameInput: String, onTlsServerNameChange: (String) -&gt; Unit, bootstrapInput: String, onBootstrapInputChange: (String) -&gt; Unit, dnscryptProviderInput: String, onDnscryptProviderChange: (String) -&gt; Unit, dnscryptPublicKeyInput: String, onDnscryptPublicKeyChange: (String) -&gt; Unit, customDohValid: Boolean, customDohDirty: Boolean, customDotValid: Boolean, customDotDirty: Boolean, customDnsCryptValid: Boolean, customDnsCryptDirty: Boolean, dnscryptPublicKeyValid: Boolean, bootstrapIpsValid: Boolean, onSaveCustomDoh: () -&gt; Unit, onSaveCustomDot: () -&gt; Unit, onSaveCustomDnsCrypt: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:HistoryScreen.kt$( uiState: HistoryUiState, onBack: () -&gt; Unit, onSelectSection: (HistorySection) -&gt; Unit, onConnectionModeFilter: (String?) -&gt; Unit, onConnectionStatusFilter: (String?) -&gt; Unit, onConnectionSearch: (String) -&gt; Unit, onSelectConnection: (String) -&gt; Unit, onDismissConnectionDetail: () -&gt; Unit, onDiagnosticsPathFilter: (String?) -&gt; Unit, onDiagnosticsStatusFilter: (String?) -&gt; Unit, onDiagnosticsSearch: (String) -&gt; Unit, onSelectDiagnosticsSession: (String) -&gt; Unit, onDismissDiagnosticsDetail: () -&gt; Unit, onToggleEventFilter: (String?, String?) -&gt; Unit, onEventSearch: (String) -&gt; Unit, onEventAutoScroll: (Boolean) -&gt; Unit, onSelectEvent: (String) -&gt; Unit, onDismissEventDetail: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongParameterList:HistoryViewModel.kt$HistoryViewModel$( connectionSessions: List&lt;BypassUsageSessionEntity&gt;, scanSessions: List&lt;ScanSessionEntity&gt;, nativeEvents: List&lt;NativeSessionEventEntity&gt;, selectedSection: HistorySection, connectionMode: String?, connectionStatus: String?, connectionQuery: String, diagnosticsPath: String?, diagnosticsStatus: String?, diagnosticsQuery: String, eventSource: String?, eventSeverity: String?, eventQuery: String, autoScroll: Boolean, connectionDetail: HistoryConnectionDetailUiModel?, diagnosticsDetail: DiagnosticsSessionDetailUiModel?, selectedEventId: String?, )</ID>
+    <ID>LongParameterList:ModeEditorScreen.kt$( uiState: ConfigUiState, snackbarHostState: SnackbarHostState, onBack: () -&gt; Unit, onModeSelected: (Mode) -&gt; Unit, onDnsIpChanged: (String) -&gt; Unit, onProxyIpChanged: (String) -&gt; Unit, onProxyPortChanged: (String) -&gt; Unit, onMaxConnectionsChanged: (String) -&gt; Unit, onBufferSizeChanged: (String) -&gt; Unit, onChainDslChanged: (String) -&gt; Unit, onDefaultTtlChanged: (String) -&gt; Unit, onCommandLineEnabledChanged: (Boolean) -&gt; Unit, onCommandLineArgsChanged: (String) -&gt; Unit, onSave: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongParameterList:RipDpiNavHost.kt$( modifier: Modifier = Modifier, startDestination: String = Route.Home.route, onSaveLogs: () -&gt; Unit = {}, onShareDebugBundle: () -&gt; Unit = {}, onSaveDiagnosticsArchive: (String, String) -&gt; Unit = { _, _ -&gt; }, onShareDiagnosticsArchive: (String, String) -&gt; Unit = { _, _ -&gt; }, onShareDiagnosticsSummary: (String, String) -&gt; Unit = { _, _ -&gt; }, mainViewModel: MainViewModel, openVpnPermissionRequested: Boolean = false, onOpenVpnPermissionHandled: () -&gt; Unit = {}, launchHomeRequested: Boolean = false, onLaunchHomeHandled: () -&gt; Unit = {}, onStartConfiguredMode: () -&gt; Unit = {}, onOpenVpnPermission: () -&gt; Unit = {}, onRequestVpnPermission: () -&gt; Unit = {}, onRepairPermission: (PermissionKind) -&gt; Unit = {}, snackbarHostState: SnackbarHostState? = null, )</ID>
+    <ID>LongParameterList:RipDpiTextField.kt$( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, label: String? = null, placeholder: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, density: RipDpiControlDensity = RipDpiControlDensity.Default, singleLine: Boolean = true, textStyle: TextStyle = RipDpiThemeTokens.type.monoValue, keyboardOptions: KeyboardOptions = KeyboardOptions.Default, keyboardActions: KeyboardActions = KeyboardActions.Default, visualTransformation: VisualTransformation = VisualTransformation.None, minHeight: androidx.compose.ui.unit.Dp? = null, trailingContent: (@Composable () -&gt; Unit)? = null, interactionSource: MutableInteractionSource? = null, )</ID>
+    <ID>LongParameterList:RipDpiTextField.kt$( value: String, onValueChange: (String) -&gt; Unit, modifier: Modifier = Modifier, label: String? = null, placeholder: String? = null, helperText: String? = null, errorText: String? = null, enabled: Boolean = true, readOnly: Boolean = false, multiline: Boolean = false, density: RipDpiControlDensity = RipDpiControlDensity.Default, keyboardOptions: KeyboardOptions = KeyboardOptions.Default, keyboardActions: KeyboardActions = KeyboardActions.Default, visualTransformation: VisualTransformation = VisualTransformation.None, trailingContent: (@Composable () -&gt; Unit)? = null, interactionSource: MutableInteractionSource? = null, )</ID>
+    <ID>MagicNumber:AdvancedSettingsRoute.kt$255</ID>
+    <ID>MagicNumber:AdvancedSettingsScreen.kt$16</ID>
+    <ID>MagicNumber:AdvancedSettingsScreen.kt$24</ID>
     <ID>MagicNumber:AdvancedSettingsScreen.kt$255</ID>
-    <ID>MagicNumber:AdvancedSettingsScreen.kt$4</ID>
+    <ID>MagicNumber:AdvancedSettingsScreen.kt$30</ID>
+    <ID>MagicNumber:AdvancedSettingsScreen.kt$4096</ID>
+    <ID>MagicNumber:AdvancedSettingsScreen.kt$50_000</ID>
+    <ID>MagicNumber:AdvancedSettingsSections.kt$300</ID>
+    <ID>MagicNumber:AdvancedSettingsSections.kt$365</ID>
+    <ID>MagicNumber:AdvancedSettingsSections.kt$4</ID>
+    <ID>MagicNumber:AdvancedSettingsSections.kt$5</ID>
     <ID>MagicNumber:Color.kt$0x99000000</ID>
     <ID>MagicNumber:Color.kt$0xCC000000</ID>
     <ID>MagicNumber:ConfigViewModel.kt$255</ID>
     <ID>MagicNumber:ConfigViewModel.kt$4</ID>
+    <ID>MagicNumber:DiagnosticsScreen.kt$24</ID>
+    <ID>MagicNumber:DiagnosticsScreen.kt$4</ID>
+    <ID>MagicNumber:DiagnosticsScreen.kt$6</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$0.75f</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$10</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$100</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$11</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$12</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$13</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$14</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$15</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$16</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$17</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$18</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$19</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$1_000L</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$1_000_000L</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$1_000_000_000L</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$1_000_000_000f</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$1_000_000f</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$1_000f</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$20</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$21</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$22</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$23</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$24</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$25</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$26</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$27</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$28</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$3</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$3_600L</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$4</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$5</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$6</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$60L</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$7</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$8</ID>
+    <ID>MagicNumber:DiagnosticsViewModel.kt$DiagnosticsViewModel$9</ID>
+    <ID>MagicNumber:DnsSettingsScreen.kt$0.4f</ID>
+    <ID>MagicNumber:DnsSettingsScreen.kt$65535</ID>
+    <ID>MagicNumber:HistoryScreen.kt$24</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$10</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$11</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$12</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$13</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$14</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$15</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$16</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$1_000L</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$1_000_000L</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$1_000_000_000L</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$1_000_000_000f</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$1_000_000f</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$1_000f</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$24</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$3</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$3_600L</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$4</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$5</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$6</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$60L</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$7</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$8</ID>
+    <ID>MagicNumber:HistoryViewModel.kt$HistoryViewModel$9</ID>
+    <ID>MagicNumber:HomeScreen.kt$0.2f</ID>
+    <ID>MagicNumber:HomeScreen.kt$0.88f</ID>
+    <ID>MagicNumber:HomeScreen.kt$0.92f</ID>
+    <ID>MagicNumber:HomeScreen.kt$0.95f</ID>
+    <ID>MagicNumber:HomeScreen.kt$0.98f</ID>
+    <ID>MagicNumber:HomeScreen.kt$1.04f</ID>
+    <ID>MagicNumber:HomeScreen.kt$1.08f</ID>
     <ID>MagicNumber:HomeScreen.kt$3_600</ID>
+    <ID>MagicNumber:HomeScreen.kt$50</ID>
+    <ID>MagicNumber:HomeScreen.kt$55</ID>
     <ID>MagicNumber:HomeScreen.kt$60</ID>
+    <ID>MagicNumber:HomeScreen.kt$70</ID>
+    <ID>MagicNumber:HostPackCatalogNetwork.kt$HostPackCatalogNetworkModule$120</ID>
+    <ID>MagicNumber:HostPackCatalogNetwork.kt$HostPackCatalogNetworkModule$20</ID>
+    <ID>MagicNumber:HostPackCatalogNetwork.kt$HostPackCatalogNetworkModule$90</ID>
+    <ID>MagicNumber:HostPackCatalogRepository.kt$0x100</ID>
+    <ID>MagicNumber:HostPackCatalogRepository.kt$0xff</ID>
+    <ID>MagicNumber:HostPackCatalogRepository.kt$16</ID>
+    <ID>MagicNumber:HostPackHelpers.kt$7</ID>
     <ID>MagicNumber:IconPickerGrid.kt$3</ID>
+    <ID>MagicNumber:MainViewModel.kt$MainViewModel$100</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.12f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.16f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.18f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.22f</ID>
+    <ID>MagicNumber:OnboardingScreen.kt$0.24f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.34f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.38f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.48f</ID>
+    <ID>MagicNumber:OnboardingScreen.kt$0.4f</ID>
+    <ID>MagicNumber:OnboardingScreen.kt$0.55f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.5f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.62f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.66f</ID>
+    <ID>MagicNumber:OnboardingScreen.kt$0.6f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.72f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.76f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.78f</ID>
+    <ID>MagicNumber:OnboardingScreen.kt$0.82f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.86f</ID>
+    <ID>MagicNumber:OnboardingScreen.kt$0.88f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$0.92f</ID>
     <ID>MagicNumber:OnboardingScreen.kt$99f</ID>
-    <ID>MagicNumber:PresetCard.kt$0.04f</ID>
-    <ID>MagicNumber:PresetCard.kt$0.05f</ID>
     <ID>MagicNumber:PresetCard.kt$0.38f</ID>
-    <ID>MagicNumber:PresetCard.kt$0.5f</ID>
     <ID>MagicNumber:RipDpiButton.kt$0.35f</ID>
     <ID>MagicNumber:RipDpiButton.kt$0.3f</ID>
     <ID>MagicNumber:RipDpiButton.kt$0.5f</ID>
@@ -79,13 +227,16 @@
     <ID>MagicNumber:RipDpiChip.kt$0.38f</ID>
     <ID>MagicNumber:RipDpiDropdown.kt$0.38f</ID>
     <ID>MagicNumber:RipDpiDropdown.kt$0.9f</ID>
-    <ID>MagicNumber:RipDpiDropdown.kt$90f</ID>
     <ID>MagicNumber:RipDpiIconButton.kt$0.25f</ID>
+    <ID>MagicNumber:RipDpiMotion.kt$RipDpiMotion$80</ID>
     <ID>MagicNumber:RipDpiSwitch.kt$0.16f</ID>
     <ID>MagicNumber:RipDpiSwitch.kt$0.25f</ID>
     <ID>MagicNumber:RipDpiSwitch.kt$0.5f</ID>
     <ID>MagicNumber:RipDpiTextField.kt$0.38f</ID>
     <ID>MagicNumber:SettingsPreferencesScreen.kt$4</ID>
+    <ID>MagicNumber:SettingsViewModel.kt$SettingsViewModel$443</ID>
+    <ID>MagicNumber:Spacing.kt$600</ID>
+    <ID>MagicNumber:Spacing.kt$840</ID>
     <ID>MagicNumber:VpnPermissionScreen.kt$0.075f</ID>
     <ID>MagicNumber:VpnPermissionScreen.kt$0.08f</ID>
     <ID>MagicNumber:VpnPermissionScreen.kt$0.12f</ID>
@@ -112,51 +263,162 @@
     <ID>MagicNumber:VpnPermissionScreen.kt$0.86f</ID>
     <ID>MagicNumber:VpnPermissionScreen.kt$0.92f</ID>
     <ID>MagicNumber:VpnPermissionScreen.kt$99f</ID>
-    <ID>MaxLineLength:AdvancedSettingsScreen.kt$disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled)</ID>
-    <ID>MaxLineLength:ModeEditorScreen.kt$text = stringResource(R.string.config_editor_body, stringResource(titleResForPreset(editorPresetKind(uiState))))</ID>
-    <ID>MaxLineLength:PresetCard.kt$.</ID>
-    <ID>MaxLineLength:RipDpiIcons.kt$"M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z"</ID>
-    <ID>MaxLineLength:RipDpiIcons.kt$"M10 18.3333C14.6024 18.3333 18.3333 14.6024 18.3333 10C18.3333 5.39763 14.6024 1.66667 10 1.66667C5.39763 1.66667 1.66667 5.39763 1.66667 10C1.66667 14.6024 5.39763 18.3333 10 18.3333Z"</ID>
-    <ID>MaxLineLength:RipDpiIcons.kt$"M10.1833 1.66667H9.81665C9.37462 1.66667 8.9507 1.84226 8.63814 2.15482C8.32558 2.46738 8.14999 2.8913 8.14999 3.33334V3.48334C8.14969 3.7756 8.07253 4.06265 7.92627 4.31569C7.78 4.56873 7.56977 4.77887 7.31665 4.925L6.95832 5.13334C6.70495 5.27961 6.41755 5.35662 6.12499 5.35662C5.83242 5.35662 5.54502 5.27961 5.29165 5.13334L5.16665 5.06667C4.78421 4.84605 4.32985 4.7862 3.90332 4.90026C3.47679 5.01431 3.11294 5.29294 2.89165 5.675L2.70832 5.99167C2.4877 6.37411 2.42786 6.82847 2.54191 7.255C2.65597 7.68153 2.9346 8.04537 3.31665 8.26667L3.44165 8.35C3.69355 8.49542 3.903 8.70424 4.04919 8.95569C4.19539 9.20714 4.27323 9.49247 4.27499 9.78334V10.2083C4.27615 10.502 4.19969 10.7908 4.05336 11.0454C3.90702 11.3001 3.69599 11.5115 3.44165 11.6583L3.31665 11.7333C2.9346 11.9546 2.65597 12.3185 2.54191 12.745C2.42786 13.1715 2.4877 13.6259 2.70832 14.0083L2.89165 14.325C3.11294 14.7071 3.47679 14.9857 3.90332 15.0998C4.32985 15.2138 4.78421 15.154 5.16665 14.9333L5.29165 14.8667C5.54502 14.7204 5.83242 14.6434 6.12499 14.6434C6.41755 14.6434 6.70495 14.7204 6.95832 14.8667L7.31665 15.075C7.56977 15.2211 7.78 15.4313 7.92627 15.6843C8.07253 15.9374 8.14969 16.2244 8.14999 16.5167V16.6667C8.14999 17.1087 8.32558 17.5326 8.63814 17.8452C8.9507 18.1577 9.37462 18.3333 9.81665 18.3333H10.1833C10.6254 18.3333 11.0493 18.1577 11.3618 17.8452C11.6744 17.5326 11.85 17.1087 11.85 16.6667V16.5167C11.8503 16.2244 11.9274 15.9374 12.0737 15.6843C12.22 15.4313 12.4302 15.2211 12.6833 15.075L13.0417 14.8667C13.295 14.7204 13.5824 14.6434 13.875 14.6434C14.1675 14.6434 14.455 14.7204 14.7083 14.8667L14.8333 14.9333C15.2158 15.154 15.6701 15.2138 16.0967 15.0998C16.5232 14.9857 16.887 14.7071 17.1083 14.325L17.2917 14C17.5123 13.6176 17.5721 13.1632 17.4581 12.7367C17.344 12.3102 17.0654 11.9463 16.6833 11.725L16.5583 11.6583C16.304 11.5115 16.093 11.3001 15.9466 11.0454C15.8003 10.7908 15.7238 10.502 15.725 10.2083V9.79167C15.7238 9.49799 15.8003 9.20921 15.9466 8.95458C16.093 8.69995 16.304 8.4885 16.5583 8.34167L16.6833 8.26667C17.0654 8.04537 17.344 7.68153 17.4581 7.255C17.5721 6.82847 17.5123 6.37411 17.2917 5.99167L17.1083 5.675C16.887 5.29294 16.5232 5.01431 16.0967 4.90026C15.6701 4.7862 15.2158 4.84605 14.8333 5.06667L14.7083 5.13334C14.455 5.27961 14.1675 5.35662 13.875 5.35662C13.5824 5.35662 13.295 5.27961 13.0417 5.13334L12.6833 4.925C12.4302 4.77887 12.22 4.56873 12.0737 4.31569C11.9274 4.06265 11.8503 3.7756 11.85 3.48334V3.33334C11.85 2.8913 11.6744 2.46738 11.3618 2.15482C11.0493 1.84226 10.6254 1.66667 10.1833 1.66667Z"</ID>
-    <ID>MaxLineLength:RipDpiIcons.kt$"M15.8333 14.1667V4.16667C15.8333 3.72464 15.6577 3.30072 15.3452 2.98816C15.0326 2.67559 14.6087 2.5 14.1666 2.5H3.3333"</ID>
-    <ID>MaxLineLength:RipDpiIcons.kt$"M3.33333 12.2917V17.5M3.33333 2.5V8.33333M10 10V17.5M10 2.5V6.66667M16.6667 13.3333V17.5M16.6667 2.5V10M1.66667 11.6667H5M8.33333 6.66667H11.6667M15 13.3333H18.3333"</ID>
-    <ID>MaxLineLength:RipDpiIcons.kt$"M6.66667 17.5H16.6667C17.1087 17.5 17.5326 17.3244 17.8452 17.0118C18.1577 16.6993 18.3333 16.2754 18.3333 15.8333V15C18.3333 14.779 18.2455 14.567 18.0893 14.4107C17.933 14.2545 17.721 14.1667 17.5 14.1667H9.16667C8.94566 14.1667 8.73369 14.2545 8.57741 14.4107C8.42113 14.567 8.33334 14.779 8.33334 15V15.8333C8.33334 16.2754 8.15774 16.6993 7.84518 17.0118C7.53262 17.3244 7.10869 17.5 6.66667 17.5ZM6.66667 17.5C6.22464 17.5 5.80072 17.3244 5.48816 17.0118C5.1756 16.6993 5 16.2754 5 15.8333V4.16667C5 3.72464 4.82441 3.30072 4.51184 2.98816C4.19928 2.67559 3.77536 2.5 3.33334 2.5C2.89131 2.5 2.46739 2.67559 2.15483 2.98816C1.84226 3.30072 1.66667 3.72464 1.66667 4.16667V5.83333C1.66667 6.05435 1.75446 6.26631 1.91074 6.42259C2.06703 6.57887 2.27899 6.66667 2.5 6.66667H5"</ID>
-    <ID>MaxLineLength:SettingsRow.kt$RipDpiCard</ID>
-    <ID>MaxLineLength:SettingsViewModel.kt$themedAppIconEnabled = LauncherIconManager.normalizeIconStyle(appIconStyle) == LauncherIconManager.ThemedIconStyle</ID>
-    <ID>ModifierNotUsedAtRoot:RipDpiDialog.kt$modifier = modifier .fillMaxWidth() .widthIn(max = layout.safeContentWidth)</ID>
-    <ID>ParameterNaming:AdvancedSettingsScreen.kt$onOptionSelected</ID>
-    <ID>ParameterNaming:AdvancedSettingsScreen.kt$onSelected</ID>
-    <ID>ParameterNaming:AdvancedSettingsScreen.kt$onTextConfirmed</ID>
-    <ID>ParameterNaming:AdvancedSettingsScreen.kt$onToggleChanged</ID>
-    <ID>ParameterNaming:AppCustomizationScreen.kt$onIconSelected</ID>
-    <ID>ParameterNaming:AppCustomizationScreen.kt$onThemedIconChanged</ID>
-    <ID>ParameterNaming:BiometricPromptScreen.kt$onAuthenticated</ID>
-    <ID>ParameterNaming:BiometricPromptScreen.kt$onPinChanged</ID>
-    <ID>ParameterNaming:ConfigScreen.kt$onModeSelected</ID>
-    <ID>ParameterNaming:ConfigScreen.kt$onPresetSelected</ID>
-    <ID>ParameterNaming:DnsSettingsScreen.kt$onIpv6Changed</ID>
-    <ID>ParameterNaming:DnsSettingsScreen.kt$onResolverSelected</ID>
-    <ID>ParameterNaming:IconPickerGrid.kt$onOptionSelected</ID>
-    <ID>ParameterNaming:LogsScreen.kt$onAutoScrollChanged</ID>
-    <ID>ParameterNaming:ModeEditorScreen.kt$onBufferSizeChanged</ID>
-    <ID>ParameterNaming:ModeEditorScreen.kt$onCommandLineArgsChanged</ID>
-    <ID>ParameterNaming:ModeEditorScreen.kt$onCommandLineEnabledChanged</ID>
-    <ID>ParameterNaming:ModeEditorScreen.kt$onDefaultTtlChanged</ID>
-    <ID>ParameterNaming:ModeEditorScreen.kt$onDesyncMethodChanged</ID>
-    <ID>ParameterNaming:ModeEditorScreen.kt$onDnsIpChanged</ID>
-    <ID>ParameterNaming:ModeEditorScreen.kt$onMaxConnectionsChanged</ID>
-    <ID>ParameterNaming:ModeEditorScreen.kt$onModeSelected</ID>
-    <ID>ParameterNaming:ModeEditorScreen.kt$onProxyIpChanged</ID>
-    <ID>ParameterNaming:ModeEditorScreen.kt$onProxyPortChanged</ID>
-    <ID>ParameterNaming:OnboardingScreen.kt$onPageChanged</ID>
-    <ID>ParameterNaming:RipDpiDropdown.kt$onValueSelected</ID>
-    <ID>ParameterNaming:RipDpiNavHost.kt$onLaunchHomeHandled</ID>
-    <ID>ParameterNaming:SettingsPreferencesScreen.kt$onBiometricChanged</ID>
-    <ID>ParameterNaming:SettingsPreferencesScreen.kt$onThemeSelected</ID>
-    <ID>ParameterNaming:SettingsPreferencesScreen.kt$onWebRtcProtectionChanged</ID>
-    <ID>ParameterNaming:SplashScreen.kt$onFinished</ID>
-    <ID>ParameterNaming:VpnPermissionScreen.kt$onGranted</ID>
-    <ID>TooGenericExceptionCaught:MainActivity.kt$MainActivity.Companion$e: Exception</ID>
+    <ID>MaxLineLength:AdvancedSettingsRoute.kt$setAdaptiveFakeTtlFallback(uiState.fakeTtl.takeIf { it in 1..255 } ?: DefaultAdaptiveFakeTtlFallback)</ID>
+    <ID>MaxLineLength:AdvancedSettingsRoute.kt$setAdaptiveFakeTtlMax(uiState.adaptiveFakeTtlMax.coerceIn(uiState.adaptiveFakeTtlMin.coerceIn(1, 255), 255))</ID>
+    <ID>MaxLineLength:AdvancedSettingsRoute.kt$updateRoundRangeBoundary(viewModel, uiState, "groupActivationFilter.round.end", value, updateStart = false)</ID>
+    <ID>MaxLineLength:AdvancedSettingsRoute.kt$updateRoundRangeBoundary(viewModel, uiState, "groupActivationFilter.round.start", value, updateStart = true)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$!uiState.desyncHttpEnabled -&gt; stringResource(R.string.fake_payload_profile_status_off)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$!uiState.desyncHttpsEnabled -&gt; stringResource(R.string.fake_payload_profile_status_off)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$!uiState.desyncUdpEnabled -&gt; stringResource(R.string.fake_payload_profile_status_off)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$!uiState.fakePayloadLibraryControlsRelevant -&gt; stringResource(R.string.fake_payload_library_scope_protocols_disabled)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$AdaptiveFakeTtlModeCustom -&gt; stringResource(R.string.adaptive_fake_ttl_summary_mode_custom, uiState.adaptiveFakeTtlDelta)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$add(stringResource(R.string.ripdpi_http_parser_badge_nginx_biased) to SummaryCapsuleTone.Warning)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$badgeText = stringResource(R.string.host_pack_hosts_badge, preset.hostCount.takeIf { it &gt; 0 } ?: preset.hosts.size)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$else -&gt; stringResource(R.string.ripdpi_fake_approx_summary_profile_multiple, uiState.fakeApproximationStepCount)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$if</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$onSave = { start, end -&gt; onSaveActivationRange(ActivationWindowDimension.PayloadSize, start, end) }</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$onSave = { start, end -&gt; onSaveActivationRange(ActivationWindowDimension.Round, start, end) }</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$onSave = { start, end -&gt; onSaveActivationRange(ActivationWindowDimension.StreamBytes, start, end) }</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$stringResource(R.string.fake_payload_badge_fake_tls_layers) to SummaryCapsuleTone.Info</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$stringResource(R.string.fake_payload_badge_quic_separate) to SummaryCapsuleTone.Info</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$stringResource(R.string.host_pack_apply_summary_hosts_only, preset.hostCount.takeIf { it &gt; 0 } ?: preset.hosts.size)</ID>
+    <ID>MaxLineLength:AdvancedSettingsScreen.kt$validator = { it.isBlank() || (isValidOffsetExpression(it) &amp;&amp; !isAdaptiveOffsetExpression(it)) }</ID>
+    <ID>MaxLineLength:ConfigViewModel.kt$ConfigDraft$parseStrategyChainDsl(chainDsl).getOrNull() ?: StrategyChainSet(tcpSteps = tcpChainSteps, udpSteps = udpChainSteps)</ID>
+    <ID>MaxLineLength:DiagnosticsScreen.kt$body = stringResource(R.string.diagnostics_save_archive_body, uiState.share.latestArchiveFileName ?: "latest archive")</ID>
+    <ID>MaxLineLength:DiagnosticsScreen.kt$contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm)</ID>
+    <ID>MaxLineLength:DiagnosticsScreen.kt$label = if (recommendation.appliedTemporarily) "Temporary DNS override active" else "Encrypted DNS recommended"</ID>
+    <ID>MaxLineLength:DiagnosticsScreen.kt$variant = if (row.id == uiState.approaches.focusedApproachId) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$"$errorCount error${pluralSuffix(errorCount)} · $warningCount warning${pluralSuffix(warningCount)} in runtime feed"</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$"$strategyProbeWorkflowLabel is raw-path only because it launches isolated temporary strategy trials."</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$"$strategyProbeWorkflowLabel only works with visual RIPDPI settings. Command-line mode is active."</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$"$strategyProbeWorkflowLabel starts a temporary raw-path RIPDPI runtime and returns a manual recommendation."</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$"${usage.serviceMode} · ${usage.networkType} · ${formatDurationMs((usage.finishedAt ?: usage.startedAt) - usage.startedAt)}"</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$"Passive telemetry and the latest report do not show critical failures. Review live counters for drift."</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$"Warnings or partial failures were detected. Compare the latest scan outcome with the current live monitor."</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$(buildContextWarnings(latestContext) + eventModels.filter { it.tone == DiagnosticsTone.Negative || it.tone == DiagnosticsTone.Warning })</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsFieldUiModel("Capabilities", snapshot.capabilities.joinToString().ifBlank { "Unknown" })</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsFieldUiModel("DNS", if (showSensitiveDetails) snapshot.dnsServers.joinToString().ifBlank { "Unknown" } else redactCollection(snapshot.dnsServers))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsFieldUiModel("Last autolearn action", formatAutolearnAction(service.lastAutolearnAction))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsFieldUiModel("Last learned group", formatAutolearnGroup(service.lastAutolearnGroup))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsFieldUiModel("Last learned host", formatAutolearnHost(service.lastAutolearnHost))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsFieldUiModel("Local", if (showSensitiveDetails) snapshot.localAddresses.joinToString().ifBlank { "Unknown" } else redactCollection(snapshot.localAddresses))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsFieldUiModel("Proxy", if (showSensitiveDetails) service.proxyEndpoint else redactValue(service.proxyEndpoint))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsFieldUiModel("Public IP", if (showSensitiveDetails) snapshot.publicIp ?: "Unknown" else redactValue(snapshot.publicIp))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsFieldUiModel("Restrictions", listOf(permissions.dataSaverState, environment.powerSaveModeState).joinToString(" · "))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsFieldUiModel("Uptime", service.sessionUptimeMs?.let(::formatDurationMs) ?: "Unknown")</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsMetricUiModel("Errors", summary.recentRuntimeHealth.totalErrors.toString(), DiagnosticsTone.Warning)</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsMetricUiModel("Route changes", summary.recentRuntimeHealth.routeChanges.toString(), DiagnosticsTone.Info)</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$DiagnosticsMetricUiModel("Runtime", formatDurationMs(summary.totalRuntimeDurationMs), DiagnosticsTone.Info)</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsFieldUiModel("Wi-Fi BSSID", if (showSensitiveDetails) wifi.bssid else redactValue(wifi.bssid.takeUnless { it == "unknown" })))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsFieldUiModel("Wi-Fi DHCP server", if (showSensitiveDetails) wifi.dhcpServer ?: "Unknown" else redactValue(wifi.dhcpServer)))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsFieldUiModel("Wi-Fi IP", if (showSensitiveDetails) wifi.ipAddress ?: "Unknown" else redactValue(wifi.ipAddress)))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsFieldUiModel("Wi-Fi SSID", if (showSensitiveDetails) wifi.ssid else redactValue(wifi.ssid.takeUnless { it == "unknown" })))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsFieldUiModel("Wi-Fi gateway", if (showSensitiveDetails) wifi.gateway ?: "Unknown" else redactValue(wifi.gateway)))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsFieldUiModel("Wi-Fi lease", wifi.leaseDurationSeconds?.let { "${it}s" } ?: "Unknown"))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsFieldUiModel("Wi-Fi subnet", if (showSensitiveDetails) wifi.subnetMask ?: "Unknown" else redactValue(wifi.subnetMask)))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsMetricUiModel(label = "DNS latency", value = "$latency ms", tone = DiagnosticsTone.Info))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsMetricUiModel(label = "RX packets", value = telemetry.rxPackets.toString(), tone = DiagnosticsTone.Info))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsMetricUiModel(label = "RX", value = formatBytes(it.rxBytes), tone = DiagnosticsTone.Positive))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsMetricUiModel(label = "TX packets", value = telemetry.txPackets.toString(), tone = DiagnosticsTone.Info))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsMetricUiModel(label = "TX", value = formatBytes(it.txBytes), tone = DiagnosticsTone.Info))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$add(DiagnosticsMetricUiModel(label = "Usage", value = usageCount.toString(), tone = DiagnosticsTone.Info))</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$appendLine("Context ${it.service.activeMode.lowercase(Locale.US)} · ${it.device.manufacturer} ${it.device.model} · Android ${it.device.androidVersion}")</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$appendLine("Permissions ${it.permissions.vpnPermissionState} VPN · ${it.permissions.notificationPermissionState} notifications")</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$appendLine("Summary and manifest redact support context and network identity fields, while raw report data stays intact.")</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$if</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$latestArchiveFileName = archiveActionState.latestArchiveFileName ?: exports.firstOrNull()?.fileName</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$latestContext?.device?.appVersionName?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("App", it) }</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$latestContext?.service?.activeMode?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("Mode", it) }</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$normalized.contains("error") || normalized.contains("failed") || normalized.contains("blocked") || normalized.contains("reset") -&gt; DiagnosticsTone.Negative</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$normalized.contains("ok") || normalized.contains("success") || normalized.contains("completed") -&gt; DiagnosticsTone.Positive</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$normalized.contains("warn") || normalized.contains("timeout") || normalized.contains("partial") || normalized.contains("running") -&gt; DiagnosticsTone.Warning</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$private</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$private val selectedStrategyProbeCandidate = MutableStateFlow&lt;DiagnosticsStrategyProbeCandidateDetailUiModel?&gt;(null)</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$runCatching { json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson) }.getOrElse { emptyList() }</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$subtitle = "${session.pathMode} · ${session.serviceMode ?: "Unknown"} · ${formatTimestamp(session.startedAt)}"</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$summary.qualityScore &gt;= summary.totalTargets.coerceAtLeast(1) * 3 -&gt; DiagnosticsTone.Positive</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$telemetry.connectionState.equals("running", ignoreCase = true) -&gt; "Traffic is moving through ${telemetry.networkType}"</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$val latestContext = (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.decodeContext()</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$val sharePreview = buildSharePreview(latestCompletedSession, latestSnapshot, latestContext, currentTelemetry, nativeEvents, latestReport)</ID>
+    <ID>MaxLineLength:DiagnosticsViewModel.kt$DiagnosticsViewModel$val snapshot = runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payloadJson) }.getOrNull() ?: return null</ID>
+    <ID>MaxLineLength:DiagnosticsViewModelTest.kt$DiagnosticsViewModelTest$"tcp: tlsrec(extlen) -&gt; hostfake(endhost+8 midhost=midsld host=googlevideo.com) -&gt; split(midsld)"</ID>
+    <ID>MaxLineLength:DiagnosticsViewModelTest.kt$DiagnosticsViewModelTest$assertTrue(signature.any { it.label == "Adaptive fake TTL bias" &amp;&amp; it.value == "Prefer higher TTLs first (+2)" })</ID>
+    <ID>MaxLineLength:DiagnosticsViewModelTest.kt$DiagnosticsViewModelTest$rationale = "Encrypted DNS stayed clean while UDP DNS was substituted."</ID>
+    <ID>MaxLineLength:DiagnosticsViewModelTest.kt$DiagnosticsViewModelTest$session = session(id = "session-1", profileId = "default", pathMode = "RAW_PATH", summary = "Session")</ID>
+    <ID>MaxLineLength:DiagnosticsViewModelTest.kt$DiagnosticsViewModelTest$session = session(id = "session-cell", profileId = "default", pathMode = "RAW_PATH", summary = "Cell")</ID>
+    <ID>MaxLineLength:DiagnosticsViewModelTest.kt$DiagnosticsViewModelTest$session = session(id = "session-wifi", profileId = "default", pathMode = "RAW_PATH", summary = "Wi-Fi")</ID>
+    <ID>MaxLineLength:DnsSettingsScreen.kt$DnsBadge(text = if (uiState.dnsMode == DnsModeEncrypted) stringResource(R.string.dns_mode_doh) else stringResource(R.string.dns_mode_plain))</ID>
+    <ID>MaxLineLength:DnsSettingsScreen.kt$bootstrapError = if (bootstrapInput.isNotBlank() &amp;&amp; !bootstrapIpsValid) stringResource(R.string.dns_custom_bootstrap_error) else null</ID>
+    <ID>MaxLineLength:DnsSettingsScreen.kt$if</ID>
+    <ID>MaxLineLength:DnsSettingsScreen.kt$mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) uiState.encryptedDnsHost else "")</ID>
+    <ID>MaxLineLength:DnsSettingsScreen.kt$mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot) uiState.encryptedDnsTlsServerName else "")</ID>
+    <ID>MaxLineLength:DnsSettingsScreen.kt$val</ID>
+    <ID>MaxLineLength:DnsSettingsScreen.kt$var</ID>
+    <ID>MaxLineLength:HistoryViewModel.kt$HistoryViewModel$.</ID>
+    <ID>MaxLineLength:HistoryViewModel.kt$HistoryViewModel$DiagnosticsMetricUiModel("Errors", session.totalErrors.toString(), if (session.totalErrors &gt; 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral)</ID>
+    <ID>MaxLineLength:HistoryViewModel.kt$HistoryViewModel$add(DiagnosticsMetricUiModel("Health", health.replaceFirstChar { it.uppercase() }, toneForConnection(this@toConnectionDetail)))</ID>
+    <ID>MaxLineLength:HistoryViewModel.kt$HistoryViewModel$add(DiagnosticsMetricUiModel("RTT band", latestTelemetry?.rttBand() ?: rttBand(), DiagnosticsTone.Info))</ID>
+    <ID>MaxLineLength:HistoryViewModel.kt$HistoryViewModel$if ((latestTelemetry?.retryCount() ?: retryCount()) &gt; 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral</ID>
+    <ID>MaxLineLength:HistoryViewModel.kt$HistoryViewModel$normalized.contains("error") || normalized.contains("failed") || normalized.contains("blocked") || normalized.contains("stopped") -&gt; DiagnosticsTone.Negative</ID>
+    <ID>MaxLineLength:HistoryViewModel.kt$HistoryViewModel$normalized.contains("ok") || normalized.contains("success") || normalized.contains("completed") -&gt; DiagnosticsTone.Positive</ID>
+    <ID>MaxLineLength:HistoryViewModel.kt$HistoryViewModel$normalized.contains("warn") || normalized.contains("timeout") || normalized.contains("partial") || normalized.contains("degraded") || normalized.contains("running") -&gt; DiagnosticsTone.Warning</ID>
+    <ID>MaxLineLength:HistoryViewModel.kt$HistoryViewModel$return fields.takeIf { it.isNotEmpty() }?.let { DiagnosticsContextGroupUiModel(title = "Field telemetry", fields = it) }</ID>
+    <ID>MaxLineLength:HistoryViewModel.kt$HistoryViewModel$subtitle = "${session.pathMode} · ${session.serviceMode ?: "Unknown"} · ${formatTimestamp(session.startedAt)}"</ID>
+    <ID>MaxLineLength:MainViewModelTest.kt$FakeMainDiagnosticsManager$override val activeScanProgress = kotlinx.coroutines.flow.MutableStateFlow&lt;com.poyka.ripdpi.diagnostics.ScanProgress?&gt;(null)</ID>
+    <ID>MaxLineLength:MainViewModelTest.kt$FakeMainDiagnosticsManager$override val contexts = kotlinx.coroutines.flow.MutableStateFlow(emptyList&lt;com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity&gt;())</ID>
+    <ID>MaxLineLength:MainViewModelTest.kt$FakeMainDiagnosticsManager$override val exports = kotlinx.coroutines.flow.MutableStateFlow(emptyList&lt;com.poyka.ripdpi.data.diagnostics.ExportRecordEntity&gt;())</ID>
+    <ID>MaxLineLength:MainViewModelTest.kt$FakeMainDiagnosticsManager$override val nativeEvents = kotlinx.coroutines.flow.MutableStateFlow(emptyList&lt;com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity&gt;())</ID>
+    <ID>MaxLineLength:MainViewModelTest.kt$FakeMainDiagnosticsManager$override val profiles = kotlinx.coroutines.flow.MutableStateFlow(emptyList&lt;com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity&gt;())</ID>
+    <ID>MaxLineLength:MainViewModelTest.kt$FakeMainDiagnosticsManager$override val sessions = kotlinx.coroutines.flow.MutableStateFlow(emptyList&lt;com.poyka.ripdpi.data.diagnostics.ScanSessionEntity&gt;())</ID>
+    <ID>MaxLineLength:MainViewModelTest.kt$FakeMainDiagnosticsManager$override val snapshots = kotlinx.coroutines.flow.MutableStateFlow(emptyList&lt;com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity&gt;())</ID>
+    <ID>MaxLineLength:MainViewModelTest.kt$FakeMainDiagnosticsManager$override val telemetry = kotlinx.coroutines.flow.MutableStateFlow(emptyList&lt;com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity&gt;())</ID>
+    <ID>MaxLineLength:MainViewModelTest.kt$MainViewModelTest$assertEquals(PermissionStatus.RequiresSettings, viewModel.uiState.value.permissionSummary.snapshot.notifications)</ID>
+    <ID>MaxLineLength:MainViewModelTest.kt$MainViewModelTest$val strategyId = deriveBypassStrategySignature(settings = settings, routeGroup = null, modeOverride = Mode.VPN).stableId()</ID>
+    <ID>MaxLineLength:PermissionOrchestration.kt$PermissionCoordinator$PermissionAction.StartConfiguredMode -&gt; buildStartRequirements(mode = configuredMode, snapshot = snapshot)</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsUiState$else -&gt; if (isAdaptiveOffsetExpression(splitMarker)) AdaptiveSplitPresetCustom else AdaptiveSplitPresetManual</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsUiState$get() = enableCmdSettings || activationWindowControlsRelevant || hasCustomActivationWindow || hasStepActivationFilters</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "HTTP parser tweaks are back to their defaults. Restart RIPDPI to remove the saved parser evasions from the active session."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "HTTP, TLS, and UDP fake payloads are back to compatibility defaults. Restart RIPDPI to apply them to the active session."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "RIPDPI could not download the latest geosite.dat or checksum file. The current curated host packs remain in use."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "RIPDPI downloaded geosite.dat, verified its SHA-256 checksum, and updated the on-device curated host packs."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "RIPDPI removed all stored per-network bypass policies. Current settings remain unchanged."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "RIPDPI verified the download, but the remote geosite.dat did not produce a complete YouTube, Telegram, and Discord catalog. The current packs remain in use."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "RIPDPI will go back to a fixed fake TTL for the active group after the next restart or reconnect."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "RIPDPI will stop applying saved HTTP parser tweaks and EOL evasions on the next start."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "RIPDPI will stop gating the active desync group by round, payload size, or stream-byte position on the next start."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "RIPDPI will stop learning fake TTL values and use the fixed fake TTL on the next start."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "RIPDPI will use the compatibility fake payload defaults for HTTP, TLS, and UDP on the next start."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "RIPDPI will use the default fake ClientHello, fixed SNI, and input-sized payload on the next start."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "Stored host learning was removed and the next RIPDPI start will rebuild it from scratch."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "The active desync group is back to always-on gating. Restart RIPDPI to remove the saved activation window from the running session."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "The downloaded geosite.dat checksum did not match the published SHA-256 digest. RIPDPI kept the current curated host packs."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "The profile is back to the default fake ClientHello. Restart RIPDPI to apply it to the active session."</ID>
+    <ID>MaxLineLength:SettingsViewModel.kt$SettingsViewModel$message = "The stored host learning file was removed. The running proxy keeps its in-memory routes until RIPDPI restarts."</ID>
+    <ID>ReturnCount:DiagnosticsScreen.kt$private fun interpolatedSeries( from: List&lt;Float&gt;, to: List&lt;Float&gt;, progress: Float, ): List&lt;Float&gt;</ID>
+    <ID>ReturnCount:DiagnosticsScreen.kt$private fun sampleSeries( values: List&lt;Float&gt;, position: Float, ): Float</ID>
+    <ID>ReturnCount:DiagnosticsViewModel.kt$DiagnosticsViewModel$private fun buildLiveBody( telemetry: TelemetrySampleEntity?, events: List&lt;NativeSessionEventEntity&gt;, ): String</ID>
+    <ID>ReturnCount:DiagnosticsViewModel.kt$DiagnosticsViewModel$private fun deriveHealth( progress: ScanProgress?, latestSession: ScanSessionEntity?, latestTelemetry: TelemetrySampleEntity?, nativeEvents: List&lt;NativeSessionEventEntity&gt;, ): DiagnosticsHealth</ID>
+    <ID>ReturnCount:MainViewModel.kt$MainViewModel$private fun resolvePermissionAction(action: PermissionAction)</ID>
+    <ID>TooManyFunctions:AdvancedSettingsScreen.kt$com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsScreen.kt</ID>
+    <ID>TooManyFunctions:DiagnosticsScreen.kt$com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsScreen.kt</ID>
+    <ID>TooManyFunctions:DiagnosticsViewModel.kt$DiagnosticsViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:HistoryViewModel.kt$HistoryViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:MainViewModel.kt$MainViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:SettingsViewModel.kt$SettingsViewModel : ViewModel</ID>
+    <ID>TopLevelPropertyNaming:HostPackCatalogNetwork.kt$const val HOST_PACK_CATALOG_BASE_URL = "https://raw.githubusercontent.com/"</ID>
+    <ID>TopLevelPropertyNaming:HostPackCatalogNetwork.kt$const val HOST_PACK_CATALOG_USER_AGENT = "RIPDPI host-pack catalog"</ID>
+    <ID>TopLevelPropertyNaming:HostPackCatalogRepository.kt$const val HOST_PACK_CATALOG_ASSET_PATH = "host-packs/catalog.json"</ID>
+    <ID>TopLevelPropertyNaming:HostPackCatalogRepository.kt$const val HOST_PACK_CATALOG_CACHE_PATH = "host-packs/catalog-cache.json"</ID>
+    <ID>UnusedParameter:DiagnosticsScreen.kt$onEventAutoScroll: (Boolean) -&gt; Unit</ID>
+    <ID>UnusedParameter:DiagnosticsScreen.kt$onEventSearch: (String) -&gt; Unit</ID>
+    <ID>UnusedParameter:DiagnosticsScreen.kt$onSessionPathFilter: (String?) -&gt; Unit</ID>
+    <ID>UnusedParameter:DiagnosticsScreen.kt$onSessionSearch: (String) -&gt; Unit</ID>
+    <ID>UnusedParameter:DiagnosticsScreen.kt$onSessionStatusFilter: (String?) -&gt; Unit</ID>
+    <ID>UnusedParameter:DiagnosticsScreen.kt$onToggleEventFilter: (String?, String?) -&gt; Unit</ID>
+    <ID>UnusedParameter:DiagnosticsViewModel.kt$DiagnosticsViewModel$sessionId: String? = null</ID>
+    <ID>UnusedParameter:ModeEditorScreen.kt$onDnsIpChanged: (String) -&gt; Unit</ID>
+    <ID>UnusedParameter:RipDpiNavHost.kt$onOpenVpnPermission: () -&gt; Unit = {}</ID>
     <ID>UnusedPrivateMember:AboutScreen.kt$@Preview(showBackground = true) @Composable private fun AboutScreenDarkPreview()</ID>
     <ID>UnusedPrivateMember:AboutScreen.kt$@Preview(showBackground = true) @Composable private fun AboutScreenPreview()</ID>
     <ID>UnusedPrivateMember:AdvancedSettingsScreen.kt$@Preview(showBackground = true) @Composable private fun AdvancedSettingsScreenDarkPreview()</ID>
@@ -169,8 +431,10 @@
     <ID>UnusedPrivateMember:BottomNavBar.kt$@Preview(showBackground = true) @Composable private fun BottomNavBarLightPreview()</ID>
     <ID>UnusedPrivateMember:ConfigScreen.kt$@Preview(showBackground = true) @Composable private fun ConfigScreenDarkPreview()</ID>
     <ID>UnusedPrivateMember:ConfigScreen.kt$@Preview(showBackground = true) @Composable private fun ConfigScreenPreview()</ID>
-    <ID>UnusedPrivateMember:DnsSettingsScreen.kt$@Preview(showBackground = true) @Composable private fun DnsSettingsScreenDarkPreview()</ID>
-    <ID>UnusedPrivateMember:DnsSettingsScreen.kt$@Preview(showBackground = true) @Composable private fun DnsSettingsScreenPreview()</ID>
+    <ID>UnusedPrivateMember:DiagnosticsScreen.kt$@Composable private fun EventsSection( uiState: DiagnosticsUiState, onSelectEvent: (String) -&gt; Unit, onToggleFilter: (String?, String?) -&gt; Unit, onSearch: (String) -&gt; Unit, onAutoScroll: (Boolean) -&gt; Unit, )</ID>
+    <ID>UnusedPrivateMember:DiagnosticsScreen.kt$@Composable private fun SessionsSection( uiState: DiagnosticsUiState, onSelectSession: (String) -&gt; Unit, onPathModeFilter: (String?) -&gt; Unit, onStatusFilter: (String?) -&gt; Unit, onSearch: (String) -&gt; Unit, )</ID>
+    <ID>UnusedPrivateMember:DnsSettingsScreen.kt$@Preview(showBackground = true) @Composable private fun DnsSettingsEncryptedPreview()</ID>
+    <ID>UnusedPrivateMember:DnsSettingsScreen.kt$@Preview(showBackground = true) @Composable private fun DnsSettingsPlainPreview()</ID>
     <ID>UnusedPrivateMember:HomeScreen.kt$@Preview(showBackground = true) @Composable private fun HomeScreenConnectedPreview()</ID>
     <ID>UnusedPrivateMember:HomeScreen.kt$@Preview(showBackground = true) @Composable private fun HomeScreenDisconnectedPreview()</ID>
     <ID>UnusedPrivateMember:HomeScreen.kt$@Preview(showBackground = true) @Composable private fun HomeScreenErrorPreview()</ID>
@@ -191,6 +455,11 @@
     <ID>UnusedPrivateMember:RipDpiCard.kt$@Preview(showBackground = true) @Composable private fun RipDpiCardPreview()</ID>
     <ID>UnusedPrivateMember:RipDpiChip.kt$@Preview(showBackground = true) @Composable private fun RipDpiChipDarkPreview()</ID>
     <ID>UnusedPrivateMember:RipDpiChip.kt$@Preview(showBackground = true) @Composable private fun RipDpiChipPreview()</ID>
+    <ID>UnusedPrivateMember:RipDpiDesignSystemPreviewMatrix.kt$@Preview(name = "Catalog Dark", showBackground = true, widthDp = 720, heightDp = 2200) @Composable private fun RipDpiDesignSystemPreviewMatrixDarkPreview()</ID>
+    <ID>UnusedPrivateMember:RipDpiDesignSystemPreviewMatrix.kt$@Preview(name = "Catalog Large Font", showBackground = true, widthDp = 720, heightDp = 2200, fontScale = 1.3f) @Composable private fun RipDpiDesignSystemPreviewMatrixLargeFontPreview()</ID>
+    <ID>UnusedPrivateMember:RipDpiDesignSystemPreviewMatrix.kt$@Preview(name = "Catalog Light Compact", showBackground = true, widthDp = 390, heightDp = 2200) @Composable private fun RipDpiDesignSystemPreviewMatrixLightPreview()</ID>
+    <ID>UnusedPrivateMember:RipDpiDesignSystemPreviewMatrix.kt$@Preview(name = "Catalog Light Expanded", showBackground = true, widthDp = 1040, heightDp = 2200) @Composable private fun RipDpiDesignSystemPreviewMatrixExpandedPreview()</ID>
+    <ID>UnusedPrivateMember:RipDpiDesignSystemPreviewMatrix.kt$@Preview(name = "Catalog Light Medium", showBackground = true, widthDp = 720, heightDp = 2200) @Composable private fun RipDpiDesignSystemPreviewMatrixMediumPreview()</ID>
     <ID>UnusedPrivateMember:RipDpiDialog.kt$@Preview(showBackground = true) @Composable private fun RipDpiConfirmationDialogPreview()</ID>
     <ID>UnusedPrivateMember:RipDpiDialog.kt$@Preview(showBackground = true) @Composable private fun RipDpiDestructiveDialogPreview()</ID>
     <ID>UnusedPrivateMember:RipDpiDialog.kt$@Preview(showBackground = true) @Composable private fun RipDpiInfoDialogPreview()</ID>
@@ -199,6 +468,9 @@
     <ID>UnusedPrivateMember:RipDpiIconButton.kt$@Preview(showBackground = true) @Composable private fun RipDpiIconButtonPreview()</ID>
     <ID>UnusedPrivateMember:RipDpiPageIndicators.kt$@Preview(showBackground = true) @Composable private fun RipDpiPageIndicatorsDarkPreview()</ID>
     <ID>UnusedPrivateMember:RipDpiPageIndicators.kt$@Preview(showBackground = true) @Composable private fun RipDpiPageIndicatorsPreview()</ID>
+    <ID>UnusedPrivateMember:RipDpiScreenPreviewCatalog.kt$@Preview(name = "Home Expanded", showBackground = true, widthDp = 1040, heightDp = 920) @Composable private fun HomeExpandedPreview()</ID>
+    <ID>UnusedPrivateMember:RipDpiScreenPreviewCatalog.kt$@Preview(name = "Intro Large Font", showBackground = true, widthDp = 420, heightDp = 900, fontScale = 1.3f) @Composable private fun IntroLargeFontPreview()</ID>
+    <ID>UnusedPrivateMember:RipDpiScreenPreviewCatalog.kt$@Preview(name = "Settings Medium", showBackground = true, widthDp = 720, heightDp = 1100) @Composable private fun SettingsMediumPreview()</ID>
     <ID>UnusedPrivateMember:RipDpiSnackbar.kt$@Preview(showBackground = true) @Composable private fun RipDpiSnackbarDarkPreview()</ID>
     <ID>UnusedPrivateMember:RipDpiSnackbar.kt$@Preview(showBackground = true) @Composable private fun RipDpiSnackbarPreview()</ID>
     <ID>UnusedPrivateMember:RipDpiSwitch.kt$@Preview(showBackground = true) @Composable private fun RipDpiSwitchDarkPreview()</ID>
@@ -211,18 +483,12 @@
     <ID>UnusedPrivateMember:SettingsPreferencesScreen.kt$@Preview(showBackground = true) @Composable private fun SettingsScreenDarkPreview()</ID>
     <ID>UnusedPrivateMember:SettingsPreferencesScreen.kt$@Preview(showBackground = true) @Composable private fun SettingsScreenPreview()</ID>
     <ID>UnusedPrivateMember:SettingsRow.kt$@Preview(showBackground = true) @Composable private fun SettingsRowPreview()</ID>
-    <ID>UnusedPrivateMember:SplashScreen.kt$@Preview(showBackground = true, widthDp = 360, heightDp = 800) @Composable private fun SplashScreenDarkPreview()</ID>
-    <ID>UnusedPrivateMember:SplashScreen.kt$@Preview(showBackground = true, widthDp = 360, heightDp = 800) @Composable private fun SplashScreenPreview()</ID>
     <ID>UnusedPrivateMember:StatusIndicator.kt$@Preview(showBackground = true) @Composable private fun StatusIndicatorPreview()</ID>
     <ID>UnusedPrivateMember:VpnPermissionScreen.kt$@Preview(showBackground = true, widthDp = 360, heightDp = 800) @Composable private fun VpnPermissionScreenErrorPreview()</ID>
     <ID>UnusedPrivateMember:VpnPermissionScreen.kt$@Preview(showBackground = true, widthDp = 360, heightDp = 800) @Composable private fun VpnPermissionScreenPreview()</ID>
     <ID>UnusedPrivateMember:WarningBanner.kt$@Preview(showBackground = true) @Composable private fun WarningBannerDarkPreview()</ID>
     <ID>UnusedPrivateMember:WarningBanner.kt$@Preview(showBackground = true) @Composable private fun WarningBannerPreview()</ID>
+    <ID>UnusedPrivateProperty:AdvancedSettingsScreen.kt$val desyncOptions = rememberSettingsOptions( labelArrayRes = R.array.ripdpi_desync_methods, valueArrayRes = R.array.ripdpi_desync_methods_entries, )</ID>
     <ID>UnusedPrivateProperty:MainViewModel.kt$MainViewModel$val startedAtMs = state.connectionStartedAtMs ?: return</ID>
-    <ID>UnusedPrivateProperty:QuickTileService.kt$QuickTileService.Companion$private val TAG: String = QuickTileService::class.java.simpleName</ID>
-    <ID>ViewModelForwarding:RipDpiNavHost.kt$HomeRoute( onOpenVpnPermission = { navController.navigate(Route.VpnPermission.route) { launchSingleTop = true } }, viewModel = mainViewModel, )</ID>
-    <ID>ViewModelForwarding:RipDpiNavHost.kt$VpnPermissionRoute( onDismiss = { navController.popBackStack() }, onGranted = { navController.popBackStack() }, viewModel = mainViewModel, )</ID>
-    <ID>ViewModelInjection:RipDpiNavHost.kt$logsViewModel</ID>
-    <ID>ViewModelInjection:RipDpiNavHost.kt$settingsViewModel</ID>
   </CurrentIssues>
 </SmellBaseline>
