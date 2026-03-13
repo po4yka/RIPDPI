@@ -86,6 +86,14 @@ pub struct RouteAdvance<'a> {
     pub can_reconnect: bool,
     pub host: Option<String>,
     pub penalize_strategy_failure: bool,
+    pub retry_penalties: Option<&'a BTreeMap<usize, RetrySelectionPenalty>>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RetrySelectionPenalty {
+    pub same_signature_cooldown_ms: u64,
+    pub family_cooldown_ms: u64,
+    pub diversification_rank: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -266,6 +274,7 @@ impl RuntimeCache {
             request.transport,
             request.trigger,
             request.can_reconnect,
+            request.retry_penalties,
         );
 
         if (config.auto_level & AUTO_SORT) != 0 {
@@ -317,23 +326,29 @@ impl RuntimeCache {
             0,
             true,
             false,
+            None,
         ) {
             return Some(route);
         }
-        let mut attempted_mask = record
+        let attempted_mask = record
             .preferred_groups
             .iter()
             .fold(0u64, |mask, &index| mask | config.groups.get(index).map_or(0, |group| group.bit));
-
+        let mut rejected_mask = attempted_mask;
+        let mut eligible = Vec::new();
         for &idx in self.ordered_indices() {
             let group = config.groups.get(idx)?;
-            if attempted_mask & group.bit != 0 || self.detect_for(config, idx) != 0 {
+            if rejected_mask & group.bit != 0 || self.detect_for(config, idx) != 0 {
                 continue;
             }
             if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
-                return Some(ConnectionRoute { group_index: idx, attempted_mask });
+                eligible.push(idx);
+            } else {
+                rejected_mask |= group.bit;
             }
-            attempted_mask |= group.bit;
+        }
+        if let Some(route) = select_best_candidate(config, self, &eligible, rejected_mask, None) {
+            return Some(route);
         }
 
         self.preferred_host_candidate(
@@ -343,9 +358,10 @@ impl RuntimeCache {
             payload,
             allow_unknown_payload,
             transport,
-            attempted_mask,
+            rejected_mask,
             true,
             true,
+            None,
         )
     }
 
@@ -359,6 +375,7 @@ impl RuntimeCache {
         transport: TransportProtocol,
         trigger: u32,
         can_reconnect: bool,
+        retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
     ) -> Option<ConnectionRoute> {
         let record = self.learned_hosts(config).get(host)?;
         let mut attempted_mask = route.attempted_mask | config.groups[route.group_index].bit;
@@ -372,6 +389,7 @@ impl RuntimeCache {
             attempted_mask,
             can_reconnect,
             false,
+            retry_penalties,
         ) {
             return Some(route);
         }
@@ -379,25 +397,30 @@ impl RuntimeCache {
             .preferred_groups
             .iter()
             .fold(0u64, |mask, &index| mask | config.groups.get(index).map_or(0, |group| group.bit));
-
+        let mut rejected_mask = attempted_mask;
+        let mut eligible = Vec::new();
         for &idx in self.ordered_indices() {
             let group = config.groups.get(idx)?;
             let detect = self.detect_for(config, idx);
-            if attempted_mask & group.bit != 0 {
+            if rejected_mask & group.bit != 0 {
                 continue;
             }
             if detect != 0 && (detect & trigger) == 0 {
-                attempted_mask |= group.bit;
+                rejected_mask |= group.bit;
                 continue;
             }
             if (detect & DETECT_RECONN) != 0 && !can_reconnect {
-                attempted_mask |= group.bit;
+                rejected_mask |= group.bit;
                 continue;
             }
             if group_matches(config, group, dest, payload, false, transport) {
-                return Some(ConnectionRoute { group_index: idx, attempted_mask });
+                eligible.push(idx);
+            } else {
+                rejected_mask |= group.bit;
             }
-            attempted_mask |= group.bit;
+        }
+        if let Some(route) = select_best_candidate(config, self, &eligible, rejected_mask, retry_penalties) {
+            return Some(route);
         }
 
         self.preferred_host_candidate(
@@ -407,9 +430,10 @@ impl RuntimeCache {
             payload,
             false,
             transport,
-            attempted_mask,
+            rejected_mask,
             can_reconnect,
             true,
+            retry_penalties,
         )
     }
 
@@ -424,9 +448,11 @@ impl RuntimeCache {
         attempted_mask: u64,
         can_reconnect: bool,
         penalized: bool,
+        retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
     ) -> Option<ConnectionRoute> {
         let now_ms = now_millis();
         let mut next_mask = attempted_mask;
+        let mut eligible = Vec::new();
         for &idx in &record.preferred_groups {
             let group = config.groups.get(idx)?;
             if next_mask & group.bit != 0 {
@@ -442,11 +468,12 @@ impl RuntimeCache {
                 continue;
             }
             if group_matches(config, group, dest, payload, allow_unknown_payload, transport) {
-                return Some(ConnectionRoute { group_index: idx, attempted_mask: next_mask });
+                eligible.push(idx);
+            } else {
+                next_mask |= group.bit;
             }
-            next_mask |= group.bit;
         }
-        None
+        select_best_candidate(config, self, &eligible, next_mask, retry_penalties)
     }
 
     pub fn note_route_success(
@@ -661,6 +688,7 @@ pub fn select_next_group(
     transport: TransportProtocol,
     trigger: u32,
     can_reconnect: bool,
+    retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
 ) -> Option<ConnectionRoute> {
     if let Some(normalized_host) = host.filter(|_| transport == TransportProtocol::Tcp).and_then(normalize_learned_host)
     {
@@ -673,11 +701,13 @@ pub fn select_next_group(
             transport,
             trigger,
             can_reconnect,
+            retry_penalties,
         ) {
             return Some(next);
         }
     }
     let mut attempted_mask = route.attempted_mask | config.groups[route.group_index].bit;
+    let mut eligible = Vec::new();
     for &idx in cache.ordered_indices() {
         let group = config.groups.get(idx)?;
         let detect = cache.detect_for(config, idx);
@@ -693,11 +723,45 @@ pub fn select_next_group(
             continue;
         }
         if group_matches(config, group, dest, payload, false, transport) {
-            return Some(ConnectionRoute { group_index: idx, attempted_mask });
+            eligible.push(idx);
+        } else {
+            attempted_mask |= group.bit;
         }
-        attempted_mask |= group.bit;
     }
-    None
+    select_best_candidate(config, cache, &eligible, attempted_mask, retry_penalties)
+}
+
+fn select_best_candidate(
+    _config: &RuntimeConfig,
+    cache: &RuntimeCache,
+    eligible: &[usize],
+    attempted_mask: u64,
+    retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
+) -> Option<ConnectionRoute> {
+    let mut ranked = eligible.to_vec();
+    ranked.sort_by_key(|index| {
+        let penalty = retry_penalty(retry_penalties, *index);
+        let group = cache.groups.get(*index);
+        (
+            penalty.same_signature_cooldown_ms > 0,
+            penalty.family_cooldown_ms > 0,
+            group.map_or(0, |value| value.fail_count),
+            group.map_or(0, |value| value.pri),
+            penalty.diversification_rank,
+            *index,
+        )
+    });
+    ranked
+        .into_iter()
+        .next()
+        .map(|group_index| ConnectionRoute { group_index, attempted_mask })
+}
+
+fn retry_penalty(
+    retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
+    group_index: usize,
+) -> RetrySelectionPenalty {
+    retry_penalties.and_then(|value| value.get(&group_index).copied()).unwrap_or_default()
 }
 
 pub fn extract_host_info(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
@@ -1044,11 +1108,58 @@ mod tests {
             TransportProtocol::Tcp,
             DETECT_RECONN,
             true,
+            None,
         )
         .expect("next route");
 
         assert_eq!(next.group_index, 1);
         assert_eq!(next.attempted_mask, config.groups[0].bit);
+    }
+
+    #[test]
+    fn select_next_group_prefers_non_cooled_candidate_when_retry_penalties_exist() {
+        let first = DesyncGroup::new(0);
+        let mut second = DesyncGroup::new(1);
+        second.detect = DETECT_RECONN;
+        let mut third = DesyncGroup::new(2);
+        third.detect = DETECT_RECONN;
+        let config = config_with_groups(vec![first, second, third]);
+        let cache = RuntimeCache::load(&config);
+        let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
+        let penalties = BTreeMap::from([
+            (
+                1usize,
+                RetrySelectionPenalty {
+                    same_signature_cooldown_ms: 1_000,
+                    family_cooldown_ms: 0,
+                    diversification_rank: 10,
+                },
+            ),
+            (
+                2usize,
+                RetrySelectionPenalty {
+                    same_signature_cooldown_ms: 0,
+                    family_cooldown_ms: 0,
+                    diversification_rank: 20,
+                },
+            ),
+        ]);
+
+        let next = select_next_group(
+            &config,
+            &cache,
+            &route,
+            sample_dest(443),
+            None,
+            None,
+            TransportProtocol::Tcp,
+            DETECT_RECONN,
+            true,
+            Some(&penalties),
+        )
+        .expect("next route");
+
+        assert_eq!(next.group_index, 2);
     }
 
     #[test]

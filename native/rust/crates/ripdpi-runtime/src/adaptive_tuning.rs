@@ -1,9 +1,14 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use ciadpi_config::{DesyncGroup, OffsetBase, QuicFakeProfile, TcpChainStepKind, UdpChainStepKind};
 use ciadpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
 use ciadpi_packets::{is_tls_client_hello, parse_quic_initial};
+
+const ADAPTIVE_RETRY_WINDOW_MS: u64 = 15_000;
+const FNV_OFFSET: u64 = 0xcbf29ce484222325;
+const FNV_PRIME: u64 = 0x100000001b3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum AdaptiveFlowKind {
@@ -21,6 +26,7 @@ enum AdaptivePlannerTarget {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct AdaptivePlannerKey {
+    network_scope_key: String,
     group_index: usize,
     flow_kind: AdaptiveFlowKind,
     target: AdaptivePlannerTarget,
@@ -31,16 +37,18 @@ struct ChoiceState<T> {
     candidates: Vec<T>,
     candidate_index: usize,
     pinned: Option<T>,
+    cooldown_until_ms: Vec<u64>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 struct AdaptivePlannerState {
     split_offset_base: Option<ChoiceState<OffsetBase>>,
     tls_record_offset_base: Option<ChoiceState<OffsetBase>>,
     tlsrandrec_profile: Option<ChoiceState<AdaptiveTlsRandRecProfile>>,
     udp_burst_profile: Option<ChoiceState<AdaptiveUdpBurstProfile>>,
     quic_fake_profile: Option<ChoiceState<QuicFakeProfile>>,
-    next_dimension: usize,
+    dimension_order: Vec<usize>,
+    dimension_cursor: usize,
 }
 
 #[derive(Debug, Default)]
@@ -51,6 +59,7 @@ pub struct AdaptivePlannerResolver {
 impl AdaptivePlannerResolver {
     pub fn resolve_tcp_hints(
         &mut self,
+        network_scope_key: Option<&str>,
         group_index: usize,
         dest: SocketAddr,
         host: Option<&str>,
@@ -58,13 +67,16 @@ impl AdaptivePlannerResolver {
         payload: &[u8],
     ) -> AdaptivePlannerHints {
         let flow_kind = tcp_flow_kind(payload);
-        let state = self.states.entry(adaptive_key(group_index, flow_kind, dest, host)).or_default();
+        let key = adaptive_key(network_scope_key, group_index, flow_kind, dest, host);
+        let seed = adaptive_seed(&key);
+        let state = self.states.entry(key).or_insert_with(|| AdaptivePlannerState::new(seed));
         state.sync_tcp_candidates(group, payload);
         state.current_hints()
     }
 
     pub fn resolve_udp_hints(
         &mut self,
+        network_scope_key: Option<&str>,
         group_index: usize,
         dest: SocketAddr,
         host: Option<&str>,
@@ -72,37 +84,87 @@ impl AdaptivePlannerResolver {
         payload: &[u8],
     ) -> AdaptivePlannerHints {
         let flow_kind = udp_flow_kind(payload);
-        let state = self.states.entry(adaptive_key(group_index, flow_kind, dest, host)).or_default();
+        let key = adaptive_key(network_scope_key, group_index, flow_kind, dest, host);
+        let seed = adaptive_seed(&key);
+        let state = self.states.entry(key).or_insert_with(|| AdaptivePlannerState::new(seed));
         state.sync_udp_candidates(group, payload);
         state.current_hints()
     }
 
-    pub fn note_tcp_success(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>, payload: &[u8]) {
-        if let Some(state) = self.states.get_mut(&adaptive_key(group_index, tcp_flow_kind(payload), dest, host)) {
+    pub fn note_tcp_success(
+        &mut self,
+        network_scope_key: Option<&str>,
+        group_index: usize,
+        dest: SocketAddr,
+        host: Option<&str>,
+        payload: &[u8],
+    ) {
+        if let Some(state) =
+            self.states.get_mut(&adaptive_key(network_scope_key, group_index, tcp_flow_kind(payload), dest, host))
+        {
             state.note_success();
         }
     }
 
-    pub fn note_tcp_failure(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>, payload: &[u8]) {
-        if let Some(state) = self.states.get_mut(&adaptive_key(group_index, tcp_flow_kind(payload), dest, host)) {
+    pub fn note_tcp_failure(
+        &mut self,
+        network_scope_key: Option<&str>,
+        group_index: usize,
+        dest: SocketAddr,
+        host: Option<&str>,
+        payload: &[u8],
+    ) {
+        if let Some(state) =
+            self.states.get_mut(&adaptive_key(network_scope_key, group_index, tcp_flow_kind(payload), dest, host))
+        {
             state.note_failure();
         }
     }
 
-    pub fn note_udp_success(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>, payload: &[u8]) {
-        if let Some(state) = self.states.get_mut(&adaptive_key(group_index, udp_flow_kind(payload), dest, host)) {
+    pub fn note_udp_success(
+        &mut self,
+        network_scope_key: Option<&str>,
+        group_index: usize,
+        dest: SocketAddr,
+        host: Option<&str>,
+        payload: &[u8],
+    ) {
+        if let Some(state) =
+            self.states.get_mut(&adaptive_key(network_scope_key, group_index, udp_flow_kind(payload), dest, host))
+        {
             state.note_success();
         }
     }
 
-    pub fn note_udp_failure(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>, payload: &[u8]) {
-        if let Some(state) = self.states.get_mut(&adaptive_key(group_index, udp_flow_kind(payload), dest, host)) {
+    pub fn note_udp_failure(
+        &mut self,
+        network_scope_key: Option<&str>,
+        group_index: usize,
+        dest: SocketAddr,
+        host: Option<&str>,
+        payload: &[u8],
+    ) {
+        if let Some(state) =
+            self.states.get_mut(&adaptive_key(network_scope_key, group_index, udp_flow_kind(payload), dest, host))
+        {
             state.note_failure();
         }
     }
 }
 
 impl AdaptivePlannerState {
+    fn new(seed: u64) -> Self {
+        Self {
+            split_offset_base: None,
+            tls_record_offset_base: None,
+            tlsrandrec_profile: None,
+            udp_burst_profile: None,
+            quic_fake_profile: None,
+            dimension_order: shuffled_dimensions(seed),
+            dimension_cursor: 0,
+        }
+    }
+
     fn sync_tcp_candidates(&mut self, group: &DesyncGroup, payload: &[u8]) {
         let tls_payload = is_tls_client_hello(payload);
         sync_choice(&mut self.split_offset_base, split_offset_candidates(group, tls_payload));
@@ -136,25 +198,32 @@ impl AdaptivePlannerState {
         pin_choice(&mut self.tlsrandrec_profile);
         pin_choice(&mut self.udp_burst_profile);
         pin_choice(&mut self.quic_fake_profile);
+        clear_cooldowns(&mut self.split_offset_base);
+        clear_cooldowns(&mut self.tls_record_offset_base);
+        clear_cooldowns(&mut self.tlsrandrec_profile);
+        clear_cooldowns(&mut self.udp_burst_profile);
+        clear_cooldowns(&mut self.quic_fake_profile);
     }
 
     fn note_failure(&mut self) {
-        for offset in 0..5usize {
-            let dimension = (self.next_dimension + offset) % 5;
-            if self.advance_dimension(dimension) {
-                self.next_dimension = (dimension + 1) % 5;
+        let now_ms = now_millis();
+        for offset in 0..self.dimension_order.len() {
+            let position = (self.dimension_cursor + offset) % self.dimension_order.len();
+            let dimension = self.dimension_order[position];
+            if self.advance_dimension(dimension, now_ms) {
+                self.dimension_cursor = (position + 1) % self.dimension_order.len();
                 break;
             }
         }
     }
 
-    fn advance_dimension(&mut self, dimension: usize) -> bool {
+    fn advance_dimension(&mut self, dimension: usize, now_ms: u64) -> bool {
         match dimension {
-            0 => advance_choice(&mut self.split_offset_base),
-            1 => advance_choice(&mut self.tls_record_offset_base),
-            2 => advance_choice(&mut self.tlsrandrec_profile),
-            3 => advance_choice(&mut self.udp_burst_profile),
-            4 => advance_choice(&mut self.quic_fake_profile),
+            0 => advance_choice(&mut self.split_offset_base, now_ms),
+            1 => advance_choice(&mut self.tls_record_offset_base, now_ms),
+            2 => advance_choice(&mut self.tlsrandrec_profile, now_ms),
+            3 => advance_choice(&mut self.udp_burst_profile, now_ms),
+            4 => advance_choice(&mut self.quic_fake_profile, now_ms),
             _ => false,
         }
     }
@@ -165,7 +234,8 @@ where
     T: Copy + Eq,
 {
     fn new(candidates: Vec<T>) -> Self {
-        Self { candidates, candidate_index: 0, pinned: None }
+        let cooldown_until_ms = vec![0; candidates.len()];
+        Self { candidates, candidate_index: 0, pinned: None, cooldown_until_ms }
     }
 
     fn current(&self) -> Option<T> {
@@ -180,22 +250,42 @@ where
         self.pinned = self.current();
     }
 
-    fn note_failure(&mut self) {
+    fn clear_cooldowns(&mut self) {
+        self.cooldown_until_ms.fill(0);
+    }
+
+    fn note_failure(&mut self, now_ms: u64) {
         self.pinned = None;
-        if self.candidates.is_empty() {
+        if self.candidates.len() <= 1 {
             return;
+        }
+        if self.candidate_index < self.cooldown_until_ms.len() {
+            self.cooldown_until_ms[self.candidate_index] = now_ms.saturating_add(ADAPTIVE_RETRY_WINDOW_MS);
+        }
+        for offset in 1..=self.candidates.len() {
+            let candidate = (self.candidate_index + offset) % self.candidates.len();
+            if self.cooldown_until_ms.get(candidate).copied().unwrap_or_default() <= now_ms {
+                self.candidate_index = candidate;
+                return;
+            }
         }
         self.candidate_index = (self.candidate_index + 1) % self.candidates.len();
     }
 }
 
 fn adaptive_key(
+    network_scope_key: Option<&str>,
     group_index: usize,
     flow_kind: AdaptiveFlowKind,
     dest: SocketAddr,
     host: Option<&str>,
 ) -> AdaptivePlannerKey {
     AdaptivePlannerKey {
+        network_scope_key: network_scope_key
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("default")
+            .to_string(),
         group_index,
         flow_kind,
         target: normalized_host(host).map(AdaptivePlannerTarget::Host).unwrap_or(AdaptivePlannerTarget::Address(dest)),
@@ -239,7 +329,9 @@ where
         return;
     }
     match slot {
-        Some(state) if state.candidates == candidates => {}
+        Some(state) if state.candidates == candidates => {
+            state.cooldown_until_ms.resize(state.candidates.len(), 0);
+        }
         Some(state) => *state = ChoiceState::new(candidates),
         None => *slot = Some(ChoiceState::new(candidates)),
     }
@@ -254,7 +346,16 @@ where
     }
 }
 
-fn advance_choice<T>(slot: &mut Option<ChoiceState<T>>) -> bool
+fn clear_cooldowns<T>(slot: &mut Option<ChoiceState<T>>)
+where
+    T: Copy + Eq,
+{
+    if let Some(state) = slot.as_mut() {
+        state.clear_cooldowns();
+    }
+}
+
+fn advance_choice<T>(slot: &mut Option<ChoiceState<T>>, now_ms: u64) -> bool
 where
     T: Copy + Eq,
 {
@@ -264,8 +365,48 @@ where
     if !state.is_adaptive() {
         return false;
     }
-    state.note_failure();
+    state.note_failure(now_ms);
     true
+}
+
+fn adaptive_seed(key: &AdaptivePlannerKey) -> u64 {
+    let mut hash = FNV_OFFSET;
+    stable_hash_update(&mut hash, key.network_scope_key.as_bytes());
+    stable_hash_update(&mut hash, b"|");
+    stable_hash_update(&mut hash, key.group_index.to_string().as_bytes());
+    stable_hash_update(&mut hash, b"|");
+    stable_hash_update(&mut hash, format!("{:?}", key.flow_kind).as_bytes());
+    stable_hash_update(&mut hash, b"|");
+    stable_hash_update(&mut hash, format!("{:?}", key.target).as_bytes());
+    hash
+}
+
+fn shuffled_dimensions(seed: u64) -> Vec<usize> {
+    let mut dimensions = vec![0usize, 1, 2, 3, 4];
+    dimensions.sort_by_key(|dimension| stable_hash(seed, *dimension as u64));
+    dimensions
+}
+
+fn stable_hash(seed: u64, value: u64) -> u64 {
+    let mut hash = FNV_OFFSET;
+    stable_hash_update(&mut hash, seed.to_string().as_bytes());
+    stable_hash_update(&mut hash, b"|");
+    stable_hash_update(&mut hash, value.to_string().as_bytes());
+    hash
+}
+
+fn stable_hash_update(hash: &mut u64, bytes: &[u8]) {
+    for byte in bytes {
+        *hash ^= u64::from(*byte);
+        *hash = hash.wrapping_mul(FNV_PRIME);
+    }
+}
+
+fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map_or(0, |value| value.as_millis().min(u128::from(u64::MAX)) as u64)
 }
 
 fn split_offset_candidates(group: &DesyncGroup, tls_payload: bool) -> Vec<OffsetBase> {
@@ -386,21 +527,28 @@ mod tests {
 
         let mut resolver = AdaptivePlannerResolver::default();
         let target = addr(443);
-        let first = resolver.resolve_tcp_hints(0, target, Some("Video.Example.Test"), &group, payload);
+        let first = resolver.resolve_tcp_hints(None, 0, target, Some("Video.Example.Test"), &group, payload);
         assert_eq!(first.split_offset_base, Some(OffsetBase::Host));
         assert_eq!(first.tls_record_offset_base, Some(OffsetBase::SniExt));
         assert_eq!(first.tlsrandrec_profile, Some(AdaptiveTlsRandRecProfile::Balanced));
 
-        resolver.note_tcp_failure(0, target, Some("video.example.test"), payload);
-        let second = resolver.resolve_tcp_hints(0, target, Some("video.example.test"), &group, payload);
-        assert_eq!(second.split_offset_base, Some(OffsetBase::MidSld));
-        assert_eq!(second.tlsrandrec_profile, Some(AdaptiveTlsRandRecProfile::Balanced));
+        resolver.note_tcp_failure(None, 0, target, Some("video.example.test"), payload);
+        let second = resolver.resolve_tcp_hints(None, 0, target, Some("video.example.test"), &group, payload);
+        let second_changes = [
+            first.split_offset_base != second.split_offset_base,
+            first.tls_record_offset_base != second.tls_record_offset_base,
+            first.tlsrandrec_profile != second.tlsrandrec_profile,
+        ];
+        assert_eq!(second_changes.into_iter().filter(|changed| *changed).count(), 1);
 
-        resolver.note_tcp_failure(0, target, Some("video.example.test"), payload);
-        let third = resolver.resolve_tcp_hints(0, target, Some("video.example.test"), &group, payload);
-        assert_eq!(third.split_offset_base, Some(OffsetBase::MidSld));
-        assert_eq!(third.tls_record_offset_base, Some(OffsetBase::ExtLen));
-        assert_eq!(third.tlsrandrec_profile, Some(AdaptiveTlsRandRecProfile::Balanced));
+        resolver.note_tcp_failure(None, 0, target, Some("video.example.test"), payload);
+        let third = resolver.resolve_tcp_hints(None, 0, target, Some("video.example.test"), &group, payload);
+        let third_changes = [
+            second.split_offset_base != third.split_offset_base,
+            second.tls_record_offset_base != third.tls_record_offset_base,
+            second.tlsrandrec_profile != third.tlsrandrec_profile,
+        ];
+        assert_eq!(third_changes.into_iter().filter(|changed| *changed).count(), 1);
     }
 
     #[test]
@@ -411,16 +559,16 @@ mod tests {
 
         let mut resolver = AdaptivePlannerResolver::default();
         let target = addr(80);
-        let first = resolver.resolve_tcp_hints(0, target, Some("docs.example.test"), &group, payload);
+        let first = resolver.resolve_tcp_hints(None, 0, target, Some("docs.example.test"), &group, payload);
         assert_eq!(first.split_offset_base, Some(OffsetBase::Host));
 
-        resolver.note_tcp_failure(0, target, Some("docs.example.test"), payload);
-        let advanced = resolver.resolve_tcp_hints(0, target, Some("docs.example.test"), &group, payload);
+        resolver.note_tcp_failure(None, 0, target, Some("docs.example.test"), payload);
+        let advanced = resolver.resolve_tcp_hints(None, 0, target, Some("docs.example.test"), &group, payload);
         assert_eq!(advanced.split_offset_base, Some(OffsetBase::MidSld));
 
-        resolver.note_tcp_success(0, target, Some("docs.example.test"), payload);
-        resolver.note_tcp_failure(0, target, Some("docs.example.test"), payload);
-        let next = resolver.resolve_tcp_hints(0, target, Some("docs.example.test"), &group, payload);
+        resolver.note_tcp_success(None, 0, target, Some("docs.example.test"), payload);
+        resolver.note_tcp_failure(None, 0, target, Some("docs.example.test"), payload);
+        let next = resolver.resolve_tcp_hints(None, 0, target, Some("docs.example.test"), &group, payload);
         assert_eq!(next.split_offset_base, Some(OffsetBase::EndHost));
     }
 
@@ -434,21 +582,21 @@ mod tests {
 
         let mut resolver = AdaptivePlannerResolver::default();
         let target = addr(443);
-        let first = resolver.resolve_udp_hints(0, target, Some("media.example.test"), &group, &payload);
+        let first = resolver.resolve_udp_hints(None, 0, target, Some("media.example.test"), &group, &payload);
         assert_eq!(first.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Balanced));
         assert_eq!(first.quic_fake_profile, Some(QuicFakeProfile::RealisticInitial));
 
-        resolver.note_udp_failure(0, target, Some("media.example.test"), &payload);
-        let second = resolver.resolve_udp_hints(0, target, Some("media.example.test"), &group, &payload);
+        resolver.note_udp_failure(None, 0, target, Some("media.example.test"), &payload);
+        let second = resolver.resolve_udp_hints(None, 0, target, Some("media.example.test"), &group, &payload);
         assert_eq!(second.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Conservative));
         assert_eq!(second.quic_fake_profile, Some(QuicFakeProfile::RealisticInitial));
 
-        resolver.note_udp_failure(0, target, Some("media.example.test"), &payload);
-        let third = resolver.resolve_udp_hints(0, target, Some("media.example.test"), &group, &payload);
+        resolver.note_udp_failure(None, 0, target, Some("media.example.test"), &payload);
+        let third = resolver.resolve_udp_hints(None, 0, target, Some("media.example.test"), &group, &payload);
         assert_eq!(third.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Conservative));
         assert_eq!(third.quic_fake_profile, Some(QuicFakeProfile::CompatDefault));
 
-        let isolated = resolver.resolve_udp_hints(0, target, Some("other.example.test"), &group, &payload);
+        let isolated = resolver.resolve_udp_hints(None, 0, target, Some("other.example.test"), &group, &payload);
         assert_eq!(isolated.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Balanced));
         assert_eq!(isolated.quic_fake_profile, Some(QuicFakeProfile::RealisticInitial));
     }
