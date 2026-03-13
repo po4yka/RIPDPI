@@ -24,11 +24,11 @@ That means `libripdpi.so` is no longer only the proxy engine. It is also the dia
 
 ### Proxy mode
 
-`RipDpiProxyService.startProxy()` -> `RipDpiProxy.startProxy()` -> `jniCreate(configJson)` -> `jniStart(handle)` -> `ripdpi-android`
+`RipDpiProxyService.startProxy()` -> `ConnectionPolicyResolver.resolve()` -> `RipDpiProxy.startProxy()` -> `jniCreate(configJson)` -> `jniStart(handle)` -> `runtime::create_listener()` -> `runtime::run_proxy_with_embedded_control()`
 
 ### VPN mode
 
-`RipDpiVpnService.startProxy()` -> `RipDpiProxy.startProxy()` -> `jniCreate(configJson)` -> `jniStart(handle)` -> `ripdpi-android`
+`RipDpiVpnService.startProxy()` -> `ConnectionPolicyResolver.resolve()` -> `RipDpiProxy.startProxy()` -> `jniCreate(configJson)` -> `jniStart(handle)` -> `runtime::create_listener()` -> `runtime::run_proxy_with_embedded_control()`
 
 Relevant sources:
 
@@ -47,12 +47,9 @@ Relevant sources:
 | `ciadpi_config::parse_cli` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreate(configJson)` | Command-line mode only | Parses user-supplied ByeDPI-style arguments into a `RuntimeConfig`. |
 | `ciadpi_config::parse_hosts_spec` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreate(configJson)` | UI mode host list setup | Parses the app host list string into normalized host rules. |
 | `runtime::create_listener` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Start only | Opens the local listening socket for the proxy runtime. |
-| `process::prepare_embedded` | `native/rust/crates/ripdpi-runtime/src/process.rs` | `jniStart(handle)` | Always before the runtime loop | Resets the embedded shutdown flag without daemon or signal handler behavior. |
-| `runtime::run_proxy_with_listener` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Always after session start | Runs the Rust proxy loop on the listener owned by the native session. |
-| `process::request_shutdown` | `native/rust/crates/ripdpi-runtime/src/process.rs` | `jniStop(handle)` | Stop path | Signals the Rust runtime loop to exit. |
-| `platform::detect_default_ttl` | `native/rust/crates/ripdpi-runtime/src/platform/mod.rs` | `runtime::run_proxy_with_listener` | When custom TTL is not supplied | Detects the system default TTL before the proxy loop starts. |
-| `ripdpi_runtime::install_runtime_telemetry` | `native/rust/crates/ripdpi-runtime/src/lib.rs` | `jniStart(handle)` | Long-running proxy runtime only | Attaches a native observer that records listener lifecycle, accepted clients, route selection, route advances, and native errors. |
-| `ripdpi_runtime::clear_runtime_telemetry` | `native/rust/crates/ripdpi-runtime/src/lib.rs` | `jniStart(handle)` unwind | Long-running proxy runtime only | Removes the observer after the proxy loop exits. |
+| `runtime::run_proxy_with_embedded_control` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Always after session start | Runs the Rust proxy loop on the listener owned by the native session, with session-local shutdown state, telemetry sink, and runtime context. |
+| `EmbeddedProxyControl::request_shutdown` | `native/rust/crates/ripdpi-runtime/src/lib.rs` | `jniStop(handle)` | Stop path | Signals the active embedded proxy session to exit without relying on standalone daemon/process control. |
+| `platform::detect_default_ttl` | `native/rust/crates/ripdpi-runtime/src/platform/mod.rs` | `runtime::run_proxy_with_embedded_control` | When custom TTL is not supplied | Detects the system default TTL before the proxy loop starts. |
 | `MonitorSession::start_scan` | `native/rust/crates/ripdpi-monitor/src/lib.rs` | `NetworkDiagnostics.jniStartScan()` | Diagnostics screen | Starts an active diagnostics session with structured progress and reports. |
 | `MonitorSession::poll_progress_json` / `take_report_json` / `poll_passive_events_json` | `native/rust/crates/ripdpi-monitor/src/lib.rs` | `NetworkDiagnostics` JNI methods | Diagnostics screen | Returns scan progress, scan report, and scan-time native events. |
 
@@ -79,6 +76,8 @@ The proxy engine now exposes a substantially broader typed strategy surface than
 ### Config translation
 
 Android UI mode, diagnostics recommendation drafts, and automatic-probing candidate overlays all pass through the shared `ripdpi-proxy-config` crate before the runtime starts. That keeps the Kotlin UI model, diagnostics monitor, and native runtime aligned around one config shape instead of three loosely matching serializers.
+
+The same JSON path is also used to replay validated remembered network policies. `RipDpiProxyJsonPreferences` can apply an exact normalized `proxyConfigJson` with a fresh `networkScopeKey` and runtime context, instead of rebuilding the policy from today's UI settings.
 
 ### Markers and chains
 
@@ -111,11 +110,23 @@ The fake-transport path now includes:
 
 The shared runtime layer now also adds:
 
-- host autolearn and per-host preferred group promotion
-- automatic diagnostics probing with a fixed raw-path candidate suite and manual recommendation output
+- host autolearn and per-host preferred group promotion scoped by `networkScopeKey`
+- validated remembered-network policy replay with hashed network fingerprints and optional VPN DNS override
+- automatic diagnostics probing with a fixed raw-path candidate suite, hidden handover-triggered `quick_v1` probes, and manual recommendation output
+- separate TCP, QUIC, and DNS strategy-family labels for scoring and diagnostics
 - activation windows keyed by outbound round, payload size, and stream-byte ranges
+- retry-stealth pacing and seeded candidate diversification in both live runtime retries and diagnostics probes
 
-Those features are implemented in the native runtime and diagnostics monitor rather than in Kotlin-only glue.
+### Network-aware policy resolution
+
+Before the native runtime starts, the Android service layer now resolves policy against the current network:
+
+- `NetworkFingerprintProvider` captures a hashable network identity from transport, validation/captive state, private DNS mode, DNS servers, and Wi-Fi or cellular identity tuples.
+- `ConnectionPolicyResolver` can auto-apply a validated remembered policy for the current `fingerprintHash`, including exact `proxyConfigJson` and VPN-only DNS override replay.
+- `ActiveConnectionPolicyStore` tracks the active policy, its `policySignature`, `fingerprintHash`, and whether it was applied from remembered policy memory.
+- `NetworkHandoverMonitor` re-runs the same resolver on actionable handovers and forces a full runtime restart even when the signature stays the same, so sockets and resolver state are rebound to the new path.
+
+The packet-level pieces live in the native runtime and diagnostics monitor, while Kotlin owns policy resolution, remembered-policy replay, and handover-triggered restart orchestration.
 
 ## Implemented Diagnostic Mechanisms
 
@@ -127,7 +138,7 @@ The diagnostics path linked into `libripdpi.so` currently implements:
 - HTTP block-page classification
 - TCP 16-20 KB cutoff detection with repeated fat-header `HEAD` requests
 - Whitelist SNI retry search
-- Built-in encrypted resolver sweep and ranking for connectivity scans
+- Built-in encrypted resolver sweep and ranking for connectivity scans with diversified DoH/DoT/DNSCrypt path candidates and bootstrap validation
 
 Results are returned as typed outcomes and probe details rather than log-line parsing.
 
@@ -140,8 +151,12 @@ While the proxy service is running, `RipDpiProxy.pollTelemetry()` calls `jniPoll
 - cumulative session count
 - cumulative native error count
 - route change count
+- retry pacing count, last retry reason, and last retry backoff
+- candidate diversification count
 - last selected desync group
 - last target and host observed by the route selector
+- host-autolearn enabled state plus learned/penalized host counts
+- last failure class and fallback action
 - a bounded drained event ring
 
 The drained event ring records:
@@ -150,6 +165,7 @@ The drained event ring records:
 - client errors
 - initial route selection
 - route advances caused by reconnect triggers such as connect failure or first-response triggers
+- retry pacing decisions and candidate-order diversification events
 
 ## Command-line Mode
 
@@ -162,9 +178,9 @@ This path still goes through `ciadpi_config::parse_cli`, so CLI flags are interp
 The proxy stack is currently covered by:
 
 - Rust unit, property-based, state-machine, fault-injection, and telemetry-golden tests in `ripdpi-android`
-- Rust config and planner coverage for markers, fake payload profiles, fake TLS mutations, activation windows, adaptive split placement, adaptive fake TTL, host autolearn, and fake-step approximations
+- Rust config and planner coverage for markers, fake payload profiles, fake TLS mutations, activation windows, adaptive split placement, adaptive fake TTL, adaptive tuning beyond TTL, host autolearn scoping, retry stealth, and fake-step approximations
 - repo-owned local-network E2E for the proxy runtime in `ripdpi-runtime`
-- Kotlin wrapper and service-layer tests in `core:engine` and `core:service`
+- Kotlin wrapper and service-layer tests in `core:engine` and `core:service`, including network-memory resolution and handover-triggered restart behavior
 - Android instrumentation integration and network E2E through the real `libripdpi.so`
 - host-side soak runs for restart loops, sustained traffic, and fault recovery
 
@@ -174,7 +190,7 @@ See [../testing.md](../testing.md) for commands and CI lanes.
 
 Stopping the proxy now does two things in the JNI bridge:
 
-- Calls `process::request_shutdown()`
+- Calls `EmbeddedProxyControl::request_shutdown()`
 - Calls `shutdown(listener_fd, SHUT_RDWR)`
 
-The listener is then closed when `runtime::run_proxy_with_listener()` unwinds and drops the native `TcpListener`.
+The listener is then closed when `runtime::run_proxy_with_embedded_control()` unwinds and drops the native `TcpListener`.
