@@ -521,7 +521,6 @@ class DefaultDiagnosticsManager
         }
     }
 
-
     private suspend fun pollScanResult(
         sessionId: String,
         bridge: NetworkDiagnosticsBridge,
@@ -640,7 +639,6 @@ class DefaultDiagnosticsManager
         )
     }
 
-
     private suspend fun rememberStrategyProbeRecommendation(
         report: ScanReport,
         settings: com.poyka.ripdpi.proto.AppSettings,
@@ -659,7 +657,6 @@ class DefaultDiagnosticsManager
                     .takeIf { it.hostAutolearnEnabled }
                     ?.let { resolveHostAutolearnStorePath(context) },
             json = json,
-            finishedAt = report.finishedAt,
         ) ?: return
         rememberedNetworkPolicyStore.rememberValidatedPolicy(
             policy = policy,
@@ -672,7 +669,6 @@ class DefaultDiagnosticsManager
         DiagnosticsReportPersister.persistServiceNativeEvents(serviceTelemetry, historyRepository)
     }
 }
-
 
 @Serializable
 internal data class RedactedNetworkSummary(

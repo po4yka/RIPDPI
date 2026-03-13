@@ -108,7 +108,6 @@ internal object DiagnosticsScanWorkflow {
         fingerprint: NetworkFingerprint,
         hostAutolearnStorePath: String?,
         json: Json,
-        finishedAt: Long,
     ): RememberedNetworkPolicyJson? {
         if (strategyProbe.suiteId == StrategyProbeSuiteFullMatrixV1) {
             return null
