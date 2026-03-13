@@ -212,6 +212,8 @@ pub struct MiscConfig {
     pub pid_file: Option<String>,
     #[serde(default = "default_limit_nofile")]
     pub limit_nofile: u32,
+    #[serde(default)]
+    pub filter_injected_resets: bool,
 }
 
 impl Default for MiscConfig {
@@ -229,6 +231,7 @@ impl Default for MiscConfig {
             log_level: default_log_level(),
             pid_file: None,
             limit_nofile: default_limit_nofile(),
+            filter_injected_resets: false,
         }
     }
 }

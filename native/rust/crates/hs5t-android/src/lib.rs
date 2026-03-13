@@ -83,6 +83,8 @@ struct TunnelConfigPayload {
     udp_read_write_timeout_ms: Option<u32>,
     log_level: String,
     limit_nofile: Option<u32>,
+    #[serde(default)]
+    filter_injected_resets: Option<bool>,
 }
 
 const MAX_TUNNEL_EVENTS: usize = 128;
@@ -639,6 +641,9 @@ fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config, String> {
     }
     if let Some(value) = payload.limit_nofile {
         misc.limit_nofile = value;
+    }
+    if let Some(value) = payload.filter_injected_resets {
+        misc.filter_injected_resets = value;
     }
 
     let mapdns = payload.mapdns_address.map(|address| MapDnsConfig {
