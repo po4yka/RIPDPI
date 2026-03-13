@@ -55,6 +55,7 @@ import com.poyka.ripdpi.services.TemporaryResolverOverride
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
@@ -65,6 +66,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -140,8 +142,11 @@ class DefaultDiagnosticsManager
         private val serviceStateStore: ServiceStateStore,
         private val resolverOverrideStore: ResolverOverrideStore = DefaultResolverOverrideStore(),
         private val policyHandoverEventStore: PolicyHandoverEventStore = DefaultPolicyHandoverEventStore(),
+        @Named("automaticHandoverProbeDelayMs")
         private val automaticHandoverProbeDelayMs: Long = AutomaticHandoverProbeDelayMs,
+        @Named("automaticHandoverProbeCooldownMs")
         private val automaticHandoverProbeCooldownMs: Long = AutomaticHandoverProbeCooldownMs,
+        @Named("importBundledProfilesOnInitialize")
         private val importBundledProfilesOnInitialize: Boolean = true,
     ) : DiagnosticsManager {
     private companion object {
@@ -2287,4 +2292,18 @@ abstract class DiagnosticsManagerModule {
     abstract fun bindDiagnosticsManager(
         manager: DefaultDiagnosticsManager,
     ): DiagnosticsManager
+
+    companion object {
+        @Provides
+        @Named("automaticHandoverProbeDelayMs")
+        fun provideAutomaticHandoverProbeDelayMs(): Long = 15_000L
+
+        @Provides
+        @Named("automaticHandoverProbeCooldownMs")
+        fun provideAutomaticHandoverProbeCooldownMs(): Long = 24L * 60L * 60L * 1_000L
+
+        @Provides
+        @Named("importBundledProfilesOnInitialize")
+        fun provideImportBundledProfilesOnInitialize(): Boolean = true
+    }
 }
