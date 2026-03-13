@@ -3,8 +3,6 @@ package com.poyka.ripdpi.services
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.pm.ServiceInfo
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.Build
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.NativeRuntimeSnapshot
@@ -20,6 +18,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
@@ -79,17 +78,26 @@ class RipDpiVpnService : LifecycleVpnService() {
     @Inject
     lateinit var rememberedNetworkPolicyStore: RememberedNetworkPolicyStore
 
+    @Inject
+    lateinit var networkHandoverMonitor: NetworkHandoverMonitor
+
+    @Inject
+    lateinit var policyHandoverEventStore: PolicyHandoverEventStore
+
     private var ripDpiProxy: RipDpiProxyRuntime? = null
     private var tun2SocksBridge: Tun2SocksBridge? = null
     private var proxyJob: Job? = null
     private var telemetryJob: Job? = null
+    private var handoverMonitorJob: Job? = null
     private var tunSession: VpnTunnelSession? = null
     private val mutex = Mutex()
     private var stopping: Boolean = false
     private var currentDnsSignature: String? = null
-    private var lastNetworkFingerprint: NetworkFingerprint? = null
     private var tunnelStartCount: Int = 0
     private var tunnelRecoveryRetryCount: Long = 0
+    private var pendingNetworkHandoverClass: String? = null
+    private var lastSuccessfulHandoverFingerprintHash: String? = null
+    private var lastSuccessfulHandoverAt: Long = 0L
 
     private var status: ServiceStatus = ServiceStatus.Disconnected
 
@@ -102,6 +110,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         private const val MAPDNS_PORT = 53
         private const val MAPDNS_CACHE_SIZE = 10_000
         private const val DNS_QUERY_TIMEOUT_MS = 4_000
+        private const val HandoverCooldownMs: Long = 10_000L
     }
 
     override fun onCreate() {
@@ -159,16 +168,11 @@ class RipDpiVpnService : LifecycleVpnService() {
                     resolverOverride = resolverOverrideStore.override.value,
                 )
             matchedRememberedPolicy = resolution.matchedNetworkPolicy
-            resolution.appliedPolicy?.let { policy ->
-                activeConnectionPolicyStore.set(
-                    ActiveConnectionPolicy(
-                        mode = Mode.VPN,
-                        policy = policy,
-                        matchedPolicy = resolution.matchedNetworkPolicy,
-                        usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
-                    ),
-                )
-            }
+            applyActiveConnectionPolicy(
+                resolution = resolution,
+                restartReason = "initial_start",
+                appliedAt = System.currentTimeMillis(),
+            )
             mutex.withLock {
                 startProxy(resolution.proxyPreferences)
                 startTun2Socks(
@@ -177,6 +181,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                 )
             }
             updateStatus(ServiceStatus.Connected)
+            startNetworkHandoverMonitoring()
             startTelemetryUpdates()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start VPN\n${e.asLog()}" }
@@ -208,6 +213,8 @@ class RipDpiVpnService : LifecycleVpnService() {
         mutex.withLock {
             stopping = true
             try {
+                handoverMonitorJob?.cancel()
+                handoverMonitorJob = null
                 try {
                     stopTun2Socks()
                 } catch (e: Exception) {
@@ -226,9 +233,11 @@ class RipDpiVpnService : LifecycleVpnService() {
             } finally {
                 stopping = false
                 currentDnsSignature = null
-                lastNetworkFingerprint = null
                 tunnelStartCount = 0
                 tunnelRecoveryRetryCount = 0
+                pendingNetworkHandoverClass = null
+                lastSuccessfulHandoverFingerprintHash = null
+                lastSuccessfulHandoverAt = 0L
                 resolverOverrideStore.clear()
                 activeConnectionPolicyStore.clear()
             }
@@ -445,11 +454,13 @@ class RipDpiVpnService : LifecycleVpnService() {
                 currentTelemetry.proxyTelemetry
             }
         val tunnelTelemetry =
-            if (newStatus == ServiceStatus.Connected) {
-                NativeRuntimeSnapshot.idle(source = "tunnel")
-            } else {
-                currentTelemetry.tunnelTelemetry
-            }
+            applyPendingNetworkHandoverClass(
+                if (newStatus == ServiceStatus.Connected) {
+                    NativeRuntimeSnapshot.idle(source = "tunnel")
+                } else {
+                    currentTelemetry.tunnelTelemetry
+                },
+            )
         val (winningTcpStrategyFamily, winningQuicStrategyFamily, winningDnsStrategyFamily) =
             currentWinningFamilies(currentTelemetry.runtimeFieldTelemetry)
 
@@ -521,9 +532,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                         tunnelTelemetryResult.getOrNull()
                             ?: NativeRuntimeSnapshot.idle(source = "tunnel")
                     val enrichedTunnelTelemetry =
-                        tunnelTelemetry.copy(
-                            networkHandoverClass = deriveNetworkHandoverClass(),
-                        )
+                        applyPendingNetworkHandoverClass(tunnelTelemetry)
 
                     if (!stopping) {
                         val telemetryFailure =
@@ -647,38 +656,6 @@ class RipDpiVpnService : LifecycleVpnService() {
         }
     }
 
-    private fun deriveNetworkHandoverClass(): String? {
-        val current = currentNetworkFingerprint()
-        val previous = lastNetworkFingerprint
-        lastNetworkFingerprint = current
-        return classifyNetworkHandover(previous, current)
-    }
-
-    private fun currentNetworkFingerprint(): NetworkFingerprint? {
-        val connectivityManager = getSystemService(ConnectivityManager::class.java) ?: return null
-        val network = connectivityManager.activeNetwork ?: return null
-        val capabilities = connectivityManager.getNetworkCapabilities(network)
-        val linkProperties = connectivityManager.getLinkProperties(network)
-        return NetworkFingerprint(
-            transportLabel = capabilities.transportLabel(),
-            interfaceName = linkProperties?.interfaceName,
-            dnsServers = linkProperties?.dnsServers.orEmpty().map { it.hostAddress.orEmpty() },
-        )
-    }
-
-    private fun NetworkCapabilities?.transportLabel(): String {
-        if (this == null) {
-            return "unknown"
-        }
-        return when {
-            hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-            hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
-            hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
-            hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
-            else -> "other"
-        }
-    }
-
     private fun createNotification(): Notification =
         createConnectionNotification(
             this,
@@ -708,6 +685,117 @@ class RipDpiVpnService : LifecycleVpnService() {
     private fun currentTelemetryFingerprintHash(fallback: RuntimeFieldTelemetry): String? =
         telemetryFingerprintHasher.hash(networkFingerprintProvider.capture())
             ?: fallback.telemetryNetworkFingerprintHash
+
+    private fun startNetworkHandoverMonitoring() {
+        handoverMonitorJob?.cancel()
+        handoverMonitorJob =
+            lifecycleScope.launch {
+                networkHandoverMonitor.events.collect { event ->
+                    pendingNetworkHandoverClass = event.classification
+                    if (!event.isActionable) {
+                        return@collect
+                    }
+                    handleNetworkHandover(event)
+                }
+            }
+    }
+
+    private suspend fun handleNetworkHandover(event: NetworkHandoverEvent) {
+        if (status != ServiceStatus.Connected || stopping) {
+            return
+        }
+        val currentFingerprint = event.currentFingerprint ?: return
+        val fingerprintHash = currentFingerprint.scopeKey()
+        val now = System.currentTimeMillis()
+        if (
+            lastSuccessfulHandoverFingerprintHash == fingerprintHash &&
+            now - lastSuccessfulHandoverAt < HandoverCooldownMs
+        ) {
+            return
+        }
+
+        val previousFingerprintHash = activeConnectionPolicyStore.activePolicy.value?.fingerprintHash
+        try {
+            val resolution =
+                connectionPolicyResolver.resolve(
+                    mode = Mode.VPN,
+                    resolverOverride = resolverOverrideStore.override.value,
+                    fingerprint = currentFingerprint,
+                    handoverClassification = event.classification,
+                )
+            mutex.withLock {
+                if (status != ServiceStatus.Connected || stopping) {
+                    return
+                }
+                stopping = true
+                try {
+                    stopTun2Socks()
+                    stopProxy()
+                    applyActiveConnectionPolicy(
+                        resolution = resolution,
+                        restartReason = "network_handover",
+                        appliedAt = now,
+                    )
+                    startProxy(resolution.proxyPreferences)
+                    startTun2Socks(
+                        activeDns = resolution.activeDns,
+                        overrideReason = resolution.resolverFallbackReason,
+                    )
+                } finally {
+                    stopping = false
+                }
+            }
+
+            lastSuccessfulHandoverFingerprintHash = fingerprintHash
+            lastSuccessfulHandoverAt = now
+            policyHandoverEventStore.publish(
+                PolicyHandoverEvent(
+                    mode = Mode.VPN,
+                    previousFingerprintHash = previousFingerprintHash,
+                    currentFingerprintHash = fingerprintHash,
+                    classification = event.classification,
+                    usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
+                    policySignature = resolution.policySignature,
+                    occurredAt = now,
+                ),
+            )
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR) { "Failed to restart VPN after handover\n${e.asLog()}" }
+            val reason = classifyFailureReason(e, isTunnelContext = true)
+            updateStatus(ServiceStatus.Failed, reason)
+            stop()
+        }
+    }
+
+    private fun applyActiveConnectionPolicy(
+        resolution: ConnectionPolicyResolution,
+        restartReason: String,
+        appliedAt: Long,
+    ) {
+        val policy = resolution.appliedPolicy ?: run {
+            activeConnectionPolicyStore.clear()
+            return
+        }
+        activeConnectionPolicyStore.set(
+            ActiveConnectionPolicy(
+                mode = Mode.VPN,
+                policy = policy,
+                matchedPolicy = resolution.matchedNetworkPolicy,
+                usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
+                fingerprintHash = resolution.fingerprintHash,
+                policySignature = resolution.policySignature,
+                appliedAt = appliedAt,
+                restartReason = restartReason,
+                handoverClassification = resolution.handoverClassification,
+            ),
+        )
+    }
+
+    private fun applyPendingNetworkHandoverClass(snapshot: NativeRuntimeSnapshot): NativeRuntimeSnapshot {
+        val classification = pendingNetworkHandoverClass ?: return snapshot
+        pendingNetworkHandoverClass = null
+        return snapshot.copy(networkHandoverClass = classification)
+    }
 
     internal fun createBuilder(
         dns: String,

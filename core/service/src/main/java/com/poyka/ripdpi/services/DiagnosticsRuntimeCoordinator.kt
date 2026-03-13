@@ -9,6 +9,8 @@ import kotlinx.coroutines.delay
 
 interface DiagnosticsRuntimeCoordinator {
     suspend fun runRawPathScan(block: suspend () -> Unit)
+
+    suspend fun runAutomaticRawPathScan(block: suspend () -> Unit)
 }
 
 @Singleton
@@ -36,6 +38,25 @@ class DefaultDiagnosticsRuntimeCoordinator
     override suspend fun runRawPathScan(block: suspend () -> Unit) {
         val (status, mode) = serviceStateStore.status.value
         val shouldResume = status == AppStatus.Running && appSettingsRepository.snapshot().diagnosticsAutoResumeAfterRawScan
+
+        if (status == AppStatus.Running) {
+            serviceController.stop()
+            waitForStatus(AppStatus.Halted)
+        }
+
+        try {
+            block()
+        } finally {
+            if (shouldResume) {
+                serviceController.start(mode)
+                waitForStatus(AppStatus.Running)
+            }
+        }
+    }
+
+    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
+        val (status, mode) = serviceStateStore.status.value
+        val shouldResume = status == AppStatus.Running
 
         if (status == AppStatus.Running) {
             serviceController.stop()

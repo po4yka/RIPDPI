@@ -1,14 +1,9 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.ActiveDnsSettings
+import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.proto.AppSettings
-
-internal data class NetworkFingerprint(
-    val transportLabel: String,
-    val interfaceName: String?,
-    val dnsServers: List<String>,
-)
 
 internal data class EffectiveDnsResolution(
     val activeDns: ActiveDnsSettings,
@@ -90,7 +85,7 @@ internal fun classifyNetworkHandover(
     when {
         previous == null || previous == current -> null
         current == null -> "connectivity_loss"
-        previous.transportLabel != current.transportLabel -> "transport_switch"
+        previous.transport != current.transport -> "transport_switch"
         previous != current -> "link_refresh"
         else -> null
     }

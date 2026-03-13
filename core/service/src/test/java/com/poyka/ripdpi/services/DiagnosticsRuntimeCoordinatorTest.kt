@@ -151,6 +151,38 @@ class DiagnosticsRuntimeCoordinatorTest {
             assertEquals(1, controller.stopCount)
             assertEquals(1, controller.startCount)
         }
+
+    @Test
+    fun `automatic raw path scan always resumes running service even when user auto resume is disabled`() =
+        runTest {
+            val stateStore = FakeCoordinatorStateStore(AppStatus.Running to Mode.Proxy)
+            val controller = FakeServiceController(stateStore)
+            val coordinator =
+                DefaultDiagnosticsRuntimeCoordinator(
+                    serviceController = controller,
+                    serviceStateStore = stateStore,
+                    appSettingsRepository =
+                        FakeCoordinatorSettingsRepository(
+                            AppSettingsSerializer.defaultValue
+                                .toBuilder()
+                                .setDiagnosticsAutoResumeAfterRawScan(false)
+                                .build(),
+                        ),
+                    waitAttempts = 2,
+                    waitDelayMs = 0,
+                )
+            var blockRan = false
+
+            coordinator.runAutomaticRawPathScan {
+                blockRan = true
+                assertEquals(AppStatus.Halted to Mode.Proxy, stateStore.status.value)
+            }
+
+            assertTrue(blockRan)
+            assertEquals(1, controller.stopCount)
+            assertEquals(1, controller.startCount)
+            assertEquals(AppStatus.Running to Mode.Proxy, stateStore.status.value)
+        }
 }
 
 private class FakeCoordinatorSettingsRepository(
