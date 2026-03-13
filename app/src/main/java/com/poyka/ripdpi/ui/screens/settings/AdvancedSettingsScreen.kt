@@ -128,7 +128,7 @@ import kotlinx.coroutines.flow.collect
 internal const val TlsPreludeModeDisabled = "disabled"
 internal const val HostPackApplyDialogDefaultMode = HostPackApplyModeMerge
 
-private enum class AdvancedToggleSetting {
+internal enum class AdvancedToggleSetting {
     UseCommandLine,
     DiagnosticsMonitorEnabled,
     DiagnosticsExportIncludeHistory,
@@ -153,7 +153,7 @@ private enum class AdvancedToggleSetting {
     NetworkStrategyMemoryEnabled,
 }
 
-private enum class AdvancedTextSetting {
+internal enum class AdvancedTextSetting {
     DiagnosticsSampleIntervalSeconds,
     DiagnosticsHistoryRetentionDays,
     CommandLineArgs,
@@ -190,7 +190,7 @@ private enum class AdvancedTextSetting {
     HostsWhitelist,
 }
 
-private enum class AdvancedOptionSetting {
+internal enum class AdvancedOptionSetting {
     DesyncMethod,
     AdaptiveSplitPreset,
     AdaptiveFakeTtlMode,
@@ -205,20 +205,20 @@ private enum class AdvancedOptionSetting {
     QuicFakeProfile,
 }
 
-private enum class ActivationWindowDimension {
+internal enum class ActivationWindowDimension {
     Round,
     PayloadSize,
     StreamBytes,
 }
 
-private data class AdaptiveSplitPresetUiModel(
+internal data class AdaptiveSplitPresetUiModel(
     val value: String,
     val title: String,
     val body: String,
     val isRecommended: Boolean = false,
 )
 
-private data class AdaptiveFakeTtlModeUiModel(
+internal data class AdaptiveFakeTtlModeUiModel(
     val value: String,
     val title: String,
     val body: String,
@@ -226,7 +226,7 @@ private data class AdaptiveFakeTtlModeUiModel(
     val badgeTone: StatusIndicatorTone = StatusIndicatorTone.Active,
 )
 
-private data class AdvancedNotice(
+internal data class AdvancedNotice(
     val title: String,
     val message: String,
     val tone: WarningBannerTone,
@@ -1395,7 +1395,7 @@ fun AdvancedSettingsRoute(
 }
 
 @Composable
-private fun AdvancedSettingsScreen(
+internal fun AdvancedSettingsScreen(
     uiState: SettingsUiState,
     hostPackCatalog: HostPackCatalogUiState,
     notice: AdvancedNotice?,
@@ -5976,7 +5976,7 @@ private fun hostAutolearnLastUpdate(uiState: SettingsUiState): String? {
     return listOfNotNull(action, host, group).joinToString(" · ")
 }
 
-private fun previewHostPackPresets(): List<HostPackPreset> =
+internal fun previewHostPackPresets(): List<HostPackPreset> =
     listOf(
         HostPackPreset(
             id = "youtube",
@@ -6001,7 +6001,7 @@ private fun previewHostPackPresets(): List<HostPackPreset> =
         ),
     )
 
-private fun previewHostPackCatalog(
+internal fun previewHostPackCatalog(
     source: String,
     lastFetchedAtEpochMillis: Long? = null,
 ): HostPackCatalogUiState =
