@@ -2196,6 +2196,29 @@ mod tests {
     }
 
     #[test]
+    fn proxy_retry_pacing_telemetry_tracks_backoff_and_diversification_separately() {
+        let state = Arc::new(ProxyTelemetryState::new());
+        let observer = ProxyTelemetryObserver { state: state.clone() };
+        let target = SocketAddr::from(([203, 0, 113, 10], 443));
+
+        observer.on_retry_paced(target, 1, "same_signature_retry", 700);
+        let paced = state.snapshot();
+        assert_eq!(paced.retry_paced_count, 1);
+        assert_eq!(paced.last_retry_backoff_ms, Some(700));
+        assert_eq!(paced.last_retry_reason.as_deref(), Some("same_signature_retry"));
+        assert_eq!(paced.candidate_diversification_count, 0);
+        assert_eq!(paced.native_events.len(), 1);
+
+        observer.on_retry_paced(target, 2, "candidate_order_diversified", 0);
+        let diversified = state.snapshot();
+        assert_eq!(diversified.retry_paced_count, 1);
+        assert_eq!(diversified.last_retry_backoff_ms, None);
+        assert_eq!(diversified.last_retry_reason.as_deref(), Some("candidate_order_diversified"));
+        assert_eq!(diversified.candidate_diversification_count, 1);
+        assert_eq!(diversified.native_events.len(), 1);
+    }
+
+    #[test]
     fn proxy_telemetry_snapshots_match_goldens() {
         let idle = ProxyTelemetryState::new().snapshot();
         assert_proxy_snapshot_golden("proxy_idle", &idle);

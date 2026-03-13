@@ -1163,6 +1163,52 @@ mod tests {
     }
 
     #[test]
+    fn select_next_group_uses_diversification_rank_as_tiebreaker() {
+        let first = DesyncGroup::new(0);
+        let mut second = DesyncGroup::new(1);
+        second.detect = DETECT_RECONN;
+        let mut third = DesyncGroup::new(2);
+        third.detect = DETECT_RECONN;
+        let config = config_with_groups(vec![first, second, third]);
+        let cache = RuntimeCache::load(&config);
+        let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
+        let penalties = BTreeMap::from([
+            (
+                1usize,
+                RetrySelectionPenalty {
+                    same_signature_cooldown_ms: 0,
+                    family_cooldown_ms: 0,
+                    diversification_rank: 25,
+                },
+            ),
+            (
+                2usize,
+                RetrySelectionPenalty {
+                    same_signature_cooldown_ms: 0,
+                    family_cooldown_ms: 0,
+                    diversification_rank: 5,
+                },
+            ),
+        ]);
+
+        let next = select_next_group(
+            &config,
+            &cache,
+            &route,
+            sample_dest(443),
+            None,
+            None,
+            TransportProtocol::Tcp,
+            DETECT_RECONN,
+            true,
+            Some(&penalties),
+        )
+        .expect("next route");
+
+        assert_eq!(next.group_index, 2);
+    }
+
+    #[test]
     fn matches_l34_rejects_udp_proto() {
         let mut group = DesyncGroup::new(0);
         group.proto = IS_UDP;
