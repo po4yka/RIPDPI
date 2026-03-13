@@ -242,22 +242,42 @@ pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
 }
 
 pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
+    let fd = stream.as_raw_fd();
     let yes = 1i32;
-    // SAFETY: `yes` is a valid c_int payload for IP_RECVTTL and `stream` is a
-    // live TCP socket.
-    let rc = unsafe {
+    // SAFETY: `yes` is a valid c_int payload for IP_RECVTTL / IPV6_RECVHOPLIMIT
+    // and `stream` is a live TCP socket.
+    let rc4 = unsafe {
         libc::setsockopt(
-            stream.as_raw_fd(),
+            fd,
             libc::IPPROTO_IP,
             libc::IP_RECVTTL,
             (&yes as *const i32).cast(),
             size_of::<i32>() as libc::socklen_t,
         )
     };
-    if rc == 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
+    if rc4 == 0 {
+        return Ok(());
+    }
+    let rc6 = unsafe {
+        libc::setsockopt(
+            fd,
+            libc::IPPROTO_IPV6,
+            libc::IPV6_RECVHOPLIMIT,
+            (&yes as *const i32).cast(),
+            size_of::<i32>() as libc::socklen_t,
+        )
+    };
+    if rc6 == 0 {
+        Ok(())
+    } else {
+        Err(io::Error::last_os_error())
+    }
 }
 
 pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
+    if buf.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "read_chunk_with_ttl: buf must not be empty"));
+    }
     let fd = stream.as_raw_fd();
     let ctrl_len = unsafe { libc::CMSG_SPACE(size_of::<libc::c_int>() as u32) } as usize;
     let mut ctrl = vec![0u8; ctrl_len];
@@ -284,7 +304,9 @@ pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(us
     let mut cmsg = unsafe { libc::CMSG_FIRSTHDR(&msg) };
     while !cmsg.is_null() {
         let cmsg_ref = unsafe { &*cmsg };
-        if cmsg_ref.cmsg_level == libc::IPPROTO_IP && cmsg_ref.cmsg_type == libc::IP_TTL {
+        if (cmsg_ref.cmsg_level == libc::IPPROTO_IP && cmsg_ref.cmsg_type == libc::IP_TTL)
+            || (cmsg_ref.cmsg_level == libc::IPPROTO_IPV6 && cmsg_ref.cmsg_type == libc::IPV6_HOPLIMIT)
+        {
             // SAFETY: cmsg_data points into the control buffer we own; the
             // kernel wrote a c_int there per the IP_TTL cmsg spec.
             let value: libc::c_int = unsafe { ptr::read_unaligned(libc::CMSG_DATA(cmsg).cast()) };
