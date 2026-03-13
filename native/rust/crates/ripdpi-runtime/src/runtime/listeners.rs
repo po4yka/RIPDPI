@@ -103,7 +103,7 @@ pub(super) fn run_proxy_with_listener_internal(
                             .name("ripdpi-client".into())
                             .spawn(move || {
                                 let _slot = _slot;
-                                let result = super::handle_client(client, &state);
+                                let result = super::handshake::handle_client(client, &state);
                                 if let Err(err) = &result {
                                     log::error!("ciadpi client error: {err}");
                                     if let Some(telemetry) = &state.telemetry {
