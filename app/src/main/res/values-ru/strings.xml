@@ -1442,8 +1442,4 @@ fakeddisorder endhost</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
     <string name="dns_placeholder_port">443</string>
 
-    <!-- Battery optimization (Samsung) -->
-    <string name="permissions_battery_body_samsung">Разрешите RIPDPI игнорировать оптимизацию батареи. На телефонах Samsung, таких как Galaxy S24 Ultra, также установите в настройках приложения режим батареи «Без ограничений» и добавьте RIPDPI в список неспящих приложений, чтобы One UI не останавливал VPN или прокси.</string>
-    <string name="settings_permissions_battery_ready_samsung">Android уже позволяет RIPDPI игнорировать оптимизацию батареи. На Samsung оставьте RIPDPI в режиме «Без ограничений», если сессии продолжают обрываться в фоне.</string>
-    <string name="settings_permissions_battery_needed_samsung">Рекомендуется на Samsung: разрешите RIPDPI игнорировать оптимизацию батареи, установите режим «Без ограничений» и добавьте в список неспящих приложений.</string>
 </resources>
