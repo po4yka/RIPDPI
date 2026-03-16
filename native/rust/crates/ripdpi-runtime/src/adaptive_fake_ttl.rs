@@ -114,7 +114,13 @@ impl AdaptiveFakeTtlState {
 }
 
 pub(crate) fn detected_from_observed_ttl(observed: u8) -> u8 {
-    let reference: u8 = if observed <= 64 { 64 } else if observed <= 128 { 128 } else { 255 };
+    let reference: u8 = if observed <= 64 {
+        64
+    } else if observed <= 128 {
+        128
+    } else {
+        255
+    };
     let hops = reference.saturating_sub(observed);
     hops.saturating_sub(1).max(1)
 }
@@ -235,11 +241,11 @@ mod tests {
 
     #[test]
     fn detected_from_observed_ttl_computes_hop_count_correctly() {
-        assert_eq!(detected_from_observed_ttl(56), 7);   // 64-56=8 hops, detected=7
+        assert_eq!(detected_from_observed_ttl(56), 7); // 64-56=8 hops, detected=7
         assert_eq!(detected_from_observed_ttl(117), 10); // 128-117=11 hops, detected=10
         assert_eq!(detected_from_observed_ttl(230), 24); // 255-230=25 hops, detected=24
-        assert_eq!(detected_from_observed_ttl(64), 1);   // 64-64=0 hops, detected=max(1,0-1)=1
-        assert_eq!(detected_from_observed_ttl(1), 62);   // 64-1=63 hops, detected=62
+        assert_eq!(detected_from_observed_ttl(64), 1); // 64-64=0 hops, detected=max(1,0-1)=1
+        assert_eq!(detected_from_observed_ttl(1), 62); // 64-1=63 hops, detected=62
     }
 
     #[test]

@@ -1,12 +1,12 @@
 # Runtime Refactor Progress
 
-## Current Step: 3 (complete)
+## Current Step: 8
 
 ## Active Wave
 
-| Step | Code Task | Runtime Task Key | Status |
-|------|-----------|-----------------|--------|
-| 3 | task-03-extract-protocol-dispatch-and-handshake.code-task.md | pdd:runtime-rs-refactor:step-03:handshake | complete |
+| Runtime Task ID | Runtime Task Key | Code Task File | Status |
+|----------------|-----------------|----------------|--------|
+| task-1773640556-371e | pdd:runtime-rs-refactor:step-08:thin-runtime-and-final-verification | tasks/task-08-thin-runtime-and-final-verification.code-task.md | completed |
 
 ## Completed Steps
 
@@ -14,7 +14,25 @@
 |------|-------------|-------------|--------|
 | 1 | Expand characterization tests | +14 unit +5 e2e | 5da5b73 |
 | 2 | Scaffold modules + state/listener extraction | state.rs (80), listeners.rs (138) | 5da5b73 |
-| 3 | Extract protocol dispatch and handshake | handshake.rs (556) | pending |
+| 3 | Extract protocol dispatch and handshake | handshake.rs (556) | c0400e1 |
+| 4 | Extract routing, adaptive, retry glue | routing.rs (502), adaptive.rs (135), retry.rs (166) | (step 4 finalized) |
+| 5 | Extract UDP associate flow handling | udp.rs (406) | (pending commit) |
+| 6 | Extract desync execution helpers | desync.rs (463) | (pending commit) |
+| 7 | Extract relay and first-response handling | relay.rs (634) | (pending commit) |
+
+## Step 4 Evidence
+
+### Extracted modules
+- routing.rs (502 lines): `select_route*`, `connect_target*`, route success/failure, cache/autolearn flush
+- adaptive.rs (135 lines): adaptive glue helpers
+- retry.rs (166 lines): retry pacing glue, `build_retry_selection_penalties`
+
+### Verification
+- runtime.rs: 2361 -> 1635 lines (-726)
+- runtime/ directory: state.rs (80), listeners.rs (138), handshake.rs (556), routing.rs (502), adaptive.rs (135), retry.rs (166)
+- `cargo test -p ripdpi-runtime`: 77 unit + 10 e2e = 87 pass, 0 fail
+- Lock ordering retry -> adaptive preserved in retry.rs `build_retry_selection_penalties`
+- rustfmt clean, no warnings
 
 ## Step 3 Evidence
 
@@ -28,17 +46,10 @@
 - `maybe_delay_connect`, `send_success_reply`, `read_blocking_first_request` - delayed-connect logic
 - `read_shadowsocks_request`, `parse_shadowsocks_target` - Shadowsocks parsing
 
-### Tests moved to handshake::tests (4 tests)
-- `send_success_reply_emits_protocol_specific_payloads`
-- `read_socks5_request_reads_domain_target`
-- `parse_shadowsocks_target_handles_ipv4_and_resolved_domain_targets`
-- `parse_shadowsocks_target_respects_ipv6_and_resolve_flags`
-
 ### Verification
 - runtime.rs: 2877 -> 2361 lines (-516)
 - `cargo test -p ripdpi-runtime`: 77 unit + 10 e2e = 87 pass, 0 fail
 - `cargo fmt -p ripdpi-runtime --check`: clean
-- No new warnings in changed files
 
 ## Step 1 Evidence
 
