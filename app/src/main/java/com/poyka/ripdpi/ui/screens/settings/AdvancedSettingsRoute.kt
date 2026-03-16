@@ -944,6 +944,7 @@ fun AdvancedSettingsRoute(
         onRefreshHostPackCatalog = viewModel::refreshHostPackCatalog,
         onForgetLearnedHosts = viewModel::forgetLearnedHosts,
         onClearRememberedNetworks = viewModel::clearRememberedNetworks,
+        onRotateTelemetrySalt = viewModel::rotateTelemetrySalt,
         onSaveActivationRange = { dimension, start, end ->
             when (dimension) {
                 ActivationWindowDimension.Round ->

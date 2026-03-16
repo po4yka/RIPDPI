@@ -33,6 +33,7 @@ class SettingsViewModel
         private val hostPackCatalogRepository: HostPackCatalogRepository,
         private val launcherIconController: LauncherIconController,
         private val serviceStateStore: ServiceStateStore,
+        private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
     ) : ViewModel() {
     private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
     private val hostAutolearnStoreRefresh = MutableStateFlow(0)
@@ -184,4 +185,18 @@ class SettingsViewModel
     fun resetHttpParserEvasions() = maintenanceActions.resetHttpParserEvasions()
 
     fun resetActivationWindow() = maintenanceActions.resetActivationWindow()
+
+    fun rotateTelemetrySalt() {
+        viewModelScope.launch {
+            telemetrySaltStore.rotateSalt()
+            _effects.send(
+                SettingsEffect.Notice(
+                    title = "Telemetry salt reset",
+                    message = "A new salt will be generated on the next connection. " +
+                        "Previously recorded fingerprint hashes can no longer be correlated.",
+                    tone = SettingsNoticeTone.Info,
+                ),
+            )
+        }
+    }
 }

@@ -42,6 +42,31 @@ class FieldTelemetryTest {
     }
 
     @Test
+    fun `rotateSalt deletes salt file so next load generates a new value`() {
+        val directory = Files.createTempDirectory("telemetry-salt-rotate")
+        val saltFile = directory.resolve("telemetry-salt.txt").toFile()
+        val store =
+            FileBackedTelemetryInstallSaltStoreDelegate(
+                saltFile = saltFile,
+                secureRandom = seededSecureRandom(0xAA, 0xBB, 0xCC, 0xDD),
+            )
+
+        val original = store.loadSalt()
+        assertTrue(saltFile.exists())
+
+        store.rotateSalt()
+        assertTrue(!saltFile.exists())
+
+        val rotated =
+            FileBackedTelemetryInstallSaltStoreDelegate(
+                saltFile = saltFile,
+                secureRandom = seededSecureRandom(0x11, 0x22, 0x33, 0x44),
+            ).loadSalt()
+
+        assertNotEquals(original, rotated)
+    }
+
+    @Test
     fun `telemetry hash is stable for a salt and differs from scope key`() {
         val fingerprint =
             NetworkFingerprint(
@@ -62,6 +87,7 @@ class FieldTelemetryTest {
                 saltStore =
                     object : TelemetryInstallSaltStore {
                         override fun loadSalt(): String = "test-salt"
+                        override fun rotateSalt() = Unit
                     },
             )
 
