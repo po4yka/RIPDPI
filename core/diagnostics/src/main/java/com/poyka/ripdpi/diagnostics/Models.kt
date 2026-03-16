@@ -61,6 +61,24 @@ data class QuicTarget(
 )
 
 @Serializable
+data class TelegramDcEndpoint(
+    val ip: String,
+    val label: String,
+    val port: Int = 443,
+)
+
+@Serializable
+data class TelegramTarget(
+    val mediaUrl: String,
+    val uploadIp: String,
+    val uploadPort: Int = 443,
+    val dcEndpoints: List<TelegramDcEndpoint> = emptyList(),
+    val stallTimeoutMs: Long = 10_000,
+    val totalTimeoutMs: Long = 60_000,
+    val uploadSizeBytes: Int = 10_485_760,
+)
+
+@Serializable
 data class StrategyProbeRequest(
     val suiteId: String = "quick_v1",
     val baseProxyConfigJson: String? = null,
@@ -79,6 +97,7 @@ data class ScanRequest(
     val tcpTargets: List<TcpTarget> = emptyList(),
     val quicTargets: List<QuicTarget> = emptyList(),
     val whitelistSni: List<String> = emptyList(),
+    val telegramTarget: TelegramTarget? = null,
     val strategyProbe: StrategyProbeRequest? = null,
 )
 
