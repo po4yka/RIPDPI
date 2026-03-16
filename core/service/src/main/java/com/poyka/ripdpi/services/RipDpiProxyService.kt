@@ -68,6 +68,7 @@ class RipDpiProxyService : LifecycleService() {
     private var telemetryJob: Job? = null
     private var handoverMonitorJob: Job? = null
     private val mutex = Mutex()
+    @Volatile
     private var stopping: Boolean = false
     private var pendingNetworkHandoverClass: String? = null
     private var lastSuccessfulHandoverFingerprintHash: String? = null
@@ -96,6 +97,7 @@ class RipDpiProxyService : LifecycleService() {
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
+        startForeground()
         return when (val action = intent?.action) {
             START_ACTION -> {
                 lifecycleScope.launch { start() }
@@ -109,6 +111,7 @@ class RipDpiProxyService : LifecycleService() {
 
             else -> {
                 logcat(LogPriority.WARN) { "Unknown action: $action" }
+                lifecycleScope.launch { stop() }
                 START_NOT_STICKY
             }
         }
@@ -122,7 +125,6 @@ class RipDpiProxyService : LifecycleService() {
             return
         }
 
-        startForeground()
         var matchedRememberedPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity? = null
         try {
             val resolution = connectionPolicyResolver.resolve(mode = Mode.Proxy)
