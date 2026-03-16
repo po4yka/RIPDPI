@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 #[derive(Debug)]
 pub enum IpClass {
@@ -7,30 +7,25 @@ pub enum IpClass {
     Udp { src: SocketAddr, dst: SocketAddr, payload: Vec<u8> },
 }
 
-/// Classify a raw IPv4 packet.
+/// Classify a raw IPv4 or IPv6 packet.
 ///
 /// When `mapdns` is `None`, DNS interception is disabled and all UDP packets
 /// are returned as `IpClass::Udp`.
 pub fn classify_ip_packet(pkt: &[u8], mapdns: Option<(u32, u32, u16)>) -> IpClass {
+    match pkt.first().map(|value| value >> 4) {
+        Some(4) => classify_ipv4_udp(pkt, mapdns),
+        Some(6) => classify_ipv6_udp(pkt),
+        _ => IpClass::TcpOrOther,
+    }
+}
+
+fn classify_ipv4_udp(pkt: &[u8], mapdns: Option<(u32, u32, u16)>) -> IpClass {
     if pkt.len() < 20 {
         return IpClass::TcpOrOther;
     }
 
-    let version = pkt[0] >> 4;
-    if version != 4 {
-        return IpClass::TcpOrOther;
-    }
-
     let ihl = ((pkt[0] & 0x0f) as usize) * 4;
-    if pkt.len() < ihl {
-        return IpClass::TcpOrOther;
-    }
-
-    if pkt[9] != 17 {
-        return IpClass::TcpOrOther;
-    }
-
-    if pkt.len() < ihl + 8 {
+    if ihl < 20 || pkt.len() < ihl + 8 || pkt[9] != 17 {
         return IpClass::TcpOrOther;
     }
 
@@ -54,6 +49,37 @@ pub fn classify_ip_packet(pkt: &[u8], mapdns: Option<(u32, u32, u16)>) -> IpClas
     }
 
     IpClass::Udp { src, dst, payload }
+}
+
+fn classify_ipv6_udp(pkt: &[u8]) -> IpClass {
+    if pkt.len() < 48 || pkt[6] != 17 {
+        return IpClass::TcpOrOther;
+    }
+
+    let payload_length = u16::from_be_bytes([pkt[4], pkt[5]]) as usize;
+    let udp_start = 40usize;
+    let udp_end = (udp_start + payload_length).min(pkt.len());
+    if udp_end < udp_start + 8 {
+        return IpClass::TcpOrOther;
+    }
+
+    let mut src_ip = [0u8; 16];
+    src_ip.copy_from_slice(&pkt[8..24]);
+    let mut dst_ip = [0u8; 16];
+    dst_ip.copy_from_slice(&pkt[24..40]);
+
+    let src_port = u16::from_be_bytes([pkt[udp_start], pkt[udp_start + 1]]);
+    let dst_port = u16::from_be_bytes([pkt[udp_start + 2], pkt[udp_start + 3]]);
+    let udp_length = u16::from_be_bytes([pkt[udp_start + 4], pkt[udp_start + 5]]) as usize;
+    let payload_start = udp_start + 8;
+    let payload_end = (udp_start + udp_length).min(udp_end);
+    let payload = if payload_end > payload_start { pkt[payload_start..payload_end].to_vec() } else { Vec::new() };
+
+    IpClass::Udp {
+        src: SocketAddr::new(IpAddr::V6(Ipv6Addr::from(src_ip)), src_port),
+        dst: SocketAddr::new(IpAddr::V6(Ipv6Addr::from(dst_ip)), dst_port),
+        payload,
+    }
 }
 
 #[cfg(test)]
@@ -100,6 +126,23 @@ mod tests {
         pkt
     }
 
+    fn ipv6_udp(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
+        let udp_len = 8 + payload.len();
+        let payload_len = udp_len as u16;
+        let mut pkt = vec![0u8; 40 + udp_len];
+        pkt[0] = 0x60;
+        pkt[4..6].copy_from_slice(&payload_len.to_be_bytes());
+        pkt[6] = 17;
+        pkt[7] = 64;
+        pkt[8..24].copy_from_slice(&src_ip.octets());
+        pkt[24..40].copy_from_slice(&dst_ip.octets());
+        pkt[40..42].copy_from_slice(&src_port.to_be_bytes());
+        pkt[42..44].copy_from_slice(&dst_port.to_be_bytes());
+        pkt[44..46].copy_from_slice(&payload_len.to_be_bytes());
+        pkt[48..48 + payload.len()].copy_from_slice(payload);
+        pkt
+    }
+
     #[test]
     fn udp_to_mapdns_is_dns_when_enabled() {
         let pkt = ipv4_udp([10, 0, 0, 1], [198, 18, 0, 0], 54321, 53, b"query");
@@ -131,5 +174,14 @@ mod tests {
     #[test]
     fn malformed_packet_is_tcp_or_other() {
         assert!(matches!(classify_ip_packet(&[0u8; 5], None), IpClass::TcpOrOther));
+    }
+
+    #[test]
+    fn ipv6_udp_is_classified_as_udp() {
+        let pkt = ipv6_udp(Ipv6Addr::LOCALHOST, Ipv6Addr::LOCALHOST, 5353, 443, b"quic");
+
+        let class = classify_ip_packet(&pkt, Some((MAPDNS_NET, MAPDNS_MASK, MAPDNS_PORT)));
+
+        assert!(matches!(class, IpClass::Udp { .. }));
     }
 }

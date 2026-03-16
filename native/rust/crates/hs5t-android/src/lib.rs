@@ -456,7 +456,9 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         let mut state = session.state.lock().expect("tunnel session poisoned");
         if let Err(message) = ensure_tunnel_start_allowed(&state) {
             // Bug H4 fix: close the dup'd fd before returning.
-            unsafe { libc::close(owned_fd); }
+            unsafe {
+                libc::close(owned_fd);
+            }
             throw_illegal_state(env, message);
             return;
         }
@@ -726,18 +728,14 @@ fn take_running_tunnel(
     state: &mut TunnelSessionState,
 ) -> Result<(Arc<CancellationToken>, JoinHandle<()>), &'static str> {
     match std::mem::replace(state, TunnelSessionState::Ready) {
-        TunnelSessionState::Ready | TunnelSessionState::Starting => {
-            Err("Tunnel session is not running")
-        }
+        TunnelSessionState::Ready | TunnelSessionState::Starting => Err("Tunnel session is not running"),
         TunnelSessionState::Running { cancel, stats: _, worker } => Ok((cancel, worker)),
     }
 }
 
 fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u64, u64, u64), DnsStatsSnapshot) {
     match state {
-        TunnelSessionState::Ready | TunnelSessionState::Starting => {
-            ((0, 0, 0, 0), DnsStatsSnapshot::default())
-        }
+        TunnelSessionState::Ready | TunnelSessionState::Starting => ((0, 0, 0, 0), DnsStatsSnapshot::default()),
         TunnelSessionState::Running { stats, .. } => (stats.snapshot(), stats.dns_snapshot()),
     }
 }
@@ -905,6 +903,7 @@ mod tests {
                     udp_read_write_timeout_ms,
                     log_level,
                     limit_nofile,
+                    filter_injected_resets: None,
                 },
             )
     }
@@ -1024,6 +1023,7 @@ mod tests {
                     udp_read_write_timeout_ms,
                     log_level,
                     limit_nofile,
+                    filter_injected_resets: None,
                 },
             )
     }
@@ -1072,6 +1072,7 @@ mod tests {
             udp_read_write_timeout_ms: None,
             log_level: "warn".to_string(),
             limit_nofile: None,
+            filter_injected_resets: None,
         }
     }
 
@@ -1080,6 +1081,18 @@ mod tests {
         let config = config_from_payload(sample_payload()).expect("config");
         assert_eq!(config.socks5.address, "127.0.0.1");
         assert_eq!(config.misc.task_stack_size, 81_920);
+    }
+
+    #[test]
+    fn preserves_ipv4_and_ipv6_tunnel_addresses() {
+        let mut payload = sample_payload();
+        payload.tunnel_ipv4 = Some("10.10.10.10/32".to_string());
+        payload.tunnel_ipv6 = Some("fd00::1/128".to_string());
+
+        let config = config_from_payload(payload).expect("config");
+
+        assert_eq!(config.tunnel.ipv4.as_deref(), Some("10.10.10.10/32"));
+        assert_eq!(config.tunnel.ipv6.as_deref(), Some("fd00::1/128"));
     }
 
     #[test]
