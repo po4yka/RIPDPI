@@ -1051,6 +1051,7 @@ fakeddisorder endhost</string>
     <string name="permissions_notifications_open_settings">Разрешение на уведомления по-прежнему заблокировано. Откройте настройки приложения и разрешите уведомления для RIPDPI.</string>
     <string name="permissions_battery_title">Оптимизация аккумулятора</string>
     <string name="permissions_battery_body">Разрешите RIPDPI игнорировать оптимизацию аккумулятора, чтобы Android реже прерывал работу локального VPN или прокси в фоновом режиме.</string>
+    <string name="permissions_battery_body_samsung">Разрешите RIPDPI игнорировать оптимизацию аккумулятора. На Samsung, включая Galaxy S24 Ultra, дополнительно откройте «Сведения о приложении &gt; Батарея», выберите режим «Без ограничений» и исключите RIPDPI из спящих приложений, чтобы One UI реже останавливал локальный VPN или прокси.</string>
     <string name="permissions_battery_continue">Просмотреть настройки аккумулятора</string>
     <string name="settings_connectivity_section">Подключение</string>
     <string name="settings_permissions_section">Разрешения</string>
@@ -1069,6 +1070,8 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_vpn_needed">Предоставьте согласие VPN Android, прежде чем RIPDPI сможет запустить локальный VPN.</string>
     <string name="settings_permissions_battery_ready">Android уже разрешает RIPDPI работать без ограничений оптимизации аккумулятора.</string>
     <string name="settings_permissions_battery_needed">Рекомендуется, чтобы система реже останавливала RIPDPI при работе в фоновом режиме.</string>
+    <string name="settings_permissions_battery_ready_samsung">Android уже разрешает RIPDPI игнорировать оптимизацию аккумулятора. На Samsung, если сессии всё ещё обрываются в фоне, оставьте для RIPDPI режим батареи «Без ограничений».</string>
+    <string name="settings_permissions_battery_needed_samsung">На Samsung рекомендуется разрешить игнорирование оптимизации аккумулятора, выбрать для RIPDPI режим батареи «Без ограничений» и исключить приложение из спящих.</string>
     <string name="settings_connectivity_dns_body">Режим резолвера, протокол, IPv6 и поведение DNS туннеля.</string>
     <string name="settings_connectivity_dns_body_proxy">Сохранено и будет применено при следующей активации режима VPN.</string>
     <string name="settings_advanced_body">Низкоуровневые флаги RIPDPI, слушатели прокси и переопределения протоколов.</string>
@@ -1142,4 +1145,5 @@ fakeddisorder endhost</string>
     <string name="about_credits_title">Авторы</string>
     <string name="about_credits_body">RIPDPI основан на open-source проекте hufrea/ripdpi и хранит всю маршрутизацию и конфигурацию локально на устройстве.</string>
     <string name="about_links_section">Ссылки</string>
+    <string name="diagnostics_warn_samsung_background_limits">Фоновые ограничения Samsung всё ещё могут прерывать RIPDPI. Если сессии обрываются, проверьте режим батареи «Без ограничений» и список спящих приложений.</string>
 </resources>

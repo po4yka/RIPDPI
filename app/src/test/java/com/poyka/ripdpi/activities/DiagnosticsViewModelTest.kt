@@ -1,8 +1,13 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -16,11 +21,11 @@ import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassOutcomeBreakdown
 import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
-import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
-import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.DeviceContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
@@ -41,23 +46,17 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
-import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
-import com.poyka.ripdpi.data.TcpChainStepKind
-import com.poyka.ripdpi.data.TcpChainStepModel
-import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
-import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -66,8 +65,12 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class DiagnosticsViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
@@ -153,7 +156,8 @@ class DiagnosticsViewModelTest {
                     )
             }
 
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -214,7 +218,8 @@ class DiagnosticsViewModelTest {
                         )
                 }
 
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             viewModel.selectSection(DiagnosticsSection.Share)
             viewModel.selectProfile("custom")
@@ -251,7 +256,8 @@ class DiagnosticsViewModelTest {
                     .setEnableCmdSettings(true)
                     .build()
 
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository(settings))
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository(settings))
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -281,7 +287,8 @@ class DiagnosticsViewModelTest {
                         )
                 }
 
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -349,7 +356,8 @@ class DiagnosticsViewModelTest {
                         )
                 }
 
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -437,7 +445,8 @@ class DiagnosticsViewModelTest {
                         )
                 }
 
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -511,7 +520,8 @@ class DiagnosticsViewModelTest {
                         )
                 }
 
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -646,7 +656,8 @@ class DiagnosticsViewModelTest {
                         )
                 }
 
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -809,7 +820,8 @@ class DiagnosticsViewModelTest {
                         )
                 }
 
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -891,7 +903,8 @@ class DiagnosticsViewModelTest {
                         )
                 }
 
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -913,7 +926,12 @@ class DiagnosticsViewModelTest {
         runTest {
             val detail =
                 DiagnosticSessionDetail(
-                    session = session(id = "session-1", profileId = "default", pathMode = "RAW_PATH", summary = "Session"),
+                    session = session(
+                        id = "session-1",
+                        profileId = "default",
+                        pathMode = "RAW_PATH",
+                        summary = "Session"
+                    ),
                     results =
                         listOf(
                             ProbeResultEntity(
@@ -941,7 +959,8 @@ class DiagnosticsViewModelTest {
                         ),
                 )
             val manager = FakeDiagnosticsManager(detail = detail)
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
 
             viewModel.selectSession("session-1")
@@ -982,7 +1001,8 @@ class DiagnosticsViewModelTest {
                             ),
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1037,7 +1057,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "2",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1094,7 +1115,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "4",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1146,7 +1168,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "22",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1190,7 +1213,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "12",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1234,7 +1258,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "13",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1278,7 +1303,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "6",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1320,7 +1346,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "2",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1364,7 +1391,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "8",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1415,7 +1443,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "14",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1462,7 +1491,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "15",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1503,7 +1533,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "16",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1552,7 +1583,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "20",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1595,7 +1627,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "21",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1639,7 +1672,8 @@ class DiagnosticsViewModelTest {
                             routeGroup = "11",
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1663,7 +1697,12 @@ class DiagnosticsViewModelTest {
         runTest {
             val wifiDetail =
                 DiagnosticSessionDetail(
-                    session = session(id = "session-wifi", profileId = "default", pathMode = "RAW_PATH", summary = "Wi-Fi"),
+                    session = session(
+                        id = "session-wifi",
+                        profileId = "default",
+                        pathMode = "RAW_PATH",
+                        summary = "Wi-Fi"
+                    ),
                     results = emptyList(),
                     snapshots =
                         listOf(
@@ -1677,7 +1716,8 @@ class DiagnosticsViewModelTest {
                     events = emptyList(),
                 )
             val manager = FakeDiagnosticsManager(detail = wifiDetail)
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
 
             viewModel.selectSession("session-wifi")
@@ -1689,7 +1729,12 @@ class DiagnosticsViewModelTest {
 
             manager.detail =
                 wifiDetail.copy(
-                    session = session(id = "session-cell", profileId = "default", pathMode = "RAW_PATH", summary = "Cell"),
+                    session = session(
+                        id = "session-cell",
+                        profileId = "default",
+                        pathMode = "RAW_PATH",
+                        summary = "Cell"
+                    ),
                     snapshots =
                         listOf(
                             snapshot(
@@ -1741,7 +1786,8 @@ class DiagnosticsViewModelTest {
                         ),
                     )
             }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1795,7 +1841,8 @@ class DiagnosticsViewModelTest {
                         ),
                     )
             }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -1824,7 +1871,8 @@ class DiagnosticsViewModelTest {
                             ),
                         )
                 }
-            val viewModel = DiagnosticsViewModel(manager, FakeAppSettingsRepository())
+            val viewModel =
+                DiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -2168,25 +2216,24 @@ private class FakeDiagnosticsManager(
                 approachStatsState.value.firstOrNull { it.approachId.kind == kind && it.approachId.value == id }
                     ?: sampleApproachSummary(kind = kind, id = id),
             strategySignature =
-                strategySignatureOverride ?:
-                    BypassStrategySignature(
-                        mode = "VPN",
-                        configSource = "ui",
-                        hostAutolearn = "enabled",
-                        desyncMethod = "split",
-                        chainSummary = "tcp: split(1)",
-                        protocolToggles = listOf("HTTP", "HTTPS"),
-                        tlsRecordSplitEnabled = true,
-                        tlsRecordMarker = "extlen",
-                        splitMarker = "1",
-                        fakeSniMode = null,
-                        fakeSniValue = null,
-                        fakeTlsBaseMode = null,
-                        fakeTlsMods = emptyList(),
-                        fakeTlsSize = null,
-                        fakeOffsetMarker = null,
-                        routeGroup = "3",
-                    ),
+                strategySignatureOverride ?: BypassStrategySignature(
+                    mode = "VPN",
+                    configSource = "ui",
+                    hostAutolearn = "enabled",
+                    desyncMethod = "split",
+                    chainSummary = "tcp: split(1)",
+                    protocolToggles = listOf("HTTP", "HTTPS"),
+                    tlsRecordSplitEnabled = true,
+                    tlsRecordMarker = "extlen",
+                    splitMarker = "1",
+                    fakeSniMode = null,
+                    fakeSniValue = null,
+                    fakeTlsBaseMode = null,
+                    fakeTlsMods = emptyList(),
+                    fakeTlsSize = null,
+                    fakeOffsetMarker = null,
+                    routeGroup = "3",
+                ),
             recentValidatedSessions = sessionsState.value.take(2),
             recentUsageSessions = emptyList(),
             commonProbeFailures = listOf("dns_blocked (2)"),

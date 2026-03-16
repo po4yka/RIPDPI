@@ -46,7 +46,7 @@ fun createConnectionNotification(
         .setContentText(context.getString(content))
         .addAction(
             0,
-            "Stop",
+            context.getString(R.string.notification_stop),
             PendingIntent.getService(
                 context,
                 0,

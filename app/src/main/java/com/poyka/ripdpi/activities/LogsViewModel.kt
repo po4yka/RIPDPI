@@ -1,16 +1,18 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.services.FailureReason
-import com.poyka.ripdpi.services.displayMessage
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
+import com.poyka.ripdpi.services.displayMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +23,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import javax.inject.Inject
 
 enum class LogType {
     DNS,
@@ -63,10 +66,11 @@ internal fun classifyLogType(message: String): LogType {
 
 @HiltViewModel
 class LogsViewModel
-    @Inject
-    constructor(
-        private val serviceStateStore: ServiceStateStore,
-    ) : ViewModel() {
+@Inject
+constructor(
+    @ApplicationContext private val appContext: Context,
+    private val serviceStateStore: ServiceStateStore,
+) : ViewModel() {
     private val logBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
     private val activeFilters = MutableStateFlow(LogType.entries.toSet())
     private val autoScrollEnabled = MutableStateFlow(true)
@@ -173,7 +177,7 @@ class LogsViewModel
                 id = System.currentTimeMillis(),
                 timestamp = formatTimestamp(System.currentTimeMillis()),
                 type = LogType.CONN,
-                message = "${mode.displayName()} service $action",
+                message = appContext.getString(R.string.logs_service_action_format, mode.displayName(), action),
             ),
         )
     }
@@ -185,7 +189,7 @@ class LogsViewModel
                 id = System.currentTimeMillis(),
                 timestamp = formatTimestamp(System.currentTimeMillis()),
                 type = LogType.ERR,
-                message = "${sender.senderName} service failed to start: $detail",
+                message = appContext.getString(R.string.logs_service_failure_format, sender.senderName, detail),
             ),
         )
     }

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -22,393 +23,394 @@ import com.poyka.ripdpi.services.ActiveConnectionPolicy
 import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class DiagnosticsViewModel
-    @Inject
-    constructor(
-        private val diagnosticsManager: DiagnosticsManager,
-        private val appSettingsRepository: AppSettingsRepository,
-        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore = defaultRememberedNetworkPolicyStore(),
-        private val activeConnectionPolicyStore: ActiveConnectionPolicyStore = DefaultActiveConnectionPolicyStore(),
-    ) : ViewModel() {
-        private val uiStateFactory = DiagnosticsUiStateFactory()
-        private val selectedSectionRequest = MutableStateFlow(DiagnosticsSection.Overview)
-        private val selectedProfileId = MutableStateFlow<String?>(null)
-        private val selectedApproachMode = MutableStateFlow(DiagnosticsApproachMode.Profiles)
-        private val selectedApproachDetail = MutableStateFlow<DiagnosticsApproachDetailUiModel?>(null)
-        private val selectedProbe = MutableStateFlow<DiagnosticsProbeResultUiModel?>(null)
-        private val selectedEventId = MutableStateFlow<String?>(null)
-        private val sessionPathModeFilter = MutableStateFlow<String?>(null)
-        private val sessionStatusFilter = MutableStateFlow<String?>(null)
-        private val sessionSearch = MutableStateFlow("")
-        private val eventSourceFilter = MutableStateFlow<String?>(null)
-        private val eventSeverityFilter = MutableStateFlow<String?>(null)
-        private val eventSearch = MutableStateFlow("")
-        private val eventAutoScroll = MutableStateFlow(true)
-        private val selectedSessionDetail = MutableStateFlow<DiagnosticsSessionDetailUiModel?>(null)
-        private val selectedStrategyProbeCandidate = MutableStateFlow<DiagnosticsStrategyProbeCandidateDetailUiModel?>(null)
-        private val pendingAutoOpenAuditSessionId = MutableStateFlow<String?>(null)
-        private val sensitiveSessionDetailsVisible = MutableStateFlow(false)
-        private val archiveActionState = MutableStateFlow(ArchiveActionState())
-        private val _effects = Channel<DiagnosticsEffect>(Channel.BUFFERED)
+@Inject
+constructor(
+    @ApplicationContext appContext: Context,
+    private val diagnosticsManager: DiagnosticsManager,
+    private val appSettingsRepository: AppSettingsRepository,
+    private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore = defaultRememberedNetworkPolicyStore(),
+    private val activeConnectionPolicyStore: ActiveConnectionPolicyStore = DefaultActiveConnectionPolicyStore(),
+) : ViewModel() {
+    private val uiStateFactory = DiagnosticsUiStateFactory(appContext)
+    private val selectedSectionRequest = MutableStateFlow(DiagnosticsSection.Overview)
+    private val selectedProfileId = MutableStateFlow<String?>(null)
+    private val selectedApproachMode = MutableStateFlow(DiagnosticsApproachMode.Profiles)
+    private val selectedApproachDetail = MutableStateFlow<DiagnosticsApproachDetailUiModel?>(null)
+    private val selectedProbe = MutableStateFlow<DiagnosticsProbeResultUiModel?>(null)
+    private val selectedEventId = MutableStateFlow<String?>(null)
+    private val sessionPathModeFilter = MutableStateFlow<String?>(null)
+    private val sessionStatusFilter = MutableStateFlow<String?>(null)
+    private val sessionSearch = MutableStateFlow("")
+    private val eventSourceFilter = MutableStateFlow<String?>(null)
+    private val eventSeverityFilter = MutableStateFlow<String?>(null)
+    private val eventSearch = MutableStateFlow("")
+    private val eventAutoScroll = MutableStateFlow(true)
+    private val selectedSessionDetail = MutableStateFlow<DiagnosticsSessionDetailUiModel?>(null)
+    private val selectedStrategyProbeCandidate = MutableStateFlow<DiagnosticsStrategyProbeCandidateDetailUiModel?>(null)
+    private val pendingAutoOpenAuditSessionId = MutableStateFlow<String?>(null)
+    private val sensitiveSessionDetailsVisible = MutableStateFlow(false)
+    private val archiveActionState = MutableStateFlow(ArchiveActionState())
+    private val _effects = Channel<DiagnosticsEffect>(Channel.BUFFERED)
 
-        val effects: Flow<DiagnosticsEffect> = _effects.receiveAsFlow()
+    val effects: Flow<DiagnosticsEffect> = _effects.receiveAsFlow()
 
-        val uiState: StateFlow<DiagnosticsUiState> =
-            combine(
-                diagnosticsManager.profiles,
-                appSettingsRepository.settings,
-                diagnosticsManager.activeScanProgress,
-                diagnosticsManager.sessions,
-                diagnosticsManager.approachStats,
-                diagnosticsManager.snapshots,
-                diagnosticsManager.contexts,
-                diagnosticsManager.telemetry,
-                diagnosticsManager.nativeEvents,
-                diagnosticsManager.exports,
-                rememberedNetworkPolicyStore.observePolicies(limit = 64),
-                activeConnectionPolicyStore.activePolicy,
-                selectedSectionRequest,
-                selectedProfileId,
-                selectedApproachMode,
-                selectedProbe,
-                selectedEventId,
-                sessionPathModeFilter,
-                sessionStatusFilter,
-                sessionSearch,
-                eventSourceFilter,
-                eventSeverityFilter,
-                eventSearch,
-                eventAutoScroll,
-                selectedSessionDetail,
-                selectedStrategyProbeCandidate,
-                selectedApproachDetail,
-                sensitiveSessionDetailsVisible,
-                archiveActionState,
-            ) { values ->
-                @Suppress("UNCHECKED_CAST")
-                uiStateFactory.buildUiState(
-                    profiles = values[0] as List<DiagnosticProfileEntity>,
-                    settings = values[1] as com.poyka.ripdpi.proto.AppSettings,
-                    progress = values[2] as ScanProgress?,
-                    sessions = values[3] as List<ScanSessionEntity>,
-                    approachStats = values[4] as List<BypassApproachSummary>,
-                    snapshots = values[5] as List<NetworkSnapshotEntity>,
-                    contexts = values[6] as List<DiagnosticContextEntity>,
-                    telemetry = values[7] as List<TelemetrySampleEntity>,
-                    nativeEvents = values[8] as List<NativeSessionEventEntity>,
-                    exports = values[9] as List<ExportRecordEntity>,
-                    rememberedPolicies = values[10] as List<RememberedNetworkPolicyEntity>,
-                    activeConnectionPolicy = values[11] as ActiveConnectionPolicy?,
-                    selectedSectionRequest = values[12] as DiagnosticsSection,
-                    selectedProfileId = values[13] as String?,
-                    selectedApproachMode = values[14] as DiagnosticsApproachMode,
-                    selectedProbe = values[15] as DiagnosticsProbeResultUiModel?,
-                    selectedEventId = values[16] as String?,
-                    sessionPathMode = values[17] as String?,
-                    sessionStatus = values[18] as String?,
-                    sessionSearch = values[19] as String,
-                    eventSource = values[20] as String?,
-                    eventSeverity = values[21] as String?,
-                    eventSearch = values[22] as String,
-                    eventAutoScroll = values[23] as Boolean,
-                    selectedSessionDetail = values[24] as DiagnosticsSessionDetailUiModel?,
-                    selectedStrategyProbeCandidate = values[25] as DiagnosticsStrategyProbeCandidateDetailUiModel?,
-                    selectedApproachDetail = values[26] as DiagnosticsApproachDetailUiModel?,
-                    sensitiveSessionDetailsVisible = values[27] as Boolean,
-                    archiveActionState = values[28] as ArchiveActionState,
-                )
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = DiagnosticsUiState(),
+    val uiState: StateFlow<DiagnosticsUiState> =
+        combine(
+            diagnosticsManager.profiles,
+            appSettingsRepository.settings,
+            diagnosticsManager.activeScanProgress,
+            diagnosticsManager.sessions,
+            diagnosticsManager.approachStats,
+            diagnosticsManager.snapshots,
+            diagnosticsManager.contexts,
+            diagnosticsManager.telemetry,
+            diagnosticsManager.nativeEvents,
+            diagnosticsManager.exports,
+            rememberedNetworkPolicyStore.observePolicies(limit = 64),
+            activeConnectionPolicyStore.activePolicy,
+            selectedSectionRequest,
+            selectedProfileId,
+            selectedApproachMode,
+            selectedProbe,
+            selectedEventId,
+            sessionPathModeFilter,
+            sessionStatusFilter,
+            sessionSearch,
+            eventSourceFilter,
+            eventSeverityFilter,
+            eventSearch,
+            eventAutoScroll,
+            selectedSessionDetail,
+            selectedStrategyProbeCandidate,
+            selectedApproachDetail,
+            sensitiveSessionDetailsVisible,
+            archiveActionState,
+        ) { values ->
+            @Suppress("UNCHECKED_CAST")
+            uiStateFactory.buildUiState(
+                profiles = values[0] as List<DiagnosticProfileEntity>,
+                settings = values[1] as com.poyka.ripdpi.proto.AppSettings,
+                progress = values[2] as ScanProgress?,
+                sessions = values[3] as List<ScanSessionEntity>,
+                approachStats = values[4] as List<BypassApproachSummary>,
+                snapshots = values[5] as List<NetworkSnapshotEntity>,
+                contexts = values[6] as List<DiagnosticContextEntity>,
+                telemetry = values[7] as List<TelemetrySampleEntity>,
+                nativeEvents = values[8] as List<NativeSessionEventEntity>,
+                exports = values[9] as List<ExportRecordEntity>,
+                rememberedPolicies = values[10] as List<RememberedNetworkPolicyEntity>,
+                activeConnectionPolicy = values[11] as ActiveConnectionPolicy?,
+                selectedSectionRequest = values[12] as DiagnosticsSection,
+                selectedProfileId = values[13] as String?,
+                selectedApproachMode = values[14] as DiagnosticsApproachMode,
+                selectedProbe = values[15] as DiagnosticsProbeResultUiModel?,
+                selectedEventId = values[16] as String?,
+                sessionPathMode = values[17] as String?,
+                sessionStatus = values[18] as String?,
+                sessionSearch = values[19] as String,
+                eventSource = values[20] as String?,
+                eventSeverity = values[21] as String?,
+                eventSearch = values[22] as String,
+                eventAutoScroll = values[23] as Boolean,
+                selectedSessionDetail = values[24] as DiagnosticsSessionDetailUiModel?,
+                selectedStrategyProbeCandidate = values[25] as DiagnosticsStrategyProbeCandidateDetailUiModel?,
+                selectedApproachDetail = values[26] as DiagnosticsApproachDetailUiModel?,
+                sensitiveSessionDetailsVisible = values[27] as Boolean,
+                archiveActionState = values[28] as ArchiveActionState,
             )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = DiagnosticsUiState(),
+        )
 
-        init {
-            viewModelScope.launch {
-                diagnosticsManager.initialize()
-            }
-            viewModelScope.launch {
-                combine(
-                    diagnosticsManager.sessions,
-                    diagnosticsManager.activeScanProgress,
-                    pendingAutoOpenAuditSessionId,
-                ) { sessions, progress, pendingSessionId ->
-                    Triple(sessions, progress, pendingSessionId)
-                }.collect { (sessions, progress, pendingSessionId) ->
-                    if (pendingSessionId == null || progress != null) {
-                        return@collect
-                    }
-                    val session =
-                        sessions.firstOrNull { it.id == pendingSessionId && it.reportJson != null }
-                            ?: return@collect
-                    loadSessionDetail(session.id, showSensitiveDetails = false)
-                    pendingAutoOpenAuditSessionId.value = null
+    init {
+        viewModelScope.launch {
+            diagnosticsManager.initialize()
+        }
+        viewModelScope.launch {
+            combine(
+                diagnosticsManager.sessions,
+                diagnosticsManager.activeScanProgress,
+                pendingAutoOpenAuditSessionId,
+            ) { sessions, progress, pendingSessionId ->
+                Triple(sessions, progress, pendingSessionId)
+            }.collect { (sessions, progress, pendingSessionId) ->
+                if (pendingSessionId == null || progress != null) {
+                    return@collect
                 }
-            }
-        }
-
-        fun selectSection(section: DiagnosticsSection) {
-            selectedSectionRequest.value = section
-        }
-
-        fun selectProfile(profileId: String) {
-            selectedProfileId.value = profileId
-            viewModelScope.launch {
-                diagnosticsManager.setActiveProfile(profileId)
-            }
-        }
-
-        fun selectSession(sessionId: String) {
-            viewModelScope.launch {
-                loadSessionDetail(sessionId, showSensitiveDetails = false)
-            }
-        }
-
-        fun selectApproachMode(mode: DiagnosticsApproachMode) {
-            selectedApproachMode.value = mode
-            selectedApproachDetail.value = null
-        }
-
-        fun selectApproach(approachId: String) {
-            viewModelScope.launch {
-                val detail =
-                    diagnosticsManager.loadApproachDetail(
-                        kind =
-                            when (selectedApproachMode.value) {
-                                DiagnosticsApproachMode.Profiles -> BypassApproachKind.Profile
-                                DiagnosticsApproachMode.Strategies -> BypassApproachKind.Strategy
-                            },
-                        id = approachId,
-                    )
-                selectedApproachDetail.value = uiStateFactory.toApproachDetailUiModel(detail)
-            }
-        }
-
-        fun dismissSessionDetail() {
-            selectedSessionDetail.value = null
-            selectedProbe.value = null
-            selectedStrategyProbeCandidate.value = null
-            sensitiveSessionDetailsVisible.value = false
-        }
-
-        fun dismissApproachDetail() {
-            selectedApproachDetail.value = null
-        }
-
-        fun selectEvent(eventId: String) {
-            selectedEventId.value = eventId
-        }
-
-        fun dismissEventDetail() {
-            selectedEventId.value = null
-        }
-
-        fun selectProbe(probe: DiagnosticsProbeResultUiModel) {
-            selectedProbe.value = probe
-        }
-
-        fun dismissProbeDetail() {
-            selectedProbe.value = null
-        }
-
-        fun selectStrategyProbeCandidate(detail: DiagnosticsStrategyProbeCandidateDetailUiModel) {
-            selectedStrategyProbeCandidate.value = detail
-        }
-
-        fun dismissStrategyProbeCandidate() {
-            selectedStrategyProbeCandidate.value = null
-        }
-
-        fun toggleSensitiveSessionDetails() {
-            val nextValue = !sensitiveSessionDetailsVisible.value
-            sensitiveSessionDetailsVisible.value = nextValue
-            val sessionId = selectedSessionDetail.value?.session?.id ?: return
-            viewModelScope.launch {
-                loadSessionDetail(sessionId, showSensitiveDetails = nextValue)
-            }
-        }
-
-        fun setSessionPathModeFilter(pathMode: String?) {
-            sessionPathModeFilter.value = toggleValue(sessionPathModeFilter.value, pathMode)
-        }
-
-        fun setSessionStatusFilter(status: String?) {
-            sessionStatusFilter.value = toggleValue(sessionStatusFilter.value, status)
-        }
-
-        fun setSessionSearch(query: String) {
-            sessionSearch.value = query
-        }
-
-        fun toggleEventFilter(
-            source: String? = null,
-            severity: String? = null,
-        ) {
-            if (source != null) {
-                eventSourceFilter.value = toggleValue(eventSourceFilter.value, source)
-            }
-            if (severity != null) {
-                eventSeverityFilter.value = toggleValue(eventSeverityFilter.value, severity)
-            }
-        }
-
-        fun setEventSearch(query: String) {
-            eventSearch.value = query
-        }
-
-        fun setEventAutoScroll(enabled: Boolean) {
-            eventAutoScroll.value = enabled
-        }
-
-        fun startRawScan() {
-            viewModelScope.launch {
-                val sessionId = diagnosticsManager.startScan(ScanPathMode.RAW_PATH)
-                if (uiState.value.scan.selectedProfile?.isFullAudit == true) {
-                    pendingAutoOpenAuditSessionId.value = sessionId
-                }
-            }
-        }
-
-        fun startInPathScan() {
-            viewModelScope.launch {
-                diagnosticsManager.startScan(ScanPathMode.IN_PATH)
-            }
-        }
-
-        fun cancelScan() {
-            viewModelScope.launch {
+                val session =
+                    sessions.firstOrNull { it.id == pendingSessionId && it.reportJson != null }
+                        ?: return@collect
+                loadSessionDetail(session.id, showSensitiveDetails = false)
                 pendingAutoOpenAuditSessionId.value = null
-                diagnosticsManager.cancelActiveScan()
             }
         }
+    }
 
-        fun keepResolverRecommendationForSession(sessionId: String? = uiState.value.scan.latestSession?.id) {
-            val targetSessionId = sessionId ?: return
-            viewModelScope.launch {
-                diagnosticsManager.keepResolverRecommendationForSession(targetSessionId)
+    fun selectSection(section: DiagnosticsSection) {
+        selectedSectionRequest.value = section
+    }
+
+    fun selectProfile(profileId: String) {
+        selectedProfileId.value = profileId
+        viewModelScope.launch {
+            diagnosticsManager.setActiveProfile(profileId)
+        }
+    }
+
+    fun selectSession(sessionId: String) {
+        viewModelScope.launch {
+            loadSessionDetail(sessionId, showSensitiveDetails = false)
+        }
+    }
+
+    fun selectApproachMode(mode: DiagnosticsApproachMode) {
+        selectedApproachMode.value = mode
+        selectedApproachDetail.value = null
+    }
+
+    fun selectApproach(approachId: String) {
+        viewModelScope.launch {
+            val detail =
+                diagnosticsManager.loadApproachDetail(
+                    kind =
+                        when (selectedApproachMode.value) {
+                            DiagnosticsApproachMode.Profiles -> BypassApproachKind.Profile
+                            DiagnosticsApproachMode.Strategies -> BypassApproachKind.Strategy
+                        },
+                    id = approachId,
+                )
+            selectedApproachDetail.value = uiStateFactory.toApproachDetailUiModel(detail)
+        }
+    }
+
+    fun dismissSessionDetail() {
+        selectedSessionDetail.value = null
+        selectedProbe.value = null
+        selectedStrategyProbeCandidate.value = null
+        sensitiveSessionDetailsVisible.value = false
+    }
+
+    fun dismissApproachDetail() {
+        selectedApproachDetail.value = null
+    }
+
+    fun selectEvent(eventId: String) {
+        selectedEventId.value = eventId
+    }
+
+    fun dismissEventDetail() {
+        selectedEventId.value = null
+    }
+
+    fun selectProbe(probe: DiagnosticsProbeResultUiModel) {
+        selectedProbe.value = probe
+    }
+
+    fun dismissProbeDetail() {
+        selectedProbe.value = null
+    }
+
+    fun selectStrategyProbeCandidate(detail: DiagnosticsStrategyProbeCandidateDetailUiModel) {
+        selectedStrategyProbeCandidate.value = detail
+    }
+
+    fun dismissStrategyProbeCandidate() {
+        selectedStrategyProbeCandidate.value = null
+    }
+
+    fun toggleSensitiveSessionDetails() {
+        val nextValue = !sensitiveSessionDetailsVisible.value
+        sensitiveSessionDetailsVisible.value = nextValue
+        val sessionId = selectedSessionDetail.value?.session?.id ?: return
+        viewModelScope.launch {
+            loadSessionDetail(sessionId, showSensitiveDetails = nextValue)
+        }
+    }
+
+    fun setSessionPathModeFilter(pathMode: String?) {
+        sessionPathModeFilter.value = toggleValue(sessionPathModeFilter.value, pathMode)
+    }
+
+    fun setSessionStatusFilter(status: String?) {
+        sessionStatusFilter.value = toggleValue(sessionStatusFilter.value, status)
+    }
+
+    fun setSessionSearch(query: String) {
+        sessionSearch.value = query
+    }
+
+    fun toggleEventFilter(
+        source: String? = null,
+        severity: String? = null,
+    ) {
+        if (source != null) {
+            eventSourceFilter.value = toggleValue(eventSourceFilter.value, source)
+        }
+        if (severity != null) {
+            eventSeverityFilter.value = toggleValue(eventSeverityFilter.value, severity)
+        }
+    }
+
+    fun setEventSearch(query: String) {
+        eventSearch.value = query
+    }
+
+    fun setEventAutoScroll(enabled: Boolean) {
+        eventAutoScroll.value = enabled
+    }
+
+    fun startRawScan() {
+        viewModelScope.launch {
+            val sessionId = diagnosticsManager.startScan(ScanPathMode.RAW_PATH)
+            if (uiState.value.scan.selectedProfile?.isFullAudit == true) {
+                pendingAutoOpenAuditSessionId.value = sessionId
             }
         }
+    }
 
-        fun saveResolverRecommendation(sessionId: String? = uiState.value.scan.latestSession?.id) {
-            val targetSessionId = sessionId ?: return
-            viewModelScope.launch {
-                diagnosticsManager.saveResolverRecommendation(targetSessionId)
-            }
+    fun startInPathScan() {
+        viewModelScope.launch {
+            diagnosticsManager.startScan(ScanPathMode.IN_PATH)
         }
+    }
 
-        fun shareSummary(sessionId: String? = null) {
-            viewModelScope.launch {
-                val summary = diagnosticsManager.buildShareSummary(sessionId ?: uiState.value.share.targetSessionId)
+    fun cancelScan() {
+        viewModelScope.launch {
+            pendingAutoOpenAuditSessionId.value = null
+            diagnosticsManager.cancelActiveScan()
+        }
+    }
+
+    fun keepResolverRecommendationForSession(sessionId: String? = uiState.value.scan.latestSession?.id) {
+        val targetSessionId = sessionId ?: return
+        viewModelScope.launch {
+            diagnosticsManager.keepResolverRecommendationForSession(targetSessionId)
+        }
+    }
+
+    fun saveResolverRecommendation(sessionId: String? = uiState.value.scan.latestSession?.id) {
+        val targetSessionId = sessionId ?: return
+        viewModelScope.launch {
+            diagnosticsManager.saveResolverRecommendation(targetSessionId)
+        }
+    }
+
+    fun shareSummary(sessionId: String? = null) {
+        viewModelScope.launch {
+            val summary = diagnosticsManager.buildShareSummary(sessionId ?: uiState.value.share.targetSessionId)
+            _effects.send(
+                DiagnosticsEffect.ShareSummaryRequested(
+                    title = summary.title,
+                    body = summary.body,
+                ),
+            )
+        }
+    }
+
+    fun shareArchive(sessionId: String? = null) {
+        viewModelScope.launch {
+            runArchiveAction(
+                busyMessage = "Generating archive for sharing",
+                successMessage = "Archive ready to share",
+                failureMessage = "Failed to generate archive",
+            ) { targetSessionId ->
+                val archive = diagnosticsManager.createArchive(targetSessionId)
                 _effects.send(
-                    DiagnosticsEffect.ShareSummaryRequested(
-                        title = summary.title,
-                        body = summary.body,
+                    DiagnosticsEffect.ShareArchiveRequested(
+                        absolutePath = archive.absolutePath,
+                        fileName = archive.fileName,
                     ),
                 )
+                archive
             }
         }
-
-        fun shareArchive(sessionId: String? = null) {
-            viewModelScope.launch {
-                runArchiveAction(
-                    busyMessage = "Generating archive for sharing",
-                    successMessage = "Archive ready to share",
-                    failureMessage = "Failed to generate archive",
-                ) { targetSessionId ->
-                    val archive = diagnosticsManager.createArchive(targetSessionId)
-                    _effects.send(
-                        DiagnosticsEffect.ShareArchiveRequested(
-                            absolutePath = archive.absolutePath,
-                            fileName = archive.fileName,
-                        ),
-                    )
-                    archive
-                }
-            }
-        }
-
-        fun saveArchive(sessionId: String? = null) {
-            viewModelScope.launch {
-                runArchiveAction(
-                    busyMessage = "Preparing archive for saving",
-                    successMessage = "Archive saved to export flow",
-                    failureMessage = "Failed to prepare archive",
-                ) { targetSessionId ->
-                    val archive = diagnosticsManager.createArchive(targetSessionId)
-                    _effects.send(
-                        DiagnosticsEffect.SaveArchiveRequested(
-                            absolutePath = archive.absolutePath,
-                            fileName = archive.fileName,
-                        ),
-                    )
-                    archive
-                }
-            }
-        }
-
-        private suspend fun loadSessionDetail(
-            sessionId: String,
-            showSensitiveDetails: Boolean,
-        ) {
-            val detail = diagnosticsManager.loadSessionDetail(sessionId)
-            sensitiveSessionDetailsVisible.value = showSensitiveDetails
-            selectedStrategyProbeCandidate.value = null
-            selectedSessionDetail.value =
-                uiStateFactory.toSessionDetailUiModel(
-                    detail = detail,
-                    showSensitiveDetails = showSensitiveDetails,
-                )
-        }
-
-        private suspend fun runArchiveAction(
-            busyMessage: String,
-            successMessage: String,
-            failureMessage: String,
-            action: suspend (String?) -> DiagnosticsArchive,
-        ) {
-            val targetSessionId = uiState.value.share.targetSessionId
-            archiveActionState.value =
-                ArchiveActionState(
-                    message = busyMessage,
-                    tone = DiagnosticsTone.Info,
-                    isBusy = true,
-                    latestArchiveFileName = archiveActionState.value.latestArchiveFileName,
-                )
-            runCatching { action(targetSessionId) }
-                .onSuccess { archive ->
-                    archiveActionState.value =
-                        ArchiveActionState(
-                            message = successMessage,
-                            tone = DiagnosticsTone.Positive,
-                            isBusy = false,
-                            latestArchiveFileName = archive.fileName,
-                        )
-                }.onFailure {
-                    archiveActionState.value =
-                        ArchiveActionState(
-                            message = failureMessage,
-                            tone = DiagnosticsTone.Negative,
-                            isBusy = false,
-                            latestArchiveFileName = archiveActionState.value.latestArchiveFileName,
-                        )
-                }
-        }
-
-        private fun toggleValue(
-            current: String?,
-            next: String?,
-        ): String? = if (current == next) null else next
     }
+
+    fun saveArchive(sessionId: String? = null) {
+        viewModelScope.launch {
+            runArchiveAction(
+                busyMessage = "Preparing archive for saving",
+                successMessage = "Archive saved to export flow",
+                failureMessage = "Failed to prepare archive",
+            ) { targetSessionId ->
+                val archive = diagnosticsManager.createArchive(targetSessionId)
+                _effects.send(
+                    DiagnosticsEffect.SaveArchiveRequested(
+                        absolutePath = archive.absolutePath,
+                        fileName = archive.fileName,
+                    ),
+                )
+                archive
+            }
+        }
+    }
+
+    private suspend fun loadSessionDetail(
+        sessionId: String,
+        showSensitiveDetails: Boolean,
+    ) {
+        val detail = diagnosticsManager.loadSessionDetail(sessionId)
+        sensitiveSessionDetailsVisible.value = showSensitiveDetails
+        selectedStrategyProbeCandidate.value = null
+        selectedSessionDetail.value =
+            uiStateFactory.toSessionDetailUiModel(
+                detail = detail,
+                showSensitiveDetails = showSensitiveDetails,
+            )
+    }
+
+    private suspend fun runArchiveAction(
+        busyMessage: String,
+        successMessage: String,
+        failureMessage: String,
+        action: suspend (String?) -> DiagnosticsArchive,
+    ) {
+        val targetSessionId = uiState.value.share.targetSessionId
+        archiveActionState.value =
+            ArchiveActionState(
+                message = busyMessage,
+                tone = DiagnosticsTone.Info,
+                isBusy = true,
+                latestArchiveFileName = archiveActionState.value.latestArchiveFileName,
+            )
+        runCatching { action(targetSessionId) }
+            .onSuccess { archive ->
+                archiveActionState.value =
+                    ArchiveActionState(
+                        message = successMessage,
+                        tone = DiagnosticsTone.Positive,
+                        isBusy = false,
+                        latestArchiveFileName = archive.fileName,
+                    )
+            }.onFailure {
+                archiveActionState.value =
+                    ArchiveActionState(
+                        message = failureMessage,
+                        tone = DiagnosticsTone.Negative,
+                        isBusy = false,
+                        latestArchiveFileName = archiveActionState.value.latestArchiveFileName,
+                    )
+            }
+    }
+
+    private fun toggleValue(
+        current: String?,
+        next: String?,
+    ): String? = if (current == next) null else next
+}

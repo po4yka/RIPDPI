@@ -8,12 +8,16 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class LogsViewModelFlowTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private fun createViewModel() = LogsViewModel(FakeServiceStateStore())
+    private fun createViewModel() = LogsViewModel(RuntimeEnvironment.getApplication(), FakeServiceStateStore())
 
     @Test
     fun `initial uiState has empty logs and all filters active`() = runTest {

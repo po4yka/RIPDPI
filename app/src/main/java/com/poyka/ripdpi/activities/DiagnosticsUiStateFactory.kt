@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
@@ -15,7 +16,8 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ActiveConnectionPolicy
 
 internal class DiagnosticsUiStateFactory(
-    private val support: DiagnosticsUiFactorySupport = DiagnosticsUiFactorySupport(),
+    context: Context,
+    private val support: DiagnosticsUiFactorySupport = DiagnosticsUiFactorySupport(context),
 ) {
     fun buildUiState(
         profiles: List<DiagnosticProfileEntity>,
@@ -52,8 +54,10 @@ internal class DiagnosticsUiStateFactory(
         val activeProfileRequest = activeProfile?.let(support::decodeRequest)
         val selectedProfileUi = activeProfile?.let(support::toProfileOptionUiModel)
 
-        val latestSnapshot = snapshots.firstOrNull()?.let { support.toNetworkSnapshotUiModel(it, showSensitiveDetails = false) }
-        val latestContext = (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.let(support::decodeContext)
+        val latestSnapshot =
+            snapshots.firstOrNull()?.let { support.toNetworkSnapshotUiModel(it, showSensitiveDetails = false) }
+        val latestContext =
+            (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.let(support::decodeContext)
         val eventModels = nativeEvents.map(support::toEventUiModel)
         val sessionRows = sessions.map(support::toSessionRowUiModel)
 
@@ -65,7 +69,8 @@ internal class DiagnosticsUiStateFactory(
         val latestProfileReport = latestProfileSession?.reportJson?.let(support::decodeReport)
         val latestReport = latestCompletedSession?.reportJson?.let(support::decodeReport)
         val latestReportResults = latestProfileReport?.results?.mapIndexed(support::toProbeResultUiModel).orEmpty()
-        val latestResolverRecommendation = latestProfileReport?.resolverRecommendation?.let(support::toResolverRecommendationUiModel)
+        val latestResolverRecommendation =
+            latestProfileReport?.resolverRecommendation?.let(support::toResolverRecommendationUiModel)
         val latestStrategyProbeReport =
             latestProfileReport?.strategyProbeReport?.let { report ->
                 support.toStrategyProbeReportUiModel(
@@ -209,7 +214,12 @@ internal class DiagnosticsUiStateFactory(
         return DiagnosticsSessionDetailUiModel(
             session = support.toSessionRowUiModel(detail.session),
             probeGroups = probeGroups,
-            snapshots = detail.snapshots.mapNotNull { snapshot -> support.toNetworkSnapshotUiModel(snapshot, showSensitiveDetails) },
+            snapshots = detail.snapshots.mapNotNull { snapshot ->
+                support.toNetworkSnapshotUiModel(
+                    snapshot,
+                    showSensitiveDetails
+                )
+            },
             events = detail.events.map(support::toEventUiModel),
             contextGroups =
                 detail.context

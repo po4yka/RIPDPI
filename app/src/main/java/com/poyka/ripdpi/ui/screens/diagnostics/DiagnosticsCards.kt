@@ -2,9 +2,9 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,9 +44,9 @@ import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
+import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -297,7 +297,7 @@ internal fun TelegramResultCard(
         }
 
         TelegramTransferSection(
-            label = "Download",
+            label = stringResource(R.string.diagnostics_telegram_download),
             status = details["downloadStatus"] ?: "unknown",
             avgBps = details["downloadAvgBps"],
             peakBps = details["downloadPeakBps"],
@@ -307,7 +307,7 @@ internal fun TelegramResultCard(
         )
 
         TelegramTransferSection(
-            label = "Upload",
+            label = stringResource(R.string.diagnostics_telegram_upload),
             status = details["uploadStatus"] ?: "unknown",
             avgBps = details["uploadAvgBps"],
             peakBps = details["uploadPeakBps"],
@@ -321,8 +321,8 @@ internal fun TelegramResultCard(
         val dcResults = details["dcResults"]?.split("|")?.filter { it.isNotEmpty() } ?: emptyList()
 
         SettingsRow(
-            title = "Data Centers",
-            value = "$dcReachable/$dcTotal reachable",
+            title = stringResource(R.string.diagnostics_telegram_data_centers),
+            value = stringResource(R.string.diagnostics_telegram_reachable_format, dcReachable, dcTotal),
         )
         if (dcResults.isNotEmpty()) {
             Row(
@@ -385,11 +385,11 @@ private fun TelegramTransferSection(
         )
         StatusIndicator(label = status, tone = tone)
     }
-    SettingsRow(title = "Avg speed", value = avgSpeed)
-    SettingsRow(title = "Peak speed", value = peakSpeed)
-    SettingsRow(title = "Transferred", value = totalBytes)
+    SettingsRow(title = stringResource(R.string.diagnostics_telegram_avg_speed), value = avgSpeed)
+    SettingsRow(title = stringResource(R.string.diagnostics_telegram_peak_speed), value = peakSpeed)
+    SettingsRow(title = stringResource(R.string.diagnostics_telegram_transferred), value = totalBytes)
     if (error != null && error != "none") {
-        SettingsRow(title = "Error", value = error)
+        SettingsRow(title = stringResource(R.string.diagnostics_telegram_error), value = error)
     }
 }
 

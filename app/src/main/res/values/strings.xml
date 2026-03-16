@@ -1050,6 +1050,7 @@ Source: %2$s</string>
     <string name="permissions_notifications_open_settings">Notification permission is still blocked. Open app settings and allow notifications for RIPDPI.</string>
     <string name="permissions_battery_title">Battery optimization</string>
     <string name="permissions_battery_body">Allow RIPDPI to ignore battery optimizations so Android is less likely to interrupt the local VPN or proxy in the background.</string>
+    <string name="permissions_battery_body_samsung">Allow RIPDPI to ignore battery optimizations. On Samsung phones such as the Galaxy S24 Ultra, also set App info &gt; Battery to Unrestricted and add RIPDPI to Never sleeping apps so One UI is less likely to stop the local VPN or proxy.</string>
     <string name="permissions_battery_continue">Review battery settings</string>
     <string name="settings_connectivity_section">Connectivity</string>
     <string name="settings_permissions_section">Permissions</string>
@@ -1068,6 +1069,8 @@ Source: %2$s</string>
     <string name="settings_permissions_vpn_needed">Grant Android VPN consent before RIPDPI can start the local VPN path.</string>
     <string name="settings_permissions_battery_ready">Android is already allowing RIPDPI to run without battery optimization limits.</string>
     <string name="settings_permissions_battery_needed">Recommended so the system is less likely to stop RIPDPI while it is running in the background.</string>
+    <string name="settings_permissions_battery_ready_samsung">Android is already allowing RIPDPI to ignore battery optimizations. On Samsung, keep RIPDPI on Unrestricted battery if sessions still stop in the background.</string>
+    <string name="settings_permissions_battery_needed_samsung">Recommended on Samsung: allow RIPDPI to ignore battery optimizations, set Battery to Unrestricted, and add it to Never sleeping apps.</string>
     <string name="settings_connectivity_dns_body">Resolver mode, protocol, IPv6, and local tunnel DNS behavior.</string>
     <string name="settings_connectivity_dns_body_proxy">Saved now and applied the next time VPN mode is active.</string>
     <string name="settings_advanced_body">Low-level RIPDPI flags, proxy listeners, and protocol overrides.</string>
@@ -1164,4 +1167,277 @@ Source: %2$s</string>
     <string name="data_transparency_export_privacy_section">Export privacy</string>
     <string name="data_transparency_export_redaction">Exported archives redact IP addresses, WiFi identifiers, and other PII</string>
     <string name="data_transparency_export_control">You control what is shared and with whom</string>
+
+    <!-- Settings maintenance notice titles -->
+    <string name="notice_host_packs_refreshed_title">Host packs refreshed</string>
+    <string name="notice_host_packs_refreshed_message">RIPDPI downloaded geosite.dat, verified its SHA-256 checksum, and updated the on-device curated host packs.</string>
+    <string name="notice_host_pack_verification_failed_title">Host pack verification failed</string>
+    <string name="notice_host_pack_verification_failed_message">The downloaded geosite.dat checksum did not match the published SHA-256 digest. RIPDPI kept the current curated host packs.</string>
+    <string name="notice_host_pack_refresh_failed_title">Host pack refresh failed</string>
+    <string name="notice_host_pack_refresh_failed_message">RIPDPI verified the download, but the remote geosite.dat did not produce a complete YouTube, Telegram, and Discord catalog. The current packs remain in use.</string>
+    <string name="notice_host_pack_download_failed_title">Couldn\'t refresh host packs</string>
+    <string name="notice_host_pack_download_failed_message">RIPDPI could not download the latest geosite.dat or checksum file. The current curated host packs remain in use.</string>
+    <string name="notice_learned_hosts_clear_failed_title">Couldn\'t clear learned hosts</string>
+    <string name="notice_learned_hosts_clear_failed_message">RIPDPI could not delete the stored host learning file on this device.</string>
+    <string name="notice_learned_hosts_cleared_next_start_title">Learned hosts cleared for next start</string>
+    <string name="notice_learned_hosts_cleared_next_start_message">The stored host learning file was removed. The running proxy keeps its in-memory routes until RIPDPI restarts.</string>
+    <string name="notice_learned_hosts_cleared_title">Learned hosts cleared</string>
+    <string name="notice_learned_hosts_cleared_message">Stored host learning was removed and the next RIPDPI start will rebuild it from scratch.</string>
+    <string name="notice_remembered_networks_cleared_title">Remembered networks cleared</string>
+    <string name="notice_remembered_networks_cleared_message">RIPDPI removed all stored per-network bypass policies. Current settings remain unchanged.</string>
+    <string name="notice_fake_tls_reset_next_start_title">Fake TLS profile reset for next start</string>
+    <string name="notice_fake_tls_reset_next_start_message">The profile is back to the default fake ClientHello. Restart RIPDPI to apply it to the active session.</string>
+    <string name="notice_fake_tls_reset_title">Fake TLS profile reset</string>
+    <string name="notice_fake_tls_reset_message">RIPDPI will use the default fake ClientHello, fixed SNI, and input-sized payload on the next start.</string>
+    <string name="notice_adaptive_ttl_reset_next_start_title">Adaptive fake TTL reset for next start</string>
+    <string name="notice_adaptive_ttl_reset_next_start_message">RIPDPI will go back to a fixed fake TTL for the active group after the next restart or reconnect.</string>
+    <string name="notice_adaptive_ttl_reset_title">Adaptive fake TTL reset</string>
+    <string name="notice_adaptive_ttl_reset_message">RIPDPI will stop learning fake TTL values and use the fixed fake TTL on the next start.</string>
+    <string name="notice_fake_payload_reset_next_start_title">Fake payload presets reset for next start</string>
+    <string name="notice_fake_payload_reset_next_start_message">HTTP, TLS, and UDP fake payloads are back to compatibility defaults. Restart RIPDPI to apply them to the active session.</string>
+    <string name="notice_fake_payload_reset_title">Fake payload presets reset</string>
+    <string name="notice_fake_payload_reset_message">RIPDPI will use the compatibility fake payload defaults for HTTP, TLS, and UDP on the next start.</string>
+    <string name="notice_http_parser_reset_next_start_title">HTTP parser evasions reset for next start</string>
+    <string name="notice_http_parser_reset_next_start_message">HTTP parser tweaks are back to their defaults. Restart RIPDPI to remove the saved parser evasions from the active session.</string>
+    <string name="notice_http_parser_reset_title">HTTP parser evasions reset</string>
+    <string name="notice_http_parser_reset_message">RIPDPI will stop applying saved HTTP parser tweaks and EOL evasions on the next start.</string>
+    <string name="notice_activation_window_reset_next_start_title">Activation window reset for next start</string>
+    <string name="notice_activation_window_reset_next_start_message">The active desync group is back to always-on gating. Restart RIPDPI to remove the saved activation window from the running session.</string>
+    <string name="notice_activation_window_reset_title">Activation window reset</string>
+    <string name="notice_activation_window_reset_message">RIPDPI will stop gating the active desync group by round, payload size, or stream-byte position on the next start.</string>
+    <string name="notice_telemetry_salt_reset_title">Telemetry salt reset</string>
+    <string name="notice_telemetry_salt_reset_message">A new salt will be generated on the next connection. Previously recorded fingerprint hashes can no longer be correlated.</string>
+
+    <!-- Diagnostics context warnings -->
+    <string name="diagnostics_warn_vpn_permission">VPN permission is not currently granted.</string>
+    <string name="diagnostics_warn_notification_permission">Notification permission is disabled, so service issues may be harder to notice.</string>
+    <string name="diagnostics_warn_power_restriction">Power or background restrictions may interfere with stable diagnostics.</string>
+    <string name="diagnostics_warn_samsung_background_limits">Samsung background limits can still interrupt RIPDPI. Check Battery &gt; Unrestricted and Never sleeping apps if sessions stop in the background.</string>
+
+    <!-- Diagnostics context field labels -->
+    <string name="diagnostics_field_capabilities">Capabilities</string>
+    <string name="diagnostics_field_dns">DNS</string>
+    <string name="diagnostics_field_private_dns">Private DNS</string>
+    <string name="diagnostics_field_mtu">MTU</string>
+    <string name="diagnostics_field_local">Local</string>
+    <string name="diagnostics_field_public_ip">Public IP</string>
+    <string name="diagnostics_field_asn">ASN</string>
+    <string name="diagnostics_field_validated">Validated</string>
+    <string name="diagnostics_field_captive_portal">Captive portal</string>
+    <string name="diagnostics_field_unknown">Unknown</string>
+    <string name="diagnostics_field_support_context">Support context</string>
+    <string name="diagnostics_field_app">App</string>
+    <string name="diagnostics_field_device">Device</string>
+    <string name="diagnostics_field_android">Android</string>
+    <string name="diagnostics_field_android_version_format">%1$s (API %2$d)</string>
+    <string name="diagnostics_field_mode">Mode</string>
+    <string name="diagnostics_field_profile">Profile</string>
+    <string name="diagnostics_field_host_learning">Host learning</string>
+    <string name="diagnostics_field_restrictions">Restrictions</string>
+    <string name="diagnostics_field_service">Service</string>
+    <string name="diagnostics_field_status">Status</string>
+    <string name="diagnostics_field_uptime">Uptime</string>
+    <string name="diagnostics_field_environment">Environment</string>
+    <string name="diagnostics_field_data_saver">Data saver</string>
+    <string name="diagnostics_field_power_save">Power save</string>
+    <string name="diagnostics_field_metered">Metered</string>
+    <string name="diagnostics_field_roaming">Roaming</string>
+    <string name="diagnostics_field_enabled">Enabled</string>
+    <string name="diagnostics_field_learned_hosts">Learned hosts</string>
+    <string name="diagnostics_field_penalized">Penalized</string>
+    <string name="diagnostics_field_last_host">Last host</string>
+    <string name="diagnostics_field_last_group">Last group</string>
+    <string name="diagnostics_field_last_action">Last action</string>
+    <string name="diagnostics_field_configured_mode">Configured mode</string>
+    <string name="diagnostics_field_active_mode">Active mode</string>
+    <string name="diagnostics_field_config_source">Config source</string>
+    <string name="diagnostics_field_proxy">Proxy</string>
+    <string name="diagnostics_field_chain">Chain</string>
+    <string name="diagnostics_field_desync">Desync</string>
+    <string name="diagnostics_field_route_group">Route group</string>
+    <string name="diagnostics_field_autolearn">Autolearn</string>
+    <string name="diagnostics_field_penalized_hosts">Penalized hosts</string>
+    <string name="diagnostics_field_last_learned_host">Last learned host</string>
+    <string name="diagnostics_field_last_learned_group">Last learned group</string>
+    <string name="diagnostics_field_last_autolearn_action">Last autolearn action</string>
+    <string name="diagnostics_field_restart_count">Restart count</string>
+    <string name="diagnostics_field_last_native_error">Last native error</string>
+    <string name="diagnostics_field_permissions">Permissions</string>
+    <string name="diagnostics_field_vpn_permission">VPN permission</string>
+    <string name="diagnostics_field_notification_permission">Notification permission</string>
+    <string name="diagnostics_field_battery_optimization">Battery optimization</string>
+    <string name="diagnostics_field_app_version">App version</string>
+    <string name="diagnostics_field_app_version_format">%1$s (%2$s)</string>
+    <string name="diagnostics_field_version_code">Version code</string>
+    <string name="diagnostics_field_abi">ABI</string>
+    <string name="diagnostics_field_locale">Locale</string>
+    <string name="diagnostics_field_timezone">Timezone</string>
+    <string name="diagnostics_field_battery_saver">Battery saver</string>
+    <string name="diagnostics_field_network_metered">Network metered</string>
+
+    <!-- Diagnostics Wi-Fi field labels -->
+    <string name="diagnostics_field_wifi_ssid">Wi-Fi SSID</string>
+    <string name="diagnostics_field_wifi_bssid">Wi-Fi BSSID</string>
+    <string name="diagnostics_field_wifi_band">Wi-Fi band</string>
+    <string name="diagnostics_field_wifi_standard">Wi-Fi standard</string>
+    <string name="diagnostics_field_wifi_frequency">Wi-Fi frequency</string>
+    <string name="diagnostics_field_wifi_frequency_format">%1$d MHz</string>
+    <string name="diagnostics_field_wifi_channel_width">Wi-Fi channel width</string>
+    <string name="diagnostics_field_wifi_rssi">Wi-Fi RSSI</string>
+    <string name="diagnostics_field_wifi_rssi_format">%1$d dBm</string>
+    <string name="diagnostics_field_wifi_link">Wi-Fi link</string>
+    <string name="diagnostics_field_wifi_speed_format">%1$d Mbps</string>
+    <string name="diagnostics_field_wifi_rx_link">Wi-Fi RX link</string>
+    <string name="diagnostics_field_wifi_tx_link">Wi-Fi TX link</string>
+    <string name="diagnostics_field_wifi_hidden_ssid">Wi-Fi hidden SSID</string>
+    <string name="diagnostics_field_wifi_passpoint">Wi-Fi Passpoint</string>
+    <string name="diagnostics_field_wifi_osu_ap">Wi-Fi OSU AP</string>
+    <string name="diagnostics_field_wifi_network_id">Wi-Fi network ID</string>
+    <string name="diagnostics_field_wifi_gateway">Wi-Fi gateway</string>
+    <string name="diagnostics_field_wifi_dhcp_server">Wi-Fi DHCP server</string>
+    <string name="diagnostics_field_wifi_ip">Wi-Fi IP</string>
+    <string name="diagnostics_field_wifi_subnet">Wi-Fi subnet</string>
+    <string name="diagnostics_field_wifi_lease">Wi-Fi lease</string>
+    <string name="diagnostics_field_wifi_lease_format">%1$ds</string>
+
+    <!-- Diagnostics cellular field labels -->
+    <string name="diagnostics_field_carrier">Carrier</string>
+    <string name="diagnostics_field_sim_operator">SIM operator</string>
+    <string name="diagnostics_field_network_operator">Network operator</string>
+    <string name="diagnostics_field_network_country">Network country</string>
+    <string name="diagnostics_field_sim_country">SIM country</string>
+    <string name="diagnostics_field_operator_code">Operator code</string>
+    <string name="diagnostics_field_sim_operator_code">SIM operator code</string>
+    <string name="diagnostics_field_data_network">Data network</string>
+    <string name="diagnostics_field_voice_network">Voice network</string>
+    <string name="diagnostics_field_data_state">Data state</string>
+    <string name="diagnostics_field_service_state">Service state</string>
+    <string name="diagnostics_field_carrier_id">Carrier ID</string>
+    <string name="diagnostics_field_sim_carrier_id">SIM carrier ID</string>
+    <string name="diagnostics_field_signal_level">Signal level</string>
+    <string name="diagnostics_field_signal_dbm">Signal dBm</string>
+    <string name="diagnostics_field_signal_dbm_format">%1$d dBm</string>
+
+    <!-- Diagnostics metric labels -->
+    <string name="diagnostics_metric_sessions">Sessions</string>
+    <string name="diagnostics_metric_events">Events</string>
+    <string name="diagnostics_metric_tx">TX</string>
+    <string name="diagnostics_metric_rx">RX</string>
+    <string name="diagnostics_metric_network">Network</string>
+    <string name="diagnostics_metric_mode">Mode</string>
+    <string name="diagnostics_metric_idle">Idle</string>
+    <string name="diagnostics_metric_latest_native_failure">Latest native failure</string>
+    <string name="diagnostics_metric_fallback_action">Fallback action</string>
+    <string name="diagnostics_metric_failure_class">Failure class</string>
+    <string name="diagnostics_metric_winning_strategy">Winning strategy</string>
+    <string name="diagnostics_metric_rtt_band">RTT band</string>
+    <string name="diagnostics_metric_retries">Retries</string>
+    <string name="diagnostics_metric_resolver">Resolver</string>
+    <string name="diagnostics_metric_dns_latency">DNS latency</string>
+    <string name="diagnostics_metric_dns_latency_format">%1$d ms</string>
+    <string name="diagnostics_metric_dns_failures">DNS failures</string>
+    <string name="diagnostics_metric_tx_packets">TX packets</string>
+    <string name="diagnostics_metric_rx_packets">RX packets</string>
+    <string name="diagnostics_metric_warnings">Warnings</string>
+    <string name="diagnostics_metric_errors">Errors</string>
+    <string name="diagnostics_metric_strategy">Strategy</string>
+    <string name="diagnostics_metric_rtt">RTT</string>
+    <string name="diagnostics_metric_resolver_fallback">Resolver fallback</string>
+    <string name="diagnostics_metric_resolver_fallback_active">Active</string>
+    <string name="diagnostics_metric_packets">Packets</string>
+    <string name="diagnostics_metric_approach">Approach</string>
+
+    <!-- Diagnostics sparkline labels -->
+    <string name="diagnostics_sparkline_tx_bytes">TX bytes</string>
+    <string name="diagnostics_sparkline_rx_bytes">RX bytes</string>
+    <string name="diagnostics_sparkline_errors">Errors</string>
+
+    <!-- Diagnostics overview headlines -->
+    <string name="diagnostics_headline_scan_active">Diagnostics scan is active</string>
+    <string name="diagnostics_headline_no_data">No diagnostics captured yet</string>
+    <string name="diagnostics_headline_degraded">The network path needs attention</string>
+    <string name="diagnostics_headline_attention">Diagnostics are reporting mixed signals</string>
+    <string name="diagnostics_headline_healthy">Current telemetry looks stable</string>
+    <string name="diagnostics_headline_waiting">Waiting for the next diagnostics session</string>
+
+    <!-- Diagnostics overview body -->
+    <string name="diagnostics_body_healthy">Passive telemetry and the latest report do not show critical failures. Review live counters for drift.</string>
+    <string name="diagnostics_body_attention">Warnings or partial failures were detected. Compare the latest scan outcome with the current live monitor.</string>
+    <string name="diagnostics_body_degraded">Recent events or scan outcomes indicate blocking, failures, or transport instability.</string>
+    <string name="diagnostics_body_idle">Start RIPDPI or run a scan to populate diagnostics analytics.</string>
+
+    <!-- Diagnostics live headlines -->
+    <string name="diagnostics_live_headline_error">Runtime needs intervention</string>
+    <string name="diagnostics_live_headline_attention">Runtime requires a closer look</string>
+    <string name="diagnostics_live_headline_standby">Live monitor standing by</string>
+    <string name="diagnostics_live_headline_traffic">Traffic is moving through %1$s</string>
+    <string name="diagnostics_live_updated_format">Updated %1$s</string>
+    <string name="diagnostics_live_no_telemetry">No live telemetry</string>
+    <string name="diagnostics_live_body_waiting">Continuous monitor is waiting for an active RIPDPI session.</string>
+    <string name="diagnostics_live_failure_class_format">Latest failure class: %1$s</string>
+    <string name="diagnostics_live_dns_override_format">Encrypted DNS override active: %1$s</string>
+    <string name="diagnostics_live_handover_format">Recent network handover detected: %1$s</string>
+    <string name="diagnostics_live_winning_strategy_format">Winning strategy family: %1$s</string>
+    <string name="diagnostics_live_mode_summary_format">%1$s mode \u00b7 %2$s transferred \u00b7 %3$d packets observed</string>
+    <string name="diagnostics_live_signal_format">%1$s sent \u00b7 %2$s received</string>
+    <string name="diagnostics_live_no_transfer">No transfer observed yet</string>
+
+    <!-- Diagnostics live event summary -->
+    <string name="diagnostics_live_errors_and_warnings_format">%1$d error%2$s \u00b7 %3$d warning%4$s in runtime feed</string>
+    <string name="diagnostics_live_errors_format">%1$d error%2$s in runtime feed</string>
+    <string name="diagnostics_live_warnings_format">%1$d warning%2$s in runtime feed</string>
+    <string name="diagnostics_live_info_events_format">%1$d informational event%2$s in runtime feed</string>
+    <string name="diagnostics_live_feed_quiet">Runtime feed is quiet</string>
+
+    <!-- Diagnostics scan UI -->
+    <string name="diagnostics_scan_automatic_audit">Automatic audit</string>
+    <string name="diagnostics_scan_automatic_probing">Automatic probing</string>
+    <string name="diagnostics_scan_cli_active_format">%1$s only works with visual RIPDPI settings. Command-line mode is active.</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s starts a temporary raw-path RIPDPI runtime and returns a manual recommendation.</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s is raw-path only because it launches isolated temporary strategy trials.</string>
+
+    <!-- Diagnostics share preview -->
+    <string name="diagnostics_share_title">RIPDPI diagnostics</string>
+    <string name="diagnostics_share_no_session">Select a diagnostics session to generate a summary.</string>
+    <string name="diagnostics_share_archive_line">Archive includes the focused diagnostics session in full.</string>
+    <string name="diagnostics_share_telemetry_line">It also adds recent live telemetry and global runtime events.</string>
+    <string name="diagnostics_share_redaction_line">Summary and manifest redact support context and network identity fields, while raw report data stays intact.</string>
+    <string name="diagnostics_share_approach_format">Archive includes approach analytics for %1$s with %2$s validation and runtime health context.</string>
+    <string name="diagnostics_share_metric_path">Path</string>
+    <string name="diagnostics_share_metric_network">Network</string>
+    <string name="diagnostics_share_metric_mode">Mode</string>
+    <string name="diagnostics_share_metric_app">App</string>
+
+    <!-- Diagnostics autolearn states -->
+    <string name="diagnostics_autolearn_active">Active</string>
+    <string name="diagnostics_autolearn_off">Off</string>
+    <string name="diagnostics_autolearn_none_yet">None yet</string>
+    <string name="diagnostics_autolearn_route_format">Route %1$s</string>
+    <string name="diagnostics_autolearn_promoted">Promoted best route</string>
+    <string name="diagnostics_autolearn_penalized">Penalized failing route</string>
+    <string name="diagnostics_autolearn_store_reset">Reset stored hosts</string>
+    <string name="diagnostics_autolearn_learned_format">%1$d learned</string>
+    <string name="diagnostics_autolearn_penalized_format">%1$d penalized</string>
+
+    <!-- Diagnostics Telegram card -->
+    <string name="diagnostics_telegram_download">Download</string>
+    <string name="diagnostics_telegram_upload">Upload</string>
+    <string name="diagnostics_telegram_data_centers">Data Centers</string>
+    <string name="diagnostics_telegram_reachable_format">%1$s/%2$s reachable</string>
+    <string name="diagnostics_telegram_avg_speed">Avg speed</string>
+    <string name="diagnostics_telegram_peak_speed">Peak speed</string>
+    <string name="diagnostics_telegram_transferred">Transferred</string>
+    <string name="diagnostics_telegram_error">Error</string>
+
+    <!-- Logs -->
+    <string name="logs_service_action_format">%1$s service %2$s</string>
+    <string name="logs_service_failure_format">%1$s service failed to start: %2$s</string>
+
+    <!-- DNS settings placeholders -->
+    <string name="dns_placeholder_resolver_example">resolver.example</string>
+    <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
+    <string name="dns_placeholder_public_key">0123abcd\u2026</string>
+    <string name="dns_placeholder_doh_url">https://resolver.example/dns-query</string>
+    <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
+    <string name="dns_placeholder_port">443</string>
 </resources>

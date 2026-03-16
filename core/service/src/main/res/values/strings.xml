@@ -4,5 +4,6 @@
     <string name="notification_title">RIPDPI</string>
     <string name="vpn_notification_content">VPN is running</string>
     <string name="proxy_notification_content">Proxy is running</string>
+    <string name="notification_stop">Stop</string>
 
 </resources>
