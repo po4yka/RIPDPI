@@ -275,6 +275,44 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `battery optimization repair clears pending action when exemption is still missing`() =
+        runTest {
+            val provider =
+                FakePermissionStatusProvider(
+                    snapshot =
+                        PermissionSnapshot(
+                            vpnConsent = PermissionStatus.Granted,
+                            notifications = PermissionStatus.Granted,
+                            batteryOptimization = PermissionStatus.RequiresSettings,
+                        ),
+                )
+            val viewModel = createViewModel(permissionStatusProvider = provider)
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.effects.test {
+                viewModel.onRepairPermissionRequested(PermissionKind.BatteryOptimization)
+                val first = awaitItem() as MainEffect.RequestPermission
+                assertEquals(PermissionKind.BatteryOptimization, first.kind)
+
+                viewModel.onPermissionResult(
+                    PermissionKind.BatteryOptimization,
+                    PermissionResult.ReturnedFromSettings,
+                )
+                advanceUntilIdle()
+
+                expectNoEvents()
+
+                viewModel.onRepairPermissionRequested(PermissionKind.BatteryOptimization)
+                val second = awaitItem() as MainEffect.RequestPermission
+                assertEquals(PermissionKind.BatteryOptimization, second.kind)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            collector.cancel()
+        }
+
+    @Test
     fun `pending action resumes across notifications and vpn consent`() =
         runTest {
             val serviceController = FakeServiceController()

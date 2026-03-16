@@ -2,10 +2,8 @@ package com.poyka.ripdpi.activities
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
-import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
@@ -19,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.stableId
+import com.poyka.ripdpi.permissions.BatteryOptimizationGuidance
 import com.poyka.ripdpi.permissions.PermissionAction
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
@@ -30,6 +29,7 @@ import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
+import com.poyka.ripdpi.permissions.BatteryOptimizationIntents
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
@@ -162,6 +162,7 @@ class MainViewModel
         private val permissionStatusProvider: PermissionStatusProvider,
         private val permissionCoordinator: PermissionCoordinator,
     ) : ViewModel() {
+        private val deviceManufacturer = Build.MANUFACTURER.orEmpty()
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
         private val permissionState = MutableStateFlow(PermissionRuntimeState())
         private val permissionOverrides = mutableMapOf<PermissionKind, PermissionStatus>()
@@ -477,6 +478,14 @@ class MainViewModel
         private fun handleBatteryOptimizationResult() {
             permissionOverrides.remove(PermissionKind.BatteryOptimization)
             refreshPermissionSnapshot()
+            if (permissionState.value.snapshot.batteryOptimization == PermissionStatus.Granted) {
+                resumePendingAction()
+            } else if (
+                pendingPermissionAction ==
+                PermissionAction.RepairPermission(PermissionKind.BatteryOptimization)
+            ) {
+                pendingPermissionAction = null
+            }
         }
 
         private fun resumePendingAction() {
@@ -862,7 +871,14 @@ class MainViewModel
                 -> PermissionItemUiState(
                     kind = PermissionKind.BatteryOptimization,
                     title = stringResolver.getString(R.string.permissions_battery_title),
-                    subtitle = stringResolver.getString(R.string.settings_permissions_battery_ready),
+                    subtitle =
+                        stringResolver.getString(
+                            if (status == PermissionStatus.Granted) {
+                                BatteryOptimizationGuidance.readySubtitleRes(deviceManufacturer)
+                            } else {
+                                R.string.settings_permissions_battery_ready
+                            },
+                        ),
                     statusLabel =
                         if (status == PermissionStatus.NotApplicable) {
                             stringResolver.getString(R.string.settings_permission_status_not_needed)
@@ -877,7 +893,10 @@ class MainViewModel
                 -> PermissionItemUiState(
                     kind = PermissionKind.BatteryOptimization,
                     title = stringResolver.getString(R.string.permissions_battery_title),
-                    subtitle = stringResolver.getString(R.string.settings_permissions_battery_needed),
+                    subtitle =
+                        stringResolver.getString(
+                            BatteryOptimizationGuidance.recommendedSubtitleRes(deviceManufacturer),
+                        ),
                     statusLabel = stringResolver.getString(R.string.settings_permission_status_recommended),
                     actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
                 )
@@ -922,7 +941,10 @@ class MainViewModel
                 PermissionKind.BatteryOptimization -> PermissionIssueUiState(
                     kind = kind,
                     title = stringResolver.getString(R.string.permissions_battery_title),
-                    message = stringResolver.getString(R.string.permissions_battery_body),
+                    message =
+                        stringResolver.getString(
+                            BatteryOptimizationGuidance.issueMessageRes(deviceManufacturer),
+                        ),
                     recovery = PermissionRecovery.OpenBatteryOptimizationSettings,
                     actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
                     blocking = blocking,
@@ -930,17 +952,12 @@ class MainViewModel
             }
 
         private fun createAppSettingsIntent(): Intent =
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", appContext.packageName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
+            BatteryOptimizationIntents
+                .createAppDetailsIntent(appContext.packageName)
+                .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
 
         private fun createBatteryOptimizationIntent(): Intent =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.fromParts("package", appContext.packageName, null)
-                }
-            } else {
-                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            BatteryOptimizationIntents.create(packageName = appContext.packageName) { intent ->
+                intent.resolveActivity(appContext.packageManager) != null
             }
     }
