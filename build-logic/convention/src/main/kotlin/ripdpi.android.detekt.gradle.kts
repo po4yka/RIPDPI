@@ -8,6 +8,10 @@ extensions.configure<DetektExtension> {
     buildUponDefaultConfig = true
     parallel = true
     config.setFrom(files("${rootProject.projectDir}/config/detekt/detekt.yml"))
+    val baselineFile = project.file("detekt-baseline.xml")
+    if (baselineFile.isFile) {
+        baseline = baselineFile
+    }
     source.setFrom(
         files(
             "src/main/kotlin",
