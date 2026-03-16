@@ -506,3 +506,147 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
 fn now_ms() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::net::SocketAddr;
+
+    use golden_test_support::{assert_text_golden, canonicalize_json_with};
+    use ripdpi_runtime::RuntimeTelemetrySink;
+    use serde_json::Value;
+
+    fn assert_proxy_snapshot_golden(name: &str, snapshot: &NativeRuntimeSnapshot) {
+        let actual = canonicalize_json_with(
+            &serde_json::to_string(snapshot).expect("serialize proxy snapshot"),
+            scrub_runtime_timestamps,
+        )
+        .expect("canonicalize proxy telemetry");
+        assert_text_golden(env!("CARGO_MANIFEST_DIR"), &format!("tests/golden/{name}.json"), &actual);
+    }
+
+    fn scrub_runtime_timestamps(value: &mut Value) {
+        match value {
+            Value::Array(items) => {
+                for item in items {
+                    scrub_runtime_timestamps(item);
+                }
+            }
+            Value::Object(map) => {
+                for (key, item) in map.iter_mut() {
+                    if matches!(key.as_str(), "createdAt" | "capturedAt") {
+                        *item = Value::from(0);
+                    } else {
+                        scrub_runtime_timestamps(item);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn proxy_telemetry_observer_updates_snapshot_and_drains_events() {
+        let state = Arc::new(ProxyTelemetryState::new());
+        let observer = ProxyTelemetryObserver { state: state.clone() };
+        let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
+        let target = SocketAddr::from(([203, 0, 113, 10], 443));
+
+        observer.on_listener_started(listener, 256, 3);
+        observer.on_client_accepted();
+        observer.on_route_selected(target, 1, Some("example.org"), "connect");
+        observer.on_upstream_connected(target, Some(87));
+        observer.on_route_advanced(target, 1, 2, 7, Some("example.org"));
+        observer.on_host_autolearn_state(true, 4, 1);
+        observer.on_host_autolearn_event("host_promoted", Some("example.org"), Some(2));
+        observer.on_client_error(&std::io::Error::other("boom"));
+        observer.on_client_finished();
+
+        let first = state.snapshot();
+        assert_eq!(first.state, "running");
+        assert_eq!(first.health, "degraded");
+        assert_eq!(first.active_sessions, 0);
+        assert_eq!(first.total_sessions, 1);
+        assert_eq!(first.total_errors, 1);
+        assert_eq!(first.route_changes, 1);
+        assert_eq!(first.last_route_group, Some(2));
+        assert_eq!(first.listener_address.as_deref(), Some("127.0.0.1:1080"));
+        assert_eq!(first.upstream_address.as_deref(), Some("203.0.113.10:443"));
+        assert_eq!(first.upstream_rtt_ms, Some(87));
+        assert_eq!(first.last_target.as_deref(), Some("203.0.113.10:443"));
+        assert_eq!(first.last_host.as_deref(), Some("example.org"));
+        assert_eq!(first.last_error.as_deref(), Some("boom"));
+        assert!(first.autolearn_enabled);
+        assert_eq!(first.learned_host_count, 4);
+        assert_eq!(first.penalized_host_count, 1);
+        assert_eq!(first.last_autolearn_host.as_deref(), Some("example.org"));
+        assert_eq!(first.last_autolearn_group, Some(2));
+        assert_eq!(first.last_autolearn_action.as_deref(), Some("host_promoted"));
+        assert_eq!(first.native_events.len(), 5);
+
+        let second = state.snapshot();
+        assert!(second.native_events.is_empty());
+        assert_eq!(second.total_sessions, 1);
+
+        observer.on_listener_stopped();
+        let stopped = state.snapshot();
+        assert_eq!(stopped.state, "idle");
+        assert_eq!(stopped.active_sessions, 0);
+        assert_eq!(stopped.native_events.len(), 1);
+    }
+
+    #[test]
+    fn proxy_retry_pacing_telemetry_tracks_backoff_and_diversification_separately() {
+        let state = Arc::new(ProxyTelemetryState::new());
+        let observer = ProxyTelemetryObserver { state: state.clone() };
+        let target = SocketAddr::from(([203, 0, 113, 10], 443));
+
+        observer.on_retry_paced(target, 1, "same_signature_retry", 700);
+        let paced = state.snapshot();
+        assert_eq!(paced.retry_paced_count, 1);
+        assert_eq!(paced.last_retry_backoff_ms, Some(700));
+        assert_eq!(paced.last_retry_reason.as_deref(), Some("same_signature_retry"));
+        assert_eq!(paced.candidate_diversification_count, 0);
+        assert_eq!(paced.native_events.len(), 1);
+
+        observer.on_retry_paced(target, 2, "candidate_order_diversified", 0);
+        let diversified = state.snapshot();
+        assert_eq!(diversified.retry_paced_count, 1);
+        assert_eq!(diversified.last_retry_backoff_ms, None);
+        assert_eq!(diversified.last_retry_reason.as_deref(), Some("candidate_order_diversified"));
+        assert_eq!(diversified.candidate_diversification_count, 1);
+        assert_eq!(diversified.native_events.len(), 1);
+    }
+
+    #[test]
+    fn proxy_telemetry_snapshots_match_goldens() {
+        let idle = ProxyTelemetryState::new().snapshot();
+        assert_proxy_snapshot_golden("proxy_idle", &idle);
+
+        let state = Arc::new(ProxyTelemetryState::new());
+        let observer = ProxyTelemetryObserver { state: state.clone() };
+        let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
+        let target = SocketAddr::from(([203, 0, 113, 10], 443));
+
+        observer.on_listener_started(listener, 256, 3);
+        observer.on_client_accepted();
+        observer.on_route_selected(target, 1, Some("example.org"), "connect");
+        observer.on_upstream_connected(target, Some(87));
+        observer.on_route_advanced(target, 1, 2, 7, Some("example.org"));
+        observer.on_host_autolearn_state(true, 4, 1);
+        observer.on_host_autolearn_event("host_promoted", Some("example.org"), Some(2));
+        observer.on_client_error(&std::io::Error::other("boom"));
+        observer.on_client_finished();
+
+        let running = state.snapshot();
+        assert_proxy_snapshot_golden("proxy_running_degraded_first_poll", &running);
+
+        let drained = state.snapshot();
+        assert_proxy_snapshot_golden("proxy_running_degraded_second_poll", &drained);
+
+        observer.on_listener_stopped();
+        let stopped = state.snapshot();
+        assert_proxy_snapshot_golden("proxy_stopped", &stopped);
+    }
+}
