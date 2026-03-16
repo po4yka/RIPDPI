@@ -76,6 +76,7 @@ internal fun RipDpiSettingsMediumPreviewScene() {
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},
             onOpenAbout = {},
+            onOpenDataTransparency = {},
             onShareDebugBundle = {},
             permissionSummary =
                 PermissionSummaryUiState(
