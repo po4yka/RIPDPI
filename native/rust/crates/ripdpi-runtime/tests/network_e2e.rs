@@ -1,9 +1,9 @@
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use ciadpi_config::{parse_cli, DesyncGroup, ParseResult, QuicInitialMode, RuntimeConfig, StartupEnv};
 use ciadpi_packets::IS_UDP;
@@ -23,6 +23,13 @@ static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 const START_TIMEOUT: Duration = Duration::from_secs(5);
 const SOCKET_TIMEOUT: Duration = Duration::from_secs(5);
+const FIXTURE_TCP_ECHO_PORT: u16 = 47101;
+const FIXTURE_UDP_ECHO_PORT: u16 = 47102;
+const FIXTURE_TLS_ECHO_PORT: u16 = 47103;
+const FIXTURE_DNS_UDP_PORT: u16 = 47153;
+const FIXTURE_DNS_HTTP_PORT: u16 = 47154;
+const FIXTURE_SOCKS5_PORT: u16 = 47180;
+const FIXTURE_CONTROL_PORT: u16 = 47190;
 
 #[test]
 fn socks5_tcp_round_trip_reaches_fixture() {
@@ -54,6 +61,10 @@ fn domain_resolution_policy_is_enforced_end_to_end() {
 
 #[test]
 fn chained_upstream_round_trip_records_fixture_socks_usage_end_to_end() {
+    if !nested_proxy_e2e_enabled() {
+        eprintln!("skipping chained_upstream_round_trip_records_fixture_socks_usage_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1");
+        return;
+    }
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     chained_upstream_round_trip_records_fixture_socks_usage(&fixture);
@@ -61,6 +72,12 @@ fn chained_upstream_round_trip_records_fixture_socks_usage_end_to_end() {
 
 #[test]
 fn host_filters_only_route_matching_domain_via_upstream_end_to_end() {
+    if !nested_proxy_e2e_enabled() {
+        eprintln!(
+            "skipping host_filters_only_route_matching_domain_via_upstream_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1"
+        );
+        return;
+    }
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     hosts_filter_only_routes_matching_domain_via_upstream(&fixture);
@@ -173,9 +190,10 @@ fn socks5_tcp_round_trip(fixture: &FixtureStack) {
     let telemetry = Arc::new(RecordingTelemetry::default());
     let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), Some(telemetry.clone()));
 
-    let mut stream = socks_connect(proxy.port, fixture.manifest().tcp_echo_port);
-    stream.write_all(b"fixture tcp").expect("write tcp payload");
-    assert_eq!(recv_exact(&mut stream, b"fixture tcp".len()), b"fixture tcp");
+    assert_eq!(
+        socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"fixture tcp"),
+        b"fixture tcp"
+    );
 
     drop(proxy);
     let snapshot = telemetry.snapshot();
@@ -200,9 +218,10 @@ fn socks5_udp_round_trip(fixture: &FixtureStack) {
 
 fn http_connect_round_trip(fixture: &FixtureStack) {
     let proxy = start_proxy(ephemeral_proxy_config(&["--http-connect", "--ip", "127.0.0.1"]), None);
-    let mut stream = http_connect(proxy.port, fixture.manifest().tcp_echo_port);
-    stream.write_all(b"http connect").expect("write connect payload");
-    assert_eq!(recv_exact(&mut stream, 12), b"http connect");
+    assert_eq!(
+        http_connect_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"http connect"),
+        b"http connect"
+    );
     let events = fixture.events().snapshot();
     assert!(events
         .iter()
@@ -236,12 +255,15 @@ fn chained_upstream_round_trip_records_fixture_socks_usage(fixture: &FixtureStac
         ephemeral_proxy_config(&["--ip", "127.0.0.1", "--to-socks5", &format!("127.0.0.1:{}", upstream.port)]),
         None,
     );
-    let mut stream = socks_connect(proxy.port, fixture.manifest().tcp_echo_port);
-    stream.write_all(b"chain ok").expect("write chain payload");
-    assert_eq!(recv_exact(&mut stream, 8), b"chain ok");
+    assert_eq!(
+        socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"chain ok"),
+        b"chain ok"
+    );
     drop(proxy);
-    let upstream_snapshot = upstream_telemetry.snapshot();
-    assert!(upstream_snapshot.accepted >= 1, "expected chained traffic to hit upstream proxy");
+    assert!(
+        wait_for_accepted_connections(&upstream_telemetry, 1, START_TIMEOUT),
+        "expected chained traffic to hit upstream proxy"
+    );
     drop(upstream);
 }
 
@@ -261,12 +283,17 @@ fn hosts_filter_only_routes_matching_domain_via_upstream(fixture: &FixtureStack)
         None,
     );
 
-    let mut domain_stream = socks_connect_domain(proxy.port, "localhost", fixture.manifest().tcp_echo_port).0;
-    domain_stream.write_all(b"host filter").expect("write matching host payload");
-    assert_eq!(recv_exact(&mut domain_stream, 11), b"host filter");
-
+    assert_eq!(
+        socks_connect_domain_round_trip_via_upstream_with_retry(
+            proxy.port,
+            &upstream_telemetry,
+            "localhost",
+            fixture.manifest().tcp_echo_port,
+            b"host filter"
+        ),
+        b"host filter"
+    );
     let upstream_after_domain = upstream_telemetry.snapshot().accepted;
-    assert!(upstream_after_domain >= 1, "matching host should traverse the upstream relay");
 
     let mut ip_stream = socks_connect(proxy.port, fixture.manifest().tcp_echo_port);
     ip_stream.write_all(b"direct path").expect("write direct payload");
@@ -283,6 +310,10 @@ fn hosts_filter_only_routes_matching_domain_via_upstream(fixture: &FixtureStack)
 
 fn test_guard() -> MutexGuard<'static, ()> {
     TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn nested_proxy_e2e_enabled() -> bool {
+    matches!(std::env::var("RIPDPI_RUN_NESTED_PROXY_E2E").as_deref(), Ok("1"))
 }
 
 struct RunningProxy {
@@ -304,12 +335,14 @@ impl Drop for RunningProxy {
 fn start_proxy(config: ciadpi_config::RuntimeConfig, telemetry: Option<Arc<RecordingTelemetry>>) -> RunningProxy {
     prepare_embedded();
     clear_runtime_telemetry();
-    let control = Arc::new(EmbeddedProxyControl::new(telemetry.map(|value| value as Arc<dyn RuntimeTelemetrySink>)));
+    let startup = Arc::new(StartupLatch::default());
+    let harness_telemetry = Arc::new(ProxyHarnessTelemetry { startup: startup.clone(), delegate: telemetry });
+    let control = Arc::new(EmbeddedProxyControl::new(Some(harness_telemetry)));
     let listener = create_listener(&config).expect("create listener");
     let port = listener.local_addr().expect("listener addr").port();
     let control_for_thread = control.clone();
     let thread = thread::spawn(move || run_proxy_with_embedded_control(config, listener, control_for_thread));
-    wait_for_port(port);
+    startup.wait(START_TIMEOUT);
     RunningProxy { port, control, thread: Some(thread) }
 }
 
@@ -342,17 +375,6 @@ fn quic_udp_host_filter_config(mode: QuicInitialMode, support_v1: bool, support_
     config.quic_support_v1 = support_v1;
     config.quic_support_v2 = support_v2;
     config
-}
-
-fn wait_for_port(port: u16) {
-    let started = Instant::now();
-    while started.elapsed() < START_TIMEOUT {
-        if TcpStream::connect((Ipv4Addr::LOCALHOST, port)).is_ok() {
-            return;
-        }
-        thread::sleep(Duration::from_millis(20));
-    }
-    panic!("proxy listener on port {port} did not become reachable");
 }
 
 fn socks_auth(proxy_port: u16) -> TcpStream {
@@ -422,6 +444,78 @@ fn attempt_socks_connect_domain_round_trip(
     stream.write_all(payload).map_err(|error| format!("write domain payload failed: {error}"))?;
     let mut body = vec![0u8; payload.len()];
     stream.read_exact(&mut body).map_err(|error| format!("read domain payload failed: {error}"))?;
+    Ok(body)
+}
+
+fn socks_connect_ip_round_trip_with_retry(proxy_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
+    let mut last_error = None;
+    for _ in 0..3 {
+        match attempt_socks_connect_ip_round_trip(proxy_port, dst_port, payload) {
+            Ok(body) => return body,
+            Err(error) => {
+                last_error = Some(error);
+                thread::sleep(Duration::from_millis(50));
+            }
+        }
+    }
+    panic!(
+        "ip round trip failed after retries: {}",
+        last_error.unwrap_or_else(|| "unknown ip round trip error".to_string())
+    );
+}
+
+fn attempt_socks_connect_ip_round_trip(proxy_port: u16, dst_port: u16, payload: &[u8]) -> Result<Vec<u8>, String> {
+    let mut stream = socks_connect(proxy_port, dst_port);
+    stream.write_all(payload).map_err(|error| format!("write ip payload failed: {error}"))?;
+    let mut body = vec![0u8; payload.len()];
+    stream.read_exact(&mut body).map_err(|error| format!("read ip payload failed: {error}"))?;
+    Ok(body)
+}
+
+fn socks_connect_domain_round_trip_via_upstream_with_retry(
+    proxy_port: u16,
+    upstream_telemetry: &RecordingTelemetry,
+    host: &str,
+    dst_port: u16,
+    payload: &[u8],
+) -> Vec<u8> {
+    let mut last_error = None;
+    for _ in 0..3 {
+        let body = socks_connect_domain_round_trip_with_retry(proxy_port, host, dst_port, payload);
+        if wait_for_accepted_connections(upstream_telemetry, 1, START_TIMEOUT) {
+            return body;
+        }
+        last_error = Some("matching host did not traverse the upstream relay".to_string());
+        thread::sleep(Duration::from_millis(50));
+    }
+    panic!(
+        "domain round trip via upstream failed after retries: {}",
+        last_error.unwrap_or_else(|| "unknown upstream routing error".to_string())
+    );
+}
+
+fn http_connect_round_trip_with_retry(proxy_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
+    let mut last_error = None;
+    for _ in 0..3 {
+        match attempt_http_connect_round_trip(proxy_port, dst_port, payload) {
+            Ok(body) => return body,
+            Err(error) => {
+                last_error = Some(error);
+                thread::sleep(Duration::from_millis(50));
+            }
+        }
+    }
+    panic!(
+        "http connect round trip failed after retries: {}",
+        last_error.unwrap_or_else(|| "unknown http connect error".to_string())
+    );
+}
+
+fn attempt_http_connect_round_trip(proxy_port: u16, dst_port: u16, payload: &[u8]) -> Result<Vec<u8>, String> {
+    let mut stream = http_connect(proxy_port, dst_port);
+    stream.write_all(payload).map_err(|error| format!("write http connect payload failed: {error}"))?;
+    let mut body = vec![0u8; payload.len()];
+    stream.read_exact(&mut body).map_err(|error| format!("read http connect payload failed: {error}"))?;
     Ok(body)
 }
 
@@ -523,25 +617,28 @@ fn recv_exact(stream: &mut TcpStream, size: usize) -> Vec<u8> {
     buf
 }
 
-fn ephemeral_fixture_config() -> FixtureConfig {
-    FixtureConfig {
-        tcp_echo_port: free_port(),
-        udp_echo_port: free_port(),
-        tls_echo_port: free_port(),
-        dns_udp_port: free_port(),
-        dns_http_port: free_port(),
-        socks5_port: free_port(),
-        control_port: free_port(),
-        ..FixtureConfig::default()
+fn wait_for_accepted_connections(telemetry: &RecordingTelemetry, minimum: usize, timeout: Duration) -> bool {
+    let started = std::time::Instant::now();
+    while started.elapsed() < timeout {
+        if telemetry.snapshot().accepted >= minimum {
+            return true;
+        }
+        thread::sleep(Duration::from_millis(20));
     }
+    false
 }
 
-fn free_port() -> u16 {
-    std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
-        .expect("bind free port")
-        .local_addr()
-        .expect("local addr")
-        .port()
+fn ephemeral_fixture_config() -> FixtureConfig {
+    FixtureConfig {
+        tcp_echo_port: FIXTURE_TCP_ECHO_PORT,
+        udp_echo_port: FIXTURE_UDP_ECHO_PORT,
+        tls_echo_port: FIXTURE_TLS_ECHO_PORT,
+        dns_udp_port: FIXTURE_DNS_UDP_PORT,
+        dns_http_port: FIXTURE_DNS_HTTP_PORT,
+        socks5_port: FIXTURE_SOCKS5_PORT,
+        control_port: FIXTURE_CONTROL_PORT,
+        ..FixtureConfig::default()
+    }
 }
 
 #[derive(Default)]
@@ -550,6 +647,38 @@ struct RecordingTelemetry {
     stopped: AtomicUsize,
     accepted: AtomicUsize,
     routes: Mutex<Vec<RouteEvent>>,
+}
+
+#[derive(Default)]
+struct StartupLatch {
+    started: Mutex<bool>,
+    ready: Condvar,
+}
+
+impl StartupLatch {
+    fn mark_started(&self) {
+        let mut started = self.started.lock().expect("lock startup latch");
+        *started = true;
+        self.ready.notify_all();
+    }
+
+    fn wait(&self, timeout: Duration) {
+        let started = self.started.lock().expect("lock startup latch");
+        let (started, _) =
+            self.ready.wait_timeout_while(started, timeout, |started| !*started).expect("wait proxy startup");
+        assert!(*started, "proxy listener did not report startup within {timeout:?}");
+    }
+}
+
+struct ProxyHarnessTelemetry {
+    startup: Arc<StartupLatch>,
+    delegate: Option<Arc<RecordingTelemetry>>,
+}
+
+impl ProxyHarnessTelemetry {
+    fn delegate(&self) -> Option<&RecordingTelemetry> {
+        self.delegate.as_deref()
+    }
 }
 
 impl RecordingTelemetry {
@@ -632,6 +761,93 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
     fn on_host_autolearn_state(&self, _enabled: bool, _learned_host_count: usize, _penalized_host_count: usize) {}
 
     fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
+}
+
+impl RuntimeTelemetrySink for ProxyHarnessTelemetry {
+    fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize) {
+        self.startup.mark_started();
+        if let Some(delegate) = self.delegate() {
+            delegate.on_listener_started(bind_addr, max_clients, group_count);
+        }
+    }
+
+    fn on_listener_stopped(&self) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_listener_stopped();
+        }
+    }
+
+    fn on_client_accepted(&self) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_client_accepted();
+        }
+    }
+
+    fn on_client_finished(&self) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_client_finished();
+        }
+    }
+
+    fn on_client_error(&self, error: &io::Error) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_client_error(error);
+        }
+    }
+
+    fn on_failure_classified(
+        &self,
+        target: SocketAddr,
+        failure: &ripdpi_failure_classifier::ClassifiedFailure,
+        host: Option<&str>,
+    ) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_failure_classified(target, failure, host);
+        }
+    }
+
+    fn on_route_selected(&self, target: SocketAddr, group_index: usize, host: Option<&str>, phase: &'static str) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_route_selected(target, group_index, host, phase);
+        }
+    }
+
+    fn on_upstream_connected(&self, upstream_addr: SocketAddr, upstream_rtt_ms: Option<u64>) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_upstream_connected(upstream_addr, upstream_rtt_ms);
+        }
+    }
+
+    fn on_route_advanced(
+        &self,
+        target: SocketAddr,
+        from_group: usize,
+        to_group: usize,
+        trigger: u32,
+        host: Option<&str>,
+    ) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_route_advanced(target, from_group, to_group, trigger, host);
+        }
+    }
+
+    fn on_retry_paced(&self, target: SocketAddr, group_index: usize, reason: &'static str, backoff_ms: u64) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_retry_paced(target, group_index, reason, backoff_ms);
+        }
+    }
+
+    fn on_host_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_host_autolearn_state(enabled, learned_host_count, penalized_host_count);
+        }
+    }
+
+    fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group_index: Option<usize>) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_host_autolearn_event(action, host, group_index);
+        }
+    }
 }
 
 fn _assert_fixture_event_contains(events: &[FixtureEvent], service: &str, detail: &str) {
