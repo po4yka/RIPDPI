@@ -93,6 +93,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.security.MessageDigest
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -110,6 +111,11 @@ internal const val AdaptiveSplitPresetCustom = "custom"
 internal const val AdaptiveFakeTtlModeFixed = "fixed"
 internal const val AdaptiveFakeTtlModeAdaptive = "adaptive"
 internal const val AdaptiveFakeTtlModeCustom = "custom"
+
+internal fun hashPin(pin: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    return digest.digest(pin.toByteArray()).joinToString("") { "%02x".format(it) }
+}
 
 sealed interface SettingsEffect {
     data class SettingChanged(
@@ -226,7 +232,7 @@ data class SettingsUiState(
     val onboardingComplete: Boolean = false,
     val webrtcProtectionEnabled: Boolean = false,
     val biometricEnabled: Boolean = false,
-    val backupPin: String = "",
+    val backupPinHash: String = "",
     val diagnosticsMonitorEnabled: Boolean = true,
     val diagnosticsSampleIntervalSeconds: Int = 15,
     val diagnosticsHistoryRetentionDays: Int = 14,
@@ -248,7 +254,7 @@ data class SettingsUiState(
     val isHydrated: Boolean = true,
 ) {
     val hasBackupPin: Boolean
-        get() = backupPin.isNotBlank()
+        get() = backupPinHash.isNotBlank()
 
     val isServiceRunning: Boolean
         get() = serviceStatus == AppStatus.Running
@@ -620,7 +626,7 @@ internal fun AppSettings.toUiState(
         onboardingComplete = onboardingComplete,
         webrtcProtectionEnabled = webrtcProtectionEnabled,
         biometricEnabled = biometricEnabled,
-        backupPin = backupPin,
+        backupPinHash = backupPin,
         diagnosticsMonitorEnabled = diagnosticsMonitorEnabled,
         diagnosticsSampleIntervalSeconds =
             diagnosticsSampleIntervalSeconds
@@ -944,12 +950,18 @@ class SettingsViewModel
     }
 
     fun setBackupPin(pin: String) {
+        val hashed = if (pin.isBlank()) "" else hashPin(pin)
         updateSetting(
             key = "backupPin",
-            value = pin,
+            value = hashed,
         ) {
-            setBackupPin(pin)
+            setBackupPin(hashed)
         }
+    }
+
+    fun verifyBackupPin(pin: String): Boolean {
+        val state = uiState.value
+        return state.backupPinHash.isNotBlank() && hashPin(pin) == state.backupPinHash
     }
 
     fun resetSettings() {
