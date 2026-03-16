@@ -19,13 +19,13 @@ extensions.configure<ApplicationExtension> {
     }
 
     signingConfigs {
-        val storeFilePath = System.getenv("SIGNING_STORE_FILE")
+        val storeFilePath = System.getenv("RIPDPI_SIGNING_STORE_FILE")
         if (storeFilePath != null) {
             create("release") {
                 storeFile = file(storeFilePath)
-                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
-                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+                storePassword = System.getenv("RIPDPI_SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("RIPDPI_SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("RIPDPI_SIGNING_KEY_PASSWORD")
             }
         }
     }
