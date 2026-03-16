@@ -1,57 +1,21 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
-import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.displayLabel
-import com.poyka.ripdpi.data.formatOffsetExpressionLabel
-import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
-import com.poyka.ripdpi.data.diagnostics.decodeSummary
-import com.poyka.ripdpi.data.diagnostics.retryCount
-import com.poyka.ripdpi.data.diagnostics.rttBand
-import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
-import com.poyka.ripdpi.diagnostics.BypassApproachDetail
-import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
-import com.poyka.ripdpi.diagnostics.BypassStrategySignature
-import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
-import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
-import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
-import com.poyka.ripdpi.diagnostics.ProbeDetail
-import com.poyka.ripdpi.diagnostics.ProbeResult
-import com.poyka.ripdpi.diagnostics.ResolverRecommendation
-import com.poyka.ripdpi.diagnostics.ScanKind
-import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
-import com.poyka.ripdpi.diagnostics.ScanReport
-import com.poyka.ripdpi.diagnostics.ScanRequest
-import com.poyka.ripdpi.diagnostics.ShareSummary
-import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
-import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
-import com.poyka.ripdpi.diagnostics.StrategyProbeReport
-import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
-import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
-import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ActiveConnectionPolicy
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 
 internal class DiagnosticsUiStateFactory(
-    private val json: Json = Json { ignoreUnknownKeys = true },
-    private val timestampFormatter: SimpleDateFormat = SimpleDateFormat("MMM d, HH:mm", Locale.US),
+    private val support: DiagnosticsUiFactorySupport = DiagnosticsUiFactorySupport(),
 ) {
     fun buildUiState(
         profiles: List<DiagnosticProfileEntity>,
@@ -84,96 +48,50 @@ internal class DiagnosticsUiStateFactory(
         sensitiveSessionDetailsVisible: Boolean,
         archiveActionState: ArchiveActionState,
     ): DiagnosticsUiState {
-        val activeProfile =
-            profiles.firstOrNull { it.id == selectedProfileId }
-                ?: profiles.firstOrNull()
-        val activeProfileRequest = activeProfile?.decodeRequest()
-        val latestSnapshot = snapshots.firstOrNull()?.toUiModel(showSensitiveDetails = false)
-        val latestContext = (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.decodeContext()
-        val eventModels = nativeEvents.map { it.toUiModel() }
-        val sessionRows = sessions.map(::toSessionRowUiModel)
-        val selectedProfileUi = activeProfile?.toOptionUiModel()
+        val activeProfile = profiles.firstOrNull { it.id == selectedProfileId } ?: profiles.firstOrNull()
+        val activeProfileRequest = activeProfile?.let(support::decodeRequest)
+        val selectedProfileUi = activeProfile?.let(support::toProfileOptionUiModel)
+
+        val latestSnapshot = snapshots.firstOrNull()?.let { support.toNetworkSnapshotUiModel(it, showSensitiveDetails = false) }
+        val latestContext = (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.let(support::decodeContext)
+        val eventModels = nativeEvents.map(support::toEventUiModel)
+        val sessionRows = sessions.map(support::toSessionRowUiModel)
+
         val latestCompletedSession = sessions.firstOrNull { it.reportJson != null } ?: sessions.firstOrNull()
         val latestProfileSession =
             sessions.firstOrNull { it.profileId == activeProfile?.id && it.reportJson != null }
                 ?: sessions.firstOrNull { it.profileId == activeProfile?.id }
                 ?: latestCompletedSession
-        val latestProfileReport = latestProfileSession?.reportJson?.let(::decodeReport)
-        val latestReport = latestCompletedSession?.reportJson?.let(::decodeReport)
-        val latestReportResults = latestProfileReport?.results?.mapIndexed(::toProbeResultUiModel).orEmpty()
-        val latestResolverRecommendation = latestProfileReport?.resolverRecommendation?.toUiModel()
+        val latestProfileReport = latestProfileSession?.reportJson?.let(support::decodeReport)
+        val latestReport = latestCompletedSession?.reportJson?.let(support::decodeReport)
+        val latestReportResults = latestProfileReport?.results?.mapIndexed(support::toProbeResultUiModel).orEmpty()
+        val latestResolverRecommendation = latestProfileReport?.resolverRecommendation?.let(support::toResolverRecommendationUiModel)
         val latestStrategyProbeReport =
-            latestProfileReport?.strategyProbeReport?.toUiModel(
-                reportResults = latestProfileReport.results,
-                serviceMode = latestProfileSession?.serviceMode,
-            )
+            latestProfileReport?.strategyProbeReport?.let { report ->
+                support.toStrategyProbeReportUiModel(
+                    report = report,
+                    reportResults = latestProfileReport.results,
+                    serviceMode = latestProfileSession?.serviceMode,
+                )
+            }
+
         val currentTelemetry = telemetry.firstOrNull()
-        val health = deriveHealth(progress, latestCompletedSession, currentTelemetry, nativeEvents)
-        val strategyProbeSelected = selectedProfileUi?.isStrategyProbe == true
-        val rawArgsEnabled = settings.enableCmdSettings
-        val runRawEnabled = progress == null && !(strategyProbeSelected && rawArgsEnabled)
-        val runInPathEnabled = progress == null && !strategyProbeSelected
-        val strategyProbeWorkflowLabel =
-            if (selectedProfileUi?.isFullAudit == true) {
-                "Automatic audit"
-            } else {
-                "Automatic probing"
+        val health = support.deriveHealth(progress, latestCompletedSession, currentTelemetry, nativeEvents)
+        val warnings =
+            (support.buildContextWarnings(latestContext) +
+                eventModels.filter { it.tone == DiagnosticsTone.Negative || it.tone == DiagnosticsTone.Warning })
+                .take(3)
+        val rememberedNetworkRows =
+            rememberedPolicies.map { policy ->
+                support.toRememberedNetworkUiModel(policy, activeConnectionPolicy)
             }
-        val runRawHint =
-            when {
-                strategyProbeSelected && rawArgsEnabled ->
-                    "$strategyProbeWorkflowLabel only works with visual RIPDPI settings. Command-line mode is active."
 
-                strategyProbeSelected ->
-                    "$strategyProbeWorkflowLabel starts a temporary raw-path RIPDPI runtime and returns a manual recommendation."
-
-                else -> null
-            }
-        val runInPathHint =
-            when {
-                strategyProbeSelected ->
-                    "$strategyProbeWorkflowLabel is raw-path only because it launches isolated temporary strategy trials."
-
-                else -> null
-            }
         val selectedSection =
             if (progress != null) {
                 DiagnosticsSection.Scan
             } else {
                 selectedSectionRequest
             }
-        val filteredSessions =
-            sessionRows.filter { session ->
-                (sessionPathMode == null || session.pathMode == sessionPathMode) &&
-                    (sessionStatus == null || session.status.equals(sessionStatus, ignoreCase = true)) &&
-                    session.matchesQuery(sessionSearch)
-            }
-        val filteredEvents =
-            eventModels.filter { event ->
-                (eventSource == null || event.source.equals(eventSource, ignoreCase = true)) &&
-                    (eventSeverity == null || event.severity.equals(eventSeverity, ignoreCase = true)) &&
-                    event.matchesQuery(eventSearch)
-            }
-        val selectedEvent = filteredEvents.firstOrNull { it.id == selectedEventId }
-        val sharePreview = buildSharePreview(latestCompletedSession, latestSnapshot, latestContext, currentTelemetry, nativeEvents, latestReport)
-        val liveMetrics = buildLiveMetrics(currentTelemetry, nativeEvents)
-        val liveTrends = buildLiveTrends(telemetry)
-        val liveHighlights = buildLiveHighlights(currentTelemetry, nativeEvents)
-        val rememberedNetworkRows = rememberedPolicies.map { it.toRememberedNetworkUiModel(activeConnectionPolicy) }
-        val selectedApproachKind =
-            when (selectedApproachMode) {
-                DiagnosticsApproachMode.Profiles -> BypassApproachKind.Profile
-                DiagnosticsApproachMode.Strategies -> BypassApproachKind.Strategy
-            }
-        val filteredApproaches =
-            approachStats
-                .filter { it.approachId.kind == selectedApproachKind }
-                .map { it.toApproachRowUiModel(selectedApproachMode) }
-        val warnings =
-            (buildContextWarnings(latestContext) + eventModels.filter { it.tone == DiagnosticsTone.Negative || it.tone == DiagnosticsTone.Warning })
-                .take(3)
-        val overviewContext = latestContext?.toOverviewContextGroup()
-        val liveContextGroups = latestContext?.toLiveContextGroups() ?: emptyList()
         val sessionDetailWithVisibility =
             selectedSessionDetail?.copy(
                 sensitiveDetailsVisible = sensitiveSessionDetailsVisible,
@@ -187,163 +105,83 @@ internal class DiagnosticsUiStateFactory(
                     ?: latestStrategyProbeReport?.candidateDetails?.get(candidate.id)
                     ?: candidate
             }
+        val (eventsUi, selectedEvent) =
+            support.buildEventsUiModel(
+                eventModels = eventModels,
+                selectedEventId = selectedEventId,
+                eventSource = eventSource,
+                eventSeverity = eventSeverity,
+                eventSearch = eventSearch,
+                eventAutoScroll = eventAutoScroll,
+            )
 
         return DiagnosticsUiState(
             selectedSection = selectedSection,
             overview =
-                DiagnosticsOverviewUiModel(
+                support.buildOverviewUiModel(
                     health = health,
-                    headline = overviewHeadline(health, progress, latestCompletedSession),
-                    body = overviewBody(health, latestSnapshot, currentTelemetry),
-                    activeProfile = selectedProfileUi,
+                    progress = progress,
+                    latestSession = latestCompletedSession,
                     latestSnapshot = latestSnapshot,
-                    latestSession = sessionRows.firstOrNull(),
-                    contextSummary = overviewContext,
-                    metrics =
-                        buildList {
-                            add(
-                                DiagnosticsMetricUiModel(
-                                    label = "Sessions",
-                                    value = sessions.size.toString(),
-                                ),
-                            )
-                            add(
-                                DiagnosticsMetricUiModel(
-                                    label = "Events",
-                                    value = nativeEvents.size.toString(),
-                                    tone =
-                                        when (health) {
-                                            DiagnosticsHealth.Degraded -> DiagnosticsTone.Negative
-                                            DiagnosticsHealth.Attention -> DiagnosticsTone.Warning
-                                            DiagnosticsHealth.Healthy -> DiagnosticsTone.Positive
-                                            DiagnosticsHealth.Idle -> DiagnosticsTone.Neutral
-                                        },
-                                ),
-                            )
-                            currentTelemetry?.let { sample ->
-                                add(
-                                    DiagnosticsMetricUiModel(
-                                        label = "TX",
-                                        value = formatBytes(sample.txBytes),
-                                        tone = DiagnosticsTone.Info,
-                                    ),
-                                )
-                                add(
-                                    DiagnosticsMetricUiModel(
-                                        label = "RX",
-                                        value = formatBytes(sample.rxBytes),
-                                        tone = DiagnosticsTone.Info,
-                                    ),
-                                )
-                            }
-                        },
+                    latestContext = latestContext,
+                    currentTelemetry = currentTelemetry,
+                    sessions = sessions,
+                    nativeEvents = nativeEvents,
+                    selectedProfile = selectedProfileUi,
+                    sessionRows = sessionRows,
+                    rememberedNetworkRows = rememberedNetworkRows,
                     warnings = warnings,
-                    rememberedNetworks = rememberedNetworkRows.take(6),
                 ),
             scan =
-                DiagnosticsScanUiModel(
-                    profiles = profiles.map { it.toOptionUiModel() },
-                    selectedProfileId = activeProfile?.id,
-                    selectedProfile = selectedProfileUi,
-                    activePathMode = latestProfileSession?.pathMode?.let(::parsePathMode) ?: ScanPathMode.RAW_PATH,
-                    activeProgress = progress?.toUiModel(),
-                    latestSession = latestProfileSession?.let(::toSessionRowUiModel),
-                    latestResults = latestReportResults,
-                    selectedProfileScopeLabel = activeProfileRequest.toScopeLabel(rawArgsEnabled = rawArgsEnabled),
-                    runRawEnabled = runRawEnabled,
-                    runInPathEnabled = runInPathEnabled,
-                    runRawHint = runRawHint,
-                    runInPathHint = runInPathHint,
-                    resolverRecommendation = latestResolverRecommendation,
-                    strategyProbeReport = latestStrategyProbeReport,
-                    isBusy = progress != null,
+                support.buildScanUiModel(
+                    profiles = profiles,
+                    activeProfile = activeProfile,
+                    activeProfileRequest = activeProfileRequest,
+                    latestProfileSession = latestProfileSession,
+                    latestReportResults = latestReportResults,
+                    latestResolverRecommendation = latestResolverRecommendation,
+                    latestStrategyProbeReport = latestStrategyProbeReport,
+                    progress = progress,
+                    rawArgsEnabled = settings.enableCmdSettings,
                 ),
             live =
-                DiagnosticsLiveUiModel(
-                    statusLabel = currentTelemetry?.connectionState ?: "Idle",
-                    freshnessLabel =
-                        currentTelemetry?.createdAt?.let { "Updated ${formatTimestamp(it)}" }
-                            ?: "No live telemetry",
-                    headline = buildLiveHeadline(health, currentTelemetry, nativeEvents),
-                    body = buildLiveBody(currentTelemetry, nativeEvents),
-                    networkLabel = currentTelemetry?.networkType,
-                    modeLabel = currentTelemetry?.activeMode,
-                    signalLabel = buildLiveSignalLabel(currentTelemetry),
-                    eventSummaryLabel = buildLiveEventSummaryLabel(nativeEvents),
-                    highlights = liveHighlights,
-                    metrics = liveMetrics,
-                    trends = liveTrends,
-                    snapshot = latestSnapshot,
-                    contextGroups = liveContextGroups,
-                    passiveEvents = eventModels.take(8),
+                support.buildLiveUiModel(
+                    health = health,
+                    telemetry = telemetry,
+                    currentTelemetry = currentTelemetry,
+                    nativeEvents = nativeEvents,
+                    latestSnapshot = latestSnapshot,
+                    latestContext = latestContext,
+                    eventModels = eventModels,
                 ),
             sessions =
-                DiagnosticsSessionsUiModel(
-                    filters =
-                        DiagnosticsSessionFiltersUiModel(
-                            pathMode = sessionPathMode,
-                            status = sessionStatus,
-                            query = sessionSearch,
-                        ),
-                    sessions = filteredSessions,
-                    pathModes = sessions.map { it.pathMode }.distinct(),
-                    statuses = sessions.map { it.status }.distinct(),
-                    focusedSessionId = selectedSessionDetail?.session?.id,
+                support.buildSessionsUiModel(
+                    sessions = sessions,
+                    sessionRows = sessionRows,
+                    sessionPathMode = sessionPathMode,
+                    sessionStatus = sessionStatus,
+                    sessionSearch = sessionSearch,
+                    selectedSessionDetail = selectedSessionDetail,
                 ),
             approaches =
-                DiagnosticsApproachesUiModel(
-                    selectedMode = selectedApproachMode,
-                    rows = filteredApproaches,
-                    focusedApproachId = selectedApproachDetail?.approach?.id,
+                support.buildApproachesUiModel(
+                    approachStats = approachStats,
+                    selectedApproachMode = selectedApproachMode,
+                    selectedApproachDetail = selectedApproachDetail,
                 ),
-            events =
-                DiagnosticsEventsUiModel(
-                    filters =
-                        DiagnosticsEventFiltersUiModel(
-                            source = eventSource,
-                            severity = eventSeverity,
-                            search = eventSearch,
-                            autoScroll = eventAutoScroll,
-                        ),
-                    events = filteredEvents,
-                    availableSources = eventModels.map { it.source }.distinct(),
-                    availableSeverities = eventModels.map { it.severity }.distinct(),
-                    focusedEventId = selectedEvent?.id,
-                ),
+            events = eventsUi,
             share =
-                DiagnosticsShareUiModel(
-                    targetSessionId = selectedSessionDetail?.session?.id ?: latestCompletedSession?.id,
-                    previewTitle = sharePreview.title,
-                    previewBody =
-                        buildString {
-                            append(sharePreview.body)
-                            approachStats
-                                .firstOrNull { it.approachId.kind == BypassApproachKind.Strategy }
-                                ?.let { summary ->
-                                    append("\n\nArchive includes approach analytics for ")
-                                    append(summary.displayName)
-                                    append(" with ")
-                                    append(summary.verificationState)
-                                    append(" validation and runtime health context.")
-                                }
-                        },
-                    metrics =
-                        sharePreview.compactMetrics.map { DiagnosticsMetricUiModel(it.label, it.value) } +
-                            listOfNotNull(
-                                approachStats
-                                    .firstOrNull { it.approachId.kind == BypassApproachKind.Strategy }
-                                    ?.let { summary ->
-                                        DiagnosticsMetricUiModel(
-                                            label = "Approach",
-                                            value = summary.displayName,
-                                            tone = summary.toTone(),
-                                        )
-                                    },
-                            ),
-                    latestArchiveFileName = archiveActionState.latestArchiveFileName ?: exports.firstOrNull()?.fileName,
-                    archiveStateMessage = archiveActionState.message,
-                    archiveStateTone = archiveActionState.tone,
-                    isArchiveBusy = archiveActionState.isBusy,
+                support.buildShareUiModel(
+                    latestCompletedSession = latestCompletedSession,
+                    latestSnapshot = latestSnapshot,
+                    latestContext = latestContext,
+                    currentTelemetry = currentTelemetry,
+                    nativeEvents = nativeEvents,
+                    latestReport = latestReport,
+                    approachStats = approachStats,
+                    selectedSessionDetail = selectedSessionDetail,
+                    archiveActionState = archiveActionState,
+                    exports = exports,
                 ),
             selectedSessionDetail = sessionDetailWithVisibility,
             selectedApproachDetail = selectedApproachDetail,
@@ -357,1505 +195,42 @@ internal class DiagnosticsUiStateFactory(
         detail: DiagnosticSessionDetail,
         showSensitiveDetails: Boolean,
     ): DiagnosticsSessionDetailUiModel {
-        val report = detail.session.reportJson?.let(::decodeReport)
+        val report = detail.session.reportJson?.let(support::decodeReport)
         val probeGroups =
             detail.results
-                .mapIndexed { index, result -> result.toUiModel(index) }
+                .mapIndexed(support::toProbeResultUiModel)
                 .groupBy { it.probeType }
-                .map { (group, items) ->
+                .map { (title, items) ->
                     DiagnosticsProbeGroupUiModel(
-                        title = group,
+                        title = title,
                         items = items,
                     )
                 }
         return DiagnosticsSessionDetailUiModel(
-            session = toSessionRowUiModel(detail.session),
+            session = support.toSessionRowUiModel(detail.session),
             probeGroups = probeGroups,
-            snapshots = detail.snapshots.mapNotNull { it.toUiModel(showSensitiveDetails = showSensitiveDetails) },
-            events = detail.events.map { it.toUiModel() },
-            contextGroups = detail.context?.decodeContext()?.toUiGroups(showSensitiveDetails = showSensitiveDetails).orEmpty(),
+            snapshots = detail.snapshots.mapNotNull { snapshot -> support.toNetworkSnapshotUiModel(snapshot, showSensitiveDetails) },
+            events = detail.events.map(support::toEventUiModel),
+            contextGroups =
+                detail.context
+                    ?.let(support::decodeContext)
+                    ?.let { context -> support.toContextUiGroups(context, showSensitiveDetails) }
+                    .orEmpty(),
             strategyProbeReport =
-                report?.strategyProbeReport?.toUiModel(
-                    reportResults = report.results,
-                    serviceMode = detail.session.serviceMode,
-                ),
+                report?.strategyProbeReport?.let { strategyReport ->
+                    support.toStrategyProbeReportUiModel(
+                        report = strategyReport,
+                        reportResults = report.results,
+                        serviceMode = detail.session.serviceMode,
+                    )
+                },
             hasSensitiveDetails = true,
             sensitiveDetailsVisible = showSensitiveDetails,
         )
     }
 
-    fun toApproachDetailUiModel(detail: BypassApproachDetail): DiagnosticsApproachDetailUiModel =
-        detail.toUiModel()
-
-    private fun overviewHeadline(
-        health: DiagnosticsHealth,
-        progress: ScanProgress?,
-        latestSession: ScanSessionEntity?,
-    ): String =
-        when {
-            progress != null -> "Diagnostics scan is active"
-            latestSession == null -> "No diagnostics captured yet"
-            health == DiagnosticsHealth.Degraded -> "The network path needs attention"
-            health == DiagnosticsHealth.Attention -> "Diagnostics are reporting mixed signals"
-            health == DiagnosticsHealth.Healthy -> "Current telemetry looks stable"
-            else -> "Waiting for the next diagnostics session"
-        }
-
-    private fun overviewBody(
-        health: DiagnosticsHealth,
-        latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
-        telemetry: TelemetrySampleEntity?,
-    ): String =
-        when (health) {
-            DiagnosticsHealth.Healthy ->
-                "Passive telemetry and the latest report do not show critical failures. Review live counters for drift."
-            DiagnosticsHealth.Attention ->
-                "Warnings or partial failures were detected. Compare the latest scan outcome with the current live monitor."
-            DiagnosticsHealth.Degraded ->
-                "Recent events or scan outcomes indicate blocking, failures, or transport instability."
-            DiagnosticsHealth.Idle ->
-                latestSnapshot?.subtitle
-                    ?: telemetry?.connectionState
-                    ?: "Start RIPDPI or run a scan to populate diagnostics analytics."
-        }
-
-    private fun deriveHealth(
-        progress: ScanProgress?,
-        latestSession: ScanSessionEntity?,
-        latestTelemetry: TelemetrySampleEntity?,
-        nativeEvents: List<NativeSessionEventEntity>,
-    ): DiagnosticsHealth {
-        if (progress != null) {
-            return DiagnosticsHealth.Attention
-        }
-        if (latestSession == null && latestTelemetry == null && nativeEvents.isEmpty()) {
-            return DiagnosticsHealth.Idle
-        }
-        if (nativeEvents.any { it.level.equals("error", ignoreCase = true) }) {
-            return DiagnosticsHealth.Degraded
-        }
-        if (latestSession?.status?.contains("failed", ignoreCase = true) == true) {
-            return DiagnosticsHealth.Degraded
-        }
-        if (nativeEvents.any { it.level.equals("warn", ignoreCase = true) }) {
-            return DiagnosticsHealth.Attention
-        }
-        return DiagnosticsHealth.Healthy
-    }
-
-    private fun buildLiveMetrics(
-        telemetry: TelemetrySampleEntity?,
-        events: List<NativeSessionEventEntity>,
-    ): List<DiagnosticsMetricUiModel> =
-        buildList {
-            if (telemetry != null) {
-                add(DiagnosticsMetricUiModel(label = "Network", value = telemetry.networkType))
-                add(DiagnosticsMetricUiModel(label = "Mode", value = telemetry.activeMode ?: "Idle"))
-                telemetry.lastFailureClass?.let { failureClass ->
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "Latest native failure",
-                            value = failureClass,
-                            tone = DiagnosticsTone.Warning,
-                        ),
-                    )
-                }
-                telemetry.lastFallbackAction?.let { fallbackAction ->
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "Fallback action",
-                            value = fallbackAction,
-                            tone = DiagnosticsTone.Info,
-                        ),
-                    )
-                }
-                telemetry.failureClass?.let { failureClass ->
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "Failure class",
-                            value = failureClass,
-                            tone = DiagnosticsTone.Warning,
-                        ),
-                    )
-                }
-                telemetry.winningStrategyFamily()?.let { winningStrategy ->
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "Winning strategy",
-                            value = winningStrategy,
-                            tone = DiagnosticsTone.Positive,
-                        ),
-                    )
-                }
-                add(
-                    DiagnosticsMetricUiModel(
-                        label = "RTT band",
-                        value = telemetry.rttBand(),
-                        tone = DiagnosticsTone.Info,
-                    ),
-                )
-                add(
-                    DiagnosticsMetricUiModel(
-                        label = "Retries",
-                        value = telemetry.retryCount().toString(),
-                        tone =
-                            if (telemetry.retryCount() > 0) {
-                                DiagnosticsTone.Warning
-                            } else {
-                                DiagnosticsTone.Neutral
-                            },
-                    ),
-                )
-                telemetry.resolverId?.let { resolverId ->
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "Resolver",
-                            value = listOfNotNull(resolverId, telemetry.resolverProtocol).joinToString(" · "),
-                            tone = DiagnosticsTone.Info,
-                        ),
-                    )
-                }
-                telemetry.resolverLatencyMs?.let { latency ->
-                    add(DiagnosticsMetricUiModel(label = "DNS latency", value = "$latency ms", tone = DiagnosticsTone.Info))
-                }
-                if (telemetry.dnsFailuresTotal > 0) {
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "DNS failures",
-                            value = telemetry.dnsFailuresTotal.toString(),
-                            tone = DiagnosticsTone.Warning,
-                        ),
-                    )
-                }
-                add(DiagnosticsMetricUiModel(label = "TX packets", value = telemetry.txPackets.toString(), tone = DiagnosticsTone.Info))
-                add(DiagnosticsMetricUiModel(label = "RX packets", value = telemetry.rxPackets.toString(), tone = DiagnosticsTone.Info))
-            }
-            add(
-                DiagnosticsMetricUiModel(
-                    label = "Warnings",
-                    value = events.count { it.level.equals("warn", ignoreCase = true) }.toString(),
-                    tone = DiagnosticsTone.Warning,
-                ),
-            )
-            add(
-                DiagnosticsMetricUiModel(
-                    label = "Errors",
-                    value = events.count { it.level.equals("error", ignoreCase = true) }.toString(),
-                    tone = DiagnosticsTone.Negative,
-                ),
-            )
-        }
-
-    private fun buildLiveHighlights(
-        telemetry: TelemetrySampleEntity?,
-        events: List<NativeSessionEventEntity>,
-    ): List<DiagnosticsMetricUiModel> {
-        val warningCount = events.count { it.level.equals("warn", ignoreCase = true) }
-        val errorCount = events.count { it.level.equals("error", ignoreCase = true) }
-        return buildList {
-            telemetry?.let {
-                add(DiagnosticsMetricUiModel(label = "TX", value = formatBytes(it.txBytes), tone = DiagnosticsTone.Info))
-                add(DiagnosticsMetricUiModel(label = "RX", value = formatBytes(it.rxBytes), tone = DiagnosticsTone.Positive))
-                it.winningStrategyFamily()?.let { winningStrategy ->
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "Strategy",
-                            value = winningStrategy,
-                            tone = DiagnosticsTone.Positive,
-                        ),
-                    )
-                }
-                add(
-                    DiagnosticsMetricUiModel(
-                        label = "RTT",
-                        value = it.rttBand(),
-                        tone = DiagnosticsTone.Info,
-                    ),
-                )
-                add(
-                    DiagnosticsMetricUiModel(
-                        label = "Retries",
-                        value = it.retryCount().toString(),
-                        tone =
-                            if (it.retryCount() > 0) {
-                                DiagnosticsTone.Warning
-                            } else {
-                                DiagnosticsTone.Neutral
-                            },
-                    ),
-                )
-                if (it.resolverFallbackActive) {
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "Resolver fallback",
-                            value = it.resolverFallbackReason ?: "Active",
-                            tone = DiagnosticsTone.Warning,
-                        ),
-                    )
-                }
-                add(
-                    DiagnosticsMetricUiModel(
-                        label = "Packets",
-                        value = (it.txPackets + it.rxPackets).toString(),
-                        tone = DiagnosticsTone.Neutral,
-                    ),
-                )
-            }
-            add(
-                DiagnosticsMetricUiModel(
-                    label = "Warnings",
-                    value = warningCount.toString(),
-                    tone = if (warningCount > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
-                ),
-            )
-            add(
-                DiagnosticsMetricUiModel(
-                    label = "Errors",
-                    value = errorCount.toString(),
-                    tone = if (errorCount > 0) DiagnosticsTone.Negative else DiagnosticsTone.Neutral,
-                ),
-            )
-        }
-    }
-
-    private fun buildLiveTrends(telemetry: List<TelemetrySampleEntity>): List<DiagnosticsSparklineUiModel> {
-        val samples = telemetry.take(24).reversed()
-        if (samples.isEmpty()) {
-            return emptyList()
-        }
-        return listOf(
-            DiagnosticsSparklineUiModel(
-                label = "TX bytes",
-                values = samples.map { it.txBytes.toFloat() },
-                tone = DiagnosticsTone.Info,
-            ),
-            DiagnosticsSparklineUiModel(
-                label = "RX bytes",
-                values = samples.map { it.rxBytes.toFloat() },
-                tone = DiagnosticsTone.Positive,
-            ),
-            DiagnosticsSparklineUiModel(
-                label = "Errors",
-                values = samples.map { sample ->
-                    if (sample.connectionState.equals("running", ignoreCase = true)) {
-                        0f
-                    } else {
-                        1f
-                    }
-                },
-                tone = DiagnosticsTone.Warning,
-            ),
-        )
-    }
-
-    private fun buildLiveHeadline(
-        health: DiagnosticsHealth,
-        telemetry: TelemetrySampleEntity?,
-        events: List<NativeSessionEventEntity>,
-    ): String {
-        val surfacedEvent =
-            events.firstOrNull { it.level.equals("error", ignoreCase = true) }
-                ?: events.firstOrNull { it.level.equals("warn", ignoreCase = true) }
-        return when {
-            surfacedEvent?.level?.equals("error", ignoreCase = true) == true -> "Runtime needs intervention"
-            health == DiagnosticsHealth.Attention -> "Runtime requires a closer look"
-            telemetry == null -> "Live monitor standing by"
-            telemetry.connectionState.equals("running", ignoreCase = true) -> "Traffic is moving through ${telemetry.networkType}"
-            else -> telemetry.connectionState.replaceFirstChar { it.uppercase() }
-        }
-    }
-
-    private fun buildLiveBody(
-        telemetry: TelemetrySampleEntity?,
-        events: List<NativeSessionEventEntity>,
-    ): String {
-        val surfacedEvent =
-            events.firstOrNull { it.level.equals("error", ignoreCase = true) }
-                ?: events.firstOrNull { it.level.equals("warn", ignoreCase = true) }
-        if (surfacedEvent != null) {
-            return surfacedEvent.message
-        }
-        telemetry ?: return "Continuous monitor is waiting for an active RIPDPI session."
-        if (telemetry.lastFailureClass != null || telemetry.lastFallbackAction != null) {
-            return listOfNotNull(telemetry.lastFailureClass, telemetry.lastFallbackAction).joinToString(" · ")
-        }
-        telemetry.failureClass?.let { return "Latest failure class: $it" }
-        telemetry.resolverFallbackReason?.let { return "Encrypted DNS override active: $it" }
-        telemetry.networkHandoverClass?.let { return "Recent network handover detected: $it" }
-        telemetry.winningStrategyFamily()?.let { return "Winning strategy family: $it" }
-        val totalBytes = formatBytes(telemetry.txBytes + telemetry.rxBytes)
-        val packetCount = telemetry.txPackets + telemetry.rxPackets
-        val modeLabel = telemetry.activeMode ?: "Idle"
-        return "$modeLabel mode · $totalBytes transferred · $packetCount packets observed"
-    }
-
-    private fun buildLiveSignalLabel(telemetry: TelemetrySampleEntity?): String =
-        telemetry?.let { "${formatBytes(it.txBytes)} sent · ${formatBytes(it.rxBytes)} received" }
-            ?: "No transfer observed yet"
-
-    private fun buildLiveEventSummaryLabel(events: List<NativeSessionEventEntity>): String {
-        val warningCount = events.count { it.level.equals("warn", ignoreCase = true) }
-        val errorCount = events.count { it.level.equals("error", ignoreCase = true) }
-        return when {
-            errorCount > 0 && warningCount > 0 ->
-                "$errorCount error${pluralSuffix(errorCount)} · $warningCount warning${pluralSuffix(warningCount)} in runtime feed"
-
-            errorCount > 0 ->
-                "$errorCount error${pluralSuffix(errorCount)} in runtime feed"
-
-            warningCount > 0 ->
-                "$warningCount warning${pluralSuffix(warningCount)} in runtime feed"
-
-            events.isNotEmpty() ->
-                "${events.size} informational event${pluralSuffix(events.size)} in runtime feed"
-
-            else -> "Runtime feed is quiet"
-        }
-    }
-
-    private fun pluralSuffix(count: Int): String = if (count == 1) "" else "s"
-
-    private fun buildSharePreview(
-        latestSession: ScanSessionEntity?,
-        latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
-        latestContext: DiagnosticContextModel?,
-        telemetry: TelemetrySampleEntity?,
-        nativeEvents: List<NativeSessionEventEntity>,
-        latestReport: ScanReport?,
-    ): ShareSummary {
-        val warningHeadline =
-            nativeEvents.firstOrNull {
-                it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
-            }
-        val body =
-            buildString {
-                appendLine("Archive includes the focused diagnostics session in full.")
-                appendLine("It also adds recent live telemetry and global runtime events.")
-                appendLine("Summary and manifest redact support context and network identity fields, while raw report data stays intact.")
-                latestSession?.let {
-                    appendLine("Session ${it.id.take(8)} · ${it.pathMode} · ${it.status}")
-                }
-                latestSnapshot?.let {
-                    appendLine("Network ${it.subtitle}")
-                }
-                latestContext?.let {
-                    appendLine("Context ${it.service.activeMode.lowercase(Locale.US)} · ${it.device.manufacturer} ${it.device.model} · Android ${it.device.androidVersion}")
-                    appendLine("Permissions ${it.permissions.vpnPermissionState} VPN · ${it.permissions.notificationPermissionState} notifications")
-                }
-                telemetry?.let {
-                    appendLine("Live ${it.connectionState.lowercase(Locale.US)} · ${it.networkType}")
-                }
-                latestReport?.let { report ->
-                    appendLine("${report.results.size} probe results in the latest report")
-                    report.results.firstOrNull { it.probeType == "telegram_availability" }?.let { tg ->
-                        val tgDetails = tg.details.associate { it.key to it.value }
-                        appendLine("Telegram: ${tgDetails["verdict"] ?: tg.outcome}")
-                        tgDetails["downloadAvgBps"]?.toLongOrNull()?.let { bps ->
-                            appendLine("  Download: ${formatBps(bps)} avg, ${formatBytes(tgDetails["downloadBytes"]?.toLongOrNull() ?: 0)}")
-                        }
-                        tgDetails["uploadAvgBps"]?.toLongOrNull()?.let { bps ->
-                            appendLine("  Upload: ${formatBps(bps)} avg, ${formatBytes(tgDetails["uploadBytes"]?.toLongOrNull() ?: 0)}")
-                        }
-                        appendLine("  DCs: ${tgDetails["dcReachable"] ?: "?"}/${tgDetails["dcTotal"] ?: "?"} reachable")
-                    }
-                }
-                warningHeadline?.let {
-                    appendLine("Top warning: ${it.message}")
-                }
-            }.trim()
-        return ShareSummary(
-            title = "RIPDPI diagnostics",
-            body = body.ifBlank { "Select a diagnostics session to generate a summary." },
-            compactMetrics =
-                listOfNotNull(
-                    latestSession?.pathMode?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("Path", it) },
-                    telemetry?.networkType?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("Network", it) },
-                    latestContext?.service?.activeMode?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("Mode", it) },
-                    latestContext?.device?.appVersionName?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("App", it) },
-                    telemetry?.txBytes?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("TX", formatBytes(it)) },
-                    telemetry?.rxBytes?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("RX", formatBytes(it)) },
-                ),
-        )
-    }
-
-    private fun decodeReport(reportJson: String): ScanReport? =
-        runCatching { json.decodeFromString(ScanReport.serializer(), reportJson) }.getOrNull()
-
-    private fun DiagnosticProfileEntity.decodeRequest(): ScanRequest? =
-        runCatching { json.decodeFromString(ScanRequest.serializer(), requestJson) }.getOrNull()
-
-    private fun decodeProbeDetails(detailJson: String): List<ProbeDetail> =
-        runCatching { json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson) }.getOrElse { emptyList() }
-
-    private fun decodeStrategySignature(payload: String?): BypassStrategySignature? =
-        payload?.takeIf { it.isNotBlank() }?.let {
-            runCatching { json.decodeFromString(BypassStrategySignature.serializer(), it) }.getOrNull()
-        }
-
-    private fun NetworkSnapshotEntity.toUiModel(showSensitiveDetails: Boolean): DiagnosticsNetworkSnapshotUiModel? {
-        val snapshot = runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payloadJson) }.getOrNull() ?: return null
-        return DiagnosticsNetworkSnapshotUiModel(
-            title = snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
-            subtitle = "${snapshot.transport} · ${formatTimestamp(snapshot.capturedAt)}",
-            fields =
-                listOf(
-                    DiagnosticsFieldUiModel("Capabilities", snapshot.capabilities.joinToString().ifBlank { "Unknown" }),
-                    DiagnosticsFieldUiModel("DNS", if (showSensitiveDetails) snapshot.dnsServers.joinToString().ifBlank { "Unknown" } else redactCollection(snapshot.dnsServers)),
-                    DiagnosticsFieldUiModel("Private DNS", snapshot.privateDnsMode),
-                    DiagnosticsFieldUiModel("MTU", snapshot.mtu?.toString() ?: "Unknown"),
-                    DiagnosticsFieldUiModel("Local", if (showSensitiveDetails) snapshot.localAddresses.joinToString().ifBlank { "Unknown" } else redactCollection(snapshot.localAddresses)),
-                    DiagnosticsFieldUiModel("Public IP", if (showSensitiveDetails) snapshot.publicIp ?: "Unknown" else redactValue(snapshot.publicIp)),
-                    DiagnosticsFieldUiModel("ASN", snapshot.publicAsn ?: "Unknown"),
-                    DiagnosticsFieldUiModel("Validated", snapshot.networkValidated.toString()),
-                    DiagnosticsFieldUiModel("Captive portal", snapshot.captivePortalDetected.toString()),
-                ) + transportSpecificFields(snapshot, showSensitiveDetails),
-        )
-    }
-
-    private fun DiagnosticProfileEntity.toOptionUiModel(): DiagnosticsProfileOptionUiModel {
-        val request = decodeRequest()
-        return DiagnosticsProfileOptionUiModel(
-            id = id,
-            name = name,
-            source = source,
-            kind = request?.kind ?: ScanKind.CONNECTIVITY,
-            strategyProbeSuiteId = request?.strategyProbe?.suiteId,
-        )
-    }
-
-    private fun toSessionRowUiModel(session: ScanSessionEntity): DiagnosticsSessionRowUiModel {
-        val report = session.reportJson?.let(::decodeReport)
-        val metrics =
-            buildList {
-                add(DiagnosticsMetricUiModel(label = "Path", value = session.pathMode))
-                add(DiagnosticsMetricUiModel(label = "Mode", value = session.serviceMode ?: "Unknown"))
-                report?.results?.size?.let {
-                    add(DiagnosticsMetricUiModel(label = "Probes", value = it.toString()))
-                }
-            }
-        return DiagnosticsSessionRowUiModel(
-            id = session.id,
-            profileId = session.profileId,
-            title = session.summary,
-            subtitle = "${session.pathMode} · ${session.serviceMode ?: "Unknown"} · ${formatTimestamp(session.startedAt)}",
-            pathMode = session.pathMode,
-            serviceMode = session.serviceMode ?: "Unknown",
-            status = session.status,
-            startedAtLabel = formatTimestamp(session.startedAt),
-            summary = session.summary,
-            metrics = metrics,
-            tone = toneForOutcome(session.status),
-        )
-    }
-
-    private fun BypassApproachSummary.toApproachRowUiModel(mode: DiagnosticsApproachMode): DiagnosticsApproachRowUiModel =
-        DiagnosticsApproachRowUiModel(
-            id = approachId.value,
-            kind = mode,
-            title = displayName,
-            subtitle = secondaryLabel,
-            verificationState = verificationState.replaceFirstChar { it.uppercase() },
-            lastValidatedResult = lastValidatedResult ?: "Unverified",
-            dominantFailurePattern = topFailureOutcomes.firstOrNull() ?: "No dominant failure recorded",
-            metrics =
-                buildList {
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "Validated",
-                            value = validatedScanCount.toString(),
-                            tone = if (validatedScanCount > 0) DiagnosticsTone.Info else DiagnosticsTone.Neutral,
-                        ),
-                    )
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "Success",
-                            value = validatedSuccessRate?.let { "${(it * 100).toInt()}%" } ?: "Unverified",
-                            tone = toTone(),
-                        ),
-                    )
-                    add(DiagnosticsMetricUiModel(label = "Usage", value = usageCount.toString(), tone = DiagnosticsTone.Info))
-                    add(
-                        DiagnosticsMetricUiModel(
-                            label = "Runtime",
-                            value = formatDurationMs(totalRuntimeDurationMs),
-                            tone = DiagnosticsTone.Neutral,
-                        ),
-                    )
-                },
-            tone = toTone(),
-        )
-
-    private fun strategySignatureFields(signature: BypassStrategySignature): List<DiagnosticsFieldUiModel> =
-        buildList {
-            add(DiagnosticsFieldUiModel("Mode", signature.mode))
-            add(DiagnosticsFieldUiModel("Config source", signature.configSource))
-            add(DiagnosticsFieldUiModel("Autolearn", signature.hostAutolearn))
-            add(DiagnosticsFieldUiModel("Chain", signature.chainSummary))
-            add(DiagnosticsFieldUiModel("Desync", signature.desyncMethod))
-            signature.tcpStrategyFamily?.let {
-                add(DiagnosticsFieldUiModel("TCP/TLS lane", strategyLaneFamilyLabel(it)))
-            }
-            signature.quicStrategyFamily?.let {
-                add(DiagnosticsFieldUiModel("QUIC lane", strategyLaneFamilyLabel(it)))
-            }
-            signature.dnsStrategyLabel?.let {
-                add(DiagnosticsFieldUiModel("DNS lane", it))
-            }
-            add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
-            if (signature.httpParserEvasions.isNotEmpty()) {
-                add(
-                    DiagnosticsFieldUiModel(
-                        "HTTP parser evasions",
-                        formatHttpParserEvasions(signature.httpParserEvasions),
-                    ),
-                )
-            }
-            add(DiagnosticsFieldUiModel("TLS record split", signature.tlsRecordSplitEnabled.toString()))
-            signature.tlsRecordMarker?.let {
-                add(DiagnosticsFieldUiModel("TLS record marker", formatOffsetExpressionLabel(it)))
-            }
-            signature.splitMarker?.let {
-                add(DiagnosticsFieldUiModel("Split marker", formatOffsetExpressionLabel(it)))
-            }
-            signature.activationRound?.let {
-                add(DiagnosticsFieldUiModel("Activation round", it))
-            }
-            signature.activationPayloadSize?.let {
-                add(DiagnosticsFieldUiModel("Activation payload size", it))
-            }
-            signature.activationStreamBytes?.let {
-                add(DiagnosticsFieldUiModel("Activation stream bytes", it))
-            }
-            signature.fakeTtlMode?.let {
-                add(DiagnosticsFieldUiModel("Fake TTL mode", formatFakeTtlMode(it)))
-            }
-            signature.adaptiveFakeTtlWindow?.let {
-                add(DiagnosticsFieldUiModel("Adaptive fake TTL window", it))
-            }
-            signature.adaptiveFakeTtlFallback?.let {
-                add(DiagnosticsFieldUiModel("Adaptive fake TTL fallback", it.toString()))
-            }
-            signature.adaptiveFakeTtlBias?.let {
-                add(DiagnosticsFieldUiModel("Adaptive fake TTL bias", formatAdaptiveFakeTtlBias(it)))
-            }
-            signature.fakeTlsBaseMode?.let {
-                add(DiagnosticsFieldUiModel("Fake TLS base", formatFakeTlsBaseMode(it)))
-            }
-            signature.fakeSniMode?.let {
-                add(
-                    DiagnosticsFieldUiModel(
-                        "Fake TLS SNI",
-                        formatFakeTlsSni(
-                            mode = it,
-                            fixedValue = signature.fakeSniValue,
-                        ),
-                    ),
-                )
-            }
-            if (signature.fakeTlsMods.isNotEmpty()) {
-                add(DiagnosticsFieldUiModel("Fake TLS mods", formatFakeTlsMods(signature.fakeTlsMods)))
-            }
-            signature.fakeTlsSize?.let {
-                add(DiagnosticsFieldUiModel("Fake TLS size", formatFakeTlsSize(it)))
-            }
-            signature.httpFakeProfile?.let {
-                add(DiagnosticsFieldUiModel("HTTP fake profile", formatHttpFakeProfile(it)))
-            }
-            signature.tlsFakeProfile?.let {
-                add(DiagnosticsFieldUiModel("TLS fake profile", formatTlsFakeProfile(it)))
-            }
-            signature.udpFakeProfile?.let {
-                add(DiagnosticsFieldUiModel("UDP fake profile", formatUdpFakeProfile(it)))
-            }
-            signature.fakePayloadSource?.let {
-                add(DiagnosticsFieldUiModel("Fake payload source", formatFakePayloadSource(it)))
-            }
-            signature.quicFakeProfile?.let {
-                add(DiagnosticsFieldUiModel("QUIC fake profile", formatQuicFakeProfile(it)))
-            }
-            signature.quicFakeHost?.let {
-                add(DiagnosticsFieldUiModel("QUIC fake host", it))
-            }
-            signature.fakeOffsetMarker?.let {
-                add(DiagnosticsFieldUiModel("Fake offset marker", it))
-            }
-            add(DiagnosticsFieldUiModel("Route group", signature.routeGroup ?: "Unknown"))
-        }
-
-    private fun strategyProbeSuiteLabel(suiteId: String): String =
-        when (suiteId) {
-            StrategyProbeSuiteFullMatrixV1 -> "Automatic audit"
-            StrategyProbeSuiteQuickV1 -> "Automatic probing"
-            else -> suiteId.replace('_', ' ').replaceFirstChar { it.uppercase() }
-        }
-
-    private fun strategyProbeOutcomeLabel(
-        outcome: String,
-        skipped: Boolean = false,
-    ): String =
-        when {
-            skipped -> "Skipped"
-            outcome.equals("not_applicable", ignoreCase = true) -> "Not applicable"
-            else -> outcome.replace('_', ' ').replaceFirstChar { it.uppercase() }
-        }
-
-    private fun strategyProbeCandidateTone(
-        outcome: String,
-        skipped: Boolean,
-        recommended: Boolean,
-    ): DiagnosticsTone =
-        when {
-            recommended -> DiagnosticsTone.Positive
-            skipped -> DiagnosticsTone.Neutral
-            outcome.equals("success", ignoreCase = true) -> DiagnosticsTone.Positive
-            outcome.equals("partial", ignoreCase = true) -> DiagnosticsTone.Warning
-            outcome.equals("not_applicable", ignoreCase = true) -> DiagnosticsTone.Neutral
-            else -> DiagnosticsTone.Negative
-        }
-
-    private fun strategyProbeFamilyLabel(family: String): String =
-        when (family) {
-            "baseline" -> "Baseline"
-            "parser" -> "Parser"
-            "parser_aggressive" -> "Parser aggressive"
-            "split" -> "Host split"
-            "tlsrec_split" -> "TLS record split"
-            "tlsrec_fake" -> "TLS record fake"
-            "fake_approx" -> "Fake approximation"
-            "hostfake" -> "Hostfake"
-            "activation_window" -> "Activation window"
-            "adaptive_fake_ttl" -> "Adaptive fake TTL"
-            "fake_payload_library" -> "Fake payload library"
-            "quic_disabled" -> "QUIC disabled"
-            "quic_burst" -> "QUIC burst"
-            else -> family.replace('_', ' ').replaceFirstChar { it.uppercase() }
-        }
-
-    private fun parseServiceModeOrDefault(serviceMode: String?): Mode =
-        when (serviceMode?.uppercase(Locale.US)) {
-            "PROXY" -> Mode.Proxy
-            "VPN" -> Mode.VPN
-            else -> Mode.VPN
-        }
-
-    private fun buildStrategyProbeCandidateMetrics(
-        summary: StrategyProbeCandidateSummary,
-        recommended: Boolean,
-    ): List<DiagnosticsMetricUiModel> =
-        buildList {
-            add(DiagnosticsMetricUiModel("Targets", "${summary.succeededTargets}/${summary.totalTargets}"))
-            add(DiagnosticsMetricUiModel("Weight", "${summary.weightedSuccessScore}/${summary.totalWeight}"))
-            add(
-                DiagnosticsMetricUiModel(
-                    "Quality",
-                    summary.qualityScore.toString(),
-                    tone =
-                        when {
-                            summary.qualityScore >= summary.totalTargets.coerceAtLeast(1) * 3 -> DiagnosticsTone.Positive
-                            summary.qualityScore > 0 -> DiagnosticsTone.Warning
-                            else -> DiagnosticsTone.Neutral
-                        },
-                ),
-            )
-            summary.averageLatencyMs?.let {
-                add(DiagnosticsMetricUiModel("Latency", "${it} ms", DiagnosticsTone.Info))
-            }
-            if (recommended) {
-                add(DiagnosticsMetricUiModel("Selected", "Winner", DiagnosticsTone.Positive))
-            }
-        }
-
-    private fun StrategyProbeCandidateSummary.deriveSignature(serviceMode: String?): BypassStrategySignature? =
-        proxyConfigJson
-            ?.takeIf { it.isNotBlank() }
-            ?.let(::decodeRipDpiProxyUiPreferences)
-            ?.let { preferences ->
-                deriveBypassStrategySignature(
-                    preferences = preferences,
-                    routeGroup = null,
-                    modeOverride = parseServiceModeOrDefault(serviceMode),
-                )
-            }
-
-    private fun ProbeResult.detailValue(key: String): String? =
-        details.firstOrNull { it.key == key }?.value
-
-    private fun buildStrategyProbeResultGroups(
-        reportResults: List<ProbeResult>,
-        candidateId: String,
-    ): List<DiagnosticsProbeGroupUiModel> =
-        reportResults
-            .filter { result -> result.detailValue("candidateId") == candidateId }
-            .mapIndexed(::toProbeResultUiModel)
-            .groupBy { probe ->
-                probe.details
-                    .firstOrNull { it.label == "protocol" }
-                    ?.value
-                    ?.uppercase(Locale.US)
-                    ?.let { "$it results" }
-                    ?: probe.probeType.replace('_', ' ').replaceFirstChar { it.uppercase() }
-            }.map { (title, items) ->
-                DiagnosticsProbeGroupUiModel(
-                    title = title,
-                    items = items,
-                )
-            }.sortedBy { it.title }
-
-    private fun StrategyProbeCandidateSummary.toUiModel(recommended: Boolean): DiagnosticsStrategyProbeCandidateUiModel =
-        DiagnosticsStrategyProbeCandidateUiModel(
-            id = id,
-            label = label,
-            outcome = strategyProbeOutcomeLabel(outcome = outcome, skipped = skipped),
-            rationale = rationale,
-            metrics = buildStrategyProbeCandidateMetrics(this, recommended),
-            tone = strategyProbeCandidateTone(outcome = outcome, skipped = skipped, recommended = recommended),
-            skipped = skipped,
-            recommended = recommended,
-        )
-
-    private fun StrategyProbeCandidateSummary.toDetailUiModel(
-        suiteId: String,
-        serviceMode: String?,
-        reportResults: List<ProbeResult>,
-        recommended: Boolean,
-    ): DiagnosticsStrategyProbeCandidateDetailUiModel =
-        DiagnosticsStrategyProbeCandidateDetailUiModel(
-            id = id,
-            label = label,
-            familyLabel = strategyProbeFamilyLabel(family),
-            suiteLabel = strategyProbeSuiteLabel(suiteId),
-            outcome = strategyProbeOutcomeLabel(outcome = outcome, skipped = skipped),
-            rationale = rationale,
-            tone = strategyProbeCandidateTone(outcome = outcome, skipped = skipped, recommended = recommended),
-            recommended = recommended,
-            notes = notes,
-            metrics = buildStrategyProbeCandidateMetrics(this, recommended),
-            signature = deriveSignature(serviceMode)?.let(::strategySignatureFields).orEmpty(),
-            resultGroups = buildStrategyProbeResultGroups(reportResults = reportResults, candidateId = id),
-        )
-
-    private fun StrategyProbeRecommendation.toUiModel(): DiagnosticsStrategyProbeRecommendationUiModel =
-        DiagnosticsStrategyProbeRecommendationUiModel(
-            headline =
-                listOfNotNull(
-                    tcpCandidateLabel,
-                    quicCandidateLabel,
-                    dnsStrategyLabel,
-                ).joinToString(" + "),
-            rationale = rationale,
-            fields =
-                listOf(
-                    DiagnosticsFieldUiModel("TCP recommendation", tcpCandidateLabel),
-                    tcpCandidateFamily?.let {
-                        DiagnosticsFieldUiModel("TCP/TLS lane", strategyProbeFamilyLabel(it))
-                    },
-                    DiagnosticsFieldUiModel("QUIC recommendation", quicCandidateLabel),
-                    quicCandidateFamily?.let {
-                        DiagnosticsFieldUiModel("QUIC lane", strategyProbeFamilyLabel(it))
-                    },
-                    dnsStrategyLabel?.let {
-                        DiagnosticsFieldUiModel("DNS lane", it)
-                    },
-                    DiagnosticsFieldUiModel("Why it won", rationale),
-                ).filterNotNull(),
-            signature = strategySignature?.let(::strategySignatureFields).orEmpty(),
-        )
-
-    private fun StrategyProbeReport.buildSummaryMetrics(): List<DiagnosticsMetricUiModel> {
-        val candidates = tcpCandidates + quicCandidates
-        val worked = candidates.count { it.outcome.equals("success", ignoreCase = true) }
-        val partial = candidates.count { it.outcome.equals("partial", ignoreCase = true) }
-        val failed =
-            candidates.count { candidate ->
-                !candidate.skipped &&
-                    !candidate.outcome.equals("success", ignoreCase = true) &&
-                    !candidate.outcome.equals("partial", ignoreCase = true) &&
-                    !candidate.outcome.equals("not_applicable", ignoreCase = true)
-            }
-        val notApplicable = candidates.count { it.outcome.equals("not_applicable", ignoreCase = true) }
-        val skipped = candidates.count { it.skipped }
-        return buildList {
-            add(DiagnosticsMetricUiModel("Worked", worked.toString(), DiagnosticsTone.Positive))
-            add(DiagnosticsMetricUiModel("Partial", partial.toString(), DiagnosticsTone.Warning))
-            add(DiagnosticsMetricUiModel("Failed", failed.toString(), DiagnosticsTone.Negative))
-            add(DiagnosticsMetricUiModel("N/A", notApplicable.toString(), DiagnosticsTone.Neutral))
-            if (skipped > 0) {
-                add(DiagnosticsMetricUiModel("Skipped", skipped.toString(), DiagnosticsTone.Neutral))
-            }
-        }
-    }
-
-    private fun StrategyProbeReport.toUiModel(
-        reportResults: List<ProbeResult>,
-        serviceMode: String?,
-    ): DiagnosticsStrategyProbeReportUiModel {
-        fun mapFamily(
-            title: String,
-            candidates: List<StrategyProbeCandidateSummary>,
-            recommendedId: String,
-        ): DiagnosticsStrategyProbeFamilyUiModel =
-            DiagnosticsStrategyProbeFamilyUiModel(
-                title = title,
-                candidates =
-                    candidates
-                        .map { candidate ->
-                            candidate.toUiModel(recommended = candidate.id == recommendedId)
-                        }.sortedWith(
-                            compareByDescending<DiagnosticsStrategyProbeCandidateUiModel> { it.recommended }
-                                .thenBy { it.skipped }
-                                .thenBy { it.label },
-                        ),
-            )
-
-        val candidateDetails =
-            (tcpCandidates + quicCandidates).associate { candidate ->
-                candidate.id to
-                    candidate.toDetailUiModel(
-                        suiteId = suiteId,
-                        serviceMode = serviceMode,
-                        reportResults = reportResults,
-                        recommended =
-                            candidate.id == recommendation.tcpCandidateId ||
-                                candidate.id == recommendation.quicCandidateId,
-                    )
-            }
-
-        return DiagnosticsStrategyProbeReportUiModel(
-            suiteId = suiteId,
-            suiteLabel = strategyProbeSuiteLabel(suiteId),
-            summaryMetrics = buildSummaryMetrics(),
-            recommendation = recommendation.toUiModel(),
-            families =
-                listOf(
-                    mapFamily(
-                        title =
-                            if (suiteId == StrategyProbeSuiteFullMatrixV1) {
-                                "TCP / HTTP / HTTPS matrix"
-                            } else {
-                                "TCP candidates"
-                            },
-                        candidates = tcpCandidates,
-                        recommendedId = recommendation.tcpCandidateId,
-                    ),
-                    mapFamily(
-                        title =
-                            if (suiteId == StrategyProbeSuiteFullMatrixV1) {
-                                "QUIC matrix"
-                            } else {
-                                "QUIC candidates"
-                            },
-                        candidates = quicCandidates,
-                        recommendedId = recommendation.quicCandidateId,
-                    ),
-                ),
-            candidateDetails = candidateDetails,
-        )
-    }
-
-    private fun ResolverRecommendation.toUiModel(): DiagnosticsResolverRecommendationUiModel =
-        DiagnosticsResolverRecommendationUiModel(
-            headline = "Switch DNS to ${selectedResolverId.replaceFirstChar { it.uppercase() }}",
-            rationale = rationale,
-            fields =
-                listOf(
-                    DiagnosticsFieldUiModel("Trigger", triggerOutcome),
-                    DiagnosticsFieldUiModel("Resolver", selectedResolverId),
-                    DiagnosticsFieldUiModel("Protocol", selectedProtocol.uppercase()),
-                    DiagnosticsFieldUiModel("Endpoint", selectedEndpoint),
-                    DiagnosticsFieldUiModel(
-                        "Bootstrap",
-                        selectedBootstrapIps.joinToString().ifBlank { "None" },
-                    ),
-                ),
-            appliedTemporarily = appliedTemporarily,
-            persistable = persistable,
-        )
-
-    private fun ScanRequest?.toScopeLabel(rawArgsEnabled: Boolean): String? =
-        when (this?.kind) {
-            ScanKind.STRATEGY_PROBE ->
-                when {
-                    rawArgsEnabled && strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1 ->
-                        "Automatic audit · raw-path only · blocked by command-line mode"
-
-                    rawArgsEnabled ->
-                        "Automatic probing · raw-path only · blocked by command-line mode"
-
-                    strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1 ->
-                        "Automatic audit · raw-path only"
-
-                    else -> "Automatic probing · raw-path only"
-                }
-            ScanKind.CONNECTIVITY -> "Connectivity profile"
-            null -> null
-            else -> null
-        }
-
-    private fun BypassApproachDetail.toUiModel(): DiagnosticsApproachDetailUiModel =
-        DiagnosticsApproachDetailUiModel(
-            approach =
-                summary.toApproachRowUiModel(
-                    mode =
-                        when (summary.approachId.kind) {
-                            BypassApproachKind.Profile -> DiagnosticsApproachMode.Profiles
-                            BypassApproachKind.Strategy -> DiagnosticsApproachMode.Strategies
-                        },
-                ),
-            signature =
-                buildList {
-                    strategySignature?.let { addAll(strategySignatureFields(it)) }
-                },
-            breakdown =
-                summary.outcomeBreakdown.map { breakdown ->
-                    DiagnosticsMetricUiModel(
-                        label = breakdown.probeType,
-                        value = "${breakdown.successCount}/${breakdown.failureCount}",
-                        tone =
-                            when {
-                                breakdown.failureCount > 0 -> DiagnosticsTone.Warning
-                                breakdown.successCount > 0 -> DiagnosticsTone.Positive
-                                else -> DiagnosticsTone.Neutral
-                            },
-                    )
-                },
-            runtimeSummary =
-                listOf(
-                    DiagnosticsMetricUiModel("Usage", summary.usageCount.toString(), DiagnosticsTone.Info),
-                    DiagnosticsMetricUiModel("Runtime", formatDurationMs(summary.totalRuntimeDurationMs), DiagnosticsTone.Info),
-                    DiagnosticsMetricUiModel("Errors", summary.recentRuntimeHealth.totalErrors.toString(), DiagnosticsTone.Warning),
-                    DiagnosticsMetricUiModel("Route changes", summary.recentRuntimeHealth.routeChanges.toString(), DiagnosticsTone.Info),
-                ),
-            recentSessions = recentValidatedSessions.map(::toSessionRowUiModel),
-            recentUsageNotes =
-                recentUsageSessions.map { usage ->
-                    "${usage.serviceMode} · ${usage.networkType} · ${formatDurationMs((usage.finishedAt ?: usage.startedAt) - usage.startedAt)}"
-                },
-            failureNotes = recentFailureNotes,
-        )
-
-    private fun ProbeResultEntity.toUiModel(index: Int): DiagnosticsProbeResultUiModel =
-        decodeProbeDetails(detailJson).let { details ->
-            DiagnosticsProbeResultUiModel(
-                id = "$sessionId-$index-$probeType-$target",
-                probeType = probeType,
-                target = target,
-                outcome = outcome,
-                probeRetryCount = deriveProbeRetryCount(details),
-                tone = toneForOutcome(outcome),
-                details = details.map { DiagnosticsFieldUiModel(it.key, it.value) },
-            )
-        }
-
-    private fun toProbeResultUiModel(
-        index: Int,
-        probeResult: ProbeResult,
-    ): DiagnosticsProbeResultUiModel =
-        DiagnosticsProbeResultUiModel(
-            id = "report-$index-${probeResult.probeType}-${probeResult.target}",
-            probeType = probeResult.probeType,
-            target = probeResult.target,
-            outcome = probeResult.outcome,
-            probeRetryCount = probeResult.probeRetryCount ?: deriveProbeRetryCount(probeResult.details),
-            tone = toneForOutcome(probeResult.outcome),
-            details = probeResult.details.map { DiagnosticsFieldUiModel(it.key, it.value) },
-        )
-
-    private fun RememberedNetworkPolicyEntity.toRememberedNetworkUiModel(
-        activeConnectionPolicy: ActiveConnectionPolicy?,
-    ): DiagnosticsRememberedNetworkUiModel {
-        val summary = decodeSummary(json)
-        val signature = decodeStrategySignature(strategySignatureJson)
-        val isCurrentMatch = activeConnectionPolicy?.matchedPolicy?.id == id
-        return DiagnosticsRememberedNetworkUiModel(
-            id = id,
-            title = summary?.displayLabel() ?: "Network ${fingerprintHash.take(12)}",
-            subtitle =
-                listOf(
-                    mode.uppercase(Locale.US),
-                    source.displaySourceLabel(),
-                    if (isCurrentMatch) "Current match" else null,
-                ).filterNotNull().joinToString(" · "),
-            status = status.displayStatusLabel(),
-            statusTone = status.statusTone(),
-            source = source.displaySourceLabel(),
-            strategyLabel = signature?.displayStrategyLabel() ?: "No strategy signature captured",
-            lastValidatedLabel = lastValidatedAt?.let(::formatTimestamp),
-            lastAppliedLabel = lastAppliedAt?.let(::formatTimestamp),
-            successCount = successCount,
-            failureCount = failureCount,
-            isCurrentMatch = isCurrentMatch,
-        )
-    }
-
-    private fun NativeSessionEventEntity.toUiModel(): DiagnosticsEventUiModel =
-        DiagnosticsEventUiModel(
-            id = id,
-            source = source.replaceFirstChar { it.uppercase() },
-            severity = level.uppercase(Locale.US),
-            message = message,
-            createdAtLabel = formatTimestamp(createdAt),
-            tone = toneForOutcome(level),
-        )
-
-    private fun ScanProgress.toUiModel(): DiagnosticsProgressUiModel {
-        val fraction =
-            if (totalSteps <= 0) {
-                0f
-            } else {
-                completedSteps.toFloat() / totalSteps.toFloat()
-            }
-        return DiagnosticsProgressUiModel(
-            phase = phase,
-            summary = message,
-            completedSteps = completedSteps,
-            totalSteps = totalSteps,
-            fraction = fraction,
-        )
-    }
-
-    private fun toneForOutcome(value: String): DiagnosticsTone {
-        val normalized = value.lowercase(Locale.US)
-        return when {
-            normalized.contains("ok") || normalized.contains("success") || normalized.contains("completed") -> DiagnosticsTone.Positive
-            normalized.contains("warn") || normalized.contains("timeout") || normalized.contains("partial") || normalized.contains("running") || normalized.contains("slow") || normalized.contains("stalled") -> DiagnosticsTone.Warning
-            normalized.contains("error") || normalized.contains("failed") || normalized.contains("blocked") || normalized.contains("reset") -> DiagnosticsTone.Negative
-            normalized.contains("info") -> DiagnosticsTone.Info
-            else -> DiagnosticsTone.Neutral
-        }
-    }
-
-    private fun String.displayStatusLabel(): String =
-        when (lowercase(Locale.US)) {
-            "validated" -> "Validated"
-            "suppressed" -> "Suppressed"
-            else -> "Observed"
-        }
-
-    private fun String.statusTone(): DiagnosticsTone =
-        when (lowercase(Locale.US)) {
-            "validated" -> DiagnosticsTone.Positive
-            "suppressed" -> DiagnosticsTone.Warning
-            else -> DiagnosticsTone.Info
-        }
-
-    private fun String.displaySourceLabel(): String =
-        when (lowercase(Locale.US)) {
-            "strategy_probe" -> "Strategy probe"
-            else -> "Manual session"
-        }
-
-    private fun BypassApproachSummary.toTone(): DiagnosticsTone =
-        when {
-            verificationState.equals("unverified", ignoreCase = true) -> DiagnosticsTone.Neutral
-            (validatedSuccessRate ?: 0f) >= 0.75f -> DiagnosticsTone.Positive
-            (validatedSuccessRate ?: 0f) > 0f -> DiagnosticsTone.Warning
-            else -> DiagnosticsTone.Negative
-        }
-
-    private fun parsePathMode(value: String): ScanPathMode =
-        runCatching { ScanPathMode.valueOf(value) }.getOrDefault(ScanPathMode.RAW_PATH)
-
-    private fun formatTimestamp(timestamp: Long): String = timestampFormatter.format(Date(timestamp))
-
-    private fun formatBytes(bytes: Long): String =
-        when {
-            bytes >= 1_000_000_000L -> String.format(Locale.US, "%.1f GB", bytes / 1_000_000_000f)
-            bytes >= 1_000_000L -> String.format(Locale.US, "%.1f MB", bytes / 1_000_000f)
-            bytes >= 1_000L -> String.format(Locale.US, "%.1f KB", bytes / 1_000f)
-            else -> "$bytes B"
-        }
-
-    private fun formatBps(bps: Long): String =
-        when {
-            bps >= 1_000_000L -> String.format(Locale.US, "%.1f Mbps", bps / 1_000_000.0)
-            bps >= 1_000L -> String.format(Locale.US, "%.1f Kbps", bps / 1_000.0)
-            else -> "$bps Bps"
-        }
-
-    private fun DiagnosticsSessionRowUiModel.matchesQuery(query: String): Boolean {
-        if (query.isBlank()) {
-            return true
-        }
-        val normalized = query.lowercase(Locale.US)
-        return listOf(title, subtitle, summary, pathMode, serviceMode, status).any {
-            it.lowercase(Locale.US).contains(normalized)
-        }
-    }
-
-    private fun DiagnosticsEventUiModel.matchesQuery(query: String): Boolean {
-        if (query.isBlank()) {
-            return true
-        }
-        val normalized = query.lowercase(Locale.US)
-        return listOf(source, severity, message).any { it.lowercase(Locale.US).contains(normalized) }
-    }
-
-    private fun DiagnosticContextEntity.decodeContext(): DiagnosticContextModel? =
-        runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payloadJson) }.getOrNull()
-
-    private fun DiagnosticContextModel.toOverviewContextGroup(): DiagnosticsContextGroupUiModel =
-        DiagnosticsContextGroupUiModel(
-            title = "Support context",
-            fields =
-                listOf(
-                    DiagnosticsFieldUiModel("App", device.appVersionName),
-                    DiagnosticsFieldUiModel("Device", "${device.manufacturer} ${device.model}"),
-                    DiagnosticsFieldUiModel("Android", "${device.androidVersion} (API ${device.apiLevel})"),
-                    DiagnosticsFieldUiModel("Mode", service.activeMode),
-                    DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
-                    DiagnosticsFieldUiModel("Host learning", buildHostAutolearnOverviewSummary(service)),
-                    DiagnosticsFieldUiModel("Restrictions", listOf(permissions.dataSaverState, environment.powerSaveModeState).joinToString(" · ")),
-                ),
-        )
-
-    private fun DiagnosticContextModel.toLiveContextGroups(): List<DiagnosticsContextGroupUiModel> =
-        listOf(
-            DiagnosticsContextGroupUiModel(
-                title = "Service",
-                fields =
-                    listOf(
-                        DiagnosticsFieldUiModel("Status", service.serviceStatus),
-                        DiagnosticsFieldUiModel("Mode", service.activeMode),
-                        DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
-                        DiagnosticsFieldUiModel("Uptime", service.sessionUptimeMs?.let(::formatDurationMs) ?: "Unknown"),
-                    ),
-            ),
-            DiagnosticsContextGroupUiModel(
-                title = "Environment",
-                fields =
-                    listOf(
-                        DiagnosticsFieldUiModel("Data saver", permissions.dataSaverState),
-                        DiagnosticsFieldUiModel("Power save", environment.powerSaveModeState),
-                        DiagnosticsFieldUiModel("Metered", environment.networkMeteredState),
-                        DiagnosticsFieldUiModel("Roaming", environment.roamingState),
-                    ),
-            ),
-            DiagnosticsContextGroupUiModel(
-                title = "Host learning",
-                fields =
-                    listOf(
-                        DiagnosticsFieldUiModel("Enabled", formatAutolearnState(service.hostAutolearnEnabled)),
-                        DiagnosticsFieldUiModel("Learned hosts", service.learnedHostCount.toString()),
-                        DiagnosticsFieldUiModel("Penalized", service.penalizedHostCount.toString()),
-                        DiagnosticsFieldUiModel("Last host", formatAutolearnHost(service.lastAutolearnHost)),
-                        DiagnosticsFieldUiModel("Last group", formatAutolearnGroup(service.lastAutolearnGroup)),
-                        DiagnosticsFieldUiModel("Last action", formatAutolearnAction(service.lastAutolearnAction)),
-                    ),
-            ),
-        )
-
-    private fun buildContextWarnings(context: DiagnosticContextModel?): List<DiagnosticsEventUiModel> {
-        if (context == null) {
-            return emptyList()
-        }
-        val warnings = mutableListOf<DiagnosticsEventUiModel>()
-        if (context.permissions.vpnPermissionState == "disabled") {
-            warnings +=
-                DiagnosticsEventUiModel(
-                    id = "context-vpn-permission",
-                    source = "Context",
-                    severity = "WARN",
-                    message = "VPN permission is not currently granted.",
-                    createdAtLabel = "now",
-                    tone = DiagnosticsTone.Warning,
-                )
-        }
-        if (context.permissions.notificationPermissionState == "disabled") {
-            warnings +=
-                DiagnosticsEventUiModel(
-                    id = "context-notification-permission",
-                    source = "Context",
-                    severity = "WARN",
-                    message = "Notification permission is disabled, so service issues may be harder to notice.",
-                    createdAtLabel = "now",
-                    tone = DiagnosticsTone.Warning,
-                )
-        }
-        if (context.permissions.dataSaverState == "enabled" || context.environment.powerSaveModeState == "enabled") {
-            warnings +=
-                DiagnosticsEventUiModel(
-                    id = "context-power-restriction",
-                    source = "Context",
-                    severity = "WARN",
-                    message = "Power or background restrictions may interfere with stable diagnostics.",
-                    createdAtLabel = "now",
-                    tone = DiagnosticsTone.Warning,
-                )
-        }
-        return warnings
-    }
-
-    private fun DiagnosticContextModel.toUiGroups(showSensitiveDetails: Boolean): List<DiagnosticsContextGroupUiModel> =
-        listOf(
-            DiagnosticsContextGroupUiModel(
-                title = "Service",
-                fields =
-                    listOf(
-                        DiagnosticsFieldUiModel("Status", service.serviceStatus),
-                        DiagnosticsFieldUiModel("Configured mode", service.configuredMode),
-                        DiagnosticsFieldUiModel("Active mode", service.activeMode),
-                        DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
-                        DiagnosticsFieldUiModel("Config source", service.configSource),
-                        DiagnosticsFieldUiModel("Proxy", if (showSensitiveDetails) service.proxyEndpoint else redactValue(service.proxyEndpoint)),
-                        DiagnosticsFieldUiModel("Chain", service.chainSummary),
-                        DiagnosticsFieldUiModel("Desync", service.desyncMethod),
-                        DiagnosticsFieldUiModel("Route group", service.routeGroup),
-                        DiagnosticsFieldUiModel("Autolearn", formatAutolearnState(service.hostAutolearnEnabled)),
-                        DiagnosticsFieldUiModel("Learned hosts", service.learnedHostCount.toString()),
-                        DiagnosticsFieldUiModel("Penalized hosts", service.penalizedHostCount.toString()),
-                        DiagnosticsFieldUiModel("Last learned host", formatAutolearnHost(service.lastAutolearnHost)),
-                        DiagnosticsFieldUiModel("Last learned group", formatAutolearnGroup(service.lastAutolearnGroup)),
-                        DiagnosticsFieldUiModel("Last autolearn action", formatAutolearnAction(service.lastAutolearnAction)),
-                        DiagnosticsFieldUiModel("Restart count", service.restartCount.toString()),
-                        DiagnosticsFieldUiModel("Uptime", service.sessionUptimeMs?.let(::formatDurationMs) ?: "Unknown"),
-                        DiagnosticsFieldUiModel("Last native error", service.lastNativeErrorHeadline),
-                    ),
-            ),
-            DiagnosticsContextGroupUiModel(
-                title = "Permissions",
-                fields =
-                    listOf(
-                        DiagnosticsFieldUiModel("VPN permission", permissions.vpnPermissionState),
-                        DiagnosticsFieldUiModel("Notification permission", permissions.notificationPermissionState),
-                        DiagnosticsFieldUiModel("Battery optimization", permissions.batteryOptimizationState),
-                        DiagnosticsFieldUiModel("Data saver", permissions.dataSaverState),
-                    ),
-            ),
-            DiagnosticsContextGroupUiModel(
-                title = "Device",
-                fields =
-                    listOf(
-                        DiagnosticsFieldUiModel("App version", "${device.appVersionName} (${device.buildType})"),
-                        DiagnosticsFieldUiModel("Version code", device.appVersionCode.toString()),
-                        DiagnosticsFieldUiModel("Device", "${device.manufacturer} ${device.model}"),
-                        DiagnosticsFieldUiModel("Android", "${device.androidVersion} (API ${device.apiLevel})"),
-                        DiagnosticsFieldUiModel("ABI", device.primaryAbi),
-                        DiagnosticsFieldUiModel("Locale", device.locale),
-                        DiagnosticsFieldUiModel("Timezone", device.timezone),
-                    ),
-            ),
-            DiagnosticsContextGroupUiModel(
-                title = "Environment",
-                fields =
-                    listOf(
-                        DiagnosticsFieldUiModel("Battery saver", environment.batterySaverState),
-                        DiagnosticsFieldUiModel("Power save", environment.powerSaveModeState),
-                        DiagnosticsFieldUiModel("Network metered", environment.networkMeteredState),
-                        DiagnosticsFieldUiModel("Roaming", environment.roamingState),
-                    ),
-            ),
-        )
-
-    private fun transportSpecificFields(
-        snapshot: NetworkSnapshotModel,
-        showSensitiveDetails: Boolean,
-    ): List<DiagnosticsFieldUiModel> =
-        buildList {
-            snapshot.wifiDetails?.let { wifi ->
-                add(DiagnosticsFieldUiModel("Wi-Fi SSID", if (showSensitiveDetails) wifi.ssid else redactValue(wifi.ssid.takeUnless { it == "unknown" })))
-                add(DiagnosticsFieldUiModel("Wi-Fi BSSID", if (showSensitiveDetails) wifi.bssid else redactValue(wifi.bssid.takeUnless { it == "unknown" })))
-                add(DiagnosticsFieldUiModel("Wi-Fi band", wifi.band))
-                add(DiagnosticsFieldUiModel("Wi-Fi standard", wifi.wifiStandard))
-                add(DiagnosticsFieldUiModel("Wi-Fi frequency", wifi.frequencyMhz?.let { "$it MHz" } ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Wi-Fi channel width", wifi.channelWidth))
-                add(DiagnosticsFieldUiModel("Wi-Fi RSSI", wifi.rssiDbm?.let { "$it dBm" } ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Wi-Fi link", wifi.linkSpeedMbps?.let { "$it Mbps" } ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Wi-Fi RX link", wifi.rxLinkSpeedMbps?.let { "$it Mbps" } ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Wi-Fi TX link", wifi.txLinkSpeedMbps?.let { "$it Mbps" } ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Wi-Fi hidden SSID", wifi.hiddenSsid?.toString() ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Wi-Fi Passpoint", wifi.isPasspoint?.toString() ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Wi-Fi OSU AP", wifi.isOsuAp?.toString() ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Wi-Fi network ID", wifi.networkId?.toString() ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Wi-Fi gateway", if (showSensitiveDetails) wifi.gateway ?: "Unknown" else redactValue(wifi.gateway)))
-                add(DiagnosticsFieldUiModel("Wi-Fi DHCP server", if (showSensitiveDetails) wifi.dhcpServer ?: "Unknown" else redactValue(wifi.dhcpServer)))
-                add(DiagnosticsFieldUiModel("Wi-Fi IP", if (showSensitiveDetails) wifi.ipAddress ?: "Unknown" else redactValue(wifi.ipAddress)))
-                add(DiagnosticsFieldUiModel("Wi-Fi subnet", if (showSensitiveDetails) wifi.subnetMask ?: "Unknown" else redactValue(wifi.subnetMask)))
-                add(DiagnosticsFieldUiModel("Wi-Fi lease", wifi.leaseDurationSeconds?.let { "${it}s" } ?: "Unknown"))
-            }
-            snapshot.cellularDetails?.let { cellular ->
-                add(DiagnosticsFieldUiModel("Carrier", cellular.carrierName))
-                add(DiagnosticsFieldUiModel("SIM operator", cellular.simOperatorName))
-                add(DiagnosticsFieldUiModel("Network operator", cellular.networkOperatorName))
-                add(DiagnosticsFieldUiModel("Network country", cellular.networkCountryIso))
-                add(DiagnosticsFieldUiModel("SIM country", cellular.simCountryIso))
-                add(DiagnosticsFieldUiModel("Operator code", cellular.operatorCode))
-                add(DiagnosticsFieldUiModel("SIM operator code", cellular.simOperatorCode))
-                add(DiagnosticsFieldUiModel("Data network", cellular.dataNetworkType))
-                add(DiagnosticsFieldUiModel("Voice network", cellular.voiceNetworkType))
-                add(DiagnosticsFieldUiModel("Data state", cellular.dataState))
-                add(DiagnosticsFieldUiModel("Service state", cellular.serviceState))
-                add(DiagnosticsFieldUiModel("Roaming", cellular.isNetworkRoaming?.toString() ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Carrier ID", cellular.carrierId?.toString() ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("SIM carrier ID", cellular.simCarrierId?.toString() ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Signal level", cellular.signalLevel?.toString() ?: "Unknown"))
-                add(DiagnosticsFieldUiModel("Signal dBm", cellular.signalDbm?.let { "$it dBm" } ?: "Unknown"))
-            }
-        }
-
-    private fun buildHostAutolearnOverviewSummary(service: com.poyka.ripdpi.diagnostics.ServiceContextModel): String {
-        val state = formatAutolearnState(service.hostAutolearnEnabled)
-        val details =
-            buildList {
-                if (service.learnedHostCount > 0) {
-                    add("${service.learnedHostCount} learned")
-                }
-                if (service.penalizedHostCount > 0) {
-                    add("${service.penalizedHostCount} penalized")
-                }
-            }
-        return if (details.isEmpty()) state else "$state · ${details.joinToString(" · ")}"
-    }
-
-    private fun formatAutolearnState(value: String): String =
-        when (value.lowercase(Locale.US)) {
-            "enabled" -> "Active"
-            "disabled" -> "Off"
-            else -> "Unknown"
-        }
-
-    private fun formatAutolearnHost(value: String): String =
-        value.takeUnless { it.isBlank() || it == "none" } ?: "None yet"
-
-    private fun formatAutolearnGroup(value: String): String =
-        value
-            .takeUnless { it.isBlank() || it == "none" }
-            ?.let { "Route $it" }
-            ?: "None yet"
-
-    private fun formatAutolearnAction(value: String): String =
-        when (value.lowercase(Locale.US)) {
-            "host_promoted" -> "Promoted best route"
-            "group_penalized" -> "Penalized failing route"
-            "store_reset" -> "Reset stored hosts"
-            "none", "" -> "None yet"
-            else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
-        }
-
-    private fun formatFakeTlsBaseMode(value: String): String =
-        when (value.lowercase(Locale.US)) {
-            "default" -> "Default fake ClientHello"
-            "original" -> "Original ClientHello"
-            else -> value
-        }
-
-    private fun formatFakeTtlMode(value: String): String =
-        when (value.lowercase(Locale.US)) {
-            "fixed" -> "Fixed TTL"
-            "adaptive" -> "Adaptive TTL"
-            "adaptive_custom" -> "Custom adaptive TTL"
-            else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
-        }
-
-    private fun formatAdaptiveFakeTtlBias(value: Int): String =
-        when {
-            value < 0 -> "Prefer lower TTLs first ($value)"
-            value > 0 -> "Prefer higher TTLs first (+$value)"
-            else -> "Alternate around the seed (0)"
-        }
-
-    private fun formatFakeTlsSni(
-        mode: String,
-        fixedValue: String?,
-    ): String =
-        when (mode.lowercase(Locale.US)) {
-            "fixed" -> fixedValue?.takeIf { it.isNotBlank() }?.let { "Fixed ($it)" } ?: "Fixed"
-            "randomized" -> "Randomized"
-            else -> mode
-        }
-
-    private fun formatFakeTlsMods(values: List<String>): String =
-        values.joinToString(", ") { value ->
-            when (value.lowercase(Locale.US)) {
-                "rand" -> "Randomize TLS material"
-                "dupsid" -> "Copy Session ID"
-                "padencap" -> "Padding camouflage"
-                else -> value
-            }
-        }
-
-    private fun formatFakeTlsSize(value: Int): String =
-        when {
-            value > 0 -> "Exactly $value bytes"
-            value < 0 -> "Input minus ${-value} bytes"
-            else -> "Match input size"
-        }
-
-    private fun formatHttpFakeProfile(value: String): String =
-        when (value.lowercase(Locale.US)) {
-            "compat_default" -> "Compatibility default"
-            "iana_get" -> "IANA GET"
-            "cloudflare_get" -> "Cloudflare GET"
-            else -> value
-        }
-
-    private fun formatHttpParserEvasions(values: List<String>): String =
-        values.joinToString(", ") { value ->
-            when (value.lowercase(Locale.US)) {
-                "host_mixed_case" -> "Host mixed case"
-                "domain_mixed_case" -> "Domain mixed case"
-                "host_remove_spaces" -> "Host remove spaces"
-                "method_eol" -> "Method EOL shift"
-                "unix_eol" -> "Unix line endings"
-                else -> value
-            }
-        }
-
-    private fun formatTlsFakeProfile(value: String): String =
-        when (value.lowercase(Locale.US)) {
-            "compat_default" -> "Compatibility default"
-            "iana_firefox" -> "IANA Firefox"
-            "google_chrome" -> "Google Chrome"
-            "vk_chrome" -> "VK Chrome"
-            "sberbank_chrome" -> "Sberbank Chrome"
-            "rutracker_kyber" -> "Rutracker Kyber"
-            "bigsize_iana" -> "IANA bigsize"
-            else -> value
-        }
-
-    private fun formatUdpFakeProfile(value: String): String =
-        when (value.lowercase(Locale.US)) {
-            "compat_default" -> "Compatibility default"
-            "zero_256" -> "Zero blob 256"
-            "zero_512" -> "Zero blob 512"
-            "dns_query" -> "DNS query"
-            "stun_binding" -> "STUN binding"
-            "wireguard_initiation" -> "WireGuard initiation"
-            "dht_get_peers" -> "DHT get_peers"
-            else -> value
-        }
-
-    private fun formatFakePayloadSource(value: String): String =
-        when (value.lowercase(Locale.US)) {
-            "custom_raw" -> "Custom raw fake payload"
-            else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
-        }
-
-    private fun formatQuicFakeProfile(value: String): String =
-        when (value.lowercase(Locale.US)) {
-            "compat_default" -> "Zapret compatibility"
-            "realistic_initial" -> "Realistic Initial"
-            "disabled" -> "Off"
-            else -> value
-        }
-
-    private fun redactValue(value: String?): String = value?.let { "redacted" } ?: "Unknown"
-
-    private fun redactCollection(values: List<String>): String =
-        if (values.isEmpty()) {
-            "Unknown"
-        } else {
-            "redacted(${values.size})"
-        }
-
-    private fun formatDurationMs(durationMs: Long): String {
-        val totalSeconds = (durationMs / 1_000L).coerceAtLeast(0L)
-        val hours = totalSeconds / 3_600L
-        val minutes = (totalSeconds % 3_600L) / 60L
-        val seconds = totalSeconds % 60L
-        return when {
-            hours > 0L -> String.format(Locale.US, "%dh %02dm", hours, minutes)
-            minutes > 0L -> String.format(Locale.US, "%dm %02ds", minutes, seconds)
-            else -> "${seconds}s"
-        }
-    }
+    fun toApproachDetailUiModel(
+        detail: com.poyka.ripdpi.diagnostics.BypassApproachDetail,
+    ): DiagnosticsApproachDetailUiModel =
+        support.toApproachDetailUiModel(detail)
 }
