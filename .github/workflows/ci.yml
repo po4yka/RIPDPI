@@ -43,6 +43,11 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
       - name: Install native verification tools
         run: |
           sudo apt-get update
@@ -59,9 +64,13 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
+      - uses: mozilla-actions/sccache-action@v0.0.7
+
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
+        env:
+          RUSTC_WRAPPER: sccache
         run: ./gradlew assembleDebug
 
       - name: Verify packaged native ELFs
@@ -102,6 +111,11 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
       - name: Read native toolchain policy
         id: native-toolchain
         run: |
@@ -113,9 +127,13 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
+      - uses: mozilla-actions/sccache-action@v0.0.7
+
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Verify Android JNI native build
+        env:
+          RUSTC_WRAPPER: sccache
         run: ./gradlew :core:engine:buildRustNativeLibs -Pripdpi.localNativeAbis=arm64-v8a
 
       - name: Run cargo-deny
@@ -129,6 +147,8 @@ jobs:
           tool: cargo-nextest
 
       - name: Run native Rust checks
+        env:
+          RUSTC_WRAPPER: sccache
         run: bash scripts/ci/run-rust-native-checks.sh
 
       - name: Run static analysis
@@ -159,6 +179,11 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
         with:
@@ -188,6 +213,11 @@ jobs:
           components: rustfmt, clippy, llvm-tools
 
       - uses: android-actions/setup-android@v3
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
 
       - name: Read native toolchain policy
         id: native-toolchain-coverage
@@ -250,6 +280,11 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
       - name: Resolve soak profile
         id: soak-profile
         run: |
@@ -295,6 +330,11 @@ jobs:
           components: rustfmt, clippy
 
       - uses: android-actions/setup-android@v3
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
 
       - name: Read native toolchain policy
         id: native-toolchain
@@ -394,6 +434,11 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
       - name: Install Linux TUN prerequisites
         run: |
           sudo apt-get update
@@ -424,6 +469,11 @@ jobs:
         with:
           toolchain: "1.94.0"
           components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
 
       - name: Resolve soak profile
         id: tun-soak-profile
