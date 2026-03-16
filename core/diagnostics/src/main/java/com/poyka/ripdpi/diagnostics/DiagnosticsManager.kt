@@ -40,6 +40,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Named
@@ -54,7 +55,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -127,6 +131,7 @@ class DefaultDiagnosticsManager
     private companion object {
         private const val FinishedReportPollAttempts = 5
         private const val FinishedReportPollDelayMs = 100L
+        private const val PollScanResultTimeoutMs = 300_000L
         private const val AutomaticProbeProfileId = "automatic-probing"
         private const val AutomaticHandoverProbeDelayMs = 15_000L
         private const val AutomaticHandoverProbeCooldownMs = 24L * 60L * 60L * 1_000L
@@ -155,13 +160,14 @@ class DefaultDiagnosticsManager
     override val nativeEvents: Flow<List<NativeSessionEventEntity>> = historyRepository.observeNativeEvents()
     override val exports: Flow<List<ExportRecordEntity>> = historyRepository.observeExportRecords()
 
+    private val bridgeMutex = Mutex()
     private var activeDiagnosticsBridge: NetworkDiagnosticsBridge? = null
     @Volatile
     private var initialized = false
-    private val scanSessionFingerprints = mutableMapOf<String, NetworkFingerprint?>()
-    private val scanSessionPreferredDnsPaths = mutableMapOf<String, EncryptedDnsPathCandidate?>()
-    private val pendingAutomaticProbeJobs = mutableMapOf<Mode, kotlinx.coroutines.Job>()
-    private val recentAutomaticProbeRuns = mutableMapOf<String, Long>()
+    private val scanSessionFingerprints = ConcurrentHashMap<String, NetworkFingerprint>()
+    private val scanSessionPreferredDnsPaths = ConcurrentHashMap<String, EncryptedDnsPathCandidate>()
+    private val pendingAutomaticProbeJobs = ConcurrentHashMap<Mode, kotlinx.coroutines.Job>()
+    private val recentAutomaticProbeRuns = ConcurrentHashMap<String, Long>()
     private val hiddenScanCount = AtomicInteger(0)
 
     override suspend fun initialize() {
@@ -258,8 +264,8 @@ class DefaultDiagnosticsManager
                 }
         }
         val sessionId = UUID.randomUUID().toString()
-        scanSessionFingerprints[sessionId] = networkFingerprint
-        scanSessionPreferredDnsPaths[sessionId] = preferredDnsPath
+        networkFingerprint?.let { scanSessionFingerprints[sessionId] = it }
+        preferredDnsPath?.let { scanSessionPreferredDnsPaths[sessionId] = it }
         val serviceMode = serviceStateStore.status.value.second.name
         val contextSnapshot = diagnosticsContextProvider.captureContext()
         val approachSnapshot =
@@ -303,7 +309,7 @@ class DefaultDiagnosticsManager
 
         val bridge = networkDiagnosticsBridgeFactory.create()
         if (registerActiveBridge) {
-            activeDiagnosticsBridge = bridge
+            bridgeMutex.withLock { activeDiagnosticsBridge = bridge }
         } else {
             hiddenScanCount.incrementAndGet()
         }
@@ -315,8 +321,10 @@ class DefaultDiagnosticsManager
         } catch (error: Throwable) {
             scanSessionFingerprints.remove(sessionId)
             scanSessionPreferredDnsPaths.remove(sessionId)
-            if (activeDiagnosticsBridge === bridge) {
-                activeDiagnosticsBridge = null
+            bridgeMutex.withLock {
+                if (activeDiagnosticsBridge === bridge) {
+                    activeDiagnosticsBridge = null
+                }
             }
             if (!registerActiveBridge) {
                 hiddenScanCount.decrementAndGet()
@@ -363,8 +371,10 @@ class DefaultDiagnosticsManager
                     _activeScanProgress.value = null
                 }
                 runCatching { bridge.destroy() }
-                if (activeDiagnosticsBridge === bridge) {
-                    activeDiagnosticsBridge = null
+                bridgeMutex.withLock {
+                    if (activeDiagnosticsBridge === bridge) {
+                        activeDiagnosticsBridge = null
+                    }
                 }
                 if (!registerActiveBridge) {
                     hiddenScanCount.decrementAndGet()
@@ -375,7 +385,7 @@ class DefaultDiagnosticsManager
     }
 
     override suspend fun cancelActiveScan() {
-        activeDiagnosticsBridge?.cancelScan()
+        bridgeMutex.withLock { activeDiagnosticsBridge }?.cancelScan()
         _activeScanProgress.value = null
     }
 
@@ -391,7 +401,7 @@ class DefaultDiagnosticsManager
     private suspend fun launchAutomaticHandoverProbe(event: PolicyHandoverEvent) {
         val settings = appSettingsRepository.snapshot()
         val hasActiveScan =
-            _activeScanProgress.value != null || activeDiagnosticsBridge != null || hiddenScanCount.get() > 0
+            _activeScanProgress.value != null || bridgeMutex.withLock { activeDiagnosticsBridge } != null || hiddenScanCount.get() > 0
         if (!AutomaticProbeCoordinator.shouldLaunchProbe(
                 settings = settings,
                 event = event,
@@ -527,59 +537,61 @@ class DefaultDiagnosticsManager
         settings: com.poyka.ripdpi.proto.AppSettings,
         exposeProgress: Boolean,
     ) {
-        while (true) {
-            DiagnosticsReportPersister.persistNativeEvents(
-                sessionId = sessionId,
-                payload = bridge.pollPassiveEventsJson(),
-                historyRepository = historyRepository,
-                json = json,
-            )
-            val progress =
-                bridge.pollProgressJson()
-                    ?.let { json.decodeFromString(ScanProgress.serializer(), it) }
-            if (exposeProgress) {
-                _activeScanProgress.value = progress
-            }
-            if (progress != null && progress.isFinished) {
-                val report =
-                    awaitFinishedReportJson(bridge)
-                        ?.let { json.decodeFromString(ScanReport.serializer(), it) }
-                        ?: throw IllegalStateException("Diagnostics scan completed without a report")
-                val enrichedReport = enrichScanReport(report, settings)
-                val finalReport = maybeApplyTemporaryResolverOverride(enrichedReport, settings)
-                DiagnosticsReportPersister.persistScanReport(finalReport, historyRepository, serviceStateStore, json)
-                rememberNetworkDnsPathPreference(sessionId, finalReport.resolverRecommendation)
-                rememberStrategyProbeRecommendation(finalReport, settings)
-                historyRepository.upsertSnapshot(
-                    NetworkSnapshotEntity(
-                        id = UUID.randomUUID().toString(),
-                        sessionId = sessionId,
-                        snapshotKind = "post_scan",
-                        payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkMetadataProvider.captureSnapshot()),
-                        capturedAt = System.currentTimeMillis(),
-                    ),
-                )
-                historyRepository.upsertContextSnapshot(
-                    DiagnosticContextEntity(
-                        id = UUID.randomUUID().toString(),
-                        sessionId = sessionId,
-                        contextKind = "post_scan",
-                        payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), diagnosticsContextProvider.captureContext()),
-                        capturedAt = System.currentTimeMillis(),
-                    ),
-                )
+        withTimeout(PollScanResultTimeoutMs) {
+            while (true) {
                 DiagnosticsReportPersister.persistNativeEvents(
                     sessionId = sessionId,
                     payload = bridge.pollPassiveEventsJson(),
                     historyRepository = historyRepository,
                     json = json,
                 )
+                val progress =
+                    bridge.pollProgressJson()
+                        ?.let { json.decodeFromString(ScanProgress.serializer(), it) }
                 if (exposeProgress) {
-                    _activeScanProgress.value = null
+                    _activeScanProgress.value = progress
                 }
-                break
+                if (progress != null && progress.isFinished) {
+                    val report =
+                        awaitFinishedReportJson(bridge)
+                            ?.let { json.decodeFromString(ScanReport.serializer(), it) }
+                            ?: throw IllegalStateException("Diagnostics scan completed without a report")
+                    val enrichedReport = enrichScanReport(report, settings)
+                    val finalReport = maybeApplyTemporaryResolverOverride(enrichedReport, settings)
+                    DiagnosticsReportPersister.persistScanReport(finalReport, historyRepository, serviceStateStore, json)
+                    rememberNetworkDnsPathPreference(sessionId, finalReport.resolverRecommendation)
+                    rememberStrategyProbeRecommendation(finalReport, settings)
+                    historyRepository.upsertSnapshot(
+                        NetworkSnapshotEntity(
+                            id = UUID.randomUUID().toString(),
+                            sessionId = sessionId,
+                            snapshotKind = "post_scan",
+                            payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkMetadataProvider.captureSnapshot()),
+                            capturedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                    historyRepository.upsertContextSnapshot(
+                        DiagnosticContextEntity(
+                            id = UUID.randomUUID().toString(),
+                            sessionId = sessionId,
+                            contextKind = "post_scan",
+                            payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), diagnosticsContextProvider.captureContext()),
+                            capturedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                    DiagnosticsReportPersister.persistNativeEvents(
+                        sessionId = sessionId,
+                        payload = bridge.pollPassiveEventsJson(),
+                        historyRepository = historyRepository,
+                        json = json,
+                    )
+                    if (exposeProgress) {
+                        _activeScanProgress.value = null
+                    }
+                    break
+                }
+                delay(400L)
             }
-            delay(400L)
         }
     }
 
