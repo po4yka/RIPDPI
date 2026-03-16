@@ -64,8 +64,8 @@ fn handle_transparent(client: TcpStream, state: &RuntimeState) -> io::Result<()>
         ));
     }
 
-    match super::connect_target(target, state, None, false, None) {
-        Ok((upstream, route)) => super::relay(client, upstream, state, target, route, None),
+    match super::routing::connect_target(target, state, None, false, None) {
+        Ok((upstream, route)) => super::relay::relay(client, upstream, state, target, route, None),
         Err(err) => {
             if matches!(err.kind(), io::ErrorKind::ConnectionRefused | io::ErrorKind::TimedOut) {
                 let _ = SockRef::from(&client).set_linger(Some(Duration::ZERO));
@@ -84,15 +84,20 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
         Ok(ClientRequest::Socks4Connect(target)) => {
             match maybe_delay_connect(&mut client, state, target.addr, HandshakeKind::Socks4)? {
                 DelayConnect::Immediate => {
-                    let (upstream, route) = super::connect_target(target.addr, state, None, false, None)?;
+                    let (upstream, route) = super::routing::connect_target(target.addr, state, None, false, None)?;
                     client.write_all(encode_socks4_reply(true).as_bytes())?;
-                    super::relay(client, upstream, state, target.addr, route, None)
+                    super::relay::relay(client, upstream, state, target.addr, route, None)
                 }
                 DelayConnect::Delayed { route, payload } => {
                     let host = extract_host(&state.config, &payload);
-                    let (upstream, route) =
-                        super::connect_target_with_route(target.addr, state, route, Some(&payload), host.clone())?;
-                    super::relay(client, upstream, state, target.addr, route, Some(payload))
+                    let (upstream, route) = super::routing::connect_target_with_route(
+                        target.addr,
+                        state,
+                        route,
+                        Some(&payload),
+                        host.clone(),
+                    )?;
+                    super::relay::relay(client, upstream, state, target.addr, route, Some(payload))
                 }
                 DelayConnect::Closed => Ok(()),
             }
@@ -120,25 +125,33 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     match parse_socks5_request(&request, SocketType::Stream, session, &resolver) {
         Ok(ClientRequest::Socks5Connect(target)) => {
             match maybe_delay_connect(&mut client, state, target.addr, HandshakeKind::Socks5)? {
-                DelayConnect::Immediate => match super::connect_target(target.addr, state, None, false, None) {
-                    Ok((upstream, route)) => {
-                        let reply_addr = upstream
-                            .local_addr()
-                            .unwrap_or_else(|_| SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0));
-                        client.write_all(encode_socks5_reply(0, reply_addr).as_bytes())?;
-                        super::relay(client, upstream, state, target.addr, route, None)
+                DelayConnect::Immediate => {
+                    match super::routing::connect_target(target.addr, state, None, false, None) {
+                        Ok((upstream, route)) => {
+                            let reply_addr = upstream
+                                .local_addr()
+                                .unwrap_or_else(|_| SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0));
+                            client.write_all(encode_socks5_reply(0, reply_addr).as_bytes())?;
+                            super::relay::relay(client, upstream, state, target.addr, route, None)
+                        }
+                        Err(_) => {
+                            let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+                            client.write_all(encode_socks5_reply(S_ER_CONN, fail).as_bytes())?;
+                            Ok(())
+                        }
                     }
-                    Err(_) => {
-                        let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
-                        client.write_all(encode_socks5_reply(S_ER_CONN, fail).as_bytes())?;
-                        Ok(())
-                    }
-                },
+                }
                 DelayConnect::Delayed { route, payload } => {
                     let host = extract_host(&state.config, &payload);
-                    match super::connect_target_with_route(target.addr, state, route, Some(&payload), host.clone()) {
+                    match super::routing::connect_target_with_route(
+                        target.addr,
+                        state,
+                        route,
+                        Some(&payload),
+                        host.clone(),
+                    ) {
                         Ok((upstream, route)) => {
-                            super::relay(client, upstream, state, target.addr, route, Some(payload))
+                            super::relay::relay(client, upstream, state, target.addr, route, Some(payload))
                         }
                         Err(_) => Ok(()),
                     }
@@ -173,21 +186,29 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
     match parse_http_connect_request(&request, &resolver) {
         Ok(ClientRequest::HttpConnect(target)) => {
             match maybe_delay_connect(&mut client, state, target.addr, HandshakeKind::HttpConnect)? {
-                DelayConnect::Immediate => match super::connect_target(target.addr, state, None, false, None) {
-                    Ok((upstream, route)) => {
-                        client.write_all(encode_http_connect_reply(true).as_bytes())?;
-                        super::relay(client, upstream, state, target.addr, route, None)
+                DelayConnect::Immediate => {
+                    match super::routing::connect_target(target.addr, state, None, false, None) {
+                        Ok((upstream, route)) => {
+                            client.write_all(encode_http_connect_reply(true).as_bytes())?;
+                            super::relay::relay(client, upstream, state, target.addr, route, None)
+                        }
+                        Err(_) => {
+                            client.write_all(encode_http_connect_reply(false).as_bytes())?;
+                            Ok(())
+                        }
                     }
-                    Err(_) => {
-                        client.write_all(encode_http_connect_reply(false).as_bytes())?;
-                        Ok(())
-                    }
-                },
+                }
                 DelayConnect::Delayed { route, payload } => {
                     let host = extract_host(&state.config, &payload);
-                    match super::connect_target_with_route(target.addr, state, route, Some(&payload), host.clone()) {
+                    match super::routing::connect_target_with_route(
+                        target.addr,
+                        state,
+                        route,
+                        Some(&payload),
+                        host.clone(),
+                    ) {
                         Ok((upstream, route)) => {
-                            super::relay(client, upstream, state, target.addr, route, Some(payload))
+                            super::relay::relay(client, upstream, state, target.addr, route, Some(payload))
                         }
                         Err(_) => Ok(()),
                     }
@@ -206,8 +227,8 @@ fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u
     let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, &state.config)?;
     let host = extract_host(&state.config, &first_request);
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_slice()) };
-    let (upstream, route) = super::connect_target(target, state, payload, false, host)?;
-    super::relay(
+    let (upstream, route) = super::routing::connect_target(target, state, payload, false, host)?;
+    super::relay::relay(
         client,
         upstream,
         state,
@@ -218,7 +239,7 @@ fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u
 }
 
 fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
-    let relay = super::build_udp_relay_socket(client.local_addr()?.ip(), state.config.protect_path.as_deref())?;
+    let relay = super::udp::build_udp_relay_socket(client.local_addr()?.ip(), state.config.protect_path.as_deref())?;
     let reply_addr = relay.local_addr()?;
     client.write_all(encode_socks5_reply(0, reply_addr).as_bytes())?;
 
@@ -228,7 +249,7 @@ fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> i
     let worker_state = state.clone();
     let worker = thread::Builder::new()
         .name("ripdpi-udp".into())
-        .spawn(move || super::udp_associate_loop(worker_socket, worker_state, worker_running))
+        .spawn(move || super::udp::udp_associate_loop(worker_socket, worker_state, worker_running))
         .expect("failed to spawn UDP relay thread");
 
     client.set_read_timeout(Some(Duration::from_millis(250)))?;
@@ -355,7 +376,7 @@ fn maybe_delay_connect(
     if !state.config.delay_conn {
         return Ok(DelayConnect::Immediate);
     }
-    let route = super::select_route(state, target, None, None, true)?;
+    let route = super::routing::select_route(state, target, None, None, true)?;
     let group = state
         .config
         .groups

@@ -751,10 +751,7 @@ fn select_best_candidate(
             *index,
         )
     });
-    ranked
-        .into_iter()
-        .next()
-        .map(|group_index| ConnectionRoute { group_index, attempted_mask })
+    ranked.into_iter().next().map(|group_index| ConnectionRoute { group_index, attempted_mask })
 }
 
 fn retry_penalty(
@@ -1043,10 +1040,7 @@ mod tests {
         config.host_autolearn_penalty_ttl_secs = 3_600;
         config.host_autolearn_max_hosts = max_hosts;
         let mut path = std::env::temp_dir();
-        path.push(format!(
-            "ripdpi-host-autolearn-{}-{group_count}-{max_hosts}.json",
-            next_temp_file_nonce()
-        ));
+        path.push(format!("ripdpi-host-autolearn-{}-{group_count}-{max_hosts}.json", next_temp_file_nonce()));
         config.host_autolearn_store_path = Some(path.to_string_lossy().into_owned());
         config
     }
@@ -1183,11 +1177,7 @@ mod tests {
             ),
             (
                 2usize,
-                RetrySelectionPenalty {
-                    same_signature_cooldown_ms: 0,
-                    family_cooldown_ms: 0,
-                    diversification_rank: 5,
-                },
+                RetrySelectionPenalty { same_signature_cooldown_ms: 0, family_cooldown_ms: 0, diversification_rank: 5 },
             ),
         ]);
 

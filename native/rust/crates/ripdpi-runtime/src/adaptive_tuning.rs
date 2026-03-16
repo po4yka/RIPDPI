@@ -610,10 +610,13 @@ mod tests {
         let mut resolver = AdaptivePlannerResolver::default();
         let target = addr(443);
 
-        let baseline = resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("video.example.test"), &group, payload);
+        let baseline =
+            resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("video.example.test"), &group, payload);
         resolver.note_tcp_failure(Some("scope-a"), 0, target, Some("video.example.test"), payload);
-        let advanced = resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("video.example.test"), &group, payload);
-        let isolated = resolver.resolve_tcp_hints(Some("scope-b"), 0, target, Some("video.example.test"), &group, payload);
+        let advanced =
+            resolver.resolve_tcp_hints(Some("scope-a"), 0, target, Some("video.example.test"), &group, payload);
+        let isolated =
+            resolver.resolve_tcp_hints(Some("scope-b"), 0, target, Some("video.example.test"), &group, payload);
 
         assert_ne!(baseline.split_offset_base, advanced.split_offset_base);
         assert_eq!(isolated.split_offset_base, baseline.split_offset_base);
@@ -639,14 +642,18 @@ mod tests {
         let target = addr(443);
 
         let mut first = AdaptivePlannerResolver::default();
-        let base_first = first.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
+        let base_first =
+            first.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
         first.note_tcp_failure(Some("scope-a"), 0, target, Some("docs.example.test"), payload);
-        let next_first = first.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
+        let next_first =
+            first.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
 
         let mut second = AdaptivePlannerResolver::default();
-        let base_second = second.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
+        let base_second =
+            second.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
         second.note_tcp_failure(Some("scope-a"), 0, target, Some("docs.example.test"), payload);
-        let next_second = second.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
+        let next_second =
+            second.resolve_tcp_hints(Some("scope-a"), 0, target, Some("docs.example.test"), &group, payload);
 
         assert_eq!(base_first, base_second);
         assert_eq!(next_first, next_second);

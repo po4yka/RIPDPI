@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use std::process;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ciadpi_desync::AdaptivePlannerHints;
 use crate::runtime_policy::RetrySelectionPenalty;
+use ciadpi_desync::AdaptivePlannerHints;
 
 const FNV_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV_PRIME: u64 = 0x100000001b3;
@@ -137,7 +137,8 @@ impl RetryPacer {
             policy,
             session_seed: stable_hash_combine(
                 process::id() as u64,
-                now_ms() ^ (SystemTime::now().duration_since(UNIX_EPOCH).ok().map_or(0, |value| value.as_nanos() as u64)),
+                now_ms()
+                    ^ (SystemTime::now().duration_since(UNIX_EPOCH).ok().map_or(0, |value| value.as_nanos() as u64)),
             ),
             signature_failures: HashMap::new(),
             family_cooldowns: HashMap::new(),
@@ -187,12 +188,8 @@ impl RetryPacer {
             .signature_failures
             .get(&signature_hash)
             .map_or(0, |state| state.suppress_until_ms.saturating_sub(now_ms));
-        let family_cooldown_ms = self
-            .family_cooldowns
-            .get(&signature.family_hash())
-            .copied()
-            .unwrap_or_default()
-            .saturating_sub(now_ms);
+        let family_cooldown_ms =
+            self.family_cooldowns.get(&signature.family_hash()).copied().unwrap_or_default().saturating_sub(now_ms);
         RetrySelectionPenalty {
             same_signature_cooldown_ms,
             family_cooldown_ms,
@@ -230,7 +227,8 @@ impl RetryPacer {
     }
 
     fn same_signature_backoff_ms(&self, signature_hash: u64, consecutive_failures: u32) -> u64 {
-        let index = consecutive_failures.saturating_sub(1).min((self.policy.same_signature_backoff_ms.len() - 1) as u32);
+        let index =
+            consecutive_failures.saturating_sub(1).min((self.policy.same_signature_backoff_ms.len() - 1) as u32);
         apply_jitter(
             self.policy.same_signature_backoff_ms[index as usize],
             self.policy.jitter_ratio,

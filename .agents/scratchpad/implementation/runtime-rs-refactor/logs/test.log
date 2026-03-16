@@ -1,0 +1,115 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests src/lib.rs (native/rust/target/debug/deps/ripdpi_runtime-9a329c2df05af9d1)
+
+running 77 tests
+test adaptive_fake_ttl::tests::detected_from_observed_ttl_computes_hop_count_correctly ... ok
+test adaptive_fake_ttl::tests::note_server_ttl_for_unknown_key_does_not_panic ... ok
+test adaptive_fake_ttl::tests::detected_fallback_preserved_across_config_rebuild ... ok
+test adaptive_fake_ttl::tests::host_and_address_keys_remain_isolated ... ok
+test adaptive_fake_ttl::tests::positive_delta_prefers_higher_candidates_first ... ok
+test adaptive_fake_ttl::tests::negative_delta_prefers_lower_candidates_first ... ok
+test adaptive_fake_ttl::tests::zero_delta_alternates_outward_from_seed ... ok
+test adaptive_fake_ttl::tests::note_server_ttl_seeds_candidates_from_detected_hop_count ... ok
+test adaptive_fake_ttl::tests::success_pins_and_failure_advances_or_wraps ... ok
+test adaptive_tuning::tests::tcp_failure_rotates_one_adaptive_dimension_at_a_time ... ok
+test adaptive_tuning::tests::tcp_feedback_is_scoped_by_network_scope_key ... ok
+test adaptive_tuning::tests::adaptive_dimension_order_is_stable_within_same_scope ... ok
+test adaptive_tuning::tests::tcp_success_pins_current_candidate_until_next_failure ... ok
+test process::tests::prepare_resets_shutdown_state ... ok
+test retry_stealth::tests::different_groups_in_same_family_only_get_family_delay ... ok
+test retry_stealth::tests::repeated_failures_escalate_same_signature_backoff ... ok
+test retry_stealth::tests::retry_delay_clears_after_signature_window_expires ... ok
+test retry_stealth::tests::retry_delay_for_sibling_signature_uses_same_family_reason ... ok
+test retry_stealth::tests::success_clears_signature_and_family_cooldowns ... ok
+test runtime::handshake::tests::parse_shadowsocks_target_handles_ipv4_and_resolved_domain_targets ... ok
+test runtime::handshake::tests::parse_shadowsocks_target_respects_ipv6_and_resolve_flags ... ok
+test runtime::tests::client_slot_guard_enforces_limit_and_releases_slot ... ok
+test runtime::tests::encode_upstream_socks_connect_encodes_ipv6_targets ... ok
+test runtime::tests::failure_penalizes_strategy_for_expected_classes ... ok
+test runtime::tests::failure_trigger_mask_covers_all_detection_classes ... ok
+test runtime::tests::http_connect_failure_reply_is_503 ... ok
+test runtime::tests::http_connect_success_reply_is_200_ok ... ok
+test runtime::tests::should_cache_udp_host_only_caches_quic_in_cache_mode ... ok
+test runtime::tests::socks4_failure_reply_byte_sequence ... ok
+test process::tests::prepare_with_pid_file_writes_and_removes_pidfile ... ok
+test runtime::tests::socks4_success_reply_byte_sequence ... ok
+test runtime::handshake::tests::read_socks5_request_reads_domain_target ... ok
+test runtime::tests::socks5_error_reply_carries_error_code ... ok
+test runtime::tests::socks5_success_reply_preserves_bind_address ... ok
+test runtime::tests::special_tcp_execution_includes_fake_approximation_steps ... ok
+test runtime::tests::tcp_desync_helpers_require_actionable_groups_and_matching_rounds ... ok
+test runtime::tests::timeout_and_trigger_helpers_follow_runtime_configuration ... ok
+test runtime::tests::tls_record_tracker_handles_partial_records_and_limits ... ok
+test runtime::tests::tls_record_tracker_inactive_for_non_tls_request ... ok
+test runtime::tests::tls_record_tracker_inactive_without_partial_timeout ... ok
+test runtime::tests::tls_record_tracker_multi_record_observation ... ok
+test runtime::tests::udp_packet_parse_rejects_malformed_packets ... ok
+test runtime::handshake::tests::send_success_reply_emits_protocol_specific_payloads ... ok
+test runtime::tests::udp_packet_round_trip_empty_payload ... ok
+test runtime::tests::udp_packet_round_trip_preserves_ipv6_sender_and_payload ... ok
+test runtime::tests::udp_packet_round_trip_preserves_sender_and_payload ... ok
+test runtime_policy::tests::cache_bits_with_prefix ... ok
+test runtime_policy::tests::group_matches_no_payload_allow_unknown_false ... ok
+test runtime_policy::tests::is_expired_ttl_boundary ... ok
+test runtime_policy::tests::matches_l34_ipv4_only_filter ... ok
+test runtime_policy::tests::matches_l34_port_filter_boundaries ... ok
+test runtime_policy::tests::lookup_prunes_expired_records ... ok
+test runtime_policy::tests::matches_l34_rejects_udp_proto ... ok
+test runtime_policy::tests::matches_payload_l7_proto_filtering ... ok
+test runtime_policy::tests::extract_host_skips_quic_when_disabled ... ok
+test runtime_policy::tests::payload_proto_known_values ... ok
+test runtime_policy::tests::route_matches_payload_checks_host_filters ... ok
+test runtime_policy::tests::runtime_cache_store_preserves_cached_hostnames ... ok
+test runtime_policy::tests::select_initial_group_skips_detect_only_groups ... ok
+test runtime_policy::tests::select_next_group_advances_to_matching_trigger_group ... ok
+test runtime_policy::tests::select_next_group_prefers_non_cooled_candidate_when_retry_penalties_exist ... ok
+test runtime_policy::tests::select_next_group_uses_diversification_rank_as_tiebreaker ... ok
+test runtime_policy::tests::legacy_v1_host_autolearn_store_is_invalidated ... ok
+test tests::embedded_proxy_control_preserves_its_own_telemetry_sink ... ok
+test tests::embedded_proxy_controls_keep_shutdown_state_isolated ... ok
+test runtime_policy::tests::extract_host_respects_quic_version_toggles ... ok
+test runtime_policy::tests::host_preference_outranks_destination_cache ... ok
+test tests::install_runtime_telemetry_exposes_current_sink_until_cleared ... ok
+test runtime_policy::tests::extract_host_reads_quic_initial_sni ... ok
+test tests::installing_new_runtime_telemetry_replaces_previous_sink ... ok
+test runtime_policy::tests::udp_host_filters_match_quic_initial_payloads ... ok
+test runtime_policy::tests::fingerprint_mismatch_invalidates_learned_state ... ok
+test runtime_policy::tests::host_autolearn_is_scoped_by_network_scope_key ... ok
+test runtime_policy::tests::penalties_suppress_group_until_ttl_expiry ... ok
+test runtime_policy::tests::max_host_eviction_removes_oldest_records ... ok
+test runtime_policy::tests::successful_fallback_promotes_final_group_for_host ... ok
+test adaptive_tuning::tests::udp_feedback_is_scoped_by_host_and_quic_profile ... ok
+
+test result: ok. 77 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/network_e2e.rs (native/rust/target/debug/deps/network_e2e-5cdc7227a2d3392f)
+
+running 10 tests
+test socks5_connect_reply_contains_bound_address ... ok
+test http_connect_reply_format_is_200_ok_with_crlf ... ok
+test socks5_delay_connect_replies_before_first_payload_and_round_trips ... ok
+test socks5_tcp_udp_tls_domain_chain_and_filtering_are_covered_end_to_end ... ok
+test socks5_udp_multi_flow_same_socket_different_targets ... ok
+test socks5_udp_quic_initial_disabled_falls_back_without_host_telemetry ... ok
+test socks5_udp_quic_initial_routes_by_hostname_and_records_host_telemetry ... ok
+test socks5_udp_quic_initial_v2_routes_by_hostname_when_enabled ... ok
+test upstream_silent_drop_fault_is_classified_end_to_end ... ok
+test upstream_tcp_reset_fault_is_observed_end_to_end ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.44s
+
+     Running tests/network_soak.rs (native/rust/target/debug/deps/network_soak-e757ebb8edca0ce6)
+
+running 3 tests
+test proxy_fault_recovery_soak ... ignored, requires RIPDPI_RUN_SOAK=1
+test proxy_restart_soak ... ignored, requires RIPDPI_RUN_SOAK=1
+test proxy_sustained_traffic_soak ... ignored, requires RIPDPI_RUN_SOAK=1
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ripdpi_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
