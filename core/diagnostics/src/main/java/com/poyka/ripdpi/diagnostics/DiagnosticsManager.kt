@@ -293,7 +293,7 @@ class DefaultDiagnosticsManager
                 id = UUID.randomUUID().toString(),
                 sessionId = sessionId,
                 snapshotKind = "pre_scan",
-                payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkMetadataProvider.captureSnapshot()),
+                payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkMetadataProvider.captureSnapshot(includePublicIp = true)),
                 capturedAt = System.currentTimeMillis(),
             ),
         )
@@ -566,7 +566,7 @@ class DefaultDiagnosticsManager
                             id = UUID.randomUUID().toString(),
                             sessionId = sessionId,
                             snapshotKind = "post_scan",
-                            payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkMetadataProvider.captureSnapshot()),
+                            payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkMetadataProvider.captureSnapshot(includePublicIp = true)),
                             capturedAt = System.currentTimeMillis(),
                         ),
                     )

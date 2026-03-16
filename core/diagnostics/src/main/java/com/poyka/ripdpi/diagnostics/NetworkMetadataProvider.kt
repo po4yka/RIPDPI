@@ -26,7 +26,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 interface NetworkMetadataProvider {
-    suspend fun captureSnapshot(): NetworkSnapshotModel
+    suspend fun captureSnapshot(includePublicIp: Boolean = false): NetworkSnapshotModel
 }
 
 data class PublicIpInfo(
@@ -71,11 +71,11 @@ class AndroidNetworkMetadataProvider
     private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
     private val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
 
-    override suspend fun captureSnapshot(): NetworkSnapshotModel {
+    override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel {
         val network = connectivityManager.activeNetwork
         val capabilities = connectivityManager.getNetworkCapabilities(network)
         val linkProperties = connectivityManager.getLinkProperties(network)
-        val publicIpInfo = publicIpInfoResolver.resolve()
+        val publicIpInfo = if (includePublicIp) publicIpInfoResolver.resolve() else null
 
         return NetworkSnapshotModel(
             transport = resolveTransport(capabilities),
