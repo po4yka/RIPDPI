@@ -126,7 +126,7 @@ class SettingsUiStateTest {
         assertEquals(0, state.stepActivationFilterCount)
         assertFalse(state.webrtcProtectionEnabled)
         assertFalse(state.biometricEnabled)
-        assertEquals("", state.backupPin)
+        assertEquals("", state.backupPinHash)
         assertFalse(state.hasBackupPin)
         assertEquals(LauncherIconManager.DefaultIconKey, state.appIconVariant)
         assertTrue(state.themedAppIconEnabled)
