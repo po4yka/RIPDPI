@@ -104,6 +104,9 @@ not_unsafe_ptr_arg_deref = "allow"
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
 
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.release]
 lto = "thin"
 panic = "abort"

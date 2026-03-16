@@ -22,6 +22,8 @@ import org.gradle.process.ExecOperations
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import javax.inject.Inject
 
 data class RustNativeArtifact(
@@ -81,10 +83,12 @@ abstract class BuildRustNativeLibsTask
             val cargoTargetRoot = cargoTargetDir.get().asFile
             val cargoExecutable = resolveRustTool("cargo")
             val cargoProfileName = cargoProfile.get()
+            val abiList = abis.get()
 
             pruneStaleAbiOutputs(outputRoot)
 
-            for (abi in abis.get()) {
+            // Validate all ABIs upfront before spawning parallel builds.
+            val abiConfigs = abiList.map { abi ->
                 val target = abiToRustTarget(abi)
                 val clangTarget = abiToClangTarget(abi)
                 if (target !in installedTargets) {
@@ -102,61 +106,119 @@ abstract class BuildRustNativeLibsTask
                     throw GradleException("Android archiver not found: ${ar.absolutePath}")
                 }
 
-                val targetEnv = target.replace('-', '_').uppercase()
-                val ccTargetKey = "CC_${target.replace('-', '_')}"
-                val arTargetKey = "AR_${target.replace('-', '_')}"
-                val abiCargoTargetDir = cargoTargetRoot.resolve(abi)
-                val abiOutputDir = outputRoot.resolve(abi)
-                abiOutputDir.mkdirs()
-                pruneStaleArtifactOutputs(abiOutputDir, expectedOutputNames)
+                AbiConfig(abi, target, linker, ar)
+            }
 
-                val cargoEnvironment =
-                    mapOf(
-                        "CC_$targetEnv" to linker.absolutePath,
-                        ccTargetKey to linker.absolutePath,
-                        "AR_$targetEnv" to ar.absolutePath,
-                        arTargetKey to ar.absolutePath,
-                        "CARGO_TARGET_${targetEnv}_LINKER" to linker.absolutePath,
-                        "CARGO_TARGET_${targetEnv}_AR" to ar.absolutePath,
-                        "CARGO_TARGET_DIR" to abiCargoTargetDir.absolutePath,
-                    )
-
-                val cargoCommand =
-                    buildList {
-                        add(cargoExecutable)
-                        add("build")
-                        add("--manifest-path")
-                        add(manifest.absolutePath)
-                        for (packageName in packageNames) {
-                            add("-p")
-                            add(packageName)
-                        }
-                        add("--locked")
-                        add("--target")
-                        add(target)
-                        add("--profile")
-                        add(cargoProfileName)
-                    }
-
-                execOperations.exec {
-                    workingDir = manifest.parentFile
-                    environment(cargoEnvironment)
-                    commandLine(cargoCommand)
-                }.assertNormalExitValue()
-
-                for (artifact in artifacts) {
-                    val builtLibrary = abiCargoTargetDir.resolve("$target/$cargoProfileName/${artifact.sourceName}")
-                    if (!builtLibrary.isFile) {
-                        throw GradleException(
-                            "Expected native library was not produced: ${builtLibrary.absolutePath}",
+            // Build all ABIs in parallel (each ABI has its own CARGO_TARGET_DIR).
+            // Cap thread count to available processors to avoid CPU contention.
+            val availableCpus = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+            val threadCount = abiConfigs.size.coerceAtMost(availableCpus)
+            val cargoJobs = (availableCpus / abiConfigs.size).coerceAtLeast(1)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            try {
+                val futures: List<Future<*>> = abiConfigs.map { config ->
+                    executor.submit {
+                        buildSingleAbi(
+                            config, manifest, packageNames, cargoExecutable,
+                            cargoProfileName, cargoTargetRoot, outputRoot,
+                            expectedOutputNames, artifacts, cargoJobs,
                         )
                     }
-
-                    val packagedLibrary = abiOutputDir.resolve(artifact.outputName)
-                    copyIfChanged(builtLibrary, packagedLibrary)
                 }
+
+                // Collect all results; report first failure.
+                val errors = mutableListOf<Throwable>()
+                for (future in futures) {
+                    try {
+                        future.get()
+                    } catch (e: java.util.concurrent.ExecutionException) {
+                        errors.add(e.cause ?: e)
+                    }
+                }
+                if (errors.isNotEmpty()) {
+                    val combined = errors.drop(1).fold(errors.first()) { acc, e -> acc.addSuppressed(e); acc }
+                    throw combined
+                }
+            } finally {
+                executor.shutdown()
             }
         }
+
+        private fun buildSingleAbi(
+            config: AbiConfig,
+            manifest: File,
+            packageNames: List<String>,
+            cargoExecutable: String,
+            cargoProfileName: String,
+            cargoTargetRoot: File,
+            outputRoot: File,
+            expectedOutputNames: Set<String>,
+            artifacts: List<RustNativeArtifact>,
+            cargoJobs: Int,
+        ) {
+            val targetEnv = config.target.replace('-', '_').uppercase()
+            val ccTargetKey = "CC_${config.target.replace('-', '_')}"
+            val arTargetKey = "AR_${config.target.replace('-', '_')}"
+            val abiCargoTargetDir = cargoTargetRoot.resolve(config.abi)
+            val abiOutputDir = outputRoot.resolve(config.abi)
+            abiOutputDir.mkdirs()
+            pruneStaleArtifactOutputs(abiOutputDir, expectedOutputNames)
+
+            val cargoEnvironment =
+                mapOf(
+                    "CC_$targetEnv" to config.linker.absolutePath,
+                    ccTargetKey to config.linker.absolutePath,
+                    "AR_$targetEnv" to config.ar.absolutePath,
+                    arTargetKey to config.ar.absolutePath,
+                    "CARGO_TARGET_${targetEnv}_LINKER" to config.linker.absolutePath,
+                    "CARGO_TARGET_${targetEnv}_AR" to config.ar.absolutePath,
+                    "CARGO_TARGET_DIR" to abiCargoTargetDir.absolutePath,
+                )
+
+            val cargoCommand =
+                buildList {
+                    add(cargoExecutable)
+                    add("build")
+                    add("--manifest-path")
+                    add(manifest.absolutePath)
+                    for (packageName in packageNames) {
+                        add("-p")
+                        add(packageName)
+                    }
+                    add("--locked")
+                    add("--target")
+                    add(config.target)
+                    add("--profile")
+                    add(cargoProfileName)
+                    add("--jobs")
+                    add(cargoJobs.toString())
+                }
+
+            execOperations.exec {
+                workingDir = manifest.parentFile
+                environment(cargoEnvironment)
+                commandLine(cargoCommand)
+            }.assertNormalExitValue()
+
+            for (artifact in artifacts) {
+                val builtLibrary = abiCargoTargetDir.resolve("${config.target}/$cargoProfileName/${artifact.sourceName}")
+                if (!builtLibrary.isFile) {
+                    throw GradleException(
+                        "Expected native library was not produced: ${builtLibrary.absolutePath}",
+                    )
+                }
+
+                val packagedLibrary = abiOutputDir.resolve(artifact.outputName)
+                copyIfChanged(builtLibrary, packagedLibrary)
+            }
+        }
+
+        private data class AbiConfig(
+            val abi: String,
+            val target: String,
+            val linker: File,
+            val ar: File,
+        )
 
         private fun resolveNdkToolchainBinDir(): File {
             val ndkDir = File(sdkDir.get()).resolve("ndk").resolve(ndkVersion.get())

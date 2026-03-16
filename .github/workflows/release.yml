@@ -26,6 +26,11 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+
       - name: Read native toolchain policy
         id: native-toolchain
         run: |
@@ -37,6 +42,8 @@ jobs:
       - name: Install NDK
         run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
+      - uses: mozilla-actions/sccache-action@v0.0.7
+
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Decode keystore
@@ -44,6 +51,7 @@ jobs:
 
       - name: Build release APK
         env:
+          RUSTC_WRAPPER: sccache
           SIGNING_STORE_FILE: ${{ github.workspace }}/release.keystore
           SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
