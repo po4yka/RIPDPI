@@ -521,7 +521,7 @@ private class InMemoryDiagnosticsHistoryRepository : DiagnosticsHistoryRepositor
 }
 
 private class RecorderFakeNetworkMetadataProvider : NetworkMetadataProvider {
-    override suspend fun captureSnapshot(): NetworkSnapshotModel =
+    override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel =
         NetworkSnapshotModel(
             transport = "wifi",
             capabilities = listOf("validated"),
