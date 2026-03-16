@@ -1146,4 +1146,304 @@ fakeddisorder endhost</string>
     <string name="about_credits_body">RIPDPI основан на open-source проекте hufrea/ripdpi и хранит всю маршрутизацию и конфигурацию локально на устройстве.</string>
     <string name="about_links_section">Ссылки</string>
     <string name="diagnostics_warn_samsung_background_limits">Фоновые ограничения Samsung всё ещё могут прерывать RIPDPI. Если сессии обрываются, проверьте режим батареи «Без ограничений» и список спящих приложений.</string>
+
+    <string name="title_data_transparency">Прозрачность данных</string>
+    <string name="settings_data_transparency_body">Какие данные собираются, как хранятся и какие есть средства управления конфиденциальностью.</string>
+    <string name="data_transparency_what_we_collect_section">Что мы собираем</string>
+    <string name="data_transparency_network_diagnostics">Сетевая диагностика: тип транспорта, уровень сигнала, конфигурация DNS</string>
+    <string name="data_transparency_dpi_detection">Результаты обнаружения DPI: классификация сбоев, эффективность стратегий</string>
+    <string name="data_transparency_performance_metrics">Метрики производительности: измерения RTT, количество повторов, статистика трафика</string>
+    <string name="data_transparency_network_identity">Идентификация сети: хешированный отпечаток характеристик сети (SSID Wi-Fi, информация оператора)</string>
+    <string name="data_transparency_device_context">Контекст устройства: версия Android, модель устройства, версия приложения, состояния разрешений</string>
+    <string name="data_transparency_optional_ip">Необязательно: публичный IP-адрес (только во время ручного диагностического сканирования)</string>
+    <string name="data_transparency_what_we_do_not_collect_section">Что мы НЕ собираем</string>
+    <string name="data_transparency_no_browsing">Никакой истории просмотров или содержимого URL</string>
+    <string name="data_transparency_no_personal_data">Никаких персональных данных, аккаунтов или учётных данных</string>
+    <string name="data_transparency_no_external_servers">Данные не отправляются на внешние серверы автоматически</string>
+    <string name="data_transparency_no_analytics">Нет аналитики, отчётов об ошибках или рекламных SDK</string>
+    <string name="data_transparency_how_stored_section">Как хранятся данные</string>
+    <string name="data_transparency_local_database">Все данные остаются на вашем устройстве в локальной базе данных</string>
+    <string name="data_transparency_retention_period">Настраиваемый срок хранения (1\u2013365 дней)</string>
+    <string name="data_transparency_disable_monitoring">Пассивный мониторинг можно отключить в расширенных настройках</string>
+    <string name="data_transparency_export_explicit">Архивы экспорта создаются только по вашему явному запросу</string>
+    <string name="data_transparency_export_privacy_section">Конфиденциальность экспорта</string>
+    <string name="data_transparency_export_redaction">В экспортируемых архивах IP-адреса, идентификаторы Wi-Fi и другие персональные данные скрываются</string>
+    <string name="data_transparency_export_control">Вы контролируете, чем и с кем делитесь</string>
+
+    <!-- Settings maintenance notice titles -->
+    <string name="notice_host_packs_refreshed_title">Наборы хостов обновлены</string>
+    <string name="notice_host_packs_refreshed_message">RIPDPI загрузил geosite.dat, проверил контрольную сумму SHA-256 и обновил курируемые наборы хостов на устройстве.</string>
+    <string name="notice_host_pack_verification_failed_title">Проверка набора хостов не прошла</string>
+    <string name="notice_host_pack_verification_failed_message">Контрольная сумма загруженного geosite.dat не совпала с опубликованным дайджестом SHA-256. RIPDPI сохранил текущие курируемые наборы хостов.</string>
+    <string name="notice_host_pack_refresh_failed_title">Обновление набора хостов не удалось</string>
+    <string name="notice_host_pack_refresh_failed_message">RIPDPI проверил загрузку, но удалённый geosite.dat не содержал полного каталога YouTube, Telegram и Discord. Текущие наборы остаются в использовании.</string>
+    <string name="notice_host_pack_download_failed_title">Не удалось обновить наборы хостов</string>
+    <string name="notice_host_pack_download_failed_message">RIPDPI не смог загрузить последний geosite.dat или файл контрольной суммы. Текущие курируемые наборы хостов остаются в использовании.</string>
+    <string name="notice_learned_hosts_clear_failed_title">Не удалось очистить изученные хосты</string>
+    <string name="notice_learned_hosts_clear_failed_message">RIPDPI не смог удалить файл изученных хостов на этом устройстве.</string>
+    <string name="notice_learned_hosts_cleared_next_start_title">Изученные хосты очищены для следующего запуска</string>
+    <string name="notice_learned_hosts_cleared_next_start_message">Файл изученных хостов был удалён. Работающий прокси сохраняет маршруты в памяти до перезапуска RIPDPI.</string>
+    <string name="notice_learned_hosts_cleared_title">Изученные хосты очищены</string>
+    <string name="notice_learned_hosts_cleared_message">Изученные хосты удалены, и при следующем запуске RIPDPI восстановит их с нуля.</string>
+    <string name="notice_remembered_networks_cleared_title">Запомненные сети очищены</string>
+    <string name="notice_remembered_networks_cleared_message">RIPDPI удалил все сохранённые политики обхода по сетям. Текущие настройки не изменены.</string>
+    <string name="notice_fake_tls_reset_next_start_title">Профиль fake TLS сброшен для следующего запуска</string>
+    <string name="notice_fake_tls_reset_next_start_message">Профиль возвращён к стандартному fake ClientHello. Перезапустите RIPDPI для применения к активной сессии.</string>
+    <string name="notice_fake_tls_reset_title">Профиль fake TLS сброшен</string>
+    <string name="notice_fake_tls_reset_message">RIPDPI будет использовать стандартный fake ClientHello, фиксированный SNI и размер по входным данным при следующем запуске.</string>
+    <string name="notice_adaptive_ttl_reset_next_start_title">Адаптивный fake TTL сброшен для следующего запуска</string>
+    <string name="notice_adaptive_ttl_reset_next_start_message">RIPDPI вернётся к фиксированному fake TTL для активной группы после перезапуска или переподключения.</string>
+    <string name="notice_adaptive_ttl_reset_title">Адаптивный fake TTL сброшен</string>
+    <string name="notice_adaptive_ttl_reset_message">RIPDPI прекратит обучение fake TTL и будет использовать фиксированный fake TTL при следующем запуске.</string>
+    <string name="notice_fake_payload_reset_next_start_title">Пресеты fake-пакетов сброшены для следующего запуска</string>
+    <string name="notice_fake_payload_reset_next_start_message">Fake-пакеты HTTP, TLS и UDP возвращены к значениям совместимости по умолчанию. Перезапустите RIPDPI для применения к активной сессии.</string>
+    <string name="notice_fake_payload_reset_title">Пресеты fake-пакетов сброшены</string>
+    <string name="notice_fake_payload_reset_message">RIPDPI будет использовать стандартные fake-пакеты совместимости для HTTP, TLS и UDP при следующем запуске.</string>
+    <string name="notice_http_parser_reset_next_start_title">Обход HTTP-парсера сброшен для следующего запуска</string>
+    <string name="notice_http_parser_reset_next_start_message">Настройки HTTP-парсера возвращены к значениям по умолчанию. Перезапустите RIPDPI для удаления сохранённых обходов из активной сессии.</string>
+    <string name="notice_http_parser_reset_title">Обход HTTP-парсера сброшен</string>
+    <string name="notice_http_parser_reset_message">RIPDPI прекратит применять сохранённые настройки HTTP-парсера и EOL-обход при следующем запуске.</string>
+    <string name="notice_activation_window_reset_next_start_title">Окно активации сброшено для следующего запуска</string>
+    <string name="notice_activation_window_reset_next_start_message">Активная группа desync возвращена к постоянному режиму. Перезапустите RIPDPI для удаления сохранённого окна активации из работающей сессии.</string>
+    <string name="notice_activation_window_reset_title">Окно активации сброшено</string>
+    <string name="notice_activation_window_reset_message">RIPDPI прекратит ограничивать активную группу desync по раунду, размеру пакета или позиции байта потока при следующем запуске.</string>
+    <string name="notice_telemetry_salt_reset_title">Соль телеметрии сброшена</string>
+    <string name="notice_telemetry_salt_reset_message">Новая соль будет сгенерирована при следующем подключении. Ранее записанные хеши отпечатков больше нельзя связать с будущими сессиями.</string>
+
+    <!-- Diagnostics context warnings -->
+    <string name="diagnostics_warn_vpn_permission">Разрешение VPN в данный момент не предоставлено.</string>
+    <string name="diagnostics_warn_notification_permission">Разрешение на уведомления отключено, поэтому проблемы сервиса могут быть менее заметны.</string>
+    <string name="diagnostics_warn_power_restriction">Ограничения питания или фоновой работы могут мешать стабильной диагностике.</string>
+
+    <!-- Diagnostics context field labels -->
+    <string name="diagnostics_field_capabilities">Возможности</string>
+    <string name="diagnostics_field_dns">DNS</string>
+    <string name="diagnostics_field_private_dns">Приватный DNS</string>
+    <string name="diagnostics_field_mtu">MTU</string>
+    <string name="diagnostics_field_local">Локальный</string>
+    <string name="diagnostics_field_public_ip">Публичный IP</string>
+    <string name="diagnostics_field_asn">ASN</string>
+    <string name="diagnostics_field_validated">Проверен</string>
+    <string name="diagnostics_field_captive_portal">Captive-портал</string>
+    <string name="diagnostics_field_unknown">Неизвестно</string>
+    <string name="diagnostics_field_support_context">Контекст поддержки</string>
+    <string name="diagnostics_field_app">Приложение</string>
+    <string name="diagnostics_field_device">Устройство</string>
+    <string name="diagnostics_field_android">Android</string>
+    <string name="diagnostics_field_android_version_format">%1$s (API %2$d)</string>
+    <string name="diagnostics_field_mode">Режим</string>
+    <string name="diagnostics_field_profile">Профиль</string>
+    <string name="diagnostics_field_host_learning">Обучение хостам</string>
+    <string name="diagnostics_field_restrictions">Ограничения</string>
+    <string name="diagnostics_field_service">Сервис</string>
+    <string name="diagnostics_field_status">Статус</string>
+    <string name="diagnostics_field_uptime">Время работы</string>
+    <string name="diagnostics_field_environment">Окружение</string>
+    <string name="diagnostics_field_data_saver">Экономия данных</string>
+    <string name="diagnostics_field_power_save">Энергосбережение</string>
+    <string name="diagnostics_field_metered">Лимитированное</string>
+    <string name="diagnostics_field_roaming">Роуминг</string>
+    <string name="diagnostics_field_enabled">Включено</string>
+    <string name="diagnostics_field_learned_hosts">Изученные хосты</string>
+    <string name="diagnostics_field_penalized">Оштрафованные</string>
+    <string name="diagnostics_field_last_host">Последний хост</string>
+    <string name="diagnostics_field_last_group">Последняя группа</string>
+    <string name="diagnostics_field_last_action">Последнее действие</string>
+    <string name="diagnostics_field_configured_mode">Настроенный режим</string>
+    <string name="diagnostics_field_active_mode">Активный режим</string>
+    <string name="diagnostics_field_config_source">Источник конфигурации</string>
+    <string name="diagnostics_field_proxy">Прокси</string>
+    <string name="diagnostics_field_chain">Цепочка</string>
+    <string name="diagnostics_field_desync">Десинхронизация</string>
+    <string name="diagnostics_field_route_group">Группа маршрута</string>
+    <string name="diagnostics_field_autolearn">Автообучение</string>
+    <string name="diagnostics_field_penalized_hosts">Оштрафованные хосты</string>
+    <string name="diagnostics_field_last_learned_host">Последний изученный хост</string>
+    <string name="diagnostics_field_last_learned_group">Последняя изученная группа</string>
+    <string name="diagnostics_field_last_autolearn_action">Последнее действие автообучения</string>
+    <string name="diagnostics_field_restart_count">Количество перезапусков</string>
+    <string name="diagnostics_field_last_native_error">Последняя нативная ошибка</string>
+    <string name="diagnostics_field_permissions">Разрешения</string>
+    <string name="diagnostics_field_vpn_permission">Разрешение VPN</string>
+    <string name="diagnostics_field_notification_permission">Разрешение на уведомления</string>
+    <string name="diagnostics_field_battery_optimization">Оптимизация батареи</string>
+    <string name="diagnostics_field_app_version">Версия приложения</string>
+    <string name="diagnostics_field_app_version_format">%1$s (%2$s)</string>
+    <string name="diagnostics_field_version_code">Код версии</string>
+    <string name="diagnostics_field_abi">ABI</string>
+    <string name="diagnostics_field_locale">Локаль</string>
+    <string name="diagnostics_field_timezone">Часовой пояс</string>
+    <string name="diagnostics_field_battery_saver">Режим энергосбережения</string>
+    <string name="diagnostics_field_network_metered">Лимитированная сеть</string>
+
+    <!-- Diagnostics Wi-Fi field labels -->
+    <string name="diagnostics_field_wifi_ssid">Wi-Fi SSID</string>
+    <string name="diagnostics_field_wifi_bssid">Wi-Fi BSSID</string>
+    <string name="diagnostics_field_wifi_band">Диапазон Wi-Fi</string>
+    <string name="diagnostics_field_wifi_standard">Стандарт Wi-Fi</string>
+    <string name="diagnostics_field_wifi_frequency">Частота Wi-Fi</string>
+    <string name="diagnostics_field_wifi_frequency_format">%1$d МГц</string>
+    <string name="diagnostics_field_wifi_channel_width">Ширина канала Wi-Fi</string>
+    <string name="diagnostics_field_wifi_rssi">Wi-Fi RSSI</string>
+    <string name="diagnostics_field_wifi_rssi_format">%1$d дБм</string>
+    <string name="diagnostics_field_wifi_link">Канал Wi-Fi</string>
+    <string name="diagnostics_field_wifi_speed_format">%1$d Мбит/с</string>
+    <string name="diagnostics_field_wifi_rx_link">Wi-Fi RX канал</string>
+    <string name="diagnostics_field_wifi_tx_link">Wi-Fi TX канал</string>
+    <string name="diagnostics_field_wifi_hidden_ssid">Скрытый SSID Wi-Fi</string>
+    <string name="diagnostics_field_wifi_passpoint">Wi-Fi Passpoint</string>
+    <string name="diagnostics_field_wifi_osu_ap">Wi-Fi OSU AP</string>
+    <string name="diagnostics_field_wifi_network_id">ID сети Wi-Fi</string>
+    <string name="diagnostics_field_wifi_gateway">Шлюз Wi-Fi</string>
+    <string name="diagnostics_field_wifi_dhcp_server">DHCP-сервер Wi-Fi</string>
+    <string name="diagnostics_field_wifi_ip">IP-адрес Wi-Fi</string>
+    <string name="diagnostics_field_wifi_subnet">Подсеть Wi-Fi</string>
+    <string name="diagnostics_field_wifi_lease">Аренда Wi-Fi</string>
+    <string name="diagnostics_field_wifi_lease_format">%1$dс</string>
+
+    <!-- Diagnostics cellular field labels -->
+    <string name="diagnostics_field_carrier">Оператор</string>
+    <string name="diagnostics_field_sim_operator">Оператор SIM</string>
+    <string name="diagnostics_field_network_operator">Оператор сети</string>
+    <string name="diagnostics_field_network_country">Страна сети</string>
+    <string name="diagnostics_field_sim_country">Страна SIM</string>
+    <string name="diagnostics_field_operator_code">Код оператора</string>
+    <string name="diagnostics_field_sim_operator_code">Код оператора SIM</string>
+    <string name="diagnostics_field_data_network">Сеть данных</string>
+    <string name="diagnostics_field_voice_network">Голосовая сеть</string>
+    <string name="diagnostics_field_data_state">Состояние данных</string>
+    <string name="diagnostics_field_service_state">Состояние сервиса</string>
+    <string name="diagnostics_field_carrier_id">ID оператора</string>
+    <string name="diagnostics_field_sim_carrier_id">ID оператора SIM</string>
+    <string name="diagnostics_field_signal_level">Уровень сигнала</string>
+    <string name="diagnostics_field_signal_dbm">Сигнал дБм</string>
+    <string name="diagnostics_field_signal_dbm_format">%1$d дБм</string>
+
+    <!-- Diagnostics metric labels -->
+    <string name="diagnostics_metric_sessions">Сессии</string>
+    <string name="diagnostics_metric_events">События</string>
+    <string name="diagnostics_metric_tx">TX</string>
+    <string name="diagnostics_metric_rx">RX</string>
+    <string name="diagnostics_metric_network">Сеть</string>
+    <string name="diagnostics_metric_mode">Режим</string>
+    <string name="diagnostics_metric_idle">Простой</string>
+    <string name="diagnostics_metric_latest_native_failure">Последний нативный сбой</string>
+    <string name="diagnostics_metric_fallback_action">Резервное действие</string>
+    <string name="diagnostics_metric_failure_class">Класс сбоя</string>
+    <string name="diagnostics_metric_winning_strategy">Выигравшая стратегия</string>
+    <string name="diagnostics_metric_rtt_band">Диапазон RTT</string>
+    <string name="diagnostics_metric_retries">Повторы</string>
+    <string name="diagnostics_metric_resolver">Резолвер</string>
+    <string name="diagnostics_metric_dns_latency">Задержка DNS</string>
+    <string name="diagnostics_metric_dns_latency_format">%1$d мс</string>
+    <string name="diagnostics_metric_dns_failures">Сбои DNS</string>
+    <string name="diagnostics_metric_tx_packets">TX пакеты</string>
+    <string name="diagnostics_metric_rx_packets">RX пакеты</string>
+    <string name="diagnostics_metric_warnings">Предупреждения</string>
+    <string name="diagnostics_metric_errors">Ошибки</string>
+    <string name="diagnostics_metric_strategy">Стратегия</string>
+    <string name="diagnostics_metric_rtt">RTT</string>
+    <string name="diagnostics_metric_resolver_fallback">Резервный резолвер</string>
+    <string name="diagnostics_metric_resolver_fallback_active">Активен</string>
+    <string name="diagnostics_metric_packets">Пакеты</string>
+    <string name="diagnostics_metric_approach">Подход</string>
+
+    <!-- Diagnostics sparkline labels -->
+    <string name="diagnostics_sparkline_tx_bytes">TX байты</string>
+    <string name="diagnostics_sparkline_rx_bytes">RX байты</string>
+    <string name="diagnostics_sparkline_errors">Ошибки</string>
+
+    <!-- Diagnostics overview headlines -->
+    <string name="diagnostics_headline_scan_active">Диагностическое сканирование активно</string>
+    <string name="diagnostics_headline_no_data">Данные диагностики ещё не собраны</string>
+    <string name="diagnostics_headline_degraded">Сетевой путь требует внимания</string>
+    <string name="diagnostics_headline_attention">Диагностика показывает неоднозначные сигналы</string>
+    <string name="diagnostics_headline_healthy">Текущая телеметрия выглядит стабильно</string>
+    <string name="diagnostics_headline_waiting">Ожидание следующей диагностической сессии</string>
+
+    <!-- Diagnostics overview body -->
+    <string name="diagnostics_body_healthy">Пассивная телеметрия и последний отчёт не показывают критических сбоев. Проверяйте счётчики реального времени на предмет отклонений.</string>
+    <string name="diagnostics_body_attention">Обнаружены предупреждения или частичные сбои. Сравните результат последнего сканирования с текущим мониторингом в реальном времени.</string>
+    <string name="diagnostics_body_degraded">Недавние события или результаты сканирования указывают на блокировку, сбои или нестабильность транспорта.</string>
+    <string name="diagnostics_body_idle">Запустите RIPDPI или выполните сканирование для заполнения аналитики диагностики.</string>
+
+    <!-- Diagnostics live headlines -->
+    <string name="diagnostics_live_headline_error">Среда выполнения требует вмешательства</string>
+    <string name="diagnostics_live_headline_attention">Среда выполнения требует внимания</string>
+    <string name="diagnostics_live_headline_standby">Мониторинг в реальном времени в режиме ожидания</string>
+    <string name="diagnostics_live_headline_traffic">Трафик проходит через %1$s</string>
+    <string name="diagnostics_live_updated_format">Обновлено %1$s</string>
+    <string name="diagnostics_live_no_telemetry">Нет данных телеметрии</string>
+    <string name="diagnostics_live_body_waiting">Непрерывный мониторинг ожидает активной сессии RIPDPI.</string>
+    <string name="diagnostics_live_failure_class_format">Последний класс сбоя: %1$s</string>
+    <string name="diagnostics_live_dns_override_format">Активно переопределение зашифрованного DNS: %1$s</string>
+    <string name="diagnostics_live_handover_format">Обнаружена недавняя смена сети: %1$s</string>
+    <string name="diagnostics_live_winning_strategy_format">Семейство выигравшей стратегии: %1$s</string>
+    <string name="diagnostics_live_mode_summary_format">Режим %1$s \u00b7 %2$s передано \u00b7 %3$d пакетов наблюдалось</string>
+    <string name="diagnostics_live_signal_format">%1$s отправлено \u00b7 %2$s получено</string>
+    <string name="diagnostics_live_no_transfer">Передача данных ещё не наблюдалась</string>
+
+    <!-- Diagnostics live event summary -->
+    <string name="diagnostics_live_errors_and_warnings_format">%1$d ошиб%2$s \u00b7 %3$d предупрежд%4$s в потоке событий</string>
+    <string name="diagnostics_live_errors_format">%1$d ошиб%2$s в потоке событий</string>
+    <string name="diagnostics_live_warnings_format">%1$d предупрежд%2$s в потоке событий</string>
+    <string name="diagnostics_live_info_events_format">%1$d информационн%2$s событи%2$s в потоке событий</string>
+    <string name="diagnostics_live_feed_quiet">Поток событий спокоен</string>
+
+    <!-- Diagnostics scan UI -->
+    <string name="diagnostics_scan_automatic_audit">Автоматический аудит</string>
+    <string name="diagnostics_scan_automatic_probing">Автоматическое зондирование</string>
+    <string name="diagnostics_scan_cli_active_format">%1$s работает только с визуальными настройками RIPDPI. Активен режим командной строки.</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s запускает временную среду выполнения RIPDPI в обход пути и возвращает ручную рекомендацию.</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s работает только в обход пути, так как запускает изолированные временные испытания стратегий.</string>
+
+    <!-- Diagnostics share preview -->
+    <string name="diagnostics_share_title">Диагностика RIPDPI</string>
+    <string name="diagnostics_share_no_session">Выберите сессию диагностики для создания сводки.</string>
+    <string name="diagnostics_share_archive_line">Архив содержит выбранную сессию диагностики полностью.</string>
+    <string name="diagnostics_share_telemetry_line">Также включены недавние данные телеметрии и глобальные события среды выполнения.</string>
+    <string name="diagnostics_share_redaction_line">В сводке и манифесте скрываются контекст поддержки и поля сетевой идентификации, а необработанные данные отчёта остаются нетронутыми.</string>
+    <string name="diagnostics_share_approach_format">Архив включает аналитику подходов для %1$s с проверкой %2$s и контекстом состояния среды выполнения.</string>
+    <string name="diagnostics_share_metric_path">Путь</string>
+    <string name="diagnostics_share_metric_network">Сеть</string>
+    <string name="diagnostics_share_metric_mode">Режим</string>
+    <string name="diagnostics_share_metric_app">Приложение</string>
+
+    <!-- Diagnostics autolearn states -->
+    <string name="diagnostics_autolearn_active">Активно</string>
+    <string name="diagnostics_autolearn_off">Выключено</string>
+    <string name="diagnostics_autolearn_none_yet">Пока нет</string>
+    <string name="diagnostics_autolearn_route_format">Маршрут %1$s</string>
+    <string name="diagnostics_autolearn_promoted">Повышен лучший маршрут</string>
+    <string name="diagnostics_autolearn_penalized">Оштрафован неудачный маршрут</string>
+    <string name="diagnostics_autolearn_store_reset">Сброс сохранённых хостов</string>
+    <string name="diagnostics_autolearn_learned_format">%1$d изучено</string>
+    <string name="diagnostics_autolearn_penalized_format">%1$d оштрафовано</string>
+
+    <!-- Diagnostics Telegram card -->
+    <string name="diagnostics_telegram_download">Загрузка</string>
+    <string name="diagnostics_telegram_upload">Отдача</string>
+    <string name="diagnostics_telegram_data_centers">Дата-центры</string>
+    <string name="diagnostics_telegram_reachable_format">%1$s/%2$s доступно</string>
+    <string name="diagnostics_telegram_avg_speed">Средняя скорость</string>
+    <string name="diagnostics_telegram_peak_speed">Пиковая скорость</string>
+    <string name="diagnostics_telegram_transferred">Передано</string>
+    <string name="diagnostics_telegram_error">Ошибка</string>
+
+    <!-- Logs -->
+    <string name="logs_service_action_format">Сервис %1$s %2$s</string>
+    <string name="logs_service_failure_format">Сервис %1$s не удалось запустить: %2$s</string>
+
+    <!-- DNS settings placeholders -->
+    <string name="dns_placeholder_resolver_example">resolver.example</string>
+    <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
+    <string name="dns_placeholder_public_key">0123abcd\u2026</string>
+    <string name="dns_placeholder_doh_url">https://resolver.example/dns-query</string>
+    <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
+    <string name="dns_placeholder_port">443</string>
+
+    <!-- Battery optimization (Samsung) -->
+    <string name="permissions_battery_body_samsung">Разрешите RIPDPI игнорировать оптимизацию батареи. На телефонах Samsung, таких как Galaxy S24 Ultra, также установите в настройках приложения режим батареи «Без ограничений» и добавьте RIPDPI в список неспящих приложений, чтобы One UI не останавливал VPN или прокси.</string>
+    <string name="settings_permissions_battery_ready_samsung">Android уже позволяет RIPDPI игнорировать оптимизацию батареи. На Samsung оставьте RIPDPI в режиме «Без ограничений», если сессии продолжают обрываться в фоне.</string>
+    <string name="settings_permissions_battery_needed_samsung">Рекомендуется на Samsung: разрешите RIPDPI игнорировать оптимизацию батареи, установите режим «Без ограничений» и добавьте в список неспящих приложений.</string>
 </resources>
