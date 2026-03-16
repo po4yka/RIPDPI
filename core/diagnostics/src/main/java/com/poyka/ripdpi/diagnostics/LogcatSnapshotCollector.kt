@@ -42,8 +42,10 @@ open class LogcatSnapshotCollector
                 }
             }
 
+        // Filter to app's own PID to avoid capturing logs from other apps.
         protected open fun readLogcatOutput(): String {
-            val process = Runtime.getRuntime().exec(arrayOf("logcat", "*:D", "-d"))
+            val process =
+                Runtime.getRuntime().exec(arrayOf("logcat", "--pid=${android.os.Process.myPid()}", "-d"))
             try {
                 process.errorStream.close()
                 val output = process.inputStream.bufferedReader().use { reader ->
