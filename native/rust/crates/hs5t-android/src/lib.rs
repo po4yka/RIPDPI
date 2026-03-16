@@ -32,6 +32,7 @@ struct TunnelSession {
 
 enum TunnelSessionState {
     Ready,
+    Starting,
     Running { cancel: Arc<CancellationToken>, stats: Arc<Stats>, worker: JoinHandle<()> },
 }
 
@@ -451,12 +452,18 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     let last_error = session.last_error.clone();
     let telemetry = session.telemetry.clone();
 
-    let mut state = session.state.lock().expect("tunnel session poisoned");
-    if let Err(message) = ensure_tunnel_start_allowed(&state) {
-        throw_illegal_state(env, message);
-        return;
+    {
+        let mut state = session.state.lock().expect("tunnel session poisoned");
+        if let Err(message) = ensure_tunnel_start_allowed(&state) {
+            // Bug H4 fix: close the dup'd fd before returning.
+            unsafe { libc::close(owned_fd); }
+            throw_illegal_state(env, message);
+            return;
+        }
+        // Bug H3 fix: atomically transition to Starting while holding the lock,
+        // so no concurrent call can also see Ready.
+        *state = TunnelSessionState::Starting;
     }
-    drop(state);
 
     if let Ok(mut guard) = session.last_error.lock() {
         *guard = None;
@@ -498,20 +505,8 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         })
         .expect("failed to spawn tunnel worker thread");
 
-    state = session.state.lock().expect("tunnel session poisoned");
-    match &*state {
-        TunnelSessionState::Ready => {
-            *state = TunnelSessionState::Running { cancel, stats, worker };
-        }
-        TunnelSessionState::Running { .. } => {
-            drop(state);
-            cancel.cancel();
-            if worker.join().is_err() {
-                log::error!("tunnel worker panicked while abandoning duplicate start");
-            }
-            throw_illegal_state(env, "Tunnel session is already running");
-        }
-    }
+    let mut state = session.state.lock().expect("tunnel session poisoned");
+    *state = TunnelSessionState::Running { cancel, stats, worker };
 }
 
 fn stop_session(env: &mut JNIEnv, handle: jlong) {
@@ -720,10 +715,10 @@ fn validate_tun_fd(tun_fd: jint) -> Result<(), &'static str> {
 }
 
 fn ensure_tunnel_start_allowed(state: &TunnelSessionState) -> Result<(), &'static str> {
-    if matches!(*state, TunnelSessionState::Running { .. }) {
-        Err("Tunnel session is already running")
-    } else {
-        Ok(())
+    match *state {
+        TunnelSessionState::Ready => Ok(()),
+        TunnelSessionState::Starting => Err("Tunnel session is already starting"),
+        TunnelSessionState::Running { .. } => Err("Tunnel session is already running"),
     }
 }
 
@@ -731,23 +726,27 @@ fn take_running_tunnel(
     state: &mut TunnelSessionState,
 ) -> Result<(Arc<CancellationToken>, JoinHandle<()>), &'static str> {
     match std::mem::replace(state, TunnelSessionState::Ready) {
-        TunnelSessionState::Ready => Err("Tunnel session is not running"),
+        TunnelSessionState::Ready | TunnelSessionState::Starting => {
+            Err("Tunnel session is not running")
+        }
         TunnelSessionState::Running { cancel, stats: _, worker } => Ok((cancel, worker)),
     }
 }
 
 fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u64, u64, u64), DnsStatsSnapshot) {
     match state {
-        TunnelSessionState::Ready => ((0, 0, 0, 0), DnsStatsSnapshot::default()),
+        TunnelSessionState::Ready | TunnelSessionState::Starting => {
+            ((0, 0, 0, 0), DnsStatsSnapshot::default())
+        }
         TunnelSessionState::Running { stats, .. } => (stats.snapshot(), stats.dns_snapshot()),
     }
 }
 
 fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<(), &'static str> {
-    if matches!(*state, TunnelSessionState::Running { .. }) {
-        Err("Cannot destroy a running tunnel session")
-    } else {
-        Ok(())
+    match *state {
+        TunnelSessionState::Ready => Ok(()),
+        TunnelSessionState::Starting => Err("Cannot destroy a starting tunnel session"),
+        TunnelSessionState::Running { .. } => Err("Cannot destroy a running tunnel session"),
     }
 }
 
