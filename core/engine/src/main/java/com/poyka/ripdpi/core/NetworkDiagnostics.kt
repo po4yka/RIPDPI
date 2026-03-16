@@ -103,58 +103,62 @@ class NetworkDiagnostics
         private val mutex = Mutex()
         private var handle = 0L
 
-        private suspend fun ensureHandle(): Long =
-            mutex.withLock {
-                if (handle == 0L) {
-                    val createdHandle = nativeBindings.create()
-                    if (createdHandle == 0L) {
-                        throw NativeError.SessionCreationFailed("diagnostics")
-                    }
-                    handle = createdHandle
+        private fun ensureHandleLocked(): Long {
+            if (handle == 0L) {
+                val createdHandle = nativeBindings.create()
+                if (createdHandle == 0L) {
+                    throw NativeError.SessionCreationFailed("diagnostics")
                 }
-                handle
+                handle = createdHandle
             }
+            return handle
+        }
 
         override suspend fun startScan(
             requestJson: String,
             sessionId: String,
-    ) {
-        val currentHandle = ensureHandle()
-        withContext(Dispatchers.IO) { nativeBindings.startScan(currentHandle, requestJson, sessionId) }
-    }
-
-    override suspend fun cancelScan() {
-        mutex.withLock {
-            if (handle != 0L) {
-                nativeBindings.cancelScan(handle)
+        ) {
+            mutex.withLock {
+                val h = ensureHandleLocked()
+                withContext(Dispatchers.IO) { nativeBindings.startScan(h, requestJson, sessionId) }
             }
         }
-    }
 
-    override suspend fun pollProgressJson(): String? {
-        val currentHandle = ensureHandle()
-        return withContext(Dispatchers.IO) { nativeBindings.pollProgress(currentHandle) }
-    }
-
-    override suspend fun takeReportJson(): String? {
-        val currentHandle = ensureHandle()
-        return withContext(Dispatchers.IO) { nativeBindings.takeReport(currentHandle) }
-    }
-
-    override suspend fun pollPassiveEventsJson(): String? {
-        val currentHandle = ensureHandle()
-        return withContext(Dispatchers.IO) { nativeBindings.pollPassiveEvents(currentHandle) }
-    }
-
-    override suspend fun destroy() {
-        mutex.withLock {
-            if (handle != 0L) {
-                try {
-                    nativeBindings.destroy(handle)
-                } finally {
-                    handle = 0L
+        override suspend fun cancelScan() {
+            mutex.withLock {
+                if (handle != 0L) {
+                    nativeBindings.cancelScan(handle)
                 }
             }
         }
-    }
+
+        override suspend fun pollProgressJson(): String? =
+            mutex.withLock {
+                val h = ensureHandleLocked()
+                withContext(Dispatchers.IO) { nativeBindings.pollProgress(h) }
+            }
+
+        override suspend fun takeReportJson(): String? =
+            mutex.withLock {
+                val h = ensureHandleLocked()
+                withContext(Dispatchers.IO) { nativeBindings.takeReport(h) }
+            }
+
+        override suspend fun pollPassiveEventsJson(): String? =
+            mutex.withLock {
+                val h = ensureHandleLocked()
+                withContext(Dispatchers.IO) { nativeBindings.pollPassiveEvents(h) }
+            }
+
+        override suspend fun destroy() {
+            mutex.withLock {
+                if (handle != 0L) {
+                    try {
+                        nativeBindings.destroy(handle)
+                    } finally {
+                        handle = 0L
+                    }
+                }
+            }
+        }
     }
