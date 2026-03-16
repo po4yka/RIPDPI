@@ -99,7 +99,7 @@ pub(super) fn run_proxy_with_listener_internal(
                         if let Some(telemetry) = &state.telemetry {
                             telemetry.on_client_accepted();
                         }
-                        thread::Builder::new()
+                        if let Err(err) = thread::Builder::new()
                             .name("ripdpi-client".into())
                             .spawn(move || {
                                 let _slot = _slot;
@@ -114,7 +114,9 @@ pub(super) fn run_proxy_with_listener_internal(
                                     telemetry.on_client_finished();
                                 }
                             })
-                            .expect("failed to spawn client thread");
+                        {
+                            log::error!("failed to spawn client thread: {err}");
+                        }
                     }
                     Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
                     Err(err) => return Err(err),

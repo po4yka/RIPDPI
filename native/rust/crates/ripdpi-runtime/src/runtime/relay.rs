@@ -204,13 +204,13 @@ fn relay_streams(
     let down = thread::Builder::new()
         .name("ripdpi-dn".into())
         .spawn(move || copy_inbound_half(upstream_reader, client_writer, inbound_session))
-        .expect("failed to spawn inbound relay thread");
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, format!("failed to spawn inbound relay thread: {err}")))?;
     let up = thread::Builder::new()
         .name("ripdpi-up".into())
         .spawn(move || {
             copy_outbound_half(client_reader, upstream_writer, outbound_state, group_index, outbound_session)
         })
-        .expect("failed to spawn outbound relay thread");
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, format!("failed to spawn outbound relay thread: {err}")))?;
 
     let up_result = up.join().map_err(|_| io::Error::other("upstream thread panicked"))?;
     let down_result = down.join().map_err(|_| io::Error::other("downstream thread panicked"))?;

@@ -250,7 +250,7 @@ fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> i
     let worker = thread::Builder::new()
         .name("ripdpi-udp".into())
         .spawn(move || super::udp::udp_associate_loop(worker_socket, worker_state, worker_running))
-        .expect("failed to spawn UDP relay thread");
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, format!("failed to spawn UDP relay thread: {err}")))?;
 
     client.set_read_timeout(Some(Duration::from_millis(250)))?;
     let mut buffer = [0u8; 64];
@@ -425,9 +425,13 @@ fn send_success_reply(client: &mut TcpStream, handshake: HandshakeKind) -> io::R
     }
 }
 
+/// Maximum time to wait for the first request in delay_conn mode.
+/// Prevents a slow or malicious client from holding a thread indefinitely.
+const DELAY_CONN_READ_TIMEOUT: Duration = Duration::from_secs(60);
+
 fn read_blocking_first_request(client: &mut TcpStream, buffer_size: usize) -> io::Result<Option<Vec<u8>>> {
     let original_timeout = client.read_timeout()?;
-    client.set_read_timeout(None)?;
+    client.set_read_timeout(Some(DELAY_CONN_READ_TIMEOUT))?;
     let mut buffer = vec![0u8; buffer_size.max(16_384)];
     let result = match client.read(&mut buffer) {
         Ok(0) => Ok(None),
