@@ -20,7 +20,7 @@ use ripdpi_proxy_config::ProxyEncryptedDnsContext;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use crate::platform;
-use crate::runtime_policy::{select_initial_group, ConnectionRoute, RouteAdvance, TransportProtocol};
+use crate::runtime_policy::{ConnectionRoute, RouteAdvance, TransportProtocol};
 
 use super::adaptive::{note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure};
 use super::retry::{build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure};
@@ -45,7 +45,8 @@ pub(super) fn select_route_for_transport(
     transport: TransportProtocol,
 ) -> io::Result<ConnectionRoute> {
     let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-    select_initial_group(&state.config, &mut cache, target, payload, host, allow_unknown_payload, transport)
+    cache
+        .select_initial(target, payload, host, allow_unknown_payload, transport, &state.config)
         .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))
 }
 
