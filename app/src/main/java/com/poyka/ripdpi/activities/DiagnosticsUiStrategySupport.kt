@@ -212,7 +212,6 @@ internal fun DiagnosticsUiFactorySupport.toScopeLabel(
 
         ScanKind.CONNECTIVITY -> "Connectivity profile"
         null -> null
-        else -> null
     }
 
 private fun DiagnosticsUiFactorySupport.strategySignatureFields(
