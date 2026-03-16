@@ -37,19 +37,24 @@ impl ActiveSessions {
     /// If `max > 0` and the table is full, the oldest entry is evicted:
     /// its `cancel` token is cancelled and its `smoltcp_side` is dropped
     /// (belt-and-suspenders EOF to the session task).
-    pub fn insert(&mut self, handle: SocketHandle, entry: SessionEntry) {
-        if self.max > 0 && self.entries.len() >= self.max {
+    ///
+    /// Returns the evicted session's `SocketHandle` so the caller can remove
+    /// it from the `SocketSet`, preventing socket handle leaks.
+    pub fn insert(&mut self, handle: SocketHandle, entry: SessionEntry) -> Option<SocketHandle> {
+        let evicted_handle = if self.max > 0 && self.entries.len() >= self.max && !self.entries.is_empty() {
             // Remove oldest (first element).
-            if !self.entries.is_empty() {
-                let (_, oldest) = self.entries.remove(0);
-                oldest.cancel.cancel();
-                // Dropping oldest.smoltcp_side causes session_side to see EOF.
-                drop(oldest.smoltcp_side);
-                // Don't await the handle — fire and forget, it will terminate via cancel.
-                oldest.handle.abort();
-            }
-        }
+            let (evicted_h, oldest) = self.entries.remove(0);
+            oldest.cancel.cancel();
+            // Dropping oldest.smoltcp_side causes session_side to see EOF.
+            drop(oldest.smoltcp_side);
+            // Don't await the handle — fire and forget, it will terminate via cancel.
+            oldest.handle.abort();
+            Some(evicted_h)
+        } else {
+            None
+        };
         self.entries.push((handle, entry));
+        evicted_handle
     }
 
     /// Check whether the given socket handle already has an active session.
@@ -125,15 +130,16 @@ mod tests {
         let (e3, _cancel3) = make_entry();
         let (e4, _cancel4) = make_entry();
 
-        sessions.insert(h1, e1);
-        sessions.insert(h2, e2);
-        sessions.insert(h3, e3);
+        assert!(sessions.insert(h1, e1).is_none());
+        assert!(sessions.insert(h2, e2).is_none());
+        assert!(sessions.insert(h3, e3).is_none());
 
         assert_eq!(sessions.len(), 3);
         assert!(!cancel1.is_cancelled(), "cancel1 must not be cancelled before eviction");
 
         // 4th insert evicts h1 (oldest).
-        sessions.insert(h4, e4);
+        let evicted = sessions.insert(h4, e4);
+        assert_eq!(evicted, Some(h1), "evicted handle must be h1");
 
         assert_eq!(sessions.len(), 3, "session count must remain at max=3 after eviction");
         assert!(cancel1.is_cancelled(), "evicted session's cancel token must be cancelled");
@@ -152,7 +158,7 @@ mod tests {
         for _ in 0..100 {
             let h = socket_set.add(make_tcp_socket());
             let (entry, _) = make_entry();
-            sessions.insert(h, entry);
+            assert!(sessions.insert(h, entry).is_none());
         }
 
         assert_eq!(sessions.len(), 100, "unlimited sessions must hold 100 entries");

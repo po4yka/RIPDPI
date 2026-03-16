@@ -11,7 +11,7 @@ use std::str::FromStr;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::task::{Context, Poll, Waker};
-use std::time::Duration;
+use std::time::{Duration, Instant as StdInstant};
 
 use smoltcp::iface::{Interface, SocketHandle, SocketSet};
 use smoltcp::socket::tcp::{self, Socket as TcpSocket};
@@ -48,6 +48,12 @@ const PUMP_CHUNK: usize = 4096;
 /// Default poll delay when smoltcp has no pending timers.
 const DEFAULT_POLL_DELAY_MS: u64 = 50;
 const DNS_QUEUE_CAPACITY: usize = 256;
+
+/// Timeout for pending LISTEN sockets that never complete the handshake.
+const PENDING_LISTEN_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// How often (in loop iterations) to sweep stale pending LISTEN entries.
+const PENDING_LISTEN_GC_INTERVAL: u32 = 100;
 
 // ── No-op waker ───────────────────────────────────────────────────────────────
 
@@ -526,9 +532,11 @@ pub async fn io_loop_task(
     let filter_injected_resets = config.misc.filter_injected_resets;
 
     // Tracks pending LISTEN sockets added on-demand per TCP SYN.
-    // Key: TCP destination port, Value: smoltcp SocketHandle.
+    // Key: TCP destination port, Value: (smoltcp SocketHandle, creation time).
     // When the socket transitions to ESTABLISHED, the entry is removed.
-    let mut pending_listens: HashMap<u16, SocketHandle> = HashMap::new();
+    // Entries older than PENDING_LISTEN_TIMEOUT are garbage-collected.
+    let mut pending_listens: HashMap<u16, (SocketHandle, StdInstant)> = HashMap::new();
+    let mut loop_iteration: u32 = 0;
 
     // Channel for UDP session tasks to return raw IP packets to write to TUN.
     let (udp_tx, mut udp_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(256);
@@ -620,7 +628,7 @@ pub async fn io_loop_task(
                                     );
                                     if sock.listen(dst_port).is_ok() {
                                         let h = socket_set.add(sock);
-                                        e.insert(h);
+                                        e.insert((h, StdInstant::now()));
                                         debug!("Added LISTEN socket for port {}", dst_port);
                                     } else {
                                         warn!("listen({}) failed (port already bound?)", dst_port);
@@ -734,6 +742,21 @@ pub async fn io_loop_task(
         // ── Phase 2: advance smoltcp state machines ───────────────────────────
         iface.poll(Instant::now(), &mut device, &mut socket_set);
 
+        // ── Phase 2.5: GC stale pending LISTEN sockets ──────────────────────
+        loop_iteration = loop_iteration.wrapping_add(1);
+        if loop_iteration % PENDING_LISTEN_GC_INTERVAL == 0 {
+            let now = StdInstant::now();
+            pending_listens.retain(|port, (handle, created_at)| {
+                if now.duration_since(*created_at) > PENDING_LISTEN_TIMEOUT {
+                    debug!("GC stale LISTEN socket for port {} (age {:?})", port, now.duration_since(*created_at));
+                    socket_set.remove(*handle);
+                    false
+                } else {
+                    true
+                }
+            });
+        }
+
         // ── Phase 3: detect new ESTABLISHED TCP sockets → spawn sessions ──────
         {
             // Collect newly active sockets (moved past LISTEN) not yet tracked.
@@ -772,7 +795,10 @@ pub async fn io_loop_task(
                 });
 
                 let entry = SessionEntry { smoltcp_side, cancel: child_cancel, handle: jh };
-                sessions.insert(handle, entry);
+                if let Some(evicted_h) = sessions.insert(handle, entry) {
+                    socket_set.remove(evicted_h);
+                    debug!("Evicted session socket {:?} removed from socket_set", evicted_h);
+                }
                 info!("TCP session spawned: remote={}", resolved_remote);
             }
         }
