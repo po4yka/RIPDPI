@@ -1,8 +1,10 @@
 use std::io;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::net::{TcpStream, UdpSocket};
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::socks5::{associate, decode_udp_frame, encode_udp_frame, handshake, Auth};
@@ -10,72 +12,60 @@ use crate::socks5::{associate, decode_udp_frame, encode_udp_frame, handshake, Au
 /// Default timeout waiting for a UDP response from the relay.
 const DEFAULT_RECV_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Single-shot UDP relay session.
+/// Persistent SOCKS5 UDP association.
 ///
-/// For each UDP datagram to be forwarded:
-/// 1. Open a TCP control connection to the SOCKS5 proxy.
-/// 2. Perform SOCKS5 handshake (auth).
-/// 3. Send UDP ASSOCIATE; receive the relay `SocketAddr`.
-/// 4. Bind a local UDP socket; send the framed datagram to the relay.
-/// 5. Wait for one response datagram (with timeout / cancel).
-/// 6. Return `(response_payload, from_addr)`.
-///
-/// This matches the C `hev-socks5-session-udp` single-datagram flow.
-/// For long-lived UDP flows, call `relay_once` again for each round-trip.
+/// The TCP control connection and UDP relay socket stay open for the lifetime
+/// of the session so the caller can forward multiple datagrams and receive
+/// multiple replies over the same association.
+#[derive(Clone)]
 pub struct UdpSession {
-    proxy_addr: SocketAddr,
-    auth: Auth,
+    _ctrl: Arc<Mutex<TcpStream>>,
+    udp: Arc<UdpSocket>,
     recv_timeout: Duration,
 }
 
 impl UdpSession {
-    pub fn new(proxy_addr: SocketAddr, auth: Auth) -> Self {
-        Self { proxy_addr, auth, recv_timeout: DEFAULT_RECV_TIMEOUT }
-    }
-
-    /// Override the per-datagram receive timeout (default 10 s).
-    pub fn with_recv_timeout(mut self, timeout: Duration) -> Self {
-        self.recv_timeout = timeout;
-        self
-    }
-
-    /// Relay a single UDP datagram through the SOCKS5 proxy.
-    ///
-    /// - `dst`: where the datagram should be delivered.
-    /// - `payload`: raw UDP payload bytes.
-    /// - `cancel`: signals early termination (returns `Ok(None)`).
-    ///
-    /// Returns `Ok(Some((payload, from)))` on success, `Ok(None)` if
-    /// cancelled or timed out, `Err` on I/O failure.
-    pub async fn relay_once(
-        &self,
-        dst: SocketAddr,
-        payload: &[u8],
-        cancel: CancellationToken,
-    ) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
-        // ── 1. TCP control connection ────────────────────────────────────────
-        let mut ctrl = TcpStream::connect(self.proxy_addr).await?;
-
-        // ── 2. SOCKS5 handshake ───────────────────────────────────────────────
-        handshake(&mut ctrl, &self.auth).await?;
-
-        // ── 3. UDP ASSOCIATE → relay addr ────────────────────────────────────
+    pub async fn connect(proxy_addr: SocketAddr, auth: Auth) -> io::Result<Self> {
+        let mut ctrl = TcpStream::connect(proxy_addr).await?;
+        handshake(&mut ctrl, &auth).await?;
         let relay_addr = associate(&mut ctrl).await?;
 
-        // ── 4. Local UDP socket + send ────────────────────────────────────────
         let bind_addr: SocketAddr =
             if relay_addr.is_ipv4() { "0.0.0.0:0".parse().unwrap() } else { "[::]:0".parse().unwrap() };
         let udp = UdpSocket::bind(bind_addr).await?;
         udp.connect(relay_addr).await?;
 
-        let frame = encode_udp_frame(dst, payload);
-        udp.send(&frame).await?;
+        Ok(Self {
+            _ctrl: Arc::new(Mutex::new(ctrl)),
+            udp: Arc::new(udp),
+            recv_timeout: DEFAULT_RECV_TIMEOUT,
+        })
+    }
 
-        // ── 5. Receive response (with timeout / cancel) ───────────────────────
+    /// Override the receive timeout (default 10 s).
+    pub fn with_recv_timeout(mut self, timeout: Duration) -> Self {
+        self.recv_timeout = timeout;
+        self
+    }
+
+    /// Send a UDP datagram through the established SOCKS5 relay.
+    pub async fn send_to(&self, dst: SocketAddr, payload: &[u8]) -> io::Result<()> {
+        let frame = encode_udp_frame(dst, payload);
+        let _ = self.udp.send(&frame).await?;
+        Ok(())
+    }
+
+    /// Receive a UDP datagram from the established SOCKS5 relay.
+    ///
+    /// - `cancel`: signals early termination (returns `Ok(None)`).
+    ///
+    /// Returns `Ok(Some((payload, from)))` on success, `Ok(None)` if
+    /// cancelled or timed out, `Err` on I/O failure.
+    pub async fn recv_from(&self, cancel: CancellationToken) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
         let mut buf = vec![0u8; 65535];
 
         let recv_fut = async {
-            let n = udp.recv(&mut buf).await?;
+            let n = self.udp.recv(&mut buf).await?;
             let (from, data) = decode_udp_frame(&buf[..n])?;
             Ok::<_, io::Error>((from, data.to_vec()))
         };
@@ -91,12 +81,25 @@ impl UdpSession {
             _ = cancel.cancelled() => Ok(None),
         }
     }
+
+    /// Convenience helper: send one datagram and wait for one reply.
+    pub async fn relay_once(
+        &self,
+        dst: SocketAddr,
+        payload: &[u8],
+        cancel: CancellationToken,
+    ) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
+        self.send_to(dst, payload).await?;
+        self.recv_from(cancel).await
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::net::Ipv4Addr;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
@@ -110,23 +113,30 @@ mod tests {
     /// - replies with relay = 127.0.0.1:<udp_port>
     ///
     /// Also starts a real UDP echo server at the returned port.
-    /// Returns (proxy_listen_addr, udp_echo_addr).
-    async fn spawn_stub_proxy() -> (SocketAddr, SocketAddr) {
+    /// Returns (proxy_listen_addr, udp_echo_addr, accepted_tcp_connections).
+    async fn spawn_stub_proxy(
+        expected_datagrams: usize,
+        duplicate_first_reply: bool,
+    ) -> (SocketAddr, SocketAddr, Arc<AtomicUsize>) {
         // Bind UDP echo socket first so we know the port.
         let udp_echo = UdpSocket::bind("127.0.0.1:0").await.unwrap();
         let udp_echo_addr = udp_echo.local_addr().unwrap();
         let relay_port = udp_echo_addr.port();
 
-        // Spawn UDP echo task: recv one datagram, parse SOCKS5 frame, echo it.
+        // Spawn UDP echo task: recv datagrams, parse SOCKS5 frames, echo them.
         tokio::spawn(async move {
-            let mut buf = vec![0u8; 65535];
-            if let Ok((n, peer)) = udp_echo.recv_from(&mut buf).await {
-                // Parse the SOCKS5 UDP frame to extract the real payload.
-                if let Ok((_from, payload)) = decode_udp_frame(&buf[..n]) {
-                    // Echo back: wrap in SOCKS5 UDP frame with src = udp_echo_addr.
-                    let src: SocketAddr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), relay_port);
-                    let reply = encode_udp_frame(src, payload);
-                    let _ = udp_echo.send_to(&reply, peer).await;
+            for datagram_index in 0..expected_datagrams {
+                let mut buf = vec![0u8; 65535];
+                if let Ok((n, peer)) = udp_echo.recv_from(&mut buf).await {
+                    if let Ok((_from, payload)) = decode_udp_frame(&buf[..n]) {
+                        let src: SocketAddr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), relay_port);
+                        let reply = encode_udp_frame(src, payload);
+                        let _ = udp_echo.send_to(&reply, peer).await;
+                        if duplicate_first_reply && datagram_index == 0 {
+                            let push = encode_udp_frame(src, b"push");
+                            let _ = udp_echo.send_to(&push, peer).await;
+                        }
+                    }
                 }
             }
         });
@@ -135,9 +145,13 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let proxy_addr = listener.local_addr().unwrap();
 
+        let accepted_tcp_connections = Arc::new(AtomicUsize::new(0));
+        let accepted_tcp_connections_task = Arc::clone(&accepted_tcp_connections);
+
         // Spawn TCP proxy stub.
         tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
+            accepted_tcp_connections_task.fetch_add(1, Ordering::Relaxed);
             let mut buf = [0u8; 64];
 
             // Handshake: read greeting, reply NoAuth
@@ -155,7 +169,7 @@ mod tests {
             tokio::time::sleep(Duration::from_secs(2)).await;
         });
 
-        (proxy_addr, udp_echo_addr)
+        (proxy_addr, udp_echo_addr, accepted_tcp_connections)
     }
 
     // -------------------------------------------------------------------------
@@ -165,9 +179,12 @@ mod tests {
     /// Full relay round-trip: send a datagram, receive the echo.
     #[tokio::test]
     async fn relay_once_round_trip() {
-        let (proxy_addr, echo_addr) = spawn_stub_proxy().await;
+        let (proxy_addr, echo_addr, _accepted_tcp_connections) = spawn_stub_proxy(1, false).await;
 
-        let session = UdpSession::new(proxy_addr, Auth::NoAuth).with_recv_timeout(Duration::from_secs(3));
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_secs(3));
 
         let cancel = CancellationToken::new();
         let result = session.relay_once(echo_addr, b"ping", cancel).await.unwrap();
@@ -180,9 +197,12 @@ mod tests {
     /// Cancel before response arrives → Ok(None).
     #[tokio::test]
     async fn relay_once_cancel_returns_none() {
-        let (proxy_addr, echo_addr) = spawn_stub_proxy().await;
+        let (proxy_addr, echo_addr, _accepted_tcp_connections) = spawn_stub_proxy(1, false).await;
 
-        let session = UdpSession::new(proxy_addr, Auth::NoAuth).with_recv_timeout(Duration::from_secs(5));
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_secs(5));
 
         let cancel = CancellationToken::new();
         cancel.cancel(); // cancel immediately
@@ -221,7 +241,10 @@ mod tests {
         });
 
         let dst: SocketAddr = "127.0.0.1:9999".parse().unwrap();
-        let session = UdpSession::new(proxy_addr, Auth::NoAuth).with_recv_timeout(Duration::from_millis(100));
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_millis(100));
 
         let result = session.relay_once(dst, b"ping", CancellationToken::new()).await.unwrap();
         assert!(result.is_none(), "timed-out relay must return None");
@@ -231,8 +254,46 @@ mod tests {
     #[tokio::test]
     async fn relay_once_bad_proxy_returns_err() {
         let bad_proxy: SocketAddr = "127.0.0.1:1".parse().unwrap();
-        let session = UdpSession::new(bad_proxy, Auth::NoAuth);
-        let result = session.relay_once(bad_proxy, b"x", CancellationToken::new()).await;
+        let result = UdpSession::connect(bad_proxy, Auth::NoAuth).await;
         assert!(result.is_err(), "unreachable proxy must yield Err");
+    }
+
+    #[tokio::test]
+    async fn send_to_and_recv_from_reuse_single_association() {
+        let (proxy_addr, echo_addr, accepted_tcp_connections) = spawn_stub_proxy(2, false).await;
+
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_secs(3));
+
+        session.send_to(echo_addr, b"first").await.unwrap();
+        let first = session.recv_from(CancellationToken::new()).await.unwrap().unwrap();
+        assert_eq!(first.0, b"first");
+
+        session.send_to(echo_addr, b"second").await.unwrap();
+        let second = session.recv_from(CancellationToken::new()).await.unwrap().unwrap();
+        assert_eq!(second.0, b"second");
+
+        assert_eq!(accepted_tcp_connections.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn recv_from_supports_multiple_replies_on_same_association() {
+        let (proxy_addr, echo_addr, accepted_tcp_connections) = spawn_stub_proxy(1, true).await;
+
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_secs(3));
+
+        session.send_to(echo_addr, b"ping").await.unwrap();
+
+        let first = session.recv_from(CancellationToken::new()).await.unwrap().unwrap();
+        let second = session.recv_from(CancellationToken::new()).await.unwrap().unwrap();
+
+        assert_eq!(first.0, b"ping");
+        assert_eq!(second.0, b"push");
+        assert_eq!(accepted_tcp_connections.load(Ordering::Relaxed), 1);
     }
 }

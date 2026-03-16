@@ -9,7 +9,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 use std::time::{Duration, Instant as StdInstant};
 
@@ -553,39 +553,122 @@ fn resolve_mapped_target(stats: &Arc<Stats>, dns_cache: &mut Option<DnsCache>, d
     SocketAddr::new(IpAddr::V4(Ipv4Addr::from(entry.real_ip)), dst.port())
 }
 
-// ── UDP session helper ────────────────────────────────────────────────────────
+struct UdpAssociation {
+    id: u64,
+    session: UdpSession,
+    cancel: CancellationToken,
+    last_activity: Arc<Mutex<StdInstant>>,
+    worker: tokio::task::JoinHandle<()>,
+}
 
-/// Spawn a fire-and-forget UDP relay task.
-///
-/// On response the task builds a raw IP/UDP packet and sends it via `udp_tx`
-/// so the io_loop can write it back to TUN.
+#[derive(Debug)]
+enum UdpEvent {
+    Packet { src: SocketAddr, association_id: u64, raw: Vec<u8> },
+    Closed { src: SocketAddr, association_id: u64 },
+}
+
+fn touch_udp_activity(last_activity: &Arc<Mutex<StdInstant>>) {
+    if let Ok(mut guard) = last_activity.lock() {
+        *guard = StdInstant::now();
+    }
+}
+
+fn udp_association_is_idle(last_activity: &Arc<Mutex<StdInstant>>, idle_timeout: Duration) -> bool {
+    last_activity.lock().map(|guard| guard.elapsed() >= idle_timeout).unwrap_or(true)
+}
+
 #[allow(clippy::too_many_arguments)]
-fn spawn_udp_session(
+async fn create_udp_association(
     proxy_addr: SocketAddr,
     auth: Auth,
     src: SocketAddr,
-    dst: SocketAddr,
-    payload: Vec<u8>,
+    association_id: u64,
+    idle_timeout: Duration,
     cancel: CancellationToken,
-    udp_tx: tokio::sync::mpsc::Sender<Vec<u8>>,
-) {
-    tokio::spawn(async move {
-        let session = UdpSession::new(proxy_addr, auth);
-        match session.relay_once(dst, &payload, cancel).await {
-            Ok(Some((resp_payload, from))) => {
-                let raw = build_udp_response(from, src, &resp_payload);
-                if !raw.is_empty() {
-                    let _ = udp_tx.send(raw).await;
+    udp_tx: tokio::sync::mpsc::Sender<UdpEvent>,
+) -> io::Result<UdpAssociation> {
+    let session = UdpSession::connect(proxy_addr, auth).await?.with_recv_timeout(idle_timeout);
+    let last_activity = Arc::new(Mutex::new(StdInstant::now()));
+    let worker_session = session.clone();
+    let worker_last_activity = Arc::clone(&last_activity);
+    let worker_cancel = cancel.clone();
+    let worker_udp_tx = udp_tx.clone();
+    let worker =
+        tokio::spawn(async move {
+            loop {
+                match worker_session.recv_from(worker_cancel.clone()).await {
+                    Ok(Some((resp_payload, from))) => {
+                        touch_udp_activity(&worker_last_activity);
+                        let raw = build_udp_response(from, src, &resp_payload);
+                        if raw.is_empty() {
+                            continue;
+                        }
+                        if worker_udp_tx
+                            .send(UdpEvent::Packet {
+                                src,
+                                association_id,
+                                raw,
+                            })
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                    Ok(None) => {
+                        if worker_cancel.is_cancelled() {
+                            break;
+                        }
+                        if udp_association_is_idle(&worker_last_activity, idle_timeout) {
+                            let _ = worker_udp_tx.send(UdpEvent::Closed { src, association_id }).await;
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        debug!("UDP association {} for {} failed: {}", association_id, src, err);
+                        let _ = worker_udp_tx.send(UdpEvent::Closed { src, association_id }).await;
+                        break;
+                    }
                 }
             }
-            Ok(None) => {
-                debug!("UDP relay to {} timed out or cancelled", dst);
-            }
-            Err(e) => {
-                debug!("UDP relay to {} error: {}", dst, e);
+        });
+
+    Ok(UdpAssociation {
+        id: association_id,
+        session,
+        cancel,
+        last_activity,
+        worker,
+    })
+}
+
+fn handle_udp_event(
+    tun: &AsyncFd<std::fs::File>,
+    stats: &Arc<Stats>,
+    udp_associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    event: UdpEvent,
+) {
+    match event {
+        UdpEvent::Packet {
+            src,
+            association_id,
+            raw,
+        } => {
+            let current_id = udp_associations.get(&src).map(|association| association.id);
+            if current_id == Some(association_id) {
+                try_write_tun_packet(tun, stats, &raw, "udp");
             }
         }
-    });
+        UdpEvent::Closed { src, association_id } => {
+            if udp_associations
+                .get(&src)
+                .map(|association| association.id == association_id)
+                .unwrap_or(false)
+            {
+                udp_associations.remove(&src);
+            }
+        }
+    }
 }
 
 // ── io_loop_task ──────────────────────────────────────────────────────────────
@@ -635,6 +718,7 @@ pub async fn io_loop_task(
 
     let max_sessions = config.misc.max_session_count as usize;
     let filter_injected_resets = config.misc.filter_injected_resets;
+    let udp_idle_timeout = Duration::from_millis(u64::from(config.misc.udp_read_write_timeout));
 
     // Tracks pending LISTEN sockets added on-demand per TCP SYN.
     // Key: TCP destination port, Value: (smoltcp SocketHandle, creation time).
@@ -643,8 +727,10 @@ pub async fn io_loop_task(
     let mut pending_listens: HashMap<u16, (SocketHandle, StdInstant)> = HashMap::new();
     let mut loop_iteration: u32 = 0;
 
-    // Channel for UDP session tasks to return raw IP packets to write to TUN.
-    let (udp_tx, mut udp_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(256);
+    // Channel for UDP associations to return packets and lifecycle events.
+    let (udp_tx, mut udp_rx) = tokio::sync::mpsc::channel::<UdpEvent>(256);
+    let mut udp_associations: HashMap<SocketAddr, UdpAssociation> = HashMap::new();
+    let mut next_udp_association_id = 1u64;
     let (mut dns_req_tx, mut dns_resp_rx) = if let Some(resolver) = build_encrypted_dns_resolver(&config)? {
         let (req_tx, mut req_rx) = tokio::sync::mpsc::channel::<DnsRequest>(DNS_QUEUE_CAPACITY);
         let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(DNS_QUEUE_CAPACITY);
@@ -810,15 +896,80 @@ pub async fn io_loop_task(
 
                 IpClass::Udp { src, dst, payload } => {
                     let resolved_dst = resolve_mapped_target(&stats, &mut dns_cache, dst);
-                    spawn_udp_session(
-                        proxy_sockaddr,
-                        auth.clone(),
-                        src,
-                        resolved_dst,
-                        payload,
-                        cancel.child_token(),
-                        udp_tx.clone(),
-                    );
+
+                    if !udp_associations.contains_key(&src) {
+                        let association_id = next_udp_association_id;
+                        next_udp_association_id = next_udp_association_id.wrapping_add(1);
+                        match create_udp_association(
+                            proxy_sockaddr,
+                            auth.clone(),
+                            src,
+                            association_id,
+                            udp_idle_timeout,
+                            cancel.child_token(),
+                            udp_tx.clone(),
+                        )
+                        .await
+                        {
+                            Ok(association) => {
+                                udp_associations.insert(src, association);
+                            }
+                            Err(err) => {
+                                debug!("Failed to create UDP association for {}: {}", src, err);
+                                continue;
+                            }
+                        }
+                    }
+
+                    let Some((session, last_activity)) = udp_associations
+                        .get(&src)
+                        .map(|association| (association.session.clone(), Arc::clone(&association.last_activity)))
+                    else {
+                        continue;
+                    };
+
+                    touch_udp_activity(&last_activity);
+                    if let Err(err) = session.send_to(resolved_dst, &payload).await {
+                        debug!("UDP association send to {} from {} failed: {}", resolved_dst, src, err);
+                        if let Some(association) = udp_associations.remove(&src) {
+                            association.cancel.cancel();
+                        }
+
+                        let association_id = next_udp_association_id;
+                        next_udp_association_id = next_udp_association_id.wrapping_add(1);
+                        match create_udp_association(
+                            proxy_sockaddr,
+                            auth.clone(),
+                            src,
+                            association_id,
+                            udp_idle_timeout,
+                            cancel.child_token(),
+                            udp_tx.clone(),
+                        )
+                        .await
+                        {
+                            Ok(association) => {
+                                let retry_session = association.session.clone();
+                                touch_udp_activity(&association.last_activity);
+                                udp_associations.insert(src, association);
+                                if let Err(retry_err) = retry_session.send_to(resolved_dst, &payload).await {
+                                    debug!(
+                                        "UDP association retry to {} from {} failed: {}",
+                                        resolved_dst, src, retry_err
+                                    );
+                                    if let Some(association) = udp_associations.remove(&src) {
+                                        association.cancel.cancel();
+                                    }
+                                }
+                            }
+                            Err(recreate_err) => {
+                                debug!(
+                                    "Failed to recreate UDP association for {} after send error: {}",
+                                    src, recreate_err
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1020,16 +1171,16 @@ pub async fn io_loop_task(
             .unwrap_or(Duration::from_millis(DEFAULT_POLL_DELAY_MS));
 
         // Drain any UDP response packets that arrived between loop iterations.
-        while let Ok(raw_pkt) = udp_rx.try_recv() {
-            try_write_tun_packet(tun, &stats, &raw_pkt, "udp");
+        while let Ok(event) = udp_rx.try_recv() {
+            handle_udp_event(tun, &stats, &mut udp_associations, event);
         }
 
         tokio::select! {
             _ = tun.readable() => {},
             _ = tokio::time::sleep(smol_delay) => {},
-            raw_pkt = udp_rx.recv() => {
-                if let Some(raw_pkt) = raw_pkt {
-                    try_write_tun_packet(tun, &stats, &raw_pkt, "udp");
+            udp_event = udp_rx.recv() => {
+                if let Some(udp_event) = udp_event {
+                    handle_udp_event(tun, &stats, &mut udp_associations, udp_event);
                 }
             }
             dns_result = async {
@@ -1067,6 +1218,11 @@ pub async fn io_loop_task(
             let _ = tokio::time::timeout(Duration::from_secs(5), entry.handle).await;
         }
         socket_set.remove(h);
+    }
+
+    for (_src, association) in udp_associations.drain() {
+        association.cancel.cancel();
+        let _ = tokio::time::timeout(Duration::from_secs(5), association.worker).await;
     }
 
     info!("io_loop exited cleanly");
