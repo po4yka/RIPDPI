@@ -1,4 +1,5 @@
 import org.gradle.api.Project
+import org.gradle.api.tasks.Exec
 import org.gradle.testing.jacoco.tasks.JacocoReport
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
@@ -90,10 +91,18 @@ tasks.register("coverageReport") {
     dependsOn("kotlinCoverageReport")
 }
 
+tasks.register<Exec>("checkFileLocLimits") {
+    group = "verification"
+    description = "Verifies code-only LoC limits for repo-owned Rust and Kotlin source files."
+    workingDir = rootDir
+    commandLine("python3", "scripts/ci/check_file_loc_limits.py")
+}
+
 tasks.register("staticAnalysis") {
     group = "verification"
-    description = "Runs detekt, ktlint, and Android Lint across all modules"
+    description = "Runs detekt, ktlint, Android Lint, and file LoC checks across all modules"
     dependsOn(
+        tasks.named("checkFileLocLimits"),
         subprojects.flatMap { it.tasks.matching { t -> t.name == "detekt" } },
         subprojects.flatMap { it.tasks.matching { t -> t.name == "lintDebug" } },
         subprojects.flatMap { it.tasks.matching { t -> t.name == "ktlintCheck" } },
