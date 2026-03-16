@@ -305,3 +305,321 @@ pub(crate) fn shutdown_proxy_listener(listener_fd: i32) -> Result<(), std::io::E
         Err(std::io::Error::last_os_error())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::net::{Ipv4Addr, IpAddr, TcpListener};
+    use std::sync::Mutex;
+
+    use ciadpi_config::RuntimeConfig;
+    use jni::sys::jlong;
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+    use ripdpi_runtime::EmbeddedProxyControl;
+
+    use crate::telemetry::ProxyTelemetryState;
+    use crate::to_handle;
+
+    #[test]
+    fn open_proxy_listener_records_telemetry_when_bind_fails() {
+        let busy = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind busy listener");
+        let mut config = RuntimeConfig::default();
+        config.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        config.listen.listen_port = busy.local_addr().expect("busy listener addr").port();
+        let telemetry = ProxyTelemetryState::new();
+
+        let err = open_proxy_listener(&config, &telemetry).expect_err("listener bind should fail");
+        let snapshot = telemetry.snapshot();
+
+        assert!(err.kind() == std::io::ErrorKind::AddrInUse || err.raw_os_error().is_some());
+        assert_eq!(snapshot.total_errors, 1);
+        assert!(snapshot.last_error.expect("listener error").contains("listener open failed"));
+        assert_eq!(snapshot.health, "idle");
+    }
+
+    #[test]
+    fn shutdown_proxy_listener_rejects_invalid_descriptor() {
+        let err = shutdown_proxy_listener(-1).expect_err("invalid listener fd should fail");
+        assert!(err.raw_os_error().is_some());
+    }
+
+    #[test]
+    fn rejects_invalid_handle() {
+        assert!(to_handle(0).is_none());
+        assert!(to_handle(-1).is_none());
+    }
+
+    #[test]
+    fn rejects_unknown_proxy_handle_lookup() {
+        let err = match lookup_proxy_session(99) {
+            Ok(_) => panic!("expected unknown handle error"),
+            Err(err) => err,
+        };
+
+        assert_eq!(err.to_string(), "Unknown proxy handle");
+    }
+
+    #[test]
+    fn proxy_state_rejects_duplicate_start() {
+        let mut state = ProxySessionState::Idle;
+        let first = Arc::new(EmbeddedProxyControl::default());
+        let second = Arc::new(EmbeddedProxyControl::default());
+
+        try_mark_proxy_running(&mut state, 7, first).expect("first start");
+        let err = try_mark_proxy_running(&mut state, 8, second).expect_err("duplicate start");
+
+        assert_eq!(err, "Proxy session is already running");
+    }
+
+    #[test]
+    fn proxy_state_rejects_stop_when_idle() {
+        let err = listener_fd_for_proxy_stop(&ProxySessionState::Idle).expect_err("idle stop");
+
+        assert_eq!(err, "Proxy session is not running");
+    }
+
+    #[test]
+    fn proxy_state_rejects_destroy_when_running() {
+        let err = ensure_proxy_destroyable(&ProxySessionState::Running {
+            listener_fd: 9,
+            control: Arc::new(EmbeddedProxyControl::default()),
+        })
+        .expect_err("running destroy");
+
+        assert_eq!(err, "Cannot destroy a running proxy session");
+    }
+
+    #[test]
+    fn destroy_removes_idle_proxy_session() {
+        let handle = SESSIONS.insert(ProxySession {
+            config: RuntimeConfig::default(),
+            runtime_context: None,
+            telemetry: Arc::new(ProxyTelemetryState::new()),
+            state: Mutex::new(ProxySessionState::Idle),
+        }) as jlong;
+
+        let removed = remove_proxy_session(handle).expect("removed session");
+        assert!(matches!(*removed.state.lock().expect("state lock"), ProxySessionState::Idle,));
+        assert_eq!(
+            match lookup_proxy_session(handle) {
+                Ok(_) => panic!("expected session removal"),
+                Err(err) => err.to_string(),
+            },
+            "Unknown proxy handle",
+        );
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    enum ProxyStateCommand {
+        EnsureCreated,
+        Start,
+        Stop,
+        Destroy,
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    enum ProxyModelState {
+        Absent,
+        Idle,
+        Running,
+    }
+
+    struct ProxySessionHarness {
+        active_handle: Option<jlong>,
+        stale_handle: Option<jlong>,
+        next_listener_fd: i32,
+    }
+
+    impl Default for ProxySessionHarness {
+        fn default() -> Self {
+            Self { active_handle: None, stale_handle: None, next_listener_fd: 32 }
+        }
+    }
+
+    impl ProxySessionHarness {
+        fn tracked_handle(&self) -> jlong {
+            self.active_handle.or(self.stale_handle).unwrap_or(0)
+        }
+
+        fn ensure_created(&mut self) -> jlong {
+            if let Some(handle) = self.active_handle {
+                return handle;
+            }
+
+            let handle = SESSIONS.insert(ProxySession {
+                config: RuntimeConfig::default(),
+                runtime_context: None,
+                telemetry: Arc::new(ProxyTelemetryState::new()),
+                state: Mutex::new(ProxySessionState::Idle),
+            }) as jlong;
+            self.active_handle = Some(handle);
+            self.stale_handle = Some(handle);
+            handle
+        }
+
+        fn start(&mut self) -> Result<i32, String> {
+            let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
+            let listener_fd = self.next_listener_fd;
+            let mut state = session.state.lock().expect("proxy state lock");
+            try_mark_proxy_running(&mut state, listener_fd, Arc::new(EmbeddedProxyControl::default()))?;
+            self.next_listener_fd += 1;
+            Ok(listener_fd)
+        }
+
+        fn stop(&mut self) -> Result<i32, String> {
+            let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
+            let mut state = session.state.lock().expect("proxy state lock");
+            let (listener_fd, _) = listener_fd_for_proxy_stop(&state)?;
+            *state = ProxySessionState::Idle;
+            Ok(listener_fd)
+        }
+
+        fn destroy(&mut self) -> Result<(), String> {
+            let session = lookup_proxy_session(self.tracked_handle()).map_err(|e| e.to_string())?;
+            let state = session.state.lock().expect("proxy state lock");
+            ensure_proxy_destroyable(&state)?;
+            drop(state);
+            let handle = self.active_handle.take().unwrap_or_else(|| self.tracked_handle());
+            self.stale_handle = Some(handle);
+            let _ = remove_proxy_session(handle).map_err(|e| e.to_string())?;
+            Ok(())
+        }
+
+        fn cleanup(&mut self) {
+            if let Some(handle) = self.active_handle.take() {
+                if let Ok(session) = lookup_proxy_session(handle) {
+                    if let Ok(mut state) = session.state.lock() {
+                        *state = ProxySessionState::Idle;
+                    }
+                }
+                let _ = remove_proxy_session(handle);
+                self.stale_handle = Some(handle);
+            }
+        }
+    }
+
+    impl Drop for ProxySessionHarness {
+        fn drop(&mut self) {
+            self.cleanup();
+        }
+    }
+
+    fn proxy_absent_error(handle: jlong) -> String {
+        if to_handle(handle).is_some() {
+            "Unknown proxy handle".to_string()
+        } else {
+            "Invalid proxy handle".to_string()
+        }
+    }
+
+    fn proxy_state_command_strategy() -> impl Strategy<Value = Vec<ProxyStateCommand>> {
+        vec(
+            prop_oneof![
+                Just(ProxyStateCommand::EnsureCreated),
+                Just(ProxyStateCommand::Start),
+                Just(ProxyStateCommand::Stop),
+                Just(ProxyStateCommand::Destroy),
+            ],
+            1..32,
+        )
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn proxy_session_state_machine(commands in proxy_state_command_strategy()) {
+            let mut harness = ProxySessionHarness::default();
+            let mut model = ProxyModelState::Absent;
+            let mut expected_listener_fd = 32;
+
+            for command in commands {
+                match command {
+                    ProxyStateCommand::EnsureCreated => {
+                        let handle = harness.ensure_created();
+                        prop_assert!(lookup_proxy_session(handle).is_ok());
+                        if matches!(model, ProxyModelState::Absent) {
+                            model = ProxyModelState::Idle;
+                        }
+                    }
+                    ProxyStateCommand::Start => {
+                        match model {
+                            ProxyModelState::Absent => {
+                                let err = harness.start().expect_err("absent start must fail");
+                                prop_assert_eq!(err, proxy_absent_error(harness.tracked_handle()));
+                            }
+                            ProxyModelState::Idle => {
+                                let listener_fd = harness.start().expect("idle start");
+                                prop_assert_eq!(listener_fd, expected_listener_fd);
+                                expected_listener_fd += 1;
+                                model = ProxyModelState::Running;
+                            }
+                            ProxyModelState::Running => {
+                                let err = harness.start().expect_err("duplicate start must fail");
+                                prop_assert_eq!(err, "Proxy session is already running");
+                            }
+                        }
+                    }
+                    ProxyStateCommand::Stop => {
+                        match model {
+                            ProxyModelState::Absent => {
+                                let err = harness.stop().expect_err("absent stop must fail");
+                                prop_assert_eq!(err, proxy_absent_error(harness.tracked_handle()));
+                            }
+                            ProxyModelState::Idle => {
+                                let err = harness.stop().expect_err("idle stop must fail");
+                                prop_assert_eq!(err, "Proxy session is not running");
+                            }
+                            ProxyModelState::Running => {
+                                let listener_fd = harness.stop().expect("running stop");
+                                prop_assert!(listener_fd >= 32);
+                                model = ProxyModelState::Idle;
+                            }
+                        }
+                    }
+                    ProxyStateCommand::Destroy => {
+                        match model {
+                            ProxyModelState::Absent => {
+                                let err = harness.destroy().expect_err("absent destroy must fail");
+                                prop_assert_eq!(err, proxy_absent_error(harness.tracked_handle()));
+                            }
+                            ProxyModelState::Idle => {
+                                harness.destroy().expect("idle destroy");
+                                model = ProxyModelState::Absent;
+                            }
+                            ProxyModelState::Running => {
+                                let err = harness.destroy().expect_err("running destroy must fail");
+                                prop_assert_eq!(err, "Cannot destroy a running proxy session");
+                            }
+                        }
+                    }
+                }
+
+                match model {
+                    ProxyModelState::Absent => {
+                        if to_handle(harness.tracked_handle()).is_some() {
+                            let err = match lookup_proxy_session(harness.tracked_handle()) {
+                                Ok(_) => panic!("absent session must be removed"),
+                                Err(err) => err.to_string(),
+                            };
+                            prop_assert_eq!(err, "Unknown proxy handle");
+                        }
+                    }
+                    ProxyModelState::Idle => {
+                        let session = lookup_proxy_session(harness.tracked_handle()).expect("idle session");
+                        let state = session.state.lock().expect("proxy state lock");
+                        prop_assert!(matches!(*state, ProxySessionState::Idle));
+                    }
+                    ProxyModelState::Running => {
+                        let session = lookup_proxy_session(harness.tracked_handle()).expect("running session");
+                        let state = session.state.lock().expect("proxy state lock");
+                        let is_running = matches!(*state, ProxySessionState::Running { .. });
+                        prop_assert!(is_running);
+                    }
+                }
+            }
+        }
+    }
+}
