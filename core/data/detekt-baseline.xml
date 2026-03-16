@@ -1,9 +1,83 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
-  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>ComplexCondition:QuicSettings.kt$!trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }</ID>
+    <ID>ComplexCondition:QuicSettings.kt$trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') || trimmed.contains("..")</ID>
+    <ID>ComplexCondition:StrategyChains.kt$!trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }</ID>
+    <ID>ComplexCondition:StrategyChains.kt$trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') || trimmed.contains("..")</ID>
+    <ID>CyclomaticComplexMethod:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, dnsDohUrl: String, dnsDohBootstrapIps: Iterable&lt;String&gt;, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
+    <ID>CyclomaticComplexMethod:EncryptedDnsPathSelection.kt$fun buildEncryptedDnsCandidatePlan( activeDns: ActiveDnsSettings, preferredPath: EncryptedDnsPathCandidate? = null, ): List&lt;EncryptedDnsPathCandidate&gt;</ID>
+    <ID>CyclomaticComplexMethod:StrategyFamilies.kt$fun strategyLaneFamilyLabel(family: String): String</ID>
+    <ID>LongMethod:AppSettingsJson.kt$private fun AppSettings.toSnapshot(): AppSettingsSnapshot</ID>
+    <ID>LongMethod:AppSettingsJson.kt$private fun AppSettingsSnapshot.toAppSettings(): AppSettings</ID>
+    <ID>LongMethod:AppSettingsJsonTest.kt$AppSettingsJsonTest$@Test fun `settings round trip through json`()</ID>
+    <ID>LongMethod:DiagnosticsDatabase.kt$&lt;no name provided&gt;$override fun migrate(database: SupportSQLiteDatabase)</ID>
+    <ID>LongMethod:DiagnosticsDatabaseMigrationTest.kt$DiagnosticsDatabaseMigrationTest$@Test fun `migration 4 to 5 preserves telemetry rows and initializes resolver columns`()</ID>
+    <ID>LongMethod:DiagnosticsDatabaseMigrationTest.kt$DiagnosticsDatabaseMigrationTest$@Test fun `migration 6 to 7 preserves rows and initializes field telemetry columns`()</ID>
+    <ID>LongMethod:DiagnosticsDatabaseMigrationTest.kt$DiagnosticsDatabaseMigrationTest$@Test fun `migration 7 to 8 preserves rows and initializes failure classification columns`()</ID>
+    <ID>LongMethod:DiagnosticsDatabaseMigrationTest.kt$DiagnosticsDatabaseMigrationTest$@Test fun `migration 8 to 9 creates network dns path preferences table`()</ID>
+    <ID>LongMethod:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, dnsDohUrl: String, dnsDohBootstrapIps: Iterable&lt;String&gt;, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
+    <ID>LongMethod:HostPackCatalogTest.kt$HostPackCatalogTest$@Test fun `curated geosite extraction keeps root and full domains only`()</ID>
+    <ID>MagicNumber:AdaptiveFakeTtlSettings.kt$255</ID>
+    <ID>MagicNumber:DiagnosticsDatabase.kt$DiagnosticsDatabaseModule$3</ID>
+    <ID>MagicNumber:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository$1000L</ID>
+    <ID>MagicNumber:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository$24L</ID>
+    <ID>MagicNumber:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository$60L</ID>
+    <ID>MagicNumber:DnsResolverConfig.kt$443</ID>
+    <ID>MagicNumber:DnsResolverConfig.kt$80</ID>
+    <ID>MagicNumber:DnsResolverConfig.kt$853</ID>
+    <ID>MagicNumber:MarkerExpressions.kt$3</ID>
+    <ID>MagicNumber:NetworkStrategyMemory.kt$16</ID>
+    <ID>MagicNumber:NetworkStrategyMemory.kt$4</ID>
+    <ID>MagicNumber:QuicSettings.kt$255</ID>
+    <ID>MagicNumber:QuicSettings.kt$4</ID>
+    <ID>MagicNumber:StrategyChains.kt$16</ID>
+    <ID>MagicNumber:StrategyChains.kt$255</ID>
+    <ID>MagicNumber:StrategyChains.kt$4</ID>
+    <ID>MagicNumber:StrategyChains.kt$4096</ID>
     <ID>MagicNumber:ValidateUtils.kt$65535</ID>
-    <ID>NewLineAtEndOfFile:AppStatus.kt$com.poyka.ripdpi.data.AppStatus.kt</ID>
+    <ID>MaxLineLength:AdaptiveFakeTtlSettings.kt$fun AppSettings.effectiveAdaptiveFakeTtlMax(): Int</ID>
+    <ID>MaxLineLength:AdaptiveFakeTtlSettings.kt$normalizeAdaptiveFakeTtlFallback(adaptiveFakeTtlFallback, fakeTtl.takeIf { it &gt; 0 } ?: DefaultAdaptiveFakeTtlFallback)</ID>
+    <ID>MaxLineLength:AppSettingsJson.kt$.</ID>
+    <ID>MaxLineLength:AppSettingsJson.kt$activationFilter = if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel()</ID>
+    <ID>MaxLineLength:AppSettingsJson.kt$fun appSettingsFromJson(payload: String): AppSettings</ID>
+    <ID>MaxLineLength:AppSettingsJson.kt$groupActivationFilter = if (hasGroupActivationFilter()) groupActivationFilter.toModel().let(::normalizeActivationFilter) else ActivationFilterModel()</ID>
+    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN connectionState TEXT NOT NULL DEFAULT 'Running'")</ID>
+    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN proxyRouteRetryCount INTEGER NOT NULL DEFAULT 0")</ID>
+    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN proxyRttBand TEXT NOT NULL DEFAULT 'unknown'")</ID>
+    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN resolverRttBand TEXT NOT NULL DEFAULT 'unknown'")</ID>
+    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN tunnelRecoveryRetryCount INTEGER NOT NULL DEFAULT 0")</ID>
+    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN resolverFallbackActive INTEGER NOT NULL DEFAULT 0")</ID>
+    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN tunnelRecoveryRetryCount INTEGER NOT NULL DEFAULT 0")</ID>
+    <ID>MaxLineLength:HostPackCatalog.kt$fun hostPackCatalogSnapshotFromJson(payload: String): HostPackCatalogSnapshot</ID>
+    <ID>MaxLineLength:MarkerExpressions.kt$fun AppSettings.effectiveSplitMarker(): String</ID>
+    <ID>MaxLineLength:NetworkStrategyMemory.kt$dnsDohBootstrapIps = if (encryptedDnsProtocol == EncryptedDnsProtocolDoh) encryptedDnsBootstrapIps else emptyList()</ID>
+    <ID>MaxLineLength:QuicSettings.kt$if</ID>
+    <ID>MaxLineLength:RememberedNetworkPolicyStore.kt$DefaultRememberedNetworkPolicyStore$winningQuicStrategyFamily = policy.winningQuicStrategyFamily ?: existing.winningQuicStrategyFamily</ID>
+    <ID>MaxLineLength:RememberedNetworkPolicyStore.kt$fun</ID>
+    <ID>MaxLineLength:RememberedNetworkPolicyStore.kt$runCatching { json.decodeFromString(com.poyka.ripdpi.data.VpnDnsPolicyJson.serializer(), payload) }.getOrNull()</ID>
+    <ID>MaxLineLength:StrategyChains.kt$TcpChainStepKind.Companion$fun fromWireName(value: String): TcpChainStepKind?</ID>
+    <ID>MaxLineLength:StrategyChains.kt$UdpChainStepKind.Companion$fun fromWireName(value: String): UdpChainStepKind?</ID>
+    <ID>MaxLineLength:StrategyChains.kt$if</ID>
+    <ID>MaxLineLength:StrategyChains.kt$require(kind == TcpChainStepKind.HostFake) { "host template is only supported for hostfake on line $lineNumber" }</ID>
+    <ID>MaxLineLength:StrategyChains.kt$require(kind == TcpChainStepKind.HostFake) { "midhost is only supported for hostfake on line $lineNumber" }</ID>
+    <ID>MaxLineLength:StrategyChains.kt$require(kind == TcpChainStepKind.TlsRandRec) { "count is only supported for tlsrandrec on line $lineNumber" }</ID>
+    <ID>MaxLineLength:StrategyChains.kt$require(kind == TcpChainStepKind.TlsRandRec) { "max is only supported for tlsrandrec on line $lineNumber" }</ID>
+    <ID>MaxLineLength:StrategyChains.kt$require(kind == TcpChainStepKind.TlsRandRec) { "min is only supported for tlsrandrec on line $lineNumber" }</ID>
+    <ID>ReturnCount:ActivationFilters.kt$fun formatNumericRange(range: NumericRangeModel): String?</ID>
+    <ID>ReturnCount:ActivationFilters.kt$private fun normalizeNumericRange( start: Long?, end: Long?, minValue: Long, ): NumericRangeModel</ID>
+    <ID>ReturnCount:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, dnsDohUrl: String, dnsDohBootstrapIps: Iterable&lt;String&gt;, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
+    <ID>ReturnCount:HostPackCatalog.kt$fun mergeHostPackHosts( existingText: String, presetHosts: List&lt;String&gt;, ): String</ID>
+    <ID>ReturnCount:HostPackCatalog.kt$fun normalizeHostSpecToken(token: String): String?</ID>
+    <ID>ReturnCount:MarkerExpressions.kt$fun isValidOffsetExpression(value: String): Boolean</ID>
+    <ID>ReturnCount:QuicSettings.kt$fun normalizeQuicFakeHost(value: String): String</ID>
+    <ID>ReturnCount:StrategyChains.kt$fun rewritePrimaryTcpMarker( tcpSteps: List&lt;TcpChainStepModel&gt;, marker: String, ): List&lt;TcpChainStepModel&gt;</ID>
+    <ID>ReturnCount:StrategyChains.kt$private fun normalizeFakeHostTemplate( kind: TcpChainStepKind, template: String, ): String</ID>
+    <ID>TooManyFunctions:DiagnosticsDatabase.kt$DiagnosticsDao</ID>
+    <ID>TooManyFunctions:DiagnosticsDatabase.kt$DiagnosticsHistoryRepository</ID>
+    <ID>TooManyFunctions:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository : DiagnosticsHistoryRepository</ID>
+    <ID>TooManyFunctions:StrategyChains.kt$com.poyka.ripdpi.data.StrategyChains.kt</ID>
     <ID>TopLevelPropertyNaming:Actions.kt$const val START_ACTION = "start"</ID>
     <ID>TopLevelPropertyNaming:Actions.kt$const val STOP_ACTION = "stop"</ID>
   </CurrentIssues>
