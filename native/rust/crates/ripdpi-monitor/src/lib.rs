@@ -286,7 +286,7 @@ impl MonitorSession {
         if worker_guard.is_some() {
             return Err("diagnostics scan already running".to_string());
         }
-        self.cancel.store(false, Ordering::Relaxed);
+        self.cancel.store(false, Ordering::Release);
         {
             let mut shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
             shared.progress = None;
@@ -301,7 +301,7 @@ impl MonitorSession {
     }
 
     pub fn cancel_scan(&self) {
-        self.cancel.store(true, Ordering::Relaxed);
+        self.cancel.store(true, Ordering::Release);
     }
 
     pub fn poll_progress_json(&self) -> Result<Option<String>, String> {
@@ -629,7 +629,7 @@ fn run_connectivity_scan(
     );
 
     for dns_target in &request.dns_targets {
-        if cancel.load(Ordering::Relaxed) {
+        if cancel.load(Ordering::Acquire) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
             return;
         }
@@ -651,7 +651,7 @@ fn run_connectivity_scan(
     }
 
     for domain_target in &request.domain_targets {
-        if cancel.load(Ordering::Relaxed) {
+        if cancel.load(Ordering::Acquire) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
             return;
         }
@@ -678,7 +678,7 @@ fn run_connectivity_scan(
     }
 
     for tcp_target in &request.tcp_targets {
-        if cancel.load(Ordering::Relaxed) {
+        if cancel.load(Ordering::Acquire) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
             return;
         }
@@ -1013,7 +1013,7 @@ fn run_strategy_probe_scan(
     let mut consecutive_tcp_family_failures = 0usize;
     while !pending_tcp_specs.is_empty() {
         let spec = pending_tcp_specs.remove(next_candidate_index(&pending_tcp_specs, blocked_tcp_family));
-        if cancel.load(Ordering::Relaxed) {
+        if cancel.load(Ordering::Acquire) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
             return;
         }
@@ -1104,7 +1104,7 @@ fn run_strategy_probe_scan(
     let mut consecutive_quic_family_failures = 0usize;
     while !pending_quic_specs.is_empty() {
         let spec = pending_quic_specs.remove(next_candidate_index(&pending_quic_specs, blocked_quic_family));
-        if cancel.load(Ordering::Relaxed) {
+        if cancel.load(Ordering::Acquire) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
             return;
         }
