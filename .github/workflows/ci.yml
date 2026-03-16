@@ -141,6 +141,7 @@ jobs:
           name: static-analysis-reports
           path: |
             **/build/reports/detekt/
+            build/reports/file-loc-limits/
             **/build/reports/ktlint/
             **/build/reports/lint-results*.html
             native/rust/target/golden-diffs/
