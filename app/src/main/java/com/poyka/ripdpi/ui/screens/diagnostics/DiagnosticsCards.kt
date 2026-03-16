@@ -272,6 +272,140 @@ internal fun SessionRow(
 }
 
 @Composable
+internal fun TelegramResultCard(
+    probe: DiagnosticsProbeResultUiModel,
+    onClick: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val details = probe.details.associate { it.label to it.value }
+    val verdict = details["verdict"] ?: probe.outcome
+    val verdictTone = statusTone(probe.tone)
+
+    RipDpiCard(onClick = onClick) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Telegram",
+                style = RipDpiThemeTokens.type.screenTitle,
+                color = colors.foreground,
+            )
+            StatusIndicator(label = verdict, tone = verdictTone)
+        }
+
+        TelegramTransferSection(
+            label = "Download",
+            status = details["downloadStatus"] ?: "unknown",
+            avgBps = details["downloadAvgBps"],
+            peakBps = details["downloadPeakBps"],
+            bytes = details["downloadBytes"],
+            durationMs = details["downloadDurationMs"],
+            error = details["downloadError"],
+        )
+
+        TelegramTransferSection(
+            label = "Upload",
+            status = details["uploadStatus"] ?: "unknown",
+            avgBps = details["uploadAvgBps"],
+            peakBps = details["uploadPeakBps"],
+            bytes = details["uploadBytes"],
+            durationMs = details["uploadDurationMs"],
+            error = details["uploadError"],
+        )
+
+        val dcReachable = details["dcReachable"] ?: "0"
+        val dcTotal = details["dcTotal"] ?: "0"
+        val dcResults = details["dcResults"]?.split("|")?.filter { it.isNotEmpty() } ?: emptyList()
+
+        SettingsRow(
+            title = "Data Centers",
+            value = "$dcReachable/$dcTotal reachable",
+        )
+        if (dcResults.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                dcResults.forEach { dc ->
+                    val parts = dc.split(":")
+                    val label = parts.getOrNull(0) ?: "?"
+                    val ok = parts.getOrNull(1) == "ok"
+                    val rtt = parts.getOrNull(2) ?: ""
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        StatusIndicator(
+                            label = label,
+                            tone = if (ok) StatusIndicatorTone.Active else StatusIndicatorTone.Error,
+                        )
+                        if (rtt.isNotEmpty()) {
+                            Text(
+                                text = rtt,
+                                style = RipDpiThemeTokens.type.monoSmall,
+                                color = colors.mutedForeground,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TelegramTransferSection(
+    label: String,
+    status: String,
+    avgBps: String?,
+    peakBps: String?,
+    bytes: String?,
+    durationMs: String?,
+    error: String?,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val avgSpeed = formatBps(avgBps?.toLongOrNull() ?: 0)
+    val peakSpeed = formatBps(peakBps?.toLongOrNull() ?: 0)
+    val totalBytes = formatTransferBytes(bytes?.toLongOrNull() ?: 0)
+    val tone = when (status) {
+        "ok" -> StatusIndicatorTone.Active
+        "slow", "stalled" -> StatusIndicatorTone.Warning
+        else -> StatusIndicatorTone.Error
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        StatusIndicator(label = status, tone = tone)
+    }
+    SettingsRow(title = "Avg speed", value = avgSpeed)
+    SettingsRow(title = "Peak speed", value = peakSpeed)
+    SettingsRow(title = "Transferred", value = totalBytes)
+    if (error != null && error != "none") {
+        SettingsRow(title = "Error", value = error)
+    }
+}
+
+private fun formatBps(bps: Long): String = when {
+    bps >= 1_000_000 -> String.format(java.util.Locale.US, "%.1f Mbps", bps / 1_000_000.0)
+    bps >= 1_000 -> String.format(java.util.Locale.US, "%.1f Kbps", bps / 1_000.0)
+    else -> "$bps Bps"
+}
+
+private fun formatTransferBytes(bytes: Long): String = when {
+    bytes >= 1_000_000 -> String.format(java.util.Locale.US, "%.1f MB", bytes / 1_000_000.0)
+    bytes >= 1_000 -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1_000.0)
+    else -> "$bytes B"
+}
+
+@Composable
 internal fun ProbeResultRow(
     probe: DiagnosticsProbeResultUiModel,
     onClick: () -> Unit,

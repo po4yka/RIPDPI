@@ -745,8 +745,19 @@ internal class DiagnosticsUiStateFactory(
                 telemetry?.let {
                     appendLine("Live ${it.connectionState.lowercase(Locale.US)} · ${it.networkType}")
                 }
-                latestReport?.let {
-                    appendLine("${it.results.size} probe results in the latest report")
+                latestReport?.let { report ->
+                    appendLine("${report.results.size} probe results in the latest report")
+                    report.results.firstOrNull { it.probeType == "telegram_availability" }?.let { tg ->
+                        val tgDetails = tg.details.associate { it.key to it.value }
+                        appendLine("Telegram: ${tgDetails["verdict"] ?: tg.outcome}")
+                        tgDetails["downloadAvgBps"]?.toLongOrNull()?.let { bps ->
+                            appendLine("  Download: ${formatBps(bps)} avg, ${formatBytes(tgDetails["downloadBytes"]?.toLongOrNull() ?: 0)}")
+                        }
+                        tgDetails["uploadAvgBps"]?.toLongOrNull()?.let { bps ->
+                            appendLine("  Upload: ${formatBps(bps)} avg, ${formatBytes(tgDetails["uploadBytes"]?.toLongOrNull() ?: 0)}")
+                        }
+                        appendLine("  DCs: ${tgDetails["dcReachable"] ?: "?"}/${tgDetails["dcTotal"] ?: "?"} reachable")
+                    }
                 }
                 warningHeadline?.let {
                     appendLine("Top warning: ${it.message}")
@@ -1406,7 +1417,7 @@ internal class DiagnosticsUiStateFactory(
         val normalized = value.lowercase(Locale.US)
         return when {
             normalized.contains("ok") || normalized.contains("success") || normalized.contains("completed") -> DiagnosticsTone.Positive
-            normalized.contains("warn") || normalized.contains("timeout") || normalized.contains("partial") || normalized.contains("running") -> DiagnosticsTone.Warning
+            normalized.contains("warn") || normalized.contains("timeout") || normalized.contains("partial") || normalized.contains("running") || normalized.contains("slow") || normalized.contains("stalled") -> DiagnosticsTone.Warning
             normalized.contains("error") || normalized.contains("failed") || normalized.contains("blocked") || normalized.contains("reset") -> DiagnosticsTone.Negative
             normalized.contains("info") -> DiagnosticsTone.Info
             else -> DiagnosticsTone.Neutral
@@ -1452,6 +1463,13 @@ internal class DiagnosticsUiStateFactory(
             bytes >= 1_000_000L -> String.format(Locale.US, "%.1f MB", bytes / 1_000_000f)
             bytes >= 1_000L -> String.format(Locale.US, "%.1f KB", bytes / 1_000f)
             else -> "$bytes B"
+        }
+
+    private fun formatBps(bps: Long): String =
+        when {
+            bps >= 1_000_000L -> String.format(Locale.US, "%.1f Mbps", bps / 1_000_000.0)
+            bps >= 1_000L -> String.format(Locale.US, "%.1f Kbps", bps / 1_000.0)
+            else -> "$bps Bps"
         }
 
     private fun DiagnosticsSessionRowUiModel.matchesQuery(query: String): Boolean {

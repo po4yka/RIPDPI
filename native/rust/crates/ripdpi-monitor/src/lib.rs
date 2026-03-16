@@ -134,6 +134,31 @@ pub struct QuicTarget {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TelegramDcEndpoint {
+    pub ip: String,
+    pub label: String,
+    #[serde(default = "default_telegram_dc_port")]
+    pub port: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TelegramTarget {
+    pub media_url: String,
+    pub upload_ip: String,
+    #[serde(default = "default_telegram_dc_port")]
+    pub upload_port: u16,
+    pub dc_endpoints: Vec<TelegramDcEndpoint>,
+    #[serde(default = "default_telegram_stall_timeout_ms")]
+    pub stall_timeout_ms: u64,
+    #[serde(default = "default_telegram_total_timeout_ms")]
+    pub total_timeout_ms: u64,
+    #[serde(default = "default_telegram_upload_size")]
+    pub upload_size_bytes: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StrategyProbeRequest {
     #[serde(default = "default_strategy_probe_suite")]
     pub suite_id: String,
@@ -157,6 +182,8 @@ pub struct ScanRequest {
     #[serde(default)]
     pub quic_targets: Vec<QuicTarget>,
     pub whitelist_sni: Vec<String>,
+    #[serde(default)]
+    pub telegram_target: Option<TelegramTarget>,
     #[serde(default)]
     pub strategy_probe: Option<StrategyProbeRequest>,
 }
@@ -559,6 +586,26 @@ fn default_scan_kind() -> ScanKind {
     ScanKind::Connectivity
 }
 
+fn default_telegram_dc_port() -> u16 {
+    443
+}
+
+fn default_telegram_stall_timeout_ms() -> u64 {
+    10_000
+}
+
+fn default_telegram_total_timeout_ms() -> u64 {
+    60_000
+}
+
+fn default_telegram_upload_size() -> usize {
+    10_485_760
+}
+
+const TELEGRAM_DOWNLOAD_EXPECTED_BYTES: usize = 32_482_836;
+const TELEGRAM_CHUNK_SIZE: usize = 16 * 1024;
+const TELEGRAM_SPEED_SAMPLE_INTERVAL: Duration = Duration::from_millis(500);
+
 fn run_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBool>, session_id: String, request: ScanRequest) {
     match request.kind {
         ScanKind::Connectivity => run_connectivity_scan(shared, cancel, session_id, request),
@@ -600,7 +647,10 @@ fn run_connectivity_scan(
     request: ScanRequest,
 ) {
     let started_at = now_ms();
-    let total_steps = (request.dns_targets.len() + request.domain_targets.len() + request.tcp_targets.len()).max(1);
+    let telegram_steps = if request.telegram_target.is_some() { 1 } else { 0 };
+    let total_steps =
+        (request.dns_targets.len() + request.domain_targets.len() + request.tcp_targets.len() + telegram_steps)
+            .max(1);
     let transport = transport_for_request(&request);
     let mut completed_steps = 0usize;
     let mut results = Vec::new();
@@ -694,6 +744,44 @@ fn run_connectivity_scan(
                 completed_steps,
                 total_steps,
                 message: format!("TCP {}", tcp_target.provider),
+                is_finished: false,
+            },
+        );
+    }
+
+    if let Some(ref telegram_target) = request.telegram_target {
+        if cancel.load(Ordering::Acquire) {
+            persist_cancelled_report(shared, session_id, request, started_at, results);
+            return;
+        }
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: session_id.clone(),
+                phase: "telegram_download".to_string(),
+                completed_steps,
+                total_steps,
+                message: "Telegram download probe".to_string(),
+                is_finished: false,
+            },
+        );
+        let probe = run_telegram_probe(telegram_target, &transport);
+        push_event(
+            &shared,
+            "telegram",
+            event_level_for_outcome(&probe.outcome),
+            summarize_probe_event(&probe),
+        );
+        results.push(probe);
+        completed_steps += 1;
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: session_id.clone(),
+                phase: "telegram".to_string(),
+                completed_steps,
+                total_steps,
+                message: "Telegram availability checked".to_string(),
                 is_finished: false,
             },
         );
@@ -2914,6 +3002,432 @@ fn fat_status_label(status: &FatHeaderStatus) -> &'static str {
         FatHeaderStatus::Timeout => "timeout",
         FatHeaderStatus::ConnectFailed => "connect_failed",
         FatHeaderStatus::HandshakeFailed => "tls_failed",
+    }
+}
+
+fn run_telegram_probe(target: &TelegramTarget, transport: &TransportConfig) -> ProbeResult {
+    let dl = telegram_download_probe(target, transport);
+    let ul = telegram_upload_probe(target, transport);
+    let dc = telegram_dc_probe(target);
+
+    let verdict = if (dl.status == "blocked" || ul.status == "blocked") && dc.reachable == 0 {
+        "blocked"
+    } else if dl.status == "stalled" || dl.status == "slow" || ul.status == "stalled" || ul.status == "slow" {
+        "slow"
+    } else if dc.reachable < dc.total && dc.reachable > 0 {
+        "partial"
+    } else if dl.status == "ok" && ul.status == "ok" {
+        "ok"
+    } else {
+        "error"
+    };
+
+    ProbeResult {
+        probe_type: "telegram_availability".to_string(),
+        target: "telegram.org".to_string(),
+        outcome: verdict.to_string(),
+        details: vec![
+            ProbeDetail { key: "verdict".to_string(), value: verdict.to_string() },
+            ProbeDetail { key: "downloadStatus".to_string(), value: dl.status },
+            ProbeDetail { key: "downloadAvgBps".to_string(), value: dl.avg_bps.to_string() },
+            ProbeDetail { key: "downloadPeakBps".to_string(), value: dl.peak_bps.to_string() },
+            ProbeDetail { key: "downloadBytes".to_string(), value: dl.bytes_total.to_string() },
+            ProbeDetail { key: "downloadDurationMs".to_string(), value: dl.duration_ms.to_string() },
+            ProbeDetail { key: "downloadError".to_string(), value: dl.error.unwrap_or_else(|| "none".to_string()) },
+            ProbeDetail { key: "uploadStatus".to_string(), value: ul.status },
+            ProbeDetail { key: "uploadAvgBps".to_string(), value: ul.avg_bps.to_string() },
+            ProbeDetail { key: "uploadPeakBps".to_string(), value: ul.peak_bps.to_string() },
+            ProbeDetail { key: "uploadBytes".to_string(), value: ul.bytes_total.to_string() },
+            ProbeDetail { key: "uploadDurationMs".to_string(), value: ul.duration_ms.to_string() },
+            ProbeDetail { key: "uploadError".to_string(), value: ul.error.unwrap_or_else(|| "none".to_string()) },
+            ProbeDetail { key: "dcReachable".to_string(), value: dc.reachable.to_string() },
+            ProbeDetail { key: "dcTotal".to_string(), value: dc.total.to_string() },
+            ProbeDetail { key: "dcResults".to_string(), value: dc.results.join("|") },
+        ],
+    }
+}
+
+struct TelegramTransferResult {
+    status: String,
+    avg_bps: u64,
+    peak_bps: u64,
+    bytes_total: usize,
+    duration_ms: u64,
+    error: Option<String>,
+}
+
+struct TelegramDcResult {
+    reachable: usize,
+    total: usize,
+    results: Vec<String>,
+}
+
+fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig) -> TelegramTransferResult {
+    let host = match extract_host_from_url(&target.media_url) {
+        Some(h) => h,
+        None => {
+            return TelegramTransferResult {
+                status: "blocked".to_string(),
+                avg_bps: 0,
+                peak_bps: 0,
+                bytes_total: 0,
+                duration_ms: 0,
+                error: Some("invalid media_url".to_string()),
+            };
+        }
+    };
+    let path = extract_path_from_url(&target.media_url);
+
+    let mut stream = match open_probe_stream(
+        &TargetAddress::Host(host.clone()),
+        443,
+        transport,
+        Some(&host),
+        false,
+        TlsClientProfile::Auto,
+    ) {
+        Ok(s) => s,
+        Err(err) => {
+            return TelegramTransferResult {
+                status: "blocked".to_string(),
+                avg_bps: 0,
+                peak_bps: 0,
+                bytes_total: 0,
+                duration_ms: 0,
+                error: Some(err),
+            };
+        }
+    };
+
+    let request = format!(
+        "GET {path} HTTP/1.1\r\nHost: {host}\r\nAccept: */*\r\nConnection: close\r\n\r\n"
+    );
+    if let Err(err) = stream.write_all(request.as_bytes()).and_then(|_| stream.flush()) {
+        stream.shutdown();
+        return TelegramTransferResult {
+            status: "blocked".to_string(),
+            avg_bps: 0,
+            peak_bps: 0,
+            bytes_total: 0,
+            duration_ms: 0,
+            error: Some(err.to_string()),
+        };
+    }
+
+    // Skip HTTP headers
+    let mut header_buf = Vec::new();
+    let mut header_byte = [0u8; 1];
+    loop {
+        match stream.read(&mut header_byte) {
+            Ok(0) => break,
+            Ok(_) => {
+                header_buf.push(header_byte[0]);
+                if header_buf.len() >= 4 && header_buf[header_buf.len() - 4..] == *b"\r\n\r\n" {
+                    break;
+                }
+                if header_buf.len() > MAX_HTTP_BYTES {
+                    stream.shutdown();
+                    return TelegramTransferResult {
+                        status: "blocked".to_string(),
+                        avg_bps: 0,
+                        peak_bps: 0,
+                        bytes_total: 0,
+                        duration_ms: 0,
+                        error: Some("headers too large".to_string()),
+                    };
+                }
+            }
+            Err(err) => {
+                stream.shutdown();
+                return TelegramTransferResult {
+                    status: "blocked".to_string(),
+                    avg_bps: 0,
+                    peak_bps: 0,
+                    bytes_total: 0,
+                    duration_ms: 0,
+                    error: Some(err.to_string()),
+                };
+            }
+        }
+    }
+
+    let stall_timeout = Duration::from_millis(target.stall_timeout_ms);
+    let total_timeout = Duration::from_millis(target.total_timeout_ms);
+    let start = std::time::Instant::now();
+    let mut last_data_at = start;
+    let mut bytes_total = 0usize;
+    let mut peak_bps = 0u64;
+    let mut sample_bytes = 0usize;
+    let mut sample_start = start;
+    let mut buf = [0u8; TELEGRAM_CHUNK_SIZE];
+
+    loop {
+        if start.elapsed() > total_timeout {
+            break;
+        }
+        if last_data_at.elapsed() > stall_timeout {
+            stream.shutdown();
+            let elapsed_ms = start.elapsed().as_millis() as u64;
+            let avg_bps = if elapsed_ms > 0 { (bytes_total as u64) * 1000 / elapsed_ms } else { 0 };
+            return TelegramTransferResult {
+                status: "stalled".to_string(),
+                avg_bps,
+                peak_bps,
+                bytes_total,
+                duration_ms: elapsed_ms,
+                error: Some("stall detected".to_string()),
+            };
+        }
+
+        match stream.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                bytes_total += n;
+                sample_bytes += n;
+                last_data_at = std::time::Instant::now();
+
+                if sample_start.elapsed() >= TELEGRAM_SPEED_SAMPLE_INTERVAL {
+                    let sample_ms = sample_start.elapsed().as_millis() as u64;
+                    if sample_ms > 0 {
+                        let sample_bps = (sample_bytes as u64) * 1000 / sample_ms;
+                        if sample_bps > peak_bps {
+                            peak_bps = sample_bps;
+                        }
+                    }
+                    sample_bytes = 0;
+                    sample_start = std::time::Instant::now();
+                }
+            }
+            Err(ref err) if err.kind() == ErrorKind::TimedOut || err.kind() == ErrorKind::WouldBlock => {
+                continue;
+            }
+            Err(err) => {
+                stream.shutdown();
+                let elapsed_ms = start.elapsed().as_millis() as u64;
+                let avg_bps = if elapsed_ms > 0 { (bytes_total as u64) * 1000 / elapsed_ms } else { 0 };
+                let status = if bytes_total == 0 { "blocked" } else { "stalled" };
+                return TelegramTransferResult {
+                    status: status.to_string(),
+                    avg_bps,
+                    peak_bps,
+                    bytes_total,
+                    duration_ms: elapsed_ms,
+                    error: Some(err.to_string()),
+                };
+            }
+        }
+    }
+
+    stream.shutdown();
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+    let avg_bps = if elapsed_ms > 0 { (bytes_total as u64) * 1000 / elapsed_ms } else { 0 };
+
+    let status = if bytes_total >= TELEGRAM_DOWNLOAD_EXPECTED_BYTES * 98 / 100 {
+        "ok"
+    } else if bytes_total > 0 {
+        "slow"
+    } else {
+        "blocked"
+    };
+
+    TelegramTransferResult {
+        status: status.to_string(),
+        avg_bps,
+        peak_bps,
+        bytes_total,
+        duration_ms: elapsed_ms,
+        error: None,
+    }
+}
+
+fn telegram_upload_probe(target: &TelegramTarget, transport: &TransportConfig) -> TelegramTransferResult {
+    let upload_ip: IpAddr = match target.upload_ip.parse() {
+        Ok(ip) => ip,
+        Err(err) => {
+            return TelegramTransferResult {
+                status: "blocked".to_string(),
+                avg_bps: 0,
+                peak_bps: 0,
+                bytes_total: 0,
+                duration_ms: 0,
+                error: Some(err.to_string()),
+            };
+        }
+    };
+
+    let mut stream = match open_probe_stream(
+        &TargetAddress::Ip(upload_ip),
+        target.upload_port,
+        transport,
+        Some("telegram.org"),
+        false,
+        TlsClientProfile::Auto,
+    ) {
+        Ok(s) => s,
+        Err(err) => {
+            return TelegramTransferResult {
+                status: "blocked".to_string(),
+                avg_bps: 0,
+                peak_bps: 0,
+                bytes_total: 0,
+                duration_ms: 0,
+                error: Some(err),
+            };
+        }
+    };
+
+    let content_length = target.upload_size_bytes;
+    let header = format!(
+        "POST /upload HTTP/1.1\r\nHost: telegram.org\r\nContent-Length: {content_length}\r\n\
+         Content-Type: application/octet-stream\r\nConnection: close\r\n\r\n"
+    );
+    if let Err(err) = stream.write_all(header.as_bytes()).and_then(|_| stream.flush()) {
+        stream.shutdown();
+        return TelegramTransferResult {
+            status: "blocked".to_string(),
+            avg_bps: 0,
+            peak_bps: 0,
+            bytes_total: 0,
+            duration_ms: 0,
+            error: Some(err.to_string()),
+        };
+    }
+
+    let stall_timeout = Duration::from_millis(target.stall_timeout_ms);
+    let total_timeout = Duration::from_millis(target.total_timeout_ms);
+    let start = std::time::Instant::now();
+    let chunk = [0u8; TELEGRAM_CHUNK_SIZE];
+    let mut bytes_total = 0usize;
+    let mut peak_bps = 0u64;
+    let mut sample_bytes = 0usize;
+    let mut sample_start = start;
+
+    while bytes_total < content_length {
+        if start.elapsed() > total_timeout {
+            break;
+        }
+        let remaining = content_length - bytes_total;
+        let to_send = remaining.min(TELEGRAM_CHUNK_SIZE);
+        match stream.write_all(&chunk[..to_send]).and_then(|_| stream.flush()) {
+            Ok(()) => {
+                bytes_total += to_send;
+                sample_bytes += to_send;
+
+                if sample_start.elapsed() >= TELEGRAM_SPEED_SAMPLE_INTERVAL {
+                    let sample_ms = sample_start.elapsed().as_millis() as u64;
+                    if sample_ms > 0 {
+                        let sample_bps = (sample_bytes as u64) * 1000 / sample_ms;
+                        if sample_bps > peak_bps {
+                            peak_bps = sample_bps;
+                        }
+                    }
+                    sample_bytes = 0;
+                    sample_start = std::time::Instant::now();
+                }
+            }
+            Err(err) => {
+                stream.shutdown();
+                let elapsed_ms = start.elapsed().as_millis() as u64;
+                let avg_bps = if elapsed_ms > 0 { (bytes_total as u64) * 1000 / elapsed_ms } else { 0 };
+                let status = if bytes_total == 0 { "blocked" } else { "stalled" };
+                return TelegramTransferResult {
+                    status: status.to_string(),
+                    avg_bps,
+                    peak_bps,
+                    bytes_total,
+                    duration_ms: elapsed_ms,
+                    error: Some(err.to_string()),
+                };
+            }
+        }
+
+        if sample_start.elapsed() > stall_timeout {
+            stream.shutdown();
+            let elapsed_ms = start.elapsed().as_millis() as u64;
+            let avg_bps = if elapsed_ms > 0 { (bytes_total as u64) * 1000 / elapsed_ms } else { 0 };
+            return TelegramTransferResult {
+                status: "stalled".to_string(),
+                avg_bps,
+                peak_bps,
+                bytes_total,
+                duration_ms: elapsed_ms,
+                error: Some("upload stall detected".to_string()),
+            };
+        }
+    }
+
+    stream.shutdown();
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+    let avg_bps = if elapsed_ms > 0 { (bytes_total as u64) * 1000 / elapsed_ms } else { 0 };
+
+    let status = if bytes_total >= content_length * 98 / 100 {
+        "ok"
+    } else if bytes_total > 0 {
+        "slow"
+    } else {
+        "blocked"
+    };
+
+    TelegramTransferResult {
+        status: status.to_string(),
+        avg_bps,
+        peak_bps,
+        bytes_total,
+        duration_ms: elapsed_ms,
+        error: None,
+    }
+}
+
+fn telegram_dc_probe(target: &TelegramTarget) -> TelegramDcResult {
+    let dc_timeout = Duration::from_secs(5);
+    let mut results = Vec::new();
+    let mut reachable = 0usize;
+
+    for dc in &target.dc_endpoints {
+        let ip: IpAddr = match dc.ip.parse() {
+            Ok(ip) => ip,
+            Err(_) => {
+                results.push(format!("{}:fail:parse_error", dc.label));
+                continue;
+            }
+        };
+        let addr = SocketAddr::new(ip, dc.port);
+        let start = std::time::Instant::now();
+        match TcpStream::connect_timeout(&addr, dc_timeout) {
+            Ok(stream) => {
+                let rtt_ms = start.elapsed().as_millis();
+                let _ = stream.shutdown(Shutdown::Both);
+                results.push(format!("{}:ok:{}ms", dc.label, rtt_ms));
+                reachable += 1;
+            }
+            Err(_) => {
+                results.push(format!("{}:fail", dc.label));
+            }
+        }
+    }
+
+    TelegramDcResult { reachable, total: target.dc_endpoints.len(), results }
+}
+
+fn extract_host_from_url(url: &str) -> Option<String> {
+    let without_scheme = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://"))?;
+    let host = without_scheme.split('/').next()?;
+    let host = host.split(':').next()?;
+    if host.is_empty() {
+        None
+    } else {
+        Some(host.to_string())
+    }
+}
+
+fn extract_path_from_url(url: &str) -> String {
+    let without_scheme = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(url);
+    match without_scheme.find('/') {
+        Some(idx) => without_scheme[idx..].to_string(),
+        None => "/".to_string(),
     }
 }
 

@@ -170,7 +170,11 @@ internal fun ScanSection(
                 )
             }
             items(uiState.scan.latestResults, key = { it.id }) { probe ->
-                ProbeResultRow(probe = probe, onClick = { onSelectProbe(probe) })
+                if (probe.probeType == "telegram_availability") {
+                    TelegramResultCard(probe = probe, onClick = { onSelectProbe(probe) })
+                } else {
+                    ProbeResultRow(probe = probe, onClick = { onSelectProbe(probe) })
+                }
             }
         }
     }
