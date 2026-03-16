@@ -52,10 +52,10 @@ jobs:
       - name: Build release APK
         env:
           RUSTC_WRAPPER: sccache
-          SIGNING_STORE_FILE: ${{ github.workspace }}/release.keystore
-          SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          RIPDPI_SIGNING_STORE_FILE: ${{ github.workspace }}/release.keystore
+          RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
       - name: Upload release APK
