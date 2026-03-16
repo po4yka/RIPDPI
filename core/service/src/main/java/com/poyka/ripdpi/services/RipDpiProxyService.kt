@@ -75,6 +75,7 @@ class RipDpiProxyService : LifecycleService() {
     private var lastSuccessfulHandoverAt: Long = 0L
 
     private var status: ServiceStatus = ServiceStatus.Disconnected
+    private val lifecycleState = ServiceLifecycleStateMachine()
 
     companion object {
         private const val FOREGROUND_SERVICE_ID: Int = 2
@@ -120,23 +121,38 @@ class RipDpiProxyService : LifecycleService() {
     private suspend fun start() {
         logcat(LogPriority.INFO) { "Starting" }
 
-        if (status == ServiceStatus.Connected) {
-            logcat(LogPriority.WARN) { "Proxy already connected" }
-            return
-        }
-
         var matchedRememberedPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity? = null
         try {
-            val resolution = connectionPolicyResolver.resolve(mode = Mode.Proxy)
-            matchedRememberedPolicy = resolution.matchedNetworkPolicy
-            applyActiveConnectionPolicy(
-                resolution = resolution,
-                restartReason = "initial_start",
-                appliedAt = System.currentTimeMillis(),
-            )
-            mutex.withLock {
-                startProxy(resolution.proxyPreferences)
+            val started =
+                mutex.withLock {
+                    if (!lifecycleState.tryBeginStart()) {
+                        logcat(LogPriority.WARN) {
+                            "Ignoring proxy start while lifecycle state is ${lifecycleState.state}"
+                        }
+                        return@withLock false
+                    }
+
+                    try {
+                        val resolution = connectionPolicyResolver.resolve(mode = Mode.Proxy)
+                        matchedRememberedPolicy = resolution.matchedNetworkPolicy
+                        applyActiveConnectionPolicy(
+                            resolution = resolution,
+                            restartReason = "initial_start",
+                            appliedAt = System.currentTimeMillis(),
+                        )
+                        startProxy(resolution.proxyPreferences)
+                        lifecycleState.markStarted()
+                        true
+                    } catch (e: Exception) {
+                        lifecycleState.markStartFailed()
+                        throw e
+                    }
+                }
+
+            if (!started) {
+                return
             }
+
             updateStatus(ServiceStatus.Connected)
             startNetworkHandoverMonitoring()
             startTelemetryUpdates()
@@ -167,23 +183,37 @@ class RipDpiProxyService : LifecycleService() {
     private suspend fun stop(skipProxyShutdown: Boolean = false) {
         logcat(LogPriority.INFO) { "Stopping proxy" }
 
-        mutex.withLock {
-            stopping = true
-            try {
-                handoverMonitorJob?.cancel()
-                handoverMonitorJob = null
-                if (!skipProxyShutdown) {
-                    stopProxy()
-                } else {
-                    proxyJob = null
-                    proxy = null
+        val stopped =
+            mutex.withLock {
+                if (lifecycleState.state == ServiceLifecycleStateMachine.State.STOPPING) {
+                    logcat(LogPriority.WARN) { "Proxy stop already in progress" }
+                    return@withLock false
                 }
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR) { "Failed to stop proxy\n${e.asLog()}" }
-            } finally {
-                stopping = false
+
+                lifecycleState.beginStop()
+                stopping = true
+                try {
+                    handoverMonitorJob?.cancel()
+                    handoverMonitorJob = null
+                    if (!skipProxyShutdown) {
+                        stopProxy()
+                    } else {
+                        proxyJob = null
+                        proxy = null
+                    }
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR) { "Failed to stop proxy\n${e.asLog()}" }
+                } finally {
+                    stopping = false
+                    lifecycleState.markStopped()
+                }
+                true
             }
+
+        if (!stopped) {
+            return
         }
+
         updateStatus(ServiceStatus.Disconnected)
         telemetryJob?.cancel()
         telemetryJob = null
