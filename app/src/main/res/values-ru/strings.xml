@@ -559,6 +559,8 @@
     <string name="settings_diagnostics_retention_body">Сколько дней сохранённые сеансы подключений, образцы, отчёты диагностики и записи экспорта хранятся на устройстве до автоматической очистки.</string>
     <string name="settings_diagnostics_export_history_title">Включать историю в архивы диагностики</string>
     <string name="settings_diagnostics_export_history_body">Прикреплять сохранённые таблицы истории при создании архива диагностики для отправки или локального экспорта.</string>
+    <string name="settings_telemetry_salt_reset_body">Сбросить индивидуальную соль, используемую для хеширования сетевых отпечатков. Ранее записанные хеши больше не смогут быть сопоставлены с будущими сеансами.</string>
+    <string name="settings_telemetry_salt_reset_action">Сбросить соль телеметрии</string>
     <string name="config_cli_banner_title">Аргументы командной строки активны</string>
     <string name="config_cli_banner_body">Аргументы ниже имеют приоритет над визуальными элементами управления на этом экране.</string>
     <string name="config_validation_fix">Проверьте выделенные поля перед сохранением.</string>
