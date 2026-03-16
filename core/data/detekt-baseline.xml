@@ -12,15 +12,9 @@
     <ID>LongMethod:AppSettingsJson.kt$private fun AppSettings.toSnapshot(): AppSettingsSnapshot</ID>
     <ID>LongMethod:AppSettingsJson.kt$private fun AppSettingsSnapshot.toAppSettings(): AppSettings</ID>
     <ID>LongMethod:AppSettingsJsonTest.kt$AppSettingsJsonTest$@Test fun `settings round trip through json`()</ID>
-    <ID>LongMethod:DiagnosticsDatabase.kt$&lt;no name provided&gt;$override fun migrate(database: SupportSQLiteDatabase)</ID>
-    <ID>LongMethod:DiagnosticsDatabaseMigrationTest.kt$DiagnosticsDatabaseMigrationTest$@Test fun `migration 4 to 5 preserves telemetry rows and initializes resolver columns`()</ID>
-    <ID>LongMethod:DiagnosticsDatabaseMigrationTest.kt$DiagnosticsDatabaseMigrationTest$@Test fun `migration 6 to 7 preserves rows and initializes field telemetry columns`()</ID>
-    <ID>LongMethod:DiagnosticsDatabaseMigrationTest.kt$DiagnosticsDatabaseMigrationTest$@Test fun `migration 7 to 8 preserves rows and initializes failure classification columns`()</ID>
-    <ID>LongMethod:DiagnosticsDatabaseMigrationTest.kt$DiagnosticsDatabaseMigrationTest$@Test fun `migration 8 to 9 creates network dns path preferences table`()</ID>
     <ID>LongMethod:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, dnsDohUrl: String, dnsDohBootstrapIps: Iterable&lt;String&gt;, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
     <ID>LongMethod:HostPackCatalogTest.kt$HostPackCatalogTest$@Test fun `curated geosite extraction keeps root and full domains only`()</ID>
     <ID>MagicNumber:AdaptiveFakeTtlSettings.kt$255</ID>
-    <ID>MagicNumber:DiagnosticsDatabase.kt$DiagnosticsDatabaseModule$3</ID>
     <ID>MagicNumber:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository$1000L</ID>
     <ID>MagicNumber:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository$24L</ID>
     <ID>MagicNumber:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository$60L</ID>
@@ -43,13 +37,6 @@
     <ID>MaxLineLength:AppSettingsJson.kt$activationFilter = if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel()</ID>
     <ID>MaxLineLength:AppSettingsJson.kt$fun appSettingsFromJson(payload: String): AppSettings</ID>
     <ID>MaxLineLength:AppSettingsJson.kt$groupActivationFilter = if (hasGroupActivationFilter()) groupActivationFilter.toModel().let(::normalizeActivationFilter) else ActivationFilterModel()</ID>
-    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN connectionState TEXT NOT NULL DEFAULT 'Running'")</ID>
-    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN proxyRouteRetryCount INTEGER NOT NULL DEFAULT 0")</ID>
-    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN proxyRttBand TEXT NOT NULL DEFAULT 'unknown'")</ID>
-    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN resolverRttBand TEXT NOT NULL DEFAULT 'unknown'")</ID>
-    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE bypass_usage_sessions ADD COLUMN tunnelRecoveryRetryCount INTEGER NOT NULL DEFAULT 0")</ID>
-    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN resolverFallbackActive INTEGER NOT NULL DEFAULT 0")</ID>
-    <ID>MaxLineLength:DiagnosticsDatabase.kt$&lt;no name provided&gt;$database.execSQL("ALTER TABLE telemetry_samples ADD COLUMN tunnelRecoveryRetryCount INTEGER NOT NULL DEFAULT 0")</ID>
     <ID>MaxLineLength:HostPackCatalog.kt$fun hostPackCatalogSnapshotFromJson(payload: String): HostPackCatalogSnapshot</ID>
     <ID>MaxLineLength:MarkerExpressions.kt$fun AppSettings.effectiveSplitMarker(): String</ID>
     <ID>MaxLineLength:NetworkStrategyMemory.kt$dnsDohBootstrapIps = if (encryptedDnsProtocol == EncryptedDnsProtocolDoh) encryptedDnsBootstrapIps else emptyList()</ID>
