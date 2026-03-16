@@ -7,6 +7,7 @@ import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.activities.hashPin
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionItemUiState
@@ -67,7 +68,7 @@ internal fun RipDpiSettingsMediumPreviewScene() {
                     appTheme = "system",
                     dnsIp = "1.1.1.1",
                     biometricEnabled = true,
-                    backupPin = "1234",
+                    backupPinHash = hashPin("1234"),
                     webrtcProtectionEnabled = true,
                     themedAppIconEnabled = true,
                 ),

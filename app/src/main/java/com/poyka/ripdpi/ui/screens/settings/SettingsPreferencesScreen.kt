@@ -26,6 +26,7 @@ import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.activities.hashPin
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -100,9 +101,7 @@ internal fun SettingsScreen(
                     label = label,
                 )
             }
-    var backupPinDraft by rememberSaveable(uiState.backupPin) {
-        mutableStateOf(uiState.backupPin)
-    }
+    var backupPinDraft by rememberSaveable { mutableStateOf("") }
     val pinErrorText =
         when {
             backupPinDraft.isNotEmpty() && backupPinDraft.length < 4 -> {
@@ -113,7 +112,7 @@ internal fun SettingsScreen(
                 null
             }
         }
-    val canSaveBackupPin = backupPinDraft.length == 4 && backupPinDraft != uiState.backupPin
+    val canSaveBackupPin = backupPinDraft.length == 4
     val showBackupPinEditor = uiState.biometricEnabled || uiState.hasBackupPin || backupPinDraft.isNotBlank()
 
     RipDpiSettingsScaffold(
@@ -408,7 +407,7 @@ private fun SettingsScreenDarkPreview() {
                     dnsIp = "9.9.9.9",
                     webrtcProtectionEnabled = true,
                     biometricEnabled = true,
-                    backupPin = "1234",
+                    backupPinHash = hashPin("1234"),
                 ),
             onOpenDnsSettings = {},
             onOpenAdvancedSettings = {},
