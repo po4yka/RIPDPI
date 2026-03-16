@@ -12,6 +12,7 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
+import androidx.room.withTransaction
 import androidx.sqlite.db.SupportSQLiteDatabase
 import dagger.Binds
 import dagger.Module
@@ -671,6 +672,7 @@ interface DiagnosticsHistoryRepository {
 class RoomDiagnosticsHistoryRepository
     @Inject
     constructor(
+        private val db: DiagnosticsDatabase,
         private val dao: DiagnosticsDao,
     ) : DiagnosticsHistoryRepository {
     override fun observeProfiles(): Flow<List<DiagnosticProfileEntity>> = dao.observeProfiles()
@@ -791,9 +793,11 @@ class RoomDiagnosticsHistoryRepository
         sessionId: String,
         results: List<ProbeResultEntity>,
     ) {
-        dao.deleteProbeResultsForSession(sessionId)
-        if (results.isNotEmpty()) {
-            dao.insertProbeResults(results)
+        db.withTransaction {
+            dao.deleteProbeResultsForSession(sessionId)
+            if (results.isNotEmpty()) {
+                dao.insertProbeResults(results)
+            }
         }
     }
 
@@ -1117,7 +1121,8 @@ object DiagnosticsDatabaseModule {
             DiagnosticsDatabaseMigration6To7,
             DiagnosticsDatabaseMigration7To8,
             DiagnosticsDatabaseMigration8To9,
-        ).build()
+        ).fallbackToDestructiveMigrationFrom(1, 2, 3)
+            .build()
 
     @Provides
     @Singleton
