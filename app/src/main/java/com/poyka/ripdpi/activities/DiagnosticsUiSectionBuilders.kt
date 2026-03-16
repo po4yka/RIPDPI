@@ -1,11 +1,9 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
@@ -14,13 +12,10 @@ import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
-import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ShareSummary
-import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.ActiveConnectionPolicy
 import java.util.Locale
 
 internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
@@ -67,24 +62,24 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
     val runInPathEnabled = progress == null && !strategyProbeSelected
     val workflowLabel =
         if (selectedProfile?.isFullAudit == true) {
-            "Automatic audit"
+            context.getString(R.string.diagnostics_scan_automatic_audit)
         } else {
-            "Automatic probing"
+            context.getString(R.string.diagnostics_scan_automatic_probing)
         }
     val runRawHint =
         when {
             strategyProbeSelected && rawArgsEnabled ->
-                "$workflowLabel only works with visual RIPDPI settings. Command-line mode is active."
+                context.getString(R.string.diagnostics_scan_cli_active_format, workflowLabel)
 
             strategyProbeSelected ->
-                "$workflowLabel starts a temporary raw-path RIPDPI runtime and returns a manual recommendation."
+                context.getString(R.string.diagnostics_scan_raw_path_format, workflowLabel)
 
             else -> null
         }
     val runInPathHint =
         when {
             strategyProbeSelected ->
-                "$workflowLabel is raw-path only because it launches isolated temporary strategy trials."
+                context.getString(R.string.diagnostics_scan_raw_only_format, workflowLabel)
 
             else -> null
         }
@@ -118,10 +113,15 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
     eventModels: List<DiagnosticsEventUiModel>,
 ): DiagnosticsLiveUiModel =
     DiagnosticsLiveUiModel(
-        statusLabel = currentTelemetry?.connectionState ?: "Idle",
+        statusLabel = currentTelemetry?.connectionState ?: context.getString(R.string.diagnostics_metric_idle),
         freshnessLabel =
-            currentTelemetry?.createdAt?.let { "Updated ${formatTimestamp(it)}" }
-                ?: "No live telemetry",
+            currentTelemetry?.createdAt?.let {
+                context.getString(
+                    R.string.diagnostics_live_updated_format,
+                    formatTimestamp(it)
+                )
+            }
+                ?: context.getString(R.string.diagnostics_live_no_telemetry),
         headline = buildLiveHeadline(health, currentTelemetry, nativeEvents),
         body = buildLiveBody(currentTelemetry, nativeEvents),
         networkLabel = currentTelemetry?.networkType,
@@ -245,11 +245,14 @@ internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
                 approachStats
                     .firstOrNull { it.approachId.kind == BypassApproachKind.Strategy }
                     ?.let { summary ->
-                        append("\n\nArchive includes approach analytics for ")
-                        append(summary.displayName)
-                        append(" with ")
-                        append(summary.verificationState)
-                        append(" validation and runtime health context.")
+                        append("\n\n")
+                        append(
+                            context.getString(
+                                R.string.diagnostics_share_approach_format,
+                                summary.displayName,
+                                summary.verificationState
+                            )
+                        )
                     }
             },
         metrics =
@@ -259,7 +262,7 @@ internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
                         .firstOrNull { it.approachId.kind == BypassApproachKind.Strategy }
                         ?.let { summary ->
                             DiagnosticsMetricUiModel(
-                                label = "Approach",
+                                label = context.getString(R.string.diagnostics_metric_approach),
                                 value = summary.displayName,
                                 tone = summary.toDiagnosticsTone(),
                             )
@@ -303,10 +306,15 @@ private fun DiagnosticsUiFactorySupport.buildOverviewMetrics(
     currentTelemetry: TelemetrySampleEntity?,
 ): List<DiagnosticsMetricUiModel> =
     buildList {
-        add(DiagnosticsMetricUiModel(label = "Sessions", value = sessions.size.toString()))
         add(
             DiagnosticsMetricUiModel(
-                label = "Events",
+                label = context.getString(R.string.diagnostics_metric_sessions),
+                value = sessions.size.toString()
+            )
+        )
+        add(
+            DiagnosticsMetricUiModel(
+                label = context.getString(R.string.diagnostics_metric_events),
                 value = nativeEvents.size.toString(),
                 tone =
                     when (health) {
@@ -318,42 +326,54 @@ private fun DiagnosticsUiFactorySupport.buildOverviewMetrics(
             ),
         )
         currentTelemetry?.let { sample ->
-            add(DiagnosticsMetricUiModel(label = "TX", value = formatBytes(sample.txBytes), tone = DiagnosticsTone.Info))
-            add(DiagnosticsMetricUiModel(label = "RX", value = formatBytes(sample.rxBytes), tone = DiagnosticsTone.Info))
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_tx),
+                    value = formatBytes(sample.txBytes),
+                    tone = DiagnosticsTone.Info
+                )
+            )
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_rx),
+                    value = formatBytes(sample.rxBytes),
+                    tone = DiagnosticsTone.Info
+                )
+            )
         }
     }
 
-private fun overviewHeadline(
+private fun DiagnosticsUiFactorySupport.overviewHeadline(
     health: DiagnosticsHealth,
     progress: ScanProgress?,
     latestSession: ScanSessionEntity?,
 ): String =
     when {
-        progress != null -> "Diagnostics scan is active"
-        latestSession == null -> "No diagnostics captured yet"
-        health == DiagnosticsHealth.Degraded -> "The network path needs attention"
-        health == DiagnosticsHealth.Attention -> "Diagnostics are reporting mixed signals"
-        health == DiagnosticsHealth.Healthy -> "Current telemetry looks stable"
-        else -> "Waiting for the next diagnostics session"
+        progress != null -> context.getString(R.string.diagnostics_headline_scan_active)
+        latestSession == null -> context.getString(R.string.diagnostics_headline_no_data)
+        health == DiagnosticsHealth.Degraded -> context.getString(R.string.diagnostics_headline_degraded)
+        health == DiagnosticsHealth.Attention -> context.getString(R.string.diagnostics_headline_attention)
+        health == DiagnosticsHealth.Healthy -> context.getString(R.string.diagnostics_headline_healthy)
+        else -> context.getString(R.string.diagnostics_headline_waiting)
     }
 
-private fun overviewBody(
+private fun DiagnosticsUiFactorySupport.overviewBody(
     health: DiagnosticsHealth,
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     telemetry: TelemetrySampleEntity?,
 ): String =
     when (health) {
         DiagnosticsHealth.Healthy ->
-            "Passive telemetry and the latest report do not show critical failures. Review live counters for drift."
+            context.getString(R.string.diagnostics_body_healthy)
 
         DiagnosticsHealth.Attention ->
-            "Warnings or partial failures were detected. Compare the latest scan outcome with the current live monitor."
+            context.getString(R.string.diagnostics_body_attention)
 
         DiagnosticsHealth.Degraded ->
-            "Recent events or scan outcomes indicate blocking, failures, or transport instability."
+            context.getString(R.string.diagnostics_body_degraded)
 
         DiagnosticsHealth.Idle ->
-            latestSnapshot?.subtitle ?: telemetry?.connectionState ?: "Start RIPDPI or run a scan to populate diagnostics analytics."
+            latestSnapshot?.subtitle ?: telemetry?.connectionState ?: context.getString(R.string.diagnostics_body_idle)
     }
 
 private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
@@ -362,24 +382,64 @@ private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
 ): List<DiagnosticsMetricUiModel> =
     buildList {
         if (telemetry != null) {
-            add(DiagnosticsMetricUiModel(label = "Network", value = telemetry.networkType))
-            add(DiagnosticsMetricUiModel(label = "Mode", value = telemetry.activeMode ?: "Idle"))
-            telemetry.lastFailureClass?.let { failureClass ->
-                add(DiagnosticsMetricUiModel(label = "Latest native failure", value = failureClass, tone = DiagnosticsTone.Warning))
-            }
-            telemetry.lastFallbackAction?.let { fallbackAction ->
-                add(DiagnosticsMetricUiModel(label = "Fallback action", value = fallbackAction, tone = DiagnosticsTone.Info))
-            }
-            telemetry.failureClass?.let { failureClass ->
-                add(DiagnosticsMetricUiModel(label = "Failure class", value = failureClass, tone = DiagnosticsTone.Warning))
-            }
-            telemetry.winningStrategyFamily()?.let { winningStrategy ->
-                add(DiagnosticsMetricUiModel(label = "Winning strategy", value = winningStrategy, tone = DiagnosticsTone.Positive))
-            }
-            add(DiagnosticsMetricUiModel(label = "RTT band", value = telemetry.rttBand(), tone = DiagnosticsTone.Info))
             add(
                 DiagnosticsMetricUiModel(
-                    label = "Retries",
+                    label = context.getString(R.string.diagnostics_metric_network),
+                    value = telemetry.networkType
+                )
+            )
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_mode),
+                    value = telemetry.activeMode ?: context.getString(R.string.diagnostics_metric_idle)
+                )
+            )
+            telemetry.lastFailureClass?.let { failureClass ->
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = context.getString(R.string.diagnostics_metric_latest_native_failure),
+                        value = failureClass,
+                        tone = DiagnosticsTone.Warning
+                    )
+                )
+            }
+            telemetry.lastFallbackAction?.let { fallbackAction ->
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = context.getString(R.string.diagnostics_metric_fallback_action),
+                        value = fallbackAction,
+                        tone = DiagnosticsTone.Info
+                    )
+                )
+            }
+            telemetry.failureClass?.let { failureClass ->
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = context.getString(R.string.diagnostics_metric_failure_class),
+                        value = failureClass,
+                        tone = DiagnosticsTone.Warning
+                    )
+                )
+            }
+            telemetry.winningStrategyFamily()?.let { winningStrategy ->
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = context.getString(R.string.diagnostics_metric_winning_strategy),
+                        value = winningStrategy,
+                        tone = DiagnosticsTone.Positive
+                    )
+                )
+            }
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_rtt_band),
+                    value = telemetry.rttBand(),
+                    tone = DiagnosticsTone.Info
+                )
+            )
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_retries),
                     value = telemetry.retryCount().toString(),
                     tone = if (telemetry.retryCount() > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
                 ),
@@ -387,31 +447,55 @@ private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
             telemetry.resolverId?.let { resolverId ->
                 add(
                     DiagnosticsMetricUiModel(
-                        label = "Resolver",
+                        label = context.getString(R.string.diagnostics_metric_resolver),
                         value = listOfNotNull(resolverId, telemetry.resolverProtocol).joinToString(" · "),
                         tone = DiagnosticsTone.Info,
                     ),
                 )
             }
             telemetry.resolverLatencyMs?.let { latency ->
-                add(DiagnosticsMetricUiModel(label = "DNS latency", value = "$latency ms", tone = DiagnosticsTone.Info))
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = context.getString(R.string.diagnostics_metric_dns_latency),
+                        value = context.getString(R.string.diagnostics_metric_dns_latency_format, latency),
+                        tone = DiagnosticsTone.Info
+                    )
+                )
             }
             if (telemetry.dnsFailuresTotal > 0) {
-                add(DiagnosticsMetricUiModel(label = "DNS failures", value = telemetry.dnsFailuresTotal.toString(), tone = DiagnosticsTone.Warning))
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = context.getString(R.string.diagnostics_metric_dns_failures),
+                        value = telemetry.dnsFailuresTotal.toString(),
+                        tone = DiagnosticsTone.Warning
+                    )
+                )
             }
-            add(DiagnosticsMetricUiModel(label = "TX packets", value = telemetry.txPackets.toString(), tone = DiagnosticsTone.Info))
-            add(DiagnosticsMetricUiModel(label = "RX packets", value = telemetry.rxPackets.toString(), tone = DiagnosticsTone.Info))
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_tx_packets),
+                    value = telemetry.txPackets.toString(),
+                    tone = DiagnosticsTone.Info
+                )
+            )
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_rx_packets),
+                    value = telemetry.rxPackets.toString(),
+                    tone = DiagnosticsTone.Info
+                )
+            )
         }
         add(
             DiagnosticsMetricUiModel(
-                label = "Warnings",
+                label = context.getString(R.string.diagnostics_metric_warnings),
                 value = events.count { it.level.equals("warn", ignoreCase = true) }.toString(),
                 tone = DiagnosticsTone.Warning,
             ),
         )
         add(
             DiagnosticsMetricUiModel(
-                label = "Errors",
+                label = context.getString(R.string.diagnostics_metric_errors),
                 value = events.count { it.level.equals("error", ignoreCase = true) }.toString(),
                 tone = DiagnosticsTone.Negative,
             ),
@@ -426,15 +510,39 @@ private fun DiagnosticsUiFactorySupport.buildLiveHighlights(
     val errorCount = events.count { it.level.equals("error", ignoreCase = true) }
     return buildList {
         telemetry?.let {
-            add(DiagnosticsMetricUiModel(label = "TX", value = formatBytes(it.txBytes), tone = DiagnosticsTone.Info))
-            add(DiagnosticsMetricUiModel(label = "RX", value = formatBytes(it.rxBytes), tone = DiagnosticsTone.Positive))
-            it.winningStrategyFamily()?.let { winningStrategy ->
-                add(DiagnosticsMetricUiModel(label = "Strategy", value = winningStrategy, tone = DiagnosticsTone.Positive))
-            }
-            add(DiagnosticsMetricUiModel(label = "RTT", value = it.rttBand(), tone = DiagnosticsTone.Info))
             add(
                 DiagnosticsMetricUiModel(
-                    label = "Retries",
+                    label = context.getString(R.string.diagnostics_metric_tx),
+                    value = formatBytes(it.txBytes),
+                    tone = DiagnosticsTone.Info
+                )
+            )
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_rx),
+                    value = formatBytes(it.rxBytes),
+                    tone = DiagnosticsTone.Positive
+                )
+            )
+            it.winningStrategyFamily()?.let { winningStrategy ->
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = context.getString(R.string.diagnostics_metric_strategy),
+                        value = winningStrategy,
+                        tone = DiagnosticsTone.Positive
+                    )
+                )
+            }
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_rtt),
+                    value = it.rttBand(),
+                    tone = DiagnosticsTone.Info
+                )
+            )
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_retries),
                     value = it.retryCount().toString(),
                     tone = if (it.retryCount() > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
                 ),
@@ -442,24 +550,31 @@ private fun DiagnosticsUiFactorySupport.buildLiveHighlights(
             if (it.resolverFallbackActive) {
                 add(
                     DiagnosticsMetricUiModel(
-                        label = "Resolver fallback",
-                        value = it.resolverFallbackReason ?: "Active",
+                        label = context.getString(R.string.diagnostics_metric_resolver_fallback),
+                        value = it.resolverFallbackReason
+                            ?: context.getString(R.string.diagnostics_metric_resolver_fallback_active),
                         tone = DiagnosticsTone.Warning,
                     ),
                 )
             }
-            add(DiagnosticsMetricUiModel(label = "Packets", value = (it.txPackets + it.rxPackets).toString(), tone = DiagnosticsTone.Neutral))
+            add(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_metric_packets),
+                    value = (it.txPackets + it.rxPackets).toString(),
+                    tone = DiagnosticsTone.Neutral
+                )
+            )
         }
         add(
             DiagnosticsMetricUiModel(
-                label = "Warnings",
+                label = context.getString(R.string.diagnostics_metric_warnings),
                 value = warningCount.toString(),
                 tone = if (warningCount > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
             ),
         )
         add(
             DiagnosticsMetricUiModel(
-                label = "Errors",
+                label = context.getString(R.string.diagnostics_metric_errors),
                 value = errorCount.toString(),
                 tone = if (errorCount > 0) DiagnosticsTone.Negative else DiagnosticsTone.Neutral,
             ),
@@ -467,7 +582,7 @@ private fun DiagnosticsUiFactorySupport.buildLiveHighlights(
     }
 }
 
-private fun buildLiveTrends(
+private fun DiagnosticsUiFactorySupport.buildLiveTrends(
     telemetry: List<TelemetrySampleEntity>,
 ): List<DiagnosticsSparklineUiModel> {
     val samples = telemetry.take(24).reversed()
@@ -475,10 +590,18 @@ private fun buildLiveTrends(
         return emptyList()
     }
     return listOf(
-        DiagnosticsSparklineUiModel(label = "TX bytes", values = samples.map { it.txBytes.toFloat() }, tone = DiagnosticsTone.Info),
-        DiagnosticsSparklineUiModel(label = "RX bytes", values = samples.map { it.rxBytes.toFloat() }, tone = DiagnosticsTone.Positive),
         DiagnosticsSparklineUiModel(
-            label = "Errors",
+            label = context.getString(R.string.diagnostics_sparkline_tx_bytes),
+            values = samples.map { it.txBytes.toFloat() },
+            tone = DiagnosticsTone.Info
+        ),
+        DiagnosticsSparklineUiModel(
+            label = context.getString(R.string.diagnostics_sparkline_rx_bytes),
+            values = samples.map { it.rxBytes.toFloat() },
+            tone = DiagnosticsTone.Positive
+        ),
+        DiagnosticsSparklineUiModel(
+            label = context.getString(R.string.diagnostics_sparkline_errors),
             values =
                 samples.map { sample ->
                     if (sample.connectionState.equals("running", ignoreCase = true)) {
@@ -492,7 +615,7 @@ private fun buildLiveTrends(
     )
 }
 
-private fun buildLiveHeadline(
+private fun DiagnosticsUiFactorySupport.buildLiveHeadline(
     health: DiagnosticsHealth,
     telemetry: TelemetrySampleEntity?,
     events: List<NativeSessionEventEntity>,
@@ -501,10 +624,18 @@ private fun buildLiveHeadline(
         events.firstOrNull { it.level.equals("error", ignoreCase = true) }
             ?: events.firstOrNull { it.level.equals("warn", ignoreCase = true) }
     return when {
-        surfacedEvent?.level?.equals("error", ignoreCase = true) == true -> "Runtime needs intervention"
-        health == DiagnosticsHealth.Attention -> "Runtime requires a closer look"
-        telemetry == null -> "Live monitor standing by"
-        telemetry.connectionState.equals("running", ignoreCase = true) -> "Traffic is moving through ${telemetry.networkType}"
+        surfacedEvent?.level?.equals(
+            "error",
+            ignoreCase = true
+        ) == true -> context.getString(R.string.diagnostics_live_headline_error)
+
+        health == DiagnosticsHealth.Attention -> context.getString(R.string.diagnostics_live_headline_attention)
+        telemetry == null -> context.getString(R.string.diagnostics_live_headline_standby)
+        telemetry.connectionState.equals(
+            "running",
+            ignoreCase = true
+        ) -> context.getString(R.string.diagnostics_live_headline_traffic, telemetry.networkType)
+
         else -> telemetry.connectionState.replaceFirstChar { it.uppercase() }
     }
 }
@@ -519,43 +650,61 @@ private fun DiagnosticsUiFactorySupport.buildLiveBody(
     if (surfacedEvent != null) {
         return surfacedEvent.message
     }
-    telemetry ?: return "Continuous monitor is waiting for an active RIPDPI session."
+    telemetry ?: return context.getString(R.string.diagnostics_live_body_waiting)
     if (telemetry.lastFailureClass != null || telemetry.lastFallbackAction != null) {
         return listOfNotNull(telemetry.lastFailureClass, telemetry.lastFallbackAction).joinToString(" · ")
     }
-    telemetry.failureClass?.let { return "Latest failure class: $it" }
-    telemetry.resolverFallbackReason?.let { return "Encrypted DNS override active: $it" }
-    telemetry.networkHandoverClass?.let { return "Recent network handover detected: $it" }
-    telemetry.winningStrategyFamily()?.let { return "Winning strategy family: $it" }
+    telemetry.failureClass?.let { return context.getString(R.string.diagnostics_live_failure_class_format, it) }
+    telemetry.resolverFallbackReason?.let {
+        return context.getString(
+            R.string.diagnostics_live_dns_override_format,
+            it
+        )
+    }
+    telemetry.networkHandoverClass?.let { return context.getString(R.string.diagnostics_live_handover_format, it) }
+    telemetry.winningStrategyFamily()
+        ?.let { return context.getString(R.string.diagnostics_live_winning_strategy_format, it) }
     val totalBytes = formatBytes(telemetry.txBytes + telemetry.rxBytes)
     val packetCount = telemetry.txPackets + telemetry.rxPackets
-    val modeLabel = telemetry.activeMode ?: "Idle"
-    return "$modeLabel mode · $totalBytes transferred · $packetCount packets observed"
+    val modeLabel = telemetry.activeMode ?: context.getString(R.string.diagnostics_metric_idle)
+    return context.getString(R.string.diagnostics_live_mode_summary_format, modeLabel, totalBytes, packetCount)
 }
 
 private fun DiagnosticsUiFactorySupport.buildLiveSignalLabel(
     telemetry: TelemetrySampleEntity?,
 ): String =
-    telemetry?.let { "${formatBytes(it.txBytes)} sent · ${formatBytes(it.rxBytes)} received" }
-        ?: "No transfer observed yet"
+    telemetry?.let {
+        context.getString(
+            R.string.diagnostics_live_signal_format,
+            formatBytes(it.txBytes),
+            formatBytes(it.rxBytes)
+        )
+    }
+        ?: context.getString(R.string.diagnostics_live_no_transfer)
 
-private fun buildLiveEventSummaryLabel(events: List<NativeSessionEventEntity>): String {
+private fun DiagnosticsUiFactorySupport.buildLiveEventSummaryLabel(events: List<NativeSessionEventEntity>): String {
     val warningCount = events.count { it.level.equals("warn", ignoreCase = true) }
     val errorCount = events.count { it.level.equals("error", ignoreCase = true) }
     return when {
         errorCount > 0 && warningCount > 0 ->
-            "$errorCount error${pluralSuffix(errorCount)} · $warningCount warning${pluralSuffix(warningCount)} in runtime feed"
+            context.getString(
+                R.string.diagnostics_live_errors_and_warnings_format,
+                errorCount,
+                pluralSuffix(errorCount),
+                warningCount,
+                pluralSuffix(warningCount)
+            )
 
         errorCount > 0 ->
-            "$errorCount error${pluralSuffix(errorCount)} in runtime feed"
+            context.getString(R.string.diagnostics_live_errors_format, errorCount, pluralSuffix(errorCount))
 
         warningCount > 0 ->
-            "$warningCount warning${pluralSuffix(warningCount)} in runtime feed"
+            context.getString(R.string.diagnostics_live_warnings_format, warningCount, pluralSuffix(warningCount))
 
         events.isNotEmpty() ->
-            "${events.size} informational event${pluralSuffix(events.size)} in runtime feed"
+            context.getString(R.string.diagnostics_live_info_events_format, events.size, pluralSuffix(events.size))
 
-        else -> "Runtime feed is quiet"
+        else -> context.getString(R.string.diagnostics_live_feed_quiet)
     }
 }
 
@@ -575,9 +724,9 @@ private fun DiagnosticsUiFactorySupport.buildSharePreview(
         }
     val body =
         buildString {
-            appendLine("Archive includes the focused diagnostics session in full.")
-            appendLine("It also adds recent live telemetry and global runtime events.")
-            appendLine("Summary and manifest redact support context and network identity fields, while raw report data stays intact.")
+            appendLine(context.getString(R.string.diagnostics_share_archive_line))
+            appendLine(context.getString(R.string.diagnostics_share_telemetry_line))
+            appendLine(context.getString(R.string.diagnostics_share_redaction_line))
             latestSession?.let {
                 appendLine("Session ${it.id.take(8)} · ${it.pathMode} · ${it.status}")
             }
@@ -610,16 +759,47 @@ private fun DiagnosticsUiFactorySupport.buildSharePreview(
             }
         }.trim()
     return ShareSummary(
-        title = "RIPDPI diagnostics",
-        body = body.ifBlank { "Select a diagnostics session to generate a summary." },
+        title = context.getString(R.string.diagnostics_share_title),
+        body = body.ifBlank { context.getString(R.string.diagnostics_share_no_session) },
         compactMetrics =
             listOfNotNull(
-                latestSession?.pathMode?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("Path", it) },
-                telemetry?.networkType?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("Network", it) },
-                latestContext?.service?.activeMode?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("Mode", it) },
-                latestContext?.device?.appVersionName?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("App", it) },
-                telemetry?.txBytes?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("TX", formatBytes(it)) },
-                telemetry?.rxBytes?.let { com.poyka.ripdpi.diagnostics.SummaryMetric("RX", formatBytes(it)) },
+                latestSession?.pathMode?.let {
+                    com.poyka.ripdpi.diagnostics.SummaryMetric(
+                        context.getString(R.string.diagnostics_share_metric_path),
+                        it
+                    )
+                },
+                telemetry?.networkType?.let {
+                    com.poyka.ripdpi.diagnostics.SummaryMetric(
+                        context.getString(R.string.diagnostics_share_metric_network),
+                        it
+                    )
+                },
+                latestContext?.service?.activeMode?.let {
+                    com.poyka.ripdpi.diagnostics.SummaryMetric(
+                        context.getString(R.string.diagnostics_share_metric_mode),
+                        it
+                    )
+                },
+                latestContext?.device?.appVersionName?.let {
+                    com.poyka.ripdpi.diagnostics.SummaryMetric(
+                        context.getString(
+                            R.string.diagnostics_share_metric_app
+                        ), it
+                    )
+                },
+                telemetry?.txBytes?.let {
+                    com.poyka.ripdpi.diagnostics.SummaryMetric(
+                        context.getString(R.string.diagnostics_metric_tx),
+                        formatBytes(it)
+                    )
+                },
+                telemetry?.rxBytes?.let {
+                    com.poyka.ripdpi.diagnostics.SummaryMetric(
+                        context.getString(R.string.diagnostics_metric_rx),
+                        formatBytes(it)
+                    )
+                },
             ),
     )
 }

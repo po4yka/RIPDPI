@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.hasHostAutolearnStore
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -13,7 +14,6 @@ import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,19 +22,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel
-    @Inject
-    constructor(
-        @param:ApplicationContext private val appContext: Context,
-        private val appSettingsRepository: AppSettingsRepository,
-        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-        private val hostPackCatalogRepository: HostPackCatalogRepository,
-        private val launcherIconController: LauncherIconController,
-        private val serviceStateStore: ServiceStateStore,
-        private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
-    ) : ViewModel() {
+@Inject
+constructor(
+    @param:ApplicationContext private val appContext: Context,
+    private val appSettingsRepository: AppSettingsRepository,
+    private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+    private val hostPackCatalogRepository: HostPackCatalogRepository,
+    private val launcherIconController: LauncherIconController,
+    private val serviceStateStore: ServiceStateStore,
+    private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
+) : ViewModel() {
     private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
     private val hostAutolearnStoreRefresh = MutableStateFlow(0)
     private val hostPackCatalogState = MutableStateFlow(HostPackCatalogUiState())
@@ -191,9 +193,8 @@ class SettingsViewModel
             telemetrySaltStore.rotateSalt()
             _effects.send(
                 SettingsEffect.Notice(
-                    title = "Telemetry salt reset",
-                    message = "A new salt will be generated on the next connection. " +
-                        "Previously recorded fingerprint hashes can no longer be correlated.",
+                    title = appContext.getString(R.string.notice_telemetry_salt_reset_title),
+                    message = appContext.getString(R.string.notice_telemetry_salt_reset_message),
                     tone = SettingsNoticeTone.Info,
                 ),
             )
