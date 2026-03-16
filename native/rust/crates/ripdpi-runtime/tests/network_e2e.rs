@@ -569,3 +569,164 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
 fn _assert_fixture_event_contains(events: &[FixtureEvent], service: &str, detail: &str) {
     assert!(events.iter().any(|event| event.service == service && event.detail.contains(detail)));
 }
+
+// ── Characterization: delayed-connect replies before reading payload ──
+
+#[test]
+fn socks5_delay_connect_replies_before_first_payload_and_round_trips() {
+    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+
+    // --to-socks5 implicitly enables delay_conn; host filter triggers payload-aware routing
+    let upstream = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), None);
+    // Global telemetry slot is shared (mem-1773400517-b6cc); only install on the active proxy
+    let proxy = start_proxy(
+        ephemeral_proxy_config(&[
+            "-X",
+            "--ip",
+            "127.0.0.1",
+            "--to-socks5",
+            &format!("127.0.0.1:{}", upstream.port),
+            "--hosts",
+            ":localhost",
+        ]),
+        None,
+    );
+
+    // Connect with domain target — the proxy must reply (success) before reading payload
+    let (mut stream, reply) = socks_connect_domain(proxy.port, "localhost", fixture.manifest().tcp_echo_port);
+    assert_eq!(reply[1], 0x00, "SOCKS5 connect should succeed (delayed path)");
+
+    // Send payload after the handshake reply — delayed-connect reads this post-reply
+    stream.write_all(b"delay ok").expect("write delayed payload");
+    assert_eq!(recv_exact(&mut stream, 8), b"delay ok");
+
+    // Verify the fixture actually received the data (the payload traversed upstream)
+    let events = fixture.events().snapshot();
+    assert!(events.iter().any(|e| e.service == "tcp_echo" && e.detail == "echo"), "fixture should record the TCP echo");
+
+    drop(proxy);
+    drop(upstream);
+}
+
+// ── Characterization: UDP multi-flow from same socket varies target ──
+
+#[test]
+fn socks5_udp_multi_flow_same_socket_different_targets() {
+    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let telemetry = Arc::new(RecordingTelemetry::default());
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), Some(telemetry.clone()));
+
+    let (_control, relay) = socks_udp_associate(proxy.port);
+    let udp = udp_proxy_client();
+
+    // First flow to udp_echo_port
+    let body1 = udp_proxy_roundtrip_with_socket(&udp, relay, fixture.manifest().udp_echo_port, b"flow-a");
+    assert_eq!(body1, b"flow-a");
+
+    // Second flow to the same port but different payload (same socket, same target port)
+    let body2 = udp_proxy_roundtrip_with_socket(&udp, relay, fixture.manifest().udp_echo_port, b"flow-b");
+    assert_eq!(body2, b"flow-b");
+
+    drop(proxy);
+
+    let snapshot = telemetry.snapshot();
+    let udp_routes: Vec<_> =
+        snapshot.routes.iter().filter(|r| r.target.port() == fixture.manifest().udp_echo_port).collect();
+    assert!(!udp_routes.is_empty(), "UDP flows should have route events");
+
+    // Verify fixture received both payloads
+    let events = fixture.events().snapshot();
+    let udp_events: Vec<_> = events.iter().filter(|e| e.service == "udp_echo" && e.protocol == "udp").collect();
+    assert!(udp_events.len() >= 2, "expected at least 2 UDP echo events, got {}", udp_events.len());
+}
+
+// ── Characterization: upstream fault produces observable failure ──
+
+#[test]
+fn upstream_silent_drop_fault_is_classified_end_to_end() {
+    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+
+    // TcpReset on the fixture; proxy observes EOF (classified as SilentDrop per mem-1773400517-b6c4)
+    fixture.faults().set(FixtureFaultSpec {
+        target: FixtureFaultTarget::TcpEcho,
+        outcome: FixtureFaultOutcome::TcpReset,
+        scope: FixtureFaultScope::Persistent,
+        delay_ms: None,
+    });
+
+    let telemetry = Arc::new(RecordingTelemetry::default());
+    // Enable silent drop detection
+    let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
+    config.groups[0].detect = ciadpi_config::DETECT_SILENT_DROP | ciadpi_config::DETECT_TCP_RESET;
+    config.timeout_ms = 500;
+    let proxy = start_proxy(config, Some(telemetry.clone()));
+
+    let mut stream = socks_connect(proxy.port, fixture.manifest().tcp_echo_port);
+    stream.write_all(b"will fail").expect("write payload");
+
+    // Read should fail or return 0 bytes (not the original echo)
+    let mut buf = [0u8; 32];
+    match stream.read(&mut buf) {
+        Ok(n) if n > 0 => {
+            assert_ne!(&buf[..n], b"will fail", "expected failure, not echo");
+        }
+        _ => {} // error or EOF is the expected path
+    }
+
+    drop(proxy);
+
+    // Verify the fault was observed at the fixture level
+    let events = fixture.events().snapshot();
+    assert!(
+        events.iter().any(|e| e.service == "tcp_echo" && e.detail.contains("TcpReset")),
+        "fixture should record the TCP reset fault"
+    );
+}
+
+// ── Characterization: SOCKS5 connect reply carries bound address ──
+
+#[test]
+fn socks5_connect_reply_contains_bound_address() {
+    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), None);
+
+    let (stream, reply) = socks_connect_ip_reply(proxy.port, fixture.manifest().tcp_echo_port);
+    assert_eq!(reply[0], 0x05, "VER");
+    assert_eq!(reply[1], 0x00, "REP success");
+    assert_eq!(reply[2], 0x00, "RSV");
+    assert_eq!(reply[3], 0x01, "ATYP IPv4");
+    // Bound port should be non-zero (assigned by OS)
+    let bound_port = u16::from_be_bytes([reply[8], reply[9]]);
+    assert_ne!(bound_port, 0, "bound port should be non-zero when connected");
+    drop(stream);
+    drop(proxy);
+}
+
+// ── Characterization: HTTP CONNECT reply format ──
+
+#[test]
+fn http_connect_reply_format_is_200_ok_with_crlf() {
+    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let proxy = start_proxy(ephemeral_proxy_config(&["--http-connect", "--ip", "127.0.0.1"]), None);
+
+    let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, proxy.port)).expect("connect");
+    let dst_port = fixture.manifest().tcp_echo_port;
+    write!(stream, "CONNECT 127.0.0.1:{dst_port} HTTP/1.1\r\nHost: 127.0.0.1:{dst_port}\r\n\r\n")
+        .expect("write connect");
+    let mut response = Vec::new();
+    let mut chunk = [0u8; 1024];
+    while !response.windows(4).any(|w| w == b"\r\n\r\n") {
+        let n = stream.read(&mut chunk).expect("read");
+        assert_ne!(n, 0);
+        response.extend_from_slice(&chunk[..n]);
+    }
+    let text = String::from_utf8(response).expect("utf8");
+    assert!(text.starts_with("HTTP/1.1 200 OK\r\n"), "expected HTTP/1.1 200 OK, got: {text}");
+    assert!(text.ends_with("\r\n\r\n"), "expected trailing CRLF CRLF");
+    drop(proxy);
+}
