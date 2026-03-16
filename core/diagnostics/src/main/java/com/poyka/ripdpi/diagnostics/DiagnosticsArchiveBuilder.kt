@@ -232,7 +232,15 @@ internal object DiagnosticsArchiveBuilder {
             zip.closeEntry()
 
             zip.putNextEntry(ZipEntry("report.json"))
-            val reportJson = json.encodeToString(DiagnosticsArchivePayload.serializer(), payload)
+            val redactedPayload =
+                payload.copy(
+                    sessionSnapshots = payload.sessionSnapshots.map { it.redactPayload(json) },
+                    sessionContexts = payload.sessionContexts.map { it.redactPayload(json) },
+                    latestPassiveSnapshot = payload.latestPassiveSnapshot?.redactPayload(json),
+                    latestPassiveContext = payload.latestPassiveContext?.redactPayload(json),
+                )
+            val reportJson =
+                json.encodeToString(DiagnosticsArchivePayload.serializer(), redactedPayload)
             zip.write(reportJson.toByteArray())
             zip.closeEntry()
 
@@ -262,8 +270,8 @@ internal object DiagnosticsArchiveBuilder {
                 json.encodeToString(
                     DiagnosticsArchiveSnapshotPayload.serializer(),
                     DiagnosticsArchiveSnapshotPayload(
-                        sessionSnapshots = primarySnapshots,
-                        latestPassiveSnapshot = latestPassiveSnapshot,
+                        sessionSnapshots = primarySnapshots.map { it.redactPayload(json) },
+                        latestPassiveSnapshot = latestPassiveSnapshot?.redactPayload(json),
                     ),
                 )
             zip.write(snapshotsJson.toByteArray())
@@ -274,8 +282,8 @@ internal object DiagnosticsArchiveBuilder {
                 json.encodeToString(
                     DiagnosticsArchiveContextPayload.serializer(),
                     DiagnosticsArchiveContextPayload(
-                        sessionContexts = primaryContexts,
-                        latestPassiveContext = latestPassiveContext,
+                        sessionContexts = primaryContexts.map { it.redactPayload(json) },
+                        latestPassiveContext = latestPassiveContext?.redactPayload(json),
                     ),
                 )
             zip.write(contextsJson.toByteArray())
@@ -494,7 +502,7 @@ internal object DiagnosticsArchiveBuilder {
                         sample.activeMode.orEmpty(),
                         sample.connectionState,
                         sample.networkType,
-                        sample.publicIp.orEmpty(),
+                        if (sample.publicIp.isNullOrEmpty()) "" else "redacted",
                         sample.failureClass.orEmpty(),
                         sample.lastFailureClass.orEmpty(),
                         sample.lastFallbackAction.orEmpty(),
@@ -586,6 +594,60 @@ internal object DiagnosticsArchiveBuilder {
         runCatching {
             json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
         }.getOrNull()?.let(::deriveProbeRetryCount)
+
+    private fun NetworkSnapshotModel.redact(): NetworkSnapshotModel =
+        copy(
+            publicIp = publicIp?.let { "redacted" },
+            publicAsn = publicAsn?.let { "redacted" },
+            dnsServers =
+                if (dnsServers.isNotEmpty()) listOf("redacted(${dnsServers.size})") else dnsServers,
+            localAddresses =
+                if (localAddresses.isNotEmpty()) {
+                    listOf("redacted(${localAddresses.size})")
+                } else {
+                    localAddresses
+                },
+            wifiDetails =
+                wifiDetails?.let { wifi ->
+                    wifi.copy(
+                        ssid = if (wifi.ssid != "unknown") "redacted" else wifi.ssid,
+                        bssid = if (wifi.bssid != "unknown") "redacted" else wifi.bssid,
+                        gateway = wifi.gateway?.let { "redacted" },
+                        dhcpServer = wifi.dhcpServer?.let { "redacted" },
+                        ipAddress = wifi.ipAddress?.let { "redacted" },
+                        subnetMask = wifi.subnetMask?.let { "redacted" },
+                    )
+                },
+        )
+
+    private fun DiagnosticContextModel.redact(): DiagnosticContextModel =
+        copy(
+            service =
+                service.copy(
+                    proxyEndpoint =
+                        if (service.proxyEndpoint != "unknown") "redacted" else service.proxyEndpoint,
+                ),
+        )
+
+    private fun NetworkSnapshotEntity.redactPayload(json: Json): NetworkSnapshotEntity {
+        val model =
+            runCatching {
+                json.decodeFromString(NetworkSnapshotModel.serializer(), payloadJson)
+            }.getOrNull() ?: return this
+        return copy(
+            payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), model.redact()),
+        )
+    }
+
+    private fun DiagnosticContextEntity.redactPayload(json: Json): DiagnosticContextEntity {
+        val model =
+            runCatching {
+                json.decodeFromString(DiagnosticContextModel.serializer(), payloadJson)
+            }.getOrNull() ?: return this
+        return copy(
+            payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), model.redact()),
+        )
+    }
 }
 
 @Serializable
