@@ -5,7 +5,9 @@ import com.poyka.ripdpi.core.testing.FaultQueue
 import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.core.testing.faultThrowable
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 
 class FakeProxyPreferencesResolver(
     private var preferences: RipDpiProxyPreferences = RipDpiProxyUIPreferences(),
@@ -55,6 +57,10 @@ enum class ProxyBindingFaultTarget {
 }
 
 class FakeRipDpiProxyBindings : RipDpiProxyBindings {
+    companion object {
+        private const val DEFAULT_START_BLOCK_TIMEOUT_MS = 5_000L
+    }
+
     var createdHandle: Long = 1L
     var startResult: Int = 0
     var createFailure: Throwable? = null
@@ -63,6 +69,7 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     var telemetryFailure: Throwable? = null
     var startedSignal: CompletableDeferred<Long>? = null
     var startBlocker: CompletableDeferred<Unit>? = null
+    var startBlockTimeoutMillis: Long = DEFAULT_START_BLOCK_TIMEOUT_MS
     var lastCreatePayload: String? = null
     var lastStartedHandle: Long? = null
     var lastStoppedHandle: Long? = null
@@ -88,7 +95,18 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
         startedHandles += handle
         startedSignal?.complete(handle)
         startBlocker?.let { blocker ->
-            runBlocking { blocker.await() }
+            try {
+                runBlocking {
+                    withTimeout(startBlockTimeoutMillis) {
+                        blocker.await()
+                    }
+                }
+            } catch (error: TimeoutCancellationException) {
+                throw AssertionError(
+                    "FakeRipDpiProxyBindings.start blocked for more than ${startBlockTimeoutMillis}ms",
+                    error,
+                )
+            }
         }
         faults.next(ProxyBindingFaultTarget.START)?.throwOrIgnore()
         startFailure?.let { throw it }
