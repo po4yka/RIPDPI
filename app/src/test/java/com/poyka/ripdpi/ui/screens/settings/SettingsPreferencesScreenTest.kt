@@ -33,6 +33,7 @@ class SettingsPreferencesScreenTest {
                     onOpenAdvancedSettings = {},
                     onOpenCustomization = {},
                     onOpenAbout = {},
+                    onOpenDataTransparency = {},
                     onShareDebugBundle = { clicked = true },
                     permissionSummary = PermissionSummaryUiState(),
                     onRepairPermission = {},
