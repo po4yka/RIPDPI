@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
+import com.poyka.ripdpi.permissions.BatteryOptimizationGuidance
 import java.util.Locale
 
 internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(
@@ -17,15 +19,47 @@ internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(
         subtitle = "${snapshot.transport} · ${formatTimestamp(snapshot.capturedAt)}",
         fields =
             listOf(
-                DiagnosticsFieldUiModel("Capabilities", snapshot.capabilities.joinToString().ifBlank { "Unknown" }),
-                DiagnosticsFieldUiModel("DNS", if (showSensitiveDetails) snapshot.dnsServers.joinToString().ifBlank { "Unknown" } else redactCollection(snapshot.dnsServers)),
-                DiagnosticsFieldUiModel("Private DNS", snapshot.privateDnsMode),
-                DiagnosticsFieldUiModel("MTU", snapshot.mtu?.toString() ?: "Unknown"),
-                DiagnosticsFieldUiModel("Local", if (showSensitiveDetails) snapshot.localAddresses.joinToString().ifBlank { "Unknown" } else redactCollection(snapshot.localAddresses)),
-                DiagnosticsFieldUiModel("Public IP", if (showSensitiveDetails) snapshot.publicIp ?: "Unknown" else redactValue(snapshot.publicIp)),
-                DiagnosticsFieldUiModel("ASN", snapshot.publicAsn ?: "Unknown"),
-                DiagnosticsFieldUiModel("Validated", snapshot.networkValidated.toString()),
-                DiagnosticsFieldUiModel("Captive portal", snapshot.captivePortalDetected.toString()),
+                DiagnosticsFieldUiModel(
+                    context.getString(R.string.diagnostics_field_capabilities),
+                    snapshot.capabilities.joinToString()
+                        .ifBlank { context.getString(R.string.diagnostics_field_unknown) }),
+                DiagnosticsFieldUiModel(
+                    context.getString(R.string.diagnostics_field_dns),
+                    if (showSensitiveDetails) snapshot.dnsServers.joinToString()
+                        .ifBlank { context.getString(R.string.diagnostics_field_unknown) } else redactCollection(
+                        snapshot.dnsServers
+                    )),
+                DiagnosticsFieldUiModel(
+                    context.getString(R.string.diagnostics_field_private_dns),
+                    snapshot.privateDnsMode
+                ),
+                DiagnosticsFieldUiModel(
+                    context.getString(R.string.diagnostics_field_mtu),
+                    snapshot.mtu?.toString() ?: context.getString(R.string.diagnostics_field_unknown)
+                ),
+                DiagnosticsFieldUiModel(
+                    context.getString(R.string.diagnostics_field_local),
+                    if (showSensitiveDetails) snapshot.localAddresses.joinToString()
+                        .ifBlank { context.getString(R.string.diagnostics_field_unknown) } else redactCollection(
+                        snapshot.localAddresses
+                    )),
+                DiagnosticsFieldUiModel(
+                    context.getString(R.string.diagnostics_field_public_ip),
+                    if (showSensitiveDetails) snapshot.publicIp
+                        ?: context.getString(R.string.diagnostics_field_unknown) else redactValue(snapshot.publicIp)
+                ),
+                DiagnosticsFieldUiModel(
+                    context.getString(R.string.diagnostics_field_asn),
+                    snapshot.publicAsn ?: context.getString(R.string.diagnostics_field_unknown)
+                ),
+                DiagnosticsFieldUiModel(
+                    context.getString(R.string.diagnostics_field_validated),
+                    snapshot.networkValidated.toString()
+                ),
+                DiagnosticsFieldUiModel(
+                    context.getString(R.string.diagnostics_field_captive_portal),
+                    snapshot.captivePortalDetected.toString()
+                ),
             ) + transportSpecificFields(snapshot, showSensitiveDetails),
     )
 }
@@ -34,18 +68,43 @@ internal fun DiagnosticsUiFactorySupport.toOverviewContextGroup(
     context: DiagnosticContextModel,
 ): DiagnosticsContextGroupUiModel =
     DiagnosticsContextGroupUiModel(
-        title = "Support context",
+        title = this.context.getString(R.string.diagnostics_field_support_context),
         fields =
             listOf(
-                DiagnosticsFieldUiModel("App", context.device.appVersionName),
-                DiagnosticsFieldUiModel("Device", "${context.device.manufacturer} ${context.device.model}"),
-                DiagnosticsFieldUiModel("Android", "${context.device.androidVersion} (API ${context.device.apiLevel})"),
-                DiagnosticsFieldUiModel("Mode", context.service.activeMode),
-                DiagnosticsFieldUiModel("Profile", context.service.selectedProfileName),
-                DiagnosticsFieldUiModel("Host learning", buildHostAutolearnOverviewSummary(context.service)),
                 DiagnosticsFieldUiModel(
-                    "Restrictions",
-                    listOf(context.permissions.dataSaverState, context.environment.powerSaveModeState).joinToString(" · "),
+                    this.context.getString(R.string.diagnostics_field_app),
+                    context.device.appVersionName
+                ),
+                DiagnosticsFieldUiModel(
+                    this.context.getString(R.string.diagnostics_field_device),
+                    "${context.device.manufacturer} ${context.device.model}"
+                ),
+                DiagnosticsFieldUiModel(
+                    this.context.getString(R.string.diagnostics_field_android),
+                    this.context.getString(
+                        R.string.diagnostics_field_android_version_format,
+                        context.device.androidVersion,
+                        context.device.apiLevel
+                    )
+                ),
+                DiagnosticsFieldUiModel(
+                    this.context.getString(R.string.diagnostics_field_mode),
+                    context.service.activeMode
+                ),
+                DiagnosticsFieldUiModel(
+                    this.context.getString(R.string.diagnostics_field_profile),
+                    context.service.selectedProfileName
+                ),
+                DiagnosticsFieldUiModel(
+                    this.context.getString(R.string.diagnostics_field_host_learning),
+                    buildHostAutolearnOverviewSummary(context.service)
+                ),
+                DiagnosticsFieldUiModel(
+                    this.context.getString(R.string.diagnostics_field_restrictions),
+                    listOf(
+                        context.permissions.dataSaverState,
+                        context.environment.powerSaveModeState
+                    ).joinToString(" · "),
                 ),
             ),
     )
@@ -55,35 +114,78 @@ internal fun DiagnosticsUiFactorySupport.toLiveContextGroups(
 ): List<DiagnosticsContextGroupUiModel> =
     listOf(
         DiagnosticsContextGroupUiModel(
-            title = "Service",
+            title = this.context.getString(R.string.diagnostics_field_service),
             fields =
                 listOf(
-                    DiagnosticsFieldUiModel("Status", context.service.serviceStatus),
-                    DiagnosticsFieldUiModel("Mode", context.service.activeMode),
-                    DiagnosticsFieldUiModel("Profile", context.service.selectedProfileName),
-                    DiagnosticsFieldUiModel("Uptime", context.service.sessionUptimeMs?.let(::formatDurationMs) ?: "Unknown"),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_status),
+                        context.service.serviceStatus
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_mode),
+                        context.service.activeMode
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_profile),
+                        context.service.selectedProfileName
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_uptime),
+                        context.service.sessionUptimeMs?.let(::formatDurationMs)
+                            ?: this.context.getString(R.string.diagnostics_field_unknown)
+                    ),
                 ),
         ),
         DiagnosticsContextGroupUiModel(
-            title = "Environment",
+            title = this.context.getString(R.string.diagnostics_field_environment),
             fields =
                 listOf(
-                    DiagnosticsFieldUiModel("Data saver", context.permissions.dataSaverState),
-                    DiagnosticsFieldUiModel("Power save", context.environment.powerSaveModeState),
-                    DiagnosticsFieldUiModel("Metered", context.environment.networkMeteredState),
-                    DiagnosticsFieldUiModel("Roaming", context.environment.roamingState),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_data_saver),
+                        context.permissions.dataSaverState
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_power_save),
+                        context.environment.powerSaveModeState
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_metered),
+                        context.environment.networkMeteredState
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_roaming),
+                        context.environment.roamingState
+                    ),
                 ),
         ),
         DiagnosticsContextGroupUiModel(
-            title = "Host learning",
+            title = this.context.getString(R.string.diagnostics_field_host_learning),
             fields =
                 listOf(
-                    DiagnosticsFieldUiModel("Enabled", formatAutolearnState(context.service.hostAutolearnEnabled)),
-                    DiagnosticsFieldUiModel("Learned hosts", context.service.learnedHostCount.toString()),
-                    DiagnosticsFieldUiModel("Penalized", context.service.penalizedHostCount.toString()),
-                    DiagnosticsFieldUiModel("Last host", formatAutolearnHost(context.service.lastAutolearnHost)),
-                    DiagnosticsFieldUiModel("Last group", formatAutolearnGroup(context.service.lastAutolearnGroup)),
-                    DiagnosticsFieldUiModel("Last action", formatAutolearnAction(context.service.lastAutolearnAction)),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_enabled),
+                        formatAutolearnState(context.service.hostAutolearnEnabled)
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_learned_hosts),
+                        context.service.learnedHostCount.toString()
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_penalized),
+                        context.service.penalizedHostCount.toString()
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_host),
+                        formatAutolearnHost(context.service.lastAutolearnHost)
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_group),
+                        formatAutolearnGroup(context.service.lastAutolearnGroup)
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_action),
+                        formatAutolearnAction(context.service.lastAutolearnAction)
+                    ),
                 ),
         ),
     )
@@ -101,7 +203,7 @@ internal fun DiagnosticsUiFactorySupport.buildContextWarnings(
                 id = "context-vpn-permission",
                 source = "Context",
                 severity = "WARN",
-                message = "VPN permission is not currently granted.",
+                message = this.context.getString(R.string.diagnostics_warn_vpn_permission),
                 createdAtLabel = "now",
                 tone = DiagnosticsTone.Warning,
             )
@@ -112,18 +214,34 @@ internal fun DiagnosticsUiFactorySupport.buildContextWarnings(
                 id = "context-notification-permission",
                 source = "Context",
                 severity = "WARN",
-                message = "Notification permission is disabled, so service issues may be harder to notice.",
+                message = this.context.getString(R.string.diagnostics_warn_notification_permission),
                 createdAtLabel = "now",
                 tone = DiagnosticsTone.Warning,
             )
     }
-    if (context.permissions.dataSaverState == "enabled" || context.environment.powerSaveModeState == "enabled") {
+    val hasPowerRestriction =
+        context.permissions.dataSaverState == "enabled" || context.environment.powerSaveModeState == "enabled"
+    val samsungWarningRes = BatteryOptimizationGuidance.diagnosticsWarningRes(context.device.manufacturer)
+    if (hasPowerRestriction) {
         warnings +=
             DiagnosticsEventUiModel(
                 id = "context-power-restriction",
                 source = "Context",
                 severity = "WARN",
-                message = "Power or background restrictions may interfere with stable diagnostics.",
+                message =
+                    samsungWarningRes?.let(this.context::getString)
+                        ?: this.context.getString(R.string.diagnostics_warn_power_restriction),
+                createdAtLabel = "now",
+                tone = DiagnosticsTone.Warning,
+            )
+    }
+    if (samsungWarningRes != null && context.permissions.batteryOptimizationState != "enabled" && !hasPowerRestriction) {
+        warnings +=
+            DiagnosticsEventUiModel(
+                id = "context-samsung-background-limits",
+                source = "Context",
+                severity = "WARN",
+                message = this.context.getString(samsungWarningRes),
                 createdAtLabel = "now",
                 tone = DiagnosticsTone.Warning,
             )
@@ -137,60 +255,168 @@ internal fun DiagnosticsUiFactorySupport.toContextUiGroups(
 ): List<DiagnosticsContextGroupUiModel> =
     listOf(
         DiagnosticsContextGroupUiModel(
-            title = "Service",
+            title = this.context.getString(R.string.diagnostics_field_service),
             fields =
                 listOf(
-                    DiagnosticsFieldUiModel("Status", context.service.serviceStatus),
-                    DiagnosticsFieldUiModel("Configured mode", context.service.configuredMode),
-                    DiagnosticsFieldUiModel("Active mode", context.service.activeMode),
-                    DiagnosticsFieldUiModel("Profile", context.service.selectedProfileName),
-                    DiagnosticsFieldUiModel("Config source", context.service.configSource),
-                    DiagnosticsFieldUiModel("Proxy", if (showSensitiveDetails) context.service.proxyEndpoint else redactValue(context.service.proxyEndpoint)),
-                    DiagnosticsFieldUiModel("Chain", context.service.chainSummary),
-                    DiagnosticsFieldUiModel("Desync", context.service.desyncMethod),
-                    DiagnosticsFieldUiModel("Route group", context.service.routeGroup),
-                    DiagnosticsFieldUiModel("Autolearn", formatAutolearnState(context.service.hostAutolearnEnabled)),
-                    DiagnosticsFieldUiModel("Learned hosts", context.service.learnedHostCount.toString()),
-                    DiagnosticsFieldUiModel("Penalized hosts", context.service.penalizedHostCount.toString()),
-                    DiagnosticsFieldUiModel("Last learned host", formatAutolearnHost(context.service.lastAutolearnHost)),
-                    DiagnosticsFieldUiModel("Last learned group", formatAutolearnGroup(context.service.lastAutolearnGroup)),
-                    DiagnosticsFieldUiModel("Last autolearn action", formatAutolearnAction(context.service.lastAutolearnAction)),
-                    DiagnosticsFieldUiModel("Restart count", context.service.restartCount.toString()),
-                    DiagnosticsFieldUiModel("Uptime", context.service.sessionUptimeMs?.let(::formatDurationMs) ?: "Unknown"),
-                    DiagnosticsFieldUiModel("Last native error", context.service.lastNativeErrorHeadline),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_status),
+                        context.service.serviceStatus
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_configured_mode),
+                        context.service.configuredMode
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_active_mode),
+                        context.service.activeMode
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_profile),
+                        context.service.selectedProfileName
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_config_source),
+                        context.service.configSource
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_proxy),
+                        if (showSensitiveDetails) context.service.proxyEndpoint else redactValue(context.service.proxyEndpoint)
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_chain),
+                        context.service.chainSummary
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_desync),
+                        context.service.desyncMethod
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_route_group),
+                        context.service.routeGroup
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_autolearn),
+                        formatAutolearnState(context.service.hostAutolearnEnabled)
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_learned_hosts),
+                        context.service.learnedHostCount.toString()
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_penalized_hosts),
+                        context.service.penalizedHostCount.toString()
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_learned_host),
+                        formatAutolearnHost(context.service.lastAutolearnHost)
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_learned_group),
+                        formatAutolearnGroup(context.service.lastAutolearnGroup)
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_autolearn_action),
+                        formatAutolearnAction(context.service.lastAutolearnAction)
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_restart_count),
+                        context.service.restartCount.toString()
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_uptime),
+                        context.service.sessionUptimeMs?.let(::formatDurationMs)
+                            ?: this.context.getString(R.string.diagnostics_field_unknown)
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_last_native_error),
+                        context.service.lastNativeErrorHeadline
+                    ),
                 ),
         ),
         DiagnosticsContextGroupUiModel(
-            title = "Permissions",
+            title = this.context.getString(R.string.diagnostics_field_permissions),
             fields =
                 listOf(
-                    DiagnosticsFieldUiModel("VPN permission", context.permissions.vpnPermissionState),
-                    DiagnosticsFieldUiModel("Notification permission", context.permissions.notificationPermissionState),
-                    DiagnosticsFieldUiModel("Battery optimization", context.permissions.batteryOptimizationState),
-                    DiagnosticsFieldUiModel("Data saver", context.permissions.dataSaverState),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_vpn_permission),
+                        context.permissions.vpnPermissionState
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_notification_permission),
+                        context.permissions.notificationPermissionState
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_battery_optimization),
+                        context.permissions.batteryOptimizationState
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_data_saver),
+                        context.permissions.dataSaverState
+                    ),
                 ),
         ),
         DiagnosticsContextGroupUiModel(
-            title = "Device",
+            title = this.context.getString(R.string.diagnostics_field_device),
             fields =
                 listOf(
-                    DiagnosticsFieldUiModel("App version", "${context.device.appVersionName} (${context.device.buildType})"),
-                    DiagnosticsFieldUiModel("Version code", context.device.appVersionCode.toString()),
-                    DiagnosticsFieldUiModel("Device", "${context.device.manufacturer} ${context.device.model}"),
-                    DiagnosticsFieldUiModel("Android", "${context.device.androidVersion} (API ${context.device.apiLevel})"),
-                    DiagnosticsFieldUiModel("ABI", context.device.primaryAbi),
-                    DiagnosticsFieldUiModel("Locale", context.device.locale),
-                    DiagnosticsFieldUiModel("Timezone", context.device.timezone),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_app_version),
+                        this.context.getString(
+                            R.string.diagnostics_field_app_version_format,
+                            context.device.appVersionName,
+                            context.device.buildType
+                        )
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_version_code),
+                        context.device.appVersionCode.toString()
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_device),
+                        "${context.device.manufacturer} ${context.device.model}"
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_android),
+                        this.context.getString(
+                            R.string.diagnostics_field_android_version_format,
+                            context.device.androidVersion,
+                            context.device.apiLevel
+                        )
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_abi),
+                        context.device.primaryAbi
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_locale),
+                        context.device.locale
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_timezone),
+                        context.device.timezone
+                    ),
                 ),
         ),
         DiagnosticsContextGroupUiModel(
-            title = "Environment",
+            title = this.context.getString(R.string.diagnostics_field_environment),
             fields =
                 listOf(
-                    DiagnosticsFieldUiModel("Battery saver", context.environment.batterySaverState),
-                    DiagnosticsFieldUiModel("Power save", context.environment.powerSaveModeState),
-                    DiagnosticsFieldUiModel("Network metered", context.environment.networkMeteredState),
-                    DiagnosticsFieldUiModel("Roaming", context.environment.roamingState),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_battery_saver),
+                        context.environment.batterySaverState
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_power_save),
+                        context.environment.powerSaveModeState
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_network_metered),
+                        context.environment.networkMeteredState
+                    ),
+                    DiagnosticsFieldUiModel(
+                        this.context.getString(R.string.diagnostics_field_roaming),
+                        context.environment.roamingState
+                    ),
                 ),
         ),
     )
@@ -200,44 +426,178 @@ private fun DiagnosticsUiFactorySupport.transportSpecificFields(
     showSensitiveDetails: Boolean,
 ): List<DiagnosticsFieldUiModel> =
     buildList {
+        val ctx = context
+        val unknown = ctx.getString(R.string.diagnostics_field_unknown)
         snapshot.wifiDetails?.let { wifi ->
-            add(DiagnosticsFieldUiModel("Wi-Fi SSID", if (showSensitiveDetails) wifi.ssid else redactValue(wifi.ssid.takeUnless { it == "unknown" })))
-            add(DiagnosticsFieldUiModel("Wi-Fi BSSID", if (showSensitiveDetails) wifi.bssid else redactValue(wifi.bssid.takeUnless { it == "unknown" })))
-            add(DiagnosticsFieldUiModel("Wi-Fi band", wifi.band))
-            add(DiagnosticsFieldUiModel("Wi-Fi standard", wifi.wifiStandard))
-            add(DiagnosticsFieldUiModel("Wi-Fi frequency", wifi.frequencyMhz?.let { "$it MHz" } ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Wi-Fi channel width", wifi.channelWidth))
-            add(DiagnosticsFieldUiModel("Wi-Fi RSSI", wifi.rssiDbm?.let { "$it dBm" } ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Wi-Fi link", wifi.linkSpeedMbps?.let { "$it Mbps" } ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Wi-Fi RX link", wifi.rxLinkSpeedMbps?.let { "$it Mbps" } ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Wi-Fi TX link", wifi.txLinkSpeedMbps?.let { "$it Mbps" } ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Wi-Fi hidden SSID", wifi.hiddenSsid?.toString() ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Wi-Fi Passpoint", wifi.isPasspoint?.toString() ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Wi-Fi OSU AP", wifi.isOsuAp?.toString() ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Wi-Fi network ID", wifi.networkId?.toString() ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Wi-Fi gateway", if (showSensitiveDetails) wifi.gateway ?: "Unknown" else redactValue(wifi.gateway)))
-            add(DiagnosticsFieldUiModel("Wi-Fi DHCP server", if (showSensitiveDetails) wifi.dhcpServer ?: "Unknown" else redactValue(wifi.dhcpServer)))
-            add(DiagnosticsFieldUiModel("Wi-Fi IP", if (showSensitiveDetails) wifi.ipAddress ?: "Unknown" else redactValue(wifi.ipAddress)))
-            add(DiagnosticsFieldUiModel("Wi-Fi subnet", if (showSensitiveDetails) wifi.subnetMask ?: "Unknown" else redactValue(wifi.subnetMask)))
-            add(DiagnosticsFieldUiModel("Wi-Fi lease", wifi.leaseDurationSeconds?.let { "${it}s" } ?: "Unknown"))
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_ssid),
+                    if (showSensitiveDetails) wifi.ssid else redactValue(wifi.ssid.takeUnless { it == "unknown" })
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_bssid),
+                    if (showSensitiveDetails) wifi.bssid else redactValue(wifi.bssid.takeUnless { it == "unknown" })
+                )
+            )
+            add(DiagnosticsFieldUiModel(ctx.getString(R.string.diagnostics_field_wifi_band), wifi.band))
+            add(DiagnosticsFieldUiModel(ctx.getString(R.string.diagnostics_field_wifi_standard), wifi.wifiStandard))
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_frequency),
+                    wifi.frequencyMhz?.let { ctx.getString(R.string.diagnostics_field_wifi_frequency_format, it) }
+                        ?: unknown))
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_channel_width),
+                    wifi.channelWidth
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_rssi),
+                    wifi.rssiDbm?.let { ctx.getString(R.string.diagnostics_field_wifi_rssi_format, it) } ?: unknown))
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_link),
+                    wifi.linkSpeedMbps?.let { ctx.getString(R.string.diagnostics_field_wifi_speed_format, it) }
+                        ?: unknown))
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_rx_link),
+                    wifi.rxLinkSpeedMbps?.let { ctx.getString(R.string.diagnostics_field_wifi_speed_format, it) }
+                        ?: unknown))
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_tx_link),
+                    wifi.txLinkSpeedMbps?.let { ctx.getString(R.string.diagnostics_field_wifi_speed_format, it) }
+                        ?: unknown))
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_hidden_ssid),
+                    wifi.hiddenSsid?.toString() ?: unknown
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_passpoint),
+                    wifi.isPasspoint?.toString() ?: unknown
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_osu_ap),
+                    wifi.isOsuAp?.toString() ?: unknown
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_network_id),
+                    wifi.networkId?.toString() ?: unknown
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_gateway),
+                    if (showSensitiveDetails) wifi.gateway ?: unknown else redactValue(wifi.gateway)
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_dhcp_server),
+                    if (showSensitiveDetails) wifi.dhcpServer ?: unknown else redactValue(wifi.dhcpServer)
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_ip),
+                    if (showSensitiveDetails) wifi.ipAddress ?: unknown else redactValue(wifi.ipAddress)
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_subnet),
+                    if (showSensitiveDetails) wifi.subnetMask ?: unknown else redactValue(wifi.subnetMask)
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_wifi_lease),
+                    wifi.leaseDurationSeconds?.let { ctx.getString(R.string.diagnostics_field_wifi_lease_format, it) }
+                        ?: unknown))
         }
         snapshot.cellularDetails?.let { cellular ->
-            add(DiagnosticsFieldUiModel("Carrier", cellular.carrierName))
-            add(DiagnosticsFieldUiModel("SIM operator", cellular.simOperatorName))
-            add(DiagnosticsFieldUiModel("Network operator", cellular.networkOperatorName))
-            add(DiagnosticsFieldUiModel("Network country", cellular.networkCountryIso))
-            add(DiagnosticsFieldUiModel("SIM country", cellular.simCountryIso))
-            add(DiagnosticsFieldUiModel("Operator code", cellular.operatorCode))
-            add(DiagnosticsFieldUiModel("SIM operator code", cellular.simOperatorCode))
-            add(DiagnosticsFieldUiModel("Data network", cellular.dataNetworkType))
-            add(DiagnosticsFieldUiModel("Voice network", cellular.voiceNetworkType))
-            add(DiagnosticsFieldUiModel("Data state", cellular.dataState))
-            add(DiagnosticsFieldUiModel("Service state", cellular.serviceState))
-            add(DiagnosticsFieldUiModel("Roaming", cellular.isNetworkRoaming?.toString() ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Carrier ID", cellular.carrierId?.toString() ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("SIM carrier ID", cellular.simCarrierId?.toString() ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Signal level", cellular.signalLevel?.toString() ?: "Unknown"))
-            add(DiagnosticsFieldUiModel("Signal dBm", cellular.signalDbm?.let { "$it dBm" } ?: "Unknown"))
+            add(DiagnosticsFieldUiModel(ctx.getString(R.string.diagnostics_field_carrier), cellular.carrierName))
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_sim_operator),
+                    cellular.simOperatorName
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_network_operator),
+                    cellular.networkOperatorName
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_network_country),
+                    cellular.networkCountryIso
+                )
+            )
+            add(DiagnosticsFieldUiModel(ctx.getString(R.string.diagnostics_field_sim_country), cellular.simCountryIso))
+            add(DiagnosticsFieldUiModel(ctx.getString(R.string.diagnostics_field_operator_code), cellular.operatorCode))
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_sim_operator_code),
+                    cellular.simOperatorCode
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_data_network),
+                    cellular.dataNetworkType
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_voice_network),
+                    cellular.voiceNetworkType
+                )
+            )
+            add(DiagnosticsFieldUiModel(ctx.getString(R.string.diagnostics_field_data_state), cellular.dataState))
+            add(DiagnosticsFieldUiModel(ctx.getString(R.string.diagnostics_field_service_state), cellular.serviceState))
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_roaming),
+                    cellular.isNetworkRoaming?.toString() ?: unknown
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_carrier_id),
+                    cellular.carrierId?.toString() ?: unknown
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_sim_carrier_id),
+                    cellular.simCarrierId?.toString() ?: unknown
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_signal_level),
+                    cellular.signalLevel?.toString() ?: unknown
+                )
+            )
+            add(
+                DiagnosticsFieldUiModel(
+                    ctx.getString(R.string.diagnostics_field_signal_dbm),
+                    cellular.signalDbm?.let { ctx.getString(R.string.diagnostics_field_signal_dbm_format, it) }
+                        ?: unknown))
         }
     }
 
@@ -248,33 +608,35 @@ private fun DiagnosticsUiFactorySupport.buildHostAutolearnOverviewSummary(
     val details =
         buildList {
             if (service.learnedHostCount > 0) {
-                add("${service.learnedHostCount} learned")
+                add(context.getString(R.string.diagnostics_autolearn_learned_format, service.learnedHostCount))
             }
             if (service.penalizedHostCount > 0) {
-                add("${service.penalizedHostCount} penalized")
+                add(context.getString(R.string.diagnostics_autolearn_penalized_format, service.penalizedHostCount))
             }
         }
     return if (details.isEmpty()) state else "$state · ${details.joinToString(" · ")}"
 }
 
-private fun formatAutolearnState(value: String): String =
+private fun DiagnosticsUiFactorySupport.formatAutolearnState(value: String): String =
     when (value.lowercase(Locale.US)) {
-        "enabled" -> "Active"
-        "disabled" -> "Off"
-        else -> "Unknown"
+        "enabled" -> context.getString(R.string.diagnostics_autolearn_active)
+        "disabled" -> context.getString(R.string.diagnostics_autolearn_off)
+        else -> context.getString(R.string.diagnostics_field_unknown)
     }
 
-private fun formatAutolearnHost(value: String): String =
-    value.takeUnless { it.isBlank() || it == "none" } ?: "None yet"
+private fun DiagnosticsUiFactorySupport.formatAutolearnHost(value: String): String =
+    value.takeUnless { it.isBlank() || it == "none" } ?: context.getString(R.string.diagnostics_autolearn_none_yet)
 
-private fun formatAutolearnGroup(value: String): String =
-    value.takeUnless { it.isBlank() || it == "none" }?.let { "Route $it" } ?: "None yet"
+private fun DiagnosticsUiFactorySupport.formatAutolearnGroup(value: String): String =
+    value.takeUnless { it.isBlank() || it == "none" }
+        ?.let { context.getString(R.string.diagnostics_autolearn_route_format, it) }
+        ?: context.getString(R.string.diagnostics_autolearn_none_yet)
 
-private fun formatAutolearnAction(value: String): String =
+private fun DiagnosticsUiFactorySupport.formatAutolearnAction(value: String): String =
     when (value.lowercase(Locale.US)) {
-        "host_promoted" -> "Promoted best route"
-        "group_penalized" -> "Penalized failing route"
-        "store_reset" -> "Reset stored hosts"
-        "none", "" -> "None yet"
+        "host_promoted" -> context.getString(R.string.diagnostics_autolearn_promoted)
+        "group_penalized" -> context.getString(R.string.diagnostics_autolearn_penalized)
+        "store_reset" -> context.getString(R.string.diagnostics_autolearn_store_reset)
+        "none", "" -> context.getString(R.string.diagnostics_autolearn_none_yet)
         else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
     }
