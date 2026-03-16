@@ -17,7 +17,7 @@ pub struct ProcessGuard {
 
 impl ProcessGuard {
     pub fn prepare(config: &RuntimeConfig) -> io::Result<Self> {
-        SHUTDOWN.store(false, Ordering::Relaxed);
+        SHUTDOWN.store(false, Ordering::Release);
         if config.daemonize {
             daemonize()?;
         }
@@ -31,15 +31,15 @@ impl ProcessGuard {
 }
 
 pub fn shutdown_requested() -> bool {
-    SHUTDOWN.load(Ordering::Relaxed)
+    SHUTDOWN.load(Ordering::Acquire)
 }
 
 pub fn request_shutdown() {
-    SHUTDOWN.store(true, Ordering::Relaxed);
+    SHUTDOWN.store(true, Ordering::Release);
 }
 
 pub fn prepare_embedded() {
-    SHUTDOWN.store(false, Ordering::Relaxed);
+    SHUTDOWN.store(false, Ordering::Release);
 }
 
 extern "C" fn handle_signal(_signal: libc::c_int) {

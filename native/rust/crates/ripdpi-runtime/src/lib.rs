@@ -84,15 +84,15 @@ impl EmbeddedProxyControl {
     }
 
     pub fn request_shutdown(&self) {
-        self.shutdown.store(true, Ordering::Relaxed);
+        self.shutdown.store(true, Ordering::Release);
     }
 
     pub fn reset_shutdown(&self) {
-        self.shutdown.store(false, Ordering::Relaxed);
+        self.shutdown.store(false, Ordering::Release);
     }
 
     pub fn shutdown_requested(&self) -> bool {
-        self.shutdown.load(Ordering::Relaxed)
+        self.shutdown.load(Ordering::Acquire)
     }
 
     pub fn telemetry_sink(&self) -> Option<Arc<dyn RuntimeTelemetrySink>> {
