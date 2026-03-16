@@ -4,6 +4,11 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use ciadpi_packets::{is_http_redirect, is_tls_client_hello, is_tls_server_hello, tls_session_id_mismatch};
 
+/// Maximum number of ClientHello bytes to store for session-ID mismatch detection.
+/// Covers TLS record header (5) + handshake header (4) + version (2) + random (32) +
+/// session ID length (1) + session ID (up to 32) = 76 bytes.
+const CLIENT_HELLO_PREFIX_CAP: usize = 76;
+
 pub const S_AUTH_NONE: u8 = 0x00;
 pub const S_AUTH_BAD: u8 = 0xff;
 
@@ -110,6 +115,8 @@ pub struct SessionState {
     pub sent_this_round: usize,
     pub outbound_bytes_total: usize,
     pub saw_tls_client_hello: bool,
+    /// Prefix of the last outbound ClientHello, used for session-ID mismatch detection.
+    client_hello_prefix: Vec<u8>,
 }
 
 impl Default for SessionState {
@@ -121,6 +128,7 @@ impl Default for SessionState {
             sent_this_round: 0,
             outbound_bytes_total: 0,
             saw_tls_client_hello: false,
+            client_hello_prefix: Vec::new(),
         }
     }
 }
@@ -135,6 +143,9 @@ impl SessionState {
         self.outbound_bytes_total = self.outbound_bytes_total.saturating_add(payload.len());
         if is_tls_client_hello(payload) {
             self.saw_tls_client_hello = true;
+            let cap = payload.len().min(CLIENT_HELLO_PREFIX_CAP);
+            self.client_hello_prefix.clear();
+            self.client_hello_prefix.extend_from_slice(&payload[..cap]);
         }
         OutboundProgress {
             round: self.round_count,
@@ -160,7 +171,10 @@ impl SessionState {
     pub fn observe_inbound(&mut self, payload: &[u8]) {
         self.recv_count += payload.len();
         self.sent_this_round = 0;
-        if self.saw_tls_client_hello && (!is_tls_server_hello(payload) || tls_session_id_mismatch(payload, payload)) {
+        if self.saw_tls_client_hello
+            && (!is_tls_server_hello(payload)
+                || tls_session_id_mismatch(&self.client_hello_prefix, payload))
+        {
             self.saw_tls_client_hello = false;
         }
     }
