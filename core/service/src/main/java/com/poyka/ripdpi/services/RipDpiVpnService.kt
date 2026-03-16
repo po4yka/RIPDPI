@@ -91,6 +91,7 @@ class RipDpiVpnService : LifecycleVpnService() {
     private var handoverMonitorJob: Job? = null
     private var tunSession: VpnTunnelSession? = null
     private val mutex = Mutex()
+    @Volatile
     private var stopping: Boolean = false
     private var currentDnsSignature: String? = null
     private var tunnelStartCount: Int = 0
@@ -104,6 +105,10 @@ class RipDpiVpnService : LifecycleVpnService() {
     companion object {
         private const val FOREGROUND_SERVICE_ID: Int = 1
         private const val NOTIFICATION_CHANNEL_ID: String = "RIPDPIVpn"
+        private const val TUNNEL_IPV4_ADDRESS = "10.10.10.10"
+        private const val TUNNEL_IPV4_CIDR = "10.10.10.10/32"
+        private const val TUNNEL_IPV6_ADDRESS = "fd00::1"
+        private const val TUNNEL_IPV6_CIDR = "fd00::1/128"
         private const val MAPDNS_ADDRESS = "198.18.0.53"
         private const val MAPDNS_NETWORK = "198.18.0.0"
         private const val MAPDNS_NETMASK = "255.254.0.0"
@@ -111,6 +116,60 @@ class RipDpiVpnService : LifecycleVpnService() {
         private const val MAPDNS_CACHE_SIZE = 10_000
         private const val DNS_QUERY_TIMEOUT_MS = 4_000
         private const val HandoverCooldownMs: Long = 10_000L
+
+        internal fun buildTun2SocksConfig(
+            activeDns: ActiveDnsSettings,
+            overrideReason: String?,
+            socks5Port: Int,
+            ipv6Enabled: Boolean,
+        ): Tun2SocksConfig =
+            Tun2SocksConfig(
+                tunnelIpv4 = TUNNEL_IPV4_CIDR,
+                tunnelIpv6 = if (ipv6Enabled) TUNNEL_IPV6_CIDR else null,
+                socks5Port = socks5Port,
+                mapdnsAddress = if (activeDns.mode == DnsModeEncrypted) MAPDNS_ADDRESS else null,
+                mapdnsPort = if (activeDns.mode == DnsModeEncrypted) MAPDNS_PORT else null,
+                mapdnsNetwork = if (activeDns.mode == DnsModeEncrypted) MAPDNS_NETWORK else null,
+                mapdnsNetmask = if (activeDns.mode == DnsModeEncrypted) MAPDNS_NETMASK else null,
+                mapdnsCacheSize = if (activeDns.mode == DnsModeEncrypted) MAPDNS_CACHE_SIZE else null,
+                encryptedDnsResolverId = if (activeDns.mode == DnsModeEncrypted) activeDns.providerId else null,
+                encryptedDnsProtocol = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsProtocol else null,
+                encryptedDnsHost = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsHost else null,
+                encryptedDnsPort = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsPort else null,
+                encryptedDnsTlsServerName =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        activeDns.encryptedDnsTlsServerName
+                    } else {
+                        null
+                    },
+                encryptedDnsBootstrapIps =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        activeDns.encryptedDnsBootstrapIps
+                    } else {
+                        emptyList()
+                    },
+                encryptedDnsDohUrl =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        activeDns.encryptedDnsDohUrl
+                    } else {
+                        null
+                    },
+                encryptedDnsDnscryptProviderName =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        activeDns.encryptedDnsDnscryptProviderName
+                    } else {
+                        null
+                    },
+                encryptedDnsDnscryptPublicKey =
+                    if (activeDns.mode == DnsModeEncrypted) {
+                        activeDns.encryptedDnsDnscryptPublicKey
+                    } else {
+                        null
+                    },
+                dnsQueryTimeoutMs = if (activeDns.mode == DnsModeEncrypted) DNS_QUERY_TIMEOUT_MS else null,
+                resolverFallbackActive = overrideReason != null,
+                resolverFallbackReason = overrideReason,
+            )
     }
 
     override fun onCreate() {
@@ -128,6 +187,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
+        startForeground()
         return when (val action = intent?.action) {
             START_ACTION -> {
                 lifecycleScope.launch { start() }
@@ -141,6 +201,7 @@ class RipDpiVpnService : LifecycleVpnService() {
 
             else -> {
                 logcat(LogPriority.WARN) { "Unknown action: $action" }
+                lifecycleScope.launch { stop() }
                 START_NOT_STICKY
             }
         }
@@ -159,7 +220,6 @@ class RipDpiVpnService : LifecycleVpnService() {
             return
         }
 
-        startForeground()
         var matchedRememberedPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity? = null
         try {
             val resolution =
@@ -355,52 +415,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         val port = if (settings.proxyPort > 0) settings.proxyPort else 1080
         val dns = if (activeDns.mode == DnsModeEncrypted) MAPDNS_ADDRESS else activeDns.dnsIp
         val ipv6 = settings.ipv6Enable
-        val config =
-            Tun2SocksConfig(
-                socks5Port = port,
-                mapdnsAddress = if (activeDns.mode == DnsModeEncrypted) MAPDNS_ADDRESS else null,
-                mapdnsPort = if (activeDns.mode == DnsModeEncrypted) MAPDNS_PORT else null,
-                mapdnsNetwork = if (activeDns.mode == DnsModeEncrypted) MAPDNS_NETWORK else null,
-                mapdnsNetmask = if (activeDns.mode == DnsModeEncrypted) MAPDNS_NETMASK else null,
-                mapdnsCacheSize = if (activeDns.mode == DnsModeEncrypted) MAPDNS_CACHE_SIZE else null,
-                encryptedDnsResolverId = if (activeDns.mode == DnsModeEncrypted) activeDns.providerId else null,
-                encryptedDnsProtocol = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsProtocol else null,
-                encryptedDnsHost = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsHost else null,
-                encryptedDnsPort = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsPort else null,
-                encryptedDnsTlsServerName =
-                    if (activeDns.mode == DnsModeEncrypted) {
-                        activeDns.encryptedDnsTlsServerName
-                    } else {
-                        null
-                    },
-                encryptedDnsBootstrapIps =
-                    if (activeDns.mode == DnsModeEncrypted) {
-                        activeDns.encryptedDnsBootstrapIps
-                    } else {
-                        emptyList()
-                    },
-                encryptedDnsDohUrl =
-                    if (activeDns.mode == DnsModeEncrypted) {
-                        activeDns.encryptedDnsDohUrl
-                    } else {
-                        null
-                    },
-                encryptedDnsDnscryptProviderName =
-                    if (activeDns.mode == DnsModeEncrypted) {
-                        activeDns.encryptedDnsDnscryptProviderName
-                    } else {
-                        null
-                    },
-                encryptedDnsDnscryptPublicKey =
-                    if (activeDns.mode == DnsModeEncrypted) {
-                        activeDns.encryptedDnsDnscryptPublicKey
-                    } else {
-                        null
-                    },
-                dnsQueryTimeoutMs = if (activeDns.mode == DnsModeEncrypted) DNS_QUERY_TIMEOUT_MS else null,
-                resolverFallbackActive = overrideReason != null,
-                resolverFallbackReason = overrideReason,
-            )
+        val config = buildTun2SocksConfig(activeDns, overrideReason, port, ipv6)
 
         val session = vpnTunnelSessionProvider.establish(this, dns, ipv6)
 
@@ -814,12 +829,12 @@ class RipDpiVpnService : LifecycleVpnService() {
         )
 
         builder
-            .addAddress("10.10.10.10", 32)
+            .addAddress(TUNNEL_IPV4_ADDRESS, 32)
             .addRoute("0.0.0.0", 0)
 
         if (ipv6) {
             builder
-                .addAddress("fd00::1", 128)
+                .addAddress(TUNNEL_IPV6_ADDRESS, 128)
                 .addRoute("::", 0)
         }
 
