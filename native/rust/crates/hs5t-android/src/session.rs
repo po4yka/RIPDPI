@@ -1,0 +1,778 @@
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
+
+use android_support::{
+    throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception, HandleRegistry,
+};
+use hs5t_core::{DnsStatsSnapshot, Stats};
+use jni::objects::JString;
+use jni::sys::{jint, jlong, jlongArray};
+use jni::JNIEnv;
+use once_cell::sync::Lazy;
+use tokio::runtime::Runtime;
+use tokio_util::sync::CancellationToken;
+
+use crate::config::{config_from_payload, mapdns_resolver_protocol, parse_tunnel_config_json};
+use crate::telemetry::{NativeRuntimeSnapshot, TunnelTelemetryState};
+use crate::to_handle;
+
+pub(crate) static SESSIONS: Lazy<HandleRegistry<TunnelSession>> = Lazy::new(HandleRegistry::new);
+
+pub(crate) struct TunnelSession {
+    pub(crate) runtime: Arc<Runtime>,
+    pub(crate) config: Arc<hs5t_config::Config>,
+    pub(crate) last_error: Arc<Mutex<Option<String>>>,
+    pub(crate) telemetry: Arc<TunnelTelemetryState>,
+    pub(crate) state: Mutex<TunnelSessionState>,
+}
+
+pub(crate) enum TunnelSessionState {
+    Ready,
+    Starting,
+    Running { cancel: Arc<CancellationToken>, stats: Arc<Stats>, worker: JoinHandle<()> },
+}
+
+pub(crate) fn tunnel_create_entry(mut env: JNIEnv, config_json: JString) -> jlong {
+    android_support::init_android_logging("hs5t-native");
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| create_session(&mut env, config_json))).unwrap_or_else(
+        |_| {
+            throw_runtime_exception(&mut env, "Tunnel session creation panicked");
+            0
+        },
+    )
+}
+
+pub(crate) fn tunnel_start_entry(mut env: JNIEnv, handle: jlong, tun_fd: jint) {
+    android_support::init_android_logging("hs5t-native");
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| start_session(&mut env, handle, tun_fd)))
+        .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session start panicked"));
+}
+
+pub(crate) fn tunnel_stop_entry(mut env: JNIEnv, handle: jlong) {
+    android_support::init_android_logging("hs5t-native");
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stop_session(&mut env, handle)))
+        .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session stop panicked"));
+}
+
+pub(crate) fn tunnel_stats_entry(mut env: JNIEnv, handle: jlong) -> jlongArray {
+    android_support::init_android_logging("hs5t-native");
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stats_session(&mut env, handle))).unwrap_or_else(|_| {
+        throw_runtime_exception(&mut env, "Tunnel stats retrieval panicked");
+        std::ptr::null_mut()
+    })
+}
+
+pub(crate) fn tunnel_telemetry_entry(mut env: JNIEnv, handle: jlong) -> jni::sys::jstring {
+    android_support::init_android_logging("hs5t-native");
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| telemetry_session(&mut env, handle))).unwrap_or_else(
+        |_| {
+            throw_runtime_exception(&mut env, "Tunnel telemetry retrieval panicked");
+            std::ptr::null_mut()
+        },
+    )
+}
+
+pub(crate) fn tunnel_destroy_entry(mut env: JNIEnv, handle: jlong) {
+    android_support::init_android_logging("hs5t-native");
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| destroy_session(&mut env, handle)))
+        .map_err(|_| throw_runtime_exception(&mut env, "Tunnel session destroy panicked"));
+}
+
+fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
+    let json: String = match env.get_string(&config_json) {
+        Ok(value) => value.into(),
+        Err(_) => {
+            throw_illegal_argument(env, "Invalid tunnel config payload");
+            return 0;
+        }
+    };
+    let payload = match parse_tunnel_config_json(&json) {
+        Ok(payload) => payload,
+        Err(err) => {
+            throw_illegal_argument(env, err);
+            return 0;
+        }
+    };
+    let config = match config_from_payload(payload) {
+        Ok(config) => Arc::new(config),
+        Err(message) => {
+            throw_illegal_argument(env, message);
+            return 0;
+        }
+    };
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .thread_stack_size(1024 * 1024)
+        .thread_name("hs5t-tokio")
+        .enable_all()
+        .build()
+    {
+        Ok(rt) => Arc::new(rt),
+        Err(err) => {
+            throw_io_exception(env, format!("Failed to initialize Tokio runtime: {err}"));
+            return 0;
+        }
+    };
+
+    SESSIONS.insert(TunnelSession {
+        runtime,
+        config,
+        last_error: Arc::new(Mutex::new(None)),
+        telemetry: Arc::new(TunnelTelemetryState::new()),
+        state: Mutex::new(TunnelSessionState::Ready),
+    }) as jlong
+}
+
+fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
+            return;
+        }
+    };
+    if let Err(message) = validate_tun_fd(tun_fd) {
+        throw_illegal_argument(env, message);
+        return;
+    }
+    // Duplicate the fd so run_tunnel owns an independent copy.
+    // If VpnService revokes the original fd, the dup'd fd remains valid
+    // until run_tunnel closes it via File::from_raw_fd.
+    let owned_fd = unsafe { libc::dup(tun_fd) };
+    if owned_fd < 0 {
+        throw_io_exception(env, format!("Failed to dup TUN fd: {}", std::io::Error::last_os_error()));
+        return;
+    }
+    let runtime = session.runtime.clone();
+
+    let cancel = Arc::new(CancellationToken::new());
+    let stats = Arc::new(Stats::new());
+    let config = session.config.clone();
+    let last_error = session.last_error.clone();
+    let telemetry = session.telemetry.clone();
+
+    {
+        let mut state = session.state.lock().expect("tunnel session poisoned");
+        if let Err(message) = ensure_tunnel_start_allowed(&state) {
+            // Bug H4 fix: close the dup'd fd before returning.
+            unsafe {
+                libc::close(owned_fd);
+            }
+            throw_illegal_state(env, message);
+            return;
+        }
+        // Bug H3 fix: atomically transition to Starting while holding the lock,
+        // so no concurrent call can also see Ready.
+        *state = TunnelSessionState::Starting;
+    }
+
+    if let Ok(mut guard) = session.last_error.lock() {
+        *guard = None;
+    }
+    telemetry.mark_started(format!("{}:{}", session.config.socks5.address, session.config.socks5.port));
+
+    let worker_cancel = cancel.clone();
+    let worker_stats = stats.clone();
+    let worker = match std::thread::Builder::new().name("hs5t-worker".into()).spawn(move || {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            runtime.block_on(hs5t_core::run_tunnel(config, owned_fd, (*worker_cancel).clone(), worker_stats.clone()))
+        }));
+
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => {
+                log::error!("tunnel worker exited with error: {err}");
+                if let Ok(mut guard) = last_error.lock() {
+                    *guard = Some(err.to_string());
+                }
+                telemetry.record_error(err.to_string());
+            }
+            Err(_) => {
+                log::error!("tunnel worker panicked");
+                if let Ok(mut guard) = last_error.lock() {
+                    *guard = Some("Tunnel worker panicked".to_string());
+                }
+                telemetry.record_error("Tunnel worker panicked".to_string());
+            }
+        }
+        telemetry.mark_stopped();
+    }) {
+        Ok(worker) => worker,
+        Err(err) => {
+            rollback_failed_tunnel_start(&session, owned_fd, format!("failed to spawn tunnel worker thread: {err}"));
+            throw_io_exception(env, format!("Failed to spawn tunnel worker thread: {err}"));
+            return;
+        }
+    };
+
+    let mut state = session.state.lock().expect("tunnel session poisoned");
+    *state = TunnelSessionState::Running { cancel, stats, worker };
+}
+
+fn stop_session(env: &mut JNIEnv, handle: jlong) {
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
+            return;
+        }
+    };
+
+    let running = {
+        let mut state = session.state.lock().expect("tunnel session poisoned");
+        match take_running_tunnel(&mut state) {
+            Ok(running) => running,
+            Err(message) => {
+                throw_illegal_state(env, message);
+                return;
+            }
+        }
+    };
+
+    running.0.cancel();
+    session.telemetry.mark_stop_requested();
+    if running.1.join().is_err() {
+        log::error!("tunnel worker panicked during shutdown");
+    }
+}
+
+fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
+            return std::ptr::null_mut();
+        }
+    };
+
+    let snapshot = {
+        let state = session.state.lock().expect("tunnel session poisoned");
+        stats_snapshots_for_state(&state).0
+    };
+
+    match env.new_long_array(4) {
+        Ok(arr) => {
+            let values: [i64; 4] = [snapshot.0 as i64, snapshot.1 as i64, snapshot.2 as i64, snapshot.3 as i64];
+            if env.set_long_array_region(&arr, 0, &values).is_ok() {
+                arr.into_raw()
+            } else {
+                std::ptr::null_mut()
+            }
+        }
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+fn telemetry_session(env: &mut JNIEnv, handle: jlong) -> jni::sys::jstring {
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
+            return std::ptr::null_mut();
+        }
+    };
+    let (traffic_stats, dns_stats) = {
+        let state = session.state.lock().expect("tunnel session poisoned");
+        stats_snapshots_for_state(&state)
+    };
+    let resolver_id = session.config.mapdns.as_ref().and_then(|mapdns| mapdns.resolver_id.clone());
+    let resolver_protocol = session.config.mapdns.as_ref().and_then(mapdns_resolver_protocol);
+    match serde_json::to_string(&session.telemetry.snapshot(traffic_stats, dns_stats, resolver_id, resolver_protocol)) {
+        Ok(value) => env.new_string(value).map(jni::objects::JString::into_raw).unwrap_or(std::ptr::null_mut()),
+        Err(err) => {
+            throw_runtime_exception(env, err.to_string());
+            std::ptr::null_mut()
+        }
+    }
+}
+
+fn destroy_session(env: &mut JNIEnv, handle: jlong) {
+    let session = match lookup_tunnel_session(handle) {
+        Ok(session) => session,
+        Err(message) => {
+            throw_illegal_argument(env, message);
+            return;
+        }
+    };
+    let state = session.state.lock().expect("tunnel session poisoned");
+    if let Err(message) = ensure_tunnel_destroyable(&state) {
+        throw_illegal_state(env, message);
+        return;
+    }
+    drop(state);
+    let _ = remove_tunnel_session(handle);
+}
+
+pub(crate) fn lookup_tunnel_session(handle: jlong) -> Result<Arc<TunnelSession>, &'static str> {
+    let handle = to_handle(handle).ok_or("Invalid tunnel handle")?;
+    SESSIONS.get(handle).ok_or("Unknown tunnel handle")
+}
+
+pub(crate) fn remove_tunnel_session(handle: jlong) -> Result<Arc<TunnelSession>, &'static str> {
+    let handle = to_handle(handle).ok_or("Invalid tunnel handle")?;
+    SESSIONS.remove(handle).ok_or("Unknown tunnel handle")
+}
+
+pub(crate) fn validate_tun_fd(tun_fd: jint) -> Result<(), &'static str> {
+    if tun_fd < 0 {
+        Err("Invalid TUN file descriptor")
+    } else {
+        Ok(())
+    }
+}
+
+pub(crate) fn ensure_tunnel_start_allowed(state: &TunnelSessionState) -> Result<(), &'static str> {
+    match *state {
+        TunnelSessionState::Ready => Ok(()),
+        TunnelSessionState::Starting => Err("Tunnel session is already starting"),
+        TunnelSessionState::Running { .. } => Err("Tunnel session is already running"),
+    }
+}
+
+pub(crate) fn take_running_tunnel(
+    state: &mut TunnelSessionState,
+) -> Result<(Arc<CancellationToken>, JoinHandle<()>), &'static str> {
+    match std::mem::replace(state, TunnelSessionState::Ready) {
+        TunnelSessionState::Ready | TunnelSessionState::Starting => Err("Tunnel session is not running"),
+        TunnelSessionState::Running { cancel, stats: _, worker } => Ok((cancel, worker)),
+    }
+}
+
+pub(crate) fn stats_snapshots_for_state(state: &TunnelSessionState) -> ((u64, u64, u64, u64), DnsStatsSnapshot) {
+    match state {
+        TunnelSessionState::Ready | TunnelSessionState::Starting => ((0, 0, 0, 0), DnsStatsSnapshot::default()),
+        TunnelSessionState::Running { stats, .. } => (stats.snapshot(), stats.dns_snapshot()),
+    }
+}
+
+pub(crate) fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<(), &'static str> {
+    match *state {
+        TunnelSessionState::Ready => Ok(()),
+        TunnelSessionState::Starting => Err("Cannot destroy a starting tunnel session"),
+        TunnelSessionState::Running { .. } => Err("Cannot destroy a running tunnel session"),
+    }
+}
+
+fn rollback_failed_tunnel_start(session: &TunnelSession, owned_fd: i32, message: String) {
+    unsafe {
+        libc::close(owned_fd);
+    }
+    if let Ok(mut guard) = session.last_error.lock() {
+        *guard = Some(message.clone());
+    }
+    session.telemetry.record_error(message);
+    session.telemetry.mark_stopped();
+    if let Ok(mut state) = session.state.lock() {
+        *state = TunnelSessionState::Ready;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::sample_payload;
+    use hs5t_core::Stats;
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+    use std::time::Duration;
+
+    #[test]
+    fn rejects_invalid_handle() {
+        assert!(to_handle(0).is_none());
+        assert!(to_handle(-1).is_none());
+    }
+
+    #[test]
+    fn rejects_unknown_tunnel_handle_lookup() {
+        let err = match lookup_tunnel_session(99) {
+            Ok(_) => panic!("expected unknown handle error"),
+            Err(err) => err,
+        };
+
+        assert_eq!(err, "Unknown tunnel handle");
+    }
+
+    #[test]
+    fn rejects_invalid_tun_fd() {
+        assert_eq!(validate_tun_fd(-1).expect_err("invalid tun fd"), "Invalid TUN file descriptor",);
+    }
+
+    #[test]
+    fn tunnel_state_rejects_duplicate_start() {
+        let worker = std::thread::spawn(|| {});
+        let state = TunnelSessionState::Running {
+            cancel: Arc::new(CancellationToken::new()),
+            stats: Arc::new(Stats::new()),
+            worker,
+        };
+
+        let err = ensure_tunnel_start_allowed(&state).expect_err("duplicate start");
+
+        if let TunnelSessionState::Running { worker, .. } = state {
+            let _ = worker.join();
+        }
+        assert_eq!(err, "Tunnel session is already running");
+    }
+
+    #[test]
+    fn tunnel_state_rejects_stop_when_ready() {
+        let mut state = TunnelSessionState::Ready;
+        let err = take_running_tunnel(&mut state).expect_err("ready stop");
+
+        assert_eq!(err, "Tunnel session is not running");
+    }
+
+    #[test]
+    fn tunnel_stats_when_ready_are_zero() {
+        assert_eq!(stats_snapshots_for_state(&TunnelSessionState::Ready).0, (0, 0, 0, 0));
+    }
+
+    #[test]
+    fn tunnel_state_rejects_destroy_when_running() {
+        let worker = std::thread::spawn(|| {});
+        let state = TunnelSessionState::Running {
+            cancel: Arc::new(CancellationToken::new()),
+            stats: Arc::new(Stats::new()),
+            worker,
+        };
+
+        let err = ensure_tunnel_destroyable(&state).expect_err("running destroy");
+
+        if let TunnelSessionState::Running { worker, .. } = state {
+            let _ = worker.join();
+        }
+        assert_eq!(err, "Cannot destroy a running tunnel session");
+    }
+
+    #[test]
+    fn destroy_removes_ready_tunnel_session() {
+        let handle = SESSIONS.insert(TunnelSession {
+            runtime: Arc::new(tokio::runtime::Builder::new_current_thread().build().expect("test runtime")),
+            config: Arc::new(config_from_payload(sample_payload()).expect("config")),
+            last_error: Arc::new(Mutex::new(None)),
+            telemetry: Arc::new(TunnelTelemetryState::new()),
+            state: Mutex::new(TunnelSessionState::Ready),
+        }) as jlong;
+
+        let removed = remove_tunnel_session(handle).expect("removed session");
+        assert!(matches!(*removed.state.lock().expect("state lock"), TunnelSessionState::Ready,));
+        assert_eq!(
+            match lookup_tunnel_session(handle) {
+                Ok(_) => panic!("expected session removal"),
+                Err(err) => err,
+            },
+            "Unknown tunnel handle",
+        );
+    }
+
+    #[test]
+    fn rollback_failed_tunnel_start_restores_ready_state() {
+        let session = TunnelSession {
+            runtime: Arc::new(tokio::runtime::Builder::new_current_thread().build().expect("test runtime")),
+            config: Arc::new(config_from_payload(sample_payload()).expect("config")),
+            last_error: Arc::new(Mutex::new(None)),
+            telemetry: Arc::new(TunnelTelemetryState::new()),
+            state: Mutex::new(TunnelSessionState::Starting),
+        };
+        session.telemetry.mark_started("127.0.0.1:1080".to_string());
+
+        rollback_failed_tunnel_start(&session, -1, "spawn failed".to_string());
+
+        assert!(matches!(*session.state.lock().expect("state lock"), TunnelSessionState::Ready));
+        assert_eq!(session.last_error.lock().expect("last error lock").as_deref(), Some("spawn failed"));
+        assert!(ensure_tunnel_start_allowed(&session.state.lock().expect("state lock")).is_ok());
+        assert!(ensure_tunnel_destroyable(&session.state.lock().expect("state lock")).is_ok());
+
+        let snapshot = session.telemetry.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+        assert_eq!(snapshot.state, "idle");
+        assert_eq!(snapshot.active_sessions, 0);
+        assert_eq!(snapshot.total_sessions, 1);
+        assert_eq!(snapshot.total_errors, 1);
+        assert_eq!(snapshot.last_error.as_deref(), Some("spawn failed"));
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    enum TunnelStateCommand {
+        EnsureCreated,
+        Start,
+        Stop,
+        Stats,
+        Telemetry,
+        Destroy,
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    enum TunnelModelState {
+        Absent,
+        Ready,
+        Running,
+    }
+
+    #[derive(Default)]
+    struct TunnelSessionHarness {
+        active_handle: Option<jlong>,
+        stale_handle: Option<jlong>,
+    }
+
+    impl TunnelSessionHarness {
+        fn tracked_handle(&self) -> jlong {
+            self.active_handle.or(self.stale_handle).unwrap_or(0)
+        }
+
+        fn ensure_created(&mut self) -> jlong {
+            if let Some(handle) = self.active_handle {
+                return handle;
+            }
+
+            let handle = SESSIONS.insert(TunnelSession {
+                runtime: Arc::new(tokio::runtime::Builder::new_current_thread().build().expect("test runtime")),
+                config: Arc::new(config_from_payload(sample_payload()).expect("config")),
+                last_error: Arc::new(Mutex::new(None)),
+                telemetry: Arc::new(TunnelTelemetryState::new()),
+                state: Mutex::new(TunnelSessionState::Ready),
+            }) as jlong;
+            self.active_handle = Some(handle);
+            self.stale_handle = Some(handle);
+            handle
+        }
+
+        fn start(&mut self) -> Result<(), &'static str> {
+            let session = lookup_tunnel_session(self.tracked_handle())?;
+            let state = session.state.lock().expect("tunnel state lock");
+            ensure_tunnel_start_allowed(&state)?;
+            drop(state);
+
+            let cancel = Arc::new(CancellationToken::new());
+            let stats = Arc::new(Stats::new());
+            stats.tx_packets.fetch_add(7, Ordering::Relaxed);
+            stats.tx_bytes.fetch_add(70, Ordering::Relaxed);
+            stats.rx_packets.fetch_add(8, Ordering::Relaxed);
+            stats.rx_bytes.fetch_add(80, Ordering::Relaxed);
+
+            session.telemetry.mark_started(format!("{}:{}", session.config.socks5.address, session.config.socks5.port));
+
+            let worker_cancel = cancel.clone();
+            let worker_telemetry = session.telemetry.clone();
+            let worker = std::thread::spawn(move || {
+                while !worker_cancel.is_cancelled() {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                worker_telemetry.mark_stopped();
+            });
+
+            let mut state = session.state.lock().expect("tunnel state lock");
+            *state = TunnelSessionState::Running { cancel, stats, worker };
+            Ok(())
+        }
+
+        fn stop(&mut self) -> Result<(), &'static str> {
+            let session = lookup_tunnel_session(self.tracked_handle())?;
+            let running = {
+                let mut state = session.state.lock().expect("tunnel state lock");
+                take_running_tunnel(&mut state)?
+            };
+
+            session.telemetry.mark_stop_requested();
+            running.0.cancel();
+            let _ = running.1.join();
+            Ok(())
+        }
+
+        fn stats(&self) -> Result<(u64, u64, u64, u64), &'static str> {
+            let session = lookup_tunnel_session(self.tracked_handle())?;
+            let state = session.state.lock().expect("tunnel state lock");
+            Ok(stats_snapshots_for_state(&state).0)
+        }
+
+        fn telemetry(&self) -> Result<NativeRuntimeSnapshot, &'static str> {
+            let session = lookup_tunnel_session(self.tracked_handle())?;
+            let state = session.state.lock().expect("tunnel state lock");
+            let (traffic, dns) = stats_snapshots_for_state(&state);
+            let resolver_id = session.config.mapdns.as_ref().and_then(|mapdns| mapdns.resolver_id.clone());
+            let resolver_protocol = session.config.mapdns.as_ref().and_then(mapdns_resolver_protocol);
+            Ok(session.telemetry.snapshot(traffic, dns, resolver_id, resolver_protocol))
+        }
+
+        fn destroy(&mut self) -> Result<(), &'static str> {
+            let session = lookup_tunnel_session(self.tracked_handle())?;
+            let state = session.state.lock().expect("tunnel state lock");
+            ensure_tunnel_destroyable(&state)?;
+            drop(state);
+            let handle = self.active_handle.take().unwrap_or_else(|| self.tracked_handle());
+            self.stale_handle = Some(handle);
+            let _ = remove_tunnel_session(handle)?;
+            Ok(())
+        }
+
+        fn cleanup(&mut self) {
+            if let Some(handle) = self.active_handle.take() {
+                if let Ok(session) = lookup_tunnel_session(handle) {
+                    let running = {
+                        let mut state = session.state.lock().expect("tunnel state lock");
+                        take_running_tunnel(&mut state).ok()
+                    };
+                    if let Some(running) = running {
+                        running.0.cancel();
+                        let _ = running.1.join();
+                    }
+                }
+                let _ = remove_tunnel_session(handle);
+                self.stale_handle = Some(handle);
+            }
+        }
+    }
+
+    impl Drop for TunnelSessionHarness {
+        fn drop(&mut self) {
+            self.cleanup();
+        }
+    }
+
+    fn tunnel_absent_error(handle: jlong) -> &'static str {
+        if to_handle(handle).is_some() {
+            "Unknown tunnel handle"
+        } else {
+            "Invalid tunnel handle"
+        }
+    }
+
+    fn tunnel_state_command_strategy() -> impl Strategy<Value = Vec<TunnelStateCommand>> {
+        vec(
+            prop_oneof![
+                Just(TunnelStateCommand::EnsureCreated),
+                Just(TunnelStateCommand::Start),
+                Just(TunnelStateCommand::Stop),
+                Just(TunnelStateCommand::Stats),
+                Just(TunnelStateCommand::Telemetry),
+                Just(TunnelStateCommand::Destroy),
+            ],
+            1..32,
+        )
+    }
+
+    proptest! {
+        #[test]
+        fn tunnel_session_state_machine(commands in tunnel_state_command_strategy()) {
+            let mut harness = TunnelSessionHarness::default();
+            let mut model = TunnelModelState::Absent;
+
+            for command in commands {
+                match command {
+                    TunnelStateCommand::EnsureCreated => {
+                        let handle = harness.ensure_created();
+                        prop_assert!(lookup_tunnel_session(handle).is_ok());
+                        if matches!(model, TunnelModelState::Absent) {
+                            model = TunnelModelState::Ready;
+                        }
+                    }
+                    TunnelStateCommand::Start => {
+                        match model {
+                            TunnelModelState::Absent => {
+                                let err = harness.start().expect_err("absent start must fail");
+                                prop_assert_eq!(err, tunnel_absent_error(harness.tracked_handle()));
+                            }
+                            TunnelModelState::Ready => {
+                                harness.start().expect("ready start");
+                                model = TunnelModelState::Running;
+                            }
+                            TunnelModelState::Running => {
+                                let err = harness.start().expect_err("duplicate start must fail");
+                                prop_assert_eq!(err, "Tunnel session is already running");
+                            }
+                        }
+                    }
+                    TunnelStateCommand::Stop => {
+                        match model {
+                            TunnelModelState::Absent => {
+                                let err = harness.stop().expect_err("absent stop must fail");
+                                prop_assert_eq!(err, tunnel_absent_error(harness.tracked_handle()));
+                            }
+                            TunnelModelState::Ready => {
+                                let err = harness.stop().expect_err("ready stop must fail");
+                                prop_assert_eq!(err, "Tunnel session is not running");
+                            }
+                            TunnelModelState::Running => {
+                                harness.stop().expect("running stop");
+                                model = TunnelModelState::Ready;
+                            }
+                        }
+                    }
+                    TunnelStateCommand::Stats => {
+                        match model {
+                            TunnelModelState::Absent => {
+                                let err = harness.stats().expect_err("absent stats must fail");
+                                prop_assert_eq!(err, tunnel_absent_error(harness.tracked_handle()));
+                            }
+                            TunnelModelState::Ready => {
+                                prop_assert_eq!(harness.stats().expect("ready stats"), (0, 0, 0, 0));
+                            }
+                            TunnelModelState::Running => {
+                                prop_assert_eq!(harness.stats().expect("running stats"), (7, 70, 8, 80));
+                            }
+                        }
+                    }
+                    TunnelStateCommand::Telemetry => {
+                        match model {
+                            TunnelModelState::Absent => {
+                                let err = harness.telemetry().expect_err("absent telemetry must fail");
+                                prop_assert_eq!(err, tunnel_absent_error(harness.tracked_handle()));
+                            }
+                            TunnelModelState::Ready => {
+                                let snapshot = harness.telemetry().expect("ready telemetry");
+                                prop_assert_eq!(snapshot.state, "idle");
+                                prop_assert_eq!(snapshot.tunnel_stats.tx_packets, 0);
+                            }
+                            TunnelModelState::Running => {
+                                let snapshot = harness.telemetry().expect("running telemetry");
+                                prop_assert_eq!(snapshot.state, "running");
+                                prop_assert_eq!(snapshot.active_sessions, 1);
+                                prop_assert_eq!(snapshot.tunnel_stats.tx_packets, 7);
+                                prop_assert_eq!(snapshot.tunnel_stats.rx_bytes, 80);
+                            }
+                        }
+                    }
+                    TunnelStateCommand::Destroy => {
+                        match model {
+                            TunnelModelState::Absent => {
+                                let err = harness.destroy().expect_err("absent destroy must fail");
+                                prop_assert_eq!(err, tunnel_absent_error(harness.tracked_handle()));
+                            }
+                            TunnelModelState::Ready => {
+                                harness.destroy().expect("ready destroy");
+                                model = TunnelModelState::Absent;
+                            }
+                            TunnelModelState::Running => {
+                                let err = harness.destroy().expect_err("running destroy must fail");
+                                prop_assert_eq!(err, "Cannot destroy a running tunnel session");
+                            }
+                        }
+                    }
+                }
+
+                match model {
+                    TunnelModelState::Absent => {
+                        if to_handle(harness.tracked_handle()).is_some() {
+                            let err = match lookup_tunnel_session(harness.tracked_handle()) {
+                                Ok(_) => panic!("absent tunnel must be removed"),
+                                Err(err) => err,
+                            };
+                            prop_assert_eq!(err, "Unknown tunnel handle");
+                        }
+                    }
+                    TunnelModelState::Ready => {
+                        let session = lookup_tunnel_session(harness.tracked_handle()).expect("ready tunnel");
+                        let state = session.state.lock().expect("tunnel state lock");
+                        prop_assert!(matches!(*state, TunnelSessionState::Ready));
+                    }
+                    TunnelModelState::Running => {
+                        let session = lookup_tunnel_session(harness.tracked_handle()).expect("running tunnel");
+                        let state = session.state.lock().expect("tunnel state lock");
+                        let is_running = matches!(*state, TunnelSessionState::Running { .. });
+                        prop_assert!(is_running);
+                    }
+                }
+            }
+        }
+    }
+}
