@@ -219,6 +219,7 @@ fun RttBand.Companion.fromLatencyMs(latencyMs: Long?): RttBand =
 
 interface TelemetryInstallSaltStore {
     fun loadSalt(): String
+    fun rotateSalt()
 }
 
 @Singleton
@@ -236,6 +237,8 @@ class FileBackedTelemetryInstallSaltStore
             )
 
         override fun loadSalt(): String = delegate.loadSalt()
+
+        override fun rotateSalt() = delegate.rotateSalt()
     }
 
 internal class FileBackedTelemetryInstallSaltStoreDelegate(
@@ -243,6 +246,11 @@ internal class FileBackedTelemetryInstallSaltStoreDelegate(
     private val secureRandom: SecureRandom = SecureRandom(),
 ) {
     private val lock = Any()
+
+    fun rotateSalt(): Unit =
+        synchronized(lock) {
+            saltFile.delete()
+        }
 
     fun loadSalt(): String =
         synchronized(lock) {

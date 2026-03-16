@@ -30,6 +30,7 @@ internal fun LazyListScope.diagnosticsHistorySection(
     uiState: SettingsUiState,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+    onRotateTelemetrySalt: () -> Unit = {},
 ) {
     item(key = "advanced_diagnostics_history") {
         AdvancedSettingsSection(title = stringResource(R.string.diagnostics_history_section)) {
@@ -83,7 +84,24 @@ internal fun LazyListScope.diagnosticsHistorySection(
                             it,
                         )
                     },
+                    showDivider = true,
                 )
+                Text(
+                    text = stringResource(R.string.settings_telemetry_salt_reset_body),
+                    style = RipDpiThemeTokens.type.caption,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    RipDpiButton(
+                        text = stringResource(R.string.settings_telemetry_salt_reset_action),
+                        onClick = onRotateTelemetrySalt,
+                        variant = RipDpiButtonVariant.Outline,
+                        trailingIcon = RipDpiIcons.Close,
+                    )
+                }
             }
         }
     }

@@ -146,6 +146,7 @@ internal fun AdvancedSettingsScreen(
     onRefreshHostPackCatalog: () -> Unit,
     onForgetLearnedHosts: () -> Unit,
     onClearRememberedNetworks: () -> Unit,
+    onRotateTelemetrySalt: () -> Unit,
     onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -> Unit,
     onResetAdaptiveSplit: () -> Unit,
     onResetAdaptiveFakeTtlProfile: () -> Unit,
@@ -260,6 +261,7 @@ internal fun AdvancedSettingsScreen(
             uiState = uiState,
             onToggleChanged = onToggleChanged,
             onTextConfirmed = onTextConfirmed,
+            onRotateTelemetrySalt = onRotateTelemetrySalt,
         )
 
         commandLineOverridesSection(
@@ -423,6 +425,7 @@ private fun AdvancedSettingsScreenPreview() {
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
             onClearRememberedNetworks = {},
+            onRotateTelemetrySalt = {},
             onSaveActivationRange = { _, _, _ -> },
             onResetAdaptiveSplit = {},
             onResetAdaptiveFakeTtlProfile = {},
@@ -493,6 +496,7 @@ private fun AdvancedSettingsScreenDarkPreview() {
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
             onClearRememberedNetworks = {},
+            onRotateTelemetrySalt = {},
             onSaveActivationRange = { _, _, _ -> },
             onResetAdaptiveSplit = {},
             onResetAdaptiveFakeTtlProfile = {},

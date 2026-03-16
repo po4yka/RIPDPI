@@ -259,6 +259,7 @@ class AdvancedSettingsScreenCharacterizationTest {
                     onRefreshHostPackCatalog = {},
                     onForgetLearnedHosts = {},
                     onClearRememberedNetworks = {},
+                    onRotateTelemetrySalt = {},
                     onSaveActivationRange = { _, _, _ -> },
                     onResetAdaptiveSplit = {},
                     onResetAdaptiveFakeTtlProfile = {},
