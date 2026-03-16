@@ -1,7 +1,7 @@
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpStream, UdpSocket};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -13,9 +13,9 @@ use local_network_fixture::{
 use native_soak_support::{
     acquire_global_lock, assert_growth, write_json_artifact, GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW,
 };
-use ripdpi_runtime::process::{prepare_embedded, request_shutdown};
-use ripdpi_runtime::runtime::{create_listener, run_proxy_with_listener};
-use ripdpi_runtime::{clear_runtime_telemetry, install_runtime_telemetry, RuntimeTelemetrySink};
+use ripdpi_runtime::process::prepare_embedded;
+use ripdpi_runtime::runtime::{create_listener, run_proxy_with_embedded_control};
+use ripdpi_runtime::{clear_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{ClientConfig, ClientConnection, DigitallySignedStruct, Error as TlsError, SignatureScheme, StreamOwned};
@@ -442,12 +442,13 @@ fn start_proxy_sampler(
 
 struct RunningProxy {
     port: u16,
+    control: Arc<EmbeddedProxyControl>,
     thread: Option<thread::JoinHandle<io::Result<()>>>,
 }
 
 impl Drop for RunningProxy {
     fn drop(&mut self) {
-        request_shutdown();
+        self.control.request_shutdown();
         if let Some(thread) = self.thread.take() {
             let result = thread.join().expect("join proxy thread");
             result.expect("proxy stopped cleanly");
@@ -459,14 +460,16 @@ impl Drop for RunningProxy {
 fn start_proxy(config: ciadpi_config::RuntimeConfig, telemetry: Option<Arc<RecordingTelemetry>>) -> RunningProxy {
     prepare_embedded();
     clear_runtime_telemetry();
-    if let Some(telemetry) = telemetry {
-        install_runtime_telemetry(telemetry);
-    }
+    let startup = Arc::new(StartupLatch::default());
+    let harness_telemetry = Arc::new(ProxyHarnessTelemetry { startup: startup.clone(), delegate: telemetry })
+        as Arc<dyn RuntimeTelemetrySink>;
+    let control = Arc::new(EmbeddedProxyControl::new(Some(harness_telemetry)));
     let listener = create_listener(&config).expect("create listener");
     let port = listener.local_addr().expect("listener addr").port();
-    let thread = thread::spawn(move || run_proxy_with_listener(config, listener));
-    wait_for_port(port);
-    RunningProxy { port, thread: Some(thread) }
+    let control_for_thread = control.clone();
+    let thread = thread::spawn(move || run_proxy_with_embedded_control(config, listener, control_for_thread));
+    startup.wait(START_TIMEOUT);
+    RunningProxy { port, control, thread: Some(thread) }
 }
 
 fn proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
@@ -481,17 +484,6 @@ fn ephemeral_proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {
     let mut config = proxy_config(args);
     config.listen.listen_port = 0;
     config
-}
-
-fn wait_for_port(port: u16) {
-    let started = Instant::now();
-    while started.elapsed() < START_TIMEOUT {
-        if TcpStream::connect((Ipv4Addr::LOCALHOST, port)).is_ok() {
-            return;
-        }
-        thread::sleep(Duration::from_millis(20));
-    }
-    panic!("proxy listener on port {port} did not become reachable");
 }
 
 fn socks_tcp_round_trip(proxy_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
@@ -716,6 +708,38 @@ struct RecordingTelemetry {
     last_error: Mutex<Option<String>>,
 }
 
+#[derive(Default)]
+struct StartupLatch {
+    started: Mutex<bool>,
+    ready: Condvar,
+}
+
+impl StartupLatch {
+    fn mark_started(&self) {
+        let mut started = self.started.lock().expect("lock startup latch");
+        *started = true;
+        self.ready.notify_all();
+    }
+
+    fn wait(&self, timeout: Duration) {
+        let started = self.started.lock().expect("lock startup latch");
+        let (started, _) =
+            self.ready.wait_timeout_while(started, timeout, |started| !*started).expect("wait proxy startup");
+        assert!(*started, "proxy listener did not report startup within {timeout:?}");
+    }
+}
+
+struct ProxyHarnessTelemetry {
+    startup: Arc<StartupLatch>,
+    delegate: Option<Arc<RecordingTelemetry>>,
+}
+
+impl ProxyHarnessTelemetry {
+    fn delegate(&self) -> Option<&RecordingTelemetry> {
+        self.delegate.as_deref()
+    }
+}
+
 impl RecordingTelemetry {
     fn snapshot(&self) -> TelemetrySnapshot {
         TelemetrySnapshot {
@@ -788,6 +812,93 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
     fn on_host_autolearn_state(&self, _enabled: bool, _learned_host_count: usize, _penalized_host_count: usize) {}
 
     fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
+}
+
+impl RuntimeTelemetrySink for ProxyHarnessTelemetry {
+    fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize) {
+        self.startup.mark_started();
+        if let Some(delegate) = self.delegate() {
+            delegate.on_listener_started(bind_addr, max_clients, group_count);
+        }
+    }
+
+    fn on_listener_stopped(&self) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_listener_stopped();
+        }
+    }
+
+    fn on_client_accepted(&self) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_client_accepted();
+        }
+    }
+
+    fn on_client_finished(&self) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_client_finished();
+        }
+    }
+
+    fn on_client_error(&self, error: &io::Error) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_client_error(error);
+        }
+    }
+
+    fn on_route_selected(&self, target: SocketAddr, group_index: usize, host: Option<&str>, phase: &'static str) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_route_selected(target, group_index, host, phase);
+        }
+    }
+
+    fn on_failure_classified(
+        &self,
+        target: SocketAddr,
+        failure: &ripdpi_failure_classifier::ClassifiedFailure,
+        host: Option<&str>,
+    ) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_failure_classified(target, failure, host);
+        }
+    }
+
+    fn on_upstream_connected(&self, upstream_addr: SocketAddr, upstream_rtt_ms: Option<u64>) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_upstream_connected(upstream_addr, upstream_rtt_ms);
+        }
+    }
+
+    fn on_route_advanced(
+        &self,
+        target: SocketAddr,
+        from_group: usize,
+        to_group: usize,
+        trigger: u32,
+        host: Option<&str>,
+    ) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_route_advanced(target, from_group, to_group, trigger, host);
+        }
+    }
+
+    fn on_retry_paced(&self, target: SocketAddr, group_index: usize, reason: &'static str, backoff_ms: u64) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_retry_paced(target, group_index, reason, backoff_ms);
+        }
+    }
+
+    fn on_host_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_host_autolearn_state(enabled, learned_host_count, penalized_host_count);
+        }
+    }
+
+    fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group_index: Option<usize>) {
+        if let Some(delegate) = self.delegate() {
+            delegate.on_host_autolearn_event(action, host, group_index);
+        }
+    }
 }
 
 #[derive(Debug)]

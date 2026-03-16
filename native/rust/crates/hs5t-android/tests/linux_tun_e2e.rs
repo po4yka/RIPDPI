@@ -4,7 +4,7 @@ use std::io::{self, ErrorKind, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
 use std::process::Command;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -30,16 +30,14 @@ fn linux_tun_tcp_udp_and_mapdns_round_trip() {
         return;
     }
 
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().expect("lock tun e2e");
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let tun = TunHarness::start().expect("start tun harness");
 
     let stats = Arc::new(Stats::new());
-    let cancel = CancellationToken::new();
-    let worker = start_tunnel_worker(
+    let _worker = TunnelWorker::start(
         tun.dup_fd().expect("dup tun fd"),
         Arc::new(build_tunnel_config(&fixture, tun.name())),
-        cancel.clone(),
         stats.clone(),
     );
 
@@ -52,22 +50,38 @@ fn linux_tun_tcp_udp_and_mapdns_round_trip() {
     let snapshot = stats.snapshot();
     assert!(snapshot.0 > 0, "expected tx packets > 0, got {snapshot:?}");
     assert!(snapshot.2 > 0, "expected rx packets > 0, got {snapshot:?}");
-
-    cancel.cancel();
-    let worker_result = worker.join().expect("join tunnel worker");
-    worker_result.expect("tunnel worker exited cleanly");
 }
 
-fn start_tunnel_worker(
-    tun_fd: i32,
-    config: Arc<Config>,
+fn test_guard() -> MutexGuard<'static, ()> {
+    TEST_LOCK.get_or_init(|| Mutex::new(())).lock().expect("lock tun e2e")
+}
+
+struct TunnelWorker {
     cancel: CancellationToken,
-    stats: Arc<Stats>,
-) -> thread::JoinHandle<io::Result<()>> {
-    thread::spawn(move || {
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
-        runtime.block_on(run_tunnel(config, tun_fd, cancel, stats))
-    })
+    handle: Option<thread::JoinHandle<io::Result<()>>>,
+}
+
+impl TunnelWorker {
+    fn start(tun_fd: i32, config: Arc<Config>, stats: Arc<Stats>) -> Self {
+        let cancel = CancellationToken::new();
+        let cancel_for_worker = cancel.clone();
+        let handle = thread::spawn(move || {
+            let runtime =
+                tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
+            runtime.block_on(run_tunnel(config, tun_fd, cancel_for_worker, stats))
+        });
+        Self { cancel, handle: Some(handle) }
+    }
+}
+
+impl Drop for TunnelWorker {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+        if let Some(handle) = self.handle.take() {
+            let worker_result = handle.join().expect("join tunnel worker");
+            worker_result.expect("tunnel worker exited cleanly");
+        }
+    }
 }
 
 fn build_tunnel_config(fixture: &FixtureStack, tun_name: &str) -> Config {

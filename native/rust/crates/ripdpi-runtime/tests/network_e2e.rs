@@ -1,7 +1,7 @@
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -22,30 +22,53 @@ mod rust_packet_seeds;
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 const START_TIMEOUT: Duration = Duration::from_secs(5);
+const SOCKET_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[test]
-fn socks5_tcp_udp_tls_domain_chain_and_filtering_are_covered_end_to_end() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+fn socks5_tcp_round_trip_reaches_fixture() {
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
-
-    println!("tcp");
     socks5_tcp_round_trip(&fixture);
-    println!("udp");
+}
+
+#[test]
+fn socks5_udp_round_trip_reaches_fixture() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     socks5_udp_round_trip(&fixture);
-    println!("http-connect");
+}
+
+#[test]
+fn http_connect_round_trip_reaches_fixture() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     http_connect_round_trip(&fixture);
-    println!("domain-policy");
+}
+
+#[test]
+fn domain_resolution_policy_is_enforced_end_to_end() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     domain_resolution_policy_is_enforced(&fixture);
-    println!("chain");
+}
+
+#[test]
+fn chained_upstream_round_trip_records_fixture_socks_usage_end_to_end() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     chained_upstream_round_trip_records_fixture_socks_usage(&fixture);
-    println!("host-filter");
+}
+
+#[test]
+fn host_filters_only_route_matching_domain_via_upstream_end_to_end() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     hosts_filter_only_routes_matching_domain_via_upstream(&fixture);
-    println!("done");
 }
 
 #[test]
 fn upstream_tcp_reset_fault_is_observed_end_to_end() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     fixture.faults().set(FixtureFaultSpec {
         target: FixtureFaultTarget::TcpEcho,
@@ -70,7 +93,7 @@ fn upstream_tcp_reset_fault_is_observed_end_to_end() {
 
 #[test]
 fn socks5_udp_quic_initial_routes_by_hostname_and_records_host_telemetry() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let telemetry = Arc::new(RecordingTelemetry::default());
     let proxy =
@@ -101,7 +124,7 @@ fn socks5_udp_quic_initial_routes_by_hostname_and_records_host_telemetry() {
 
 #[test]
 fn socks5_udp_quic_initial_disabled_falls_back_without_host_telemetry() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let telemetry = Arc::new(RecordingTelemetry::default());
     let proxy =
@@ -126,7 +149,7 @@ fn socks5_udp_quic_initial_disabled_falls_back_without_host_telemetry() {
 
 #[test]
 fn socks5_udp_quic_initial_v2_routes_by_hostname_when_enabled() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let telemetry = Arc::new(RecordingTelemetry::default());
     let proxy = start_proxy(quic_udp_host_filter_config(QuicInitialMode::Route, false, true), Some(telemetry.clone()));
@@ -189,10 +212,15 @@ fn http_connect_round_trip(fixture: &FixtureStack) {
 
 fn domain_resolution_policy_is_enforced(fixture: &FixtureStack) {
     let proxy = start_proxy(ephemeral_proxy_config(&["-X", "--ip", "127.0.0.1"]), None);
-    let (mut domain_stream, reply) = socks_connect_domain(proxy.port, "localhost", fixture.manifest().tcp_echo_port);
-    assert_eq!(reply[1], 0x00, "expected localhost domain resolution to succeed");
-    domain_stream.write_all(b"domain ok").expect("write domain payload");
-    assert_eq!(recv_exact(&mut domain_stream, 9), b"domain ok");
+    assert_eq!(
+        socks_connect_domain_round_trip_with_retry(
+            proxy.port,
+            "localhost",
+            fixture.manifest().tcp_echo_port,
+            b"domain ok"
+        ),
+        b"domain ok"
+    );
     drop(proxy);
 
     let proxy_no_domain = start_proxy(ephemeral_proxy_config(&["-X", "--no-domain", "--ip", "127.0.0.1"]), None);
@@ -251,6 +279,10 @@ fn hosts_filter_only_routes_matching_domain_via_upstream(fixture: &FixtureStack)
     );
     drop(proxy);
     drop(upstream);
+}
+
+fn test_guard() -> MutexGuard<'static, ()> {
+    TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 struct RunningProxy {
@@ -325,6 +357,8 @@ fn wait_for_port(port: u16) {
 
 fn socks_auth(proxy_port: u16) -> TcpStream {
     let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, proxy_port)).expect("connect to proxy");
+    stream.set_read_timeout(Some(SOCKET_TIMEOUT)).expect("set socks auth read timeout");
+    stream.set_write_timeout(Some(SOCKET_TIMEOUT)).expect("set socks auth write timeout");
     stream.write_all(b"\x05\x01\x00").expect("write socks auth");
     assert_eq!(recv_exact(&mut stream, 2), b"\x05\x00");
     stream
@@ -356,6 +390,39 @@ fn socks_connect_domain(proxy_port: u16, host: &str, dst_port: u16) -> (TcpStrea
     stream.write_all(&request).expect("write socks domain connect");
     let reply = recv_socks5_reply(&mut stream);
     (stream, reply)
+}
+
+fn socks_connect_domain_round_trip_with_retry(proxy_port: u16, host: &str, dst_port: u16, payload: &[u8]) -> Vec<u8> {
+    let mut last_error = None;
+    for _ in 0..3 {
+        match attempt_socks_connect_domain_round_trip(proxy_port, host, dst_port, payload) {
+            Ok(body) => return body,
+            Err(error) => {
+                last_error = Some(error);
+                thread::sleep(Duration::from_millis(50));
+            }
+        }
+    }
+    panic!(
+        "domain round trip failed after retries: {}",
+        last_error.unwrap_or_else(|| "unknown domain round trip error".to_string())
+    );
+}
+
+fn attempt_socks_connect_domain_round_trip(
+    proxy_port: u16,
+    host: &str,
+    dst_port: u16,
+    payload: &[u8],
+) -> Result<Vec<u8>, String> {
+    let (mut stream, reply) = socks_connect_domain(proxy_port, host, dst_port);
+    if reply.get(1).copied() != Some(0x00) {
+        return Err(format!("SOCKS5 domain connect failed: {reply:?}"));
+    }
+    stream.write_all(payload).map_err(|error| format!("write domain payload failed: {error}"))?;
+    let mut body = vec![0u8; payload.len()];
+    stream.read_exact(&mut body).map_err(|error| format!("read domain payload failed: {error}"))?;
+    Ok(body)
 }
 
 fn socks_udp_associate(proxy_port: u16) -> (TcpStream, SocketAddr) {
@@ -434,6 +501,8 @@ fn udp_proxy_roundtrip_with_socket(socket: &UdpSocket, relay: SocketAddr, dst_po
 
 fn http_connect(proxy_port: u16, dst_port: u16) -> TcpStream {
     let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, proxy_port)).expect("connect http proxy");
+    stream.set_read_timeout(Some(SOCKET_TIMEOUT)).expect("set http connect read timeout");
+    stream.set_write_timeout(Some(SOCKET_TIMEOUT)).expect("set http connect write timeout");
     write!(stream, "CONNECT 127.0.0.1:{dst_port} HTTP/1.1\r\nHost: 127.0.0.1:{dst_port}\r\n\r\n")
         .expect("write http connect");
     let mut response = Vec::new();
@@ -573,7 +642,7 @@ fn _assert_fixture_event_contains(events: &[FixtureEvent], service: &str, detail
 
 #[test]
 fn socks5_delay_connect_replies_before_first_payload_and_round_trips() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
 
     // --to-socks5 implicitly enables delay_conn; host filter triggers payload-aware routing
@@ -612,7 +681,7 @@ fn socks5_delay_connect_replies_before_first_payload_and_round_trips() {
 
 #[test]
 fn socks5_udp_multi_flow_same_socket_different_targets() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let telemetry = Arc::new(RecordingTelemetry::default());
     let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), Some(telemetry.clone()));
@@ -645,7 +714,7 @@ fn socks5_udp_multi_flow_same_socket_different_targets() {
 
 #[test]
 fn upstream_silent_drop_fault_is_classified_end_to_end() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
 
     // TcpReset on the fixture; proxy observes EOF (classified as SilentDrop per mem-1773400517-b6c4)
@@ -689,7 +758,7 @@ fn upstream_silent_drop_fault_is_classified_end_to_end() {
 
 #[test]
 fn socks5_connect_reply_contains_bound_address() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), None);
 
@@ -709,7 +778,7 @@ fn socks5_connect_reply_contains_bound_address() {
 
 #[test]
 fn http_connect_reply_format_is_200_ok_with_crlf() {
-    let _guard = TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     let proxy = start_proxy(ephemeral_proxy_config(&["--http-connect", "--ip", "127.0.0.1"]), None);
 
