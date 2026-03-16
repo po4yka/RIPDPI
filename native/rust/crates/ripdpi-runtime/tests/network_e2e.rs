@@ -11,9 +11,9 @@ use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
     FixtureStack,
 };
-use ripdpi_runtime::process::{prepare_embedded, request_shutdown};
-use ripdpi_runtime::runtime::{create_listener, run_proxy_with_listener};
-use ripdpi_runtime::{clear_runtime_telemetry, install_runtime_telemetry, RuntimeTelemetrySink};
+use ripdpi_runtime::process::prepare_embedded;
+use ripdpi_runtime::runtime::{create_listener, run_proxy_with_embedded_control};
+use ripdpi_runtime::{clear_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
 
 #[allow(dead_code)]
 #[path = "../../../third_party/byedpi/tests/rust_packet_seeds.rs"]
@@ -255,31 +255,30 @@ fn hosts_filter_only_routes_matching_domain_via_upstream(fixture: &FixtureStack)
 
 struct RunningProxy {
     port: u16,
+    control: Arc<EmbeddedProxyControl>,
     thread: Option<thread::JoinHandle<io::Result<()>>>,
 }
 
 impl Drop for RunningProxy {
     fn drop(&mut self) {
-        request_shutdown();
+        self.control.request_shutdown();
         if let Some(thread) = self.thread.take() {
             let result = thread.join().expect("join proxy thread");
             result.expect("proxy stopped cleanly");
         }
-        clear_runtime_telemetry();
     }
 }
 
 fn start_proxy(config: ciadpi_config::RuntimeConfig, telemetry: Option<Arc<RecordingTelemetry>>) -> RunningProxy {
     prepare_embedded();
     clear_runtime_telemetry();
-    if let Some(telemetry) = telemetry {
-        install_runtime_telemetry(telemetry);
-    }
+    let control = Arc::new(EmbeddedProxyControl::new(telemetry.map(|value| value as Arc<dyn RuntimeTelemetrySink>)));
     let listener = create_listener(&config).expect("create listener");
     let port = listener.local_addr().expect("listener addr").port();
-    let thread = thread::spawn(move || run_proxy_with_listener(config, listener));
+    let control_for_thread = control.clone();
+    let thread = thread::spawn(move || run_proxy_with_embedded_control(config, listener, control_for_thread));
     wait_for_port(port);
-    RunningProxy { port, thread: Some(thread) }
+    RunningProxy { port, control, thread: Some(thread) }
 }
 
 fn proxy_config(args: &[&str]) -> ciadpi_config::RuntimeConfig {

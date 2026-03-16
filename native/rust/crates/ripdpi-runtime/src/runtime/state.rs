@@ -5,7 +5,7 @@ use std::time::Duration;
 use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::retry_stealth::RetryPacer;
-use crate::runtime_policy::RuntimeCache;
+use crate::runtime_policy::RuntimePolicy;
 use crate::RuntimeTelemetrySink;
 use ciadpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
@@ -20,7 +20,7 @@ pub(super) const DESYNC_SEED_BASE: u32 = 7;
 #[derive(Clone)]
 pub(super) struct RuntimeState {
     pub(super) config: Arc<RuntimeConfig>,
-    pub(super) cache: Arc<Mutex<RuntimeCache>>,
+    pub(super) cache: Arc<Mutex<RuntimePolicy>>,
     pub(super) adaptive_fake_ttl: Arc<Mutex<AdaptiveFakeTtlResolver>>,
     pub(super) adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
     pub(super) retry_stealth: Arc<Mutex<RetryPacer>>,
@@ -31,7 +31,7 @@ pub(super) struct RuntimeState {
 
 pub(super) struct RuntimeCleanup {
     pub(super) config: Arc<RuntimeConfig>,
-    pub(super) cache: Arc<Mutex<RuntimeCache>>,
+    pub(super) cache: Arc<Mutex<RuntimePolicy>>,
 }
 
 impl Drop for RuntimeCleanup {
@@ -67,7 +67,7 @@ impl Drop for ClientSlotGuard {
     }
 }
 
-pub(super) fn flush_autolearn_updates(state: &RuntimeState, cache: &mut RuntimeCache) {
+pub(super) fn flush_autolearn_updates(state: &RuntimeState, cache: &mut RuntimePolicy) {
     let Some(telemetry) = &state.telemetry else {
         let _ = cache.drain_autolearn_events();
         return;

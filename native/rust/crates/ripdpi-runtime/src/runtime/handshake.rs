@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use crate::platform;
 use crate::runtime_policy::{
-    extract_host, group_requires_payload, route_matches_payload, select_next_group, ConnectionRoute, TransportProtocol,
+    extract_host, group_requires_payload, route_matches_payload, ConnectionRoute, TransportProtocol,
 };
 use ciadpi_config::RuntimeConfig;
 use ciadpi_session::{
@@ -396,19 +396,19 @@ fn maybe_delay_connect(
     } else {
         let cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
         let host = extract_host(&state.config, &payload);
-        select_next_group(
-            &state.config,
-            &cache,
-            &route,
-            target,
-            Some(&payload),
-            host.as_deref(),
-            TransportProtocol::Tcp,
-            0,
-            true,
-            None,
-        )
-        .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
+        cache
+            .select_next(
+                &state.config,
+                &route,
+                target,
+                Some(&payload),
+                host.as_deref(),
+                TransportProtocol::Tcp,
+                0,
+                true,
+                None,
+            )
+            .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))?
     };
 
     Ok(DelayConnect::Delayed { route, payload })

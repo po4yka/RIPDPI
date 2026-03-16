@@ -7,7 +7,7 @@ use std::time::Duration;
 use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::retry_stealth::RetryPacer;
-use crate::runtime_policy::RuntimeCache;
+use crate::runtime_policy::RuntimePolicy;
 use crate::{current_runtime_telemetry, EmbeddedProxyControl};
 use crate::{platform, process};
 use ciadpi_config::RuntimeConfig;
@@ -44,7 +44,7 @@ pub(super) fn run_proxy_with_listener_internal(
     if config.default_ttl == 0 {
         config.default_ttl = platform::detect_default_ttl()?;
     }
-    let cache = RuntimeCache::load(&config);
+    let cache = RuntimePolicy::load(&config);
     let state = RuntimeState {
         config: Arc::new(config),
         cache: Arc::new(Mutex::new(cache)),
@@ -99,22 +99,19 @@ pub(super) fn run_proxy_with_listener_internal(
                         if let Some(telemetry) = &state.telemetry {
                             telemetry.on_client_accepted();
                         }
-                        if let Err(err) = thread::Builder::new()
-                            .name("ripdpi-client".into())
-                            .spawn(move || {
-                                let _slot = _slot;
-                                let result = super::handshake::handle_client(client, &state);
-                                if let Err(err) = &result {
-                                    log::error!("ciadpi client error: {err}");
-                                    if let Some(telemetry) = &state.telemetry {
-                                        telemetry.on_client_error(err);
-                                    }
-                                }
+                        if let Err(err) = thread::Builder::new().name("ripdpi-client".into()).spawn(move || {
+                            let _slot = _slot;
+                            let result = super::handshake::handle_client(client, &state);
+                            if let Err(err) = &result {
+                                log::error!("ciadpi client error: {err}");
                                 if let Some(telemetry) = &state.telemetry {
-                                    telemetry.on_client_finished();
+                                    telemetry.on_client_error(err);
                                 }
-                            })
-                        {
+                            }
+                            if let Some(telemetry) = &state.telemetry {
+                                telemetry.on_client_finished();
+                            }
+                        }) {
                             log::error!("failed to spawn client thread: {err}");
                         }
                     }
