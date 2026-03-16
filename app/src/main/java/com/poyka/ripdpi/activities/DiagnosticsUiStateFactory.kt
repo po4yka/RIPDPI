@@ -76,7 +76,7 @@ internal class DiagnosticsUiStateFactory(
                 support.toStrategyProbeReportUiModel(
                     report = report,
                     reportResults = latestProfileReport.results,
-                    serviceMode = latestProfileSession?.serviceMode,
+                    serviceMode = latestProfileSession.serviceMode,
                 )
             }
 

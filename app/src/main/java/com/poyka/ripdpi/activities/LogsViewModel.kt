@@ -68,7 +68,7 @@ internal fun classifyLogType(message: String): LogType {
 class LogsViewModel
 @Inject
 constructor(
-    @ApplicationContext private val appContext: Context,
+    @param:ApplicationContext private val appContext: Context,
     private val serviceStateStore: ServiceStateStore,
 ) : ViewModel() {
     private val logBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
