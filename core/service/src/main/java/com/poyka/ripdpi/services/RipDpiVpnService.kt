@@ -196,13 +196,13 @@ class RipDpiVpnService : LifecycleVpnService() {
             }
 
             STOP_ACTION -> {
-                lifecycleScope.launch { stop() }
+                lifecycleScope.launch { stop(stopSelfStartId = startId) }
                 START_NOT_STICKY
             }
 
             else -> {
                 logcat(LogPriority.WARN) { "Unknown action: $action" }
-                lifecycleScope.launch { stop() }
+                lifecycleScope.launch { stop(stopSelfStartId = startId) }
                 START_NOT_STICKY
             }
         }
@@ -244,10 +244,13 @@ class RipDpiVpnService : LifecycleVpnService() {
                             activeDns = resolution.activeDns,
                             overrideReason = resolution.resolverFallbackReason,
                         )
+                        updateStatus(ServiceStatus.Connected)
+                        startNetworkHandoverMonitoring()
+                        startTelemetryUpdates()
                         lifecycleState.markStarted()
                         true
                     } catch (e: Exception) {
-                        lifecycleState.markStartFailed()
+                        lifecycleState.beginStop()
                         throw e
                     }
                 }
@@ -255,10 +258,6 @@ class RipDpiVpnService : LifecycleVpnService() {
             if (!started) {
                 return
             }
-
-            updateStatus(ServiceStatus.Connected)
-            startNetworkHandoverMonitoring()
-            startTelemetryUpdates()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start VPN\n${e.asLog()}" }
             matchedRememberedPolicy?.let { policy ->
@@ -283,17 +282,22 @@ class RipDpiVpnService : LifecycleVpnService() {
         }
     }
 
-    private suspend fun stop(skipProxyShutdown: Boolean = false) {
+    private suspend fun stop(
+        skipProxyShutdown: Boolean = false,
+        stopSelfStartId: Int? = null,
+    ) {
         logcat(LogPriority.INFO) { "Stopping" }
 
         val stopped =
             mutex.withLock {
-                if (lifecycleState.state == ServiceLifecycleStateMachine.State.STOPPING) {
+                if (stopping) {
                     logcat(LogPriority.WARN) { "VPN stop already in progress" }
                     return@withLock false
                 }
 
-                lifecycleState.beginStop()
+                if (lifecycleState.state != ServiceLifecycleStateMachine.State.STOPPING) {
+                    lifecycleState.beginStop()
+                }
                 stopping = true
                 try {
                     handoverMonitorJob?.cancel()
@@ -314,16 +318,26 @@ class RipDpiVpnService : LifecycleVpnService() {
                         ripDpiProxy = null
                     }
                 } finally {
-                    stopping = false
-                    lifecycleState.markStopped()
-                    currentDnsSignature = null
-                    tunnelStartCount = 0
-                    tunnelRecoveryRetryCount = 0
-                    pendingNetworkHandoverClass = null
-                    lastSuccessfulHandoverFingerprintHash = null
-                    lastSuccessfulHandoverAt = 0L
-                    resolverOverrideStore.clear()
-                    activeConnectionPolicyStore.clear()
+                    try {
+                        updateStatus(ServiceStatus.Disconnected)
+                        telemetryJob?.cancel()
+                        telemetryJob = null
+                        currentDnsSignature = null
+                        tunnelStartCount = 0
+                        tunnelRecoveryRetryCount = 0
+                        pendingNetworkHandoverClass = null
+                        lastSuccessfulHandoverFingerprintHash = null
+                        lastSuccessfulHandoverAt = 0L
+                        resolverOverrideStore.clear()
+                        activeConnectionPolicyStore.clear()
+                        val stoppedSelf = stopSelfStartId?.let(::stopSelfResult)
+                        if (stoppedSelf == null) {
+                            stopSelf()
+                        }
+                    } finally {
+                        stopping = false
+                        lifecycleState.markStopped()
+                    }
                 }
                 true
             }
@@ -331,11 +345,6 @@ class RipDpiVpnService : LifecycleVpnService() {
         if (!stopped) {
             return
         }
-
-        updateStatus(ServiceStatus.Disconnected)
-        telemetryJob?.cancel()
-        telemetryJob = null
-        stopSelf()
     }
 
     private suspend fun startProxy(preferences: RipDpiProxyPreferences) {

@@ -106,13 +106,13 @@ class RipDpiProxyService : LifecycleService() {
             }
 
             STOP_ACTION -> {
-                lifecycleScope.launch { stop() }
+                lifecycleScope.launch { stop(stopSelfStartId = startId) }
                 START_NOT_STICKY
             }
 
             else -> {
                 logcat(LogPriority.WARN) { "Unknown action: $action" }
-                lifecycleScope.launch { stop() }
+                lifecycleScope.launch { stop(stopSelfStartId = startId) }
                 START_NOT_STICKY
             }
         }
@@ -141,10 +141,13 @@ class RipDpiProxyService : LifecycleService() {
                             appliedAt = System.currentTimeMillis(),
                         )
                         startProxy(resolution.proxyPreferences)
+                        updateStatus(ServiceStatus.Connected)
+                        startNetworkHandoverMonitoring()
+                        startTelemetryUpdates()
                         lifecycleState.markStarted()
                         true
                     } catch (e: Exception) {
-                        lifecycleState.markStartFailed()
+                        lifecycleState.beginStop()
                         throw e
                     }
                 }
@@ -152,10 +155,6 @@ class RipDpiProxyService : LifecycleService() {
             if (!started) {
                 return
             }
-
-            updateStatus(ServiceStatus.Connected)
-            startNetworkHandoverMonitoring()
-            startTelemetryUpdates()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Failed to start proxy\n${e.asLog()}" }
             matchedRememberedPolicy?.let { policy ->
@@ -180,17 +179,22 @@ class RipDpiProxyService : LifecycleService() {
         }
     }
 
-    private suspend fun stop(skipProxyShutdown: Boolean = false) {
+    private suspend fun stop(
+        skipProxyShutdown: Boolean = false,
+        stopSelfStartId: Int? = null,
+    ) {
         logcat(LogPriority.INFO) { "Stopping proxy" }
 
         val stopped =
             mutex.withLock {
-                if (lifecycleState.state == ServiceLifecycleStateMachine.State.STOPPING) {
+                if (stopping) {
                     logcat(LogPriority.WARN) { "Proxy stop already in progress" }
                     return@withLock false
                 }
 
-                lifecycleState.beginStop()
+                if (lifecycleState.state != ServiceLifecycleStateMachine.State.STOPPING) {
+                    lifecycleState.beginStop()
+                }
                 stopping = true
                 try {
                     handoverMonitorJob?.cancel()
@@ -204,8 +208,22 @@ class RipDpiProxyService : LifecycleService() {
                 } catch (e: Exception) {
                     logcat(LogPriority.ERROR) { "Failed to stop proxy\n${e.asLog()}" }
                 } finally {
-                    stopping = false
-                    lifecycleState.markStopped()
+                    try {
+                        updateStatus(ServiceStatus.Disconnected)
+                        telemetryJob?.cancel()
+                        telemetryJob = null
+                        pendingNetworkHandoverClass = null
+                        lastSuccessfulHandoverFingerprintHash = null
+                        lastSuccessfulHandoverAt = 0L
+                        activeConnectionPolicyStore.clear()
+                        val stoppedSelf = stopSelfStartId?.let(::stopSelfResult)
+                        if (stoppedSelf == null) {
+                            stopSelf()
+                        }
+                    } finally {
+                        stopping = false
+                        lifecycleState.markStopped()
+                    }
                 }
                 true
             }
@@ -213,15 +231,6 @@ class RipDpiProxyService : LifecycleService() {
         if (!stopped) {
             return
         }
-
-        updateStatus(ServiceStatus.Disconnected)
-        telemetryJob?.cancel()
-        telemetryJob = null
-        pendingNetworkHandoverClass = null
-        lastSuccessfulHandoverFingerprintHash = null
-        lastSuccessfulHandoverAt = 0L
-        activeConnectionPolicyStore.clear()
-        stopSelf()
     }
 
     private suspend fun startProxy(preferences: RipDpiProxyPreferences) {
