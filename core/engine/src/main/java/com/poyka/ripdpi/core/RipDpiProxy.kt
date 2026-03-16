@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.core
 
 import javax.inject.Inject
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -105,7 +107,14 @@ class RipDpiProxy(
             }
 
         try {
-            return withContext(Dispatchers.IO) { nativeBindings.start(handle) }
+            val completionHandle = coroutineContext[Job]!!.invokeOnCompletion {
+                nativeBindings.stop(handle)
+            }
+            return try {
+                withContext(Dispatchers.IO) { nativeBindings.start(handle) }
+            } finally {
+                completionHandle.dispose()
+            }
         } catch (error: Exception) {
             startupSignal.completeExceptionally(error)
             throw error
@@ -167,14 +176,13 @@ class RipDpiProxy(
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
-        val currentHandle =
+        val payload =
             mutex.withLock {
-                handle
+                if (handle == 0L) {
+                    return NativeRuntimeSnapshot.idle(source = "proxy")
+                }
+                withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(handle) }
             }
-        if (currentHandle == 0L) {
-            return NativeRuntimeSnapshot.idle(source = "proxy")
-        }
-        val payload = withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(currentHandle) }
         return payload
             ?.takeIf { it.isNotBlank() }
             ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
