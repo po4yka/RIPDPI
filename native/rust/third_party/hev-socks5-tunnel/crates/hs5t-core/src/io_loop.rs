@@ -87,28 +87,52 @@ fn try_read_duplex(stream: &mut tokio::io::DuplexStream, buf: &mut [u8]) -> Opti
 
 // ── Packet helpers ────────────────────────────────────────────────────────────
 
-/// Extract the TCP destination port from a raw IPv4 packet, or `None` if not TCP.
-fn tcp_dst_port(pkt: &[u8]) -> Option<u16> {
-    if pkt.len() < 20 || pkt[0] >> 4 != 4 || pkt[9] != 6 {
+fn ipv4_transport_offset(pkt: &[u8], protocol: u8) -> Option<usize> {
+    if pkt.len() < 20 || pkt[0] >> 4 != 4 || pkt[9] != protocol {
         return None;
     }
     let ihl = ((pkt[0] & 0x0f) as usize) * 4;
-    if pkt.len() < ihl + 4 {
+    if ihl < 20 || pkt.len() < ihl {
         return None;
     }
-    Some(u16::from_be_bytes([pkt[ihl + 2], pkt[ihl + 3]]))
+    Some(ihl)
 }
 
-/// Return `true` if the raw IPv4 packet is a pure TCP SYN (SYN=1, ACK=0).
+fn ipv6_transport_offset(pkt: &[u8], next_header: u8) -> Option<usize> {
+    if pkt.len() < 40 || pkt[0] >> 4 != 6 || pkt[6] != next_header {
+        return None;
+    }
+    Some(40)
+}
+
+fn tcp_header_offset(pkt: &[u8]) -> Option<usize> {
+    match pkt.first().map(|value| value >> 4) {
+        Some(4) => {
+            let offset = ipv4_transport_offset(pkt, 6)?;
+            (pkt.len() >= offset + 14).then_some(offset)
+        }
+        Some(6) => {
+            let offset = ipv6_transport_offset(pkt, 6)?;
+            (pkt.len() >= offset + 14).then_some(offset)
+        }
+        _ => None,
+    }
+}
+
+/// Extract the TCP destination port from a raw IPv4 or IPv6 packet, or `None`
+/// if the packet is not a plain TCP transport packet.
+fn tcp_dst_port(pkt: &[u8]) -> Option<u16> {
+    let offset = tcp_header_offset(pkt)?;
+    Some(u16::from_be_bytes([pkt[offset + 2], pkt[offset + 3]]))
+}
+
+/// Return `true` if the raw IPv4 or IPv6 packet is a pure TCP SYN
+/// (SYN=1, ACK=0).
 fn is_tcp_syn(pkt: &[u8]) -> bool {
-    if pkt.len() < 20 || pkt[9] != 6 {
+    let Some(offset) = tcp_header_offset(pkt) else {
         return false;
-    }
-    let ihl = ((pkt[0] & 0x0f) as usize) * 4;
-    if pkt.len() < ihl + 14 {
-        return false;
-    }
-    pkt[ihl + 13] & 0x12 == 0x02 // SYN=1, ACK=0
+    };
+    pkt[offset + 13] & 0x12 == 0x02
 }
 
 /// Return `true` if the raw IPv4 packet looks like an injected TCP RST.
@@ -116,12 +140,10 @@ fn is_tcp_syn(pkt: &[u8]) -> bool {
 /// Passive DPI boxes (e.g. Russian SORM/MGTS) inject spoofed RST packets
 /// with IP ID 0x0000 or 0x0001, which is never used by real endpoints.
 fn is_injected_rst(pkt: &[u8]) -> bool {
-    // Need IPv4 header (20 bytes) + TCP header through flags (ihl + 14 bytes)
-    if pkt.len() < 20 || pkt[0] >> 4 != 4 || pkt[9] != 6 {
+    let Some(ihl) = ipv4_transport_offset(pkt, 6) else {
         return false;
-    }
-    let ihl = ((pkt[0] & 0x0f) as usize) * 4;
-    if ihl < 20 || pkt.len() < ihl + 14 {
+    };
+    if pkt.len() < ihl + 14 {
         return false;
     }
     // TCP RST flag is bit 2 (0x04) in the flags byte
@@ -133,35 +155,118 @@ fn is_injected_rst(pkt: &[u8]) -> bool {
     ip_id <= 1
 }
 
-/// Build a raw IPv4/UDP packet for a DNS response.
+fn checksum_sum(bytes: &[u8]) -> u32 {
+    let mut sum = 0u32;
+    let mut chunks = bytes.chunks_exact(2);
+    for chunk in &mut chunks {
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
+    }
+    if let Some(last) = chunks.remainder().first() {
+        sum += u32::from(*last) << 8;
+    }
+    sum
+}
+
+fn finalize_checksum(mut sum: u32) -> u16 {
+    while sum > 0xFFFF {
+        sum = (sum & 0xFFFF) + (sum >> 16);
+    }
+    !(sum as u16)
+}
+
+fn normalize_udp_checksum(checksum: u16) -> u16 {
+    if checksum == 0 {
+        0xFFFF
+    } else {
+        checksum
+    }
+}
+
+fn udp_checksum_ipv4(src_ip: [u8; 4], dst_ip: [u8; 4], udp_packet: &[u8]) -> u16 {
+    let udp_len = u16::try_from(udp_packet.len()).unwrap_or(u16::MAX);
+    let mut sum = checksum_sum(&src_ip);
+    sum += checksum_sum(&dst_ip);
+    sum += u32::from(17u16);
+    sum += u32::from(udp_len);
+    sum += checksum_sum(udp_packet);
+    normalize_udp_checksum(finalize_checksum(sum))
+}
+
+fn udp_checksum_ipv6(src_ip: [u8; 16], dst_ip: [u8; 16], udp_packet: &[u8]) -> u16 {
+    let udp_len = u32::try_from(udp_packet.len()).unwrap_or(u32::MAX);
+    let mut sum = checksum_sum(&src_ip);
+    sum += checksum_sum(&dst_ip);
+    sum += (udp_len >> 16) + (udp_len & 0xFFFF);
+    sum += u32::from(17u16);
+    sum += checksum_sum(udp_packet);
+    normalize_udp_checksum(finalize_checksum(sum))
+}
+
+/// Build a raw IPv4/UDP or IPv6/UDP packet for a tunnel response.
 ///
 /// `src` — the mapdns address (e.g. 198.18.0.0:53)
 /// `dst` — the original query source (the TUN client)
 fn build_udp_response(src: SocketAddr, dst: SocketAddr, payload: &[u8]) -> Vec<u8> {
-    let (src_ip, dst_ip) = match (src.ip(), dst.ip()) {
-        (IpAddr::V4(s), IpAddr::V4(d)) => (s.octets(), d.octets()),
-        _ => return Vec::new(), // IPv6 DNS intercept not implemented
+    let udp_len = match u16::try_from(8usize + payload.len()) {
+        Ok(value) => value,
+        Err(_) => return Vec::new(),
     };
-    let udp_len = (8 + payload.len()) as u16;
-    let total_len = (20 + 8 + payload.len()) as u16;
-    let mut pkt = vec![0u8; total_len as usize];
-    // IPv4 header
-    pkt[0] = 0x45;
-    pkt[2] = (total_len >> 8) as u8;
-    pkt[3] = total_len as u8;
-    pkt[8] = 64; // TTL
-    pkt[9] = 17; // UDP
-    pkt[12..16].copy_from_slice(&src_ip);
-    pkt[16..20].copy_from_slice(&dst_ip);
-    // UDP header
-    let sp = src.port().to_be_bytes();
-    let dp = dst.port().to_be_bytes();
-    pkt[20..22].copy_from_slice(&sp);
-    pkt[22..24].copy_from_slice(&dp);
-    pkt[24..26].copy_from_slice(&(udp_len).to_be_bytes());
-    // payload
-    pkt[28..28 + payload.len()].copy_from_slice(payload);
-    pkt
+
+    match (src, dst) {
+        (SocketAddr::V4(src), SocketAddr::V4(dst)) => {
+            let total_len = match u16::try_from(20usize + usize::from(udp_len)) {
+                Ok(value) => value,
+                Err(_) => return Vec::new(),
+            };
+            let mut pkt = vec![0u8; usize::from(total_len)];
+            let src_ip = src.ip().octets();
+            let dst_ip = dst.ip().octets();
+
+            pkt[0] = 0x45;
+            pkt[2..4].copy_from_slice(&total_len.to_be_bytes());
+            pkt[8] = 64;
+            pkt[9] = 17;
+            pkt[12..16].copy_from_slice(&src_ip);
+            pkt[16..20].copy_from_slice(&dst_ip);
+
+            pkt[20..22].copy_from_slice(&src.port().to_be_bytes());
+            pkt[22..24].copy_from_slice(&dst.port().to_be_bytes());
+            pkt[24..26].copy_from_slice(&udp_len.to_be_bytes());
+            pkt[28..28 + payload.len()].copy_from_slice(payload);
+
+            let header_checksum = finalize_checksum(checksum_sum(&pkt[..20]));
+            pkt[10..12].copy_from_slice(&header_checksum.to_be_bytes());
+
+            let udp_checksum = udp_checksum_ipv4(src_ip, dst_ip, &pkt[20..]);
+            pkt[26..28].copy_from_slice(&udp_checksum.to_be_bytes());
+
+            pkt
+        }
+        (SocketAddr::V6(src), SocketAddr::V6(dst)) => {
+            let total_len = 40usize + usize::from(udp_len);
+            let mut pkt = vec![0u8; total_len];
+            let src_ip = src.ip().octets();
+            let dst_ip = dst.ip().octets();
+
+            pkt[0] = 0x60;
+            pkt[4..6].copy_from_slice(&udp_len.to_be_bytes());
+            pkt[6] = 17;
+            pkt[7] = 64;
+            pkt[8..24].copy_from_slice(&src_ip);
+            pkt[24..40].copy_from_slice(&dst_ip);
+
+            pkt[40..42].copy_from_slice(&src.port().to_be_bytes());
+            pkt[42..44].copy_from_slice(&dst.port().to_be_bytes());
+            pkt[44..46].copy_from_slice(&udp_len.to_be_bytes());
+            pkt[48..48 + payload.len()].copy_from_slice(payload);
+
+            let udp_checksum = udp_checksum_ipv6(src_ip, dst_ip, &pkt[40..]);
+            pkt[46..48].copy_from_slice(&udp_checksum.to_be_bytes());
+
+            pkt
+        }
+        _ => Vec::new(),
+    }
 }
 
 /// Convert a smoltcp `IpEndpoint` to a std `SocketAddr`.
@@ -974,16 +1079,16 @@ mod tests {
 
     fn ipv4_tcp_rst(ip_id: u16) -> Vec<u8> {
         let mut pkt = vec![0u8; 40];
-        pkt[0] = 0x45;                                // IPv4, IHL=5
-        pkt[3] = 40;                                  // total length
-        pkt[4] = (ip_id >> 8) as u8;                 // IP ID high
-        pkt[5] = (ip_id & 0xFF) as u8;               // IP ID low
-        pkt[8] = 64;                                  // TTL
-        pkt[9] = 6;                                   // TCP
+        pkt[0] = 0x45; // IPv4, IHL=5
+        pkt[3] = 40; // total length
+        pkt[4] = (ip_id >> 8) as u8; // IP ID high
+        pkt[5] = (ip_id & 0xFF) as u8; // IP ID low
+        pkt[8] = 64; // TTL
+        pkt[9] = 6; // TCP
         pkt[12..16].copy_from_slice(&[10, 0, 0, 1]); // src IP
         pkt[16..20].copy_from_slice(&[10, 0, 0, 2]); // dst IP
-        pkt[32] = 0x50;                               // TCP data offset = 5
-        pkt[33] = 0x04;                               // RST flag
+        pkt[32] = 0x50; // TCP data offset = 5
+        pkt[33] = 0x04; // RST flag
         pkt
     }
 
@@ -996,6 +1101,21 @@ mod tests {
         pkt[16..20].copy_from_slice(&[10, 0, 0, 2]);
         pkt[32] = 0x50;
         pkt[33] = 0x02; // SYN
+        pkt
+    }
+
+    fn ipv6_tcp_syn(dst_port: u16) -> Vec<u8> {
+        let mut pkt = vec![0u8; 60];
+        pkt[0] = 0x60;
+        pkt[4..6].copy_from_slice(&20u16.to_be_bytes());
+        pkt[6] = 6;
+        pkt[7] = 64;
+        pkt[8..24].copy_from_slice(&std::net::Ipv6Addr::LOCALHOST.octets());
+        pkt[24..40].copy_from_slice(&std::net::Ipv6Addr::LOCALHOST.octets());
+        pkt[40..42].copy_from_slice(&12345u16.to_be_bytes());
+        pkt[42..44].copy_from_slice(&dst_port.to_be_bytes());
+        pkt[52] = 0x50;
+        pkt[53] = 0x02;
         pkt
     }
 
@@ -1029,9 +1149,36 @@ mod tests {
         let mut pkt = vec![0u8; 40];
         pkt[0] = 0x40; // IPv4, IHL=0 (malformed)
         pkt[3] = 40;
-        pkt[9] = 6;    // TCP
-        // IP ID = 0x0000 (would look like injected without the guard)
+        pkt[9] = 6; // TCP
+                    // IP ID = 0x0000 (would look like injected without the guard)
         pkt[33] = 0x04; // RST flag (at byte 33, which is IHL+13 only if IHL=20)
         assert!(!is_injected_rst(&pkt), "malformed IHL=0 packet should not be detected as injected RST");
+    }
+
+    #[test]
+    fn tcp_syn_detects_ipv6_packets() {
+        assert!(is_tcp_syn(&ipv6_tcp_syn(443)));
+    }
+
+    #[test]
+    fn tcp_dst_port_extracts_ipv6_destination_port() {
+        assert_eq!(tcp_dst_port(&ipv6_tcp_syn(8443)), Some(8443));
+    }
+
+    #[test]
+    fn build_udp_response_supports_ipv6() {
+        let src = SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::LOCALHOST), 53);
+        let dst = SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::LOCALHOST), 5353);
+        let payload = b"dns";
+
+        let pkt = build_udp_response(src, dst, payload);
+
+        assert_eq!(pkt.len(), 40 + 8 + payload.len());
+        assert_eq!(pkt[0] >> 4, 6);
+        assert_eq!(pkt[6], 17);
+        assert_eq!(u16::from_be_bytes([pkt[40], pkt[41]]), 53);
+        assert_eq!(u16::from_be_bytes([pkt[42], pkt[43]]), 5353);
+        assert_ne!(u16::from_be_bytes([pkt[46], pkt[47]]), 0);
+        assert_eq!(&pkt[48..], payload);
     }
 }
