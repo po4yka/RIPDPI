@@ -90,6 +90,12 @@ data class HistoryUiState(
 
 sealed interface HistoryEffect
 
+private data class HistoryRepositorySnapshot(
+    val connectionSessions: List<BypassUsageSessionEntity>,
+    val scanSessions: List<ScanSessionEntity>,
+    val nativeEvents: List<NativeSessionEventEntity>,
+)
+
 @HiltViewModel
 class HistoryViewModel
     @Inject
@@ -120,9 +126,17 @@ class HistoryViewModel
 
         val uiState: StateFlow<HistoryUiState> =
             combine(
-                historyRepository.observeBypassUsageSessions(limit = 120),
-                historyRepository.observeRecentScanSessions(limit = 120),
-                historyRepository.observeNativeEvents(limit = 250),
+                combine(
+                    historyRepository.observeBypassUsageSessions(limit = 120),
+                    historyRepository.observeRecentScanSessions(limit = 120),
+                    historyRepository.observeNativeEvents(limit = 250),
+                ) { connectionSessions, scanSessions, nativeEvents ->
+                    HistoryRepositorySnapshot(
+                        connectionSessions = connectionSessions,
+                        scanSessions = scanSessions,
+                        nativeEvents = nativeEvents,
+                    )
+                },
                 selectedSectionRequest,
                 connectionModeFilter,
                 connectionStatusFilter,
@@ -138,29 +152,26 @@ class HistoryViewModel
                 selectedDiagnosticsDetail,
                 selectedEventId,
             ) { values ->
-                @Suppress("UNCHECKED_CAST")
-                val connectionSessions = values[0] as List<BypassUsageSessionEntity>
-                val scanSessions = values[1] as List<ScanSessionEntity>
-                val nativeEvents = values[2] as List<NativeSessionEventEntity>
-                val selectedSection = values[3] as HistorySection
-                val connectionMode = values[4] as String?
-                val connectionStatus = values[5] as String?
-                val connectionQuery = values[6] as String
-                val diagnosticsPath = values[7] as String?
-                val diagnosticsStatus = values[8] as String?
-                val diagnosticsQuery = values[9] as String
-                val eventSource = values[10] as String?
-                val eventSeverity = values[11] as String?
-                val eventQuery = values[12] as String
-                val autoScroll = values[13] as Boolean
-                val connectionDetail = values[14] as HistoryConnectionDetailUiModel?
-                val diagnosticsDetail = values[15] as DiagnosticsSessionDetailUiModel?
-                val selectedEventId = values[16] as String?
+                val repositorySnapshot = values[0] as HistoryRepositorySnapshot
+                val selectedSection = values[1] as HistorySection
+                val connectionMode = values[2] as String?
+                val connectionStatus = values[3] as String?
+                val connectionQuery = values[4] as String
+                val diagnosticsPath = values[5] as String?
+                val diagnosticsStatus = values[6] as String?
+                val diagnosticsQuery = values[7] as String
+                val eventSource = values[8] as String?
+                val eventSeverity = values[9] as String?
+                val eventQuery = values[10] as String
+                val autoScroll = values[11] as Boolean
+                val connectionDetail = values[12] as HistoryConnectionDetailUiModel?
+                val diagnosticsDetail = values[13] as DiagnosticsSessionDetailUiModel?
+                val selectedEventId = values[14] as String?
 
                 buildUiState(
-                    connectionSessions = connectionSessions,
-                    scanSessions = scanSessions,
-                    nativeEvents = nativeEvents,
+                    connectionSessions = repositorySnapshot.connectionSessions,
+                    scanSessions = repositorySnapshot.scanSessions,
+                    nativeEvents = repositorySnapshot.nativeEvents,
                     selectedSection = selectedSection,
                     connectionMode = connectionMode,
                     connectionStatus = connectionStatus,
