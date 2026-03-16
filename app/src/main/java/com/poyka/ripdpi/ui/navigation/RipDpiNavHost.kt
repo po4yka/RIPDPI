@@ -45,6 +45,7 @@ import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
+import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -326,6 +327,7 @@ fun RipDpiNavHost(
                         onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings.route) },
                         onOpenCustomization = { navController.navigate(Route.AppCustomization.route) },
                         onOpenAbout = { navController.navigate(Route.About.route) },
+                        onOpenDataTransparency = { navController.navigate(Route.DataTransparency.route) },
                         onShareDebugBundle = onShareDebugBundle,
                         permissionSummary = mainUiState.permissionSummary,
                         onRepairPermission = onRepairPermission,
@@ -363,6 +365,11 @@ fun RipDpiNavHost(
                     AppCustomizationRoute(
                         onBack = { navController.popBackStack() },
                         viewModel = settingsViewModel,
+                    )
+                }
+                composable(Route.DataTransparency.route) {
+                    DataTransparencyRoute(
+                        onBack = { navController.popBackStack() },
                     )
                 }
             }

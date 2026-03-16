@@ -1141,4 +1141,27 @@ Source: %2$s</string>
     <string name="about_credits_title">Credits</string>
     <string name="about_credits_body">RIPDPI builds on the open-source hufrea/ripdpi project and keeps all routing and configuration local to this device.</string>
     <string name="about_links_section">Links</string>
+
+    <string name="title_data_transparency">Data Transparency</string>
+    <string name="settings_data_transparency_body">What data is collected, how it is stored, and your privacy controls.</string>
+    <string name="data_transparency_what_we_collect_section">What we collect</string>
+    <string name="data_transparency_network_diagnostics">Network diagnostics: transport type, signal strength, DNS configuration</string>
+    <string name="data_transparency_dpi_detection">DPI detection results: failure classifications, strategy effectiveness</string>
+    <string name="data_transparency_performance_metrics">Performance metrics: RTT measurements, retry counts, traffic statistics</string>
+    <string name="data_transparency_network_identity">Network identity: hashed fingerprint of network characteristics (WiFi SSID, carrier info)</string>
+    <string name="data_transparency_device_context">Device context: Android version, device model, app version, permission states</string>
+    <string name="data_transparency_optional_ip">Optional: public IP address (only during manual diagnostic scans)</string>
+    <string name="data_transparency_what_we_do_not_collect_section">What we do NOT collect</string>
+    <string name="data_transparency_no_browsing">No browsing history or URL content</string>
+    <string name="data_transparency_no_personal_data">No personal data, accounts, or credentials</string>
+    <string name="data_transparency_no_external_servers">No data is sent to external servers automatically</string>
+    <string name="data_transparency_no_analytics">No analytics, crash reporting, or advertising SDKs</string>
+    <string name="data_transparency_how_stored_section">How data is stored</string>
+    <string name="data_transparency_local_database">All data stays on your device in a local database</string>
+    <string name="data_transparency_retention_period">Configurable retention period (1\u2013365 days)</string>
+    <string name="data_transparency_disable_monitoring">You can disable passive monitoring in Advanced Settings</string>
+    <string name="data_transparency_export_explicit">Export archives are only created when you explicitly request them</string>
+    <string name="data_transparency_export_privacy_section">Export privacy</string>
+    <string name="data_transparency_export_redaction">Exported archives redact IP addresses, WiFi identifiers, and other PII</string>
+    <string name="data_transparency_export_control">You control what is shared and with whom</string>
 </resources>

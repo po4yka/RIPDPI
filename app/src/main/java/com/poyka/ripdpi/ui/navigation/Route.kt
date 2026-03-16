@@ -87,6 +87,11 @@ sealed class Route(
         titleRes = R.string.about_category,
     )
 
+    data object DataTransparency : Route(
+        route = "data_transparency",
+        titleRes = R.string.title_data_transparency,
+    )
+
     companion object {
         val topLevel = listOf(Home, Config, Diagnostics, Settings)
 
@@ -105,6 +110,7 @@ sealed class Route(
                 BiometricPrompt,
                 AppCustomization,
                 About,
+                DataTransparency,
             )
     }
 }
