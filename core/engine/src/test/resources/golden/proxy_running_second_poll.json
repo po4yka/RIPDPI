@@ -21,6 +21,7 @@
     "lastRetryReason": null,
     "lastRouteGroup": null,
     "lastTarget": null,
+    "latencyDistributions": null,
     "learnedHostCount": 3,
     "listenerAddress": "127.0.0.1:<port>",
     "nativeEvents": [],

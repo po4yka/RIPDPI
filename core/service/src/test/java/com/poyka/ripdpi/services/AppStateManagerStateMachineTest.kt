@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

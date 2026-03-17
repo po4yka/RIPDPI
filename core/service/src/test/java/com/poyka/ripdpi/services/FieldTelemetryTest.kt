@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.FailureClass
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
+import com.poyka.ripdpi.data.classifyFailureClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue

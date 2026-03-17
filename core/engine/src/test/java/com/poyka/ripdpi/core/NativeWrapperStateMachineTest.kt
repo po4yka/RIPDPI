@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.NativeError
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async

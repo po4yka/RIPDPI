@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeError
+import com.poyka.ripdpi.data.classifyFailureReason
+import com.poyka.ripdpi.data.displayMessage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
