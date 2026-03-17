@@ -80,6 +80,7 @@ fun HomeRoute(
     onStartConfiguredMode: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenVpnPermissionDialog: () -> Unit,
     viewModel: MainViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -97,6 +98,7 @@ fun HomeRoute(
         onOpenDiagnostics = onOpenDiagnostics,
         onOpenHistory = onOpenHistory,
         onRepairPermission = viewModel::onRepairPermissionRequested,
+        onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
     )
 }
 
@@ -107,6 +109,7 @@ fun HomeScreen(
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onRepairPermission: (PermissionKind) -> Unit,
+    onOpenVpnPermissionDialog: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -148,13 +151,20 @@ fun HomeScreen(
                     Modifier
                         .fillMaxWidth()
                         .then(
-                            if (issue.kind == PermissionKind.BatteryOptimization) {
-                                Modifier.ripDpiClickable(
-                                    role = Role.Button,
-                                    onClick = { onRepairPermission(PermissionKind.BatteryOptimization) },
-                                )
-                            } else {
-                                Modifier
+                            when (issue.recovery) {
+                                PermissionRecovery.OpenBatteryOptimizationSettings ->
+                                    Modifier.ripDpiClickable(
+                                        role = Role.Button,
+                                        onClick = { onRepairPermission(PermissionKind.BatteryOptimization) },
+                                    )
+
+                                PermissionRecovery.ShowVpnPermissionDialog ->
+                                    Modifier.ripDpiClickable(
+                                        role = Role.Button,
+                                        onClick = onOpenVpnPermissionDialog,
+                                    )
+
+                                else -> Modifier
                             },
                         ),
             )
@@ -890,6 +900,7 @@ private fun HomeScreenDisconnectedPreview() {
             onOpenDiagnostics = {},
             onOpenHistory = {},
             onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
         )
     }
 }
@@ -916,6 +927,7 @@ private fun HomeScreenConnectedPreview() {
             onOpenDiagnostics = {},
             onOpenHistory = {},
             onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
         )
     }
 }
@@ -938,6 +950,7 @@ private fun HomeScreenErrorPreview() {
             onOpenDiagnostics = {},
             onOpenHistory = {},
             onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
         )
     }
 }

@@ -230,6 +230,7 @@ fun RipDpiNavHost(
                             launchSingleTop = true
                         }
                     },
+                    onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
                     viewModel = mainViewModel,
                 )
             }
@@ -302,6 +303,7 @@ fun RipDpiNavHost(
                         onShareDebugBundle = onShareDebugBundle,
                         permissionSummary = mainUiState.permissionSummary,
                         onRepairPermission = onRepairPermission,
+                        onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
                         viewModel = settingsViewModel,
                     )
                 }
