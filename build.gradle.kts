@@ -1,6 +1,21 @@
-import org.gradle.api.Project
-import org.gradle.api.tasks.Exec
+import java.io.ByteArrayOutputStream
+import javax.inject.Inject
+import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.Internal
 import org.gradle.testing.jacoco.tasks.JacocoReport
+import org.gradle.process.ExecOperations
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
@@ -16,14 +31,74 @@ plugins {
     jacoco
 }
 
-val coverageModules =
+@CacheableTask
+abstract class CheckFileLocLimitsTask
+    @Inject
+    constructor(
+        private val execOperations: ExecOperations,
+    ) : DefaultTask() {
+        @get:InputFile
+        @get:PathSensitive(PathSensitivity.NONE)
+        abstract val scriptFile: RegularFileProperty
+
+        @get:InputFile
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val baselineFile: RegularFileProperty
+
+        @get:InputFiles
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val sourceFiles: ConfigurableFileCollection
+
+        @get:OutputDirectory
+        abstract val reportDir: DirectoryProperty
+
+        @get:Internal
+        abstract val repoRoot: DirectoryProperty
+
+        @TaskAction
+        fun verify() {
+            val stdout = ByteArrayOutputStream()
+            val stderr = ByteArrayOutputStream()
+            val result =
+                execOperations.exec {
+                    workingDir = repoRoot.get().asFile
+                    isIgnoreExitValue = true
+                    standardOutput = stdout
+                    errorOutput = stderr
+                    commandLine(
+                        "python3",
+                        scriptFile.get().asFile.absolutePath,
+                        "--baseline",
+                        baselineFile.get().asFile.absolutePath,
+                        "--report-dir",
+                        reportDir.get().asFile.absolutePath,
+                    )
+                }
+
+            if (result.exitValue != 0) {
+                val errorOutput = stderr.toString().ifBlank { stdout.toString() }.trim()
+                throw GradleException(
+                    errorOutput.ifBlank { "File LoC limits verification failed with exit code ${result.exitValue}." },
+                )
+            }
+        }
+    }
+
+val androidModulePaths =
     listOf(
-        project(":app"),
-        project(":core:data"),
-        project(":core:diagnostics"),
-        project(":core:engine"),
-        project(":core:service"),
+        ":app",
+        ":core:data",
+        ":core:diagnostics",
+        ":core:diagnostics-data",
+        ":core:engine",
+        ":core:service",
     )
+
+val lintModulePaths = androidModulePaths
+
+fun moduleRelativePath(modulePath: String): String = modulePath.removePrefix(":").replace(':', '/')
+
+fun moduleBuildDir(modulePath: String) = layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("build")
 
 val kotlinCoverageExcludes =
     listOf(
@@ -45,18 +120,18 @@ val kotlinCoverageExcludes =
         "**/com/poyka/ripdpi/data/schemas/**",
     )
 
-fun Project.kotlinDebugCoverageClasses() =
+fun kotlinDebugCoverageClasses(modulePath: String) =
     files(
-        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+        fileTree(moduleBuildDir(modulePath).dir("tmp/kotlin-classes/debug")) {
             exclude(kotlinCoverageExcludes)
         },
-        fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
+        fileTree(moduleBuildDir(modulePath).dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
             exclude(kotlinCoverageExcludes)
         },
     )
 
-fun Project.kotlinDebugCoverageExecutionData() =
-    fileTree(layout.buildDirectory) {
+fun kotlinDebugCoverageExecutionData(modulePath: String) =
+    fileTree(moduleBuildDir(modulePath)) {
         include("jacoco/testDebugUnitTest.exec")
         include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
     }
@@ -64,7 +139,7 @@ fun Project.kotlinDebugCoverageExecutionData() =
 tasks.register<JacocoReport>("kotlinCoverageReport") {
     group = "verification"
     description = "Aggregates Kotlin debug unit test JaCoCo reports across Android modules."
-    dependsOn(coverageModules.map { "${it.path}:jacocoDebugUnitTestReport" })
+    dependsOn(androidModulePaths.map { "$it:jacocoDebugUnitTestReport" })
 
     reports {
         xml.required.set(true)
@@ -73,15 +148,15 @@ tasks.register<JacocoReport>("kotlinCoverageReport") {
     }
 
     sourceDirectories.setFrom(
-        coverageModules.flatMap { module ->
+        androidModulePaths.flatMap { modulePath ->
             listOf(
-                module.file("src/main/java"),
-                module.file("src/main/kotlin"),
+                layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("src/main/java"),
+                layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("src/main/kotlin"),
             )
         },
     )
-    classDirectories.setFrom(coverageModules.map { it.kotlinDebugCoverageClasses() })
-    executionData.setFrom(coverageModules.map { it.kotlinDebugCoverageExecutionData() })
+    classDirectories.setFrom(androidModulePaths.map(::kotlinDebugCoverageClasses))
+    executionData.setFrom(androidModulePaths.map(::kotlinDebugCoverageExecutionData))
     onlyIf { executionData.files.any { it.exists() } }
 }
 
@@ -91,11 +166,22 @@ tasks.register("coverageReport") {
     dependsOn("kotlinCoverageReport")
 }
 
-tasks.register<Exec>("checkFileLocLimits") {
+tasks.register<CheckFileLocLimitsTask>("checkFileLocLimits") {
     group = "verification"
     description = "Verifies code-only LoC limits for repo-owned Rust and Kotlin source files."
-    workingDir = rootDir
-    commandLine("python3", "scripts/ci/check_file_loc_limits.py")
+    scriptFile.set(layout.projectDirectory.file("scripts/ci/check_file_loc_limits.py"))
+    baselineFile.set(layout.projectDirectory.file("config/static/file-loc-baseline.json"))
+    reportDir.set(layout.buildDirectory.dir("reports/file-loc-limits"))
+    repoRoot.set(layout.projectDirectory)
+    sourceFiles.from(
+        fileTree(layout.projectDirectory) {
+            include("app/src/main/**/*.kt")
+            include("core/**/src/main/**/*.kt")
+            include("native/rust/crates/**/*.rs")
+            exclude("**/build/**")
+            exclude("**/generated/**")
+        },
+    )
 }
 
 tasks.register("staticAnalysis") {
@@ -103,9 +189,9 @@ tasks.register("staticAnalysis") {
     description = "Runs detekt, ktlint, Android Lint, and file LoC checks across all modules"
     dependsOn(
         tasks.named("checkFileLocLimits"),
-        subprojects.flatMap { it.tasks.matching { t -> t.name == "detekt" } },
-        subprojects.flatMap { it.tasks.matching { t -> t.name == "lintDebug" } },
-        subprojects.flatMap { it.tasks.matching { t -> t.name == "ktlintCheck" } },
+        androidModulePaths.map { "$it:detekt" },
+        lintModulePaths.map { "$it:lintDebug" },
+        androidModulePaths.map { "$it:ktlintCheck" },
     )
 }
 
