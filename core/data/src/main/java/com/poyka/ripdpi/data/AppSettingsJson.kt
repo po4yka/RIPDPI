@@ -128,114 +128,124 @@ internal data class AppSettingsSnapshot(
 
 fun AppSettings.toJson(): String = appSettingsJson.encodeToString(toSnapshot())
 
-fun appSettingsFromJson(payload: String): AppSettings = appSettingsJson.decodeFromString<AppSettingsSnapshot>(payload).toAppSettings()
+fun appSettingsFromJson(payload: String): AppSettings =
+    appSettingsJson.decodeFromString<AppSettingsSnapshot>(payload).toAppSettings()
 
 private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
     activeDnsSettings().let { activeDns ->
         AppSettingsSnapshot(
-        appTheme = appTheme,
-        mode = Mode.fromString(ripdpiMode.ifEmpty { defaultSettings.ripdpiMode }),
-        dnsIp = activeDns.dnsIp,
-        dnsMode = activeDns.mode,
-        dnsProviderId = activeDns.providerId,
-        dnsDohUrl = if (activeDns.isDoh) activeDns.dohUrl else "",
-        dnsDohBootstrapIps = if (activeDns.isDoh) activeDns.dohBootstrapIps else emptyList(),
-        encryptedDnsProtocol = activeDns.encryptedDnsProtocol,
-        encryptedDnsHost = activeDns.encryptedDnsHost,
-        encryptedDnsPort = activeDns.encryptedDnsPort,
-        encryptedDnsTlsServerName = activeDns.encryptedDnsTlsServerName,
-        encryptedDnsBootstrapIps = activeDns.encryptedDnsBootstrapIps,
-        encryptedDnsDohUrl = activeDns.encryptedDnsDohUrl,
-        encryptedDnsDnscryptProviderName = activeDns.encryptedDnsDnscryptProviderName,
-        encryptedDnsDnscryptPublicKey = activeDns.encryptedDnsDnscryptPublicKey,
-        ipv6Enabled = ipv6Enable,
-        enableCommandLineSettings = enableCmdSettings,
-        commandLineArgs = cmdArgs,
-        proxyIp = proxyIp,
-        proxyPort = proxyPort,
-        maxConnections = maxConnections,
-        bufferSize = bufferSize,
-        noDomain = noDomain,
-        tcpFastOpen = tcpFastOpen,
-        defaultTtl = defaultTtl,
-        customTtl = customTtl,
-        desyncMethod = desyncMethod,
-        splitPosition = splitPosition,
-        splitAtHost = splitAtHost,
-        splitMarker = splitMarker,
-        fakeTtl = fakeTtl,
-        adaptiveFakeTtlEnabled = adaptiveFakeTtlEnabled,
-        adaptiveFakeTtlDelta = effectiveAdaptiveFakeTtlDelta(),
-        adaptiveFakeTtlMin = effectiveAdaptiveFakeTtlMin(),
-        adaptiveFakeTtlMax = effectiveAdaptiveFakeTtlMax(),
-        adaptiveFakeTtlFallback = effectiveAdaptiveFakeTtlFallback(),
-        fakeSni = fakeSni,
-        fakeOffset = fakeOffset,
-        fakeOffsetMarker = fakeOffsetMarker,
-        fakeTlsUseOriginal = fakeTlsUseOriginal,
-        fakeTlsRandomize = fakeTlsRandomize,
-        fakeTlsDupSessionId = fakeTlsDupSessionId,
-        fakeTlsPadEncap = fakeTlsPadEncap,
-        fakeTlsSize = fakeTlsSize,
-        fakeTlsSniMode = effectiveFakeTlsSniMode(),
-        httpFakeProfile = effectiveHttpFakeProfile(),
-        tlsFakeProfile = effectiveTlsFakeProfile(),
-        oobData = oobData,
-        dropSack = dropSack,
-        desyncHttp = desyncHttp,
-        desyncHttps = desyncHttps,
-        desyncUdp = desyncUdp,
-        hostsMode = hostsMode,
-        hostsBlacklist = hostsBlacklist,
-        hostsWhitelist = hostsWhitelist,
-        tlsrecEnabled = tlsrecEnabled,
-        tlsrecPosition = tlsrecPosition,
-        tlsrecAtSni = tlsrecAtSni,
-        tlsrecMarker = tlsrecMarker,
-        udpFakeCount = udpFakeCount,
-        udpFakeProfile = effectiveUdpFakeProfile(),
-        hostMixedCase = hostMixedCase,
-        domainMixedCase = domainMixedCase,
-        hostRemoveSpaces = hostRemoveSpaces,
-        httpMethodEol = httpMethodEol,
-        httpUnixEol = httpUnixEol,
-        onboardingComplete = onboardingComplete,
-        webrtcProtectionEnabled = webrtcProtectionEnabled,
-        biometricEnabled = biometricEnabled,
-        backupPin = backupPin,
-        appIconVariant = appIconVariant,
-        appIconStyle = appIconStyle,
-        tcpChainSteps =
-            tcpChainStepsList.map {
-                AppSettingsTcpChainSnapshot(
-                    kind = it.kind,
-                    marker = it.marker,
-                    midhostMarker = it.midhostMarker.takeIf(String::isNotBlank),
-                    fakeHostTemplate = it.fakeHostTemplate.takeIf(String::isNotBlank),
-                    fragmentCount = it.fragmentCount,
-                    minFragmentSize = it.minFragmentSize,
-                    maxFragmentSize = it.maxFragmentSize,
-                    activationFilter = if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel(),
-                )
-            },
-        udpChainSteps =
-            udpChainStepsList.map {
-                AppSettingsUdpChainSnapshot(
-                    kind = it.kind,
-                    count = it.count,
-                    activationFilter = if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel(),
-                )
-            },
-        quicInitialMode = effectiveQuicInitialMode(),
-        quicSupportV1 = effectiveQuicSupportV1(),
-        quicSupportV2 = effectiveQuicSupportV2(),
-        quicFakeProfile = effectiveQuicFakeProfile(),
-        quicFakeHost = effectiveQuicFakeHost(),
-        hostAutolearnEnabled = hostAutolearnEnabled,
-        hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
-        hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
-        networkStrategyMemoryEnabled = networkStrategyMemoryEnabled,
-        groupActivationFilter = if (hasGroupActivationFilter()) groupActivationFilter.toModel().let(::normalizeActivationFilter) else ActivationFilterModel(),
+            appTheme = appTheme,
+            mode = Mode.fromString(ripdpiMode.ifEmpty { defaultSettings.ripdpiMode }),
+            dnsIp = activeDns.dnsIp,
+            dnsMode = activeDns.mode,
+            dnsProviderId = activeDns.providerId,
+            dnsDohUrl = if (activeDns.isDoh) activeDns.dohUrl else "",
+            dnsDohBootstrapIps = if (activeDns.isDoh) activeDns.dohBootstrapIps else emptyList(),
+            encryptedDnsProtocol = activeDns.encryptedDnsProtocol,
+            encryptedDnsHost = activeDns.encryptedDnsHost,
+            encryptedDnsPort = activeDns.encryptedDnsPort,
+            encryptedDnsTlsServerName = activeDns.encryptedDnsTlsServerName,
+            encryptedDnsBootstrapIps = activeDns.encryptedDnsBootstrapIps,
+            encryptedDnsDohUrl = activeDns.encryptedDnsDohUrl,
+            encryptedDnsDnscryptProviderName = activeDns.encryptedDnsDnscryptProviderName,
+            encryptedDnsDnscryptPublicKey = activeDns.encryptedDnsDnscryptPublicKey,
+            ipv6Enabled = ipv6Enable,
+            enableCommandLineSettings = enableCmdSettings,
+            commandLineArgs = cmdArgs,
+            proxyIp = proxyIp,
+            proxyPort = proxyPort,
+            maxConnections = maxConnections,
+            bufferSize = bufferSize,
+            noDomain = noDomain,
+            tcpFastOpen = tcpFastOpen,
+            defaultTtl = defaultTtl,
+            customTtl = customTtl,
+            desyncMethod = desyncMethod,
+            splitPosition = splitPosition,
+            splitAtHost = splitAtHost,
+            splitMarker = splitMarker,
+            fakeTtl = fakeTtl,
+            adaptiveFakeTtlEnabled = adaptiveFakeTtlEnabled,
+            adaptiveFakeTtlDelta = effectiveAdaptiveFakeTtlDelta(),
+            adaptiveFakeTtlMin = effectiveAdaptiveFakeTtlMin(),
+            adaptiveFakeTtlMax = effectiveAdaptiveFakeTtlMax(),
+            adaptiveFakeTtlFallback = effectiveAdaptiveFakeTtlFallback(),
+            fakeSni = fakeSni,
+            fakeOffset = fakeOffset,
+            fakeOffsetMarker = fakeOffsetMarker,
+            fakeTlsUseOriginal = fakeTlsUseOriginal,
+            fakeTlsRandomize = fakeTlsRandomize,
+            fakeTlsDupSessionId = fakeTlsDupSessionId,
+            fakeTlsPadEncap = fakeTlsPadEncap,
+            fakeTlsSize = fakeTlsSize,
+            fakeTlsSniMode = effectiveFakeTlsSniMode(),
+            httpFakeProfile = effectiveHttpFakeProfile(),
+            tlsFakeProfile = effectiveTlsFakeProfile(),
+            oobData = oobData,
+            dropSack = dropSack,
+            desyncHttp = desyncHttp,
+            desyncHttps = desyncHttps,
+            desyncUdp = desyncUdp,
+            hostsMode = hostsMode,
+            hostsBlacklist = hostsBlacklist,
+            hostsWhitelist = hostsWhitelist,
+            tlsrecEnabled = tlsrecEnabled,
+            tlsrecPosition = tlsrecPosition,
+            tlsrecAtSni = tlsrecAtSni,
+            tlsrecMarker = tlsrecMarker,
+            udpFakeCount = udpFakeCount,
+            udpFakeProfile = effectiveUdpFakeProfile(),
+            hostMixedCase = hostMixedCase,
+            domainMixedCase = domainMixedCase,
+            hostRemoveSpaces = hostRemoveSpaces,
+            httpMethodEol = httpMethodEol,
+            httpUnixEol = httpUnixEol,
+            onboardingComplete = onboardingComplete,
+            webrtcProtectionEnabled = webrtcProtectionEnabled,
+            biometricEnabled = biometricEnabled,
+            backupPin = backupPin,
+            appIconVariant = appIconVariant,
+            appIconStyle = appIconStyle,
+            tcpChainSteps =
+                tcpChainStepsList.map {
+                    AppSettingsTcpChainSnapshot(
+                        kind = it.kind,
+                        marker = it.marker,
+                        midhostMarker = it.midhostMarker.takeIf(String::isNotBlank),
+                        fakeHostTemplate = it.fakeHostTemplate.takeIf(String::isNotBlank),
+                        fragmentCount = it.fragmentCount,
+                        minFragmentSize = it.minFragmentSize,
+                        maxFragmentSize = it.maxFragmentSize,
+                        activationFilter =
+                            if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel(),
+                    )
+                },
+            udpChainSteps =
+                udpChainStepsList.map {
+                    AppSettingsUdpChainSnapshot(
+                        kind = it.kind,
+                        count = it.count,
+                        activationFilter =
+                            if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel(),
+                    )
+                },
+            quicInitialMode = effectiveQuicInitialMode(),
+            quicSupportV1 = effectiveQuicSupportV1(),
+            quicSupportV2 = effectiveQuicSupportV2(),
+            quicFakeProfile = effectiveQuicFakeProfile(),
+            quicFakeHost = effectiveQuicFakeHost(),
+            hostAutolearnEnabled = hostAutolearnEnabled,
+            hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
+            hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
+            networkStrategyMemoryEnabled = networkStrategyMemoryEnabled,
+            groupActivationFilter =
+                if (hasGroupActivationFilter()) {
+                    groupActivationFilter.toModel().let(
+                        ::normalizeActivationFilter,
+                    )
+                } else {
+                    ActivationFilterModel()
+                },
         )
     }
 
@@ -299,14 +309,14 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setAdaptiveFakeTtlEnabled(adaptiveFakeTtlEnabled)
         .setAdaptiveFakeTtlDelta(normalizeAdaptiveFakeTtlDelta(adaptiveFakeTtlDelta))
         .setAdaptiveFakeTtlMin(normalizeAdaptiveFakeTtlMin(adaptiveFakeTtlMin))
-        .setAdaptiveFakeTtlMax(normalizeAdaptiveFakeTtlMax(adaptiveFakeTtlMax, normalizeAdaptiveFakeTtlMin(adaptiveFakeTtlMin)))
-        .setAdaptiveFakeTtlFallback(
+        .setAdaptiveFakeTtlMax(
+            normalizeAdaptiveFakeTtlMax(adaptiveFakeTtlMax, normalizeAdaptiveFakeTtlMin(adaptiveFakeTtlMin)),
+        ).setAdaptiveFakeTtlFallback(
             normalizeAdaptiveFakeTtlFallback(
                 adaptiveFakeTtlFallback,
                 fakeTtl.takeIf { it > 0 } ?: DefaultAdaptiveFakeTtlFallback,
             ),
-        )
-        .setFakeSni(fakeSni)
+        ).setFakeSni(fakeSni)
         .setFakeOffset(fakeOffset)
         .setFakeOffsetMarker(fakeOffsetMarker)
         .setFakeTlsUseOriginal(fakeTlsUseOriginal)
@@ -369,8 +379,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                             if (!normalizedFilter.isEmpty) {
                                 setActivationFilter(normalizedFilter.toProto())
                             }
-                        }
-                        .build(),
+                        }.build(),
                 )
             }
             udpChainSteps.forEach { step ->
@@ -384,10 +393,8 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                             if (!normalizedFilter.isEmpty) {
                                 setActivationFilter(normalizedFilter.toProto())
                             }
-                        }
-                        .build(),
+                        }.build(),
                 )
             }
-        }
-        .build()
+        }.build()
 }

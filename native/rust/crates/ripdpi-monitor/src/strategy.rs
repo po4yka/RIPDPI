@@ -27,6 +27,32 @@ pub(crate) fn run_strategy_probe_scan(
     let strategy_probe = request.strategy_probe.clone().expect("validated strategy_probe request");
     let mut results = Vec::new();
 
+    // --- Network snapshot handling ---
+    // Short-circuit if the OS reports no network, and prepend environment probe to results.
+    if let Some(ref snap) = request.network_snapshot {
+        if snap.transport == "none" {
+            push_event(&shared, "engine", "warn", "OS reports no network; aborting strategy probe".to_string());
+            if let Some(env_probe) = build_network_environment_probe(Some(snap)) {
+                results.push(env_probe);
+            }
+            let report = ScanReport {
+                session_id,
+                profile_id: request.profile_id,
+                path_mode: request.path_mode,
+                started_at,
+                finished_at: now_ms(),
+                summary: "network_unavailable".to_string(),
+                results,
+                strategy_probe_report: None,
+            };
+            set_report(&shared, report);
+            return;
+        }
+    }
+    if let Some(env_probe) = build_network_environment_probe(request.network_snapshot.as_ref()) {
+        results.push(env_probe);
+    }
+
     let Some(base_proxy_config_json) = strategy_probe.base_proxy_config_json.as_deref() else {
         let report = ScanReport {
             session_id,
@@ -103,6 +129,8 @@ pub(crate) fn run_strategy_probe_scan(
             total_steps,
             message: format!("Preparing {}", request.display_name),
             is_finished: false,
+            latest_probe_target: None,
+            latest_probe_outcome: None,
         },
     );
     push_event(
@@ -197,6 +225,8 @@ pub(crate) fn run_strategy_probe_scan(
                 total_steps,
                 message: "Automatic probing finished".to_string(),
                 is_finished: true,
+                latest_probe_target: None,
+                latest_probe_outcome: None,
             },
         );
         return;
@@ -214,6 +244,8 @@ pub(crate) fn run_strategy_probe_scan(
             total_steps,
             message: format!("Testing {}", baseline_spec.label),
             is_finished: false,
+            latest_probe_target: None,
+            latest_probe_outcome: None,
         },
     );
     push_event(
@@ -248,8 +280,22 @@ pub(crate) fn run_strategy_probe_scan(
     {
         hostfake_family_succeeded = true;
     }
+    let baseline_outcome = baseline_execution.summary.outcome.clone();
     tcp_candidates.push(baseline_execution.summary);
     completed_steps += 1;
+    set_progress(
+        &shared,
+        ScanProgress {
+            session_id: session_id.clone(),
+            phase: "tcp".to_string(),
+            completed_steps,
+            total_steps,
+            message: format!("Tested {}", baseline_spec.label),
+            is_finished: false,
+            latest_probe_target: Some(baseline_spec.label.to_string()),
+            latest_probe_outcome: Some(baseline_outcome),
+        },
+    );
     if !tcp_specs.is_empty() && tcp_specs.len() > 1 {
         thread::sleep(Duration::from_millis(candidate_pause_ms(
             probe_seed,
@@ -293,6 +339,8 @@ pub(crate) fn run_strategy_probe_scan(
                     total_steps,
                     message: format!("Skipping {}", spec.label),
                     is_finished: false,
+                    latest_probe_target: Some(spec.label.to_string()),
+                    latest_probe_outcome: Some("skipped".to_string()),
                 },
             );
             continue;
@@ -307,6 +355,8 @@ pub(crate) fn run_strategy_probe_scan(
                 total_steps,
                 message: format!("Testing {}", spec.label),
                 is_finished: false,
+                latest_probe_target: None,
+                latest_probe_outcome: None,
             },
         );
         push_event(&shared, "strategy_probe", "info", format!("Testing TCP candidate {}", spec.label));
@@ -317,8 +367,22 @@ pub(crate) fn run_strategy_probe_scan(
         {
             hostfake_family_succeeded = true;
         }
+        let execution_outcome = execution.summary.outcome.clone();
         tcp_candidates.push(execution.summary);
         completed_steps += 1;
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: session_id.clone(),
+                phase: "tcp".to_string(),
+                completed_steps,
+                total_steps,
+                message: format!("Tested {}", spec.label),
+                is_finished: false,
+                latest_probe_target: Some(spec.label.to_string()),
+                latest_probe_outcome: Some(execution_outcome),
+            },
+        );
         let failed = tcp_candidates.last().is_some_and(|summary| summary.outcome == "failed");
         if failed {
             if last_failed_tcp_family == Some(spec.family) {
@@ -384,6 +448,8 @@ pub(crate) fn run_strategy_probe_scan(
                     total_steps,
                     message: format!("Skipping {}", spec.label),
                     is_finished: false,
+                    latest_probe_target: Some(spec.label.to_string()),
+                    latest_probe_outcome: Some("skipped".to_string()),
                 },
             );
             continue;
@@ -398,6 +464,8 @@ pub(crate) fn run_strategy_probe_scan(
                 total_steps,
                 message: format!("Testing {}", spec.label),
                 is_finished: false,
+                latest_probe_target: None,
+                latest_probe_outcome: None,
             },
         );
         push_event(&shared, "strategy_probe", "info", format!("Testing QUIC candidate {}", spec.label));
@@ -409,8 +477,22 @@ pub(crate) fn run_strategy_probe_scan(
         {
             quic_family_succeeded = true;
         }
+        let execution_outcome = execution.summary.outcome.clone();
         quic_candidates.push(execution.summary);
         completed_steps += 1;
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: session_id.clone(),
+                phase: "quic".to_string(),
+                completed_steps,
+                total_steps,
+                message: format!("Tested {}", spec.label),
+                is_finished: false,
+                latest_probe_target: Some(spec.label.to_string()),
+                latest_probe_outcome: Some(execution_outcome),
+            },
+        );
         let failed = quic_candidates.last().is_some_and(|summary| summary.outcome == "failed");
         if failed {
             if last_failed_quic_family == Some(spec.family) {
@@ -506,6 +588,8 @@ pub(crate) fn run_strategy_probe_scan(
             total_steps,
             message: "Automatic probing finished".to_string(),
             is_finished: true,
+            latest_probe_target: None,
+            latest_probe_outcome: None,
         },
     );
 }

@@ -42,11 +42,18 @@ class AndroidNetworkFingerprintProvider
             return NetworkFingerprint(
                 transport = resolveTransport(capabilities),
                 networkValidated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
-                captivePortalDetected = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true,
+                captivePortalDetected =
+                    capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true,
                 privateDnsMode = resolvePrivateDnsMode(linkProperties),
-                dnsServers = linkProperties?.dnsServers.orEmpty().mapNotNull { it.hostAddress?.trim() }.sorted(),
+                dnsServers =
+                    linkProperties
+                        ?.dnsServers
+                        .orEmpty()
+                        .mapNotNull { it.hostAddress?.trim() }
+                        .sorted(),
                 wifi = resolveWifiIdentity(capabilities),
                 cellular = resolveCellularIdentity(capabilities),
+                metered = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == false,
             )
         }
 
@@ -77,7 +84,8 @@ class AndroidNetworkFingerprintProvider
                 ssid = sanitizeWifiValue(wifiInfo?.ssid),
                 bssid = sanitizeWifiValue(wifiInfo?.bssid),
                 gateway =
-                    dhcpInfo?.gateway
+                    dhcpInfo
+                        ?.gateway
                         ?.takeIf { it != 0 }
                         ?.let(::intToIpv4Address)
                         ?.lowercase(Locale.US)
@@ -115,8 +123,7 @@ class AndroidNetworkFingerprintProvider
         private fun invokeInt(
             target: Any,
             methodName: String,
-        ): Int? =
-            runCatching { target.javaClass.getMethod(methodName).invoke(target) as Int }.getOrNull()
+        ): Int? = runCatching { target.javaClass.getMethod(methodName).invoke(target) as Int }.getOrNull()
 
         private fun describeMobileNetworkType(type: Int): String =
             when (type) {
@@ -151,7 +158,8 @@ class AndroidNetworkFingerprintProvider
                         ((value shr 16) and 0xff).toByte(),
                         ((value shr 24) and 0xff).toByte(),
                     ),
-                ).hostAddress.orEmpty()
+                ).hostAddress
+                .orEmpty()
     }
 
 @Module

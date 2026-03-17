@@ -47,8 +47,7 @@ fun AppSettings.effectiveQuicSupportV2(): Boolean =
 
 fun quicInitialModeUsesRouting(mode: String): Boolean = normalizeQuicInitialMode(mode) != QuicInitialModeDisabled
 
-fun quicInitialModeCachesHosts(mode: String): Boolean =
-    normalizeQuicInitialMode(mode) == QuicInitialModeRouteAndCache
+fun quicInitialModeCachesHosts(mode: String): Boolean = normalizeQuicInitialMode(mode) == QuicInitialModeRouteAndCache
 
 fun normalizeQuicFakeProfile(value: String): String {
     val normalized = value.trim().lowercase()
@@ -57,7 +56,9 @@ fun normalizeQuicFakeProfile(value: String): String {
 
 fun normalizeQuicFakeHost(value: String): String {
     val trimmed = value.trim().trimEnd('.').lowercase()
-    if (trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') || trimmed.contains("..")) {
+    if (trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') ||
+        trimmed.contains("..")
+    ) {
         return ""
     }
     if (!trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }) {

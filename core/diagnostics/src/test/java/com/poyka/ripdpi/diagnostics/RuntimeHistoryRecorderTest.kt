@@ -1,17 +1,25 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.NativeRuntimeEvent
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.FailureClass
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeEvent
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
+import com.poyka.ripdpi.data.RttBand
+import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
@@ -25,14 +33,6 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
-import com.poyka.ripdpi.data.DefaultServiceStateStore
-import com.poyka.ripdpi.data.FailureClass
-import com.poyka.ripdpi.data.FailureReason
-import com.poyka.ripdpi.data.RttBand
-import com.poyka.ripdpi.data.RuntimeFieldTelemetry
-import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -219,8 +219,16 @@ class RuntimeHistoryRecorderTest {
             assertTrue(history.telemetryState.value.all { it.connectionSessionId == session.id })
 
             serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
-            waitUntil { history.usageSessionsState.value.single().finishedAt != null }
-            assertFalse(history.usageSessionsState.value.single().finishedAt == null)
+            waitUntil {
+                history.usageSessionsState.value
+                    .single()
+                    .finishedAt != null
+            }
+            assertFalse(
+                history.usageSessionsState.value
+                    .single()
+                    .finishedAt == null,
+            )
         }
 
     @Test
@@ -297,8 +305,10 @@ class RuntimeHistoryRecorderTest {
                 }
             }
 
-            val firstPersisted = requireNotNull(history.getRememberedNetworkPolicy("fingerprint-a", Mode.VPN.preferenceValue))
-            val secondPersisted = requireNotNull(history.getRememberedNetworkPolicy("fingerprint-b", Mode.VPN.preferenceValue))
+            val firstPersisted =
+                requireNotNull(history.getRememberedNetworkPolicy("fingerprint-a", Mode.VPN.preferenceValue))
+            val secondPersisted =
+                requireNotNull(history.getRememberedNetworkPolicy("fingerprint-b", Mode.VPN.preferenceValue))
 
             assertEquals(0, firstPersisted.failureCount)
             assertEquals(0, firstPersisted.consecutiveFailureCount)
@@ -338,7 +348,11 @@ private class RecorderFakeAppSettingsRepository(
     override suspend fun snapshot(): AppSettings = state.value
 
     override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value = state.value.toBuilder().apply(transform).build()
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
     }
 
     override suspend fun replace(settings: AppSettings) {
@@ -411,13 +425,22 @@ private class InMemoryDiagnosticsHistoryRepository : DiagnosticsHistoryRepositor
 
     override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> = usageSessionsState
 
-    override fun observeRememberedNetworkPolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> = rememberedPoliciesState
+    override fun observeRememberedNetworkPolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
+        rememberedPoliciesState
 
-    override suspend fun getProfile(id: String): DiagnosticProfileEntity? = profilesState.value.firstOrNull { it.id == id }
+    override suspend fun getProfile(id: String): DiagnosticProfileEntity? =
+        profilesState.value.firstOrNull {
+            it.id ==
+                id
+        }
 
     override suspend fun getPackVersion(packId: String): TargetPackVersionEntity? = null
 
-    override suspend fun getScanSession(sessionId: String): ScanSessionEntity? = sessionsState.value.firstOrNull { it.id == sessionId }
+    override suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
+        sessionsState.value.firstOrNull {
+            it.id ==
+                sessionId
+        }
 
     override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? =
         usageSessionsState.value.firstOrNull { it.id == sessionId }
@@ -428,9 +451,7 @@ private class InMemoryDiagnosticsHistoryRepository : DiagnosticsHistoryRepositor
     ): RememberedNetworkPolicyEntity? =
         rememberedPoliciesState.value.firstOrNull { it.fingerprintHash == fingerprintHash && it.mode == mode }
 
-    override suspend fun getNetworkDnsPathPreference(
-        fingerprintHash: String,
-    ): NetworkDnsPathPreferenceEntity? =
+    override suspend fun getNetworkDnsPathPreference(fingerprintHash: String): NetworkDnsPathPreferenceEntity? =
         networkDnsPathPreferencesState.value.firstOrNull { it.fingerprintHash == fingerprintHash }
 
     override suspend fun findValidatedRememberedNetworkPolicy(

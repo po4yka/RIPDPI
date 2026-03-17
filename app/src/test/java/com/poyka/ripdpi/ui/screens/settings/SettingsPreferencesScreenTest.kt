@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme

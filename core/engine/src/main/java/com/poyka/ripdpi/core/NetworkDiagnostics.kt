@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeError
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
 interface NetworkDiagnosticsBindings {
     fun create(): Long

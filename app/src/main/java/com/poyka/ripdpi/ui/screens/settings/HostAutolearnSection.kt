@@ -134,7 +134,9 @@ private fun HostAutolearnStatusCard(
     val type = RipDpiThemeTokens.type
     val status = rememberHostAutolearnStatus(uiState)
     val runtimeSummary =
-        if (uiState.isServiceRunning && (uiState.hostAutolearnRuntimeEnabled || uiState.hostAutolearnLearnedHostCount > 0)) {
+        if (uiState.isServiceRunning &&
+            (uiState.hostAutolearnRuntimeEnabled || uiState.hostAutolearnLearnedHostCount > 0)
+        ) {
             stringResource(
                 R.string.host_autolearn_runtime_summary,
                 uiState.hostAutolearnLearnedHostCount,
@@ -208,73 +210,93 @@ private fun HostAutolearnStatusCard(
 @Composable
 private fun rememberHostAutolearnStatus(uiState: SettingsUiState): HostAutolearnStatusContent =
     when {
-        uiState.enableCmdSettings && uiState.isServiceRunning && uiState.hostAutolearnRuntimeEnabled ->
+        uiState.enableCmdSettings && uiState.isServiceRunning && uiState.hostAutolearnRuntimeEnabled -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_live_status_title),
                 body = stringResource(R.string.host_autolearn_cli_live_status_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_cli_status_title),
                 body = stringResource(R.string.host_autolearn_cli_status_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.isServiceRunning && uiState.hostAutolearnEnabled && uiState.hostAutolearnRuntimeEnabled ->
+        uiState.isServiceRunning && uiState.hostAutolearnEnabled && uiState.hostAutolearnRuntimeEnabled -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_live_status_title),
                 body = stringResource(R.string.host_autolearn_live_status_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        uiState.isServiceRunning && uiState.hostAutolearnEnabled ->
+        uiState.isServiceRunning && uiState.hostAutolearnEnabled -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_pending_enable_title),
                 body = stringResource(R.string.host_autolearn_pending_enable_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.isServiceRunning && uiState.hostAutolearnRuntimeEnabled ->
+        uiState.isServiceRunning && uiState.hostAutolearnRuntimeEnabled -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_pending_disable_title),
                 body = stringResource(R.string.host_autolearn_pending_disable_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.hostAutolearnEnabled ->
+        uiState.hostAutolearnEnabled -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_ready_title),
                 body = stringResource(R.string.host_autolearn_ready_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        uiState.hostAutolearnStorePresent ->
+        uiState.hostAutolearnStorePresent -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_store_title),
                 body = stringResource(R.string.host_autolearn_store_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        else ->
+        else -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_off_title),
                 body = stringResource(R.string.host_autolearn_off_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
     }
 
 @Composable
 private fun hostAutolearnResetHint(uiState: SettingsUiState): String =
     when {
-        uiState.enableCmdSettings -> stringResource(R.string.host_autolearn_reset_hint_cli)
-        !uiState.hostAutolearnStorePresent && (uiState.hostAutolearnEnabled || uiState.hostAutolearnRuntimeEnabled) ->
-            stringResource(R.string.host_autolearn_reset_hint_waiting)
+        uiState.enableCmdSettings -> {
+            stringResource(R.string.host_autolearn_reset_hint_cli)
+        }
 
-        !uiState.hostAutolearnStorePresent -> stringResource(R.string.host_autolearn_reset_hint_empty)
-        uiState.isServiceRunning -> stringResource(R.string.host_autolearn_reset_hint_running)
-        else -> stringResource(R.string.host_autolearn_reset_hint_ready)
+        !uiState.hostAutolearnStorePresent && (uiState.hostAutolearnEnabled || uiState.hostAutolearnRuntimeEnabled) -> {
+            stringResource(R.string.host_autolearn_reset_hint_waiting)
+        }
+
+        !uiState.hostAutolearnStorePresent -> {
+            stringResource(R.string.host_autolearn_reset_hint_empty)
+        }
+
+        uiState.isServiceRunning -> {
+            stringResource(R.string.host_autolearn_reset_hint_running)
+        }
+
+        else -> {
+            stringResource(R.string.host_autolearn_reset_hint_ready)
+        }
     }
 
 @Composable

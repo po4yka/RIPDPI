@@ -3,20 +3,22 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.util.Locale
 
 internal object DiagnosticsSessionQueries {
-
     suspend fun loadSessionDetail(
         sessionId: String,
         historyRepository: DiagnosticsHistoryRepository,
     ): DiagnosticSessionDetail =
         withContext(Dispatchers.IO) {
-            val session = requireNotNull(historyRepository.getScanSession(sessionId)) { "Unknown diagnostics session: $sessionId" }
+            val session =
+                requireNotNull(
+                    historyRepository.getScanSession(sessionId),
+                ) { "Unknown diagnostics session: $sessionId" }
             val results = historyRepository.getProbeResults(sessionId)
             val snapshots =
                 historyRepository.observeSnapshots(limit = 200).first().filter { it.sessionId == sessionId }
@@ -76,14 +78,27 @@ internal object DiagnosticsSessionQueries {
                     }.take(8)
             val strategySignature =
                 when (kind) {
-                    BypassApproachKind.Profile ->
+                    BypassApproachKind.Profile -> {
                         matchingSessions
                             .firstNotNullOfOrNull { decodeStrategySignature(json, it.strategyJson) }
-                            ?: matchingUsageSessions.firstNotNullOfOrNull { decodeStrategySignature(json, it.strategyJson) }
-                    BypassApproachKind.Strategy ->
+                            ?: matchingUsageSessions.firstNotNullOfOrNull {
+                                decodeStrategySignature(
+                                    json,
+                                    it.strategyJson,
+                                )
+                            }
+                    }
+
+                    BypassApproachKind.Strategy -> {
                         matchingSessions
                             .firstNotNullOfOrNull { decodeStrategySignature(json, it.strategyJson) }
-                            ?: matchingUsageSessions.firstNotNullOfOrNull { decodeStrategySignature(json, it.strategyJson) }
+                            ?: matchingUsageSessions.firstNotNullOfOrNull {
+                                decodeStrategySignature(
+                                    json,
+                                    it.strategyJson,
+                                )
+                            }
+                    }
                 }
 
             BypassApproachDetail(
@@ -103,7 +118,11 @@ internal object DiagnosticsSessionQueries {
     ): List<BypassApproachSummary> {
         val profileIds =
             (
-                scanSessions.mapNotNull { it.approachProfileId ?: it.profileId.takeIf { value -> value.isNotBlank() } } +
+                scanSessions.mapNotNull {
+                    it.approachProfileId ?: it.profileId.takeIf { value ->
+                        value.isNotBlank()
+                    }
+                } +
                     usageSessions.mapNotNull { it.approachProfileId }
             ).distinct()
         val strategyIds =
@@ -188,7 +207,11 @@ internal object DiagnosticsSessionQueries {
         val validatedReports =
             matchingSessions
                 .mapNotNull { session -> decodeScanReport(json, session.reportJson)?.let { session to it } }
-        val successfulReports = validatedReports.count { (_, report) -> report.results.isNotEmpty() && report.results.all { it.outcome.isSuccessfulOutcome() } }
+        val successfulReports =
+            validatedReports.count { (_, report) ->
+                report.results.isNotEmpty() &&
+                    report.results.all { it.outcome.isSuccessfulOutcome() }
+            }
         val allResults = validatedReports.flatMap { it.second.results }
         val failureOutcomes =
             allResults

@@ -28,8 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -122,10 +122,11 @@ fun RipDpiIconButton(
     )
     val pressedScale by animateFloatAsState(
         targetValue = if (isPressed && isInteractive) motion.pressScale else 1f,
-        animationSpec = tween(
-            durationMillis = motion.duration(motion.quickDurationMillis),
-            easing = FastOutSlowInEasing,
-        ),
+        animationSpec =
+            tween(
+                durationMillis = motion.duration(motion.quickDurationMillis),
+                easing = FastOutSlowInEasing,
+            ),
         label = "iconButtonScale",
     )
 
@@ -145,16 +146,14 @@ fun RipDpiIconButton(
                     },
                     animatedBorderColor,
                     shape,
-                )
-                .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
+                ).focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
                 .ripDpiClickable(
                     enabled = isInteractive,
                     role = Role.Button,
                     interactionSource = resolvedInteractionSource,
                     hapticFeedback = hapticFeedback,
                     onClick = onClick,
-                )
-                .graphicsLayer {
+                ).graphicsLayer {
                     scaleX = pressedScale
                     scaleY = pressedScale
                 },

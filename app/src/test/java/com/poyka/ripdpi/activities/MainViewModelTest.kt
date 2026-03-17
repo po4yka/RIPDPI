@@ -29,8 +29,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -168,7 +168,10 @@ class MainViewModelTest {
             val issue = viewModel.uiState.value.permissionSummary.issue
             assertEquals(PermissionKind.Notifications, issue?.kind)
             assertEquals(PermissionRecovery.OpenSettings, issue?.recovery)
-            assertEquals(PermissionStatus.RequiresSettings, viewModel.uiState.value.permissionSummary.snapshot.notifications)
+            assertEquals(
+                PermissionStatus.RequiresSettings,
+                viewModel.uiState.value.permissionSummary.snapshot.notifications,
+            )
             collector.cancel()
         }
 
@@ -269,7 +272,8 @@ class MainViewModelTest {
             assertEquals(listOf(Mode.VPN), serviceController.startedModes)
             assertEquals(
                 PermissionKind.BatteryOptimization,
-                viewModel.uiState.value.permissionSummary.recommendedIssue?.kind,
+                viewModel.uiState.value.permissionSummary.recommendedIssue
+                    ?.kind,
             )
             collector.cancel()
         }
@@ -406,7 +410,12 @@ class MainViewModelTest {
                     .setOnboardingComplete(true)
                     .setRipdpiMode("vpn")
                     .build()
-            val strategyId = deriveBypassStrategySignature(settings = settings, routeGroup = null, modeOverride = Mode.VPN).stableId()
+            val strategyId =
+                deriveBypassStrategySignature(
+                    settings = settings,
+                    routeGroup = null,
+                    modeOverride = Mode.VPN,
+                ).stableId()
             val diagnosticsManager =
                 FakeMainDiagnosticsManager().apply {
                     approachStats.value =
@@ -472,9 +481,19 @@ class MainViewModelTest {
 }
 
 private class FakeMainDiagnosticsManager : com.poyka.ripdpi.diagnostics.DiagnosticsManager {
-    override val activeScanProgress = kotlinx.coroutines.flow.MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(null)
-    override val profiles = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>())
-    override val sessions = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>())
+    override val activeScanProgress =
+        kotlinx.coroutines.flow
+            .MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(
+                null,
+            )
+    override val profiles =
+        kotlinx.coroutines.flow.MutableStateFlow(
+            emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>(),
+        )
+    override val sessions =
+        kotlinx.coroutines.flow.MutableStateFlow(
+            emptyList<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>(),
+        )
     override val approachStats =
         kotlinx.coroutines.flow.MutableStateFlow(
             listOf(
@@ -494,11 +513,26 @@ private class FakeMainDiagnosticsManager : com.poyka.ripdpi.diagnostics.Diagnost
                 ),
             ),
         )
-    override val snapshots = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>())
-    override val contexts = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>())
-    override val telemetry = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>())
-    override val nativeEvents = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>())
-    override val exports = kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>())
+    override val snapshots =
+        kotlinx.coroutines.flow.MutableStateFlow(
+            emptyList<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>(),
+        )
+    override val contexts =
+        kotlinx.coroutines.flow.MutableStateFlow(
+            emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>(),
+        )
+    override val telemetry =
+        kotlinx.coroutines.flow.MutableStateFlow(
+            emptyList<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>(),
+        )
+    override val nativeEvents =
+        kotlinx.coroutines.flow.MutableStateFlow(
+            emptyList<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>(),
+        )
+    override val exports =
+        kotlinx.coroutines.flow.MutableStateFlow(
+            emptyList<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>(),
+        )
 
     override suspend fun initialize() = Unit
 

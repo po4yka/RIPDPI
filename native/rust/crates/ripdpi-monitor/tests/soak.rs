@@ -259,6 +259,7 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
         whitelist_sni: vec![manifest.fixture_domain.clone()],
         telegram_target: None,
         strategy_probe: None,
+        network_snapshot: None,
     }
 }
 

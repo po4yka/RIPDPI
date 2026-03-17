@@ -43,7 +43,11 @@ class HostPackCatalogTest {
         assertEquals("youtube", catalog.packs.single().id)
         assertEquals(
             "abc123",
-            catalog.packs.single().sources.single().commit,
+            catalog.packs
+                .single()
+                .sources
+                .single()
+                .commit,
         )
     }
 
@@ -227,7 +231,10 @@ class HostPackCatalogTest {
         assertEquals(listOf("discord.gg", "discord.com"), catalog.packs[2].hosts)
         assertEquals(
             HostPackCatalogRemoteSourceUrl,
-            catalog.packs[0].sources.single().url,
+            catalog.packs[0]
+                .sources
+                .single()
+                .url,
         )
     }
 }

@@ -15,6 +15,16 @@
   "lastRetryReason": null,
   "lastRouteGroup": 2,
   "lastTarget": "203.0.113.10:443",
+  "latencyDistributions": {
+    "tcpConnect": {
+      "count": 1,
+      "max": 87,
+      "min": 87,
+      "p50": 87,
+      "p95": 87,
+      "p99": 87
+    }
+  },
   "learnedHostCount": 4,
   "listenerAddress": "127.0.0.1:1080",
   "nativeEvents": [

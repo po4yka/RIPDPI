@@ -24,9 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
-import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -301,6 +301,7 @@ private fun dismissActionHapticFeedback(
 private fun confirmActionHapticFeedback(tone: RipDpiDialogTone): RipDpiHapticFeedback =
     when (tone) {
         RipDpiDialogTone.Destructive -> RipDpiHapticFeedback.Confirm
+
         RipDpiDialogTone.Info,
         RipDpiDialogTone.Default,
         -> RipDpiHapticFeedback.Action

@@ -19,9 +19,9 @@ import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
-import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
+import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -32,7 +32,6 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +43,7 @@ import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class RipDpiProxyService : LifecycleService() {
@@ -73,6 +73,9 @@ class RipDpiProxyService : LifecycleService() {
 
     @Inject
     lateinit var policyHandoverEventStore: PolicyHandoverEventStore
+
+    @Inject
+    lateinit var networkSnapshotFactory: NetworkSnapshotFactory
 
     private var proxy: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
@@ -304,6 +307,7 @@ class RipDpiProxyService : LifecycleService() {
             }
         }
 
+        runCatching { proxyInstance.updateNetworkSnapshot(networkSnapshotFactory.capture()) }
         logcat(LogPriority.INFO) { "Proxy started" }
     }
 
@@ -335,7 +339,8 @@ class RipDpiProxyService : LifecycleService() {
                 val error = throwable as? Exception ?: IllegalStateException("Proxy runtime failed", throwable)
                 logcat(LogPriority.ERROR) { "Proxy failed\n${error.asLog()}" }
                 classifyFailureReason(error)
-            } ?: result.getOrNull()
+            } ?: result
+                .getOrNull()
                 ?.takeIf { it != 0 }
                 ?.let { code ->
                     logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
@@ -349,7 +354,10 @@ class RipDpiProxyService : LifecycleService() {
         stop(skipProxyShutdown = true)
     }
 
-    private fun updateStatus(newStatus: ServiceStatus, failureReason: FailureReason? = null) {
+    private fun updateStatus(
+        newStatus: ServiceStatus,
+        failureReason: FailureReason? = null,
+    ) {
         logcat { "Proxy status changed from $status to $newStatus" }
 
         status = newStatus
@@ -378,7 +386,9 @@ class RipDpiProxyService : LifecycleService() {
                 }
 
                 ServiceStatus.Failed,
-                -> AppStatus.Halted
+                -> {
+                    AppStatus.Halted
+                }
 
                 ServiceStatus.Disconnected -> {
                     proxyJob = null
@@ -565,10 +575,11 @@ class RipDpiProxyService : LifecycleService() {
         restartReason: String,
         appliedAt: Long,
     ) {
-        val policy = resolution.appliedPolicy ?: run {
-            session.clearActiveConnectionPolicy()
-            return
-        }
+        val policy =
+            resolution.appliedPolicy ?: run {
+                session.clearActiveConnectionPolicy()
+                return
+            }
         session.updateActiveConnectionPolicy(
             ActiveConnectionPolicy(
                 mode = Mode.Proxy,

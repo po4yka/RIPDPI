@@ -64,10 +64,15 @@ fun faultThrowable(
 ): Throwable =
     when (outcome) {
         FaultOutcome.EXCEPTION -> IOException(message ?: "fault injected exception")
+
         FaultOutcome.TIMEOUT -> IOException(message ?: "fault injected timeout")
+
         FaultOutcome.DROP -> IOException(message ?: "fault injected drop")
+
         FaultOutcome.RESET -> IOException(message ?: "fault injected reset")
+
         FaultOutcome.PANIC -> IllegalStateException(message ?: "fault injected panic")
+
         FaultOutcome.MALFORMED_PAYLOAD,
         FaultOutcome.BLANK_PAYLOAD,
         -> IllegalArgumentException("Payload fault $outcome does not map to a throwable")

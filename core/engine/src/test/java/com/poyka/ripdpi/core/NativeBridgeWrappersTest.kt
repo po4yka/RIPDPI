@@ -1,13 +1,13 @@
 package com.poyka.ripdpi.core
 
-import java.io.IOException
-import kotlinx.coroutines.async
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class NativeBridgeWrappersTest {
     private val json = Json

@@ -2,157 +2,538 @@
 <issues format="6" by="lint 9.1.0" type="baseline" client="gradle" dependencies="true" name="AGP (9.1.0)" variant="all" version="9.1.0">
 
     <issue
-        id="GradleDependency"
-        message="A newer version of androidx.appcompat:appcompat than 1.7.0 is available: 1.7.1"
-        errorLine1="appcompat = &quot;1.7.0&quot;"
-        errorLine2="            ~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `KotlinPropertyAccess` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="6"
-            column="13"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="GradleDependency"
-        message="A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.12.4"
-        errorLine1="activity-compose = &quot;1.10.1&quot;"
-        errorLine2="                   ~~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `KotlinPropertyAccess` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="8"
-            column="20"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="GradleDependency"
-        message="A newer version of androidx.navigation:navigation-compose than 2.8.9 is available: 2.9.7"
-        errorLine1="navigation-compose = &quot;2.8.9&quot;"
-        errorLine2="                     ~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `KotlinPropertyAccess` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="9"
-            column="22"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom than 2025.03.00 is available: 2026.02.01"
-        errorLine1="compose-bom = &quot;2025.03.00&quot;"
-        errorLine2="              ~~~~~~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `LambdaLast` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="10"
-            column="15"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="NewerVersionAvailable"
-        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.2.10 is available: 2.3.10"
-        errorLine1="kotlin-compose = &quot;2.2.10&quot;"
-        errorLine2="                 ~~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `LambdaLast` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="3"
-            column="18"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.google.protobuf than 0.9.4 is available: 0.9.6"
-        errorLine1="protobuf-plugin = &quot;0.9.4&quot;"
-        errorLine2="                  ~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `LambdaLast` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="4"
-            column="19"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.google.protobuf:protobuf-javalite than 4.29.3 is available: 4.34.0"
-        errorLine1="protobuf = &quot;4.29.3&quot;"
-        errorLine2="           ~~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `NoHardKeywords` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="12"
-            column="12"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.google.protobuf:protoc than 4.29.3 is available: 4.34.0"
-        errorLine1="protobuf = &quot;4.29.3&quot;"
-        errorLine2="           ~~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `NoHardKeywords` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="12"
-            column="12"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="NewerVersionAvailable"
-        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-core than 1.10.1 is available: 1.10.2"
-        errorLine1="coroutines = &quot;1.10.1&quot;"
-        errorLine2="             ~~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `NoHardKeywords` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="13"
-            column="14"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="NewerVersionAvailable"
-        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-test than 1.10.1 is available: 1.10.2"
-        errorLine1="coroutines = &quot;1.10.1&quot;"
-        errorLine2="             ~~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `UnknownNullness` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="13"
-            column="14"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="NewerVersionAvailable"
-        message="A newer version of app.cash.turbine:turbine than 1.2.0 is available: 1.2.1"
-        errorLine1="turbine = &quot;1.2.0&quot;"
-        errorLine2="          ~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `UnknownNullness` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="15"
-            column="11"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.gitlab.arturbosch.detekt than 1.23.7 is available: 1.23.8"
-        errorLine1="detekt = &quot;1.23.7&quot;"
-        errorLine2="         ~~~~~~~~">
+        id="CannotEnableHidden"
+        message="Issue `UnknownNullness` was configured with severity `warning` in app, but was not enabled (or was disabled) in library diagnostics-data">
         <location
-            file="../gradle/libs.versions.toml"
-            line="18"
-            column="10"/>
+            file="app"/>
     </issue>
 
     <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.nlopez.compose.rules:detekt than 0.4.22 is available: 0.5.6"
-        errorLine1="detekt-compose-rules = &quot;0.4.22&quot;"
-        errorLine2="                       ~~~~~~~~">
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
+        errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="../gradle/libs.versions.toml"
-            line="19"
+            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            line="104"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by TelephonyManager.getDataNetworkType: android.permission.READ_PHONE_STATE or android.permission.READ_BASIC_PHONE_STATE"
+        errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
+        errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            line="104"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="            val serviceState = runCatching { telephony.serviceState }.getOrNull()"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="194"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by TelephonyManager.getServiceState: android.permission.READ_PHONE_STATE and android.permission.ACCESS_COARSE_LOCATION"
+        errorLine1="            val serviceState = runCatching { telephony.serviceState }.getOrNull()"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="194"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
+        errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="207"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by TelephonyManager.getDataNetworkType: android.permission.READ_PHONE_STATE or android.permission.READ_BASIC_PHONE_STATE"
+        errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
+        errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="207"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                voiceNetworkType = describeMobileNetworkType(telephony.voiceNetworkType),"
+        errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="208"
+            column="62"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by TelephonyManager.getVoiceNetworkType: android.permission.READ_PHONE_STATE or android.permission.READ_BASIC_PHONE_STATE"
+        errorLine1="                voiceNetworkType = describeMobileNetworkType(telephony.voiceNetworkType),"
+        errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="208"
+            column="62"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 27): `android.Manifest.permission#POST_NOTIFICATIONS`"
+        errorLine1="                notificationPermissionRegister.launch(Manifest.permission.POST_NOTIFICATIONS)"
+        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/activities/MainActivity.kt"
+            line="289"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 28 (current min is 27): `android.net.LinkProperties#getPrivateDnsServerName`"
+        errorLine1="            linkProperties?.privateDnsServerName?.trim()?.takeIf { it.isNotEmpty() } ?: &quot;system&quot;"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
+            line="70"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 27): `android.net.LinkProperties#getMtu`"
+        errorLine1="                mtu = linkProperties?.mtu?.takeIf { it > 0 },"
+        errorLine2="                                      ~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="85"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 28 (current min is 27): `android.net.LinkProperties#getPrivateDnsServerName`"
+        errorLine1="            val privateDnsServerName = linkProperties?.privateDnsServerName"
+        errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="132"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 28 (current min is 27): `android.telephony.TelephonyManager#getSignalStrength`"
+        errorLine1="            val signalStrength = runCatching { telephony.signalStrength }.getOrNull()"
+        errorLine2="                                                         ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="195"
+            column="58"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 28 (current min is 27): `android.telephony.TelephonyManager#getSimCarrierIdName`"
+        errorLine1="                        telephony.simCarrierIdName?.toString() ?: telephony.networkOperatorName,"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="199"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 27): `android.telephony.SignalStrength#getCellSignalStrengths`"
+        errorLine1="                signalDbm = signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm,"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="215"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="BatteryLife"
+        message="Use of `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` violates the Play Store Content Policy regarding acceptable use cases, as described in https://developer.android.com/training/monitoring-device-state/doze-standby.html"
+        errorLine1="                    action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,"
+        errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
+            line="27"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="BatteryLife"
+        message="Use of `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` violates the Play Store Content Policy regarding acceptable use cases, as described in https://developer.android.com/training/monitoring-device-state/doze-standby.html"
+        errorLine1="        if (canHandleAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)) {"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
+            line="53"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="BatteryLife"
+        message="Use of `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` violates the Play Store Content Policy regarding acceptable use cases, as described in https://developer.android.com/training/monitoring-device-state/doze-standby.html"
+        errorLine1="            if (action == Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS) {"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
+            line="67"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="LeanbackUsesWifi"
+        message="Requiring Wifi permissions limits app availability on TVs that support only Ethernet"
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.ACCESS_WIFI_STATE&quot; />"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="7"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="QueryPermissionsNeeded"
+        message="Consider adding a `&lt;queries>` declaration to your manifest when calling this method; see https://g.co/dev/packagevisibility for details"
+        errorLine1="                intent.resolveActivity(context.packageManager) != null"
+        errorLine2="                       ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/platform/AppPlatformDependencies.kt"
+            line="86"
             column="24"/>
+    </issue>
+
+    <issue
+        id="VisibleForTests"
+        message="This method should only be accessed from tests or within private scope"
+        errorLine1="                settings.toUiState("
+        errorLine2="                         ~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/activities/SettingsViewModel.kt"
+            line="55"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="VisibleForTests"
+        message="This method should only be accessed from tests or within private scope"
+        errorLine1="                    AppSettingsSerializer.defaultValue.toUiState("
+        errorLine2="                                                       ~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/activities/SettingsViewModel.kt"
+            line="65"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenWidthDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="    val layout = ripDpiLayoutForWidth(screenWidthDp = LocalConfiguration.current.screenWidthDp)"
+        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/ui/theme/RipDpiTheme.kt"
+            line="36"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScreen.kt"
+            line="76"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScreen.kt"
+            line="214"
+            column="5"/>
     </issue>
 
     <issue
         id="UnrememberedGetBackStackEntry"
         message="Calling getBackStackEntry during composition without using `remember` with a NavBackStackEntry key"
-        errorLine1="                    navController.getBackStackEntry(Route.Config.route)"
-        errorLine2="                                  ~~~~~~~~~~~~~~~~~">
+        errorLine1="                        navController.getBackStackEntry(Route.Config.route)"
+        errorLine2="                                      ~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
-            line="179"
-            column="35"/>
+            line="275"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="UnrememberedGetBackStackEntry"
+        message="Calling getBackStackEntry during composition without using `remember` with a NavBackStackEntry key"
+        errorLine1="                            navController.getBackStackEntry(SettingsGraphRoute)"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
+            line="301"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="UnrememberedGetBackStackEntry"
+        message="Calling getBackStackEntry during composition without using `remember` with a NavBackStackEntry key"
+        errorLine1="                            navController.getBackStackEntry(SettingsGraphRoute)"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
+            line="320"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="UnrememberedGetBackStackEntry"
+        message="Calling getBackStackEntry during composition without using `remember` with a NavBackStackEntry key"
+        errorLine1="                            navController.getBackStackEntry(SettingsGraphRoute)"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
+            line="331"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="UnrememberedGetBackStackEntry"
+        message="Calling getBackStackEntry during composition without using `remember` with a NavBackStackEntry key"
+        errorLine1="                            navController.getBackStackEntry(SettingsGraphRoute)"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt"
+            line="342"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;bytes&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;ripdpi_tls_prelude_summary_layout_random&quot;>Tail records: %1$d · %2$d to %3$d bytes each&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="239"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;remembered&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;network_strategy_memory_count_summary&quot;>%1$d remembered networks stored locally.&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="269"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;hosts&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;host_autolearn_limits_summary&quot;>Penalty window %1$dh · Limit %2$d hosts&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="287"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;learned&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;host_autolearn_runtime_summary&quot;>Current session: %1$d learned · %2$d penalized&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="288"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;step&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;activation_window_step_filters_present&quot;>%1$d step rules in the chain DSL still add their own activation filters on top of the group window.&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="324"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;step&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;activation_window_badge_step_filters&quot;>%1$d step rules&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="330"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;fake&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;quic_fake_profile_burst_configured&quot;>%1$d fake_burst packets configured by the UDP chain.&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="476"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;fake&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;fake_payload_badge_burst_ready&quot;>%1$d fake_burst&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="532"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;generic&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;udp_fake_profile_scope_live&quot;>Used for %1$d generic UDP fake_burst packets on the current chain.&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="546"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;hostfake&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;ripdpi_hostfake_summary_profile_multiple&quot;>%1$d hostfake steps&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="606"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;fake&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;ripdpi_fake_approx_summary_profile_multiple&quot;>%1$d fake approximation steps&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="640"
+            column="5"/>
     </issue>
 
     <issue
@@ -162,7 +543,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="123"
+            line="756"
             column="5"/>
     </issue>
 
@@ -173,7 +554,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="130"
+            line="763"
             column="5"/>
     </issue>
 
@@ -184,8 +565,206 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="139"
+            line="772"
             column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;bytes&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;ripdpi_fake_tls_summary_size_exact&quot;>Exactly %1$d bytes&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="907"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;bytes&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;ripdpi_fake_tls_summary_size_minus&quot;>Input minus %1$d bytes&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="908"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;safe&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;ripdpi_http_parser_badge_safe_count&quot;>%1$d safe&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="950"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;aggressive&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;ripdpi_http_parser_badge_aggressive_count&quot;>%1$d aggressive&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="951"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;hosts&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;host_pack_hosts_badge&quot;>%1$d hosts&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="995"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;packs&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;host_pack_packs_badge&quot;>%1$d packs&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="996"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;hosts&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;host_pack_apply_summary&quot;>%1$d hosts · %2$s&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1004"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;hosts&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;host_pack_apply_summary_hosts_only&quot;>%1$d hosts&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1005"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;packets&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;diagnostics_live_mode_summary_format&quot;>%1$s mode \u00b7 %2$s transferred \u00b7 %3$d packets observed&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1382"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;error&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;diagnostics_live_errors_and_warnings_format&quot;>%1$d error%2$s \u00b7 %3$d warning%4$s in runtime feed&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1387"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;error&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;diagnostics_live_errors_format&quot;>%1$d error%2$s in runtime feed&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1388"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;warning&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;diagnostics_live_warnings_format&quot;>%1$d warning%2$s in runtime feed&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1389"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;informational&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;diagnostics_live_info_events_format&quot;>%1$d informational event%2$s in runtime feed&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1390"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;learned&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;diagnostics_autolearn_learned_format&quot;>%1$d learned&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1420"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;penalized&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;diagnostics_autolearn_penalized_format&quot;>%1$d penalized&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1421"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 27"
+        errorLine1="            if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
+            line="146"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 27"
+        errorLine1="                    if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) {"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/permissions/PermissionOrchestration.kt"
+            line="143"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 27"
+        errorLine1="                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/ui/components/RipDpiInteraction.kt"
+            line="69"
+            column="21"/>
     </issue>
 
     <issue
@@ -549,6 +1128,50 @@
 
     <issue
         id="UnusedResources"
+        message="The resource `R.array.ripdpi_desync_methods` appears to be unused"
+        errorLine1="    &lt;array name=&quot;ripdpi_desync_methods&quot;>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/arrays.xml"
+            line="23"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.array.ripdpi_desync_methods_entries` appears to be unused"
+        errorLine1="    &lt;array name=&quot;ripdpi_desync_methods_entries&quot;>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/arrays.xml"
+            line="31"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.array.quic_fake_profiles` appears to be unused"
+        errorLine1="    &lt;array name=&quot;quic_fake_profiles&quot;>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/arrays.xml"
+            line="62"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.array.quic_fake_profiles_entries` appears to be unused"
+        errorLine1="    &lt;array name=&quot;quic_fake_profiles_entries&quot;>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/arrays.xml"
+            line="67"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
         message="The resource `R.drawable.baseline_settings_24` appears to be unused"
         errorLine1="&lt;vector android:height=&quot;24dp&quot; android:tint=&quot;#FFFFFF&quot;"
         errorLine2="^">
@@ -556,28 +1179,6 @@
             file="src/main/res/drawable/baseline_settings_24.xml"
             line="1"
             column="1"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.color.black` appears to be unused"
-        errorLine1="    &lt;color name=&quot;black&quot;>#FF000000&lt;/color>"
-        errorLine2="           ~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/colors.xml"
-            line="3"
-            column="12"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.color.white` appears to be unused"
-        errorLine1="    &lt;color name=&quot;white&quot;>#FFFFFFFF&lt;/color>"
-        errorLine2="           ~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/colors.xml"
-            line="4"
-            column="12"/>
     </issue>
 
     <issue
@@ -620,7 +1221,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="8"
+            line="9"
             column="13"/>
     </issue>
 
@@ -631,7 +1232,249 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="9"
+            line="10"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.diagnostics_sessions_section` appears to be unused"
+        errorLine1="    &lt;string name=&quot;diagnostics_sessions_section&quot;>Sessions&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="23"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.diagnostics_export_section` appears to be unused"
+        errorLine1="    &lt;string name=&quot;diagnostics_export_section&quot;>Export&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="29"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.diagnostics_status_idle` appears to be unused"
+        errorLine1="    &lt;string name=&quot;diagnostics_status_idle&quot;>Ready&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="31"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.diagnostics_action_export` appears to be unused"
+        errorLine1="    &lt;string name=&quot;diagnostics_action_export&quot;>Export latest bundle&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="36"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.diagnostics_snapshot_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;diagnostics_snapshot_title&quot;>Current network snapshot&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="88"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.diagnostics_monitor_empty` appears to be unused"
+        errorLine1="    &lt;string name=&quot;diagnostics_monitor_empty&quot;>Continuous monitor is waiting for an active RIPDPI session.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="90"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.diagnostics_exports_empty` appears to be unused"
+        errorLine1="    &lt;string name=&quot;diagnostics_exports_empty&quot;>No exports created yet.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="92"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.diagnostics_export_zip_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;diagnostics_export_zip_title&quot;>Export full ZIP bundle&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="132"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.diagnostics_export_zip_body` appears to be unused"
+        errorLine1="    &lt;string name=&quot;diagnostics_export_zip_body&quot;>Create the complete archive for %1$s with summary text, report JSON, strategy matrix JSON, snapshots, contexts, and telemetry CSV.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="133"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.config_desync_helper` appears to be unused"
+        errorLine1="    &lt;string name=&quot;config_desync_helper&quot;>Strategy passed through to the RIPDPI engine.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="195"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.config_https_chain_hint` appears to be unused"
+        errorLine1="    &lt;string name=&quot;config_https_chain_hint&quot;>TLS record steps now live inside the strategy chain editor as tlsrec markers.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="204"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.activation_window_round_from_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;activation_window_round_from_title&quot;>Round from&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="340"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.activation_window_round_to_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;activation_window_round_to_title&quot;>Round to&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="341"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.activation_window_payload_from_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;activation_window_payload_from_title&quot;>Payload size from&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="345"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.activation_window_payload_to_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;activation_window_payload_to_title&quot;>Payload size to&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="346"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.activation_window_stream_from_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;activation_window_stream_from_title&quot;>Stream bytes from&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="350"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.activation_window_stream_to_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;activation_window_stream_to_title&quot;>Stream bytes to&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="351"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.config_desync_none` appears to be unused"
+        errorLine1="    &lt;string name=&quot;config_desync_none&quot;>none&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="664"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.config_desync_disorder` appears to be unused"
+        errorLine1="    &lt;string name=&quot;config_desync_disorder&quot;>disorder&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="665"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.config_desync_fake` appears to be unused"
+        errorLine1="    &lt;string name=&quot;config_desync_fake&quot;>fake&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="666"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.config_desync_split` appears to be unused"
+        errorLine1="    &lt;string name=&quot;config_desync_split&quot;>split&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="667"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.vpn_permission_denied` appears to be unused"
+        errorLine1="    &lt;string name=&quot;vpn_permission_denied&quot;>VPN permission denied&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="668"
             column="13"/>
     </issue>
 
@@ -642,7 +1485,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="86"
+            line="669"
             column="13"/>
     </issue>
 
@@ -653,7 +1496,29 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="87"
+            line="670"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.title_vpn_permission` appears to be unused"
+        errorLine1="    &lt;string name=&quot;title_vpn_permission&quot;>VPN permission&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="675"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.dns_resolver_active` appears to be unused"
+        errorLine1="    &lt;string name=&quot;dns_resolver_active&quot;>Active&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="725"
             column="13"/>
     </issue>
 
@@ -664,7 +1529,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="144"
+            line="777"
             column="13"/>
     </issue>
 
@@ -675,7 +1540,62 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="156"
+            line="788"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.ripdpi_split_position_setting` appears to be unused"
+        errorLine1="    &lt;string name=&quot;ripdpi_split_position_setting&quot;>Split marker&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="802"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.ripdpi_split_at_host_setting` appears to be unused"
+        errorLine1="    &lt;string name=&quot;ripdpi_split_at_host_setting&quot;>Split at host&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="803"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.ripdpi_fake_tls_size_body` appears to be unused"
+        errorLine1="    &lt;string name=&quot;ripdpi_fake_tls_size_body&quot;>Controls the target fake TLS size before fake offset is resolved.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="880"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.ripdpi_tlsrec_enabled_setting` appears to be unused"
+        errorLine1="    &lt;string name=&quot;ripdpi_tlsrec_enabled_setting&quot;>Split TLS record&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="967"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.ripdpi_tlsrec_at_sni_setting` appears to be unused"
+        errorLine1="    &lt;string name=&quot;ripdpi_tlsrec_at_sni_setting&quot;>Split TLS record at SNI&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="969"
             column="13"/>
     </issue>
 
@@ -686,7 +1606,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="182"
+            line="974"
             column="13"/>
     </issue>
 
@@ -697,7 +1617,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="183"
+            line="975"
             column="13"/>
     </issue>
 
@@ -708,7 +1628,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="185"
+            line="977"
             column="13"/>
     </issue>
 
@@ -719,30 +1639,195 @@
         errorLine2="            ~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="186"
+            line="978"
             column="13"/>
     </issue>
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.permissions_vpn_error_body` appears to be unused"
-        errorLine1="    &lt;string name=&quot;permissions_vpn_error_body&quot;>Grant Android VPN permission to keep RIPDPI running locally on this device.&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        message="The resource `R.string.ripdpi_udp_fake_count` appears to be unused"
+        errorLine1="    &lt;string name=&quot;ripdpi_udp_fake_count&quot;>UDP fake count&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="217"
+            line="1027"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.ipv6_setting` appears to be unused"
+        errorLine1="    &lt;string name=&quot;ipv6_setting&quot;>IPv6&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1028"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.permissions_notifications_body` appears to be unused"
+        errorLine1="    &lt;string name=&quot;permissions_notifications_body&quot;>RIPDPI uses a foreground service while the local VPN or proxy is active. Android requires a visible notification so the session stays transparent and you can quickly return to the running connection.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1046"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.permissions_notifications_continue` appears to be unused"
+        errorLine1="    &lt;string name=&quot;permissions_notifications_continue&quot;>Allow notifications&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1047"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.permissions_notifications_not_now` appears to be unused"
+        errorLine1="    &lt;string name=&quot;permissions_notifications_not_now&quot;>Not now&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1048"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.permissions_battery_continue` appears to be unused"
+        errorLine1="    &lt;string name=&quot;permissions_battery_continue&quot;>Review battery settings&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1054"
             column="13"/>
     </issue>
 
     <issue
         id="UseOfNonLambdaOffsetOverload"
         message="State backed values should use the lambda overload of Modifier.offset"
-        errorLine1="                .offset(x = thumbOffset)"
-        errorLine2="                 ~~~~~~">
+        errorLine1="                        .offset(x = components.switchThumbPadding + thumbOffset)"
+        errorLine2="                         ~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/ui/components/inputs/RipDpiSwitch.kt"
-            line="81"
-            column="18"/>
+            line="203"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;host_autolearn_cli_status_body&quot;>Visual host learning settings are paused while raw RIPDPI arguments are enabled. Use --host-autolearn, --host-autolearn-penalty-ttl, --host-autolearn-max-hosts, and optional --host-autolearn-file in command line settings.&lt;/string>"
+        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="273"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;host_autolearn_cli_status_body&quot;>Визуальные настройки обучения по хостам приостановлены, пока включены аргументы RIPDPI командной строки. Используйте --host-autolearn, --host-autolearn-penalty-ttl, --host-autolearn-max-hosts и необязательный --host-autolearn-file в настройках командной строки.&lt;/string>"
+        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="274"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;activation_window_cli_body&quot;>Visual activation-window controls are paused while raw RIPDPI arguments are enabled. Use --round, --payload-size-range, and --stream-byte-range in command line settings for the next start.&lt;/string>"
+        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="306"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;activation_window_cli_body&quot;>Визуальные элементы управления окном активации приостановлены, пока включены аргументы RIPDPI командной строки. Используйте --round, --payload-size-range и --stream-byte-range в настройках командной строки для следующего запуска.&lt;/string>"
+        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="307"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;quic_fake_profile_cli_body&quot;>Visual QUIC fake payload settings are paused while raw RIPDPI arguments are enabled. Use --fake-quic-profile and --fake-quic-host in command line settings for the next start.&lt;/string>"
+        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="448"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;quic_fake_profile_cli_body&quot;>Визуальные настройки fake-нагрузки QUIC приостановлены, пока включены аргументы RIPDPI командной строки. Используйте --fake-quic-profile и --fake-quic-host в настройках командной строки для следующего запуска.&lt;/string>"
+        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="449"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;fake_payload_library_cli_body&quot;>Visual fake payload presets are paused while raw RIPDPI arguments are enabled. Command line flags or --fake-data will decide the effective payloads on the next start.&lt;/string>"
+        errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="488"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;fake_payload_library_cli_body&quot;>Визуальные пресеты fake-нагрузок приостановлены, пока включены аргументы RIPDPI командной строки. Флаги командной строки или --fake-data определят эффективные нагрузки при следующем запуске.&lt;/string>"
+        errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="489"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;ripdpi_fake_tls_cli_status_body&quot;>Visual fake TLS controls are paused while raw RIPDPI arguments are enabled. Use --fake-tls-mod, --fake-sni, and the rest of your command line profile for the next start.&lt;/string>"
+        errorLine2="                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="882"
+            column="52"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;ripdpi_fake_tls_cli_status_body&quot;>Визуальные элементы управления Fake TLS приостановлены, пока включены необработанные аргументы RIPDPI. Используйте --fake-tls-mod, --fake-sni и остальные параметры командной строки для следующего запуска.&lt;/string>"
+        errorLine2="                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="883"
+            column="52"/>
     </issue>
 
     <issue
@@ -752,8 +1837,85 @@
         errorLine2="                                                     ~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="27"
+            line="149"
             column="54"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;home_connection_button_connecting&quot;>Подключение...&lt;/string>"
+        errorLine2="                                                     ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="150"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;config_split_marker_helper&quot;>Manual markers accept offsets like 1, host, method+2, midsld-1, or 1+s. Use the adaptive preset selector or the raw chain DSL for auto(...).&lt;/string>"
+        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="200"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;config_split_marker_helper&quot;>Ручные маркеры принимают смещения вида 1, host, method+2, midsld-1 или 1+s. Используйте адаптивный селектор пресетов или DSL цепочки для auto(...).&lt;/string>"
+        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="201"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;config_fake_offset_marker_helper&quot;>Accepts numeric or semantic offsets like 0, host+1, endhost-2, or 1+se. Adaptive auto(...) markers are not supported here.&lt;/string>"
+        errorLine2="                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="201"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;config_fake_offset_marker_helper&quot;>Принимает числовые или семантические смещения вида 0, host+1, endhost-2 или 1+se. Адаптивные маркеры auto(...) здесь не поддерживаются.&lt;/string>"
+        errorLine2="                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="202"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;adaptive_split_cli_body&quot;>Visual adaptive split controls are paused while raw RIPDPI arguments are enabled. Use explicit markers or auto(...) in command line chain arguments for the next start.&lt;/string>"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="377"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;adaptive_split_cli_body&quot;>Визуальные элементы управления адаптивным разделением приостановлены, пока включены аргументы RIPDPI командной строки. Используйте явные маркеры или auto(...) в аргументах цепочки командной строки для следующего запуска.&lt;/string>"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="378"
+            column="44"/>
     </issue>
 
     <issue
@@ -817,6 +1979,17 @@
         message="Launcher icons should not fill every pixel of their square region; see the design guide for details">
         <location
             file="src/main/res/drawable-nodpi/ic_launcher_stealth.png"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="    private fun packageUri(packageName: String): Uri = Uri.parse(&quot;package:$packageName&quot;)"
+        errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/permissions/BatteryOptimizationIntents.kt"
+            line="72"
+            column="56"/>
     </issue>
 
 </issues>

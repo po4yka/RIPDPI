@@ -1,9 +1,8 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeError
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import javax.inject.Inject
-import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -14,6 +13,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
+import javax.inject.Inject
+import kotlin.coroutines.coroutineContext
 
 interface RipDpiProxyRuntime {
     suspend fun startProxy(preferences: RipDpiProxyPreferences): Int
@@ -23,6 +24,8 @@ interface RipDpiProxyRuntime {
     suspend fun stopProxy()
 
     suspend fun pollTelemetry(): NativeRuntimeSnapshot
+
+    suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot)
 }
 
 internal const val DEFAULT_PROXY_READY_TIMEOUT_MS = 5_000L
@@ -37,6 +40,8 @@ interface RipDpiProxyBindings {
     fun pollTelemetry(handle: Long): String?
 
     fun destroy(handle: Long)
+
+    fun updateNetworkSnapshot(handle: Long, snapshotJson: String)
 }
 
 class RipDpiProxyNativeBindings
@@ -62,6 +67,10 @@ class RipDpiProxyNativeBindings
             jniDestroy(handle)
         }
 
+        override fun updateNetworkSnapshot(handle: Long, snapshotJson: String) {
+            jniUpdateNetworkSnapshot(handle, snapshotJson)
+        }
+
         private external fun jniCreate(configJson: String): Long
 
         private external fun jniStart(handle: Long): Int
@@ -71,6 +80,8 @@ class RipDpiProxyNativeBindings
         private external fun jniPollTelemetry(handle: Long): String?
 
         private external fun jniDestroy(handle: Long)
+
+        private external fun jniUpdateNetworkSnapshot(handle: Long, snapshotJson: String)
     }
 
 class RipDpiProxy(
@@ -109,9 +120,10 @@ class RipDpiProxy(
             }
 
         try {
-            val completionHandle = coroutineContext[Job]!!.invokeOnCompletion {
-                nativeBindings.stop(handle)
-            }
+            val completionHandle =
+                coroutineContext[Job]!!.invokeOnCompletion {
+                    nativeBindings.stop(handle)
+                }
             return try {
                 withContext(Dispatchers.IO) { nativeBindings.start(handle) }
             } finally {
@@ -175,6 +187,13 @@ class RipDpiProxy(
 
             nativeBindings.stop(handle)
         }
+    }
+
+    override suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot) {
+        val currentHandle = mutex.withLock { handle }
+        if (currentHandle == 0L) return
+        val snapshotJson = json.encodeToString(NativeNetworkSnapshot.serializer(), snapshot)
+        withContext(Dispatchers.IO) { nativeBindings.updateNetworkSnapshot(currentHandle, snapshotJson) }
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {

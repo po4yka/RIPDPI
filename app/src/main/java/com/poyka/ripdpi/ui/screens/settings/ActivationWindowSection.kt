@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -91,12 +91,21 @@ private fun ActivationWindowProfileCard(
     val status = rememberActivationWindowStatus(uiState)
     val scopeSummary =
         when {
-            uiState.enableCmdSettings -> stringResource(R.string.activation_window_scope_cli)
-            !uiState.activationWindowControlsRelevant ->
+            uiState.enableCmdSettings -> {
+                stringResource(R.string.activation_window_scope_cli)
+            }
+
+            !uiState.activationWindowControlsRelevant -> {
                 stringResource(R.string.activation_window_scope_inactive)
-            uiState.hasCustomActivationWindow ->
+            }
+
+            uiState.hasCustomActivationWindow -> {
                 stringResource(R.string.activation_window_scope_filtered)
-            else -> stringResource(R.string.activation_window_scope_open)
+            }
+
+            else -> {
+                stringResource(R.string.activation_window_scope_open)
+            }
         }
     val stepFilterSummary =
         if (uiState.hasStepActivationFilters) {
@@ -189,52 +198,59 @@ private fun ActivationWindowProfileCard(
 @Composable
 private fun rememberActivationWindowStatus(uiState: SettingsUiState): ActivationWindowStatusContent =
     when {
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_cli_title),
                 body = stringResource(R.string.activation_window_cli_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.activationWindowControlsRelevant && uiState.hasCustomActivationWindow ->
+        !uiState.activationWindowControlsRelevant && uiState.hasCustomActivationWindow -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_group_disabled_title),
                 body = stringResource(R.string.activation_window_group_disabled_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        !uiState.activationWindowControlsRelevant ->
+        !uiState.activationWindowControlsRelevant -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_group_off_title),
                 body = stringResource(R.string.activation_window_group_off_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        uiState.isServiceRunning && uiState.hasCustomActivationWindow ->
+        uiState.isServiceRunning && uiState.hasCustomActivationWindow -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_restart_title),
                 body = stringResource(R.string.activation_window_restart_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.hasCustomActivationWindow ->
+        uiState.hasCustomActivationWindow -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_custom_title),
                 body = stringResource(R.string.activation_window_custom_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        uiState.hasStepActivationFilters ->
+        uiState.hasStepActivationFilters -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_step_only_title),
                 body = stringResource(R.string.activation_window_step_only_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        else ->
+        else -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_default_title),
                 body = stringResource(R.string.activation_window_default_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
     }

@@ -1354,6 +1354,7 @@ Source: %2$s</string>
 
     <!-- Diagnostics overview headlines -->
     <string name="diagnostics_headline_scan_active">Diagnostics scan is active</string>
+    <string name="diagnostics_headline_probe_active">Strategy probe is running</string>
     <string name="diagnostics_headline_no_data">No diagnostics captured yet</string>
     <string name="diagnostics_headline_degraded">The network path needs attention</string>
     <string name="diagnostics_headline_attention">Diagnostics are reporting mixed signals</string>

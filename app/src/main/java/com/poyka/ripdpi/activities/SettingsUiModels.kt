@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AdaptiveMarkerEndHost
@@ -27,6 +26,7 @@ import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
@@ -386,7 +386,9 @@ data class SettingsUiState(
         get() = desyncEnabled
 
     val showActivationWindowProfile: Boolean
-        get() = enableCmdSettings || activationWindowControlsRelevant || hasCustomActivationWindow || hasStepActivationFilters
+        get() =
+            enableCmdSettings || activationWindowControlsRelevant || hasCustomActivationWindow ||
+                hasStepActivationFilters
 
     val activationWindowSummary: String
         get() = formatActivationFilterSummary(groupActivationFilter).ifBlank { "Always active" }
@@ -394,11 +396,32 @@ data class SettingsUiState(
     val adaptiveSplitPreset: String
         get() =
             when (splitMarker) {
-                AdaptiveMarkerBalanced -> AdaptiveMarkerBalanced
-                AdaptiveMarkerHost -> AdaptiveMarkerHost
-                AdaptiveMarkerEndHost -> AdaptiveMarkerEndHost
-                AdaptiveMarkerSniExt -> AdaptiveMarkerSniExt
-                else -> if (isAdaptiveOffsetExpression(splitMarker)) AdaptiveSplitPresetCustom else AdaptiveSplitPresetManual
+                AdaptiveMarkerBalanced -> {
+                    AdaptiveMarkerBalanced
+                }
+
+                AdaptiveMarkerHost -> {
+                    AdaptiveMarkerHost
+                }
+
+                AdaptiveMarkerEndHost -> {
+                    AdaptiveMarkerEndHost
+                }
+
+                AdaptiveMarkerSniExt -> {
+                    AdaptiveMarkerSniExt
+                }
+
+                else -> {
+                    if (isAdaptiveOffsetExpression(
+                            splitMarker,
+                        )
+                    ) {
+                        AdaptiveSplitPresetCustom
+                    } else {
+                        AdaptiveSplitPresetManual
+                    }
+                }
             }
 
     val hasAdaptiveSplitPreset: Boolean

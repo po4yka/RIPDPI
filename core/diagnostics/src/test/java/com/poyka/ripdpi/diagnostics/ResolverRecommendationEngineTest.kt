@@ -14,7 +14,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ResolverRecommendationEngineTest {
-
     // -- parseHostFromEncryptedEndpoint --
 
     @Test
@@ -112,19 +111,21 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `parseCandidate returns null for non-doh protocol with blank host and doh url`() {
-        val details = mapOf(
-            "encryptedProtocol" to "dot",
-            "encryptedHost" to "",
-            "encryptedResolverId" to "unknown_provider",
-        )
+        val details =
+            mapOf(
+                "encryptedProtocol" to "dot",
+                "encryptedHost" to "",
+                "encryptedResolverId" to "unknown_provider",
+            )
         assertNull(ResolverRecommendationEngine.parseResolverPathCandidate(details))
     }
 
     @Test
     fun `parseCandidate defaults to doh protocol when empty`() {
-        val details = mapOf(
-            "encryptedResolverId" to DnsProviderCloudflare,
-        )
+        val details =
+            mapOf(
+                "encryptedResolverId" to DnsProviderCloudflare,
+            )
         val candidate = ResolverRecommendationEngine.parseResolverPathCandidate(details)
         assertNotNull(candidate)
         assertEquals(EncryptedDnsProtocolDoh, candidate!!.protocol)
@@ -132,9 +133,10 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `parseCandidate defaults resolverId to custom when blank`() {
-        val details = mapOf(
-            "encryptedEndpoint" to "https://custom.example/dns-query",
-        )
+        val details =
+            mapOf(
+                "encryptedEndpoint" to "https://custom.example/dns-query",
+            )
         val candidate = ResolverRecommendationEngine.parseResolverPathCandidate(details)
         assertNotNull(candidate)
         assertEquals(DnsProviderCustom, candidate!!.resolverId)
@@ -142,10 +144,11 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `parseCandidate extracts bootstrap ips from pipe-separated values`() {
-        val details = mapOf(
-            "encryptedResolverId" to DnsProviderCloudflare,
-            "encryptedBootstrapIps" to "1.1.1.1|1.0.0.1",
-        )
+        val details =
+            mapOf(
+                "encryptedResolverId" to DnsProviderCloudflare,
+                "encryptedBootstrapIps" to "1.1.1.1|1.0.0.1",
+            )
         val candidate = ResolverRecommendationEngine.parseResolverPathCandidate(details)
         assertNotNull(candidate)
         assertEquals(listOf("1.1.1.1", "1.0.0.1"), candidate!!.bootstrapIps)
@@ -153,11 +156,12 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `parseCandidate uses dot port default 853`() {
-        val details = mapOf(
-            "encryptedResolverId" to DnsProviderGoogle,
-            "encryptedProtocol" to EncryptedDnsProtocolDot,
-            "encryptedHost" to "dns.google",
-        )
+        val details =
+            mapOf(
+                "encryptedResolverId" to DnsProviderGoogle,
+                "encryptedProtocol" to EncryptedDnsProtocolDot,
+                "encryptedHost" to "dns.google",
+            )
         val candidate = ResolverRecommendationEngine.parseResolverPathCandidate(details)
         assertNotNull(candidate)
         assertEquals(853, candidate!!.port)
@@ -165,11 +169,12 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `parseCandidate clears tls server name for dnscrypt`() {
-        val details = mapOf(
-            "encryptedResolverId" to DnsProviderCloudflare,
-            "encryptedProtocol" to EncryptedDnsProtocolDnsCrypt,
-            "encryptedHost" to "some-host",
-        )
+        val details =
+            mapOf(
+                "encryptedResolverId" to DnsProviderCloudflare,
+                "encryptedProtocol" to EncryptedDnsProtocolDnsCrypt,
+                "encryptedHost" to "some-host",
+            )
         val candidate = ResolverRecommendationEngine.parseResolverPathCandidate(details)
         assertNotNull(candidate)
         assertEquals("", candidate!!.tlsServerName)
@@ -179,20 +184,21 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `toEncryptedDnsPathCandidate preserves dot settings`() {
-        val recommendation = ResolverRecommendation(
-            triggerOutcome = "dns_substitution",
-            selectedResolverId = DnsProviderGoogle,
-            selectedProtocol = EncryptedDnsProtocolDot,
-            selectedEndpoint = "dns.google:853",
-            selectedBootstrapIps = listOf("8.8.8.8"),
-            selectedHost = "dns.google",
-            selectedPort = 853,
-            selectedTlsServerName = "dns.google",
-            selectedDohUrl = "",
-            selectedDnscryptProviderName = "",
-            selectedDnscryptPublicKey = "",
-            rationale = "test",
-        )
+        val recommendation =
+            ResolverRecommendation(
+                triggerOutcome = "dns_substitution",
+                selectedResolverId = DnsProviderGoogle,
+                selectedProtocol = EncryptedDnsProtocolDot,
+                selectedEndpoint = "dns.google:853",
+                selectedBootstrapIps = listOf("8.8.8.8"),
+                selectedHost = "dns.google",
+                selectedPort = 853,
+                selectedTlsServerName = "dns.google",
+                selectedDohUrl = "",
+                selectedDnscryptProviderName = "",
+                selectedDnscryptPublicKey = "",
+                rationale = "test",
+            )
         val candidate = with(ResolverRecommendationEngine) { recommendation.toEncryptedDnsPathCandidate() }
         assertEquals(DnsProviderGoogle, candidate.resolverId)
         assertEquals(EncryptedDnsProtocolDot, candidate.protocol)
@@ -204,20 +210,21 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `toEncryptedDnsPathCandidate parses host from endpoint when selectedHost is blank`() {
-        val recommendation = ResolverRecommendation(
-            triggerOutcome = "dns_substitution",
-            selectedResolverId = DnsProviderCloudflare,
-            selectedProtocol = EncryptedDnsProtocolDoh,
-            selectedEndpoint = "https://cloudflare-dns.com/dns-query",
-            selectedBootstrapIps = emptyList(),
-            selectedHost = "",
-            selectedPort = 0,
-            selectedTlsServerName = "",
-            selectedDohUrl = "https://cloudflare-dns.com/dns-query",
-            selectedDnscryptProviderName = "",
-            selectedDnscryptPublicKey = "",
-            rationale = "test",
-        )
+        val recommendation =
+            ResolverRecommendation(
+                triggerOutcome = "dns_substitution",
+                selectedResolverId = DnsProviderCloudflare,
+                selectedProtocol = EncryptedDnsProtocolDoh,
+                selectedEndpoint = "https://cloudflare-dns.com/dns-query",
+                selectedBootstrapIps = emptyList(),
+                selectedHost = "",
+                selectedPort = 0,
+                selectedTlsServerName = "",
+                selectedDohUrl = "https://cloudflare-dns.com/dns-query",
+                selectedDnscryptProviderName = "",
+                selectedDnscryptPublicKey = "",
+                rationale = "test",
+            )
         val candidate = with(ResolverRecommendationEngine) { recommendation.toEncryptedDnsPathCandidate() }
         assertEquals("cloudflare-dns.com", candidate.host)
         assertEquals(443, candidate.port)
@@ -226,20 +233,21 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `toEncryptedDnsPathCandidate clears tls for dnscrypt`() {
-        val recommendation = ResolverRecommendation(
-            triggerOutcome = "udp_blocked",
-            selectedResolverId = DnsProviderCloudflare,
-            selectedProtocol = EncryptedDnsProtocolDnsCrypt,
-            selectedEndpoint = "some-host:443",
-            selectedBootstrapIps = emptyList(),
-            selectedHost = "some-host",
-            selectedPort = 443,
-            selectedTlsServerName = "",
-            selectedDohUrl = "",
-            selectedDnscryptProviderName = "provider",
-            selectedDnscryptPublicKey = "pubkey",
-            rationale = "test",
-        )
+        val recommendation =
+            ResolverRecommendation(
+                triggerOutcome = "udp_blocked",
+                selectedResolverId = DnsProviderCloudflare,
+                selectedProtocol = EncryptedDnsProtocolDnsCrypt,
+                selectedEndpoint = "some-host:443",
+                selectedBootstrapIps = emptyList(),
+                selectedHost = "some-host",
+                selectedPort = 443,
+                selectedTlsServerName = "",
+                selectedDohUrl = "",
+                selectedDnscryptProviderName = "provider",
+                selectedDnscryptPublicKey = "pubkey",
+                rationale = "test",
+            )
         val candidate = with(ResolverRecommendationEngine) { recommendation.toEncryptedDnsPathCandidate() }
         assertEquals("", candidate.tlsServerName)
         assertEquals("", candidate.dohUrl)
@@ -250,21 +258,25 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `compute returns null when no dns integrity results`() {
-        val report = ScanReport(
-            sessionId = "s1",
-            profileId = "p1",
-            pathMode = ScanPathMode.RAW_PATH,
-            startedAt = 0,
-            finishedAt = 0,
-            summary = "",
-            results = listOf(
-                ProbeResult(probeType = "tcp_connect", target = "example.com", outcome = "success"),
-            ),
-        )
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 0,
+                summary = "",
+                results =
+                    listOf(
+                        ProbeResult(probeType = "tcp_connect", target = "example.com", outcome = "success"),
+                    ),
+            )
         assertNull(
             ResolverRecommendationEngine.compute(
                 report = report,
-                settings = com.poyka.ripdpi.proto.AppSettings.getDefaultInstance(),
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
                 preferredPath = null,
             ),
         )
@@ -272,29 +284,34 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `compute returns null when no trigger outcome among dns results`() {
-        val report = ScanReport(
-            sessionId = "s1",
-            profileId = "p1",
-            pathMode = ScanPathMode.RAW_PATH,
-            startedAt = 0,
-            finishedAt = 0,
-            summary = "",
-            results = listOf(
-                ProbeResult(
-                    probeType = "dns_integrity",
-                    target = "example.com",
-                    outcome = "dns_match",
-                    details = listOf(
-                        ProbeDetail("encryptedResolverId", DnsProviderCloudflare),
-                        ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDoh),
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 0,
+                summary = "",
+                results =
+                    listOf(
+                        ProbeResult(
+                            probeType = "dns_integrity",
+                            target = "example.com",
+                            outcome = "dns_match",
+                            details =
+                                listOf(
+                                    ProbeDetail("encryptedResolverId", DnsProviderCloudflare),
+                                    ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDoh),
+                                ),
+                        ),
                     ),
-                ),
-            ),
-        )
+            )
         assertNull(
             ResolverRecommendationEngine.compute(
                 report = report,
-                settings = com.poyka.ripdpi.proto.AppSettings.getDefaultInstance(),
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
                 preferredPath = null,
             ),
         )
@@ -302,42 +319,49 @@ class ResolverRecommendationEngineTest {
 
     @Test
     fun `compute selects best candidate by match count`() {
-        val report = ScanReport(
-            sessionId = "s1",
-            profileId = "p1",
-            pathMode = ScanPathMode.RAW_PATH,
-            startedAt = 0,
-            finishedAt = 100,
-            summary = "",
-            results = listOf(
-                ProbeResult(
-                    probeType = "dns_integrity",
-                    target = "example.com",
-                    outcome = "dns_substitution",
-                    details = listOf(
-                        ProbeDetail("encryptedResolverId", DnsProviderCloudflare),
-                        ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDoh),
-                        ProbeDetail("encryptedAddresses", "1.2.3.4"),
+        val report =
+            ScanReport(
+                sessionId = "s1",
+                profileId = "p1",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 0,
+                finishedAt = 100,
+                summary = "",
+                results =
+                    listOf(
+                        ProbeResult(
+                            probeType = "dns_integrity",
+                            target = "example.com",
+                            outcome = "dns_substitution",
+                            details =
+                                listOf(
+                                    ProbeDetail("encryptedResolverId", DnsProviderCloudflare),
+                                    ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDoh),
+                                    ProbeDetail("encryptedAddresses", "1.2.3.4"),
+                                ),
+                        ),
+                        ProbeResult(
+                            probeType = "dns_integrity",
+                            target = "example.com",
+                            outcome = "dns_match",
+                            details =
+                                listOf(
+                                    ProbeDetail("encryptedResolverId", DnsProviderGoogle),
+                                    ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDot),
+                                    ProbeDetail("encryptedHost", "dns.google"),
+                                    ProbeDetail("encryptedLatencyMs", "50"),
+                                ),
+                        ),
                     ),
-                ),
-                ProbeResult(
-                    probeType = "dns_integrity",
-                    target = "example.com",
-                    outcome = "dns_match",
-                    details = listOf(
-                        ProbeDetail("encryptedResolverId", DnsProviderGoogle),
-                        ProbeDetail("encryptedProtocol", EncryptedDnsProtocolDot),
-                        ProbeDetail("encryptedHost", "dns.google"),
-                        ProbeDetail("encryptedLatencyMs", "50"),
-                    ),
-                ),
-            ),
-        )
-        val result = ResolverRecommendationEngine.compute(
-            report = report,
-            settings = com.poyka.ripdpi.proto.AppSettings.getDefaultInstance(),
-            preferredPath = null,
-        )
+            )
+        val result =
+            ResolverRecommendationEngine.compute(
+                report = report,
+                settings =
+                    com.poyka.ripdpi.proto.AppSettings
+                        .getDefaultInstance(),
+                preferredPath = null,
+            )
         assertNotNull(result)
         assertEquals(DnsProviderGoogle, result!!.selectedResolverId)
         assertEquals(EncryptedDnsProtocolDot, result.selectedProtocol)

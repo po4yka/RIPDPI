@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.1.0" type="baseline" client="gradle" dependencies="true" name="AGP (9.1.0)" variant="all" version="9.1.0">
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `KotlinPropertyAccess` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `KotlinPropertyAccess` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `KotlinPropertyAccess` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `LambdaLast` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `LambdaLast` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `LambdaLast` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `NoHardKeywords` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `NoHardKeywords` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `NoHardKeywords` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `UnknownNullness` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `UnknownNullness` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="CannotEnableHidden"
+        message="Issue `UnknownNullness` was configured with severity `warning` in diagnostics, but was not enabled (or was disabled) in library diagnostics-data">
+        <location
+            file="diagnostics"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by ConnectivityManager.isActiveNetworkMetered: android.permission.ACCESS_NETWORK_STATE"
+        errorLine1="                        networkMeteredState = booleanState(connectivityManager.isActiveNetworkMetered),"
+        errorLine2="                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
+            line="127"
+            column="60"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by ConnectivityManager.getActiveNetwork: android.permission.ACCESS_NETWORK_STATE"
+        errorLine1="                connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork) ?: return &quot;unknown&quot;"
+        errorLine2="                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
+            line="162"
+            column="60"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by ConnectivityManager.getNetworkCapabilities: android.permission.ACCESS_NETWORK_STATE"
+        errorLine1="                connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork) ?: return &quot;unknown&quot;"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
+            line="162"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by ConnectivityManager.getActiveNetwork: android.permission.ACCESS_NETWORK_STATE"
+        errorLine1="            val network = connectivityManager.activeNetwork"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="75"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by ConnectivityManager.getNetworkCapabilities: android.permission.ACCESS_NETWORK_STATE"
+        errorLine1="            val capabilities = connectivityManager.getNetworkCapabilities(network)"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="76"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by ConnectivityManager.getLinkProperties: android.permission.ACCESS_NETWORK_STATE"
+        errorLine1="            val linkProperties = connectivityManager.getLinkProperties(network)"
+        errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="77"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="            val serviceState = runCatching { telephony.serviceState }.getOrNull()"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="194"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by TelephonyManager.getServiceState: android.permission.READ_PHONE_STATE and android.permission.ACCESS_COARSE_LOCATION"
+        errorLine1="            val serviceState = runCatching { telephony.serviceState }.getOrNull()"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="194"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
+        errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="207"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by TelephonyManager.getDataNetworkType: android.permission.READ_PHONE_STATE or android.permission.READ_BASIC_PHONE_STATE"
+        errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
+        errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="207"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                voiceNetworkType = describeMobileNetworkType(telephony.voiceNetworkType),"
+        errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="208"
+            column="62"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Missing permissions required by TelephonyManager.getVoiceNetworkType: android.permission.READ_PHONE_STATE or android.permission.READ_BASIC_PHONE_STATE"
+        errorLine1="                voiceNetworkType = describeMobileNetworkType(telephony.voiceNetworkType),"
+        errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="208"
+            column="62"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 27): `android.net.LinkProperties#getMtu`"
+        errorLine1="                mtu = linkProperties?.mtu?.takeIf { it > 0 },"
+        errorLine2="                                      ~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="85"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 28 (current min is 27): `android.net.LinkProperties#getPrivateDnsServerName`"
+        errorLine1="            val privateDnsServerName = linkProperties?.privateDnsServerName"
+        errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="132"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 28 (current min is 27): `android.telephony.TelephonyManager#getSignalStrength`"
+        errorLine1="            val signalStrength = runCatching { telephony.signalStrength }.getOrNull()"
+        errorLine2="                                                         ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="195"
+            column="58"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 28 (current min is 27): `android.telephony.TelephonyManager#getSimCarrierIdName`"
+        errorLine1="                        telephony.simCarrierIdName?.toString() ?: telephony.networkOperatorName,"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="199"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 27): `android.telephony.SignalStrength#getCellSignalStrengths`"
+        errorLine1="                signalDbm = signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm,"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/NetworkMetadataProvider.kt"
+            line="215"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 27"
+        errorLine1="            if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsContextProvider.kt"
+            line="146"
+            column="17"/>
+    </issue>
+
+</issues>

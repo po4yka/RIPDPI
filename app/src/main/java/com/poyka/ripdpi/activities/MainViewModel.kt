@@ -7,10 +7,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
@@ -32,14 +36,9 @@ import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.services.ServiceController
-import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -54,6 +53,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.milliseconds
@@ -238,8 +238,14 @@ class MainViewModel
 
         fun onPrimaryConnectionAction() {
             when (uiState.value.connectionState) {
-                ConnectionState.Connecting -> return
-                ConnectionState.Connected -> stop()
+                ConnectionState.Connecting -> {
+                    return
+                }
+
+                ConnectionState.Connected -> {
+                    stop()
+                }
+
                 ConnectionState.Disconnected,
                 ConnectionState.Error,
                 -> {
@@ -357,14 +363,17 @@ class MainViewModel
 
                         PermissionStatus.Granted,
                         PermissionStatus.NotApplicable,
-                        -> continueResolvedAction(action, emptyList())
+                        -> {
+                            continueResolvedAction(action, emptyList())
+                        }
                     }
                 }
 
                 PermissionKind.VpnConsent -> {
                     when (action) {
-                        PermissionAction.StartConfiguredMode ->
+                        PermissionAction.StartConfiguredMode -> {
                             _effects.trySend(MainEffect.ShowVpnPermissionDialog)
+                        }
 
                         PermissionAction.StartVpnMode,
                         is PermissionAction.RepairPermission,
@@ -504,8 +513,14 @@ class MainViewModel
         ) {
             pendingPermissionAction = null
             when (action) {
-                PermissionAction.StartConfiguredMode -> startMode(uiState.value.configuredMode)
-                PermissionAction.StartVpnMode -> startMode(Mode.VPN)
+                PermissionAction.StartConfiguredMode -> {
+                    startMode(uiState.value.configuredMode)
+                }
+
+                PermissionAction.StartVpnMode -> {
+                    startMode(Mode.VPN)
+                }
+
                 is PermissionAction.RepairPermission -> {
                     if (action.kind == PermissionKind.BatteryOptimization && recommended.isEmpty()) {
                         refreshPermissionSnapshot()
@@ -582,7 +597,10 @@ class MainViewModel
             }
         }
 
-        private fun onServiceFailed(sender: Sender, reason: FailureReason) {
+        private fun onServiceFailed(
+            sender: Sender,
+            reason: FailureReason,
+        ) {
             val detail = reason.displayMessage
             val message = stringResolver.getString(R.string.failed_to_start, sender.senderName) + ": $detail"
             showError(message)
@@ -692,7 +710,10 @@ class MainViewModel
                         permissionOverrides.remove(PermissionKind.Notifications)
                         PermissionStatus.Granted
                     }
-                    else -> permissionOverrides[PermissionKind.Notifications] ?: providerSnapshot.notifications
+
+                    else -> {
+                        permissionOverrides[PermissionKind.Notifications] ?: providerSnapshot.notifications
+                    }
                 }
             val vpnStatus =
                 when {
@@ -700,7 +721,10 @@ class MainViewModel
                         permissionOverrides.remove(PermissionKind.VpnConsent)
                         PermissionStatus.Granted
                     }
-                    else -> permissionOverrides[PermissionKind.VpnConsent] ?: providerSnapshot.vpnConsent
+
+                    else -> {
+                        permissionOverrides[PermissionKind.VpnConsent] ?: providerSnapshot.vpnConsent
+                    }
                 }
 
             return providerSnapshot.copy(
@@ -738,7 +762,7 @@ class MainViewModel
                         buildNotificationPermissionItem(snapshot.notifications),
                         buildVpnPermissionItem(snapshot.vpnConsent, configuredMode),
                         buildBatteryPermissionItem(snapshot.batteryOptimization),
-                ),
+                    ),
             )
         }
 
@@ -750,7 +774,9 @@ class MainViewModel
             val strategyId =
                 deriveBypassStrategySignature(
                     settings = settings,
-                    routeGroup = serviceStateStore.telemetry.value.proxyTelemetry.lastRouteGroup?.toString(),
+                    routeGroup =
+                        serviceStateStore.telemetry.value.proxyTelemetry.lastRouteGroup
+                            ?.toString(),
                     modeOverride = activeMode,
                 ).stableId()
             val strategySummary =
@@ -783,30 +809,36 @@ class MainViewModel
             when (status) {
                 PermissionStatus.Granted,
                 PermissionStatus.NotApplicable,
-                -> PermissionItemUiState(
-                    kind = PermissionKind.Notifications,
-                    title = stringResolver.getString(R.string.permissions_notifications_title),
-                    subtitle = stringResolver.getString(R.string.settings_permissions_notifications_ready),
-                    statusLabel = stringResolver.getString(R.string.settings_permission_status_granted),
-                )
+                -> {
+                    PermissionItemUiState(
+                        kind = PermissionKind.Notifications,
+                        title = stringResolver.getString(R.string.permissions_notifications_title),
+                        subtitle = stringResolver.getString(R.string.settings_permissions_notifications_ready),
+                        statusLabel = stringResolver.getString(R.string.settings_permission_status_granted),
+                    )
+                }
 
-                PermissionStatus.RequiresSettings -> PermissionItemUiState(
-                    kind = PermissionKind.Notifications,
-                    title = stringResolver.getString(R.string.permissions_notifications_title),
-                    subtitle = stringResolver.getString(R.string.settings_permissions_notifications_needed),
-                    statusLabel = stringResolver.getString(R.string.settings_permission_status_required),
-                    actionLabel = stringResolver.getString(R.string.settings_permission_action_open_settings),
-                )
+                PermissionStatus.RequiresSettings -> {
+                    PermissionItemUiState(
+                        kind = PermissionKind.Notifications,
+                        title = stringResolver.getString(R.string.permissions_notifications_title),
+                        subtitle = stringResolver.getString(R.string.settings_permissions_notifications_needed),
+                        statusLabel = stringResolver.getString(R.string.settings_permission_status_required),
+                        actionLabel = stringResolver.getString(R.string.settings_permission_action_open_settings),
+                    )
+                }
 
                 PermissionStatus.Denied,
                 PermissionStatus.RequiresSystemPrompt,
-                -> PermissionItemUiState(
-                    kind = PermissionKind.Notifications,
-                    title = stringResolver.getString(R.string.permissions_notifications_title),
-                    subtitle = stringResolver.getString(R.string.settings_permissions_notifications_needed),
-                    statusLabel = stringResolver.getString(R.string.settings_permission_status_required),
-                    actionLabel = stringResolver.getString(R.string.settings_permission_action_allow),
-                )
+                -> {
+                    PermissionItemUiState(
+                        kind = PermissionKind.Notifications,
+                        title = stringResolver.getString(R.string.permissions_notifications_title),
+                        subtitle = stringResolver.getString(R.string.settings_permissions_notifications_needed),
+                        statusLabel = stringResolver.getString(R.string.settings_permission_status_required),
+                        actionLabel = stringResolver.getString(R.string.settings_permission_action_allow),
+                    )
+                }
             }
 
         private fun buildVpnPermissionItem(
@@ -814,83 +846,93 @@ class MainViewModel
             configuredMode: Mode,
         ): PermissionItemUiState =
             when (status) {
-                PermissionStatus.Granted -> PermissionItemUiState(
-                    kind = PermissionKind.VpnConsent,
-                    title = stringResolver.getString(R.string.permissions_vpn_title),
-                    subtitle =
-                        if (configuredMode == Mode.VPN) {
-                            stringResolver.getString(R.string.settings_permissions_vpn_active)
-                        } else {
-                            stringResolver.getString(R.string.settings_permissions_vpn_optional)
-                        },
-                    statusLabel = stringResolver.getString(R.string.settings_permission_status_granted),
-                )
+                PermissionStatus.Granted -> {
+                    PermissionItemUiState(
+                        kind = PermissionKind.VpnConsent,
+                        title = stringResolver.getString(R.string.permissions_vpn_title),
+                        subtitle =
+                            if (configuredMode == Mode.VPN) {
+                                stringResolver.getString(R.string.settings_permissions_vpn_active)
+                            } else {
+                                stringResolver.getString(R.string.settings_permissions_vpn_optional)
+                            },
+                        statusLabel = stringResolver.getString(R.string.settings_permission_status_granted),
+                    )
+                }
 
-                PermissionStatus.NotApplicable -> PermissionItemUiState(
-                    kind = PermissionKind.VpnConsent,
-                    title = stringResolver.getString(R.string.permissions_vpn_title),
-                    subtitle = stringResolver.getString(R.string.settings_permissions_vpn_optional),
-                    statusLabel = stringResolver.getString(R.string.settings_permission_status_not_needed),
-                )
+                PermissionStatus.NotApplicable -> {
+                    PermissionItemUiState(
+                        kind = PermissionKind.VpnConsent,
+                        title = stringResolver.getString(R.string.permissions_vpn_title),
+                        subtitle = stringResolver.getString(R.string.settings_permissions_vpn_optional),
+                        statusLabel = stringResolver.getString(R.string.settings_permission_status_not_needed),
+                    )
+                }
 
                 PermissionStatus.Denied,
                 PermissionStatus.RequiresSettings,
                 PermissionStatus.RequiresSystemPrompt,
-                -> PermissionItemUiState(
-                    kind = PermissionKind.VpnConsent,
-                    title = stringResolver.getString(R.string.permissions_vpn_title),
-                    subtitle =
-                        if (configuredMode == Mode.VPN) {
-                            stringResolver.getString(R.string.settings_permissions_vpn_needed)
-                        } else {
-                            stringResolver.getString(R.string.settings_permissions_vpn_optional)
-                        },
-                    statusLabel =
-                        if (configuredMode == Mode.VPN) {
-                            stringResolver.getString(R.string.settings_permission_status_required)
-                        } else {
-                            stringResolver.getString(R.string.settings_permission_status_optional)
-                        },
-                    actionLabel = stringResolver.getString(R.string.permissions_vpn_continue),
-                )
+                -> {
+                    PermissionItemUiState(
+                        kind = PermissionKind.VpnConsent,
+                        title = stringResolver.getString(R.string.permissions_vpn_title),
+                        subtitle =
+                            if (configuredMode == Mode.VPN) {
+                                stringResolver.getString(R.string.settings_permissions_vpn_needed)
+                            } else {
+                                stringResolver.getString(R.string.settings_permissions_vpn_optional)
+                            },
+                        statusLabel =
+                            if (configuredMode == Mode.VPN) {
+                                stringResolver.getString(R.string.settings_permission_status_required)
+                            } else {
+                                stringResolver.getString(R.string.settings_permission_status_optional)
+                            },
+                        actionLabel = stringResolver.getString(R.string.permissions_vpn_continue),
+                    )
+                }
             }
 
         private fun buildBatteryPermissionItem(status: PermissionStatus): PermissionItemUiState =
             when (status) {
                 PermissionStatus.Granted,
                 PermissionStatus.NotApplicable,
-                -> PermissionItemUiState(
-                    kind = PermissionKind.BatteryOptimization,
-                    title = stringResolver.getString(R.string.permissions_battery_title),
-                    subtitle =
-                        stringResolver.getString(
-                            if (status == PermissionStatus.Granted) {
-                                BatteryOptimizationGuidance.readySubtitleRes(deviceManufacturer)
+                -> {
+                    PermissionItemUiState(
+                        kind = PermissionKind.BatteryOptimization,
+                        title = stringResolver.getString(R.string.permissions_battery_title),
+                        subtitle =
+                            stringResolver.getString(
+                                if (status == PermissionStatus.Granted) {
+                                    BatteryOptimizationGuidance.readySubtitleRes(deviceManufacturer)
+                                } else {
+                                    R.string.settings_permissions_battery_ready
+                                },
+                            ),
+                        statusLabel =
+                            if (status == PermissionStatus.NotApplicable) {
+                                stringResolver.getString(R.string.settings_permission_status_not_needed)
                             } else {
-                                R.string.settings_permissions_battery_ready
+                                stringResolver.getString(R.string.settings_permission_status_granted)
                             },
-                        ),
-                    statusLabel =
-                        if (status == PermissionStatus.NotApplicable) {
-                            stringResolver.getString(R.string.settings_permission_status_not_needed)
-                        } else {
-                            stringResolver.getString(R.string.settings_permission_status_granted)
-                        },
-                )
+                    )
+                }
 
                 PermissionStatus.Denied,
                 PermissionStatus.RequiresSystemPrompt,
                 PermissionStatus.RequiresSettings,
-                -> PermissionItemUiState(
-                    kind = PermissionKind.BatteryOptimization,
-                    title = stringResolver.getString(R.string.permissions_battery_title),
-                    subtitle =
-                        stringResolver.getString(
-                            BatteryOptimizationGuidance.recommendedSubtitleRes(deviceManufacturer),
-                        ),
-                    statusLabel = stringResolver.getString(R.string.settings_permission_status_recommended),
-                    actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
-                )
+                -> {
+                    PermissionItemUiState(
+                        kind = PermissionKind.BatteryOptimization,
+                        title = stringResolver.getString(R.string.permissions_battery_title),
+                        subtitle =
+                            stringResolver.getString(
+                                BatteryOptimizationGuidance.recommendedSubtitleRes(deviceManufacturer),
+                            ),
+                        statusLabel = stringResolver.getString(R.string.settings_permission_status_recommended),
+                        actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
+                    )
+                }
             }
 
         private fun createPermissionIssue(
@@ -899,7 +941,7 @@ class MainViewModel
             blocking: Boolean,
         ): PermissionIssueUiState =
             when (kind) {
-                PermissionKind.Notifications ->
+                PermissionKind.Notifications -> {
                     if (status == PermissionStatus.RequiresSettings) {
                         PermissionIssueUiState(
                             kind = kind,
@@ -919,27 +961,32 @@ class MainViewModel
                             blocking = blocking,
                         )
                     }
+                }
 
-                PermissionKind.VpnConsent -> PermissionIssueUiState(
-                    kind = kind,
-                    title = stringResolver.getString(R.string.permissions_vpn_error_title),
-                    message = stringResolver.getString(R.string.permissions_vpn_error_body),
-                    recovery = PermissionRecovery.ShowVpnPermissionDialog,
-                    actionLabel = stringResolver.getString(R.string.permissions_vpn_continue),
-                    blocking = blocking,
-                )
+                PermissionKind.VpnConsent -> {
+                    PermissionIssueUiState(
+                        kind = kind,
+                        title = stringResolver.getString(R.string.permissions_vpn_error_title),
+                        message = stringResolver.getString(R.string.permissions_vpn_error_body),
+                        recovery = PermissionRecovery.ShowVpnPermissionDialog,
+                        actionLabel = stringResolver.getString(R.string.permissions_vpn_continue),
+                        blocking = blocking,
+                    )
+                }
 
-                PermissionKind.BatteryOptimization -> PermissionIssueUiState(
-                    kind = kind,
-                    title = stringResolver.getString(R.string.permissions_battery_title),
-                    message =
-                        stringResolver.getString(
-                            BatteryOptimizationGuidance.issueMessageRes(deviceManufacturer),
-                        ),
-                    recovery = PermissionRecovery.OpenBatteryOptimizationSettings,
-                    actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
-                    blocking = blocking,
-                )
+                PermissionKind.BatteryOptimization -> {
+                    PermissionIssueUiState(
+                        kind = kind,
+                        title = stringResolver.getString(R.string.permissions_battery_title),
+                        message =
+                            stringResolver.getString(
+                                BatteryOptimizationGuidance.issueMessageRes(deviceManufacturer),
+                            ),
+                        recovery = PermissionRecovery.OpenBatteryOptimizationSettings,
+                        actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
+                        blocking = blocking,
+                    )
+                }
             }
 
         private fun createAppSettingsIntent(): Intent = permissionPlatformBridge.createAppSettingsIntent()

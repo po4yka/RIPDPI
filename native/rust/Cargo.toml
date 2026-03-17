@@ -10,6 +10,7 @@ members = [
     "crates/ripdpi-proxy-config",
     "crates/ripdpi-monitor",
     "crates/ripdpi-runtime",
+    "crates/ripdpi-telemetry",
     "crates/ripdpi-android",
     "crates/hs5t-android",
 ]
@@ -29,6 +30,7 @@ ripdpi-failure-classifier = { path = "crates/ripdpi-failure-classifier" }
 ripdpi-proxy-config = { path = "crates/ripdpi-proxy-config" }
 ripdpi-monitor = { path = "crates/ripdpi-monitor" }
 ripdpi-runtime = { path = "crates/ripdpi-runtime" }
+ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
 
 ciadpi-config = { path = "third_party/byedpi/crates/ciadpi-config" }
 ciadpi-desync = { path = "third_party/byedpi/crates/ciadpi-desync" }
@@ -38,6 +40,7 @@ ciadpi-session = { path = "third_party/byedpi/crates/ciadpi-session" }
 hs5t-config = { path = "third_party/hev-socks5-tunnel/crates/hs5t-config" }
 hs5t-core = { path = "third_party/hev-socks5-tunnel/crates/hs5t-core" }
 
+hdrhistogram = "7"
 aes = "0.8"
 aes-gcm = "0.10"
 android_logger = "0.14"

@@ -223,6 +223,76 @@ pub struct ProxyUiConfig {
     pub strategy_preset: Option<String>,
 }
 
+// --- Android OS network state snapshot ---
+
+/// A compact snapshot of Android OS network state, captured from ConnectivityManager,
+/// NetworkCapabilities, LinkProperties, TelephonyManager, and TrafficStats.
+/// All fields use `#[serde(default)]` for forward-compatible deserialization.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkSnapshot {
+    /// Physical transport: "wifi", "cellular", "ethernet", "vpn", "none", "unknown"
+    #[serde(default)]
+    pub transport: String,
+    /// NET_CAPABILITY_VALIDATED
+    #[serde(default)]
+    pub validated: bool,
+    /// NET_CAPABILITY_CAPTIVE_PORTAL
+    #[serde(default)]
+    pub captive_portal: bool,
+    /// !NET_CAPABILITY_NOT_METERED
+    #[serde(default)]
+    pub metered: bool,
+    /// "system" (default/opportunistic) or strict hostname from Private DNS settings
+    #[serde(default)]
+    pub private_dns_mode: String,
+    /// DNS servers from LinkProperties.getDnsServers()
+    #[serde(default)]
+    pub dns_servers: Vec<String>,
+    /// Present when transport is "cellular"
+    #[serde(default)]
+    pub cellular: Option<CellularSnapshot>,
+    /// Present when transport is "wifi"
+    #[serde(default)]
+    pub wifi: Option<WifiSnapshot>,
+    /// TrafficStats.getUidTxBytes(uid) at capture time
+    #[serde(default)]
+    pub traffic_tx_bytes: u64,
+    /// TrafficStats.getUidRxBytes(uid) at capture time
+    #[serde(default)]
+    pub traffic_rx_bytes: u64,
+    /// System.currentTimeMillis() at capture time
+    #[serde(default)]
+    pub captured_at_ms: u64,
+}
+
+/// Cellular network details, populated when transport is "cellular".
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CellularSnapshot {
+    /// Radio generation: "2g", "3g", "4g", "5g", "unknown"
+    #[serde(default)]
+    pub generation: String,
+    /// Whether the device is roaming
+    #[serde(default)]
+    pub roaming: bool,
+    /// MCC+MNC of the serving network operator
+    #[serde(default)]
+    pub operator_code: String,
+}
+
+/// Wi-Fi network details, populated when transport is "wifi".
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct WifiSnapshot {
+    /// Frequency band: "2.4ghz", "5ghz", "6ghz", "unknown"
+    #[serde(default)]
+    pub frequency_band: String,
+    /// SHA-256 hex of the sanitized SSID (privacy-preserving; never raw SSID)
+    #[serde(default)]
+    pub ssid_hash: String,
+}
+
 fn default_true() -> bool {
     true
 }

@@ -111,7 +111,11 @@ internal fun LazyListScope.httpParserSection(
                 badges =
                     buildList {
                         add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
-                        add(stringResource(R.string.ripdpi_http_parser_badge_nginx_biased) to SummaryCapsuleTone.Warning)
+                        add(
+                            stringResource(
+                                R.string.ripdpi_http_parser_badge_nginx_biased,
+                            ) to SummaryCapsuleTone.Warning,
+                        )
                         if (uiState.httpParserAggressiveCount > 0) {
                             add(
                                 stringResource(
@@ -158,25 +162,39 @@ private fun HttpParserEvasionsProfileCard(
     val status = rememberHttpParserEvasionStatus(uiState)
     val profileSummary =
         when {
-            uiState.hasSafeHttpParserTweaks && uiState.hasAggressiveHttpParserEvasions ->
+            uiState.hasSafeHttpParserTweaks && uiState.hasAggressiveHttpParserEvasions -> {
                 stringResource(R.string.ripdpi_http_parser_profile_safe_and_aggressive)
+            }
 
-            uiState.hasAggressiveHttpParserEvasions ->
+            uiState.hasAggressiveHttpParserEvasions -> {
                 stringResource(R.string.ripdpi_http_parser_profile_aggressive_only)
+            }
 
-            uiState.hasSafeHttpParserTweaks ->
+            uiState.hasSafeHttpParserTweaks -> {
                 stringResource(R.string.ripdpi_http_parser_profile_safe)
+            }
 
-            else -> stringResource(R.string.ripdpi_http_parser_profile_default)
+            else -> {
+                stringResource(R.string.ripdpi_http_parser_profile_default)
+            }
         }
     val scopeSummary =
         when {
-            uiState.enableCmdSettings -> stringResource(R.string.ripdpi_http_parser_scope_cli)
-            !uiState.httpParserControlsRelevant -> stringResource(R.string.ripdpi_http_parser_scope_http_off)
-            uiState.isServiceRunning && uiState.hasCustomHttpParserEvasions ->
-                stringResource(R.string.ripdpi_http_parser_scope_restart)
+            uiState.enableCmdSettings -> {
+                stringResource(R.string.ripdpi_http_parser_scope_cli)
+            }
 
-            else -> stringResource(R.string.ripdpi_http_parser_scope_active)
+            !uiState.httpParserControlsRelevant -> {
+                stringResource(R.string.ripdpi_http_parser_scope_http_off)
+            }
+
+            uiState.isServiceRunning && uiState.hasCustomHttpParserEvasions -> {
+                stringResource(R.string.ripdpi_http_parser_scope_restart)
+            }
+
+            else -> {
+                stringResource(R.string.ripdpi_http_parser_scope_active)
+            }
         }
     val badges =
         buildList {
@@ -268,54 +286,61 @@ private fun HttpParserEvasionsProfileCard(
 @Composable
 private fun rememberHttpParserEvasionStatus(uiState: SettingsUiState): HttpParserEvasionStatusContent =
     when {
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_cli_title),
                 body = stringResource(R.string.ripdpi_http_parser_cli_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.httpParserControlsRelevant && uiState.hasCustomHttpParserEvasions ->
+        !uiState.httpParserControlsRelevant && uiState.hasCustomHttpParserEvasions -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_saved_title),
                 body = stringResource(R.string.ripdpi_http_parser_saved_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        !uiState.httpParserControlsRelevant ->
+        !uiState.httpParserControlsRelevant -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_http_off_title),
                 body = stringResource(R.string.ripdpi_http_parser_http_off_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        uiState.isServiceRunning && uiState.hasCustomHttpParserEvasions ->
+        uiState.isServiceRunning && uiState.hasCustomHttpParserEvasions -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_restart_title),
                 body = stringResource(R.string.ripdpi_http_parser_restart_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.hasAggressiveHttpParserEvasions ->
+        uiState.hasAggressiveHttpParserEvasions -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_aggressive_title),
                 body = stringResource(R.string.ripdpi_http_parser_aggressive_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.hasSafeHttpParserTweaks ->
+        uiState.hasSafeHttpParserTweaks -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_safe_title),
                 body = stringResource(R.string.ripdpi_http_parser_safe_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        else ->
+        else -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_default_title),
                 body = stringResource(R.string.ripdpi_http_parser_default_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
     }
 
 @Composable

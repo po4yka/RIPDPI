@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.serialization.Serializable
 import java.security.MessageDigest
 import java.util.Locale
-import kotlinx.serialization.Serializable
 
 const val RememberedNetworkPolicySourceManualSession = "manual_session"
 const val RememberedNetworkPolicySourceStrategyProbe = "strategy_probe"
@@ -40,6 +40,7 @@ data class NetworkFingerprint(
     val dnsServers: List<String>,
     val wifi: WifiNetworkIdentityTuple? = null,
     val cellular: CellularNetworkIdentityTuple? = null,
+    val metered: Boolean = false,
 ) {
     fun scopeKey(): String =
         canonicalParts()
@@ -79,15 +80,16 @@ data class NetworkFingerprint(
                 .sorted()
         val identity =
             when {
-                wifi != null ->
+                wifi != null -> {
                     listOf(
                         "wifi",
                         wifi.ssid.normalizeFingerprintValue(),
                         wifi.bssid.normalizeFingerprintValue(),
                         wifi.gateway.normalizeFingerprintValue(),
                     )
+                }
 
-                cellular != null ->
+                cellular != null -> {
                     listOf(
                         "cellular",
                         cellular.operatorCode.normalizeFingerprintValue(),
@@ -96,14 +98,16 @@ data class NetworkFingerprint(
                         cellular.dataNetworkType.normalizeFingerprintValue(),
                         cellular.roaming?.toString().orEmpty(),
                     )
+                }
 
-                else ->
+                else -> {
                     listOf(
                         "other",
                         normalizedTransport,
                         normalizedDns.joinToString(","),
                         privateDnsMode.normalizeFingerprintValue(),
                     )
+                }
             }
         return buildList {
             add(normalizedTransport)
@@ -169,7 +173,14 @@ fun VpnDnsPolicyJson.toActiveDnsSettings(): ActiveDnsSettings =
         dnsProviderId = providerId,
         dnsIp = dnsIp,
         dnsDohUrl = if (encryptedDnsProtocol == EncryptedDnsProtocolDoh) encryptedDnsDohUrl else "",
-        dnsDohBootstrapIps = if (encryptedDnsProtocol == EncryptedDnsProtocolDoh) encryptedDnsBootstrapIps else emptyList(),
+        dnsDohBootstrapIps =
+            if (encryptedDnsProtocol ==
+                EncryptedDnsProtocolDoh
+            ) {
+                encryptedDnsBootstrapIps
+            } else {
+                emptyList()
+            },
         encryptedDnsProtocol = encryptedDnsProtocol,
         encryptedDnsHost = encryptedDnsHost,
         encryptedDnsPort = encryptedDnsPort,

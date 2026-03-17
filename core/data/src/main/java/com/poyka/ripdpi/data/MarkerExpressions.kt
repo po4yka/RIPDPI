@@ -24,7 +24,10 @@ private val AdaptiveOffsetPattern =
 private val AdaptiveOffsetPresetPattern =
     Regex("^auto\\((balanced|host|midsld|endhost|method|sniext|extlen)\\)$", RegexOption.IGNORE_CASE)
 
-fun AppSettings.effectiveSplitMarker(): String = splitMarker.normalizedOrElse { legacyMarkerExpression(splitPosition, splitAtHost) }
+fun AppSettings.effectiveSplitMarker(): String =
+    splitMarker.normalizedOrElse {
+        legacyMarkerExpression(splitPosition, splitAtHost)
+    }
 
 fun AppSettings.effectiveFakeOffsetMarker(): String = fakeOffsetMarker.normalizedOrElse { fakeOffset.toString() }
 
@@ -34,7 +37,10 @@ fun AppSettings.effectiveTlsRecordMarker(): String =
         legacyMarkerExpression(tlsrecPosition, tlsrecAtSni)
     }
 
-fun normalizeOffsetExpression(value: String, defaultValue: String): String = value.trim().ifEmpty { defaultValue }
+fun normalizeOffsetExpression(
+    value: String,
+    defaultValue: String,
+): String = value.trim().ifEmpty { defaultValue }
 
 fun isValidOffsetExpression(value: String): Boolean {
     if (value.isBlank()) {
@@ -70,7 +76,11 @@ fun isValidOffsetExpression(value: String): Boolean {
 fun isAdaptiveOffsetExpression(value: String): Boolean = AdaptiveOffsetPattern.matches(value.trim())
 
 fun adaptiveOffsetPreset(value: String): String? =
-    AdaptiveOffsetPresetPattern.matchEntire(value.trim())?.groupValues?.getOrNull(1)?.lowercase()
+    AdaptiveOffsetPresetPattern
+        .matchEntire(value.trim())
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.lowercase()
 
 fun formatOffsetExpressionLabel(value: String): String =
     when (adaptiveOffsetPreset(value)) {
@@ -86,14 +96,20 @@ fun formatOffsetExpressionLabel(value: String): String =
 
 private fun String.normalizedOrElse(fallback: () -> String): String = trim().ifEmpty(fallback)
 
-private fun legacyMarkerExpression(position: Int, useHostMarker: Boolean): String =
+private fun legacyMarkerExpression(
+    position: Int,
+    useHostMarker: Boolean,
+): String =
     if (useHostMarker) {
         markerExpression("host", position)
     } else {
         position.toString()
     }
 
-private fun markerExpression(base: String, delta: Int): String =
+private fun markerExpression(
+    base: String,
+    delta: Int,
+): String =
     when {
         delta == 0 -> base
         delta > 0 -> "$base+$delta"
