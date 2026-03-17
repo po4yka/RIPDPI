@@ -49,7 +49,7 @@ class RuntimeHistoryRecorderTest {
             val history = InMemoryDiagnosticsHistoryRepository()
             val serviceStateStore = DefaultServiceStateStore()
             val recorder =
-                DefaultRuntimeHistoryRecorder(
+                createRuntimeHistoryRecorder(
                     appSettingsRepository = RecorderFakeAppSettingsRepository(),
                     historyRepository = history,
                     networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
@@ -88,7 +88,7 @@ class RuntimeHistoryRecorderTest {
             val history = InMemoryDiagnosticsHistoryRepository()
             val serviceStateStore = DefaultServiceStateStore()
             val recorder =
-                DefaultRuntimeHistoryRecorder(
+                createRuntimeHistoryRecorder(
                     appSettingsRepository =
                         RecorderFakeAppSettingsRepository(
                             defaultAppSettings()
@@ -243,7 +243,7 @@ class RuntimeHistoryRecorderTest {
                     now = 200L,
                 )
             val recorder =
-                DefaultRuntimeHistoryRecorder(
+                createRuntimeHistoryRecorder(
                     appSettingsRepository = RecorderFakeAppSettingsRepository(),
                     historyRepository = history,
                     rememberedNetworkPolicyStore = rememberedPolicyStore,
@@ -611,11 +611,11 @@ private class FakeActiveConnectionPolicyStore : ActiveConnectionPolicyStore {
 
     override val activePolicies = state
 
-    override fun set(policy: ActiveConnectionPolicy) {
+    fun set(policy: ActiveConnectionPolicy) {
         state.value = state.value + (policy.mode to policy)
     }
 
-    override fun clear(mode: Mode) {
+    fun clear(mode: Mode) {
         state.value = state.value - mode
     }
 }

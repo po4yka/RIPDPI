@@ -92,7 +92,7 @@ class DiagnosticsManagerTest {
             val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
             val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -131,7 +131,7 @@ class DiagnosticsManagerTest {
             val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
             val settings = defaultAppSettings().toBuilder().setProxyIp("10.0.0.2").setProxyPort(2080).build()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     historyRepository = history,
@@ -159,7 +159,7 @@ class DiagnosticsManagerTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -198,7 +198,7 @@ class DiagnosticsManagerTest {
                         .build(),
                 )
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = appSettingsRepository,
                     historyRepository = history,
@@ -299,7 +299,7 @@ class DiagnosticsManagerTest {
                     .setEncryptedDnsDohUrl("https://dns.google/dns-query")
                     .build()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     historyRepository = history,
@@ -394,7 +394,7 @@ class DiagnosticsManagerTest {
                 )
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -430,7 +430,7 @@ class DiagnosticsManagerTest {
             }
             val appSettingsRepository = FakeAppSettingsRepository()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = appSettingsRepository,
                     historyRepository = history,
@@ -518,7 +518,7 @@ class DiagnosticsManagerTest {
                 bridge.autoCompleteOnStart = false
             }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -602,7 +602,7 @@ class DiagnosticsManagerTest {
                     .setHostAutolearnEnabled(true)
                     .build()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     historyRepository = history,
@@ -634,7 +634,7 @@ class DiagnosticsManagerTest {
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository =
                         FakeAppSettingsRepository(
@@ -670,7 +670,7 @@ class DiagnosticsManagerTest {
                     .setEnableCmdSettings(true)
                     .build()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     historyRepository = history,
@@ -702,7 +702,7 @@ class DiagnosticsManagerTest {
                     .setDiagnosticsActiveProfileId("automatic-probing")
                     .build()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     historyRepository = history,
@@ -838,7 +838,7 @@ class DiagnosticsManagerTest {
                     .setNetworkStrategyMemoryEnabled(true)
                     .build()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     historyRepository = history,
@@ -948,7 +948,7 @@ class DiagnosticsManagerTest {
                         .build(),
                 )
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = appSettingsRepository,
                     historyRepository = history,
@@ -1001,7 +1001,7 @@ class DiagnosticsManagerTest {
             val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
             val handoverEventStore = FakePolicyHandoverEventStore()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository =
                         FakeAppSettingsRepository(
@@ -1087,7 +1087,7 @@ class DiagnosticsManagerTest {
                     .setNetworkStrategyMemoryEnabled(true)
                     .build()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(settings),
                     historyRepository = history,
@@ -1184,7 +1184,7 @@ class DiagnosticsManagerTest {
         runTest {
             val history = FakeDiagnosticsHistoryRepository()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1235,7 +1235,7 @@ class DiagnosticsManagerTest {
         runTest {
             val history = FakeDiagnosticsHistoryRepository()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1376,7 +1376,7 @@ class DiagnosticsManagerTest {
                     insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "warn"))
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(cacheDir),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1493,7 +1493,7 @@ class DiagnosticsManagerTest {
                     insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "warn"))
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(cacheDir),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1560,7 +1560,7 @@ class DiagnosticsManagerTest {
                     upsertContextSnapshot(context(id = "context-selected", sessionId = "session-selected"))
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(cacheDir),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1624,7 +1624,7 @@ class DiagnosticsManagerTest {
                     upsertContextSnapshot(context(id = "context-cell", sessionId = "session-cell"))
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(cacheDir),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1674,7 +1674,7 @@ class DiagnosticsManagerTest {
                     insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "info"))
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(cacheDir),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1804,7 +1804,7 @@ class DiagnosticsManagerTest {
                         )
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1879,7 +1879,7 @@ class DiagnosticsManagerTest {
                         )
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1915,7 +1915,7 @@ class DiagnosticsManagerTest {
                     )
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1945,7 +1945,7 @@ class DiagnosticsManagerTest {
                     bridge.enqueueProgressFailure(IOException("progress failed"))
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -1987,7 +1987,7 @@ class DiagnosticsManagerTest {
                     bridge.enqueueReportFailure(IOException("report failed"))
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -2015,7 +2015,7 @@ class DiagnosticsManagerTest {
                     bridge.enqueuePassiveEvents("{bad-json")
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -2070,7 +2070,7 @@ class DiagnosticsManagerTest {
                         listOf(event(id = "ev1", sessionId = "s1", source = "native", level = "info"))
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -2120,7 +2120,7 @@ class DiagnosticsManagerTest {
                         )
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -2194,7 +2194,7 @@ class DiagnosticsManagerTest {
                         )
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -2219,7 +2219,7 @@ class DiagnosticsManagerTest {
         runTest {
             val history = FakeDiagnosticsHistoryRepository()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -2268,7 +2268,7 @@ class DiagnosticsManagerTest {
                     contextsState.value = listOf(context(id = "ctx1", sessionId = "s1"))
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -2303,7 +2303,7 @@ class DiagnosticsManagerTest {
                     snapshotsState.value = listOf(snapshot(id = "snap1", sessionId = "latest"))
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -2338,7 +2338,7 @@ class DiagnosticsManagerTest {
                         )
                 }
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -2398,7 +2398,7 @@ class DiagnosticsManagerTest {
                 }
             val overrideStore = FakeResolverOverrideStore()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
@@ -2446,7 +2446,7 @@ class DiagnosticsManagerTest {
                 }
             val overrideStore = FakeResolverOverrideStore()
             val manager =
-                DefaultDiagnosticsManager(
+                createDiagnosticsManager(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
                     historyRepository = history,
