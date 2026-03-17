@@ -1,19 +1,27 @@
-use ciadpi_config::RuntimeConfig;
 use ripdpi_proxy_config::{
     parse_proxy_config_json as shared_parse_proxy_config_json,
     runtime_config_envelope_from_payload as shared_runtime_config_envelope_from_payload,
+    ProxyConfigError, ProxyConfigPayload, RuntimeConfigEnvelope,
+};
+#[cfg(test)]
+use ciadpi_config::RuntimeConfig;
+#[cfg(test)]
+use ripdpi_proxy_config::{
     runtime_config_from_command_line as shared_runtime_config_from_command_line,
     runtime_config_from_payload as shared_runtime_config_from_payload,
-    runtime_config_from_ui as shared_runtime_config_from_ui, ProxyConfigError, ProxyConfigPayload, ProxyUiConfig,
-    RuntimeConfigEnvelope, FAKE_TLS_SNI_MODE_FIXED,
+    runtime_config_from_ui as shared_runtime_config_from_ui, ProxyUiConfig, FAKE_TLS_SNI_MODE_FIXED,
 };
 
 use crate::errors::JniProxyError;
 
+#[cfg(test)]
 pub(crate) const HOSTS_DISABLE: &str = "disable";
+#[cfg(test)]
 pub(crate) const HOSTS_BLACKLIST: &str = "blacklist";
+#[cfg(test)]
 pub(crate) const HOSTS_WHITELIST: &str = "whitelist";
 
+#[cfg(test)]
 pub(crate) fn default_fake_tls_sni_mode() -> String {
     FAKE_TLS_SNI_MODE_FIXED.to_string()
 }
@@ -24,14 +32,17 @@ pub(crate) fn runtime_config_envelope_from_payload(
     shared_runtime_config_envelope_from_payload(payload).map_err(proxy_config_error)
 }
 
+#[cfg(test)]
 pub(crate) fn runtime_config_from_payload(payload: ProxyConfigPayload) -> Result<RuntimeConfig, JniProxyError> {
     shared_runtime_config_from_payload(payload).map_err(proxy_config_error)
 }
 
+#[cfg(test)]
 pub(crate) fn runtime_config_from_command_line(args: Vec<String>) -> Result<RuntimeConfig, JniProxyError> {
     shared_runtime_config_from_command_line(args).map_err(proxy_config_error)
 }
 
+#[cfg(test)]
 pub(crate) fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, JniProxyError> {
     shared_runtime_config_from_ui(payload).map_err(proxy_config_error)
 }
