@@ -1,4 +1,4 @@
-import com.android.build.api.dsl.LibraryExtension
+import com.android.build.api.variant.LibraryAndroidComponentsExtension
 import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.InputDirectory
@@ -56,38 +56,42 @@ abstract class GenerateProtoLiteSourcesTask : DefaultTask() {
     }
 }
 
-fun detectProtocClassifier(): String {
-    val osName = System.getProperty("os.name").lowercase()
-    val osArch = System.getProperty("os.arch").lowercase()
+fun detectProtocClassifier(
+    osName: String,
+    osArch: String,
+): String {
+    val normalizedOsName = osName.lowercase()
+    val normalizedOsArch = osArch.lowercase()
 
     fun normalizedArch(): String =
-        when (osArch) {
+        when (normalizedOsArch) {
             "x86_64", "amd64" -> "x86_64"
             "aarch64", "arm64" -> "aarch_64"
-            else -> error("Unsupported architecture for protoc: $osArch")
+            else -> error("Unsupported architecture for protoc: $normalizedOsArch")
         }
 
     return when {
-        osName.contains("mac") -> "osx-${normalizedArch()}"
-        osName.contains("linux") -> "linux-${normalizedArch()}"
-        osName.contains("windows") -> "windows-${normalizedArch()}"
-        else -> error("Unsupported operating system for protoc: $osName")
+        normalizedOsName.contains("mac") -> "osx-${normalizedArch()}"
+        normalizedOsName.contains("linux") -> "linux-${normalizedArch()}"
+        normalizedOsName.contains("windows") -> "windows-${normalizedArch()}"
+        else -> error("Unsupported operating system for protoc: $normalizedOsName")
     }
 }
 
 val libs = the<org.gradle.api.artifacts.VersionCatalogsExtension>().named("libs")
 val protobufVersion = libs.findVersion("protobuf").get().requiredVersion
+val protocClassifier =
+    detectProtocClassifier(
+        providers.systemProperty("os.name").get(),
+        providers.systemProperty("os.arch").get(),
+    )
 val protocConfiguration =
     configurations.detachedConfiguration(
-        dependencies.create("com.google.protobuf:protoc:$protobufVersion:${detectProtocClassifier()}@exe"),
+        dependencies.create("com.google.protobuf:protoc:$protobufVersion:$protocClassifier@exe"),
     ).apply {
         isTransitive = false
     }
 val generatedProtoDir = layout.buildDirectory.dir("generated/source/protoLite/main/java")
-
-extensions.configure<LibraryExtension> {
-    sourceSets["main"].java.directories.add(generatedProtoDir.get().asFile.absolutePath)
-}
 
 val generateProtoLiteSources =
     tasks.register<GenerateProtoLiteSourcesTask>("generateProtoLiteSources") {
@@ -99,15 +103,11 @@ val generateProtoLiteSources =
         outputDir.set(generatedProtoDir)
     }
 
-tasks.named("preBuild").configure {
-    dependsOn(generateProtoLiteSources)
-}
-
-tasks.configureEach {
-    if (
-        name.startsWith("ksp") ||
-        (name.startsWith("compile") && (name.endsWith("Kotlin") || name.endsWith("JavaWithJavac")))
-    ) {
-        dependsOn(generateProtoLiteSources)
+extensions.configure<LibraryAndroidComponentsExtension> {
+    onVariants(selector().all()) { variant ->
+        variant.sources.java?.addGeneratedSourceDirectory(
+            generateProtoLiteSources,
+            GenerateProtoLiteSourcesTask::outputDir,
+        )
     }
 }

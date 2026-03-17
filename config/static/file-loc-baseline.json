@@ -19,7 +19,7 @@
       "limit": 1000
     },
     {
-      "path": "core/data/src/main/java/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
+      "path": "core/diagnostics-data/src/main/java/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
       "kind": "kotlin",
       "measuredLoc": 982,
       "limit": 700
