@@ -2,6 +2,8 @@ use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use rustls::client::danger::ServerCertVerifier;
+
 use crate::dns::*;
 use crate::fat_header::*;
 use crate::http::*;
@@ -17,6 +19,7 @@ pub(crate) fn run_connectivity_scan(
     cancel: Arc<AtomicBool>,
     session_id: String,
     request: ScanRequest,
+    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
 ) {
     let started_at = now_ms();
     let telegram_steps = if request.telegram_target.is_some() { 1 } else { 0 };
@@ -134,7 +137,7 @@ pub(crate) fn run_connectivity_scan(
             persist_cancelled_report(shared, session_id, request, started_at, results);
             return;
         }
-        let probe = run_domain_probe(domain_target, &transport);
+        let probe = run_domain_probe(domain_target, &transport, tls_verifier.as_ref());
         push_event(
             &shared,
             "domain_reachability",
@@ -401,15 +404,19 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
     }
 }
 
-pub(crate) fn run_domain_probe(target: &DomainTarget, transport: &TransportConfig) -> ProbeResult {
+pub(crate) fn run_domain_probe(
+    target: &DomainTarget,
+    transport: &TransportConfig,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> ProbeResult {
     let https_port = target.https_port.unwrap_or(443);
     let http_port = target.http_port.unwrap_or(80);
     let connect_target = domain_connect_target(target);
     let resolved = resolve_addresses(&connect_target, https_port);
     let tls13 =
-        try_tls_handshake(&connect_target, https_port, transport, &target.host, true, TlsClientProfile::Tls13Only);
+        try_tls_handshake(&connect_target, https_port, transport, &target.host, true, TlsClientProfile::Tls13Only, tls_verifier);
     let tls12 =
-        try_tls_handshake(&connect_target, https_port, transport, &target.host, true, TlsClientProfile::Tls12Only);
+        try_tls_handshake(&connect_target, https_port, transport, &target.host, true, TlsClientProfile::Tls12Only, tls_verifier);
     let http = try_http_request(&connect_target, http_port, transport, &target.host, &target.http_path, false);
     let tls_signal = classify_tls_signal(&tls13, &tls12);
     let preferred_tls = preferred_tls_observation(&tls13, &tls12);

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.integration
 
+import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings
 import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
@@ -26,7 +27,7 @@ class NativeBridgeInstrumentedTest {
     @Test
     fun proxyWrapperStartsStopsAndRejectsDuplicateUse() {
         runBlocking {
-            val proxy = RipDpiProxy(RipDpiProxyNativeBindings())
+            val proxy = RipDpiProxy(RipDpiProxyNativeBindings(ApplicationProvider.getApplicationContext()))
             val port = reserveLoopbackPort()
             val preferences = RipDpiProxyUIPreferences(port = port)
 
@@ -54,7 +55,7 @@ class NativeBridgeInstrumentedTest {
     @Test
     fun proxyWrapperStartsWithCommandLinePayload() {
         runBlocking {
-            val proxy = RipDpiProxy(RipDpiProxyNativeBindings())
+            val proxy = RipDpiProxy(RipDpiProxyNativeBindings(ApplicationProvider.getApplicationContext()))
             val port = reserveLoopbackPort()
             val preferences = RipDpiProxyCmdPreferences("--ip 127.0.0.1 --port $port --split 1+s")
 
@@ -86,7 +87,7 @@ class NativeBridgeInstrumentedTest {
 
     @Test
     fun rawBindingsSurfaceMalformedJsonAsIllegalArgument() {
-        val proxyBindings = RipDpiProxyNativeBindings()
+        val proxyBindings = RipDpiProxyNativeBindings(ApplicationProvider.getApplicationContext())
         val tunnelBindings = Tun2SocksNativeBindings()
 
         assertThrows(IllegalArgumentException::class.java) {
@@ -99,7 +100,7 @@ class NativeBridgeInstrumentedTest {
 
     @Test
     fun rawBindingsRejectInvalidHandles() {
-        val proxyBindings = RipDpiProxyNativeBindings()
+        val proxyBindings = RipDpiProxyNativeBindings(ApplicationProvider.getApplicationContext())
         val tunnelBindings = Tun2SocksNativeBindings()
 
         assertThrows(IllegalArgumentException::class.java) {
@@ -127,8 +128,8 @@ class NativeBridgeInstrumentedTest {
 
     @Test
     fun rawBindingsCreateAndDestroySessionsWithoutStarting() {
-        val proxyBindings = RipDpiProxyNativeBindings()
-        val diagnosticsBindings = NetworkDiagnosticsNativeBindings()
+        val proxyBindings = RipDpiProxyNativeBindings(ApplicationProvider.getApplicationContext())
+        val diagnosticsBindings = NetworkDiagnosticsNativeBindings(ApplicationProvider.getApplicationContext())
         val tunnelBindings = Tun2SocksNativeBindings()
 
         val proxyHandle =

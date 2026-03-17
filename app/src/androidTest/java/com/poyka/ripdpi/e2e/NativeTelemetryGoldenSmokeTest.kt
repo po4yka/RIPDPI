@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.e2e
 
 import android.os.ParcelFileDescriptor
+import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyNativeBindings
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
@@ -24,7 +25,7 @@ class NativeTelemetryGoldenSmokeTest {
         runBlocking {
             execShell("logcat -c")
 
-            val proxy = RipDpiProxy(RipDpiProxyNativeBindings())
+            val proxy = RipDpiProxy(RipDpiProxyNativeBindings(ApplicationProvider.getApplicationContext()))
             val port = reserveLoopbackPort()
             val proxyJob =
                 async(Dispatchers.IO) {

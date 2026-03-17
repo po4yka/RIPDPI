@@ -1,6 +1,7 @@
 mod config;
 mod diagnostics;
 mod errors;
+mod platform_tls;
 mod proxy;
 mod telemetry;
 
@@ -8,6 +9,7 @@ use android_support::{init_android_logging, JNI_VERSION};
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jstring};
 use jni::{JNIEnv, JavaVM};
+use once_cell::sync::OnceCell;
 
 use diagnostics::{
     diagnostics_cancel_scan_entry, diagnostics_create_entry, diagnostics_destroy_entry,
@@ -19,11 +21,23 @@ use proxy::{
     proxy_update_network_snapshot_entry,
 };
 
+static JVM: OnceCell<JavaVM> = OnceCell::new();
+
 #[unsafe(no_mangle)]
-pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
+pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
+    let _ = JVM.set(vm);
     android_support::ignore_sigpipe();
     init_android_logging("ripdpi-native");
     JNI_VERSION
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiNativeLoader_jniInitPlatformTls(
+    mut env: JNIEnv,
+    _thiz: JObject,
+    context: JObject,
+) {
+    platform_tls::init_platform_tls(&mut env, context);
 }
 
 macro_rules! export_diagnostics_jni {

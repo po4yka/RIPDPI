@@ -49,7 +49,7 @@ pub(crate) fn run_fat_header_attempt(
 
     let uses_tls = target.port == 443;
     let mut stream =
-        match open_probe_stream(&connect_target, target.port, transport, Some(sni), false, TlsClientProfile::Auto) {
+        match open_probe_stream(&connect_target, target.port, transport, Some(sni), false, TlsClientProfile::Auto, None) {
             Ok(stream) => stream,
             Err(err) => {
                 let status = if uses_tls { FatHeaderStatus::HandshakeFailed } else { FatHeaderStatus::ConnectFailed };

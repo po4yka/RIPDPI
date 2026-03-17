@@ -7,8 +7,10 @@ use hickory_proto::op::{Message, MessageType, OpCode, Query};
 use hickory_proto::rr::{Name, RData, RecordType};
 use once_cell::sync::Lazy;
 use reqwest::{Client, Proxy};
+use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::CertificateDer;
-use rustls::{ClientConnection, RootCertStore, StreamOwned};
+use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
+use std::sync::Arc;
 use tokio::runtime::{Builder, Runtime};
 use url::Url;
 
@@ -79,19 +81,50 @@ pub(crate) fn normalize_endpoint(
     Ok(endpoint)
 }
 
+pub(crate) fn build_client_config(
+    verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    extra_roots: &[CertificateDer<'static>],
+) -> Arc<ClientConfig> {
+    if let Some(verifier) = verifier {
+        Arc::new(
+            ClientConfig::builder()
+                .dangerous()
+                .with_custom_certificate_verifier(verifier.clone())
+                .with_no_client_auth(),
+        )
+    } else {
+        Arc::new(
+            ClientConfig::builder()
+                .with_root_certificates(default_root_store(extra_roots))
+                .with_no_client_auth(),
+        )
+    }
+}
+
 pub(crate) fn build_doh_client(
     endpoint: &EncryptedDnsEndpoint,
     transport: &EncryptedDnsTransport,
     timeout: Duration,
     tls_roots: &[CertificateDer<'static>],
     health: Option<&HealthRegistry>,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<Client, EncryptedDnsError> {
-    let mut builder = Client::builder().use_rustls_tls().timeout(timeout).connect_timeout(timeout);
+    let mut builder = Client::builder().timeout(timeout).connect_timeout(timeout);
 
-    for certificate in tls_roots {
-        let reqwest_certificate = reqwest::Certificate::from_der(certificate.as_ref())
-            .map_err(|err| EncryptedDnsError::ClientBuild(err.to_string()))?;
-        builder = builder.add_root_certificate(reqwest_certificate);
+    if let Some(verifier) = tls_verifier {
+        let mut config = ClientConfig::builder()
+            .dangerous()
+            .with_custom_certificate_verifier(verifier.clone())
+            .with_no_client_auth();
+        config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+        builder = builder.use_preconfigured_tls(Arc::new(config));
+    } else {
+        builder = builder.use_rustls_tls();
+        for certificate in tls_roots {
+            let reqwest_certificate = reqwest::Certificate::from_der(certificate.as_ref())
+                .map_err(|err| EncryptedDnsError::ClientBuild(err.to_string()))?;
+            builder = builder.add_root_certificate(reqwest_certificate);
+        }
     }
 
     match transport {
