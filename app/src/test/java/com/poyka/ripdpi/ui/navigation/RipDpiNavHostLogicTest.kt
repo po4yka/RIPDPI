@@ -12,6 +12,15 @@ class RipDpiNavHostLogicTest {
             listOf("home", "config", "diagnostics", "settings"),
             topLevelRouteOrder,
         )
+        assertEquals(topLevelRouteOrder, Route.topLevel.map(Route::route))
+    }
+
+    @Test
+    fun `top level route helper only matches bottom navigation destinations`() {
+        assertTrue(Route.Home.route.isTopLevelRoute())
+        assertTrue(Route.Settings.route.isTopLevelRoute())
+        assertFalse(Route.History.route.isTopLevelRoute())
+        assertFalse(null.isTopLevelRoute())
     }
 
     @Test
