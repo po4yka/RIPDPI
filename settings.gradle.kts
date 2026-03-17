@@ -1,6 +1,7 @@
 buildCache {
     local {
-        removeUnusedEntriesAfterDays = 14
+        // Gradle 9 manages local cache cleanup automatically.
+        // Add remote { } here to enable a shared remote cache (e.g. for CI).
     }
 }
 
