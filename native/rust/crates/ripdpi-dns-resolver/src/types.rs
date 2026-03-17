@@ -1,7 +1,8 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use reqwest::Client;
+use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::CertificateDer;
 use thiserror::Error;
 
@@ -81,6 +82,7 @@ pub(crate) struct ResolverInner {
     pub(crate) timeout: Duration,
     pub(crate) doh_client: Option<Client>,
     pub(crate) tls_roots: Vec<CertificateDer<'static>>,
+    pub(crate) tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     pub(crate) dnscrypt_state: Mutex<Option<DnsCryptCachedCertificate>>,
     pub(crate) health: Option<HealthRegistry>,
 }

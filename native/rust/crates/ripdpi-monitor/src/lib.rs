@@ -16,6 +16,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
+use rustls::client::danger::ServerCertVerifier;
+
 use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
 
 use connectivity::*;
@@ -55,6 +57,7 @@ pub struct MonitorSession {
     shared: Arc<Mutex<SharedState>>,
     cancel: Arc<AtomicBool>,
     worker: Mutex<Option<JoinHandle<()>>>,
+    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
 }
 
 impl Default for MonitorSession {
@@ -69,6 +72,16 @@ impl MonitorSession {
             shared: Arc::new(Mutex::new(SharedState::default())),
             cancel: Arc::new(AtomicBool::new(false)),
             worker: Mutex::new(None),
+            tls_verifier: None,
+        }
+    }
+
+    pub fn with_tls_verifier(tls_verifier: Option<Arc<dyn ServerCertVerifier>>) -> Self {
+        Self {
+            shared: Arc::new(Mutex::new(SharedState::default())),
+            cancel: Arc::new(AtomicBool::new(false)),
+            worker: Mutex::new(None),
+            tls_verifier,
         }
     }
 
@@ -87,7 +100,8 @@ impl MonitorSession {
         }
         let shared = self.shared.clone();
         let cancel = self.cancel.clone();
-        let handle = thread::spawn(move || run_scan(shared, cancel, session_id, request));
+        let tls_verifier = self.tls_verifier.clone();
+        let handle = thread::spawn(move || run_scan(shared, cancel, session_id, request, tls_verifier));
         *worker_guard = Some(handle);
         Ok(())
     }
@@ -131,10 +145,16 @@ impl MonitorSession {
     }
 }
 
-fn run_scan(shared: Arc<Mutex<SharedState>>, cancel: Arc<AtomicBool>, session_id: String, request: ScanRequest) {
+fn run_scan(
+    shared: Arc<Mutex<SharedState>>,
+    cancel: Arc<AtomicBool>,
+    session_id: String,
+    request: ScanRequest,
+    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+) {
     match request.kind {
-        ScanKind::Connectivity => run_connectivity_scan(shared, cancel, session_id, request),
-        ScanKind::StrategyProbe => run_strategy_probe_scan(shared, cancel, session_id, request),
+        ScanKind::Connectivity => run_connectivity_scan(shared, cancel, session_id, request, tls_verifier),
+        ScanKind::StrategyProbe => run_strategy_probe_scan(shared, cancel, session_id, request, tls_verifier),
     }
 }
 
@@ -401,7 +421,7 @@ mod tests {
             http_path: "/".to_string(),
         };
 
-        let result = run_domain_probe(&target, &TransportConfig::Direct);
+        let result = run_domain_probe(&target, &TransportConfig::Direct, None);
         assert_eq!(result.outcome, "tls_cert_invalid");
     }
 
@@ -435,6 +455,7 @@ mod tests {
             "localhost",
             false,
             TlsClientProfile::Tls13Only,
+            None,
         );
 
         assert_eq!(tls.status, "tls_ok");
@@ -452,7 +473,7 @@ mod tests {
             http_path: "/".to_string(),
         };
 
-        let result = run_domain_probe(&target, &TransportConfig::Direct);
+        let result = run_domain_probe(&target, &TransportConfig::Direct, None);
         assert_eq!(result.outcome, "http_blockpage");
     }
 

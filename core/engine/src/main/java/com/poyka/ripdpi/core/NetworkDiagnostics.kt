@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.core
 
+import android.content.Context
 import com.poyka.ripdpi.data.NativeError
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -29,11 +31,17 @@ interface NetworkDiagnosticsBindings {
 
 class NetworkDiagnosticsNativeBindings
     @Inject
-    constructor() : NetworkDiagnosticsBindings {
+    constructor(
+        @ApplicationContext context: Context,
+    ) : NetworkDiagnosticsBindings {
         companion object {
             init {
                 RipDpiNativeLoader.ensureLoaded()
             }
+        }
+
+        init {
+            RipDpiNativeLoader.ensureLoaded(context)
         }
 
         override fun create(): Long = jniCreate()

@@ -93,6 +93,7 @@ fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig)
         Some(&host),
         false,
         TlsClientProfile::Auto,
+        None,
     ) {
         Ok(s) => s,
         Err(err) => {
@@ -270,6 +271,7 @@ fn telegram_upload_probe(target: &TelegramTarget, transport: &TransportConfig) -
         Some("telegram.org"),
         false,
         TlsClientProfile::Auto,
+        None,
     ) {
         Ok(s) => s,
         Err(err) => {
