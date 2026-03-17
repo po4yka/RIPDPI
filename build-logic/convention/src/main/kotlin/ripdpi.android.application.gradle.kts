@@ -1,7 +1,7 @@
 import com.android.build.api.dsl.ApplicationExtension
-import com.android.build.gradle.api.ApkVariantOutput
+import com.android.build.api.variant.ApplicationAndroidComponentsExtension
+import com.android.build.api.variant.VariantOutputConfiguration
 import com.android.build.gradle.internal.tasks.FinalizeBundleTask
-import java.util.Locale
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -30,21 +30,31 @@ extensions.configure<ApplicationExtension> {
         unitTests.isReturnDefaultValues = true
     }
 
-    applicationVariants.configureEach {
-        val versionName = requireNotNull(mergedFlavor.versionName) { "versionName is required for artifact naming." }
-        val versionCode = mergedFlavor.versionCode
-        val buildTypeName = buildType.name
+}
+
+extensions.configure<ApplicationAndroidComponentsExtension> {
+    onVariants(selector().all()) { variant ->
+        val mainOutput =
+            variant.outputs.firstOrNull { output ->
+                output.outputType == VariantOutputConfiguration.OutputType.SINGLE
+            } ?: return@onVariants
+
+        val versionName =
+            requireNotNull(mainOutput.versionName.orNull) {
+                "versionName is required for artifact naming."
+            }
+        val versionCode = requireNotNull(mainOutput.versionCode.orNull) {
+            "versionCode is required for artifact naming."
+        }
+        val buildTypeName = variant.buildType ?: "release"
         val artifactBaseName = "RIPDPI-$versionName-$versionCode-$buildTypeName"
 
-        outputs.configureEach {
-            (this as? ApkVariantOutput)?.outputFileName = "$artifactBaseName.apk"
-        }
-
-        val bundleTaskName =
-            "sign${name.replaceFirstChar { firstChar -> firstChar.titlecase(Locale.US) }}Bundle"
-        project.tasks.named(bundleTaskName, FinalizeBundleTask::class.java).configure {
+        // AGP 9 no longer exposes APK file renaming on the public variant API.
+        val bundleTaskName = variant.computeTaskName("sign", "Bundle")
+        project.tasks.withType(FinalizeBundleTask::class.java).configureEach {
+            if (name != bundleTaskName) return@configureEach
             finalBundleFile.set(
-                project.layout.buildDirectory.file("outputs/bundle/$dirName/$artifactBaseName.aab"),
+                project.layout.buildDirectory.file("outputs/bundle/${variant.name}/$artifactBaseName.aab"),
             )
         }
     }
