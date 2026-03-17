@@ -607,15 +607,15 @@ private fun waitUntil(
 }
 
 private class FakeActiveConnectionPolicyStore : ActiveConnectionPolicyStore {
-    private val state = MutableStateFlow<ActiveConnectionPolicy?>(null)
+    private val state = MutableStateFlow<Map<Mode, ActiveConnectionPolicy>>(emptyMap())
 
-    override val activePolicy = state
+    override val activePolicies = state
 
     override fun set(policy: ActiveConnectionPolicy) {
-        state.value = policy
+        state.value = state.value + (policy.mode to policy)
     }
 
-    override fun clear() {
-        state.value = null
+    override fun clear(mode: Mode) {
+        state.value = state.value - mode
     }
 }

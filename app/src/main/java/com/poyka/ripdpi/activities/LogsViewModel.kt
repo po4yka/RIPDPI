@@ -1,18 +1,17 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.FailureReason
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
 import com.poyka.ripdpi.services.displayMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -68,8 +67,8 @@ internal fun classifyLogType(message: String): LogType {
 class LogsViewModel
 @Inject
 constructor(
-    @param:ApplicationContext private val appContext: Context,
     private val serviceStateStore: ServiceStateStore,
+    private val stringResolver: StringResolver,
 ) : ViewModel() {
     private val logBuffer = MutableStateFlow<List<LogEntry>>(emptyList())
     private val activeFilters = MutableStateFlow(LogType.entries.toSet())
@@ -177,7 +176,7 @@ constructor(
                 id = System.currentTimeMillis(),
                 timestamp = formatTimestamp(System.currentTimeMillis()),
                 type = LogType.CONN,
-                message = appContext.getString(R.string.logs_service_action_format, mode.displayName(), action),
+                message = stringResolver.getString(R.string.logs_service_action_format, mode.displayName(), action),
             ),
         )
     }
@@ -189,7 +188,7 @@ constructor(
                 id = System.currentTimeMillis(),
                 timestamp = formatTimestamp(System.currentTimeMillis()),
                 type = LogType.ERR,
-                message = appContext.getString(R.string.logs_service_failure_format, sender.senderName, detail),
+                message = stringResolver.getString(R.string.logs_service_failure_format, sender.senderName, detail),
             ),
         )
     }

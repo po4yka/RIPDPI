@@ -14,11 +14,23 @@ import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ActiveConnectionPolicy
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
-internal class DiagnosticsUiStateFactory(
-    context: Context,
-    private val support: DiagnosticsUiFactorySupport = DiagnosticsUiFactorySupport(context),
-) {
+internal class DiagnosticsUiStateFactory
+    private constructor(
+        private val support: DiagnosticsUiFactorySupport,
+    ) {
+        @Inject
+        constructor(
+            @ApplicationContext context: Context,
+        ) : this(DiagnosticsUiFactorySupport(context))
+
+        constructor(
+            context: Context,
+            support: DiagnosticsUiFactorySupport = DiagnosticsUiFactorySupport(context),
+        ) : this(support)
+
     fun buildUiState(
         profiles: List<DiagnosticProfileEntity>,
         settings: AppSettings,

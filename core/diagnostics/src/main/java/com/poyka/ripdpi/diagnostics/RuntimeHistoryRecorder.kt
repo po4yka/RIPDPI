@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -51,23 +52,68 @@ interface RuntimeHistoryRecorder {
 
 @Singleton
 class DefaultRuntimeHistoryRecorder
-    @Inject
-    constructor(
+    private constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val historyRepository: DiagnosticsHistoryRepository,
-        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
-            DefaultRememberedNetworkPolicyStore(historyRepository),
+        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val networkMetadataProvider: NetworkMetadataProvider,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val serviceStateStore: ServiceStateStore,
-        private val activeConnectionPolicyStore: ActiveConnectionPolicyStore = DefaultActiveConnectionPolicyStore(),
+        private val activeConnectionPolicyStore: ActiveConnectionPolicyStore,
+        private val scope: CoroutineScope,
+        @Suppress("UNUSED_PARAMETER")
+        private val constructorToken: Any,
     ) : RuntimeHistoryRecorder {
         private companion object {
             private const val MaxPersistedEventKeys = 512
+            private object ConstructionToken
         }
 
+        @Inject
+        constructor(
+            appSettingsRepository: AppSettingsRepository,
+            historyRepository: DiagnosticsHistoryRepository,
+            rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+            networkMetadataProvider: NetworkMetadataProvider,
+            diagnosticsContextProvider: DiagnosticsContextProvider,
+            serviceStateStore: ServiceStateStore,
+            activeConnectionPolicyStore: ActiveConnectionPolicyStore,
+            @ApplicationIoScope scope: CoroutineScope,
+        ) : this(
+            appSettingsRepository = appSettingsRepository,
+            historyRepository = historyRepository,
+            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            networkMetadataProvider = networkMetadataProvider,
+            diagnosticsContextProvider = diagnosticsContextProvider,
+            serviceStateStore = serviceStateStore,
+            activeConnectionPolicyStore = activeConnectionPolicyStore,
+            scope = scope,
+            constructorToken = ConstructionToken,
+        )
+
+        constructor(
+            appSettingsRepository: AppSettingsRepository,
+            historyRepository: DiagnosticsHistoryRepository,
+            networkMetadataProvider: NetworkMetadataProvider,
+            diagnosticsContextProvider: DiagnosticsContextProvider,
+            serviceStateStore: ServiceStateStore,
+            rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
+                DefaultRememberedNetworkPolicyStore(historyRepository),
+            activeConnectionPolicyStore: ActiveConnectionPolicyStore = DefaultActiveConnectionPolicyStore(),
+            scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        ) : this(
+            appSettingsRepository = appSettingsRepository,
+            historyRepository = historyRepository,
+            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            networkMetadataProvider = networkMetadataProvider,
+            diagnosticsContextProvider = diagnosticsContextProvider,
+            serviceStateStore = serviceStateStore,
+            activeConnectionPolicyStore = activeConnectionPolicyStore,
+            scope = scope,
+            constructorToken = ConstructionToken,
+        )
+
         private val json = Json { ignoreUnknownKeys = true }
-        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val started = AtomicBoolean(false)
         private val stateMutex = Mutex()
         private val persistedEventKeys = LinkedHashSet<String>()
@@ -102,8 +148,8 @@ class DefaultRuntimeHistoryRecorder
             }
 
             scope.launch {
-                activeConnectionPolicyStore.activePolicy.collectLatest { policy ->
-                    handleActiveConnectionPolicyChange(policy)
+                activeConnectionPolicyStore.activePolicies.collectLatest { policies ->
+                    handleActiveConnectionPolicyChange(policies[serviceStateStore.status.value.second])
                 }
             }
         }
@@ -300,7 +346,7 @@ class DefaultRuntimeHistoryRecorder
         historyRepository.upsertBypassUsageSession(session)
         syncRememberedPolicySession(
             session = session,
-            activePolicy = activeConnectionPolicyStore.activePolicy.value,
+            activePolicy = activeConnectionPolicyStore.current(serviceStateStore.status.value.second),
         )
     }
 

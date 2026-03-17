@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Intent
 import com.poyka.ripdpi.core.TunnelStats
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.platform.LauncherIconController
+import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.permissions.PermissionSnapshot
@@ -115,6 +117,18 @@ class FakeTrafficStatsReader(
     var transferredBytes: Long = 0L,
 ) : TrafficStatsReader {
     override fun currentTransferredBytes(): Long = transferredBytes
+}
+
+class FakePermissionPlatformBridge(
+    var vpnPermissionIntent: Intent? = Intent("fake.vpn.permission"),
+    var appSettingsIntent: Intent = Intent("fake.app.settings"),
+    var batteryOptimizationIntent: Intent = Intent("fake.battery.optimization"),
+) : PermissionPlatformBridge {
+    override fun prepareVpnPermissionIntent(): Intent? = vpnPermissionIntent
+
+    override fun createAppSettingsIntent(): Intent = appSettingsIntent
+
+    override fun createBatteryOptimizationIntent(): Intent = batteryOptimizationIntent
 }
 
 class FakePermissionStatusProvider(
