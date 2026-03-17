@@ -177,13 +177,29 @@ impl std::fmt::Debug for HealthRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
     use std::net::{IpAddr, Ipv4Addr};
     use std::sync::Arc;
 
+    // A fake clock that advances by one half-life (1 second) per call, keeping each
+    // EWMA update in a fresh time window (alpha ≈ 0.632 per observation).
+    thread_local! {
+        static FAKE_CLOCK_MILLIS: Cell<u64> = Cell::new(0);
+    }
+    fn advancing_fake_clock() -> Instant {
+        FAKE_CLOCK_MILLIS.with(|c| {
+            let ms = c.get();
+            c.set(ms + 1_000);
+            Instant::now() + Duration::from_millis(ms)
+        })
+    }
+
     #[test]
     fn ewma_converges_toward_full_success_after_repeated_successes() {
-        let reg = HealthRegistry::new(Duration::from_secs(1));
-        for _ in 0..200 {
+        // Reset the fake clock for this test (relevant when tests share a thread).
+        FAKE_CLOCK_MILLIS.with(|c| c.set(0));
+        let reg = HealthRegistry::with_clock(Duration::from_secs(1), advancing_fake_clock);
+        for _ in 0..20 {
             reg.record_endpoint_outcome("ep", true, 10);
         }
         let snap = reg.snapshot("ep").unwrap();
@@ -196,8 +212,9 @@ mod tests {
 
     #[test]
     fn ewma_converges_toward_zero_after_repeated_failures() {
-        let reg = HealthRegistry::new(Duration::from_secs(1));
-        for _ in 0..200 {
+        FAKE_CLOCK_MILLIS.with(|c| c.set(0));
+        let reg = HealthRegistry::with_clock(Duration::from_secs(1), advancing_fake_clock);
+        for _ in 0..20 {
             reg.record_endpoint_outcome("ep", false, 500);
         }
         let snap = reg.snapshot("ep").unwrap();
