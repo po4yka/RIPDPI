@@ -2,6 +2,7 @@
 name = "hs5t-dns-cache"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 description = "LRU DNS cache with SOCKS5 mapped DNS support"
 
 [dependencies]

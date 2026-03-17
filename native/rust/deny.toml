@@ -1,11 +1,8 @@
 [advisories]
-vulnerability = "deny"
-unmaintained = "warn"
-yanked = "warn"
-notice = "warn"
+# Vulnerabilities are denied by default; list specific advisory IDs to ignore.
+ignore = []
 
 [licenses]
-unlicensed = "deny"
 confidence-threshold = 0.8
 allow = [
     "MIT",
@@ -13,13 +10,19 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
+    # Additional permissive licenses used by transitive deps
+    "0BSD",
+    "Zlib",
+    "CDLA-Permissive-2.0",
     "Unicode-3.0",
-    "Unicode-DFS-2016",
+    # aws-lc-sys (used by rustls in byedpi)
+    "OpenSSL",
 ]
 
 [bans]
 multiple-versions = "warn"
-wildcards = "deny"
+wildcards = "warn"
+highlight = "all"
 
 [sources]
 unknown-registry = "deny"

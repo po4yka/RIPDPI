@@ -2,6 +2,7 @@
 name = "hs5t-ring-buffer"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 description = "Two-phase ring buffer for hev-socks5-tunnel"
 
 [dependencies]
