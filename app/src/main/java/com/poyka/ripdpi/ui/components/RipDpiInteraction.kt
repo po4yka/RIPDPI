@@ -105,6 +105,7 @@ fun Modifier.ripDpiSelectable(
     role: Role? = null,
     interactionSource: MutableInteractionSource? = null,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Selection,
+    showIndication: Boolean = true,
     onClick: () -> Unit,
 ): Modifier =
     composed {
@@ -116,7 +117,7 @@ fun Modifier.ripDpiSelectable(
             enabled = enabled,
             role = role,
             interactionSource = resolvedInteractionSource,
-            indication = LocalIndication.current,
+            indication = if (showIndication) LocalIndication.current else null,
             onClick = {
                 if (motion.hapticsEnabled) {
                     view.performRipDpiHapticFeedback(hapticFeedback)
