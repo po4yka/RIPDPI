@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -52,6 +53,7 @@ import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionRecovery
+import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -94,6 +96,7 @@ fun HomeRoute(
         },
         onOpenDiagnostics = onOpenDiagnostics,
         onOpenHistory = onOpenHistory,
+        onRepairPermission = viewModel::onRepairPermissionRequested,
     )
 }
 
@@ -103,6 +106,7 @@ fun HomeScreen(
     onToggleConnection: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
+    onRepairPermission: (PermissionKind) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -140,14 +144,38 @@ fun HomeScreen(
                         -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
                     },
                 tone = WarningBannerTone.Restricted,
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (issue.kind == PermissionKind.BatteryOptimization) {
+                                Modifier.ripDpiClickable(
+                                    role = Role.Button,
+                                    onClick = { onRepairPermission(PermissionKind.BatteryOptimization) },
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ),
             )
         } ?: uiState.permissionSummary.recommendedIssue?.let { warning ->
             WarningBanner(
                 title = warning.title,
                 message = warning.message,
                 tone = WarningBannerTone.Warning,
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (warning.kind == PermissionKind.BatteryOptimization) {
+                                Modifier.ripDpiClickable(
+                                    role = Role.Button,
+                                    onClick = { onRepairPermission(PermissionKind.BatteryOptimization) },
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ),
             )
         }
 
@@ -861,6 +889,7 @@ private fun HomeScreenDisconnectedPreview() {
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
+            onRepairPermission = {},
         )
     }
 }
@@ -886,6 +915,7 @@ private fun HomeScreenConnectedPreview() {
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
+            onRepairPermission = {},
         )
     }
 }
@@ -907,6 +937,7 @@ private fun HomeScreenErrorPreview() {
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
+            onRepairPermission = {},
         )
     }
 }

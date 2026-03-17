@@ -49,6 +49,7 @@ internal fun RipDpiHomeExpandedPreviewScene() {
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
+            onRepairPermission = {},
         )
     }
 }

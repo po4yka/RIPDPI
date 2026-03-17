@@ -143,6 +143,7 @@ fun RipDpiButton(
                     hapticFeedback = hapticFeedback,
                     onClick = onClick,
                 ),
+        contentAlignment = Alignment.Center,
     ) {
         Row(
             modifier =
