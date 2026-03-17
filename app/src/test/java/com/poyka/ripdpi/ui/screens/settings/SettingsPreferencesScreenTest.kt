@@ -40,6 +40,7 @@ class SettingsPreferencesScreenTest {
                     onShareDebugBundle = { clicked = true },
                     permissionSummary = PermissionSummaryUiState(),
                     onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
                     onThemeSelected = {},
                     onWebRtcProtectionChanged = {},
                     onBiometricChanged = {},

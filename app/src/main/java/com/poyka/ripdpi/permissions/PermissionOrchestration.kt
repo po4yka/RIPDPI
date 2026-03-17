@@ -58,8 +58,6 @@ sealed interface PermissionAction {
 
     data object StartVpnMode : PermissionAction
 
-    data object ShowVpnPermissionDialog : PermissionAction
-
     data class RepairPermission(
         val kind: PermissionKind,
     ) : PermissionAction
@@ -168,7 +166,6 @@ class PermissionCoordinator
                 when (action) {
                     PermissionAction.StartConfiguredMode -> buildStartRequirements(mode = configuredMode, snapshot = snapshot)
                     PermissionAction.StartVpnMode -> buildStartRequirements(mode = Mode.VPN, snapshot = snapshot)
-                    PermissionAction.ShowVpnPermissionDialog -> emptyList()
                     is PermissionAction.RepairPermission ->
                         buildList {
                             val status = snapshot.statusFor(action.kind)
@@ -184,9 +181,7 @@ class PermissionCoordinator
                     PermissionAction.StartVpnMode,
                     -> buildRecommendationList(snapshot)
 
-                    PermissionAction.ShowVpnPermissionDialog,
-                    is PermissionAction.RepairPermission,
-                    -> emptyList()
+                    is PermissionAction.RepairPermission -> emptyList()
                 }
 
             return PermissionResolution(

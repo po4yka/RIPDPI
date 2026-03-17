@@ -50,6 +50,7 @@ internal fun RipDpiHomeExpandedPreviewScene() {
             onOpenDiagnostics = {},
             onOpenHistory = {},
             onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
         )
     }
 }
@@ -99,6 +100,7 @@ internal fun RipDpiSettingsMediumPreviewScene() {
                         ),
                 ),
             onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
             onBiometricChanged = {},
