@@ -2,11 +2,11 @@ package com.poyka.ripdpi.services
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.content.Context
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
 import android.os.Build
 import androidx.lifecycle.lifecycleScope
-import android.content.Context
-import android.net.ConnectivityManager
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime

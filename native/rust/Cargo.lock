@@ -1898,6 +1898,7 @@ dependencies = [
  "hex",
  "hickory-proto",
  "local-network-fixture",
+ "lru",
  "once_cell",
  "rand 0.8.5",
  "rcgen",

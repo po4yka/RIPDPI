@@ -13,6 +13,7 @@ use tokio::runtime::{Builder, Runtime};
 use url::Url;
 
 use crate::dnscrypt::dnscrypt_verifying_key;
+use crate::health::HealthRegistry;
 use crate::types::{
     EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol, EncryptedDnsTransport,
 };
@@ -83,6 +84,7 @@ pub(crate) fn build_doh_client(
     transport: &EncryptedDnsTransport,
     timeout: Duration,
     tls_roots: &[CertificateDer<'static>],
+    health: Option<&HealthRegistry>,
 ) -> Result<Client, EncryptedDnsError> {
     let mut builder = Client::builder().use_rustls_tls().timeout(timeout).connect_timeout(timeout);
 
@@ -94,8 +96,12 @@ pub(crate) fn build_doh_client(
 
     match transport {
         EncryptedDnsTransport::Direct => {
-            let addresses =
-                endpoint.bootstrap_ips.iter().copied().map(|ip| SocketAddr::new(ip, endpoint.port)).collect::<Vec<_>>();
+            let ips = if let Some(h) = health {
+                h.rank_bootstrap_ips(&endpoint.bootstrap_ips)
+            } else {
+                endpoint.bootstrap_ips.clone()
+            };
+            let addresses = ips.iter().copied().map(|ip| SocketAddr::new(ip, endpoint.port)).collect::<Vec<_>>();
             builder = builder.resolve_to_addrs(endpoint.host.as_str(), &addresses);
         }
         EncryptedDnsTransport::Socks5 { host, port } => {

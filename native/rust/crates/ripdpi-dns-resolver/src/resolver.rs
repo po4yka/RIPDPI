@@ -40,9 +40,19 @@ impl EncryptedDnsResolver {
         timeout: Duration,
         tls_roots: Vec<CertificateDer<'static>>,
     ) -> Result<Self, EncryptedDnsError> {
+        Self::with_health(endpoint, transport, timeout, tls_roots, None)
+    }
+
+    pub(crate) fn with_health(
+        endpoint: EncryptedDnsEndpoint,
+        transport: EncryptedDnsTransport,
+        timeout: Duration,
+        tls_roots: Vec<CertificateDer<'static>>,
+        health: Option<crate::health::HealthRegistry>,
+    ) -> Result<Self, EncryptedDnsError> {
         let normalized = normalize_endpoint(endpoint, &transport)?;
         let doh_client = if normalized.protocol == EncryptedDnsProtocol::Doh {
-            Some(build_doh_client(&normalized, &transport, timeout, &tls_roots)?)
+            Some(build_doh_client(&normalized, &transport, timeout, &tls_roots, health.as_ref())?)
         } else {
             None
         };
@@ -55,6 +65,7 @@ impl EncryptedDnsResolver {
                 doh_client,
                 tls_roots,
                 dnscrypt_state: Mutex::new(None),
+                health,
             }),
         })
     }
@@ -119,7 +130,7 @@ impl EncryptedDnsResolver {
         self.exchange_blocking_with_metadata(query_bytes).map(|success| success.response_bytes)
     }
 
-    fn endpoint_label(&self) -> String {
+    pub fn endpoint_label(&self) -> String {
         self.inner
             .endpoint
             .doh_url
@@ -266,13 +277,31 @@ impl EncryptedDnsResolver {
 
     fn connect_direct_tcp_blocking(&self) -> Result<TcpStream, EncryptedDnsError> {
         let endpoint = &self.inner.endpoint;
-        let addresses =
-            endpoint.bootstrap_ips.iter().copied().map(|ip| SocketAddr::new(ip, endpoint.port)).collect::<Vec<_>>();
+        let ips = if let Some(health) = &self.inner.health {
+            health.rank_bootstrap_ips(&endpoint.bootstrap_ips)
+        } else {
+            endpoint.bootstrap_ips.clone()
+        };
         let mut last_error = None;
-        for address in addresses {
+        for ip in ips {
+            let address = SocketAddr::new(ip, endpoint.port);
+            let started = std::time::Instant::now();
             match TcpStream::connect_timeout(&address, self.inner.timeout) {
-                Ok(stream) => return Ok(stream),
-                Err(err) => last_error = Some(err.to_string()),
+                Ok(stream) => {
+                    if let Some(health) = &self.inner.health {
+                        let latency_ms = started.elapsed().as_millis().try_into().unwrap_or(u64::MAX);
+                        health.record_bootstrap_outcome(ip, true, latency_ms);
+                    }
+                    return Ok(stream);
+                }
+                Err(err) => {
+                    if let Some(health) = &self.inner.health {
+                        let latency_ms =
+                            self.inner.timeout.as_millis().try_into().unwrap_or(u64::MAX);
+                        health.record_bootstrap_outcome(ip, false, latency_ms);
+                    }
+                    last_error = Some(err.to_string());
+                }
             }
         }
         Err(EncryptedDnsError::Request(last_error.unwrap_or_else(|| "no bootstrap addresses".to_string())))

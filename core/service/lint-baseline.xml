@@ -125,7 +125,7 @@
         errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
-            line="104"
+            line="105"
             column="61"/>
     </issue>
 
@@ -136,7 +136,7 @@
         errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
-            line="104"
+            line="105"
             column="61"/>
     </issue>
 
@@ -152,13 +152,24 @@
     </issue>
 
     <issue
+        id="MissingPermission"
+        message="Missing permissions required by ConnectivityManager.getActiveNetwork: android.permission.ACCESS_NETWORK_STATE"
+        errorLine1="        val activeNetwork = cm.activeNetwork"
+        errorLine2="                            ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/poyka/ripdpi/services/RipDpiVpnService.kt"
+            line="905"
+            column="29"/>
+    </issue>
+
+    <issue
         id="NewApi"
         message="Call requires API level 28 (current min is 27): `android.net.LinkProperties#getPrivateDnsServerName`"
         errorLine1="            linkProperties?.privateDnsServerName?.trim()?.takeIf { it.isNotEmpty() } ?: &quot;system&quot;"
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
-            line="70"
+            line="71"
             column="29"/>
     </issue>
 

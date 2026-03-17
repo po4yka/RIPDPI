@@ -39,7 +39,10 @@ interface RipDpiProxyBindings {
 
     fun destroy(handle: Long)
 
-    fun updateNetworkSnapshot(handle: Long, snapshotJson: String)
+    fun updateNetworkSnapshot(
+        handle: Long,
+        snapshotJson: String,
+    )
 }
 
 class RipDpiProxyNativeBindings
@@ -65,7 +68,10 @@ class RipDpiProxyNativeBindings
             jniDestroy(handle)
         }
 
-        override fun updateNetworkSnapshot(handle: Long, snapshotJson: String) {
+        override fun updateNetworkSnapshot(
+            handle: Long,
+            snapshotJson: String,
+        ) {
             jniUpdateNetworkSnapshot(handle, snapshotJson)
         }
 
@@ -79,7 +85,10 @@ class RipDpiProxyNativeBindings
 
         private external fun jniDestroy(handle: Long)
 
-        private external fun jniUpdateNetworkSnapshot(handle: Long, snapshotJson: String)
+        private external fun jniUpdateNetworkSnapshot(
+            handle: Long,
+            snapshotJson: String,
+        )
     }
 
 class RipDpiProxy(
@@ -169,7 +178,7 @@ class RipDpiProxy(
             }
 
             if (System.currentTimeMillis() >= deadline) {
-                throw IllegalStateException("Timed out waiting for proxy readiness")
+                error("Timed out waiting for proxy readiness")
             }
 
             delay(READY_POLL_INTERVAL_MS)

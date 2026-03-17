@@ -53,19 +53,21 @@ class NetworkSnapshotFactory
                 metered = fingerprint.metered,
                 privateDnsMode = fingerprint.privateDnsMode,
                 dnsServers = fingerprint.dnsServers,
-                cellular = fingerprint.cellular?.let { cell ->
-                    NativeCellularSnapshot(
-                        generation = cellularGeneration(cell.dataNetworkType),
-                        roaming = cell.roaming ?: false,
-                        operatorCode = cell.operatorCode,
-                    )
-                },
-                wifi = fingerprint.wifi?.let { wifi ->
-                    NativeWifiSnapshot(
-                        frequencyBand = "unknown",
-                        ssidHash = hashSsid(wifi.ssid),
-                    )
-                },
+                cellular =
+                    fingerprint.cellular?.let { cell ->
+                        NativeCellularSnapshot(
+                            generation = cellularGeneration(cell.dataNetworkType),
+                            roaming = cell.roaming ?: false,
+                            operatorCode = cell.operatorCode,
+                        )
+                    },
+                wifi =
+                    fingerprint.wifi?.let { wifi ->
+                        NativeWifiSnapshot(
+                            frequencyBand = "unknown",
+                            ssidHash = hashSsid(wifi.ssid),
+                        )
+                    },
                 trafficTxBytes = txBytes,
                 trafficRxBytes = rxBytes,
                 capturedAtMs = System.currentTimeMillis(),
@@ -74,10 +76,15 @@ class NetworkSnapshotFactory
         private fun cellularGeneration(dataNetworkType: String): String =
             when (dataNetworkType) {
                 "gprs", "edge", "cdma", "1xrtt", "iden", "gsm" -> "2g"
+
                 "umts", "evdo_0", "evdo_a", "evdo_b", "hsdpa", "hsupa", "hspa",
-                "hspap", "ehrpd", "td_scdma", "iwlan" -> "3g"
+                "hspap", "ehrpd", "td_scdma", "iwlan",
+                -> "3g"
+
                 "lte" -> "4g"
+
                 "nr" -> "5g"
+
                 else -> "unknown"
             }
 

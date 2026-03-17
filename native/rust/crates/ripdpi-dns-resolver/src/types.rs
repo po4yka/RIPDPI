@@ -7,6 +7,8 @@ use thiserror::Error;
 
 use std::net::IpAddr;
 
+use crate::health::HealthRegistry;
+
 pub const DOT_DEFAULT_PORT: u16 = 853;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,6 +82,7 @@ pub(crate) struct ResolverInner {
     pub(crate) doh_client: Option<Client>,
     pub(crate) tls_roots: Vec<CertificateDer<'static>>,
     pub(crate) dnscrypt_state: Mutex<Option<DnsCryptCachedCertificate>>,
+    pub(crate) health: Option<HealthRegistry>,
 }
 
 #[derive(Debug, Clone)]

@@ -16,6 +16,8 @@
     <ID>MagicNumber:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$16</ID>
     <ID>MagicNumber:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$24</ID>
     <ID>MagicNumber:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$8</ID>
+    <ID>MagicNumber:NetworkSnapshotFactory.kt$NetworkSnapshotFactory$16</ID>
+    <ID>MagicNumber:NetworkSnapshotFactory.kt$NetworkSnapshotFactory$4</ID>
     <ID>MagicNumber:RipDpiProxyService.kt$RipDpiProxyService$1_000</ID>
     <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$1080</ID>
     <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$128</ID>

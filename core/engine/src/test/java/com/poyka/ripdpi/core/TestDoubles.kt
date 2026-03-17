@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.core
 
-import com.poyka.ripdpi.data.NativeNetworkSnapshot
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultQueue
 import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.core.testing.faultThrowable
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
@@ -141,7 +141,10 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
         destroyedHandles += handle
     }
 
-    override fun updateNetworkSnapshot(handle: Long, snapshotJson: String) {
+    override fun updateNetworkSnapshot(
+        handle: Long,
+        snapshotJson: String,
+    ) {
         // No-op in fake.
     }
 }
