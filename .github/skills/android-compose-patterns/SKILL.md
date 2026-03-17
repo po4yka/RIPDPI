@@ -101,3 +101,10 @@ fun ExampleScreen(uiState: UiState, onAction: () -> Unit) { /* ... */ }
 | Hardcoding colors/spacing | Use `RipDpiThemeTokens` and Material 3 theme |
 | Missing `WhileSubscribed(5_000)` | Required for proper lifecycle handling in all StateFlow exports |
 | Creating ViewModel in Composable | Use `viewModel()` in Route composable or pass from NavHost |
+
+## Related Skills
+
+- **`jetpack-compose-api`** (`.github/skills/jetpack-compose-api/SKILL.md`):
+  General Jetpack Compose API reference with guidance docs and actual androidx source code.
+  Use for questions about how Compose APIs work internally, correct API usage patterns,
+  recomposition mechanics, Modifier ordering, side-effects, performance, or accessibility.
