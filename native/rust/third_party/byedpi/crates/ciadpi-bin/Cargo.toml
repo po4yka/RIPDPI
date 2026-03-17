@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 ciadpi-config = { path = "../ciadpi-config" }
+nix = { version = "0.29", features = ["net", "fs", "mman", "signal", "process"] }
 ripdpi-runtime = { path = "../../../../crates/ripdpi-runtime" }
 
 [[bin]]

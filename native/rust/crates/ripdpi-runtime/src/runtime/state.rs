@@ -1,5 +1,4 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, AtomicUsize, Mutex, Ordering};
 use std::time::Duration;
 
 use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;

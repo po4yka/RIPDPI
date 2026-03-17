@@ -9,6 +9,8 @@ use std::net::IpAddr;
 use std::os::unix::io::FromRawFd;
 use std::sync::Arc;
 
+use nix::fcntl::{fcntl, FcntlArg, OFlag};
+
 use smoltcp::iface::{Config as IfaceConfig, Interface, SocketSet};
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
@@ -64,18 +66,10 @@ pub async fn run_tunnel(
     stats: Arc<Stats>,
 ) -> io::Result<()> {
     // Set the fd to non-blocking so AsyncFd can register it with the reactor.
-    //
-    // SAFETY: `tun_fd` is a valid, open fd; F_GETFL / F_SETFL are safe
-    // to call on any fd and do not transfer ownership.
-    let flags = unsafe { libc::fcntl(tun_fd, libc::F_GETFL, 0) };
-    if flags == -1 {
-        return Err(io::Error::last_os_error());
-    }
-    // SAFETY: same fd, same safety rationale as F_GETFL above.
-    let rc = unsafe { libc::fcntl(tun_fd, libc::F_SETFL, flags | libc::O_NONBLOCK) };
-    if rc == -1 {
-        return Err(io::Error::last_os_error());
-    }
+    let flags = fcntl(tun_fd, FcntlArg::F_GETFL)
+        .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+    fcntl(tun_fd, FcntlArg::F_SETFL(OFlag::from_bits_truncate(flags) | OFlag::O_NONBLOCK))
+        .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
 
     // SAFETY: `tun_fd` is valid and its ownership transfers to `file`.
     let file = unsafe { std::fs::File::from_raw_fd(tun_fd) };

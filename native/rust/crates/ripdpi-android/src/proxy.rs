@@ -298,12 +298,8 @@ pub(crate) fn open_proxy_listener(
 }
 
 pub(crate) fn shutdown_proxy_listener(listener_fd: i32) -> Result<(), std::io::Error> {
-    let rc = unsafe { libc::shutdown(listener_fd, libc::SHUT_RDWR) };
-    if rc == 0 {
-        Ok(())
-    } else {
-        Err(std::io::Error::last_os_error())
-    }
+    nix::sys::socket::shutdown(listener_fd, nix::sys::socket::Shutdown::Both)
+        .map_err(|e| std::io::Error::from_raw_os_error(e as i32))
 }
 
 #[cfg(test)]

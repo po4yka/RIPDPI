@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use crate::sync::{Arc, AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::platform;

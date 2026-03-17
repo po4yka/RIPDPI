@@ -10,8 +10,9 @@ workspace = true
 [dependencies]
 android_logger = { workspace = true }
 jni = { workspace = true }
-libc = { workspace = true }
 log = { workspace = true }
+loom = { workspace = true, optional = true }
+nix = { workspace = true }
 once_cell = { workspace = true }
 tracing = { workspace = true }
 tracing-log = { workspace = true }
@@ -19,3 +20,6 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 golden-test-support = { workspace = true }
+
+[features]
+loom = ["dep:loom"]

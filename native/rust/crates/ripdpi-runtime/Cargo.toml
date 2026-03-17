@@ -22,6 +22,11 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 socket2 = { workspace = true }
 libc = { workspace = true }
+loom = { workspace = true, optional = true }
+nix = { workspace = true }
+
+[features]
+loom = ["dep:loom"]
 
 [dev-dependencies]
 aes = { workspace = true }
