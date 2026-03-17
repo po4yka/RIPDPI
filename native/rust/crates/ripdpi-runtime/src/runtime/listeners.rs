@@ -76,7 +76,11 @@ pub(super) fn run_proxy_with_listener_internal(
         if shutdown_requested {
             break Ok(());
         }
-        poll.poll(&mut events, Some(Duration::from_millis(250)))?;
+        match poll.poll(&mut events, Some(Duration::from_millis(250))) {
+            Ok(()) => {}
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
+            Err(err) => break Err(err),
+        }
         for event in &events {
             if event.token() != LISTENER {
                 continue;
@@ -114,6 +118,7 @@ pub(super) fn run_proxy_with_listener_internal(
                         }
                     }
                     Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
+                    Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
                     Err(err) => return Err(err),
                 }
             }
