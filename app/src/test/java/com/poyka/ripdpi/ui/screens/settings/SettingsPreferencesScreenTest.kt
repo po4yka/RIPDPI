@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
@@ -45,6 +48,9 @@ class SettingsPreferencesScreenTest {
             }
         }
 
+        composeRule
+            .onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasText("Share support bundle"))
         composeRule.onNodeWithText("Share support bundle").fetchSemanticsNode()
         composeRule.onNodeWithText("Share support bundle").performClick()
 

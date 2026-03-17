@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
@@ -22,8 +24,9 @@ import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.services.ActiveConnectionPolicy
 import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore
+import com.poyka.ripdpi.services.DefaultServiceStateStore
+import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,15 +40,55 @@ import javax.inject.Inject
 
 @HiltViewModel
 class DiagnosticsViewModel
-@Inject
-constructor(
-    @ApplicationContext appContext: Context,
-    private val diagnosticsManager: DiagnosticsManager,
-    private val appSettingsRepository: AppSettingsRepository,
-    private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore = defaultRememberedNetworkPolicyStore(),
-    private val activeConnectionPolicyStore: ActiveConnectionPolicyStore = DefaultActiveConnectionPolicyStore(),
-) : ViewModel() {
-    private val uiStateFactory = DiagnosticsUiStateFactory(appContext)
+    private constructor(
+        private val diagnosticsManager: DiagnosticsManager,
+        private val appSettingsRepository: AppSettingsRepository,
+        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+        private val activeConnectionPolicyStore: ActiveConnectionPolicyStore,
+        private val serviceStateStore: ServiceStateStore,
+        private val uiStateFactory: DiagnosticsUiStateFactory,
+        @Suppress("UNUSED_PARAMETER")
+        private val constructorToken: Any,
+    ) : ViewModel() {
+        private companion object {
+            private object ConstructionToken
+        }
+
+        @Inject
+        internal constructor(
+            diagnosticsManager: DiagnosticsManager,
+            appSettingsRepository: AppSettingsRepository,
+            rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+            activeConnectionPolicyStore: ActiveConnectionPolicyStore,
+            serviceStateStore: ServiceStateStore,
+            uiStateFactory: DiagnosticsUiStateFactory,
+        ) : this(
+            diagnosticsManager = diagnosticsManager,
+            appSettingsRepository = appSettingsRepository,
+            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            activeConnectionPolicyStore = activeConnectionPolicyStore,
+            serviceStateStore = serviceStateStore,
+            uiStateFactory = uiStateFactory,
+            constructorToken = ConstructionToken,
+        )
+
+        constructor(
+            appContext: Context,
+            diagnosticsManager: DiagnosticsManager,
+            appSettingsRepository: AppSettingsRepository,
+            rememberedNetworkPolicyStore: RememberedNetworkPolicyStore = defaultRememberedNetworkPolicyStore(),
+            activeConnectionPolicyStore: ActiveConnectionPolicyStore = DefaultActiveConnectionPolicyStore(),
+            serviceStateStore: ServiceStateStore = DefaultServiceStateStore(),
+        ) : this(
+            diagnosticsManager = diagnosticsManager,
+            appSettingsRepository = appSettingsRepository,
+            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            activeConnectionPolicyStore = activeConnectionPolicyStore,
+            serviceStateStore = serviceStateStore,
+            uiStateFactory = DiagnosticsUiStateFactory(appContext),
+            constructorToken = ConstructionToken,
+        )
+
     private val selectedSectionRequest = MutableStateFlow(DiagnosticsSection.Overview)
     private val selectedProfileId = MutableStateFlow<String?>(null)
     private val selectedApproachMode = MutableStateFlow(DiagnosticsApproachMode.Profiles)
@@ -81,7 +124,8 @@ constructor(
             diagnosticsManager.nativeEvents,
             diagnosticsManager.exports,
             rememberedNetworkPolicyStore.observePolicies(limit = 64),
-            activeConnectionPolicyStore.activePolicy,
+            serviceStateStore.status,
+            activeConnectionPolicyStore.activePolicies,
             selectedSectionRequest,
             selectedProfileId,
             selectedApproachMode,
@@ -113,24 +157,28 @@ constructor(
                 nativeEvents = values[8] as List<NativeSessionEventEntity>,
                 exports = values[9] as List<ExportRecordEntity>,
                 rememberedPolicies = values[10] as List<RememberedNetworkPolicyEntity>,
-                activeConnectionPolicy = values[11] as ActiveConnectionPolicy?,
-                selectedSectionRequest = values[12] as DiagnosticsSection,
-                selectedProfileId = values[13] as String?,
-                selectedApproachMode = values[14] as DiagnosticsApproachMode,
-                selectedProbe = values[15] as DiagnosticsProbeResultUiModel?,
-                selectedEventId = values[16] as String?,
-                sessionPathMode = values[17] as String?,
-                sessionStatus = values[18] as String?,
-                sessionSearch = values[19] as String,
-                eventSource = values[20] as String?,
-                eventSeverity = values[21] as String?,
-                eventSearch = values[22] as String,
-                eventAutoScroll = values[23] as Boolean,
-                selectedSessionDetail = values[24] as DiagnosticsSessionDetailUiModel?,
-                selectedStrategyProbeCandidate = values[25] as DiagnosticsStrategyProbeCandidateDetailUiModel?,
-                selectedApproachDetail = values[26] as DiagnosticsApproachDetailUiModel?,
-                sensitiveSessionDetailsVisible = values[27] as Boolean,
-                archiveActionState = values[28] as ArchiveActionState,
+                activeConnectionPolicy =
+                    selectActiveConnectionPolicy(
+                        serviceStatus = values[11] as Pair<AppStatus, Mode>,
+                        activePolicies = values[12] as Map<Mode, ActiveConnectionPolicy>,
+                    ),
+                selectedSectionRequest = values[13] as DiagnosticsSection,
+                selectedProfileId = values[14] as String?,
+                selectedApproachMode = values[15] as DiagnosticsApproachMode,
+                selectedProbe = values[16] as DiagnosticsProbeResultUiModel?,
+                selectedEventId = values[17] as String?,
+                sessionPathMode = values[18] as String?,
+                sessionStatus = values[19] as String?,
+                sessionSearch = values[20] as String,
+                eventSource = values[21] as String?,
+                eventSeverity = values[22] as String?,
+                eventSearch = values[23] as String,
+                eventAutoScroll = values[24] as Boolean,
+                selectedSessionDetail = values[25] as DiagnosticsSessionDetailUiModel?,
+                selectedStrategyProbeCandidate = values[26] as DiagnosticsStrategyProbeCandidateDetailUiModel?,
+                selectedApproachDetail = values[27] as DiagnosticsApproachDetailUiModel?,
+                sensitiveSessionDetailsVisible = values[28] as Boolean,
+                archiveActionState = values[29] as ArchiveActionState,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -160,6 +208,14 @@ constructor(
                 pendingAutoOpenAuditSessionId.value = null
             }
         }
+    }
+
+    private fun selectActiveConnectionPolicy(
+        serviceStatus: Pair<AppStatus, Mode>,
+        activePolicies: Map<Mode, ActiveConnectionPolicy>,
+    ): ActiveConnectionPolicy? {
+        val (_, activeMode) = serviceStatus
+        return activePolicies[activeMode] ?: activePolicies.values.maxByOrNull(ActiveConnectionPolicy::appliedAt)
     }
 
     fun selectSection(section: DiagnosticsSection) {

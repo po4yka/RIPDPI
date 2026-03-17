@@ -1,19 +1,18 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.core.hasHostAutolearnStore
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.hosts.HostPackCatalogRepository
+import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.LauncherIconController
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,12 +28,13 @@ import javax.inject.Inject
 class SettingsViewModel
 @Inject
 constructor(
-    @param:ApplicationContext private val appContext: Context,
     private val appSettingsRepository: AppSettingsRepository,
     private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
     private val hostPackCatalogRepository: HostPackCatalogRepository,
     private val launcherIconController: LauncherIconController,
     private val serviceStateStore: ServiceStateStore,
+    private val stringResolver: StringResolver,
+    private val hostAutolearnStoreController: HostAutolearnStoreController,
     private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
 ) : ViewModel() {
     private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
@@ -55,7 +55,7 @@ constructor(
             settings.toUiState(
                 serviceStatus = telemetry.status,
                 proxyTelemetry = telemetry.proxyTelemetry,
-                hostAutolearnStorePresent = hasHostAutolearnStore(appContext),
+                hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
                 rememberedNetworkCount = rememberedPolicies.size,
             )
         }
@@ -67,7 +67,7 @@ constructor(
                         isHydrated = false,
                         serviceStatus = serviceStateStore.telemetry.value.status,
                         proxyTelemetry = serviceStateStore.telemetry.value.proxyTelemetry,
-                        hostAutolearnStorePresent = hasHostAutolearnStore(appContext),
+                        hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
                         rememberedNetworkCount = 0,
                     ),
             )
@@ -82,7 +82,8 @@ constructor(
     }
     private val maintenanceActions by lazy {
         SettingsMaintenanceActions(
-            appContext = appContext,
+            stringResolver = stringResolver,
+            hostAutolearnStoreController = hostAutolearnStoreController,
             rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
             hostPackCatalogRepository = hostPackCatalogRepository,
             mutations = mutations,
@@ -193,8 +194,8 @@ constructor(
             telemetrySaltStore.rotateSalt()
             _effects.send(
                 SettingsEffect.Notice(
-                    title = appContext.getString(R.string.notice_telemetry_salt_reset_title),
-                    message = appContext.getString(R.string.notice_telemetry_salt_reset_message),
+                    title = stringResolver.getString(R.string.notice_telemetry_salt_reset_title),
+                    message = stringResolver.getString(R.string.notice_telemetry_salt_reset_message),
                     tone = SettingsNoticeTone.Info,
                 ),
             )

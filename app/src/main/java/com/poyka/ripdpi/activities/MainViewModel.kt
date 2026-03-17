@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
@@ -29,7 +28,7 @@ import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
-import com.poyka.ripdpi.permissions.BatteryOptimizationIntents
+import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
@@ -40,7 +39,6 @@ import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -152,13 +150,13 @@ internal fun resolveStartupDestination(settings: AppSettings): String =
 class MainViewModel
     @Inject
     constructor(
-        @param:ApplicationContext private val appContext: Context,
         appSettingsRepository: AppSettingsRepository,
         private val serviceStateStore: ServiceStateStore,
         private val serviceController: ServiceController,
         private val diagnosticsManager: DiagnosticsManager,
         private val stringResolver: StringResolver,
         private val trafficStatsReader: TrafficStatsReader,
+        private val permissionPlatformBridge: PermissionPlatformBridge,
         private val permissionStatusProvider: PermissionStatusProvider,
         private val permissionCoordinator: PermissionCoordinator,
     ) : ViewModel() {
@@ -377,7 +375,7 @@ class MainViewModel
                         PermissionAction.StartVpnMode,
                         is PermissionAction.RepairPermission,
                         -> {
-                            val prepareIntent = android.net.VpnService.prepare(appContext)
+                            val prepareIntent = permissionPlatformBridge.prepareVpnPermissionIntent()
                             if (prepareIntent == null) {
                                 onPermissionResult(PermissionKind.VpnConsent, PermissionResult.Granted)
                             } else {
@@ -951,13 +949,8 @@ class MainViewModel
                 )
             }
 
-        private fun createAppSettingsIntent(): Intent =
-            BatteryOptimizationIntents
-                .createAppDetailsIntent(appContext.packageName)
-                .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        private fun createAppSettingsIntent(): Intent = permissionPlatformBridge.createAppSettingsIntent()
 
         private fun createBatteryOptimizationIntent(): Intent =
-            BatteryOptimizationIntents.create(packageName = appContext.packageName) { intent ->
-                intent.resolveActivity(appContext.packageManager) != null
-            }
+            permissionPlatformBridge.createBatteryOptimizationIntent()
     }

@@ -1,0 +1,33 @@
+package com.poyka.ripdpi.data
+
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Qualifier
+import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ApplicationScope
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ApplicationIoScope
+
+@Module
+@InstallIn(SingletonComponent::class)
+object CoroutineScopesModule {
+    @Provides
+    @Singleton
+    @ApplicationScope
+    fun provideApplicationScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    @Provides
+    @Singleton
+    @ApplicationIoScope
+    fun provideApplicationIoScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+}

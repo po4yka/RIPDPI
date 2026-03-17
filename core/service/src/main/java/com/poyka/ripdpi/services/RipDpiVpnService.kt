@@ -329,7 +329,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                         lastSuccessfulHandoverFingerprintHash = null
                         lastSuccessfulHandoverAt = 0L
                         resolverOverrideStore.clear()
-                        activeConnectionPolicyStore.clear()
+                        activeConnectionPolicyStore.clear(Mode.VPN)
                         val stoppedSelf = stopSelfStartId?.let(::stopSelfResult)
                         if (stoppedSelf == null) {
                             stopSelf()
@@ -719,7 +719,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         )
 
     private fun currentWinningFamilies(fallback: RuntimeFieldTelemetry): Triple<String?, String?, String?> {
-        val activePolicy = activeConnectionPolicyStore.activePolicy.value?.policy
+        val activePolicy = activeConnectionPolicyStore.current(Mode.VPN)?.policy
         return if (activePolicy != null) {
             Triple(
                 activePolicy.winningTcpStrategyFamily,
@@ -767,7 +767,7 @@ class RipDpiVpnService : LifecycleVpnService() {
             return
         }
 
-        val previousFingerprintHash = activeConnectionPolicyStore.activePolicy.value?.fingerprintHash
+        val previousFingerprintHash = activeConnectionPolicyStore.current(Mode.VPN)?.fingerprintHash
         try {
             val resolution =
                 connectionPolicyResolver.resolve(
@@ -826,7 +826,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         appliedAt: Long,
     ) {
         val policy = resolution.appliedPolicy ?: run {
-            activeConnectionPolicyStore.clear()
+            activeConnectionPolicyStore.clear(Mode.VPN)
             return
         }
         activeConnectionPolicyStore.set(

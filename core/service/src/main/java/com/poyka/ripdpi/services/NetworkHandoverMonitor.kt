@@ -6,6 +6,7 @@ import android.net.ConnectivityManager.NetworkCallback
 import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
+import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.NetworkFingerprint
 import dagger.Binds
 import dagger.Module
@@ -14,10 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
@@ -47,6 +45,7 @@ class DefaultNetworkHandoverMonitor
     constructor(
         @param:ApplicationContext private val context: Context,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
+        @param:ApplicationScope private val scope: kotlinx.coroutines.CoroutineScope,
     ) : NetworkHandoverMonitor {
         private companion object {
             private const val DebounceWindowMs = 2_000L
@@ -55,7 +54,6 @@ class DefaultNetworkHandoverMonitor
 
         private val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
         override val events: SharedFlow<NetworkHandoverEvent> =
             observeNetworkHandoverEvents(

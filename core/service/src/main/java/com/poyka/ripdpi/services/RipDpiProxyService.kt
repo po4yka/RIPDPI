@@ -215,7 +215,7 @@ class RipDpiProxyService : LifecycleService() {
                         pendingNetworkHandoverClass = null
                         lastSuccessfulHandoverFingerprintHash = null
                         lastSuccessfulHandoverAt = 0L
-                        activeConnectionPolicyStore.clear()
+                        activeConnectionPolicyStore.clear(Mode.Proxy)
                         val stoppedSelf = stopSelfStartId?.let(::stopSelfResult)
                         if (stoppedSelf == null) {
                             stopSelf()
@@ -437,7 +437,7 @@ class RipDpiProxyService : LifecycleService() {
     }
 
     private fun currentWinningFamilies(fallback: RuntimeFieldTelemetry): Triple<String?, String?, String?> {
-        val activePolicy = activeConnectionPolicyStore.activePolicy.value?.policy
+        val activePolicy = activeConnectionPolicyStore.current(Mode.Proxy)?.policy
         return if (activePolicy != null) {
             Triple(
                 activePolicy.winningTcpStrategyFamily,
@@ -485,7 +485,7 @@ class RipDpiProxyService : LifecycleService() {
             return
         }
 
-        val previousFingerprintHash = activeConnectionPolicyStore.activePolicy.value?.fingerprintHash
+        val previousFingerprintHash = activeConnectionPolicyStore.current(Mode.Proxy)?.fingerprintHash
         try {
             val resolution =
                 connectionPolicyResolver.resolve(
@@ -538,7 +538,7 @@ class RipDpiProxyService : LifecycleService() {
         appliedAt: Long,
     ) {
         val policy = resolution.appliedPolicy ?: run {
-            activeConnectionPolicyStore.clear()
+            activeConnectionPolicyStore.clear(Mode.Proxy)
             return
         }
         activeConnectionPolicyStore.set(
