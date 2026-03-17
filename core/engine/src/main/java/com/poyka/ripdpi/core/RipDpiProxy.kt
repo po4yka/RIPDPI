@@ -6,12 +6,10 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
@@ -144,7 +142,7 @@ class RipDpiProxy(
                 if (!startupSignal.isCompleted) {
                     startupSignal.completeExceptionally(IllegalStateException("Proxy exited before becoming ready"))
                 }
-                if (readinessSignal === startupSignal) {
+                if (readinessSignal === startupSignal && startupSignal.getCompletionExceptionOrNull() == null) {
                     readinessSignal = null
                 }
             }
@@ -157,25 +155,24 @@ class RipDpiProxy(
                 readinessSignal
             } ?: throw NativeError.NotRunning("Proxy")
 
-        try {
-            withTimeout(timeoutMillis) {
-                while (true) {
-                    if (startupSignal.isCompleted) {
-                        startupSignal.await()
-                        return@withTimeout
-                    }
-
-                    if (pollTelemetry().state == "running") {
-                        startupSignal.complete(Unit)
-                        startupSignal.await()
-                        return@withTimeout
-                    }
-
-                    delay(READY_POLL_INTERVAL_MS)
-                }
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        while (true) {
+            if (startupSignal.isCompleted) {
+                startupSignal.await()
+                return
             }
-        } catch (error: TimeoutCancellationException) {
-            throw IllegalStateException("Timed out waiting for proxy readiness", error)
+
+            if (pollTelemetry().state == "running") {
+                startupSignal.complete(Unit)
+                startupSignal.await()
+                return
+            }
+
+            if (System.currentTimeMillis() >= deadline) {
+                throw IllegalStateException("Timed out waiting for proxy readiness")
+            }
+
+            delay(READY_POLL_INTERVAL_MS)
         }
     }
 
@@ -197,13 +194,9 @@ class RipDpiProxy(
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
-        val payload =
-            mutex.withLock {
-                if (handle == 0L) {
-                    return NativeRuntimeSnapshot.idle(source = "proxy")
-                }
-                withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(handle) }
-            }
+        val currentHandle = mutex.withLock { handle }
+        if (currentHandle == 0L) return NativeRuntimeSnapshot.idle(source = "proxy")
+        val payload = withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(currentHandle) }
         return payload
             ?.takeIf { it.isNotBlank() }
             ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }

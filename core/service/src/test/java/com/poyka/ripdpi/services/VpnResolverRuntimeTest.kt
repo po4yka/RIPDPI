@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
 import org.junit.Assert.assertEquals

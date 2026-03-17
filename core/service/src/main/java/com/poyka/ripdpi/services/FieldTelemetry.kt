@@ -87,7 +87,7 @@ class DefaultTelemetryFingerprintHasher
 
 private fun ByteArray.toHexString(): String =
     buildString(size * 2) {
-        forEach { byte ->
+        this@toHexString.forEach { byte ->
             append(((byte.toInt() shr 4) and 0xF).toString(16))
             append((byte.toInt() and 0xF).toString(16))
         }
