@@ -33,6 +33,8 @@ import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.classifyFailureReason
+import com.poyka.ripdpi.data.deriveRuntimeFieldTelemetry
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import dagger.hilt.android.AndroidEntryPoint

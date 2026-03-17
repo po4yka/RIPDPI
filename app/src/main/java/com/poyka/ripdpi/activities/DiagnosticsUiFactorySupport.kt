@@ -12,6 +12,7 @@ internal class DiagnosticsUiFactorySupport
     constructor(
         @param:ApplicationContext
         val context: Context,
-        val json: Json = Json { ignoreUnknownKeys = true },
-        val timestampFormatter: SimpleDateFormat = SimpleDateFormat("MMM d, HH:mm", Locale.US),
-    )
+    ) {
+        val json: Json = Json { ignoreUnknownKeys = true }
+        val timestampFormatter: SimpleDateFormat = SimpleDateFormat("MMM d, HH:mm", Locale.US)
+    }
