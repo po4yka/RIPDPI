@@ -13,6 +13,8 @@ internal val topLevelRouteOrder =
         "settings",
     )
 
+internal fun String?.isTopLevelRoute(): Boolean = this != null && this in topLevelRouteOrder
+
 sealed class Route(
     val route: String,
     @param:StringRes val titleRes: Int,
@@ -93,24 +95,26 @@ sealed class Route(
     )
 
     companion object {
-        val topLevel = listOf(Home, Config, Diagnostics, Settings)
+        val topLevel: List<Route>
+            get() = listOf(Home, Config, Diagnostics, Settings)
 
-        val all =
-            listOf(
-                Onboarding,
-                Home,
-                Config,
-                Diagnostics,
-                History,
-                Settings,
-                ModeEditor,
-                DnsSettings,
-                AdvancedSettings,
-                VpnPermission,
-                BiometricPrompt,
-                AppCustomization,
-                About,
-                DataTransparency,
-            )
+        val all: List<Route>
+            get() =
+                listOf(
+                    Onboarding,
+                    Home,
+                    Config,
+                    Diagnostics,
+                    History,
+                    Settings,
+                    ModeEditor,
+                    DnsSettings,
+                    AdvancedSettings,
+                    VpnPermission,
+                    BiometricPrompt,
+                    AppCustomization,
+                    About,
+                    DataTransparency,
+                )
     }
 }

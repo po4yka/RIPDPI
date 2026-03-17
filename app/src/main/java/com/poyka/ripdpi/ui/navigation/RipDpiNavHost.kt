@@ -135,9 +135,10 @@ fun RipDpiNavHost(
             }
         },
         bottomBar = {
-            if (currentDestination.isTopLevelDestination()) {
+            val topLevelDestination = currentDestination?.takeIf { it.isTopLevelDestination() }
+            if (topLevelDestination != null) {
                 BottomNavBar(
-                    currentRoute = currentDestination?.route,
+                    currentRoute = topLevelDestination.route,
                     onNavigate = { destination ->
                         navController.navigate(destination.route) {
                             launchSingleTop = true
@@ -384,7 +385,7 @@ fun RipDpiNavHost(
 
 private fun NavDestination?.isTopLevelDestination(): Boolean =
     this?.hierarchy?.any { destination ->
-        Route.topLevel.any { topLevel -> topLevel.route == destination.route }
+        destination.route.isTopLevelRoute()
     } == true
 
 internal fun shouldNavigateToHomeFromLaunchRequest(
