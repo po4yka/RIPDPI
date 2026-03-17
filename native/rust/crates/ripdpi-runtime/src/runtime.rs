@@ -10,7 +10,8 @@ mod udp;
 
 use std::io;
 use std::net::TcpListener;
-use std::sync::Arc;
+
+use crate::sync::Arc;
 
 use ciadpi_config::RuntimeConfig;
 
@@ -40,6 +41,7 @@ pub fn run_proxy_with_embedded_control(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "loom"))]
     use super::state::ClientSlotGuard;
     use ciadpi_config::{DETECT_CONNECT, DETECT_HTTP_LOCAT};
     use ciadpi_session::{
@@ -47,13 +49,16 @@ mod tests {
         S_VER5,
     };
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+    #[cfg(not(feature = "loom"))]
     use std::sync::atomic::{AtomicUsize, Ordering};
+    #[cfg(not(feature = "loom"))]
     use std::sync::Arc;
 
     use super::routing::{encode_upstream_socks_connect, failure_penalizes_strategy, failure_trigger_mask};
 
     use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
+    #[cfg(not(feature = "loom"))]
     #[test]
     fn client_slot_guard_enforces_limit_and_releases_slot() {
         let active = Arc::new(AtomicUsize::new(0));

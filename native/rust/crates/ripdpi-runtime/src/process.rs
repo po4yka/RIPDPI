@@ -47,23 +47,32 @@ extern "C" fn handle_signal(_signal: libc::c_int) {
 }
 
 fn install_signal_handlers() -> io::Result<()> {
-    for signal in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
-        let handler = handle_signal as *const () as libc::sighandler_t;
-        let prev = unsafe { libc::signal(signal, handler) };
-        if prev == libc::SIG_ERR {
-            return Err(io::Error::last_os_error());
-        }
+    use nix::sys::signal::{signal, SigHandler, Signal};
+    for sig in [Signal::SIGINT, Signal::SIGTERM, Signal::SIGHUP] {
+        // SAFETY: handle_signal only writes to an atomic bool, which is async-signal-safe.
+        unsafe { signal(sig, SigHandler::Handler(handle_signal)) }
+            .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
     }
     Ok(())
 }
 
 #[allow(deprecated)]
 fn daemonize() -> io::Result<()> {
-    let rc = unsafe { libc::daemon(0, 0) };
-    if rc == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
+    // daemon(false, false): chdir to "/" and redirect stdio to /dev/null.
+    // nix::unistd::daemon is only available on Linux/Android/FreeBSD/Solaris/NetBSD;
+    // fall back to the raw libc call on other platforms (e.g. macOS for local dev).
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd",
+              target_os = "solaris", target_os = "illumos", target_os = "netbsd",
+              target_os = "openbsd"))]
+    {
+        nix::unistd::daemon(false, false).map_err(|e| io::Error::from_raw_os_error(e as i32))
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "freebsd",
+                  target_os = "solaris", target_os = "illumos", target_os = "netbsd",
+                  target_os = "openbsd")))]
+    {
+        let rc = unsafe { libc::daemon(0, 0) };
+        if rc == 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
     }
 }
 

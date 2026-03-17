@@ -73,11 +73,11 @@ extern "C" fn handle_signal(_signal: libc::c_int) {
 
 #[cfg(unix)]
 fn install_signal_handlers() -> io::Result<()> {
-    for signal in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
-        let prev = unsafe { libc::signal(signal, handle_signal as libc::sighandler_t) };
-        if prev == libc::SIG_ERR {
-            return Err(io::Error::last_os_error());
-        }
+    use nix::sys::signal::{signal, SigHandler, Signal};
+    for sig in [Signal::SIGINT, Signal::SIGTERM, Signal::SIGHUP] {
+        // SAFETY: handle_signal only writes to an atomic bool, which is async-signal-safe.
+        unsafe { signal(sig, SigHandler::Handler(handle_signal)) }
+            .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
     }
     Ok(())
 }
@@ -85,12 +85,8 @@ fn install_signal_handlers() -> io::Result<()> {
 #[cfg(unix)]
 #[allow(deprecated)]
 fn daemonize() -> io::Result<()> {
-    let rc = unsafe { libc::daemon(0, 0) };
-    if rc == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    // daemon(false, false): chdir to "/" and redirect stdio to /dev/null.
+    nix::unistd::daemon(false, false).map_err(|e| io::Error::from_raw_os_error(e as i32))
 }
 
 #[cfg(unix)]

@@ -7,3 +7,4 @@ description = "Platform TUN driver trait and implementations"
 [dependencies]
 thiserror = { workspace = true }
 libc = { workspace = true }
+nix = { workspace = true }

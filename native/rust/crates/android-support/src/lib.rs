@@ -1,6 +1,7 @@
+mod sync;
+
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, AtomicU64, Mutex, Ordering, fetch_add_u64};
 
 use jni::objects::JThrowable;
 use jni::sys::jint;
@@ -40,7 +41,7 @@ impl<T> HandleRegistry<T> {
     }
 
     pub fn insert(&self, value: T) -> u64 {
-        let handle = self.next.fetch_add(1, Ordering::Relaxed);
+        let handle = fetch_add_u64(&self.next, 1, Ordering::Relaxed);
         self.inner.lock().unwrap_or_else(|e| e.into_inner()).insert(handle, Arc::new(value));
         handle
     }
@@ -81,9 +82,10 @@ pub fn init_android_logging(tag: &'static str) {
 /// code. Writing to a closed socket/pipe delivers SIGPIPE, which terminates
 /// the process unless handled. This must be called once from `JNI_OnLoad`.
 pub fn ignore_sigpipe() {
-    unsafe {
-        libc::signal(libc::SIGPIPE, libc::SIG_IGN);
-    }
+    use nix::sys::signal::{signal, SigHandler, Signal};
+    // SAFETY: Ignoring SIGPIPE is async-signal-safe. The previous handler is
+    // discarded; we don't need to restore it.
+    let _ = unsafe { signal(Signal::SIGPIPE, SigHandler::SigIgn) };
 }
 
 pub fn throw_illegal_argument(env: &mut JNIEnv, message: impl AsRef<str>) {

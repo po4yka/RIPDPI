@@ -123,44 +123,19 @@ pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
 }
 
 pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
+    use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags};
+    use std::io::IoSlice;
+
     let stream = UnixStream::connect(path)?;
     stream.set_read_timeout(Some(Duration::from_secs(1)))?;
     stream.set_write_timeout(Some(Duration::from_secs(1)))?;
 
     let payload = [b'1'];
-    let mut iov = libc::iovec {
-        iov_base: payload.as_ptr().cast_mut().cast(),
-        iov_len: payload.len(),
-    };
-    let mut control = [0u8; unsafe { libc::CMSG_SPACE(size_of::<libc::c_int>() as u32) } as usize];
-    let mut msg: libc::msghdr = unsafe { zeroed() };
-    msg.msg_iov = (&mut iov as *mut libc::iovec).cast();
-    msg.msg_iovlen = 1;
-    msg.msg_control = control.as_mut_ptr().cast();
-    msg.msg_controllen = control.len();
-
-    // SAFETY: `msg` points at live iov/control storage sized for one SCM_RIGHTS
-    // entry, and `stream` is a connected Unix socket.
-    unsafe {
-        let cmsg = libc::CMSG_FIRSTHDR(&msg);
-        if cmsg.is_null() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "failed to allocate unix control message for protect_path",
-            ));
-        }
-        (*cmsg).cmsg_level = libc::SOL_SOCKET;
-        (*cmsg).cmsg_type = libc::SCM_RIGHTS;
-        (*cmsg).cmsg_len = libc::CMSG_LEN(size_of::<libc::c_int>() as u32) as usize;
-        ptr::write(
-            libc::CMSG_DATA(cmsg).cast::<libc::c_int>(),
-            socket.as_raw_fd(),
-        );
-        msg.msg_controllen = libc::CMSG_SPACE(size_of::<libc::c_int>() as u32) as usize;
-        if libc::sendmsg(stream.as_raw_fd(), &msg, 0) < 0 {
-            return Err(io::Error::last_os_error());
-        }
-    }
+    let iov = [IoSlice::new(&payload)];
+    let fd = socket.as_raw_fd();
+    let cmsg = [ControlMessage::ScmRights(&[fd])];
+    sendmsg::<()>(stream.as_raw_fd(), &iov, &cmsg, MsgFlags::empty(), None)
+        .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
 
     let mut ack = [0u8; 1];
     (&stream).read_exact(&mut ack)?;
@@ -310,15 +285,13 @@ pub fn send_fake_tcp(
     let fd = stream.as_raw_fd();
     let region_len = original_prefix.len().max(fake_prefix.len());
     let region = alloc_region(region_len)?;
-    let mut pipe_fds = [-1; 2];
 
     let result = (|| {
         write_region(region, fake_prefix, region_len);
 
-        // SAFETY: `pipe_fds` points to storage for two file descriptors.
-        if unsafe { libc::pipe(pipe_fds.as_mut_ptr()) } != 0 {
-            return Err(io::Error::last_os_error());
-        }
+        let (pipe_r, pipe_w) = nix::unistd::pipe()
+            .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+        // pipe_r and pipe_w are OwnedFd — closed automatically on drop.
 
         set_stream_ttl(stream, ttl)?;
         if md5sig {
@@ -330,9 +303,10 @@ pub fn send_fake_tcp(
             iov_len: original_prefix.len(),
         };
         // SAFETY: `iov` references an anonymous writable mapping whose lifetime
-        // extends until after the splice completes.
-        let queued =
-            unsafe { libc::vmsplice(pipe_fds[1], &iov, 1, libc::SPLICE_F_GIFT as libc::c_uint) };
+        // extends until after the splice completes. vmsplice is not in nix 0.29.
+        let queued = unsafe {
+            libc::vmsplice(pipe_w.as_raw_fd(), &iov, 1, libc::SPLICE_F_GIFT as libc::c_uint)
+        };
         if queued < 0 {
             return Err(io::Error::last_os_error());
         }
@@ -345,28 +319,22 @@ pub fn send_fake_tcp(
 
         let mut moved = 0usize;
         while moved < original_prefix.len() {
-            // SAFETY: both descriptors are live, the source is a pipe end, and
-            // the destination is the connected TCP socket referenced by `fd`.
-            let chunk = unsafe {
-                libc::splice(
-                    pipe_fds[0],
-                    ptr::null_mut(),
-                    fd,
-                    ptr::null_mut(),
-                    original_prefix.len() - moved,
-                    0,
-                )
-            };
-            if chunk < 0 {
-                return Err(io::Error::last_os_error());
-            }
+            let chunk = nix::fcntl::splice(
+                pipe_r.as_raw_fd(),
+                None,
+                fd,
+                None,
+                original_prefix.len() - moved,
+                nix::fcntl::SpliceFFlags::empty(),
+            )
+            .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
             if chunk == 0 {
                 return Err(io::Error::new(
                     io::ErrorKind::WriteZero,
                     "partial splice during fake tcp send",
                 ));
             }
-            moved += chunk as usize;
+            moved += chunk;
         }
 
         wait_tcp_stage_fd(fd, wait.0, wait.1)?;
@@ -380,18 +348,6 @@ pub fn send_fake_tcp(
         Ok(())
     })();
 
-    if pipe_fds[0] >= 0 {
-        // SAFETY: file descriptor is valid when non-negative and owned here.
-        unsafe {
-            libc::close(pipe_fds[0]);
-        }
-    }
-    if pipe_fds[1] >= 0 {
-        // SAFETY: file descriptor is valid when non-negative and owned here.
-        unsafe {
-            libc::close(pipe_fds[1]);
-        }
-    }
     if md5sig {
         let _ = set_tcp_md5sig(stream, 0);
     }
@@ -548,30 +504,25 @@ fn wait_tcp_stage_fd(fd: libc::c_int, wait_send: bool, await_interval: Duration)
 }
 
 fn alloc_region(len: usize) -> io::Result<*mut u8> {
-    // SAFETY: `mmap` is called with an anonymous private mapping request and
-    // returns either a valid pointer or `MAP_FAILED`.
+    use nix::sys::mman::{mmap, MapFlags, ProtFlags};
+    use std::num::NonZeroUsize;
+    use std::os::fd::BorrowedFd;
+    let size = NonZeroUsize::new(len)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "zero-length mmap region"))?;
+    // SAFETY: anonymous private mapping; no backing fd; no aliasing with existing mappings.
     let ptr = unsafe {
-        libc::mmap(
-            ptr::null_mut(),
-            len,
-            libc::PROT_READ | libc::PROT_WRITE,
-            libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-            -1,
-            0,
-        )
-    };
-    if ptr == libc::MAP_FAILED {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(ptr.cast())
+        mmap::<BorrowedFd<'_>>(None, size, ProtFlags::PROT_READ | ProtFlags::PROT_WRITE, MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS, None, 0)
     }
+    .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+    Ok(ptr.as_ptr().cast())
 }
 
 fn free_region(region: *mut u8, len: usize) {
-    if !region.is_null() && len != 0 {
-        // SAFETY: `region` was allocated by `mmap` with the same length.
-        unsafe {
-            libc::munmap(region.cast(), len);
+    use std::ptr::NonNull;
+    if let Some(ptr) = NonNull::new(region) {
+        if len != 0 {
+            // SAFETY: `region` was allocated by mmap with the same length.
+            let _ = unsafe { nix::sys::mman::munmap(ptr.cast(), len) };
         }
     }
 }
