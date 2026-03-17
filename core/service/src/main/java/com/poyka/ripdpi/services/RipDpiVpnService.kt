@@ -74,7 +74,7 @@ class RipDpiVpnService : LifecycleVpnService() {
     lateinit var resolverOverrideStore: ResolverOverrideStore
 
     @Inject
-    lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore
+    lateinit var serviceRuntimeRegistry: ServiceRuntimeRegistry
 
     @Inject
     lateinit var rememberedNetworkPolicyStore: RememberedNetworkPolicyStore
@@ -91,15 +91,10 @@ class RipDpiVpnService : LifecycleVpnService() {
     private var telemetryJob: Job? = null
     private var handoverMonitorJob: Job? = null
     private var tunSession: VpnTunnelSession? = null
+    private var runtimeSession: VpnRuntimeSession? = null
     private val mutex = Mutex()
     @Volatile
     private var stopping: Boolean = false
-    private var currentDnsSignature: String? = null
-    private var tunnelStartCount: Int = 0
-    private var tunnelRecoveryRetryCount: Long = 0
-    private var pendingNetworkHandoverClass: String? = null
-    private var lastSuccessfulHandoverFingerprintHash: String? = null
-    private var lastSuccessfulHandoverAt: Long = 0L
 
     private var status: ServiceStatus = ServiceStatus.Disconnected
     private val lifecycleState = ServiceLifecycleStateMachine()
@@ -218,6 +213,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         logcat(LogPriority.INFO) { "Starting" }
 
         var matchedRememberedPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity? = null
+        val session = VpnRuntimeSession()
         try {
             val started =
                 mutex.withLock {
@@ -236,15 +232,19 @@ class RipDpiVpnService : LifecycleVpnService() {
                             )
                         matchedRememberedPolicy = resolution.matchedNetworkPolicy
                         applyActiveConnectionPolicy(
+                            session = session,
                             resolution = resolution,
                             restartReason = "initial_start",
                             appliedAt = System.currentTimeMillis(),
                         )
                         startProxy(resolution.proxyPreferences)
                         startTun2Socks(
+                            session = session,
                             activeDns = resolution.activeDns,
                             overrideReason = resolution.resolverFallbackReason,
                         )
+                        runtimeSession = session
+                        serviceRuntimeRegistry.register(session)
                         updateStatus(ServiceStatus.Connected)
                         startNetworkHandoverMonitoring()
                         startTelemetryUpdates()
@@ -320,17 +320,19 @@ class RipDpiVpnService : LifecycleVpnService() {
                     }
                 } finally {
                     try {
+                        val session = runtimeSession
                         updateStatus(ServiceStatus.Disconnected)
                         telemetryJob?.cancel()
                         telemetryJob = null
-                        currentDnsSignature = null
-                        tunnelStartCount = 0
-                        tunnelRecoveryRetryCount = 0
-                        pendingNetworkHandoverClass = null
-                        lastSuccessfulHandoverFingerprintHash = null
-                        lastSuccessfulHandoverAt = 0L
                         resolverOverrideStore.clear()
-                        activeConnectionPolicyStore.clear(Mode.VPN)
+                        session?.clearActiveConnectionPolicy()
+                        session?.let {
+                            serviceRuntimeRegistry.unregister(
+                                mode = Mode.VPN,
+                                runtimeId = it.runtimeId,
+                            )
+                        }
+                        runtimeSession = null
                         val stoppedSelf = stopSelfStartId?.let(::stopSelfResult)
                         if (stoppedSelf == null) {
                             stopSelf()
@@ -446,6 +448,7 @@ class RipDpiVpnService : LifecycleVpnService() {
     }
 
     private suspend fun startTun2Socks(
+        session: VpnRuntimeSession,
         activeDns: ActiveDnsSettings,
         overrideReason: String? = null,
     ) {
@@ -461,20 +464,20 @@ class RipDpiVpnService : LifecycleVpnService() {
         val ipv6 = settings.ipv6Enable
         val config = buildTun2SocksConfig(activeDns, overrideReason, port, ipv6)
 
-        val session = vpnTunnelSessionProvider.establish(this, dns, ipv6)
+        val tunnelSession = vpnTunnelSessionProvider.establish(this, dns, ipv6)
 
         try {
             val tunnelBridge = tun2SocksBridgeFactory.create()
-            tunnelBridge.start(config, session.tunFd)
+            tunnelBridge.start(config, tunnelSession.tunFd)
             tun2SocksBridge = tunnelBridge
-            tunSession = session
-            currentDnsSignature = dnsSignature(activeDns, overrideReason)
-            if (tunnelStartCount > 0) {
-                tunnelRecoveryRetryCount += 1
+            tunSession = tunnelSession
+            session.currentDnsSignature = dnsSignature(activeDns, overrideReason)
+            if (session.tunnelStartCount > 0) {
+                session.tunnelRecoveryRetryCount += 1
             }
-            tunnelStartCount += 1
+            session.tunnelStartCount += 1
         } catch (e: Exception) {
-            session.close()
+            tunnelSession.close()
             throw e
         }
 
@@ -505,6 +508,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         logcat { "VPN status changed from $status to $newStatus" }
 
         status = newStatus
+        val session = runtimeSession
         val currentTelemetry = serviceStateStore.telemetry.value
         val proxyTelemetry =
             if (newStatus == ServiceStatus.Connected) {
@@ -560,7 +564,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                         winningDnsStrategyFamily = winningDnsStrategyFamily,
                         proxyTelemetry = proxyTelemetry,
                         tunnelTelemetry = tunnelTelemetry,
-                        tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+                        tunnelRecoveryRetryCount = session?.tunnelRecoveryRetryCount ?: 0L,
                         failureReason = failureReason,
                     ),
                 updatedAt = System.currentTimeMillis(),
@@ -627,7 +631,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                                             winningDnsStrategyFamily = winningDnsStrategyFamily,
                                             proxyTelemetry = proxyTelemetry,
                                             tunnelTelemetry = enrichedTunnelTelemetry,
-                                            tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+                                            tunnelRecoveryRetryCount = runtimeSession?.tunnelRecoveryRetryCount ?: 0L,
                                             failureReason = failureReason,
                                         ),
                                     updatedAt =
@@ -662,7 +666,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                                     winningDnsStrategyFamily = winningDnsStrategyFamily,
                                     proxyTelemetry = proxyTelemetry,
                                     tunnelTelemetry = enrichedTunnelTelemetry,
-                                    tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+                                    tunnelRecoveryRetryCount = runtimeSession?.tunnelRecoveryRetryCount ?: 0L,
                                 ),
                             updatedAt =
                                 maxOf(
@@ -678,6 +682,7 @@ class RipDpiVpnService : LifecycleVpnService() {
     }
 
     private suspend fun refreshEffectiveResolverIfNeeded() {
+        val session = runtimeSession ?: return
         val resolution =
             connectionPolicyResolver.resolve(
                 mode = Mode.VPN,
@@ -687,12 +692,13 @@ class RipDpiVpnService : LifecycleVpnService() {
             resolverOverrideStore.clear()
         }
         val signature = dnsSignature(resolution.activeDns, resolution.resolverFallbackReason)
-        if (tunSession == null || currentDnsSignature == signature) {
+        if (tunSession == null || session.currentDnsSignature == signature) {
             return
         }
 
         mutex.withLock {
-            if (status != ServiceStatus.Connected || tunSession == null) {
+            val activeSession = runtimeSession
+            if (status != ServiceStatus.Connected || tunSession == null || activeSession?.runtimeId != session.runtimeId) {
                 return
             }
             val latestResolution =
@@ -704,11 +710,12 @@ class RipDpiVpnService : LifecycleVpnService() {
                 resolverOverrideStore.clear()
             }
             val latestSignature = dnsSignature(latestResolution.activeDns, latestResolution.resolverFallbackReason)
-            if (currentDnsSignature == latestSignature) {
+            if (activeSession.currentDnsSignature == latestSignature) {
                 return
             }
             stopTun2Socks()
             startTun2Socks(
+                session = activeSession,
                 activeDns = latestResolution.activeDns,
                 overrideReason = latestResolution.resolverFallbackReason,
             )
@@ -725,7 +732,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         )
 
     private fun currentWinningFamilies(fallback: RuntimeFieldTelemetry): Triple<String?, String?, String?> {
-        val activePolicy = activeConnectionPolicyStore.current(Mode.VPN)?.policy
+        val activePolicy = runtimeSession?.currentActiveConnectionPolicy?.policy
         return if (activePolicy != null) {
             Triple(
                 activePolicy.winningTcpStrategyFamily,
@@ -750,7 +757,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         handoverMonitorJob =
             lifecycleScope.launch {
                 networkHandoverMonitor.events.collect { event ->
-                    pendingNetworkHandoverClass = event.classification
+                    runtimeSession?.pendingNetworkHandoverClass = event.classification
                     if (!event.isActionable) {
                         return@collect
                     }
@@ -763,17 +770,18 @@ class RipDpiVpnService : LifecycleVpnService() {
         if (status != ServiceStatus.Connected || stopping) {
             return
         }
+        val session = runtimeSession ?: return
         val currentFingerprint = event.currentFingerprint ?: return
         val fingerprintHash = currentFingerprint.scopeKey()
         val now = System.currentTimeMillis()
         if (
-            lastSuccessfulHandoverFingerprintHash == fingerprintHash &&
-            now - lastSuccessfulHandoverAt < HandoverCooldownMs
+            session.lastSuccessfulHandoverFingerprintHash == fingerprintHash &&
+            now - session.lastSuccessfulHandoverAt < HandoverCooldownMs
         ) {
             return
         }
 
-        val previousFingerprintHash = activeConnectionPolicyStore.current(Mode.VPN)?.fingerprintHash
+        val previousFingerprintHash = session.currentActiveConnectionPolicy?.fingerprintHash
         try {
             val resolution =
                 connectionPolicyResolver.resolve(
@@ -783,7 +791,8 @@ class RipDpiVpnService : LifecycleVpnService() {
                     handoverClassification = event.classification,
                 )
             mutex.withLock {
-                if (status != ServiceStatus.Connected || stopping) {
+                val activeSession = runtimeSession
+                if (status != ServiceStatus.Connected || stopping || activeSession?.runtimeId != session.runtimeId) {
                     return
                 }
                 stopping = true
@@ -791,12 +800,14 @@ class RipDpiVpnService : LifecycleVpnService() {
                     stopTun2Socks()
                     stopProxy()
                     applyActiveConnectionPolicy(
+                        session = activeSession,
                         resolution = resolution,
                         restartReason = "network_handover",
                         appliedAt = now,
                     )
                     startProxy(resolution.proxyPreferences)
                     startTun2Socks(
+                        session = activeSession,
                         activeDns = resolution.activeDns,
                         overrideReason = resolution.resolverFallbackReason,
                     )
@@ -805,8 +816,8 @@ class RipDpiVpnService : LifecycleVpnService() {
                 }
             }
 
-            lastSuccessfulHandoverFingerprintHash = fingerprintHash
-            lastSuccessfulHandoverAt = now
+            session.lastSuccessfulHandoverFingerprintHash = fingerprintHash
+            session.lastSuccessfulHandoverAt = now
             policyHandoverEventStore.publish(
                 PolicyHandoverEvent(
                     mode = Mode.VPN,
@@ -827,15 +838,16 @@ class RipDpiVpnService : LifecycleVpnService() {
     }
 
     private fun applyActiveConnectionPolicy(
+        session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         restartReason: String,
         appliedAt: Long,
     ) {
         val policy = resolution.appliedPolicy ?: run {
-            activeConnectionPolicyStore.clear(Mode.VPN)
+            session.clearActiveConnectionPolicy()
             return
         }
-        activeConnectionPolicyStore.set(
+        session.updateActiveConnectionPolicy(
             ActiveConnectionPolicy(
                 mode = Mode.VPN,
                 policy = policy,
@@ -851,8 +863,9 @@ class RipDpiVpnService : LifecycleVpnService() {
     }
 
     private fun applyPendingNetworkHandoverClass(snapshot: NativeRuntimeSnapshot): NativeRuntimeSnapshot {
-        val classification = pendingNetworkHandoverClass ?: return snapshot
-        pendingNetworkHandoverClass = null
+        val session = runtimeSession ?: return snapshot
+        val classification = session.pendingNetworkHandoverClass ?: return snapshot
+        session.pendingNetworkHandoverClass = null
         return snapshot.copy(networkHandoverClass = classification)
     }
 

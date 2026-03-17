@@ -25,6 +25,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.services.ActiveConnectionPolicy
+import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
@@ -40,6 +42,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import java.io.IOException
+import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -96,6 +99,9 @@ class ServiceLifecycleIntegrationTest {
     @JvmField
     var vpnTunnelSessionProvider: VpnTunnelSessionProvider = IntegrationTestOverrides.vpnTunnelSessionProvider
 
+    @Inject
+    lateinit var activeConnectionPolicyStore: ActiveConnectionPolicyStore
+
     @Before
     fun setUp() {
         IntegrationTestOverrides.reset()
@@ -128,6 +134,22 @@ class ServiceLifecycleIntegrationTest {
             awaitStatus(AppStatus.Halted, Mode.Proxy)
 
             assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
+        }
+    }
+
+    @Test
+    fun proxyServicePublishesActivePolicyProjectionAndClearsOnStop() {
+        runBlocking {
+            startService(RipDpiProxyService::class.java)
+
+            awaitStatus(AppStatus.Running, Mode.Proxy)
+            val activePolicy = awaitActivePolicy(Mode.Proxy)
+
+            assertEquals(Mode.Proxy, activePolicy.mode)
+
+            stopService(RipDpiProxyService::class.java)
+            awaitStatus(AppStatus.Halted, Mode.Proxy)
+            awaitClearedActivePolicy(Mode.Proxy)
         }
     }
 
@@ -240,6 +262,23 @@ class ServiceLifecycleIntegrationTest {
                 listOf("vpn:establish", "tunnel:start", "tunnel:stop", "vpn:session-close", "proxy:stop"),
             )
             assertTrue(IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed)
+        }
+    }
+
+    @Test
+    fun vpnServicePublishesActivePolicyProjectionAndClearsOnStop() {
+        assumeVpnPrepared()
+        runBlocking {
+            startService(RipDpiVpnService::class.java)
+
+            awaitStatus(AppStatus.Running, Mode.VPN)
+            val activePolicy = awaitActivePolicy(Mode.VPN)
+
+            assertEquals(Mode.VPN, activePolicy.mode)
+
+            stopService(RipDpiVpnService::class.java)
+            awaitStatus(AppStatus.Halted, Mode.VPN)
+            awaitClearedActivePolicy(Mode.VPN)
         }
     }
 
@@ -587,6 +626,23 @@ class ServiceLifecycleIntegrationTest {
     ) {
         withTimeout(10.seconds) {
             while (!predicate(IntegrationTestOverrides.serviceStateStore.telemetry.value)) {
+                delay(50)
+            }
+        }
+    }
+
+    private suspend fun awaitActivePolicy(mode: Mode): ActiveConnectionPolicy =
+        withTimeout(10.seconds) {
+            while (true) {
+                activeConnectionPolicyStore.current(mode)?.let { return@withTimeout it }
+                delay(50)
+            }
+            error("Unreachable")
+        }
+
+    private suspend fun awaitClearedActivePolicy(mode: Mode) {
+        withTimeout(10.seconds) {
+            while (activeConnectionPolicyStore.current(mode) != null) {
                 delay(50)
             }
         }
