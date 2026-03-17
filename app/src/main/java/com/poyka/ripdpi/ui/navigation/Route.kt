@@ -69,11 +69,6 @@ sealed class Route(
         titleRes = R.string.title_advanced_settings,
     )
 
-    data object VpnPermission : Route(
-        route = "vpn_permission",
-        titleRes = R.string.title_vpn_permission,
-    )
-
     data object BiometricPrompt : Route(
         route = "biometric_prompt",
         titleRes = R.string.title_biometric_prompt,
@@ -110,7 +105,6 @@ sealed class Route(
                     ModeEditor,
                     DnsSettings,
                     AdvancedSettings,
-                    VpnPermission,
                     BiometricPrompt,
                     AppCustomization,
                     About,

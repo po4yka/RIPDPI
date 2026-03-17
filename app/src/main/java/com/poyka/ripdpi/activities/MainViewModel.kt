@@ -76,7 +76,7 @@ sealed interface MainEffect {
         val intent: Intent,
     ) : MainEffect
 
-    data object OpenVpnPermissionScreen : MainEffect
+    data object ShowVpnPermissionDialog : MainEffect
 
     data class ShowError(
         val message: String,
@@ -256,7 +256,7 @@ class MainViewModel
         }
 
         fun onOpenVpnPermissionRequested() {
-            resolvePermissionAction(PermissionAction.OpenVpnPermissionScreen)
+            resolvePermissionAction(PermissionAction.ShowVpnPermissionDialog)
         }
 
         fun onRepairPermissionRequested(kind: PermissionKind) {
@@ -301,9 +301,9 @@ class MainViewModel
         }
 
         private fun resolvePermissionAction(action: PermissionAction) {
-            if (action is PermissionAction.OpenVpnPermissionScreen) {
+            if (action is PermissionAction.ShowVpnPermissionDialog) {
                 permissionState.update { current -> current.copy(issue = null) }
-                _effects.trySend(MainEffect.OpenVpnPermissionScreen)
+                _effects.trySend(MainEffect.ShowVpnPermissionDialog)
                 return
             }
 
@@ -369,8 +369,8 @@ class MainViewModel
                 PermissionKind.VpnConsent -> {
                     when (action) {
                         PermissionAction.StartConfiguredMode,
-                        PermissionAction.OpenVpnPermissionScreen,
-                        -> _effects.trySend(MainEffect.OpenVpnPermissionScreen)
+                        PermissionAction.ShowVpnPermissionDialog,
+                        -> _effects.trySend(MainEffect.ShowVpnPermissionDialog)
 
                         PermissionAction.StartVpnMode,
                         is PermissionAction.RepairPermission,
@@ -512,7 +512,7 @@ class MainViewModel
             when (action) {
                 PermissionAction.StartConfiguredMode -> startMode(uiState.value.configuredMode)
                 PermissionAction.StartVpnMode -> startMode(Mode.VPN)
-                PermissionAction.OpenVpnPermissionScreen -> _effects.trySend(MainEffect.OpenVpnPermissionScreen)
+                PermissionAction.ShowVpnPermissionDialog -> _effects.trySend(MainEffect.ShowVpnPermissionDialog)
                 is PermissionAction.RepairPermission -> {
                     if (action.kind == PermissionKind.BatteryOptimization && recommended.isEmpty()) {
                         refreshPermissionSnapshot()
@@ -931,7 +931,7 @@ class MainViewModel
                     kind = kind,
                     title = stringResolver.getString(R.string.permissions_vpn_error_title),
                     message = stringResolver.getString(R.string.permissions_vpn_error_body),
-                    recovery = PermissionRecovery.OpenVpnPermissionScreen,
+                    recovery = PermissionRecovery.ShowVpnPermissionDialog,
                     actionLabel = stringResolver.getString(R.string.permissions_vpn_continue),
                     blocking = blocking,
                 )

@@ -43,7 +43,6 @@ import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
-import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
@@ -61,13 +60,9 @@ fun RipDpiNavHost(
     onShareDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
     onShareDiagnosticsSummary: (String, String) -> Unit = { _, _ -> },
     mainViewModel: MainViewModel,
-    openVpnPermissionRequested: Boolean = false,
-    onOpenVpnPermissionHandled: () -> Unit = {},
     launchHomeRequested: Boolean = false,
     onLaunchHomeHandled: () -> Unit = {},
     onStartConfiguredMode: () -> Unit = {},
-    onOpenVpnPermission: () -> Unit = {},
-    onRequestVpnPermission: () -> Unit = {},
     onRepairPermission: (PermissionKind) -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
 ) {
@@ -104,23 +99,6 @@ fun RipDpiNavHost(
                 onLaunchHomeHandled()
             }
         }
-    }
-
-    LaunchedEffect(openVpnPermissionRequested, currentDestination?.route) {
-        val currentRoute = currentDestination?.route
-        if (!openVpnPermissionRequested || currentRoute == null) {
-            return@LaunchedEffect
-        }
-
-        if (currentRoute == Route.VpnPermission.route) {
-            onOpenVpnPermissionHandled()
-            return@LaunchedEffect
-        }
-
-        navController.navigate(Route.VpnPermission.route) {
-            launchSingleTop = true
-        }
-        onOpenVpnPermissionHandled()
     }
 
     Scaffold(
@@ -291,14 +269,6 @@ fun RipDpiNavHost(
                 ModeEditorRoute(
                     onBack = { navController.popBackStack() },
                     viewModel = hiltViewModel(configBackStackEntry),
-                )
-            }
-            composable(Route.VpnPermission.route) {
-                VpnPermissionRoute(
-                    onDismiss = { navController.popBackStack() },
-                    onGranted = { navController.popBackStack() },
-                    onContinue = onRequestVpnPermission,
-                    viewModel = mainViewModel,
                 )
             }
             composable(Route.BiometricPrompt.route) {
