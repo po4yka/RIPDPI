@@ -5,15 +5,13 @@
 
 use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
-use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use std::os::unix::io::{AsRawFd, OwnedFd, RawFd};
 
 use crate::{TunnelDriver, TunnelError};
 
-// TUNSETIFF = _IOW('T', 202, int)
-// _IOW(type, nr, size) = (1<<30) | (sizeof(int)<<16) | (type<<8) | nr
-//                      = 0x40000000 | 0x00040000 | 0x00005400 | 0x000000ca
-//                      = 0x400454ca  (same on all Linux arches with standard _IOC layout)
-const TUNSETIFF: libc::c_ulong = 0x4004_54ca;
+// TUNSETIFF = _IOW('T', 202, int) = 0x400454ca.
+// ioctl_write_ptr_bad! generates a type-checked unsafe wrapper around libc::ioctl.
+nix::ioctl_write_ptr_bad!(tun_set_iff, 0x4004_54ca_u64, libc::ifreq);
 
 // Flags from <linux/if_tun.h> — not in the libc crate.
 const IFF_TUN: libc::c_short = 0x0001;
@@ -47,15 +45,10 @@ impl LinuxTunnel {
     /// A SOCK_DGRAM socket is sufficient for all interface ioctls and does not
     /// require an established connection.
     fn ctrl_socket(af: libc::c_int) -> Result<OwnedFd, TunnelError> {
-        // SAFETY: socket(2) is a valid syscall; AF_INET/AF_INET6 + SOCK_DGRAM + 0 is a
-        // well-known, valid combination; we check the return value for errors before use.
-        let fd = unsafe { libc::socket(af, libc::SOCK_DGRAM, 0) };
-        if fd < 0 {
-            return Err(TunnelError::Io(std::io::Error::last_os_error()));
-        }
-        // SAFETY: fd is a valid non-negative file descriptor just returned by socket(2);
-        // we take sole ownership here — no other code holds a copy of this fd.
-        Ok(unsafe { OwnedFd::from_raw_fd(fd) })
+        use nix::sys::socket::{socket, AddressFamily, SockFlag, SockType};
+        let domain = if af == libc::AF_INET6 { AddressFamily::Inet6 } else { AddressFamily::Inet };
+        socket(domain, SockType::Datagram, SockFlag::empty(), None)
+            .map_err(|e| TunnelError::Io(std::io::Error::from_raw_os_error(e as i32)))
     }
 
     /// Build a `[c_char; IFNAMSIZ]` suitable for `ifreq.ifr_name`.
@@ -142,10 +135,8 @@ impl TunnelDriver for LinuxTunnel {
         // zeroed ifreq with ifru_flags set; TUNSETIFF (0x400454ca) is the correct Linux
         // ioctl number for TUN/TAP interface creation; the kernel reads ifru_flags and
         // ifr_name, then writes the kernel-assigned interface name back into ifr_name.
-        let res = unsafe { libc::ioctl(fd.as_raw_fd(), TUNSETIFF, &mut ifr as *mut _) };
-        if res < 0 {
-            return Err(TunnelError::Ioctl(format!("TUNSETIFF: {}", std::io::Error::last_os_error())));
-        }
+        unsafe { tun_set_iff(fd.as_raw_fd(), &ifr as *const _) }
+            .map_err(|e| TunnelError::Ioctl(format!("TUNSETIFF: {}", std::io::Error::from_raw_os_error(e as i32))))?;
 
         // Copy the kernel-assigned interface name from ifreq.
         // c_char is u8 on aarch64/arm Linux and i8 on x86; cast is harmless on both.
@@ -169,10 +160,9 @@ impl TunnelDriver for LinuxTunnel {
     }
 
     fn index(&self) -> u32 {
-        // SAFETY: self.name is null-terminated — it was zeroed at construction and the kernel
-        // writes the interface name within IFNAMSIZ-1 bytes, guaranteeing a null terminator
-        // at or before position IFNAMSIZ-1; the pointer is valid for the lifetime of self.
-        unsafe { libc::if_nametoindex(self.name.as_ptr() as *const libc::c_char) }
+        let nul = self.name.iter().position(|&b| b == 0).unwrap_or(libc::IFNAMSIZ);
+        let name_str = std::str::from_utf8(&self.name[..nul]).unwrap_or("");
+        nix::net::if_::if_nametoindex(name_str).unwrap_or(0)
     }
 
     fn set_mtu(&self, mtu: u32) -> Result<(), TunnelError> {

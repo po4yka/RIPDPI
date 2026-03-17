@@ -1,3 +1,7 @@
+// These integration tests use std::sync types and ripdpi_runtime globals that
+// are compiled out under the loom feature. Skip the entire file under loom.
+#![cfg(not(feature = "loom"))]
+
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpStream, UdpSocket};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};

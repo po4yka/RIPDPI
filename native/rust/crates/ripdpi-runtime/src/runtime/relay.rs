@@ -1,6 +1,6 @@
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpStream};
-use std::sync::{Arc, Mutex};
+use crate::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 

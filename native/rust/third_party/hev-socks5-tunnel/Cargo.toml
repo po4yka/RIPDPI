@@ -30,7 +30,7 @@ thiserror = "2"
 anyhow = "1"
 
 # Networking / TUN
-nix = { version = "0.29", features = ["net", "ioctl", "fs"] }
+nix = { version = "0.29", features = ["net", "ioctl", "fs", "signal", "process"] }
 
 # TCP/IP stack
 smoltcp = { version = "0.12", features = ["async", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }

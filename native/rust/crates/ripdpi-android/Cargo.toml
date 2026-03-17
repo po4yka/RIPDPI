@@ -18,6 +18,7 @@ ciadpi-packets = { workspace = true }
 ciadpi-session = { workspace = true }
 jni = { workspace = true }
 libc = { workspace = true }
+nix = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }

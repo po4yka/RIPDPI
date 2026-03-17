@@ -138,11 +138,13 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     // Duplicate the fd so run_tunnel owns an independent copy.
     // If VpnService revokes the original fd, the dup'd fd remains valid
     // until run_tunnel closes it via File::from_raw_fd.
-    let owned_fd = unsafe { libc::dup(tun_fd) };
-    if owned_fd < 0 {
-        throw_io_exception(env, format!("Failed to dup TUN fd: {}", std::io::Error::last_os_error()));
-        return;
-    }
+    let owned_fd = match nix::unistd::dup(tun_fd) {
+        Ok(fd) => fd,
+        Err(err) => {
+            throw_io_exception(env, format!("Failed to dup TUN fd: {err}"));
+            return;
+        }
+    };
     let runtime = session.runtime.clone();
 
     let cancel = Arc::new(CancellationToken::new());
@@ -155,9 +157,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         let mut state = session.state.lock().expect("tunnel session poisoned");
         if let Err(message) = ensure_tunnel_start_allowed(&state) {
             // Bug H4 fix: close the dup'd fd before returning.
-            unsafe {
-                libc::close(owned_fd);
-            }
+            let _ = nix::unistd::close(owned_fd);
             throw_illegal_state(env, message);
             return;
         }
@@ -354,9 +354,7 @@ pub(crate) fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<()
 }
 
 fn rollback_failed_tunnel_start(session: &TunnelSession, owned_fd: i32, message: String) {
-    unsafe {
-        libc::close(owned_fd);
-    }
+    let _ = nix::unistd::close(owned_fd);
     if let Ok(mut guard) = session.last_error.lock() {
         *guard = Some(message.clone());
     }

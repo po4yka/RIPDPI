@@ -83,25 +83,14 @@ pub struct SoakSampler {
 }
 
 pub struct SoakLock {
-    file: File,
-}
-
-impl Drop for SoakLock {
-    fn drop(&mut self) {
-        let fd = std::os::fd::AsRawFd::as_raw_fd(&self.file);
-        let _ = unsafe { libc::flock(fd, libc::LOCK_UN) };
-    }
+    _flock: nix::fcntl::Flock<File>,
 }
 
 pub fn acquire_global_lock() -> io::Result<SoakLock> {
     let file = OpenOptions::new().create(true).truncate(false).read(true).write(true).open(SOAK_LOCK_PATH)?;
-    let fd = std::os::fd::AsRawFd::as_raw_fd(&file);
-    let result = unsafe { libc::flock(fd, libc::LOCK_EX) };
-    if result == 0 {
-        Ok(SoakLock { file })
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    let flock = nix::fcntl::Flock::lock(file, nix::fcntl::FlockArg::LockExclusive)
+        .map_err(|(_, e)| io::Error::from_raw_os_error(e as i32))?;
+    Ok(SoakLock { _flock: flock })
 }
 
 pub fn artifact_dir() -> io::Result<PathBuf> {

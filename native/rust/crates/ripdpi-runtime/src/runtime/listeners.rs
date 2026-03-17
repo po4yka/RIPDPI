@@ -1,6 +1,5 @@
 use std::io;
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -15,8 +14,7 @@ use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll};
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
-use std::sync::atomic::AtomicUsize;
-use std::sync::Mutex;
+use crate::sync::{Arc, AtomicUsize, Mutex};
 
 use super::state::{flush_autolearn_updates, ClientSlotGuard, RuntimeCleanup, RuntimeState, LISTENER};
 

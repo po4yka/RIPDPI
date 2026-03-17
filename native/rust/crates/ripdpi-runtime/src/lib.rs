@@ -1,7 +1,13 @@
+mod sync;
+
 use std::io;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+#[cfg(not(feature = "loom"))]
+use std::sync::OnceLock;
+
+use crate::sync::{AtomicBool, Arc, Ordering};
+#[cfg(not(feature = "loom"))]
+use crate::sync::Mutex;
 
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_proxy_config::ProxyRuntimeContext;
@@ -104,32 +110,49 @@ impl EmbeddedProxyControl {
     }
 }
 
-static TELEMETRY_SINK: OnceLock<Mutex<Option<Arc<dyn RuntimeTelemetrySink>>>> = OnceLock::new();
+// OnceLock is not modeled by loom, so the global static and its accessor are
+// compiled only on the production path. Loom tests exercise the underlying
+// Mutex<Option<Arc<...>>> pattern directly via local instances.
+#[cfg(not(feature = "loom"))]
+static TELEMETRY_SINK: OnceLock<std::sync::Mutex<Option<std::sync::Arc<dyn RuntimeTelemetrySink>>>> =
+    OnceLock::new();
 
-fn telemetry_slot() -> &'static Mutex<Option<Arc<dyn RuntimeTelemetrySink>>> {
-    TELEMETRY_SINK.get_or_init(|| Mutex::new(None))
+#[cfg(not(feature = "loom"))]
+fn telemetry_slot() -> &'static std::sync::Mutex<Option<std::sync::Arc<dyn RuntimeTelemetrySink>>> {
+    TELEMETRY_SINK.get_or_init(|| std::sync::Mutex::new(None))
 }
 
-pub fn install_runtime_telemetry(sink: Arc<dyn RuntimeTelemetrySink>) {
+#[cfg(not(feature = "loom"))]
+pub fn install_runtime_telemetry(sink: std::sync::Arc<dyn RuntimeTelemetrySink>) {
     if let Ok(mut slot) = telemetry_slot().lock() {
         *slot = Some(sink);
     }
 }
 
+#[cfg(not(feature = "loom"))]
 pub fn clear_runtime_telemetry() {
     if let Ok(mut slot) = telemetry_slot().lock() {
         *slot = None;
     }
 }
 
-pub(crate) fn current_runtime_telemetry() -> Option<Arc<dyn RuntimeTelemetrySink>> {
+#[cfg(not(feature = "loom"))]
+pub(crate) fn current_runtime_telemetry() -> Option<std::sync::Arc<dyn RuntimeTelemetrySink>> {
     telemetry_slot().lock().ok().and_then(|slot| slot.clone())
+}
+
+// Under loom the OnceLock-based global is compiled out. Callers that use
+// current_runtime_telemetry in production code paths get None, which is the
+// correct behaviour for tests that exercise concurrency primitives only.
+#[cfg(feature = "loom")]
+pub(crate) fn current_runtime_telemetry() -> Option<Arc<dyn RuntimeTelemetrySink>> {
+    None
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicUsize;
+    use crate::sync::AtomicUsize;
 
     struct CountingSink {
         accepted: AtomicUsize,
@@ -182,6 +205,7 @@ mod tests {
         fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
     }
 
+    #[cfg(not(feature = "loom"))]
     #[test]
     fn install_runtime_telemetry_exposes_current_sink_until_cleared() {
         clear_runtime_telemetry();
@@ -196,6 +220,7 @@ mod tests {
         assert!(current_runtime_telemetry().is_none());
     }
 
+    #[cfg(not(feature = "loom"))]
     #[test]
     fn installing_new_runtime_telemetry_replaces_previous_sink() {
         clear_runtime_telemetry();
@@ -213,6 +238,7 @@ mod tests {
         clear_runtime_telemetry();
     }
 
+    #[cfg(not(feature = "loom"))]
     #[test]
     fn embedded_proxy_controls_keep_shutdown_state_isolated() {
         let first = EmbeddedProxyControl::default();
@@ -227,6 +253,7 @@ mod tests {
         assert!(!first.shutdown_requested());
     }
 
+    #[cfg(not(feature = "loom"))]
     #[test]
     fn embedded_proxy_control_preserves_its_own_telemetry_sink() {
         let sink = Arc::new(CountingSink::new());
