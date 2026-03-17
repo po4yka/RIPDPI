@@ -32,5 +32,6 @@ tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
 }
 
 dependencies {
+    "detektPlugins"(project(":quality:detekt-rules"))
     "detektPlugins"(versionCatalogs.named("libs").findLibrary("detekt-compose-rules").get())
 }
