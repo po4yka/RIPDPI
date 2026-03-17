@@ -116,3 +116,9 @@ codegen-units = 1
 [profile.android-jni]
 inherits = "release"
 panic = "unwind"
+
+[profile.android-jni-dev]
+inherits = "dev"
+panic = "unwind"
+opt-level = 1
+debug = "line-tables-only"

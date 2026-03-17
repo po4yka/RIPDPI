@@ -1,3 +1,9 @@
+buildCache {
+    local {
+        removeUnusedEntriesAfterDays = 14
+    }
+}
+
 pluginManagement {
     includeBuild("build-logic")
     repositories {

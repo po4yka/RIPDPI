@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.CommonExtension
+import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
 
 plugins {
     id("org.jetbrains.kotlin.plugin.compose")
@@ -6,4 +7,11 @@ plugins {
 
 the<CommonExtension>().apply {
     buildFeatures.compose = true
+}
+
+extensions.findByType<ComposeCompilerGradlePluginExtension>()?.apply {
+    if (providers.environmentVariable("CI").isPresent) {
+        reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
+        metricsDestination.set(layout.buildDirectory.dir("compose-metrics"))
+    }
 }
