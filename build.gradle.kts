@@ -85,17 +85,17 @@ abstract class CheckFileLocLimitsTask
         }
     }
 
-val androidModulePaths =
+val coverageModulePaths =
     listOf(
         ":app",
         ":core:data",
         ":core:diagnostics",
-        ":core:diagnostics-data",
         ":core:engine",
         ":core:service",
     )
 
-val lintModulePaths = androidModulePaths
+val qualityModulePaths = coverageModulePaths
+val lintModulePaths = qualityModulePaths
 
 fun moduleRelativePath(modulePath: String): String = modulePath.removePrefix(":").replace(':', '/')
 
@@ -140,7 +140,7 @@ fun kotlinDebugCoverageExecutionData(modulePath: String) =
 tasks.register<JacocoReport>("kotlinCoverageReport") {
     group = "verification"
     description = "Aggregates Kotlin debug unit test JaCoCo reports across Android modules."
-    dependsOn(androidModulePaths.map { "$it:jacocoDebugUnitTestReport" })
+    dependsOn(coverageModulePaths.map { "$it:jacocoDebugUnitTestReport" })
 
     reports {
         xml.required.set(true)
@@ -149,15 +149,15 @@ tasks.register<JacocoReport>("kotlinCoverageReport") {
     }
 
     sourceDirectories.setFrom(
-        androidModulePaths.flatMap { modulePath ->
+        coverageModulePaths.flatMap { modulePath ->
             listOf(
                 layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("src/main/java"),
                 layout.projectDirectory.dir(moduleRelativePath(modulePath)).dir("src/main/kotlin"),
             )
         },
     )
-    classDirectories.setFrom(androidModulePaths.map(::kotlinDebugCoverageClasses))
-    executionData.setFrom(androidModulePaths.map(::kotlinDebugCoverageExecutionData))
+    classDirectories.setFrom(coverageModulePaths.map(::kotlinDebugCoverageClasses))
+    executionData.setFrom(coverageModulePaths.map(::kotlinDebugCoverageExecutionData))
     onlyIf { executionData.files.any { it.exists() } }
 }
 
@@ -191,9 +191,9 @@ tasks.register("staticAnalysis") {
     dependsOn(
         ":quality:detekt-rules:test",
         tasks.named("checkFileLocLimits"),
-        androidModulePaths.map { "$it:detekt" },
+        qualityModulePaths.map { "$it:detekt" },
         lintModulePaths.map { "$it:lintDebug" },
-        androidModulePaths.map { "$it:ktlintCheck" },
+        qualityModulePaths.map { "$it:ktlintCheck" },
     )
 }
 

@@ -51,6 +51,12 @@ abstract class BuildRustNativeLibsTask
         abstract val sdkDir: Property<String>
 
         @get:Input
+        abstract val cargoExecutable: Property<String>
+
+        @get:Input
+        abstract val rustupExecutable: Property<String>
+
+        @get:Input
         abstract val ndkVersion: Property<String>
 
         @get:Input
@@ -73,7 +79,7 @@ abstract class BuildRustNativeLibsTask
 
         @TaskAction
         fun build() {
-            val installedTargets = installedRustTargets()
+            val installedTargets = installedRustTargets(rustupExecutable.get())
             val hostBinDir = resolveNdkToolchainBinDir()
             val manifest = workspaceManifest.get().asFile
             val artifacts = artifactSpecs.get().map(::parseArtifactSpec)
@@ -81,7 +87,7 @@ abstract class BuildRustNativeLibsTask
             val expectedOutputNames = artifacts.map(RustNativeArtifact::outputName).toSet()
             val outputRoot = outputDir.get().asFile
             val cargoTargetRoot = cargoTargetDir.get().asFile
-            val cargoExecutable = resolveRustTool("cargo")
+            val cargoExecutablePath = cargoExecutable.get()
             val cargoProfileName = cargoProfile.get()
             val abiList = abis.get()
 
@@ -119,7 +125,7 @@ abstract class BuildRustNativeLibsTask
                 val futures: List<Future<*>> = abiConfigs.map { config ->
                     executor.submit {
                         buildSingleAbi(
-                            config, manifest, packageNames, cargoExecutable,
+                            config, manifest, packageNames, cargoExecutablePath,
                             cargoProfileName, cargoTargetRoot, outputRoot,
                             expectedOutputNames, artifacts, cargoJobs,
                         )
@@ -148,7 +154,7 @@ abstract class BuildRustNativeLibsTask
             config: AbiConfig,
             manifest: File,
             packageNames: List<String>,
-            cargoExecutable: String,
+            cargoExecutablePath: String,
             cargoProfileName: String,
             cargoTargetRoot: File,
             outputRoot: File,
@@ -177,7 +183,7 @@ abstract class BuildRustNativeLibsTask
 
             val cargoCommand =
                 buildList {
-                    add(cargoExecutable)
+                    add(cargoExecutablePath)
                     add("build")
                     add("--manifest-path")
                     add(manifest.absolutePath)
@@ -230,12 +236,11 @@ abstract class BuildRustNativeLibsTask
             return toolchainsDir.resolve(hostTag).resolve("bin")
         }
 
-        private fun installedRustTargets(): Set<String> {
+        private fun installedRustTargets(rustupExecutablePath: String): Set<String> {
             val stdout = ByteArrayOutputStream()
-            val rustupExecutable = resolveRustTool("rustup")
             execOperations.exec {
                 standardOutput = stdout
-                commandLine(rustupExecutable, "target", "list", "--installed")
+                commandLine(rustupExecutablePath, "target", "list", "--installed")
             }.assertNormalExitValue()
 
             return stdout.toString()
@@ -315,19 +320,6 @@ abstract class BuildRustNativeLibsTask
                 "x86_64" -> "x86_64-linux-android"
                 else -> throw GradleException("Unsupported ABI: $abi")
             }
-
-        private fun resolveRustTool(name: String): String {
-            val cargoHome = System.getenv("CARGO_HOME")?.takeIf(String::isNotBlank)
-            val homeDir = System.getProperty("user.home")
-            val candidates =
-                listOfNotNull(
-                    cargoHome?.let { File(it).resolve("bin").resolve(name) },
-                    homeDir.takeIf(String::isNotBlank)?.let { File(it).resolve(".cargo").resolve("bin").resolve(name) },
-                )
-
-            return candidates.firstOrNull(File::canExecute)?.absolutePath
-                ?: name
-        }
     }
 
 val rustNativeAbis = resolvedNativeAbis()
@@ -350,6 +342,8 @@ val buildRustNativeLibs =
         )
         workspaceManifest.set(rootProject.layout.projectDirectory.file("native/rust/Cargo.toml"))
         sdkDir.set(resolveAndroidSdkDir())
+        cargoExecutable.set(resolveRustTool("cargo"))
+        rustupExecutable.set(resolveRustTool("rustup"))
         ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
         cargoProfile.set(providers.gradleProperty("ripdpi.nativeCargoProfile"))
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))

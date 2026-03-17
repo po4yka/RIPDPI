@@ -17,10 +17,9 @@ RIPDPI uses Gradle 9.4 with convention plugins in `build-logic/convention/` and 
 | `ripdpi.android.library` | Library modules: compileSdk, minSdk, JDK 17 |
 | `ripdpi.android.compose` | Compose compiler configuration |
 | `ripdpi.android.native` | NDK version, ABI filters, legacy packaging |
+| `ripdpi.android.quality` | Shared detekt + ktlint + Android lint verification wiring |
+| `ripdpi.android.coverage` | Shared JaCoCo coverage wiring |
 | `ripdpi.android.protobuf` | Protobuf code generation setup |
-| `ripdpi.android.detekt` | Detekt static analysis |
-| `ripdpi.android.ktlint` | ktlint formatting |
-| `ripdpi.android.lint` | Android lint configuration |
 
 Plugin sources: `build-logic/convention/src/main/kotlin/ripdpi.android.*.gradle.kts`
 
@@ -65,13 +64,15 @@ All in `gradle.properties`:
 | `ripdpi.targetSdk` | 35 |
 | `ripdpi.nativeNdkVersion` | 29.0.14206865 |
 | `ripdpi.nativeAbis` | armeabi-v7a,arm64-v8a,x86,x86_64 |
+| `ripdpi.localNativeAbisDefault` | arm64-v8a |
 
 ## Gotchas
 
 - **`android.newDsl=false`**: Workaround for protobuf-gradle-plugin 0.9.6 + AGP 9 incompatibility. Do not remove.
 - **build-logic is an included build** (`includeBuild("build-logic")` in settings). Changes to convention plugins require re-sync.
-- **Static analysis**: Run `./gradlew staticAnalysis` -- it aggregates detekt, ktlint, and Android lint.
+- **Static analysis**: Run `./gradlew staticAnalysis` -- it aggregates detekt, ktlint, and Android lint for the quality-enabled Android modules.
 - **Native build order**: `:core:engine:buildRustNativeLibs` runs before `preBuild`. If native build fails, check NDK installation path, Rust target availability, and the `ripdpi.android.rust-native` convention plugin under `build-logic/convention/`.
+- **Local ABI fast path**: local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`; use `-Pripdpi.localNativeAbis=x86_64` for emulator-focused iteration.
 
 ## Common Mistakes
 

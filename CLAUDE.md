@@ -38,14 +38,16 @@ Android VPN/proxy app for DPI bypass using in-repository Rust native modules for
 - NDK version and ABI filters are in `gradle.properties` (single source of truth)
 - Never edit `.so` files directly -- they are built from source
 - Supported ABIs: armeabi-v7a, arm64-v8a, x86, x86_64
-- `ripdpi.localNativeAbis` is a local debug-only override. Do not use it in CI or release workflows.
+- Local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`
+- `ripdpi.localNativeAbis=x86_64` is the fast path for emulator-heavy local iteration
+- `ripdpi.localNativeAbis` remains a local debug-only override. Do not use it in CI or release workflows.
 
 ## Code Conventions
 
 - Convention plugins in `build-logic/convention/` -- use them, don't add raw plugin config to modules
   - `ripdpi.android.application`, `ripdpi.android.library`, `ripdpi.android.compose`
   - `ripdpi.android.native`, `ripdpi.android.protobuf`
-  - `ripdpi.android.detekt`, `ripdpi.android.ktlint`, `ripdpi.android.lint`
+  - `ripdpi.android.quality`, `ripdpi.android.coverage`
 - Version catalog at `gradle/libs.versions.toml` -- all dependency versions there
 - Max line length: 120 chars
 - detekt config: `config/detekt/detekt.yml`
