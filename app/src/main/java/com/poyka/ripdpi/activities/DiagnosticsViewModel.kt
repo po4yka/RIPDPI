@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -23,8 +22,6 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.services.ActiveConnectionPolicy
 import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
-import com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore
-import com.poyka.ripdpi.services.DefaultServiceStateStore
 import com.poyka.ripdpi.services.ServiceStateStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -40,55 +37,15 @@ import javax.inject.Inject
 
 @HiltViewModel
 class DiagnosticsViewModel
-    private constructor(
+    @Inject
+    internal constructor(
         private val diagnosticsManager: DiagnosticsManager,
         private val appSettingsRepository: AppSettingsRepository,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val activeConnectionPolicyStore: ActiveConnectionPolicyStore,
         private val serviceStateStore: ServiceStateStore,
         private val uiStateFactory: DiagnosticsUiStateFactory,
-        @Suppress("UNUSED_PARAMETER")
-        private val constructorToken: Any,
     ) : ViewModel() {
-        private companion object {
-            private object ConstructionToken
-        }
-
-        @Inject
-        internal constructor(
-            diagnosticsManager: DiagnosticsManager,
-            appSettingsRepository: AppSettingsRepository,
-            rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-            activeConnectionPolicyStore: ActiveConnectionPolicyStore,
-            serviceStateStore: ServiceStateStore,
-            uiStateFactory: DiagnosticsUiStateFactory,
-        ) : this(
-            diagnosticsManager = diagnosticsManager,
-            appSettingsRepository = appSettingsRepository,
-            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-            activeConnectionPolicyStore = activeConnectionPolicyStore,
-            serviceStateStore = serviceStateStore,
-            uiStateFactory = uiStateFactory,
-            constructorToken = ConstructionToken,
-        )
-
-        constructor(
-            appContext: Context,
-            diagnosticsManager: DiagnosticsManager,
-            appSettingsRepository: AppSettingsRepository,
-            rememberedNetworkPolicyStore: RememberedNetworkPolicyStore = defaultRememberedNetworkPolicyStore(),
-            activeConnectionPolicyStore: ActiveConnectionPolicyStore = DefaultActiveConnectionPolicyStore(),
-            serviceStateStore: ServiceStateStore = DefaultServiceStateStore(),
-        ) : this(
-            diagnosticsManager = diagnosticsManager,
-            appSettingsRepository = appSettingsRepository,
-            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-            activeConnectionPolicyStore = activeConnectionPolicyStore,
-            serviceStateStore = serviceStateStore,
-            uiStateFactory = DiagnosticsUiStateFactory(appContext),
-            constructorToken = ConstructionToken,
-        )
-
     private val selectedSectionRequest = MutableStateFlow(DiagnosticsSection.Overview)
     private val selectedProfileId = MutableStateFlow<String?>(null)
     private val selectedApproachMode = MutableStateFlow(DiagnosticsApproachMode.Profiles)

@@ -10,7 +10,6 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -19,7 +18,6 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.services.ActiveConnectionPolicy
 import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
-import com.poyka.ripdpi.services.DefaultActiveConnectionPolicyStore
 import com.poyka.ripdpi.services.FailureReason
 import com.poyka.ripdpi.services.ServiceEvent
 import com.poyka.ripdpi.services.ServiceStateStore
@@ -36,9 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -52,7 +48,8 @@ interface RuntimeHistoryRecorder {
 
 @Singleton
 class DefaultRuntimeHistoryRecorder
-    private constructor(
+    @Inject
+    constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val historyRepository: DiagnosticsHistoryRepository,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
@@ -60,58 +57,12 @@ class DefaultRuntimeHistoryRecorder
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val serviceStateStore: ServiceStateStore,
         private val activeConnectionPolicyStore: ActiveConnectionPolicyStore,
+        @param:ApplicationIoScope
         private val scope: CoroutineScope,
-        @Suppress("UNUSED_PARAMETER")
-        private val constructorToken: Any,
     ) : RuntimeHistoryRecorder {
         private companion object {
             private const val MaxPersistedEventKeys = 512
-            private object ConstructionToken
         }
-
-        @Inject
-        constructor(
-            appSettingsRepository: AppSettingsRepository,
-            historyRepository: DiagnosticsHistoryRepository,
-            rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-            networkMetadataProvider: NetworkMetadataProvider,
-            diagnosticsContextProvider: DiagnosticsContextProvider,
-            serviceStateStore: ServiceStateStore,
-            activeConnectionPolicyStore: ActiveConnectionPolicyStore,
-            @ApplicationIoScope scope: CoroutineScope,
-        ) : this(
-            appSettingsRepository = appSettingsRepository,
-            historyRepository = historyRepository,
-            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-            networkMetadataProvider = networkMetadataProvider,
-            diagnosticsContextProvider = diagnosticsContextProvider,
-            serviceStateStore = serviceStateStore,
-            activeConnectionPolicyStore = activeConnectionPolicyStore,
-            scope = scope,
-            constructorToken = ConstructionToken,
-        )
-
-        constructor(
-            appSettingsRepository: AppSettingsRepository,
-            historyRepository: DiagnosticsHistoryRepository,
-            networkMetadataProvider: NetworkMetadataProvider,
-            diagnosticsContextProvider: DiagnosticsContextProvider,
-            serviceStateStore: ServiceStateStore,
-            rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
-                DefaultRememberedNetworkPolicyStore(historyRepository),
-            activeConnectionPolicyStore: ActiveConnectionPolicyStore = DefaultActiveConnectionPolicyStore(),
-            scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-        ) : this(
-            appSettingsRepository = appSettingsRepository,
-            historyRepository = historyRepository,
-            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-            networkMetadataProvider = networkMetadataProvider,
-            diagnosticsContextProvider = diagnosticsContextProvider,
-            serviceStateStore = serviceStateStore,
-            activeConnectionPolicyStore = activeConnectionPolicyStore,
-            scope = scope,
-            constructorToken = ConstructionToken,
-        )
 
         private val json = Json { ignoreUnknownKeys = true }
         private val started = AtomicBoolean(false)
