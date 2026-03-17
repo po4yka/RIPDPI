@@ -22,6 +22,7 @@
   "penalizedHostCount": 0,
   "retryPacedCount": 0,
   "routeChanges": 0,
+  "slotExhaustions": 0,
   "source": "proxy",
   "state": "idle",
   "totalErrors": 0,

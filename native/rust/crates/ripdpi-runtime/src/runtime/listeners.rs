@@ -94,6 +94,10 @@ pub(super) fn run_proxy_with_listener_internal(
                         let Some(_slot) =
                             ClientSlotGuard::acquire(state.active_clients.clone(), state.config.max_open as usize)
                         else {
+                            log::warn!("client connection rejected: at capacity");
+                            if let Some(telemetry) = &state.telemetry {
+                                telemetry.on_client_slot_exhausted();
+                            }
                             let _ = SockRef::from(&client).set_linger(Some(Duration::ZERO));
                             drop(client);
                             continue;

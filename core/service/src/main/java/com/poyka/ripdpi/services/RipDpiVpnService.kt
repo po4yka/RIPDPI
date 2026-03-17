@@ -7,9 +7,12 @@ import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.os.Build
 import androidx.lifecycle.lifecycleScope
+import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
@@ -229,6 +232,7 @@ class RipDpiVpnService : LifecycleVpnService() {
 
     private suspend fun start() {
         logcat(LogPriority.INFO) { "Starting" }
+        val startTime = System.nanoTime()
 
         var matchedRememberedPolicy: com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity? = null
         val session = VpnRuntimeSession()
@@ -248,6 +252,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                                 mode = Mode.VPN,
                                 resolverOverride = resolverOverrideStore.override.value,
                             )
+                        logcat(LogPriority.DEBUG) { "Policy resolved in ${elapsedMs(startTime)}ms" }
                         matchedRememberedPolicy = resolution.matchedNetworkPolicy
                         applyActiveConnectionPolicy(
                             session = session,
@@ -267,6 +272,7 @@ class RipDpiVpnService : LifecycleVpnService() {
                         startNetworkHandoverMonitoring()
                         startTelemetryUpdates()
                         lifecycleState.markStarted()
+                        logcat(LogPriority.INFO) { "VPN started in ${elapsedMs(startTime)}ms" }
                         true
                     } catch (e: Exception) {
                         lifecycleState.beginStop()
@@ -370,6 +376,8 @@ class RipDpiVpnService : LifecycleVpnService() {
 
     private suspend fun startProxy(preferences: RipDpiProxyPreferences) {
         logcat(LogPriority.INFO) { "Starting proxy" }
+        val proxyStartTime = System.nanoTime()
+        logcat(LogPriority.DEBUG) { "Proxy config: ${preferenceSummary(preferences)}" }
 
         if (proxyJob != null) {
             logcat(LogPriority.WARN) { "Proxy fields not null" }
@@ -421,7 +429,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         }
 
         runCatching { proxyInstance.updateNetworkSnapshot(networkSnapshotFactory.capture()) }
-        logcat(LogPriority.INFO) { "Proxy started" }
+        logcat(LogPriority.INFO) { "Proxy started in ${elapsedMs(proxyStartTime)}ms" }
     }
 
     private suspend fun stopProxy() {
@@ -473,6 +481,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         overrideReason: String? = null,
     ) {
         logcat(LogPriority.INFO) { "Starting tun2socks" }
+        val tunStartTime = System.nanoTime()
 
         if (tunSession != null) {
             throw IllegalStateException("VPN field not null")
@@ -485,6 +494,11 @@ class RipDpiVpnService : LifecycleVpnService() {
         val config = buildTun2SocksConfig(activeDns, overrideReason, port, ipv6)
 
         val tunnelSession = vpnTunnelSessionProvider.establish(this, dns, ipv6)
+        logcat(LogPriority.DEBUG) { "VPN interface established: fd=${tunnelSession.tunFd}" }
+        val resolver = config.encryptedDnsResolverId ?: "system"
+        logcat(LogPriority.DEBUG) {
+            "Tunnel config: socks5Port=${config.socks5Port} dns=$dns ipv6=$ipv6 resolver=$resolver"
+        }
 
         try {
             val tunnelBridge = tun2SocksBridgeFactory.create()
@@ -502,7 +516,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         }
 
         setUnderlyingNetworksFromActiveNetwork()
-        logcat(LogPriority.INFO) { "Tun2Socks started" }
+        logcat(LogPriority.INFO) { "Tun2socks started in ${elapsedMs(tunStartTime)}ms" }
     }
 
     private suspend fun stopTun2Socks() {
@@ -529,7 +543,7 @@ class RipDpiVpnService : LifecycleVpnService() {
         newStatus: ServiceStatus,
         failureReason: FailureReason? = null,
     ) {
-        logcat { "VPN status changed from $status to $newStatus" }
+        logcat(LogPriority.DEBUG) { "VPN status: $status -> $newStatus" }
 
         status = newStatus
         val session = runtimeSession
@@ -905,6 +919,18 @@ class RipDpiVpnService : LifecycleVpnService() {
         val activeNetwork = cm.activeNetwork
         setUnderlyingNetworks(activeNetwork?.let { arrayOf(it) })
     }
+
+    private fun elapsedMs(startNanos: Long): Long {
+        @Suppress("MagicNumber")
+        return (System.nanoTime() - startNanos) / 1_000_000
+    }
+
+    private fun preferenceSummary(preferences: RipDpiProxyPreferences): String =
+        when (preferences) {
+            is RipDpiProxyUIPreferences -> "port=${preferences.port} maxConn=${preferences.maxConnections}"
+            is RipDpiProxyCmdPreferences -> "cmd-line"
+            is RipDpiProxyJsonPreferences -> "json-config"
+        }
 
     internal fun createBuilder(
         dns: String,

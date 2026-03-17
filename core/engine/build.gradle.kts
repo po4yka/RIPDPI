@@ -18,6 +18,7 @@ dependencies {
     implementation(libs.androidx.datastore)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.logcat)
 
     testImplementation(libs.bundles.unit.test)
 }

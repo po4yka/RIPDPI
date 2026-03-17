@@ -13,6 +13,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import logcat.LogPriority
+import logcat.logcat
 import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 
@@ -123,8 +125,10 @@ class RipDpiProxy(
                 try {
                     val createdHandle = nativeBindings.create(preferences.toNativeConfigJson())
                     if (createdHandle == 0L) {
+                        logcat(LogPriority.ERROR) { "Proxy native session creation returned null handle" }
                         throw NativeError.SessionCreationFailed("proxy")
                     }
+                    logcat(LogPriority.DEBUG) { "Proxy native session created: handle=$createdHandle" }
                     this.handle = createdHandle
                     createdHandle
                 } catch (error: Exception) {
@@ -172,20 +176,30 @@ class RipDpiProxy(
                 readinessSignal
             } ?: throw NativeError.NotRunning("Proxy")
 
+        logcat(LogPriority.DEBUG) { "Awaiting proxy readiness (timeout=${timeoutMillis}ms)" }
         val deadline = System.currentTimeMillis() + timeoutMillis
+        var pollCount = 0L
         while (true) {
             if (startupSignal.isCompleted) {
                 startupSignal.await()
                 return
             }
 
-            if (pollTelemetry().state == "running") {
+            val telemetry = pollTelemetry()
+            if (telemetry.state == "running") {
                 startupSignal.complete(Unit)
                 startupSignal.await()
                 return
             }
 
+            pollCount++
+            if (pollCount % 20 == 0L) {
+                val elapsed = timeoutMillis - (deadline - System.currentTimeMillis())
+                logcat(LogPriority.DEBUG) { "Proxy readiness: state=${telemetry.state} elapsed=${elapsed}ms" }
+            }
+
             if (System.currentTimeMillis() >= deadline) {
+                logcat(LogPriority.WARN) { "Proxy readiness timed out after ${timeoutMillis}ms" }
                 error("Timed out waiting for proxy readiness")
             }
 
