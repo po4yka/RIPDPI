@@ -84,8 +84,9 @@ pub(crate) fn try_tls_handshake(
     server_name: &str,
     verify_certificates: bool,
     profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> TlsObservation {
-    match open_probe_stream(target, port, transport, Some(server_name), verify_certificates, profile) {
+    match open_probe_stream(target, port, transport, Some(server_name), verify_certificates, profile, tls_verifier) {
         Ok(mut stream) => {
             let version = match &mut stream {
                 ConnectionStream::Plain(_) => None,
@@ -117,6 +118,7 @@ pub(crate) fn open_probe_stream(
     tls_name: Option<&str>,
     verify_certificates: bool,
     profile: TlsClientProfile,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<ConnectionStream, String> {
     let socket = connect_transport(target, port, transport)?;
     socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
@@ -130,7 +132,11 @@ pub(crate) fn open_probe_stream(
                 TlsClientProfile::Tls13Only => ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13]),
             };
             let config = if verify_certificates {
-                Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
+                if let Some(verifier) = tls_verifier {
+                    Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
+                } else {
+                    Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
+                }
             } else {
                 Arc::new(
                     builder

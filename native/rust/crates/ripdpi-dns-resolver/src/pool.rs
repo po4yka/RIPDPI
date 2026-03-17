@@ -242,7 +242,7 @@ impl ResolverPoolBuilder {
 
         for (endpoint, transport) in self.endpoints {
             let resolver =
-                EncryptedDnsResolver::with_health(endpoint, transport, self.timeout, self.tls_roots.clone(), Some(health.clone()))?;
+                EncryptedDnsResolver::with_health(endpoint, transport, self.timeout, self.tls_roots.clone(), Some(health.clone()), None)?;
             labels.push(resolver.endpoint_label());
             resolvers.push(resolver);
         }

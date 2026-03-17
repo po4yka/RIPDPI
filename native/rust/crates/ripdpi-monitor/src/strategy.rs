@@ -4,6 +4,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use rustls::client::danger::ServerCertVerifier;
+
 use ripdpi_failure_classifier::{confirm_dns_tampering, FailureClass};
 use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload, ProxyRuntimeContext};
 
@@ -22,6 +24,7 @@ pub(crate) fn run_strategy_probe_scan(
     cancel: Arc<AtomicBool>,
     session_id: String,
     request: ScanRequest,
+    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
 ) {
     let started_at = now_ms();
     let strategy_probe = request.strategy_probe.clone().expect("validated strategy_probe request");
@@ -259,6 +262,7 @@ pub(crate) fn run_strategy_probe_scan(
         &request.domain_targets,
         runtime_context.as_ref(),
         probe_seed,
+        tls_verifier.as_ref(),
     );
     let baseline_failure = classify_strategy_probe_baseline_results(&baseline_execution.results);
     results.extend(baseline_execution.results);
@@ -360,7 +364,7 @@ pub(crate) fn run_strategy_probe_scan(
             },
         );
         push_event(&shared, "strategy_probe", "info", format!("Testing TCP candidate {}", spec.label));
-        let execution = execute_tcp_candidate(&spec, &request.domain_targets, runtime_context.as_ref(), probe_seed);
+        let execution = execute_tcp_candidate(&spec, &request.domain_targets, runtime_context.as_ref(), probe_seed, tls_verifier.as_ref());
         results.extend(execution.results);
         if execution.summary.family == "hostfake"
             && execution.summary.succeeded_targets == execution.summary.total_targets

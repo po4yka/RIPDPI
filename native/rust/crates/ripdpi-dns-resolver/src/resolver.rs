@@ -3,6 +3,8 @@ use std::net::{SocketAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use rustls::client::danger::ServerCertVerifier;
+
 use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use crypto_box::aead::Aead;
 use hickory_proto::op::Message;
@@ -10,7 +12,7 @@ use hickory_proto::rr::{RData, RecordType};
 use rand::RngCore;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use rustls::pki_types::{CertificateDer, ServerName};
-use rustls::{ClientConfig, ClientConnection, StreamOwned};
+use rustls::{ClientConnection, StreamOwned};
 
 use crate::dnscrypt::*;
 use crate::transport::*;
@@ -34,13 +36,21 @@ impl EncryptedDnsResolver {
         Self::with_extra_tls_roots(endpoint, transport, timeout, Vec::new())
     }
 
+    pub fn with_tls_verifier(
+        endpoint: EncryptedDnsEndpoint,
+        transport: EncryptedDnsTransport,
+        tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    ) -> Result<Self, EncryptedDnsError> {
+        Self::with_health(endpoint, transport, DEFAULT_TIMEOUT, Vec::new(), None, tls_verifier)
+    }
+
     pub(crate) fn with_extra_tls_roots(
         endpoint: EncryptedDnsEndpoint,
         transport: EncryptedDnsTransport,
         timeout: Duration,
         tls_roots: Vec<CertificateDer<'static>>,
     ) -> Result<Self, EncryptedDnsError> {
-        Self::with_health(endpoint, transport, timeout, tls_roots, None)
+        Self::with_health(endpoint, transport, timeout, tls_roots, None, None)
     }
 
     pub(crate) fn with_health(
@@ -49,10 +59,11 @@ impl EncryptedDnsResolver {
         timeout: Duration,
         tls_roots: Vec<CertificateDer<'static>>,
         health: Option<crate::health::HealthRegistry>,
+        tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     ) -> Result<Self, EncryptedDnsError> {
         let normalized = normalize_endpoint(endpoint, &transport)?;
         let doh_client = if normalized.protocol == EncryptedDnsProtocol::Doh {
-            Some(build_doh_client(&normalized, &transport, timeout, &tls_roots, health.as_ref())?)
+            Some(build_doh_client(&normalized, &transport, timeout, &tls_roots, health.as_ref(), tls_verifier.as_ref())?)
         } else {
             None
         };
@@ -64,6 +75,7 @@ impl EncryptedDnsResolver {
                 timeout,
                 doh_client,
                 tls_roots,
+                tls_verifier,
                 dnscrypt_state: Mutex::new(None),
                 health,
             }),
@@ -166,11 +178,7 @@ impl EncryptedDnsResolver {
     fn exchange_dot_blocking(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
         let stream = self.connect_plain_tcp_blocking()?;
         let tls_name = self.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| self.inner.endpoint.host.clone());
-        let config = Arc::new(
-            ClientConfig::builder()
-                .with_root_certificates(default_root_store(&self.inner.tls_roots))
-                .with_no_client_auth(),
-        );
+        let config = build_client_config(self.inner.tls_verifier.as_ref(), &self.inner.tls_roots);
         let server_name = ServerName::try_from(tls_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
         let connection =
             ClientConnection::new(config, server_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;

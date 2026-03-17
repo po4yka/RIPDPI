@@ -4,6 +4,8 @@ use std::time::Duration;
 
 use std::sync::Arc;
 
+use rustls::client::danger::ServerCertVerifier;
+
 use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
 use ripdpi_proxy_config::{
     runtime_config_from_ui, ProxyConfigPayload, ProxyRuntimeContext, ProxyUiConfig,
@@ -115,6 +117,7 @@ pub(crate) fn execute_tcp_candidate(
     targets: &[DomainTarget],
     runtime_context: Option<&ProxyRuntimeContext>,
     probe_seed: u64,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> CandidateExecution {
     if targets.is_empty() {
         return not_applicable_candidate_execution(spec, 0, 3, "No HTTP or HTTPS targets configured");
@@ -122,7 +125,7 @@ pub(crate) fn execute_tcp_candidate(
     match probe_runtime_transport(spec, runtime_context) {
         Ok(runtime) => {
             let transport = runtime.transport();
-            run_candidate_warmup(spec, &transport, targets);
+            run_candidate_warmup(spec, &transport, targets, tls_verifier);
             let mut score = CandidateScore::default();
             let mut ordered_targets = targets.to_vec();
             ordered_targets.sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
@@ -131,7 +134,7 @@ pub(crate) fn execute_tcp_candidate(
                     thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &target.host)));
                 }
                 score.add(run_http_strategy_probe(&transport, target, spec));
-                score.add(run_https_strategy_probe(&transport, target, spec));
+                score.add(run_https_strategy_probe(&transport, target, spec, tls_verifier));
             }
             drop(runtime);
             build_candidate_execution(spec, score, 3)
@@ -186,7 +189,12 @@ pub(crate) fn probe_runtime_transport(
     )
 }
 
-pub(crate) fn run_candidate_warmup(spec: &StrategyCandidateSpec, transport: &TransportConfig, targets: &[DomainTarget]) {
+pub(crate) fn run_candidate_warmup(
+    spec: &StrategyCandidateSpec,
+    transport: &TransportConfig,
+    targets: &[DomainTarget],
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) {
     if spec.warmup != CandidateWarmup::AdaptiveFakeTtl {
         return;
     }
@@ -208,6 +216,7 @@ pub(crate) fn run_candidate_warmup(spec: &StrategyCandidateSpec, transport: &Tra
             &target.host,
             true,
             TlsClientProfile::Tls13Only,
+            tls_verifier,
         );
     }
 }
@@ -421,6 +430,7 @@ pub(crate) fn run_https_strategy_probe(
     transport: &TransportConfig,
     target: &DomainTarget,
     candidate: &StrategyCandidateSpec,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> ProbeSample {
     let started = now_ms();
     let https_port = target.https_port.unwrap_or(443);
@@ -431,6 +441,7 @@ pub(crate) fn run_https_strategy_probe(
         &target.host,
         true,
         TlsClientProfile::Tls13Only,
+        tls_verifier,
     );
     let tls12 = try_tls_handshake(
         &domain_connect_target(target),
@@ -439,6 +450,7 @@ pub(crate) fn run_https_strategy_probe(
         &target.host,
         true,
         TlsClientProfile::Tls12Only,
+        tls_verifier,
     );
     let latency_ms = now_ms().saturating_sub(started);
     let outcome = if tls13.certificate_anomaly || tls12.certificate_anomaly {
