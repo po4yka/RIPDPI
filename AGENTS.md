@@ -85,6 +85,7 @@ Project-specific skills are in `.github/skills/`:
 |-------|----------|
 | `native-jni-development` | Modifying Rust native crates, JNI exports, or native build integration |
 | `android-compose-patterns` | Building Compose UI, ViewModels, navigation |
+| `jetpack-compose-api` | Compose API internals, correct API usage, recomposition, performance, accessibility |
 | `gradle-build-system` | Adding dependencies, modules, or convention plugins |
 | `protobuf-datastore` | Modifying app settings schema or DataStore persistence |
 | `service-lifecycle` | Working with VPN/proxy service start/stop logic |
