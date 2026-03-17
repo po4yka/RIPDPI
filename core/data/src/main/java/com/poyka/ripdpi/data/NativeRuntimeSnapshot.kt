@@ -70,6 +70,7 @@ data class NativeRuntimeSnapshot(
     val lastAutolearnHost: String? = null,
     val lastAutolearnGroup: Int? = null,
     val lastAutolearnAction: String? = null,
+    val slotExhaustions: Long = 0,
     val tunnelStats: TunnelStats = TunnelStats(),
     val nativeEvents: List<NativeRuntimeEvent> = emptyList(),
     val latencyDistributions: LatencyDistributions? = null,

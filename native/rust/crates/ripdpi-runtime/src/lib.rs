@@ -33,6 +33,8 @@ pub trait RuntimeTelemetrySink: Send + Sync {
 
     fn on_failure_classified(&self, target: SocketAddr, failure: &ClassifiedFailure, host: Option<&str>);
 
+    fn on_client_slot_exhausted(&self) {}
+
     fn on_upstream_connected(&self, _upstream_addr: SocketAddr, _rtt_ms: Option<u64>) {}
 
     /// Called when the first upstream response is received for a TLS connection,

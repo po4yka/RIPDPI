@@ -77,6 +77,7 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) last_autolearn_host: Option<String>,
     pub(crate) last_autolearn_group: Option<i32>,
     pub(crate) last_autolearn_action: Option<String>,
+    pub(crate) slot_exhaustions: u64,
     pub(crate) tunnel_stats: TunnelStatsSnapshot,
     pub(crate) native_events: Vec<NativeRuntimeEvent>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -114,6 +115,7 @@ pub(crate) struct ProxyTelemetryState {
     learned_host_count: AtomicU64,
     penalized_host_count: AtomicU64,
     last_autolearn_group: AtomicI64,
+    slot_exhaustions: AtomicU64,
     strings: Mutex<TelemetryStrings>,
     tcp_connect_histogram: LatencyHistogram,
     tls_handshake_histogram: LatencyHistogram,
@@ -136,6 +138,7 @@ impl ProxyTelemetryState {
             learned_host_count: AtomicU64::new(0),
             penalized_host_count: AtomicU64::new(0),
             last_autolearn_group: AtomicI64::new(-1),
+            slot_exhaustions: AtomicU64::new(0),
             strings: Mutex::new(TelemetryStrings {
                 listener_address: None,
                 upstream_address: None,
@@ -410,6 +413,7 @@ impl ProxyTelemetryState {
                 _ => None,
             },
             last_autolearn_action,
+            slot_exhaustions: self.slot_exhaustions.load(Ordering::Relaxed),
             tunnel_stats: TunnelStatsSnapshot { tx_packets: 0, tx_bytes: 0, rx_packets: 0, rx_bytes: 0 },
             native_events,
             latency_distributions: LatencyDistributions {
@@ -457,6 +461,11 @@ pub(crate) struct ProxyTelemetryObserver {
 }
 
 impl RuntimeTelemetrySink for ProxyTelemetryObserver {
+    fn on_client_slot_exhausted(&self) {
+        self.state.slot_exhaustions.fetch_add(1, Ordering::Relaxed);
+        self.state.push_event("proxy", "warn", "client rejected: at capacity".to_string());
+    }
+
     fn on_listener_started(&self, bind_addr: std::net::SocketAddr, max_clients: usize, group_count: usize) {
         self.state.mark_running(bind_addr.to_string(), max_clients, group_count);
     }

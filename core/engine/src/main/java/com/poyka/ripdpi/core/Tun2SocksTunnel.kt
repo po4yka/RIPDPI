@@ -9,6 +9,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import logcat.LogPriority
+import logcat.logcat
 import javax.inject.Inject
 
 interface Tun2SocksBindings {
@@ -95,13 +97,16 @@ class Tun2SocksTunnel(
                     nativeBindings.create(Json.encodeToString(config))
                 }
             if (createdHandle == 0L) {
+                logcat(LogPriority.ERROR) { "Tunnel native session creation returned null handle" }
                 throw NativeError.SessionCreationFailed("tunnel")
             }
+            logcat(LogPriority.DEBUG) { "Tunnel native session created: handle=$createdHandle" }
 
             try {
                 withContext(Dispatchers.IO) {
                     nativeBindings.start(createdHandle, tunFd)
                 }
+                logcat(LogPriority.DEBUG) { "Tunnel native start completed: tunFd=$tunFd" }
                 handle = createdHandle
             } catch (e: Exception) {
                 withContext(Dispatchers.IO) {
