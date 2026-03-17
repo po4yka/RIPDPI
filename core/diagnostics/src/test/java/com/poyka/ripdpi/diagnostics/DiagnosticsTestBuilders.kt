@@ -4,6 +4,8 @@ import android.content.Context
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
@@ -44,6 +46,10 @@ internal fun createDiagnosticsManager(
         object : NetworkFingerprintProvider {
             override fun capture() = null
         },
+    nativeNetworkSnapshotProvider: NativeNetworkSnapshotProvider =
+        object : NativeNetworkSnapshotProvider {
+            override fun capture() = NativeNetworkSnapshot()
+        },
     resolverOverrideStore: ResolverOverrideStore = DefaultResolverOverrideStore(),
     policyHandoverEventStore: PolicyHandoverEventStore = DefaultPolicyHandoverEventStore(),
     automaticHandoverProbeDelayMs: Long = TestAutomaticHandoverProbeDelayMs,
@@ -60,6 +66,7 @@ internal fun createDiagnosticsManager(
         networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
         networkMetadataProvider = networkMetadataProvider,
         networkFingerprintProvider = networkFingerprintProvider,
+        nativeNetworkSnapshotProvider = nativeNetworkSnapshotProvider,
         diagnosticsContextProvider = diagnosticsContextProvider,
         networkDiagnosticsBridgeFactory = networkDiagnosticsBridgeFactory,
         runtimeCoordinator = runtimeCoordinator,
