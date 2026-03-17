@@ -10,7 +10,7 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.services.displayMessage
+import com.poyka.ripdpi.data.displayMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

@@ -1,4 +1,3 @@
-use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
@@ -14,7 +13,7 @@ use tokio::runtime::Runtime;
 use tokio_util::sync::CancellationToken;
 
 use crate::config::{config_from_payload, mapdns_resolver_protocol, parse_tunnel_config_json};
-use crate::telemetry::{NativeRuntimeSnapshot, TunnelTelemetryState};
+use crate::telemetry::TunnelTelemetryState;
 use crate::to_handle;
 
 pub(crate) static SESSIONS: Lazy<HandleRegistry<TunnelSession>> = Lazy::new(HandleRegistry::new);
@@ -371,7 +370,9 @@ fn rollback_failed_tunnel_start(session: &TunnelSession, owned_fd: i32, message:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::Ordering;
     use crate::config::sample_payload;
+    use crate::telemetry::NativeRuntimeSnapshot;
     use hs5t_core::Stats;
     use proptest::collection::vec;
     use proptest::prelude::*;
