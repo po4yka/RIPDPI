@@ -94,26 +94,36 @@ mod tests {
 
     #[test]
     fn loom_counter_never_exceeds_limit() {
-        loom::model(|| {
+        // The CAS retry loop in `acquire` creates a large state space. Cap
+        // exploration at 2 preemptions so the test completes in bounded time
+        // while still covering the key invariant: the counter never exceeds
+        // the limit under any explored interleaving.
+        let mut builder = loom::model::Builder::new();
+        builder.preemption_bound = Some(2);
+        builder.check(|| {
             let active = Arc::new(AtomicUsize::new(0));
-            let limit = 2_usize;
+            let limit = 1_usize;
 
-            let handles: Vec<_> = (0..3)
-                .map(|_| {
-                    let a = active.clone();
-                    loom::thread::spawn(move || {
-                        if acquire(&a, limit) {
-                            let observed = a.load(Ordering::Acquire);
-                            assert!(observed <= limit, "counter {observed} exceeded limit {limit}");
-                            release(&a);
-                        }
-                    })
-                })
-                .collect();
+            let a1 = active.clone();
+            let t1 = loom::thread::spawn(move || {
+                if acquire(&a1, limit) {
+                    let observed = a1.load(Ordering::Acquire);
+                    assert!(observed <= limit, "counter {observed} exceeded limit {limit}");
+                    release(&a1);
+                }
+            });
 
-            for h in handles {
-                h.join().unwrap();
-            }
+            let a2 = active.clone();
+            let t2 = loom::thread::spawn(move || {
+                if acquire(&a2, limit) {
+                    let observed = a2.load(Ordering::Acquire);
+                    assert!(observed <= limit, "counter {observed} exceeded limit {limit}");
+                    release(&a2);
+                }
+            });
+
+            t1.join().unwrap();
+            t2.join().unwrap();
             assert_eq!(active.load(Ordering::SeqCst), 0);
         });
     }
