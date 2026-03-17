@@ -6,8 +6,6 @@ use std::net::SocketAddr;
 use std::sync::OnceLock;
 
 use crate::sync::{AtomicBool, Arc, Ordering};
-#[cfg(not(feature = "loom"))]
-use crate::sync::Mutex;
 
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_proxy_config::ProxyRuntimeContext;
@@ -151,19 +149,25 @@ pub(crate) fn current_runtime_telemetry() -> Option<Arc<dyn RuntimeTelemetrySink
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "loom"))]
     use super::*;
+    #[cfg(not(feature = "loom"))]
     use crate::sync::AtomicUsize;
 
+    #[cfg(not(feature = "loom"))]
+    #[allow(dead_code)]
     struct CountingSink {
         accepted: AtomicUsize,
     }
 
+    #[cfg(not(feature = "loom"))]
     impl CountingSink {
         fn new() -> Self {
             Self { accepted: AtomicUsize::new(0) }
         }
     }
 
+    #[cfg(not(feature = "loom"))]
     impl RuntimeTelemetrySink for CountingSink {
         fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {}
 
