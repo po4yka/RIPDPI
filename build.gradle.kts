@@ -21,6 +21,7 @@ import org.gradle.process.ExecOperations
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
+    alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.ksp) apply false
@@ -188,6 +189,7 @@ tasks.register("staticAnalysis") {
     group = "verification"
     description = "Runs detekt, ktlint, Android Lint, and file LoC checks across all modules"
     dependsOn(
+        ":quality:detekt-rules:test",
         tasks.named("checkFileLocLimits"),
         androidModulePaths.map { "$it:detekt" },
         lintModulePaths.map { "$it:lintDebug" },
