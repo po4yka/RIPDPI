@@ -30,6 +30,7 @@ import javax.inject.Inject
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -360,7 +361,7 @@ class RipDpiVpnService : LifecycleVpnService() {
 
         val exitResult = CompletableDeferred<Result<Int>>()
         val job =
-            lifecycleScope.launch(Dispatchers.IO) {
+            lifecycleScope.launch(Dispatchers.IO, start = CoroutineStart.UNDISPATCHED) {
                 try {
                     exitResult.complete(runCatching { proxyInstance.startProxy(preferences) })
                 } finally {
@@ -374,15 +375,20 @@ class RipDpiVpnService : LifecycleVpnService() {
         try {
             proxyInstance.awaitReady()
         } catch (e: Exception) {
+            val proxyStartWasActive = job.isActive
             runCatching {
-                if (job.isActive) {
+                if (proxyStartWasActive) {
                     proxyInstance.stopProxy()
                 }
             }
             job.join()
             proxyJob = null
             ripDpiProxy = null
-            throw e
+            throw resolveProxyStartupFailure(
+                readinessError = e,
+                proxyStartWasActive = proxyStartWasActive,
+                proxyStartResult = exitResult.await(),
+            )
         }
 
         job.invokeOnCompletion {
