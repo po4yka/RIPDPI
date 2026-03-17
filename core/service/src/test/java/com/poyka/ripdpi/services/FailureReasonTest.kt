@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.NativeError
+import com.poyka.ripdpi.data.NativeError
 import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

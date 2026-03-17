@@ -17,9 +17,9 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.DefaultServiceStateStore
-import com.poyka.ripdpi.services.ServiceStateStore
-import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.NativeError
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex

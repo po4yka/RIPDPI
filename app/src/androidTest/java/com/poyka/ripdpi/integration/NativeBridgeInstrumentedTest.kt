@@ -8,7 +8,7 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.Tun2SocksNativeBindings
 import com.poyka.ripdpi.core.Tun2SocksTunnel
-import com.poyka.ripdpi.core.TunnelStats
+import com.poyka.ripdpi.data.TunnelStats
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket

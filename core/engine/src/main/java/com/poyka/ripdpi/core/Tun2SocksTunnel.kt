@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.NativeError
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.TunnelStats
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -201,21 +204,3 @@ data class Tun2SocksConfig(
     val logLevel: String = "warn",
     val limitNofile: Int? = null,
 )
-
-@Serializable
-data class TunnelStats(
-    val txPackets: Long = 0,
-    val txBytes: Long = 0,
-    val rxPackets: Long = 0,
-    val rxBytes: Long = 0,
-) {
-    companion object {
-        fun fromNative(stats: LongArray): TunnelStats =
-            TunnelStats(
-                txPackets = stats.getOrElse(0) { 0L },
-                txBytes = stats.getOrElse(1) { 0L },
-                rxPackets = stats.getOrElse(2) { 0L },
-                rxBytes = stats.getOrElse(3) { 0L },
-            )
-    }
-}

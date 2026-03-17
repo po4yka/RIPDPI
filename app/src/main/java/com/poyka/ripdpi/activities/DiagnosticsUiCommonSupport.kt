@@ -18,7 +18,7 @@ import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
-import com.poyka.ripdpi.services.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import java.util.Date
 import java.util.Locale
 import kotlinx.serialization.builtins.ListSerializer

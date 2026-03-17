@@ -12,7 +12,7 @@ import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import javax.inject.Inject
 
 internal class DiagnosticsUiStateFactory

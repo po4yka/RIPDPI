@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.services
 
 import app.cash.turbine.test
-import com.poyka.ripdpi.core.NativeRuntimeEvent
-import com.poyka.ripdpi.core.NativeRuntimeSnapshot
-import com.poyka.ripdpi.core.TunnelStats
+import com.poyka.ripdpi.data.NativeRuntimeEvent
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender

@@ -22,10 +22,10 @@ import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.TcpTarget
-import com.poyka.ripdpi.services.ResolverOverrideStore
+import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.services.RipDpiProxyService
 import com.poyka.ripdpi.services.RipDpiVpnService
-import com.poyka.ripdpi.services.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceStateStore
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject

@@ -11,7 +11,7 @@ import com.poyka.ripdpi.hosts.HostPackCatalogRepository
 import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.services.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceStateStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow

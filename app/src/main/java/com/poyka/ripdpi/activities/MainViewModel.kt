@@ -32,11 +32,11 @@ import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.FailureReason
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.services.displayMessage
 import com.poyka.ripdpi.services.ServiceController
-import com.poyka.ripdpi.services.ServiceEvent
-import com.poyka.ripdpi.services.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

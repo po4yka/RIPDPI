@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.NativeRuntimeEvent
-import com.poyka.ripdpi.core.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NativeRuntimeEvent
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import java.nio.file.Files
