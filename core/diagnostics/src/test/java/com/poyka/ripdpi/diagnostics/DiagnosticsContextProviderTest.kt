@@ -2,7 +2,10 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
@@ -17,9 +20,6 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.data.DefaultServiceStateStore
-import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -41,43 +41,50 @@ class DiagnosticsContextProviderTest {
                 object : DiagnosticsHistoryRepository {
                     override fun observeProfiles(): Flow<List<DiagnosticProfileEntity>> = MutableStateFlow(emptyList())
 
-                    override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> = MutableStateFlow(emptyList())
+                    override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> =
+                        MutableStateFlow(emptyList())
 
-                    override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = MutableStateFlow(emptyList())
+                    override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> =
+                        MutableStateFlow(emptyList())
 
                     override fun observeConnectionSnapshots(
                         connectionSessionId: String,
                         limit: Int,
                     ): Flow<List<NetworkSnapshotEntity>> = MutableStateFlow(emptyList())
 
-                    override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> = MutableStateFlow(emptyList())
+                    override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> =
+                        MutableStateFlow(emptyList())
 
                     override fun observeConnectionContexts(
                         connectionSessionId: String,
                         limit: Int,
                     ): Flow<List<DiagnosticContextEntity>> = MutableStateFlow(emptyList())
 
-                    override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> = MutableStateFlow(emptyList())
+                    override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> =
+                        MutableStateFlow(emptyList())
 
                     override fun observeConnectionTelemetry(
                         connectionSessionId: String,
                         limit: Int,
                     ): Flow<List<TelemetrySampleEntity>> = MutableStateFlow(emptyList())
 
-                    override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = MutableStateFlow(emptyList())
+                    override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> =
+                        MutableStateFlow(emptyList())
 
                     override fun observeConnectionNativeEvents(
                         connectionSessionId: String,
                         limit: Int,
                     ): Flow<List<NativeSessionEventEntity>> = MutableStateFlow(emptyList())
 
-                    override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = MutableStateFlow(emptyList())
+                    override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> =
+                        MutableStateFlow(emptyList())
 
                     override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> =
                         MutableStateFlow(emptyList())
 
-                    override fun observeRememberedNetworkPolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
-                        MutableStateFlow(emptyList())
+                    override fun observeRememberedNetworkPolicies(
+                        limit: Int,
+                    ): Flow<List<RememberedNetworkPolicyEntity>> = MutableStateFlow(emptyList())
 
                     override suspend fun getProfile(id: String): DiagnosticProfileEntity? =
                         DiagnosticProfileEntity(
@@ -118,7 +125,10 @@ class DiagnosticsContextProviderTest {
 
                     override suspend fun upsertScanSession(session: ScanSessionEntity) = Unit
 
-                    override suspend fun replaceProbeResults(sessionId: String, results: List<ProbeResultEntity>) = Unit
+                    override suspend fun replaceProbeResults(
+                        sessionId: String,
+                        results: List<ProbeResultEntity>,
+                    ) = Unit
 
                     override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) = Unit
 
@@ -132,7 +142,8 @@ class DiagnosticsContextProviderTest {
 
                     override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) = Unit
 
-                    override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long = policy.id
+                    override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long =
+                        policy.id
 
                     override suspend fun upsertNetworkDnsPathPreference(
                         preference: NetworkDnsPathPreferenceEntity,

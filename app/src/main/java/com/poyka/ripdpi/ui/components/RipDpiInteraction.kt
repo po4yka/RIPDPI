@@ -31,32 +31,47 @@ enum class RipDpiHapticFeedback {
 private fun View.performRipDpiHapticFeedback(feedback: RipDpiHapticFeedback) {
     val platformFeedback =
         when (feedback) {
-            RipDpiHapticFeedback.None -> return
-            RipDpiHapticFeedback.Action -> HapticFeedbackConstants.VIRTUAL_KEY
-            RipDpiHapticFeedback.Selection -> HapticFeedbackConstants.CLOCK_TICK
-            RipDpiHapticFeedback.Toggle -> HapticFeedbackConstants.KEYBOARD_TAP
+            RipDpiHapticFeedback.None -> {
+                return
+            }
+
+            RipDpiHapticFeedback.Action -> {
+                HapticFeedbackConstants.VIRTUAL_KEY
+            }
+
+            RipDpiHapticFeedback.Selection -> {
+                HapticFeedbackConstants.CLOCK_TICK
+            }
+
+            RipDpiHapticFeedback.Toggle -> {
+                HapticFeedbackConstants.KEYBOARD_TAP
+            }
+
             RipDpiHapticFeedback.Confirm,
             RipDpiHapticFeedback.Success,
-            ->
+            -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     HapticFeedbackConstants.CONFIRM
                 } else {
                     HapticFeedbackConstants.VIRTUAL_KEY
                 }
+            }
 
-            RipDpiHapticFeedback.Error ->
+            RipDpiHapticFeedback.Error -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     HapticFeedbackConstants.REJECT
                 } else {
                     HapticFeedbackConstants.LONG_PRESS
                 }
+            }
 
-            RipDpiHapticFeedback.Acknowledge ->
+            RipDpiHapticFeedback.Acknowledge -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     HapticFeedbackConstants.CONTEXT_CLICK
                 } else {
                     HapticFeedbackConstants.VIRTUAL_KEY
                 }
+            }
         }
     performHapticFeedback(platformFeedback)
 }

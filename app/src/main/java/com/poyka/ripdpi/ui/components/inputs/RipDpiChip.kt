@@ -28,8 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -109,10 +109,11 @@ fun RipDpiChip(
                 selected -> motion.selectionScale
                 else -> 1f
             },
-        animationSpec = tween(
-            durationMillis = motion.duration(motion.quickDurationMillis),
-            easing = FastOutSlowInEasing,
-        ),
+        animationSpec =
+            tween(
+                durationMillis = motion.duration(motion.quickDurationMillis),
+                easing = FastOutSlowInEasing,
+            ),
         label = "chipScale",
     )
 
@@ -122,8 +123,7 @@ fun RipDpiChip(
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
-                }
-                .background(animatedContainer, RipDpiThemeTokens.shapes.lg)
+                }.background(animatedContainer, RipDpiThemeTokens.shapes.lg)
                 .border(1.dp, animatedBorderColor, RipDpiThemeTokens.shapes.lg)
                 .focusable(enabled = enabled, interactionSource = interactionSource)
                 .ripDpiSelectable(
@@ -133,12 +133,10 @@ fun RipDpiChip(
                     interactionSource = interactionSource,
                     hapticFeedback = hapticFeedback,
                     onClick = onClick,
-                )
-                .padding(
+                ).padding(
                     horizontal = horizontalPadding,
                     vertical = verticalPadding,
-                )
-                .alpha(if (enabled) 1f else 0.38f),
+                ).alpha(if (enabled) 1f else 0.38f),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

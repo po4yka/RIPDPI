@@ -21,7 +21,8 @@ enum class RttBand(
     Between100And249("100_249"),
     Between250And499("250_499"),
     Gte500("500_plus"),
-    Unknown("unknown");
+    Unknown("unknown"),
+    ;
 
     companion object
 }
@@ -113,14 +114,23 @@ fun classifyFailureClass(
 
 private fun classifyFailureReasonDirectly(failureReason: FailureReason?): FailureClass? =
     when (failureReason) {
-        null -> null
-        FailureReason.TunnelEstablishmentFailed -> FailureClass.TunnelEstablish
-        is FailureReason.NativeError ->
+        null -> {
+            null
+        }
+
+        FailureReason.TunnelEstablishmentFailed -> {
+            FailureClass.TunnelEstablish
+        }
+
+        is FailureReason.NativeError -> {
             classifyFailureText(failureReason.message) ?: FailureClass.NativeIo
-        is FailureReason.Unexpected ->
+        }
+
+        is FailureReason.Unexpected -> {
             failureReason.cause.message
                 ?.let(::classifyFailureText)
                 ?: FailureClass.Unexpected
+        }
     }
 
 private fun latestFailureText(
@@ -147,49 +157,58 @@ private fun classifyFailureText(text: String): FailureClass? {
     return when {
         normalized.contains("tunnel establishment") ||
             normalized.contains("vpn field not null") ||
-            normalized.contains("tun fd") ->
+            normalized.contains("tun fd") -> {
             FailureClass.TunnelEstablish
+        }
 
         normalized.contains("dns_substitution") ||
             normalized.contains("dns_expected_mismatch") ||
             normalized.contains("udp dns") ||
             normalized.contains("resolver override") ||
             normalized.contains("dns failure") ||
-            normalized.contains("dns blocked") ->
+            normalized.contains("dns blocked") -> {
             FailureClass.DnsInterference
+        }
 
         normalized.contains("tls") ||
             normalized.contains("ssl") ||
             normalized.contains("mitm") ||
             normalized.contains("handshake") ||
             normalized.contains("whitelist_sni") ||
-            normalized.contains("sni block") ->
+            normalized.contains("sni block") -> {
             FailureClass.TlsInterference
+        }
 
         normalized.contains("timeout") ||
-            normalized.contains("timed out") ->
+            normalized.contains("timed out") -> {
             FailureClass.Timeout
+        }
 
         normalized.contains("connection reset") ||
             normalized.contains("connection aborted") ||
             normalized.contains("broken pipe") ||
             normalized.contains("reset") ||
-            normalized.contains("abort") ->
+            normalized.contains("abort") -> {
             FailureClass.ResetAbort
+        }
 
         normalized.contains("transport_switch") ||
             normalized.contains("connectivity_loss") ||
             normalized.contains("link_refresh") ||
-            normalized.contains("handover") ->
+            normalized.contains("handover") -> {
             FailureClass.NetworkHandover
+        }
 
         normalized.contains("i/o") ||
             normalized.contains("socket") ||
             normalized.contains("proxy exited") ||
-            normalized.contains("native error") ->
+            normalized.contains("native error") -> {
             FailureClass.NativeIo
+        }
 
-        else -> null
+        else -> {
+            null
+        }
     }
 }
 

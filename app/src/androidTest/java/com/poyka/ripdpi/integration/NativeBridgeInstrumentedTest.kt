@@ -9,9 +9,6 @@ import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.Tun2SocksNativeBindings
 import com.poyka.ripdpi.core.Tun2SocksTunnel
 import com.poyka.ripdpi.data.TunnelStats
-import java.net.InetSocketAddress
-import java.net.ServerSocket
-import java.net.Socket
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -21,6 +18,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.net.Socket
 
 class NativeBridgeInstrumentedTest {
     @Test

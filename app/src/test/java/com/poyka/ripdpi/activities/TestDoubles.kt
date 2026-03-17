@@ -1,23 +1,23 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
-import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.permissions.PermissionSnapshot
+import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
-import com.poyka.ripdpi.permissions.PermissionSnapshot
-import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.services.ServiceController
-import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +36,11 @@ class FakeAppSettingsRepository(
     override suspend fun snapshot(): AppSettings = state.value
 
     override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value = state.value.toBuilder().apply(transform).build()
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
     }
 
     override suspend fun replace(settings: AppSettings) {
@@ -62,7 +66,10 @@ class FakeServiceStateStore(
         statusState.value = status to mode
     }
 
-    override fun emitFailed(sender: Sender, reason: FailureReason) {
+    override fun emitFailed(
+        sender: Sender,
+        reason: FailureReason,
+    ) {
         eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
     }
 
@@ -104,13 +111,14 @@ class FakeStringResolver : StringResolver {
     override fun getString(
         resId: Int,
         vararg formatArgs: Any,
-    ): String = buildString {
-        append(resId)
-        if (formatArgs.isNotEmpty()) {
-            append(':')
-            append(formatArgs.joinToString(","))
+    ): String =
+        buildString {
+            append(resId)
+            if (formatArgs.isNotEmpty()) {
+                append(':')
+                append(formatArgs.joinToString(","))
+            }
         }
-    }
 }
 
 class FakeTrafficStatsReader(

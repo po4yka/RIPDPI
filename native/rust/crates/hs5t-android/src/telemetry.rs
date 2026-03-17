@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use hs5t_core::DnsStatsSnapshot;
+use ripdpi_telemetry::{LatencyDistributions, LatencyHistogram};
 use serde::Serialize;
 
 pub(crate) const MAX_TUNNEL_EVENTS: usize = 128;
@@ -57,6 +58,8 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) last_dns_error: Option<String>,
     pub(crate) tunnel_stats: TunnelStatsSnapshot,
     pub(crate) native_events: Vec<NativeRuntimeEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) latency_distributions: Option<LatencyDistributions>,
     pub(crate) captured_at: u64,
 }
 
@@ -67,6 +70,7 @@ pub(crate) struct TunnelTelemetryState {
     upstream_address: Mutex<Option<String>>,
     last_error: Mutex<Option<String>>,
     events: Mutex<VecDeque<NativeRuntimeEvent>>,
+    pub(crate) dns_histogram: LatencyHistogram,
 }
 
 impl TunnelTelemetryState {
@@ -78,6 +82,7 @@ impl TunnelTelemetryState {
             upstream_address: Mutex::new(None),
             last_error: Mutex::new(None),
             events: Mutex::new(VecDeque::with_capacity(MAX_TUNNEL_EVENTS)),
+            dns_histogram: LatencyHistogram::new(),
         }
     }
 
@@ -161,6 +166,11 @@ impl TunnelTelemetryState {
                 rx_bytes: traffic_stats.3,
             },
             native_events: self.drain_events(),
+            latency_distributions: LatencyDistributions {
+                dns_resolution: self.dns_histogram.snapshot(),
+                ..Default::default()
+            }
+            .into_option(),
             captured_at: now_ms(),
         }
     }

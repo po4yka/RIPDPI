@@ -8,50 +8,32 @@
     <ID>ComplexCondition:StrategyChains.kt$trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') || trimmed.contains("..")</ID>
     <ID>CyclomaticComplexMethod:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, dnsDohUrl: String, dnsDohBootstrapIps: Iterable&lt;String&gt;, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
     <ID>CyclomaticComplexMethod:EncryptedDnsPathSelection.kt$fun buildEncryptedDnsCandidatePlan( activeDns: ActiveDnsSettings, preferredPath: EncryptedDnsPathCandidate? = null, ): List&lt;EncryptedDnsPathCandidate&gt;</ID>
+    <ID>CyclomaticComplexMethod:ServiceTelemetry.kt$private fun classifyFailureText(text: String): FailureClass?</ID>
     <ID>CyclomaticComplexMethod:StrategyFamilies.kt$fun strategyLaneFamilyLabel(family: String): String</ID>
     <ID>LongMethod:AppSettingsJson.kt$private fun AppSettings.toSnapshot(): AppSettingsSnapshot</ID>
     <ID>LongMethod:AppSettingsJson.kt$private fun AppSettingsSnapshot.toAppSettings(): AppSettings</ID>
     <ID>LongMethod:AppSettingsJsonTest.kt$AppSettingsJsonTest$@Test fun `settings round trip through json`()</ID>
     <ID>LongMethod:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, dnsDohUrl: String, dnsDohBootstrapIps: Iterable&lt;String&gt;, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
     <ID>LongMethod:HostPackCatalogTest.kt$HostPackCatalogTest$@Test fun `curated geosite extraction keeps root and full domains only`()</ID>
+    <ID>LongMethod:StrategyChains.kt$private fun parseTcpStep( kind: TcpChainStepKind, spec: String, lineNumber: Int, ): TcpChainStepModel</ID>
     <ID>MagicNumber:AdaptiveFakeTtlSettings.kt$255</ID>
-    <ID>MagicNumber:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository$1000L</ID>
-    <ID>MagicNumber:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository$24L</ID>
-    <ID>MagicNumber:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository$60L</ID>
     <ID>MagicNumber:DnsResolverConfig.kt$443</ID>
     <ID>MagicNumber:DnsResolverConfig.kt$80</ID>
     <ID>MagicNumber:DnsResolverConfig.kt$853</ID>
     <ID>MagicNumber:MarkerExpressions.kt$3</ID>
+    <ID>MagicNumber:NativeRuntimeSnapshot.kt$TunnelStats.Companion$3</ID>
     <ID>MagicNumber:NetworkStrategyMemory.kt$16</ID>
     <ID>MagicNumber:NetworkStrategyMemory.kt$4</ID>
     <ID>MagicNumber:QuicSettings.kt$255</ID>
     <ID>MagicNumber:QuicSettings.kt$4</ID>
+    <ID>MagicNumber:ServiceTelemetry.kt$100L</ID>
+    <ID>MagicNumber:ServiceTelemetry.kt$250L</ID>
+    <ID>MagicNumber:ServiceTelemetry.kt$500L</ID>
+    <ID>MagicNumber:ServiceTelemetry.kt$50L</ID>
     <ID>MagicNumber:StrategyChains.kt$16</ID>
     <ID>MagicNumber:StrategyChains.kt$255</ID>
     <ID>MagicNumber:StrategyChains.kt$4</ID>
     <ID>MagicNumber:StrategyChains.kt$4096</ID>
-    <ID>MagicNumber:ValidateUtils.kt$65535</ID>
-    <ID>MaxLineLength:AdaptiveFakeTtlSettings.kt$fun AppSettings.effectiveAdaptiveFakeTtlMax(): Int</ID>
-    <ID>MaxLineLength:AdaptiveFakeTtlSettings.kt$normalizeAdaptiveFakeTtlFallback(adaptiveFakeTtlFallback, fakeTtl.takeIf { it &gt; 0 } ?: DefaultAdaptiveFakeTtlFallback)</ID>
-    <ID>MaxLineLength:AppSettingsJson.kt$.</ID>
-    <ID>MaxLineLength:AppSettingsJson.kt$activationFilter = if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel()</ID>
-    <ID>MaxLineLength:AppSettingsJson.kt$fun appSettingsFromJson(payload: String): AppSettings</ID>
-    <ID>MaxLineLength:AppSettingsJson.kt$groupActivationFilter = if (hasGroupActivationFilter()) groupActivationFilter.toModel().let(::normalizeActivationFilter) else ActivationFilterModel()</ID>
-    <ID>MaxLineLength:HostPackCatalog.kt$fun hostPackCatalogSnapshotFromJson(payload: String): HostPackCatalogSnapshot</ID>
-    <ID>MaxLineLength:MarkerExpressions.kt$fun AppSettings.effectiveSplitMarker(): String</ID>
-    <ID>MaxLineLength:NetworkStrategyMemory.kt$dnsDohBootstrapIps = if (encryptedDnsProtocol == EncryptedDnsProtocolDoh) encryptedDnsBootstrapIps else emptyList()</ID>
-    <ID>MaxLineLength:QuicSettings.kt$if</ID>
-    <ID>MaxLineLength:RememberedNetworkPolicyStore.kt$DefaultRememberedNetworkPolicyStore$winningQuicStrategyFamily = policy.winningQuicStrategyFamily ?: existing.winningQuicStrategyFamily</ID>
-    <ID>MaxLineLength:RememberedNetworkPolicyStore.kt$fun</ID>
-    <ID>MaxLineLength:RememberedNetworkPolicyStore.kt$runCatching { json.decodeFromString(com.poyka.ripdpi.data.VpnDnsPolicyJson.serializer(), payload) }.getOrNull()</ID>
-    <ID>MaxLineLength:StrategyChains.kt$TcpChainStepKind.Companion$fun fromWireName(value: String): TcpChainStepKind?</ID>
-    <ID>MaxLineLength:StrategyChains.kt$UdpChainStepKind.Companion$fun fromWireName(value: String): UdpChainStepKind?</ID>
-    <ID>MaxLineLength:StrategyChains.kt$if</ID>
-    <ID>MaxLineLength:StrategyChains.kt$require(kind == TcpChainStepKind.HostFake) { "host template is only supported for hostfake on line $lineNumber" }</ID>
-    <ID>MaxLineLength:StrategyChains.kt$require(kind == TcpChainStepKind.HostFake) { "midhost is only supported for hostfake on line $lineNumber" }</ID>
-    <ID>MaxLineLength:StrategyChains.kt$require(kind == TcpChainStepKind.TlsRandRec) { "count is only supported for tlsrandrec on line $lineNumber" }</ID>
-    <ID>MaxLineLength:StrategyChains.kt$require(kind == TcpChainStepKind.TlsRandRec) { "max is only supported for tlsrandrec on line $lineNumber" }</ID>
-    <ID>MaxLineLength:StrategyChains.kt$require(kind == TcpChainStepKind.TlsRandRec) { "min is only supported for tlsrandrec on line $lineNumber" }</ID>
     <ID>ReturnCount:ActivationFilters.kt$fun formatNumericRange(range: NumericRangeModel): String?</ID>
     <ID>ReturnCount:ActivationFilters.kt$private fun normalizeNumericRange( start: Long?, end: Long?, minValue: Long, ): NumericRangeModel</ID>
     <ID>ReturnCount:DnsResolverConfig.kt$fun activeDnsSettings( dnsMode: String, dnsProviderId: String, dnsIp: String, dnsDohUrl: String, dnsDohBootstrapIps: Iterable&lt;String&gt;, encryptedDnsProtocol: String = "", encryptedDnsHost: String = "", encryptedDnsPort: Int = 0, encryptedDnsTlsServerName: String = "", encryptedDnsBootstrapIps: Iterable&lt;String&gt; = emptyList(), encryptedDnsDohUrl: String = "", encryptedDnsDnscryptProviderName: String = "", encryptedDnsDnscryptPublicKey: String = "", ): ActiveDnsSettings</ID>
@@ -59,11 +41,9 @@
     <ID>ReturnCount:HostPackCatalog.kt$fun normalizeHostSpecToken(token: String): String?</ID>
     <ID>ReturnCount:MarkerExpressions.kt$fun isValidOffsetExpression(value: String): Boolean</ID>
     <ID>ReturnCount:QuicSettings.kt$fun normalizeQuicFakeHost(value: String): String</ID>
+    <ID>ReturnCount:ServiceTelemetry.kt$fun classifyFailureClass( failureReason: FailureReason?, proxyTelemetry: NativeRuntimeSnapshot, tunnelTelemetry: NativeRuntimeSnapshot, ): FailureClass?</ID>
     <ID>ReturnCount:StrategyChains.kt$fun rewritePrimaryTcpMarker( tcpSteps: List&lt;TcpChainStepModel&gt;, marker: String, ): List&lt;TcpChainStepModel&gt;</ID>
     <ID>ReturnCount:StrategyChains.kt$private fun normalizeFakeHostTemplate( kind: TcpChainStepKind, template: String, ): String</ID>
-    <ID>TooManyFunctions:DiagnosticsDatabase.kt$DiagnosticsDao</ID>
-    <ID>TooManyFunctions:DiagnosticsDatabase.kt$DiagnosticsHistoryRepository</ID>
-    <ID>TooManyFunctions:DiagnosticsDatabase.kt$RoomDiagnosticsHistoryRepository : DiagnosticsHistoryRepository</ID>
     <ID>TooManyFunctions:StrategyChains.kt$com.poyka.ripdpi.data.StrategyChains.kt</ID>
     <ID>TopLevelPropertyNaming:Actions.kt$const val START_ACTION = "start"</ID>
     <ID>TopLevelPropertyNaming:Actions.kt$const val STOP_ACTION = "stop"</ID>

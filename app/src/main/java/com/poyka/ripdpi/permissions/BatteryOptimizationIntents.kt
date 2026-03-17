@@ -16,23 +16,27 @@ internal object BatteryOptimizationIntents {
         packageName: String,
         sdkInt: Int = Build.VERSION.SDK_INT,
         canHandleIntent: (Intent) -> Boolean,
-    ): Intent {
-        return when (
+    ): Intent =
+        when (
             resolveRoute(sdkInt = sdkInt) { action ->
                 canHandleIntent(createIntentForAction(action = action, packageName = packageName))
             }
         ) {
-            BatteryOptimizationRoute.DirectRequest ->
+            BatteryOptimizationRoute.DirectRequest -> {
                 createIntentForAction(
                     action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
                     packageName = packageName,
                 )
+            }
 
-            BatteryOptimizationRoute.SettingsList -> Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            BatteryOptimizationRoute.SettingsList -> {
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            }
 
-            BatteryOptimizationRoute.AppDetails -> createAppDetailsIntent(packageName)
+            BatteryOptimizationRoute.AppDetails -> {
+                createAppDetailsIntent(packageName)
+            }
         }
-    }
 
     fun createAppDetailsIntent(packageName: String): Intent =
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {

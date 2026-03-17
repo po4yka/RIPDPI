@@ -146,9 +146,10 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
                 transitionSpec = {
                     androidx.compose.animation.fadeIn(
                         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                    ) togetherWith androidx.compose.animation.fadeOut(
-                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                    )
+                    ) togetherWith
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
                 },
                 label = "telemetryMetricValue",
             ) { value ->
@@ -367,11 +368,12 @@ private fun TelegramTransferSection(
     val avgSpeed = formatBps(avgBps?.toLongOrNull() ?: 0)
     val peakSpeed = formatBps(peakBps?.toLongOrNull() ?: 0)
     val totalBytes = formatTransferBytes(bytes?.toLongOrNull() ?: 0)
-    val tone = when (status) {
-        "ok" -> StatusIndicatorTone.Active
-        "slow", "stalled" -> StatusIndicatorTone.Warning
-        else -> StatusIndicatorTone.Error
-    }
+    val tone =
+        when (status) {
+            "ok" -> StatusIndicatorTone.Active
+            "slow", "stalled" -> StatusIndicatorTone.Warning
+            else -> StatusIndicatorTone.Error
+        }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -393,17 +395,19 @@ private fun TelegramTransferSection(
     }
 }
 
-private fun formatBps(bps: Long): String = when {
-    bps >= 1_000_000 -> String.format(java.util.Locale.US, "%.1f Mbps", bps / 1_000_000.0)
-    bps >= 1_000 -> String.format(java.util.Locale.US, "%.1f Kbps", bps / 1_000.0)
-    else -> "$bps Bps"
-}
+private fun formatBps(bps: Long): String =
+    when {
+        bps >= 1_000_000 -> String.format(java.util.Locale.US, "%.1f Mbps", bps / 1_000_000.0)
+        bps >= 1_000 -> String.format(java.util.Locale.US, "%.1f Kbps", bps / 1_000.0)
+        else -> "$bps Bps"
+    }
 
-private fun formatTransferBytes(bytes: Long): String = when {
-    bytes >= 1_000_000 -> String.format(java.util.Locale.US, "%.1f MB", bytes / 1_000_000.0)
-    bytes >= 1_000 -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1_000.0)
-    else -> "$bytes B"
-}
+private fun formatTransferBytes(bytes: Long): String =
+    when {
+        bytes >= 1_000_000 -> String.format(java.util.Locale.US, "%.1f MB", bytes / 1_000_000.0)
+        bytes >= 1_000 -> String.format(java.util.Locale.US, "%.1f KB", bytes / 1_000.0)
+        else -> "$bytes B"
+    }
 
 @Composable
 internal fun ProbeResultRow(
@@ -457,7 +461,9 @@ internal fun EventRow(
     val colors = RipDpiThemeTokens.colors
     RipDpiCard(
         onClick = onClick,
-        paddingValues = androidx.compose.foundation.layout.PaddingValues(RipDpiThemeTokens.layout.cardPadding),
+        paddingValues =
+            androidx.compose.foundation.layout
+                .PaddingValues(RipDpiThemeTokens.layout.cardPadding),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

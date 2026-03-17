@@ -33,7 +33,5 @@ class AndroidTrafficStatsReader
 abstract class TrafficStatsBindingsModule {
     @Binds
     @Singleton
-    abstract fun bindTrafficStatsReader(
-        reader: AndroidTrafficStatsReader,
-    ): TrafficStatsReader
+    abstract fun bindTrafficStatsReader(reader: AndroidTrafficStatsReader): TrafficStatsReader
 }

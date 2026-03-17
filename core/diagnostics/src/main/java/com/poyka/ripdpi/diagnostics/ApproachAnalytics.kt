@@ -1,45 +1,45 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
-import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
+import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
-import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
+import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
+import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.activeHttpParserEvasions
+import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMin
-import com.poyka.ripdpi.data.effectiveGroupActivationFilter
-import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
-import com.poyka.ripdpi.data.effectiveHttpFakeProfile
-import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
+import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
+import com.poyka.ripdpi.data.effectiveGroupActivationFilter
+import com.poyka.ripdpi.data.effectiveHttpFakeProfile
 import com.poyka.ripdpi.data.effectiveQuicFakeHost
 import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveTlsFakeProfile
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpFakeProfile
-import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
-import com.poyka.ripdpi.data.formatNumericRange
 import com.poyka.ripdpi.data.formatChainSummary
+import com.poyka.ripdpi.data.formatNumericRange
 import com.poyka.ripdpi.data.hasCustomFakeTlsProfile
 import com.poyka.ripdpi.data.legacyDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
-import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.utility.shellSplit
 import com.poyka.ripdpi.proto.AppSettings
-import java.security.MessageDigest
+import com.poyka.ripdpi.utility.shellSplit
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.security.MessageDigest
 
 @Serializable
 data class BypassApproachId(
@@ -177,7 +177,8 @@ fun deriveBypassStrategySignature(
     val fakeTlsProfileActive = hasFakeStep && settings.desyncHttps && settings.hasCustomFakeTlsProfile()
     val commandLineRawFakePayload = settings.enableCmdSettings && hasCommandLineRawFakePayload(settings.cmdArgs)
     val quicFakeProfile = settings.effectiveQuicFakeProfile()
-    val quicFakeProfileActive = !settings.enableCmdSettings && settings.desyncUdp && quicFakeProfile != QuicFakeProfileDisabled
+    val quicFakeProfileActive =
+        !settings.enableCmdSettings && settings.desyncUdp && quicFakeProfile != QuicFakeProfileDisabled
     val httpFakeProfile = settings.effectiveHttpFakeProfile()
     val tlsFakeProfile = settings.effectiveTlsFakeProfile()
     val udpFakeProfile = settings.effectiveUdpFakeProfile()
@@ -237,21 +238,48 @@ fun deriveBypassStrategySignature(
                 null
             },
         adaptiveFakeTtlFallback = settings.effectiveAdaptiveFakeTtlFallback().takeIf { adaptiveFakeTtlActive },
-        adaptiveFakeTtlBias = adaptiveFakeTtlDelta.takeIf { adaptiveFakeTtlActive && it != DefaultAdaptiveFakeTtlDelta },
+        adaptiveFakeTtlBias =
+            adaptiveFakeTtlDelta.takeIf {
+                adaptiveFakeTtlActive && it != DefaultAdaptiveFakeTtlDelta
+            },
         fakeSniMode = fakeTlsSniMode.takeIf { fakeTlsProfileActive },
-        fakeSniValue = settings.fakeSni.ifBlank { null }?.takeIf { fakeTlsProfileActive && fakeTlsSniMode == FakeTlsSniModeFixed },
-        fakeTlsBaseMode = if (fakeTlsProfileActive) if (settings.fakeTlsUseOriginal) "original" else "default" else null,
+        fakeSniValue =
+            settings.fakeSni.ifBlank { null }?.takeIf {
+                fakeTlsProfileActive &&
+                    fakeTlsSniMode == FakeTlsSniModeFixed
+            },
+        fakeTlsBaseMode =
+            if (fakeTlsProfileActive) {
+                if (settings.fakeTlsUseOriginal) {
+                    "original"
+                } else {
+                    "default"
+                }
+            } else {
+                null
+            },
         fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
         fakeTlsSize = settings.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
-        httpFakeProfile = httpFakeProfile.takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault },
-        tlsFakeProfile = tlsFakeProfile.takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault },
-        udpFakeProfile = udpFakeProfile.takeIf { !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault },
+        httpFakeProfile =
+            httpFakeProfile.takeIf {
+                !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault
+            },
+        tlsFakeProfile =
+            tlsFakeProfile.takeIf {
+                !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault
+            },
+        udpFakeProfile =
+            udpFakeProfile.takeIf {
+                !settings.enableCmdSettings && it != FakePayloadProfileCompatDefault
+            },
         fakePayloadSource = "custom_raw".takeIf { commandLineRawFakePayload },
         quicFakeProfile = quicFakeProfile.takeIf { quicFakeProfileActive },
         quicFakeHost =
             settings
                 .effectiveQuicFakeHost()
-                .takeIf { quicFakeProfileActive && quicFakeProfile == QuicFakeProfileRealisticInitial && it.isNotBlank() },
+                .takeIf {
+                    quicFakeProfileActive && quicFakeProfile == QuicFakeProfileRealisticInitial && it.isNotBlank()
+                },
         fakeOffsetMarker =
             settings
                 .effectiveFakeOffsetMarker()
@@ -290,9 +318,11 @@ fun deriveBypassStrategySignature(
             preferences.fakeTlsPadEncap ||
             preferences.fakeTlsSize != 0 ||
             preferences.fakeTlsSniMode != FakeTlsSniModeFixed ||
-            (preferences.fakeTlsSniMode == FakeTlsSniModeFixed &&
-                preferences.fakeSni.isNotBlank() &&
-                preferences.fakeSni != com.poyka.ripdpi.data.DefaultFakeSni)
+            (
+                preferences.fakeTlsSniMode == FakeTlsSniModeFixed &&
+                    preferences.fakeSni.isNotBlank() &&
+                    preferences.fakeSni != com.poyka.ripdpi.data.DefaultFakeSni
+            )
     val fakeTlsProfileActive = hasFakeStep && preferences.desyncHttps && hasCustomFakeTlsProfile
     val quicFakeProfileActive = preferences.desyncUdp && preferences.quicFakeProfile != QuicFakeProfileDisabled
     val adaptiveFakeTtlActive = preferences.adaptiveFakeTtlEnabled
@@ -354,8 +384,21 @@ fun deriveBypassStrategySignature(
                 adaptiveFakeTtlActive && it != DefaultAdaptiveFakeTtlDelta
             },
         fakeSniMode = preferences.fakeTlsSniMode.takeIf { fakeTlsProfileActive },
-        fakeSniValue = preferences.fakeSni.takeIf { fakeTlsProfileActive && preferences.fakeTlsSniMode == FakeTlsSniModeFixed },
-        fakeTlsBaseMode = if (fakeTlsProfileActive) if (preferences.fakeTlsUseOriginal) "original" else "default" else null,
+        fakeSniValue =
+            preferences.fakeSni.takeIf {
+                fakeTlsProfileActive &&
+                    preferences.fakeTlsSniMode == FakeTlsSniModeFixed
+            },
+        fakeTlsBaseMode =
+            if (fakeTlsProfileActive) {
+                if (preferences.fakeTlsUseOriginal) {
+                    "original"
+                } else {
+                    "default"
+                }
+            } else {
+                null
+            },
         fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
         fakeTlsSize = preferences.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
         httpFakeProfile = preferences.httpFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
@@ -365,7 +408,10 @@ fun deriveBypassStrategySignature(
         quicFakeHost =
             preferences
                 .quicFakeHost
-                .takeIf { quicFakeProfileActive && preferences.quicFakeProfile == QuicFakeProfileRealisticInitial && it.isNotBlank() },
+                .takeIf {
+                    quicFakeProfileActive && preferences.quicFakeProfile == QuicFakeProfileRealisticInitial &&
+                        it.isNotBlank()
+                },
         fakeOffsetMarker = preferences.fakeOffsetMarker.takeUnless { it == DefaultFakeOffsetMarker },
         routeGroup = routeGroup?.takeUnless { it.isBlank() || it == "unknown" },
     )

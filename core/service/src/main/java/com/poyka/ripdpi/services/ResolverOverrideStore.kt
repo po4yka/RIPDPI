@@ -6,11 +6,11 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @Singleton
 class DefaultResolverOverrideStore
@@ -34,7 +34,5 @@ class DefaultResolverOverrideStore
 abstract class ResolverOverrideStoreModule {
     @Binds
     @Singleton
-    abstract fun bindResolverOverrideStore(
-        store: DefaultResolverOverrideStore,
-    ): ResolverOverrideStore
+    abstract fun bindResolverOverrideStore(store: DefaultResolverOverrideStore): ResolverOverrideStore
 }

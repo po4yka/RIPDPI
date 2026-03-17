@@ -21,7 +21,9 @@ internal class ServiceLifecycleStateMachine {
             State.STARTING,
             State.RUNNING,
             State.STOPPING,
-            -> false
+            -> {
+                false
+            }
         }
 
     fun markStarted() {

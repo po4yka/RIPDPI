@@ -137,11 +137,9 @@ fun protocolDisplayName(protocol: String): String =
         else -> "DoH"
     }
 
-private fun firstNonBlank(vararg values: String?): String =
-    values.firstOrNull { !it.isNullOrBlank() }?.trim().orEmpty()
+private fun firstNonBlank(vararg values: String?): String = values.firstOrNull { !it.isNullOrBlank() }?.trim().orEmpty()
 
-private fun parseHostFromUrl(value: String): String =
-    runCatching { URI(value).host.orEmpty() }.getOrDefault("")
+private fun parseHostFromUrl(value: String): String = runCatching { URI(value).host.orEmpty() }.getOrDefault("")
 
 private fun parsePortFromUrl(value: String): Int =
     runCatching {
@@ -281,6 +279,7 @@ fun activeDnsSettings(
             when {
                 normalizedProtocol == EncryptedDnsProtocolDot ||
                     normalizedProtocol == EncryptedDnsProtocolDoh -> effectiveHost
+
                 else -> ""
             },
         )

@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class DiagnosticsChartsTest {
-
     @Test
     fun `lerpFloat at zero returns start`() {
         assertEquals(10f, lerpFloat(10f, 20f, 0f), 0.001f)
@@ -104,8 +103,8 @@ class DiagnosticsChartsTest {
         // Source has 2 points, target has 3 points. Result length = max(2, 3) = 3
         assertEquals(3, result.size)
         // At progress=0, result samples from source (2 elements) at normalized positions
-        assertEquals(0f, result[0], 0.001f)   // position 0.0 -> from[0] = 0
-        assertEquals(5f, result[1], 0.001f)   // position 0.5 -> lerp(0, 10, 0.5) = 5
-        assertEquals(10f, result[2], 0.001f)  // position 1.0 -> from[1] = 10
+        assertEquals(0f, result[0], 0.001f) // position 0.0 -> from[0] = 0
+        assertEquals(5f, result[1], 0.001f) // position 0.5 -> lerp(0, 10, 0.5) = 5
+        assertEquals(10f, result[2], 0.001f) // position 1.0 -> from[1] = 10
     }
 }

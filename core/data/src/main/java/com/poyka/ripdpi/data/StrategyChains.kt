@@ -9,7 +9,9 @@ private const val TcpSection = "tcp"
 private const val UdpSection = "udp"
 
 @Serializable
-enum class TcpChainStepKind(val wireName: String) {
+enum class TcpChainStepKind(
+    val wireName: String,
+) {
     Split("split"),
     Disorder("disorder"),
     Fake("fake"),
@@ -38,7 +40,11 @@ enum class TcpChainStepKind(val wireName: String) {
             }
 
     companion object {
-        fun fromWireName(value: String): TcpChainStepKind? = entries.firstOrNull { it.wireName == value.trim().lowercase() }
+        fun fromWireName(value: String): TcpChainStepKind? =
+            entries.firstOrNull {
+                it.wireName ==
+                    value.trim().lowercase()
+            }
 
         fun fromLegacyMethod(value: String): TcpChainStepKind? =
             when (value.trim().lowercase()) {
@@ -72,12 +78,18 @@ data class TcpChainStepModel(
 )
 
 @Serializable
-enum class UdpChainStepKind(val wireName: String) {
+enum class UdpChainStepKind(
+    val wireName: String,
+) {
     FakeBurst("fake_burst"),
     ;
 
     companion object {
-        fun fromWireName(value: String): UdpChainStepKind? = entries.firstOrNull { it.wireName == value.trim().lowercase() }
+        fun fromWireName(value: String): UdpChainStepKind? =
+            entries.firstOrNull {
+                it.wireName ==
+                    value.trim().lowercase()
+            }
     }
 }
 
@@ -213,21 +225,24 @@ fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
             require(parts.size == 2) { "Invalid chain step on line ${index + 1}" }
             when (section) {
                 TcpSection -> {
-                    val kind = TcpChainStepKind.fromWireName(parts[0])
-                        ?: error("Unknown TCP step '${parts[0]}' on line ${index + 1}")
+                    val kind =
+                        TcpChainStepKind.fromWireName(parts[0])
+                            ?: error("Unknown TCP step '${parts[0]}' on line ${index + 1}")
                     tcpSteps += parseTcpStep(kind, parts[1], index + 1)
                 }
 
                 UdpSection -> {
-                    val kind = UdpChainStepKind.fromWireName(parts[0])
-                        ?: error("Unknown UDP step '${parts[0]}' on line ${index + 1}")
+                    val kind =
+                        UdpChainStepKind.fromWireName(parts[0])
+                            ?: error("Unknown UDP step '${parts[0]}' on line ${index + 1}")
                     val tokens = parts[1].split(Regex("\\s+")).filter { it.isNotBlank() }
                     val count = tokens.firstOrNull()?.toIntOrNull() ?: error("Invalid UDP count on line ${index + 1}")
                     require(count >= 0) { "Invalid UDP count on line ${index + 1}" }
                     var activationFilter = ActivationFilterModel()
                     tokens.drop(1).forEach { token ->
-                        val (key, value) = token.split('=', limit = 2).takeIf { it.size == 2 }
-                            ?: error("Invalid UDP step option '$token' on line ${index + 1}")
+                        val (key, value) =
+                            token.split('=', limit = 2).takeIf { it.size == 2 }
+                                ?: error("Invalid UDP step option '$token' on line ${index + 1}")
                         activationFilter =
                             parseActivationToken(
                                 activationFilter = activationFilter,
@@ -239,7 +254,9 @@ fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
                     udpSteps += UdpChainStepModel(kind = kind, count = count, activationFilter = activationFilter)
                 }
 
-                else -> error("Unknown chain section '$section'")
+                else -> {
+                    error("Unknown chain section '$section'")
+                }
             }
         }
 
@@ -363,6 +380,7 @@ private fun validateTcpChain(steps: List<TcpChainStepModel>) {
             TcpChainStepKind.TlsRec,
             TcpChainStepKind.TlsRandRec,
             -> require(!sawSendStep) { "${step.kind.wireName} must be declared before tcp send steps" }
+
             else -> sawSendStep = true
         }
         if (step.kind == TcpChainStepKind.FakeSplit || step.kind == TcpChainStepKind.FakeDisorder) {
@@ -476,11 +494,14 @@ private fun parseTcpStep(
     var maxFragmentSize = 0
     var activationFilter = ActivationFilterModel()
     tokens.drop(1).forEach { token ->
-        val (key, value) = token.split('=', limit = 2).takeIf { it.size == 2 }
-            ?: error("Invalid TCP step option '$token' on line $lineNumber")
+        val (key, value) =
+            token.split('=', limit = 2).takeIf { it.size == 2 }
+                ?: error("Invalid TCP step option '$token' on line $lineNumber")
         when (key.lowercase()) {
             "midhost" -> {
-                require(kind == TcpChainStepKind.HostFake) { "midhost is only supported for hostfake on line $lineNumber" }
+                require(
+                    kind == TcpChainStepKind.HostFake,
+                ) { "midhost is only supported for hostfake on line $lineNumber" }
                 val normalized = normalizeMidhostMarker(kind, value)
                 require(normalized.isNotEmpty() && isValidOffsetExpression(normalized)) {
                     "Invalid midhost marker on line $lineNumber"
@@ -492,31 +513,39 @@ private fun parseTcpStep(
             }
 
             "host" -> {
-                require(kind == TcpChainStepKind.HostFake) { "host template is only supported for hostfake on line $lineNumber" }
+                require(
+                    kind == TcpChainStepKind.HostFake,
+                ) { "host template is only supported for hostfake on line $lineNumber" }
                 val normalized = normalizeFakeHostTemplate(kind, value)
                 require(normalized.isNotEmpty()) { "Invalid host template on line $lineNumber" }
                 fakeHostTemplate = normalized
             }
 
             "count" -> {
-                require(kind == TcpChainStepKind.TlsRandRec) { "count is only supported for tlsrandrec on line $lineNumber" }
+                require(
+                    kind == TcpChainStepKind.TlsRandRec,
+                ) { "count is only supported for tlsrandrec on line $lineNumber" }
                 fragmentCount = value.toIntOrNull() ?: error("Invalid count on line $lineNumber")
             }
 
             "min" -> {
-                require(kind == TcpChainStepKind.TlsRandRec) { "min is only supported for tlsrandrec on line $lineNumber" }
+                require(
+                    kind == TcpChainStepKind.TlsRandRec,
+                ) { "min is only supported for tlsrandrec on line $lineNumber" }
                 minFragmentSize = value.toIntOrNull() ?: error("Invalid min on line $lineNumber")
             }
 
             "max" -> {
-                require(kind == TcpChainStepKind.TlsRandRec) { "max is only supported for tlsrandrec on line $lineNumber" }
+                require(
+                    kind == TcpChainStepKind.TlsRandRec,
+                ) { "max is only supported for tlsrandrec on line $lineNumber" }
                 maxFragmentSize = value.toIntOrNull() ?: error("Invalid max on line $lineNumber")
             }
 
             "when_round",
             "when_size",
             "when_stream",
-            ->
+            -> {
                 activationFilter =
                     parseActivationToken(
                         activationFilter = activationFilter,
@@ -524,8 +553,11 @@ private fun parseTcpStep(
                         value = value,
                         lineNumber = lineNumber,
                     )
+            }
 
-            else -> error("Unknown TCP step option '$key' on line $lineNumber")
+            else -> {
+                error("Unknown TCP step option '$key' on line $lineNumber")
+            }
         }
     }
 
@@ -623,7 +655,9 @@ private fun normalizeFakeHostTemplate(
         return ""
     }
     val trimmed = template.trim().trimEnd('.').lowercase()
-    if (trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') || trimmed.contains("..")) {
+    if (trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') || trimmed.endsWith('.') ||
+        trimmed.contains("..")
+    ) {
         return ""
     }
     if (!trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }) {
@@ -666,29 +700,34 @@ private fun parseActivationToken(
     lineNumber: Int,
 ): ActivationFilterModel =
     when (key.lowercase()) {
-        "when_round" ->
+        "when_round" -> {
             activationFilter.copy(
                 round =
                     runCatching { parseRoundRange(value) }.getOrElse {
                         error("Invalid round filter on line $lineNumber")
                     },
             )
+        }
 
-        "when_size" ->
+        "when_size" -> {
             activationFilter.copy(
                 payloadSize =
                     runCatching { parsePayloadSizeRange(value) }.getOrElse {
                         error("Invalid payload size filter on line $lineNumber")
                     },
             )
+        }
 
-        "when_stream" ->
+        "when_stream" -> {
             activationFilter.copy(
                 streamBytes =
                     runCatching { parseStreamBytesRange(value) }.getOrElse {
                         error("Invalid stream byte filter on line $lineNumber")
                     },
             )
+        }
 
-        else -> error("Unknown activation filter '$key' on line $lineNumber")
+        else -> {
+            error("Unknown activation filter '$key' on line $lineNumber")
+        }
     }

@@ -3,13 +3,13 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import javax.inject.Inject
 
 interface Tun2SocksBindings {
     fun create(configJson: String): Long
@@ -154,8 +154,7 @@ class Tun2SocksTunnel(
             } else {
                 withContext(Dispatchers.IO) {
                     nativeBindings.getTelemetry(handle)
-                }
-                    ?.takeIf { it.isNotBlank() }
+                }?.takeIf { it.isNotBlank() }
                     ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
                     ?: NativeRuntimeSnapshot.idle(source = "tunnel")
             }

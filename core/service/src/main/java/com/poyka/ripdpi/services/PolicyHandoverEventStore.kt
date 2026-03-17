@@ -6,11 +6,11 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @Singleton
 class DefaultPolicyHandoverEventStore
@@ -30,7 +30,5 @@ class DefaultPolicyHandoverEventStore
 abstract class PolicyHandoverEventStoreModule {
     @Binds
     @Singleton
-    abstract fun bindPolicyHandoverEventStore(
-        store: DefaultPolicyHandoverEventStore,
-    ): PolicyHandoverEventStore
+    abstract fun bindPolicyHandoverEventStore(store: DefaultPolicyHandoverEventStore): PolicyHandoverEventStore
 }

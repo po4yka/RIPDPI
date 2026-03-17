@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.decodeSummary
-import com.poyka.ripdpi.data.displayLabel as displayNetworkLabel
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
@@ -17,11 +17,11 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ScanRequest
-import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import kotlinx.serialization.builtins.ListSerializer
 import java.util.Date
 import java.util.Locale
-import kotlinx.serialization.builtins.ListSerializer
+import com.poyka.ripdpi.data.displayLabel as displayNetworkLabel
+import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
 
 internal fun DiagnosticsUiFactorySupport.decodeReport(reportJson: String): ScanReport? =
     runCatching { json.decodeFromString(ScanReport.serializer(), reportJson) }.getOrNull()
@@ -30,7 +30,12 @@ internal fun DiagnosticsUiFactorySupport.decodeRequest(profile: DiagnosticProfil
     runCatching { json.decodeFromString(ScanRequest.serializer(), profile.requestJson) }.getOrNull()
 
 internal fun DiagnosticsUiFactorySupport.decodeProbeDetails(detailJson: String): List<ProbeDetail> =
-    runCatching { json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson) }.getOrElse { emptyList() }
+    runCatching {
+        json.decodeFromString(
+            ListSerializer(ProbeDetail.serializer()),
+            detailJson,
+        )
+    }.getOrElse { emptyList() }
 
 internal fun DiagnosticsUiFactorySupport.decodeStrategySignature(payload: String?): BypassStrategySignature? =
     payload?.takeIf { it.isNotBlank() }?.let {
@@ -90,7 +95,9 @@ internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
             probeType = result.probeType,
             target = result.target,
             outcome = result.outcome,
-            probeRetryCount = com.poyka.ripdpi.diagnostics.deriveProbeRetryCount(details),
+            probeRetryCount =
+                com.poyka.ripdpi.diagnostics
+                    .deriveProbeRetryCount(details),
             tone = toneForOutcome(result.outcome),
             details = details.map { DiagnosticsFieldUiModel(it.key, it.value) },
         )
@@ -105,7 +112,9 @@ internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
         probeType = result.probeType,
         target = result.target,
         outcome = result.outcome,
-        probeRetryCount = result.probeRetryCount ?: com.poyka.ripdpi.diagnostics.deriveProbeRetryCount(result.details),
+        probeRetryCount =
+            result.probeRetryCount ?: com.poyka.ripdpi.diagnostics
+                .deriveProbeRetryCount(result.details),
         tone = toneForOutcome(result.outcome),
         details = result.details.map { DiagnosticsFieldUiModel(it.key, it.value) },
     )
@@ -150,12 +159,68 @@ internal fun DiagnosticsUiFactorySupport.toEventUiModel(
         tone = toneForOutcome(event.level),
     )
 
-internal fun DiagnosticsUiFactorySupport.toProgressUiModel(progress: ScanProgress): DiagnosticsProgressUiModel {
+private val connectivityPhaseOrder = listOf("dns", "reachability", "tcp", "telegram")
+private val strategyProbePhaseOrder = listOf("tcp", "quic")
+
+private fun String.toPhaseLabel(): String =
+    when (this) {
+        "dns" -> "DNS"
+        "reachability" -> "Reach"
+        "tcp" -> "TCP"
+        "telegram" -> "TG"
+        "quic" -> "QUIC"
+        else -> replaceFirstChar { it.uppercase() }
+    }
+
+private fun PhaseState.tone(): DiagnosticsTone =
+    when (this) {
+        PhaseState.Completed -> DiagnosticsTone.Positive
+        PhaseState.Active -> DiagnosticsTone.Warning
+        PhaseState.Pending -> DiagnosticsTone.Neutral
+    }
+
+internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
+    progress: ScanProgress,
+    scanKind: ScanKind,
+    isFullAudit: Boolean,
+    scanStartedAt: Long,
+    now: Long = System.currentTimeMillis(),
+    completedProbes: List<CompletedProbeUiModel> = emptyList(),
+): DiagnosticsProgressUiModel {
     val fraction =
         if (progress.totalSteps <= 0) {
             0f
         } else {
             progress.completedSteps.toFloat() / progress.totalSteps.toFloat()
+        }
+    val elapsedMs = (now - scanStartedAt).coerceAtLeast(0L)
+    val elapsedLabel = formatDurationMs(elapsedMs)
+    val etaLabel =
+        if (fraction >= 0.1f && elapsedMs > 0L) {
+            val etaMs = (elapsedMs / fraction * (1f - fraction)).toLong()
+            "~${formatDurationMs(etaMs)} remaining"
+        } else {
+            null
+        }
+    val phaseOrder =
+        if (scanKind == ScanKind.STRATEGY_PROBE) strategyProbePhaseOrder else connectivityPhaseOrder
+    val isFinished = progress.phase == "finished"
+    val currentIndex = phaseOrder.indexOf(progress.phase)
+    val phaseSteps =
+        phaseOrder.mapIndexed { index, phase ->
+            val state =
+                when {
+                    isFinished -> PhaseState.Completed
+                    currentIndex < 0 -> PhaseState.Pending
+                    index < currentIndex -> PhaseState.Completed
+                    index == currentIndex -> PhaseState.Active
+                    else -> PhaseState.Pending
+                }
+            PhaseStepUiModel(
+                label = phase.toPhaseLabel(),
+                state = state,
+                tone = state.tone(),
+            )
         }
     return DiagnosticsProgressUiModel(
         phase = progress.phase,
@@ -163,33 +228,51 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(progress: ScanProgres
         completedSteps = progress.completedSteps,
         totalSteps = progress.totalSteps,
         fraction = fraction,
+        scanKind = scanKind,
+        isFullAudit = isFullAudit,
+        elapsedLabel = elapsedLabel,
+        etaLabel = etaLabel,
+        phaseSteps = phaseSteps,
+        currentProbeLabel = progress.message,
+        completedProbes = completedProbes,
     )
 }
 
 internal fun DiagnosticsUiFactorySupport.toneForOutcome(value: String): DiagnosticsTone {
     val normalized = value.lowercase(Locale.US)
     return when {
-        normalized.contains("ok") || normalized.contains("success") || normalized.contains("completed") ->
+        normalized.contains("ok") || normalized.contains("success") || normalized.contains("completed") -> {
             DiagnosticsTone.Positive
+        }
 
         normalized.contains("warn") ||
             normalized.contains("timeout") ||
             normalized.contains("partial") ||
             normalized.contains("running") ||
             normalized.contains("slow") ||
-            normalized.contains("stalled") ->
+            normalized.contains("stalled") -> {
             DiagnosticsTone.Warning
+        }
 
         normalized.contains("error") ||
             normalized.contains("failed") ||
             normalized.contains("blocked") ||
-            normalized.contains("reset") ->
+            normalized.contains("reset") -> {
             DiagnosticsTone.Negative
+        }
 
-        normalized.contains("info") -> DiagnosticsTone.Info
-        else -> DiagnosticsTone.Neutral
+        normalized.contains("info") -> {
+            DiagnosticsTone.Info
+        }
+
+        else -> {
+            DiagnosticsTone.Neutral
+        }
     }
 }
+
+internal fun scanCompletedTone(latestSession: DiagnosticsSessionRowUiModel?): DiagnosticsTone =
+    latestSession?.tone ?: DiagnosticsTone.Neutral
 
 internal fun String.displayStatusLabel(): String =
     when (lowercase(Locale.US)) {
@@ -252,8 +335,7 @@ internal fun DiagnosticsUiFactorySupport.formatDurationMs(durationMs: Long): Str
     }
 }
 
-internal fun DiagnosticsUiFactorySupport.redactValue(value: String?): String =
-    value?.let { "redacted" } ?: "Unknown"
+internal fun DiagnosticsUiFactorySupport.redactValue(value: String?): String = value?.let { "redacted" } ?: "Unknown"
 
 internal fun DiagnosticsUiFactorySupport.redactCollection(values: List<String>): String =
     if (values.isEmpty()) {

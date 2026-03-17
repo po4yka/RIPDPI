@@ -8,7 +8,7 @@ use std::sync::OnceLock;
 use crate::sync::{AtomicBool, Arc, Ordering};
 
 use ripdpi_failure_classifier::ClassifiedFailure;
-use ripdpi_proxy_config::ProxyRuntimeContext;
+use ripdpi_proxy_config::{NetworkSnapshot, ProxyRuntimeContext};
 
 pub mod adaptive_fake_ttl;
 pub mod adaptive_tuning;
@@ -35,6 +35,11 @@ pub trait RuntimeTelemetrySink: Send + Sync {
 
     fn on_upstream_connected(&self, _upstream_addr: SocketAddr, _rtt_ms: Option<u64>) {}
 
+    /// Called when the first upstream response is received for a TLS connection,
+    /// measuring the round-trip for the ClientHello → ServerHello exchange.
+    /// Only called when the first outbound request starts with a TLS record byte (0x16).
+    fn on_tls_handshake_completed(&self, _target: SocketAddr, _latency_ms: u64) {}
+
     fn on_route_advanced(
         &self,
         target: SocketAddr,
@@ -56,6 +61,8 @@ pub struct EmbeddedProxyControl {
     shutdown: Arc<AtomicBool>,
     telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
+    /// Live OS network state snapshot, pushed from Kotlin on each NetworkCallback event.
+    network_snapshot: Arc<std::sync::Mutex<Option<NetworkSnapshot>>>,
 }
 
 impl std::fmt::Debug for EmbeddedProxyControl {
@@ -84,7 +91,12 @@ impl EmbeddedProxyControl {
         telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
         runtime_context: Option<ProxyRuntimeContext>,
     ) -> Self {
-        Self { shutdown: Arc::new(AtomicBool::new(false)), telemetry, runtime_context }
+        Self {
+            shutdown: Arc::new(AtomicBool::new(false)),
+            telemetry,
+            runtime_context,
+            network_snapshot: Arc::new(std::sync::Mutex::new(None)),
+        }
     }
 
     pub fn request_shutdown(&self) {
@@ -105,6 +117,18 @@ impl EmbeddedProxyControl {
 
     pub fn runtime_context(&self) -> Option<ProxyRuntimeContext> {
         self.runtime_context.clone()
+    }
+
+    /// Push a fresh OS network state snapshot. Safe to call from any thread while the proxy runs.
+    pub fn update_network_snapshot(&self, snapshot: NetworkSnapshot) {
+        if let Ok(mut slot) = self.network_snapshot.lock() {
+            *slot = Some(snapshot);
+        }
+    }
+
+    /// Read the most recently pushed OS network state snapshot, if any.
+    pub fn current_network_snapshot(&self) -> Option<NetworkSnapshot> {
+        self.network_snapshot.lock().ok().and_then(|slot| slot.clone())
     }
 }
 
@@ -267,5 +291,35 @@ mod tests {
         current.on_client_accepted();
 
         assert_eq!(sink.accepted.load(Ordering::Relaxed), 1);
+    }
+
+    #[cfg(not(feature = "loom"))]
+    #[test]
+    fn network_snapshot_starts_empty_and_accepts_update() {
+        use ripdpi_proxy_config::NetworkSnapshot;
+        let control = EmbeddedProxyControl::default();
+        assert!(control.current_network_snapshot().is_none());
+
+        let snap = NetworkSnapshot { transport: "wifi".to_string(), validated: true, ..NetworkSnapshot::default() };
+        control.update_network_snapshot(snap.clone());
+
+        let current = control.current_network_snapshot().expect("snapshot after update");
+        assert_eq!(current.transport, "wifi");
+        assert!(current.validated);
+    }
+
+    #[cfg(not(feature = "loom"))]
+    #[test]
+    fn cloned_proxy_controls_share_snapshot_slot() {
+        use ripdpi_proxy_config::NetworkSnapshot;
+        let original = EmbeddedProxyControl::default();
+        let cloned = original.clone();
+
+        let snap = NetworkSnapshot { transport: "cellular".to_string(), metered: true, ..NetworkSnapshot::default() };
+        original.update_network_snapshot(snap);
+
+        let from_clone = cloned.current_network_snapshot().expect("snapshot visible via clone");
+        assert_eq!(from_clone.transport, "cellular");
+        assert!(from_clone.metered);
     }
 }

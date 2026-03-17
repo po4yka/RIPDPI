@@ -85,7 +85,9 @@ internal fun LogsScreen(
     val isAtLiveEdge by remember(listState) {
         derivedStateOf {
             val lastVisibleItemIndex =
-                listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index
+                listState.layoutInfo.visibleItemsInfo
+                    .lastOrNull()
+                    ?.index
                     ?: return@derivedStateOf true
             lastVisibleItemIndex >= (listState.layoutInfo.totalItemsCount - 2).coerceAtLeast(0)
         }

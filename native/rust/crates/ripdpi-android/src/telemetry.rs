@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_runtime::RuntimeTelemetrySink;
+use ripdpi_telemetry::{LatencyDistributions, LatencyHistogram};
 use serde::Serialize;
 
 const MAX_PROXY_EVENTS: usize = 128;
@@ -78,6 +79,8 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) last_autolearn_action: Option<String>,
     pub(crate) tunnel_stats: TunnelStatsSnapshot,
     pub(crate) native_events: Vec<NativeRuntimeEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) latency_distributions: Option<LatencyDistributions>,
     pub(crate) captured_at: u64,
 }
 
@@ -112,6 +115,8 @@ pub(crate) struct ProxyTelemetryState {
     penalized_host_count: AtomicU64,
     last_autolearn_group: AtomicI64,
     strings: Mutex<TelemetryStrings>,
+    tcp_connect_histogram: LatencyHistogram,
+    tls_handshake_histogram: LatencyHistogram,
 }
 
 impl ProxyTelemetryState {
@@ -145,6 +150,8 @@ impl ProxyTelemetryState {
                 last_autolearn_action: None,
                 events: VecDeque::with_capacity(MAX_PROXY_EVENTS),
             }),
+            tcp_connect_histogram: LatencyHistogram::new(),
+            tls_handshake_histogram: LatencyHistogram::new(),
         }
     }
 
@@ -285,10 +292,17 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn on_upstream_connected(&self, upstream_address: String, upstream_rtt_ms: Option<u64>) {
+        if let Some(rtt_ms) = upstream_rtt_ms {
+            self.tcp_connect_histogram.record(rtt_ms);
+        }
         if let Ok(mut guard) = self.strings.lock() {
             guard.upstream_address = Some(upstream_address);
             guard.upstream_rtt_ms = upstream_rtt_ms;
         }
+    }
+
+    pub(crate) fn on_tls_handshake_completed(&self, latency_ms: u64) {
+        self.tls_handshake_histogram.record(latency_ms);
     }
 
     pub(crate) fn set_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize) {
@@ -398,6 +412,12 @@ impl ProxyTelemetryState {
             last_autolearn_action,
             tunnel_stats: TunnelStatsSnapshot { tx_packets: 0, tx_bytes: 0, rx_packets: 0, rx_bytes: 0 },
             native_events,
+            latency_distributions: LatencyDistributions {
+                tcp_connect: self.tcp_connect_histogram.snapshot(),
+                tls_handshake: self.tls_handshake_histogram.snapshot(),
+                ..Default::default()
+            }
+            .into_option(),
             captured_at: now_ms(),
         }
     }
@@ -477,6 +497,10 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
 
     fn on_upstream_connected(&self, upstream_addr: std::net::SocketAddr, rtt_ms: Option<u64>) {
         self.state.on_upstream_connected(upstream_addr.to_string(), rtt_ms);
+    }
+
+    fn on_tls_handshake_completed(&self, _target: std::net::SocketAddr, latency_ms: u64) {
+        self.state.on_tls_handshake_completed(latency_ms);
     }
 
     fn on_route_advanced(

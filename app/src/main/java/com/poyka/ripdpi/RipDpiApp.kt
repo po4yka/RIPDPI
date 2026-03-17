@@ -2,9 +2,9 @@ package com.poyka.ripdpi
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
-import javax.inject.Inject
 import logcat.AndroidLogcatLogger
 import logcat.LogPriority.VERBOSE
+import javax.inject.Inject
 
 @HiltAndroidApp
 class RipDpiApp : Application() {

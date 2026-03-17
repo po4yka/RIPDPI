@@ -8,11 +8,12 @@ mod tests;
 
 // Public API re-exports -- types
 pub use types::{
-    ProxyConfigError, ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiActivationFilter,
-    ProxyUiConfig, ProxyUiNumericRange, ProxyUiTcpChainStep, ProxyUiUdpChainStep, RuntimeConfigEnvelope,
-    ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
-    ADAPTIVE_FAKE_TTL_DEFAULT_MIN, FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT, FAKE_TLS_SNI_MODE_FIXED,
-    FAKE_TLS_SNI_MODE_RANDOMIZED, QUIC_FAKE_PROFILE_DISABLED,
+    CellularSnapshot, NetworkSnapshot, ProxyConfigError, ProxyConfigPayload, ProxyEncryptedDnsContext,
+    ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig, ProxyUiNumericRange, ProxyUiTcpChainStep,
+    ProxyUiUdpChainStep, RuntimeConfigEnvelope, WifiSnapshot, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+    ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+    FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT, FAKE_TLS_SNI_MODE_FIXED, FAKE_TLS_SNI_MODE_RANDOMIZED,
+    QUIC_FAKE_PROFILE_DISABLED,
 };
 
 // Public API re-exports -- conversion functions

@@ -148,9 +148,13 @@ private fun QuicFakeProfileCard(
         )
     val hostSummary =
         when (uiState.quicFakeProfile) {
-            QuicFakeProfileRealisticInitial ->
+            QuicFakeProfileRealisticInitial -> {
                 uiState.quicFakeHost.ifBlank { DefaultQuicFakeHost }
-            else -> stringResource(R.string.quic_fake_profile_host_unused)
+            }
+
+            else -> {
+                stringResource(R.string.quic_fake_profile_host_unused)
+            }
         }
     val scopeSummary =
         when {
@@ -180,12 +184,13 @@ private fun QuicFakeProfileCard(
                 },
             )
             when (uiState.quicFakeProfile) {
-                QuicFakeProfileCompatDefault ->
+                QuicFakeProfileCompatDefault -> {
                     add(
                         stringResource(R.string.quic_fake_profile_badge_compat_blob) to SummaryCapsuleTone.Neutral,
                     )
+                }
 
-                QuicFakeProfileRealisticInitial ->
+                QuicFakeProfileRealisticInitial -> {
                     add(
                         if (uiState.quicFakeUsesCustomHost) {
                             stringResource(R.string.quic_fake_profile_badge_host_custom)
@@ -193,8 +198,11 @@ private fun QuicFakeProfileCard(
                             stringResource(R.string.quic_fake_profile_badge_host_builtin)
                         } to SummaryCapsuleTone.Active,
                     )
+                }
 
-                else -> Unit
+                else -> {
+                    Unit
+                }
             }
         }
 
@@ -405,45 +413,51 @@ private fun QuicFakeHostOverrideCard(
 @Composable
 private fun rememberQuicFakeStatus(uiState: SettingsUiState): QuicFakeStatusContent =
     when {
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             QuicFakeStatusContent(
                 label = stringResource(R.string.quic_fake_profile_cli_title),
                 body = stringResource(R.string.quic_fake_profile_cli_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.quicFakeControlsRelevant ->
+        !uiState.quicFakeControlsRelevant -> {
             QuicFakeStatusContent(
                 label = stringResource(R.string.quic_fake_profile_udp_disabled_title),
                 body = stringResource(R.string.quic_fake_profile_udp_disabled_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        !uiState.quicFakeProfileActive ->
+        !uiState.quicFakeProfileActive -> {
             QuicFakeStatusContent(
                 label = stringResource(R.string.quic_fake_profile_off_title),
                 body = stringResource(R.string.quic_fake_profile_off_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        !uiState.hasUdpFakeBurst ->
+        !uiState.hasUdpFakeBurst -> {
             QuicFakeStatusContent(
                 label = stringResource(R.string.quic_fake_profile_saved_title),
                 body = stringResource(R.string.quic_fake_profile_saved_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.isServiceRunning ->
+        uiState.isServiceRunning -> {
             QuicFakeStatusContent(
                 label = stringResource(R.string.quic_fake_profile_restart_title),
                 body = stringResource(R.string.quic_fake_profile_restart_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        else ->
+        else -> {
             QuicFakeStatusContent(
                 label = stringResource(R.string.quic_fake_profile_ready_title),
                 body = stringResource(R.string.quic_fake_profile_ready_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
     }

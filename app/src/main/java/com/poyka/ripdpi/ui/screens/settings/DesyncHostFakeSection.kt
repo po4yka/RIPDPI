@@ -38,11 +38,21 @@ internal fun HostFakeProfileCard(
         }
     val scopeSummary =
         when {
-            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled ->
+            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
                 stringResource(R.string.ripdpi_hostfake_summary_scope_http_https)
-            uiState.desyncHttpEnabled -> stringResource(R.string.ripdpi_hostfake_summary_scope_http)
-            uiState.desyncHttpsEnabled -> stringResource(R.string.ripdpi_hostfake_summary_scope_https)
-            else -> stringResource(R.string.ripdpi_hostfake_summary_scope_none)
+            }
+
+            uiState.desyncHttpEnabled -> {
+                stringResource(R.string.ripdpi_hostfake_summary_scope_http)
+            }
+
+            uiState.desyncHttpsEnabled -> {
+                stringResource(R.string.ripdpi_hostfake_summary_scope_https)
+            }
+
+            else -> {
+                stringResource(R.string.ripdpi_hostfake_summary_scope_none)
+            }
         }
     val templateSummary =
         primaryStep
@@ -119,38 +129,43 @@ internal fun HostFakeProfileCard(
 @Composable
 private fun rememberHostFakeStatus(uiState: SettingsUiState): HostFakeStatusContent =
     when {
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             HostFakeStatusContent(
                 label = stringResource(R.string.ripdpi_hostfake_cli_title),
                 body = stringResource(R.string.ripdpi_hostfake_cli_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.hostFakeControlsRelevant ->
+        !uiState.hostFakeControlsRelevant -> {
             HostFakeStatusContent(
                 label = stringResource(R.string.ripdpi_hostfake_protocols_off_title),
                 body = stringResource(R.string.ripdpi_hostfake_protocols_off_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        uiState.hasHostFake && uiState.isServiceRunning ->
+        uiState.hasHostFake && uiState.isServiceRunning -> {
             HostFakeStatusContent(
                 label = stringResource(R.string.ripdpi_hostfake_restart_title),
                 body = stringResource(R.string.ripdpi_hostfake_restart_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.hasHostFake ->
+        uiState.hasHostFake -> {
             HostFakeStatusContent(
                 label = stringResource(R.string.ripdpi_hostfake_ready_title),
                 body = stringResource(R.string.ripdpi_hostfake_ready_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        else ->
+        else -> {
             HostFakeStatusContent(
                 label = stringResource(R.string.ripdpi_hostfake_available_title),
                 body = stringResource(R.string.ripdpi_hostfake_available_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
     }

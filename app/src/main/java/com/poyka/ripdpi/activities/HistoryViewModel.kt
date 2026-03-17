@@ -20,10 +20,6 @@ import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +32,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import javax.inject.Inject
 
 enum class HistorySection {
     Connections,
@@ -286,429 +286,491 @@ class HistoryViewModel
             selectedEventId.value = null
         }
 
-    private fun buildUiState(
-        connectionSessions: List<BypassUsageSessionEntity>,
-        scanSessions: List<ScanSessionEntity>,
-        nativeEvents: List<NativeSessionEventEntity>,
-        selectedSection: HistorySection,
-        connectionMode: String?,
-        connectionStatus: String?,
-        connectionQuery: String,
-        diagnosticsPath: String?,
-        diagnosticsStatus: String?,
-        diagnosticsQuery: String,
-        eventSource: String?,
-        eventSeverity: String?,
-        eventQuery: String,
-        autoScroll: Boolean,
-        connectionDetail: HistoryConnectionDetailUiModel?,
-        diagnosticsDetail: DiagnosticsSessionDetailUiModel?,
-        selectedEventId: String?,
-    ): HistoryUiState {
-        val connectionRows = connectionSessions.map(::toConnectionRowUiModel)
-        val filteredConnections =
-            connectionRows.filter { session ->
-                (connectionMode == null || session.serviceMode == connectionMode) &&
-                    (connectionStatus == null || session.connectionState.equals(connectionStatus, ignoreCase = true)) &&
-                    session.matchesConnectionQuery(connectionQuery)
-            }
+        private fun buildUiState(
+            connectionSessions: List<BypassUsageSessionEntity>,
+            scanSessions: List<ScanSessionEntity>,
+            nativeEvents: List<NativeSessionEventEntity>,
+            selectedSection: HistorySection,
+            connectionMode: String?,
+            connectionStatus: String?,
+            connectionQuery: String,
+            diagnosticsPath: String?,
+            diagnosticsStatus: String?,
+            diagnosticsQuery: String,
+            eventSource: String?,
+            eventSeverity: String?,
+            eventQuery: String,
+            autoScroll: Boolean,
+            connectionDetail: HistoryConnectionDetailUiModel?,
+            diagnosticsDetail: DiagnosticsSessionDetailUiModel?,
+            selectedEventId: String?,
+        ): HistoryUiState {
+            val connectionRows = connectionSessions.map(::toConnectionRowUiModel)
+            val filteredConnections =
+                connectionRows.filter { session ->
+                    (connectionMode == null || session.serviceMode == connectionMode) &&
+                        (
+                            connectionStatus == null ||
+                                session.connectionState.equals(
+                                    connectionStatus,
+                                    ignoreCase = true,
+                                )
+                        ) &&
+                        session.matchesConnectionQuery(connectionQuery)
+                }
 
-        val diagnosticsRows = scanSessions.map(::toScanRowUiModel)
-        val filteredDiagnostics =
-            diagnosticsRows.filter { session ->
-                (diagnosticsPath == null || session.pathMode == diagnosticsPath) &&
-                    (diagnosticsStatus == null || session.status.equals(diagnosticsStatus, ignoreCase = true)) &&
-                    session.matchesDiagnosticsQuery(diagnosticsQuery)
-            }
+            val diagnosticsRows = scanSessions.map(::toScanRowUiModel)
+            val filteredDiagnostics =
+                diagnosticsRows.filter { session ->
+                    (diagnosticsPath == null || session.pathMode == diagnosticsPath) &&
+                        (diagnosticsStatus == null || session.status.equals(diagnosticsStatus, ignoreCase = true)) &&
+                        session.matchesDiagnosticsQuery(diagnosticsQuery)
+                }
 
-        val eventModels = nativeEvents.map(::toEventUiModel)
-        val filteredEvents =
-            eventModels.filter { event ->
-                (eventSource == null || event.source.equals(eventSource, ignoreCase = true)) &&
-                    (eventSeverity == null || event.severity.equals(eventSeverity, ignoreCase = true)) &&
-                    event.matchesEventQuery(eventQuery)
-            }
+            val eventModels = nativeEvents.map(::toEventUiModel)
+            val filteredEvents =
+                eventModels.filter { event ->
+                    (eventSource == null || event.source.equals(eventSource, ignoreCase = true)) &&
+                        (eventSeverity == null || event.severity.equals(eventSeverity, ignoreCase = true)) &&
+                        event.matchesEventQuery(eventQuery)
+                }
 
-        return HistoryUiState(
-            selectedSection = selectedSection,
-            connections =
-                HistoryConnectionsUiModel(
-                    filters =
-                        HistoryConnectionFiltersUiModel(
-                            mode = connectionMode,
-                            status = connectionStatus,
-                            query = connectionQuery,
-                        ),
-                    sessions = filteredConnections,
-                    modes = connectionRows.map { it.serviceMode }.distinct(),
-                    statuses = connectionRows.map { it.connectionState }.distinct(),
-                    focusedSessionId = connectionDetail?.session?.id,
-                ),
-            diagnostics =
-                DiagnosticsSessionsUiModel(
-                    filters =
-                        DiagnosticsSessionFiltersUiModel(
-                            pathMode = diagnosticsPath,
-                            status = diagnosticsStatus,
-                            query = diagnosticsQuery,
-                        ),
-                    sessions = filteredDiagnostics,
-                    pathModes = diagnosticsRows.map { it.pathMode }.distinct(),
-                    statuses = diagnosticsRows.map { it.status }.distinct(),
-                    focusedSessionId = diagnosticsDetail?.session?.id,
-                ),
-            events =
-                DiagnosticsEventsUiModel(
-                    filters =
-                        DiagnosticsEventFiltersUiModel(
-                            source = eventSource,
-                            severity = eventSeverity,
-                            search = eventQuery,
-                            autoScroll = autoScroll,
-                        ),
-                    events = filteredEvents,
-                    availableSources = eventModels.map { it.source }.distinct(),
-                    availableSeverities = eventModels.map { it.severity }.distinct(),
-                    focusedEventId = selectedEventId,
-                ),
-            selectedConnectionDetail = connectionDetail,
-            selectedDiagnosticsDetail = diagnosticsDetail,
-            selectedEvent = eventModels.firstOrNull { it.id == selectedEventId },
-        )
-    }
-
-    private fun BypassUsageSessionEntity.toConnectionDetail(
-        snapshots: List<NetworkSnapshotEntity>,
-        contexts: List<DiagnosticContextEntity>,
-        telemetry: List<TelemetrySampleEntity>,
-        events: List<NativeSessionEventEntity>,
-    ): HistoryConnectionDetailUiModel {
-        val row = toConnectionRowUiModel(this)
-        val latestTelemetry = telemetry.maxByOrNull { it.createdAt }
-        return HistoryConnectionDetailUiModel(
-            session = row,
-            highlights =
-                buildList {
-                    add(DiagnosticsMetricUiModel("Network", networkType, DiagnosticsTone.Info))
-                    add(DiagnosticsMetricUiModel("Health", health.replaceFirstChar { it.uppercase() }, toneForConnection(this@toConnectionDetail)))
-                    add(DiagnosticsMetricUiModel("TX", formatBytes(txBytes), DiagnosticsTone.Info))
-                    add(DiagnosticsMetricUiModel("RX", formatBytes(rxBytes), DiagnosticsTone.Positive))
-                    add(
-                        DiagnosticsMetricUiModel(
-                            "Errors",
-                            totalErrors.toString(),
-                            if (totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
-                        ),
-                    )
-                    add(DiagnosticsMetricUiModel("Route changes", routeChanges.toString(), DiagnosticsTone.Info))
-                    (latestTelemetry?.failureClass ?: failureClass)?.let { failure ->
-                        add(DiagnosticsMetricUiModel("Failure class", failure, DiagnosticsTone.Warning))
-                    }
-                    (latestTelemetry?.winningStrategyFamily() ?: winningStrategyFamily())?.let { winningStrategy ->
-                        add(DiagnosticsMetricUiModel("Strategy", winningStrategy, DiagnosticsTone.Positive))
-                    }
-                    add(DiagnosticsMetricUiModel("RTT band", latestTelemetry?.rttBand() ?: rttBand(), DiagnosticsTone.Info))
-                    add(
-                        DiagnosticsMetricUiModel(
-                            "Retries",
-                            (latestTelemetry?.retryCount() ?: retryCount()).toString(),
-                            if ((latestTelemetry?.retryCount() ?: retryCount()) > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
-                        ),
-                    )
-                },
-            contextGroups =
-                buildList {
-                    addAll(
-                        contexts
-                            .mapNotNull { context -> context.decodeContext()?.toContextGroups() }
-                            .flatten()
-                            .distinctBy { it.title + it.fields.joinToString { field -> "${field.label}:${field.value}" } },
-                    )
-                    buildFieldTelemetryGroup(this@toConnectionDetail, latestTelemetry)?.let(::add)
-                },
-            snapshots = snapshots.mapNotNull(::toSnapshotUiModel),
-            events = events.map(::toEventUiModel),
-        )
-    }
-
-    private fun DiagnosticSessionDetail.toUiModel(): DiagnosticsSessionDetailUiModel =
-        DiagnosticsSessionDetailUiModel(
-            session = toScanRowUiModel(session),
-            probeGroups =
-                results
-                    .mapIndexed { index, result -> result.toProbeUiModel(index) }
-                    .groupBy { it.probeType }
-                    .map { (title, items) ->
-                        DiagnosticsProbeGroupUiModel(
-                            title = title,
-                            items = items,
-                        )
-                    },
-            snapshots = snapshots.mapNotNull(::toSnapshotUiModel),
-            events = events.map(::toEventUiModel),
-            contextGroups = context?.decodeContext()?.toContextGroups().orEmpty(),
-            hasSensitiveDetails = false,
-            sensitiveDetailsVisible = false,
-        )
-
-    private fun toConnectionRowUiModel(session: BypassUsageSessionEntity): HistoryConnectionRowUiModel {
-        val durationMs = (session.finishedAt ?: session.updatedAt).coerceAtLeast(session.startedAt) - session.startedAt
-        val summary =
-            session.failureMessage
-                ?: session.endedReason
-                ?: "${session.serviceMode} on ${session.networkType}"
-        return HistoryConnectionRowUiModel(
-            id = session.id,
-            title = "${session.serviceMode} ${session.connectionState.lowercase(Locale.US)}",
-            subtitle = "${session.networkType} · ${formatTimestamp(session.startedAt)}",
-            serviceMode = session.serviceMode,
-            connectionState = session.connectionState,
-            networkType = session.networkType,
-            startedAtLabel = formatTimestamp(session.startedAt),
-            summary = summary,
-            metrics =
-                listOf(
-                    DiagnosticsMetricUiModel("Duration", formatDurationMs(durationMs)),
-                    DiagnosticsMetricUiModel("TX", formatBytes(session.txBytes), DiagnosticsTone.Info),
-                    DiagnosticsMetricUiModel("RX", formatBytes(session.rxBytes), DiagnosticsTone.Positive),
-                    DiagnosticsMetricUiModel("Errors", session.totalErrors.toString(), if (session.totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral),
-                ),
-            tone = toneForConnection(session),
-        )
-    }
-
-    private fun toScanRowUiModel(session: ScanSessionEntity): DiagnosticsSessionRowUiModel {
-        val report = decodeReport(session.reportJson)
-        return DiagnosticsSessionRowUiModel(
-            id = session.id,
-            profileId = session.profileId,
-            title = session.summary,
-            subtitle = "${session.pathMode} · ${session.serviceMode ?: "Unknown"} · ${formatTimestamp(session.startedAt)}",
-            pathMode = session.pathMode,
-            serviceMode = session.serviceMode ?: "Unknown",
-            status = session.status,
-            startedAtLabel = formatTimestamp(session.startedAt),
-            summary = session.summary,
-            metrics =
-                buildList {
-                    add(DiagnosticsMetricUiModel("Path", session.pathMode))
-                    add(DiagnosticsMetricUiModel("Mode", session.serviceMode ?: "Unknown"))
-                    report?.results?.size?.let { add(DiagnosticsMetricUiModel("Probes", it.toString())) }
-                },
-            tone = toneForOutcome(session.status),
-        )
-    }
-
-    private fun ProbeResultEntity.toProbeUiModel(index: Int): DiagnosticsProbeResultUiModel =
-        decodeProbeDetails(detailJson).let { details ->
-            DiagnosticsProbeResultUiModel(
-                id = "$sessionId-$index-$probeType-$target",
-                probeType = probeType,
-                target = target,
-                outcome = outcome,
-                probeRetryCount = deriveProbeRetryCount(details),
-                tone = toneForOutcome(outcome),
-                details = details.map { DiagnosticsFieldUiModel(it.key, it.value) },
+            return HistoryUiState(
+                selectedSection = selectedSection,
+                connections =
+                    HistoryConnectionsUiModel(
+                        filters =
+                            HistoryConnectionFiltersUiModel(
+                                mode = connectionMode,
+                                status = connectionStatus,
+                                query = connectionQuery,
+                            ),
+                        sessions = filteredConnections,
+                        modes = connectionRows.map { it.serviceMode }.distinct(),
+                        statuses = connectionRows.map { it.connectionState }.distinct(),
+                        focusedSessionId = connectionDetail?.session?.id,
+                    ),
+                diagnostics =
+                    DiagnosticsSessionsUiModel(
+                        filters =
+                            DiagnosticsSessionFiltersUiModel(
+                                pathMode = diagnosticsPath,
+                                status = diagnosticsStatus,
+                                query = diagnosticsQuery,
+                            ),
+                        sessions = filteredDiagnostics,
+                        pathModes = diagnosticsRows.map { it.pathMode }.distinct(),
+                        statuses = diagnosticsRows.map { it.status }.distinct(),
+                        focusedSessionId = diagnosticsDetail?.session?.id,
+                    ),
+                events =
+                    DiagnosticsEventsUiModel(
+                        filters =
+                            DiagnosticsEventFiltersUiModel(
+                                source = eventSource,
+                                severity = eventSeverity,
+                                search = eventQuery,
+                                autoScroll = autoScroll,
+                            ),
+                        events = filteredEvents,
+                        availableSources = eventModels.map { it.source }.distinct(),
+                        availableSeverities = eventModels.map { it.severity }.distinct(),
+                        focusedEventId = selectedEventId,
+                    ),
+                selectedConnectionDetail = connectionDetail,
+                selectedDiagnosticsDetail = diagnosticsDetail,
+                selectedEvent = eventModels.firstOrNull { it.id == selectedEventId },
             )
         }
 
-    private fun toEventUiModel(event: NativeSessionEventEntity): DiagnosticsEventUiModel =
-        DiagnosticsEventUiModel(
-            id = event.id,
-            source = event.source.replaceFirstChar { it.uppercase() },
-            severity = event.level.uppercase(Locale.US),
-            message = event.message,
-            createdAtLabel = formatTimestamp(event.createdAt),
-            tone = toneForOutcome(event.level),
-        )
+        private fun BypassUsageSessionEntity.toConnectionDetail(
+            snapshots: List<NetworkSnapshotEntity>,
+            contexts: List<DiagnosticContextEntity>,
+            telemetry: List<TelemetrySampleEntity>,
+            events: List<NativeSessionEventEntity>,
+        ): HistoryConnectionDetailUiModel {
+            val row = toConnectionRowUiModel(this)
+            val latestTelemetry = telemetry.maxByOrNull { it.createdAt }
+            return HistoryConnectionDetailUiModel(
+                session = row,
+                highlights =
+                    buildList {
+                        add(DiagnosticsMetricUiModel("Network", networkType, DiagnosticsTone.Info))
+                        add(
+                            DiagnosticsMetricUiModel(
+                                "Health",
+                                health.replaceFirstChar {
+                                    it.uppercase()
+                                },
+                                toneForConnection(this@toConnectionDetail),
+                            ),
+                        )
+                        add(DiagnosticsMetricUiModel("TX", formatBytes(txBytes), DiagnosticsTone.Info))
+                        add(DiagnosticsMetricUiModel("RX", formatBytes(rxBytes), DiagnosticsTone.Positive))
+                        add(
+                            DiagnosticsMetricUiModel(
+                                "Errors",
+                                totalErrors.toString(),
+                                if (totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
+                            ),
+                        )
+                        add(DiagnosticsMetricUiModel("Route changes", routeChanges.toString(), DiagnosticsTone.Info))
+                        (latestTelemetry?.failureClass ?: failureClass)?.let { failure ->
+                            add(DiagnosticsMetricUiModel("Failure class", failure, DiagnosticsTone.Warning))
+                        }
+                        (latestTelemetry?.winningStrategyFamily() ?: winningStrategyFamily())?.let { winningStrategy ->
+                            add(DiagnosticsMetricUiModel("Strategy", winningStrategy, DiagnosticsTone.Positive))
+                        }
+                        add(
+                            DiagnosticsMetricUiModel(
+                                "RTT band",
+                                latestTelemetry?.rttBand() ?: rttBand(),
+                                DiagnosticsTone.Info,
+                            ),
+                        )
+                        add(
+                            DiagnosticsMetricUiModel(
+                                "Retries",
+                                (latestTelemetry?.retryCount() ?: retryCount()).toString(),
+                                if ((latestTelemetry?.retryCount() ?: retryCount()) >
+                                    0
+                                ) {
+                                    DiagnosticsTone.Warning
+                                } else {
+                                    DiagnosticsTone.Neutral
+                                },
+                            ),
+                        )
+                    },
+                contextGroups =
+                    buildList {
+                        addAll(
+                            contexts
+                                .mapNotNull { context -> context.decodeContext()?.toContextGroups() }
+                                .flatten()
+                                .distinctBy {
+                                    it.title +
+                                        it.fields.joinToString { field ->
+                                            "${field.label}:${field.value}"
+                                        }
+                                },
+                        )
+                        buildFieldTelemetryGroup(this@toConnectionDetail, latestTelemetry)?.let(::add)
+                    },
+                snapshots = snapshots.mapNotNull(::toSnapshotUiModel),
+                events = events.map(::toEventUiModel),
+            )
+        }
 
-    private fun toSnapshotUiModel(snapshotEntity: NetworkSnapshotEntity): DiagnosticsNetworkSnapshotUiModel? {
-        val snapshot =
-            runCatching {
-                json.decodeFromString(NetworkSnapshotModel.serializer(), snapshotEntity.payloadJson)
-            }.getOrNull() ?: return null
-        return DiagnosticsNetworkSnapshotUiModel(
-            title = snapshotEntity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
-            subtitle = "${snapshot.transport} · ${formatTimestamp(snapshot.capturedAt)}",
-            fields =
-                listOf(
-                    DiagnosticsFieldUiModel("DNS", snapshot.dnsServers.joinToString().ifBlank { "Unknown" }),
-                    DiagnosticsFieldUiModel("Private DNS", snapshot.privateDnsMode),
-                    DiagnosticsFieldUiModel("Public IP", snapshot.publicIp ?: "Unknown"),
-                    DiagnosticsFieldUiModel("Validated", snapshot.networkValidated.toString()),
-                    DiagnosticsFieldUiModel("Captive portal", snapshot.captivePortalDetected.toString()),
-                ),
-        )
-    }
+        private fun DiagnosticSessionDetail.toUiModel(): DiagnosticsSessionDetailUiModel =
+            DiagnosticsSessionDetailUiModel(
+                session = toScanRowUiModel(session),
+                probeGroups =
+                    results
+                        .mapIndexed { index, result -> result.toProbeUiModel(index) }
+                        .groupBy { it.probeType }
+                        .map { (title, items) ->
+                            DiagnosticsProbeGroupUiModel(
+                                title = title,
+                                items = items,
+                            )
+                        },
+                snapshots = snapshots.mapNotNull(::toSnapshotUiModel),
+                events = events.map(::toEventUiModel),
+                contextGroups = context?.decodeContext()?.toContextGroups().orEmpty(),
+                hasSensitiveDetails = false,
+                sensitiveDetailsVisible = false,
+            )
 
-    private fun DiagnosticContextEntity.decodeContext(): DiagnosticContextModel? =
-        runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payloadJson) }.getOrNull()
-
-    private fun DiagnosticContextModel.toContextGroups(): List<DiagnosticsContextGroupUiModel> =
-        listOf(
-            DiagnosticsContextGroupUiModel(
-                title = "Service",
-                fields =
+        private fun toConnectionRowUiModel(session: BypassUsageSessionEntity): HistoryConnectionRowUiModel {
+            val durationMs =
+                (session.finishedAt ?: session.updatedAt).coerceAtLeast(session.startedAt) - session.startedAt
+            val summary =
+                session.failureMessage
+                    ?: session.endedReason
+                    ?: "${session.serviceMode} on ${session.networkType}"
+            return HistoryConnectionRowUiModel(
+                id = session.id,
+                title = "${session.serviceMode} ${session.connectionState.lowercase(Locale.US)}",
+                subtitle = "${session.networkType} · ${formatTimestamp(session.startedAt)}",
+                serviceMode = session.serviceMode,
+                connectionState = session.connectionState,
+                networkType = session.networkType,
+                startedAtLabel = formatTimestamp(session.startedAt),
+                summary = summary,
+                metrics =
                     listOf(
-                        DiagnosticsFieldUiModel("Status", service.serviceStatus),
-                        DiagnosticsFieldUiModel("Mode", service.activeMode),
-                        DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
-                        DiagnosticsFieldUiModel("Config source", service.configSource),
-                        DiagnosticsFieldUiModel("Proxy", service.proxyEndpoint),
-                        DiagnosticsFieldUiModel("Chain", service.chainSummary),
-                        DiagnosticsFieldUiModel("Last native error", service.lastNativeErrorHeadline),
+                        DiagnosticsMetricUiModel("Duration", formatDurationMs(durationMs)),
+                        DiagnosticsMetricUiModel("TX", formatBytes(session.txBytes), DiagnosticsTone.Info),
+                        DiagnosticsMetricUiModel("RX", formatBytes(session.rxBytes), DiagnosticsTone.Positive),
+                        DiagnosticsMetricUiModel(
+                            "Errors",
+                            session.totalErrors.toString(),
+                            if (session.totalErrors >
+                                0
+                            ) {
+                                DiagnosticsTone.Warning
+                            } else {
+                                DiagnosticsTone.Neutral
+                            },
+                        ),
                     ),
-            ),
-            DiagnosticsContextGroupUiModel(
-                title = "Environment",
-                fields =
-                    listOf(
-                        DiagnosticsFieldUiModel("VPN permission", permissions.vpnPermissionState),
-                        DiagnosticsFieldUiModel("Notifications", permissions.notificationPermissionState),
-                        DiagnosticsFieldUiModel("Battery optimization", permissions.batteryOptimizationState),
-                        DiagnosticsFieldUiModel("Data saver", permissions.dataSaverState),
-                        DiagnosticsFieldUiModel("Power save", environment.powerSaveModeState),
-                        DiagnosticsFieldUiModel("Metered", environment.networkMeteredState),
-                        DiagnosticsFieldUiModel("Roaming", environment.roamingState),
-                    ),
-            ),
-            DiagnosticsContextGroupUiModel(
-                title = "Device",
-                fields =
-                    listOf(
-                        DiagnosticsFieldUiModel("App", device.appVersionName),
-                        DiagnosticsFieldUiModel("Device", "${device.manufacturer} ${device.model}"),
-                        DiagnosticsFieldUiModel("Android", "${device.androidVersion} (API ${device.apiLevel})"),
-                        DiagnosticsFieldUiModel("Locale", device.locale),
-                    ),
-            ),
-        )
+                tone = toneForConnection(session),
+            )
+        }
 
-    private fun buildFieldTelemetryGroup(
-        session: BypassUsageSessionEntity,
-        telemetry: TelemetrySampleEntity?,
-    ): DiagnosticsContextGroupUiModel? {
-        val failureClass = telemetry?.failureClass ?: session.failureClass
-        val winningTcpStrategyFamily = telemetry?.winningTcpStrategyFamily ?: session.winningTcpStrategyFamily
-        val winningQuicStrategyFamily = telemetry?.winningQuicStrategyFamily ?: session.winningQuicStrategyFamily
-        val winningStrategyFamily = telemetry?.winningStrategyFamily() ?: session.winningStrategyFamily()
-        val telemetryNetworkFingerprintHash =
-            telemetry?.telemetryNetworkFingerprintHash ?: session.telemetryNetworkFingerprintHash
-        val proxyRttBand = telemetry?.proxyRttBand ?: session.proxyRttBand
-        val resolverRttBand = telemetry?.resolverRttBand ?: session.resolverRttBand
-        val rttBand = telemetry?.rttBand() ?: session.rttBand()
-        val proxyRouteRetryCount = telemetry?.proxyRouteRetryCount ?: session.proxyRouteRetryCount
-        val tunnelRecoveryRetryCount = telemetry?.tunnelRecoveryRetryCount ?: session.tunnelRecoveryRetryCount
-        val retryCount = telemetry?.retryCount() ?: session.retryCount()
-        val fields =
-            buildList {
-                failureClass?.let { add(DiagnosticsFieldUiModel("Failure class", it)) }
-                winningStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning strategy", it)) }
-                winningTcpStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning TCP family", it)) }
-                winningQuicStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning QUIC family", it)) }
-                telemetryNetworkFingerprintHash?.let {
-                    add(DiagnosticsFieldUiModel("Network fingerprint", formatTelemetryHash(it)))
-                }
-                add(DiagnosticsFieldUiModel("Proxy RTT band", proxyRttBand))
-                add(DiagnosticsFieldUiModel("Resolver RTT band", resolverRttBand))
-                add(DiagnosticsFieldUiModel("Aggregate RTT band", rttBand))
-                add(DiagnosticsFieldUiModel("Proxy route retries", proxyRouteRetryCount.toString()))
-                add(DiagnosticsFieldUiModel("Tunnel recovery retries", tunnelRecoveryRetryCount.toString()))
-                add(DiagnosticsFieldUiModel("Total retries", retryCount.toString()))
+        private fun toScanRowUiModel(session: ScanSessionEntity): DiagnosticsSessionRowUiModel {
+            val report = decodeReport(session.reportJson)
+            return DiagnosticsSessionRowUiModel(
+                id = session.id,
+                profileId = session.profileId,
+                title = session.summary,
+                subtitle = "${session.pathMode} · ${session.serviceMode ?: "Unknown"} · ${formatTimestamp(
+                    session.startedAt,
+                )}",
+                pathMode = session.pathMode,
+                serviceMode = session.serviceMode ?: "Unknown",
+                status = session.status,
+                startedAtLabel = formatTimestamp(session.startedAt),
+                summary = session.summary,
+                metrics =
+                    buildList {
+                        add(DiagnosticsMetricUiModel("Path", session.pathMode))
+                        add(DiagnosticsMetricUiModel("Mode", session.serviceMode ?: "Unknown"))
+                        report?.results?.size?.let { add(DiagnosticsMetricUiModel("Probes", it.toString())) }
+                    },
+                tone = toneForOutcome(session.status),
+            )
+        }
+
+        private fun ProbeResultEntity.toProbeUiModel(index: Int): DiagnosticsProbeResultUiModel =
+            decodeProbeDetails(detailJson).let { details ->
+                DiagnosticsProbeResultUiModel(
+                    id = "$sessionId-$index-$probeType-$target",
+                    probeType = probeType,
+                    target = target,
+                    outcome = outcome,
+                    probeRetryCount = deriveProbeRetryCount(details),
+                    tone = toneForOutcome(outcome),
+                    details = details.map { DiagnosticsFieldUiModel(it.key, it.value) },
+                )
             }
-        return fields.takeIf { it.isNotEmpty() }?.let { DiagnosticsContextGroupUiModel(title = "Field telemetry", fields = it) }
-    }
 
-    private fun formatTelemetryHash(value: String): String =
-        if (value.length <= 24) {
-            value
-        } else {
-            "${value.take(12)}...${value.takeLast(8)}"
+        private fun toEventUiModel(event: NativeSessionEventEntity): DiagnosticsEventUiModel =
+            DiagnosticsEventUiModel(
+                id = event.id,
+                source = event.source.replaceFirstChar { it.uppercase() },
+                severity = event.level.uppercase(Locale.US),
+                message = event.message,
+                createdAtLabel = formatTimestamp(event.createdAt),
+                tone = toneForOutcome(event.level),
+            )
+
+        private fun toSnapshotUiModel(snapshotEntity: NetworkSnapshotEntity): DiagnosticsNetworkSnapshotUiModel? {
+            val snapshot =
+                runCatching {
+                    json.decodeFromString(NetworkSnapshotModel.serializer(), snapshotEntity.payloadJson)
+                }.getOrNull() ?: return null
+            return DiagnosticsNetworkSnapshotUiModel(
+                title = snapshotEntity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                subtitle = "${snapshot.transport} · ${formatTimestamp(snapshot.capturedAt)}",
+                fields =
+                    listOf(
+                        DiagnosticsFieldUiModel("DNS", snapshot.dnsServers.joinToString().ifBlank { "Unknown" }),
+                        DiagnosticsFieldUiModel("Private DNS", snapshot.privateDnsMode),
+                        DiagnosticsFieldUiModel("Public IP", snapshot.publicIp ?: "Unknown"),
+                        DiagnosticsFieldUiModel("Validated", snapshot.networkValidated.toString()),
+                        DiagnosticsFieldUiModel("Captive portal", snapshot.captivePortalDetected.toString()),
+                    ),
+            )
         }
 
-    private fun toneForConnection(session: BypassUsageSessionEntity): DiagnosticsTone =
-        when {
-            session.connectionState.equals("failed", ignoreCase = true) -> DiagnosticsTone.Negative
-            session.health.equals("degraded", ignoreCase = true) -> DiagnosticsTone.Warning
-            session.finishedAt == null -> DiagnosticsTone.Positive
-            else -> DiagnosticsTone.Neutral
+        private fun DiagnosticContextEntity.decodeContext(): DiagnosticContextModel? =
+            runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payloadJson) }.getOrNull()
+
+        private fun DiagnosticContextModel.toContextGroups(): List<DiagnosticsContextGroupUiModel> =
+            listOf(
+                DiagnosticsContextGroupUiModel(
+                    title = "Service",
+                    fields =
+                        listOf(
+                            DiagnosticsFieldUiModel("Status", service.serviceStatus),
+                            DiagnosticsFieldUiModel("Mode", service.activeMode),
+                            DiagnosticsFieldUiModel("Profile", service.selectedProfileName),
+                            DiagnosticsFieldUiModel("Config source", service.configSource),
+                            DiagnosticsFieldUiModel("Proxy", service.proxyEndpoint),
+                            DiagnosticsFieldUiModel("Chain", service.chainSummary),
+                            DiagnosticsFieldUiModel("Last native error", service.lastNativeErrorHeadline),
+                        ),
+                ),
+                DiagnosticsContextGroupUiModel(
+                    title = "Environment",
+                    fields =
+                        listOf(
+                            DiagnosticsFieldUiModel("VPN permission", permissions.vpnPermissionState),
+                            DiagnosticsFieldUiModel("Notifications", permissions.notificationPermissionState),
+                            DiagnosticsFieldUiModel("Battery optimization", permissions.batteryOptimizationState),
+                            DiagnosticsFieldUiModel("Data saver", permissions.dataSaverState),
+                            DiagnosticsFieldUiModel("Power save", environment.powerSaveModeState),
+                            DiagnosticsFieldUiModel("Metered", environment.networkMeteredState),
+                            DiagnosticsFieldUiModel("Roaming", environment.roamingState),
+                        ),
+                ),
+                DiagnosticsContextGroupUiModel(
+                    title = "Device",
+                    fields =
+                        listOf(
+                            DiagnosticsFieldUiModel("App", device.appVersionName),
+                            DiagnosticsFieldUiModel("Device", "${device.manufacturer} ${device.model}"),
+                            DiagnosticsFieldUiModel("Android", "${device.androidVersion} (API ${device.apiLevel})"),
+                            DiagnosticsFieldUiModel("Locale", device.locale),
+                        ),
+                ),
+            )
+
+        private fun buildFieldTelemetryGroup(
+            session: BypassUsageSessionEntity,
+            telemetry: TelemetrySampleEntity?,
+        ): DiagnosticsContextGroupUiModel? {
+            val failureClass = telemetry?.failureClass ?: session.failureClass
+            val winningTcpStrategyFamily = telemetry?.winningTcpStrategyFamily ?: session.winningTcpStrategyFamily
+            val winningQuicStrategyFamily = telemetry?.winningQuicStrategyFamily ?: session.winningQuicStrategyFamily
+            val winningStrategyFamily = telemetry?.winningStrategyFamily() ?: session.winningStrategyFamily()
+            val telemetryNetworkFingerprintHash =
+                telemetry?.telemetryNetworkFingerprintHash ?: session.telemetryNetworkFingerprintHash
+            val proxyRttBand = telemetry?.proxyRttBand ?: session.proxyRttBand
+            val resolverRttBand = telemetry?.resolverRttBand ?: session.resolverRttBand
+            val rttBand = telemetry?.rttBand() ?: session.rttBand()
+            val proxyRouteRetryCount = telemetry?.proxyRouteRetryCount ?: session.proxyRouteRetryCount
+            val tunnelRecoveryRetryCount = telemetry?.tunnelRecoveryRetryCount ?: session.tunnelRecoveryRetryCount
+            val retryCount = telemetry?.retryCount() ?: session.retryCount()
+            val fields =
+                buildList {
+                    failureClass?.let { add(DiagnosticsFieldUiModel("Failure class", it)) }
+                    winningStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning strategy", it)) }
+                    winningTcpStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning TCP family", it)) }
+                    winningQuicStrategyFamily?.let { add(DiagnosticsFieldUiModel("Winning QUIC family", it)) }
+                    telemetryNetworkFingerprintHash?.let {
+                        add(DiagnosticsFieldUiModel("Network fingerprint", formatTelemetryHash(it)))
+                    }
+                    add(DiagnosticsFieldUiModel("Proxy RTT band", proxyRttBand))
+                    add(DiagnosticsFieldUiModel("Resolver RTT band", resolverRttBand))
+                    add(DiagnosticsFieldUiModel("Aggregate RTT band", rttBand))
+                    add(DiagnosticsFieldUiModel("Proxy route retries", proxyRouteRetryCount.toString()))
+                    add(DiagnosticsFieldUiModel("Tunnel recovery retries", tunnelRecoveryRetryCount.toString()))
+                    add(DiagnosticsFieldUiModel("Total retries", retryCount.toString()))
+                }
+            return fields.takeIf { it.isNotEmpty() }?.let {
+                DiagnosticsContextGroupUiModel(
+                    title = "Field telemetry",
+                    fields = it,
+                )
+            }
         }
 
-    private fun toneForOutcome(value: String): DiagnosticsTone {
-        val normalized = value.lowercase(Locale.US)
-        return when {
-            normalized.contains("ok") || normalized.contains("success") || normalized.contains("completed") -> DiagnosticsTone.Positive
-            normalized.contains("warn") || normalized.contains("timeout") || normalized.contains("partial") || normalized.contains("degraded") || normalized.contains("running") -> DiagnosticsTone.Warning
-            normalized.contains("error") || normalized.contains("failed") || normalized.contains("blocked") || normalized.contains("stopped") -> DiagnosticsTone.Negative
-            normalized.contains("info") -> DiagnosticsTone.Info
-            else -> DiagnosticsTone.Neutral
-        }
-    }
+        private fun formatTelemetryHash(value: String): String =
+            if (value.length <= 24) {
+                value
+            } else {
+                "${value.take(12)}...${value.takeLast(8)}"
+            }
 
-    private fun decodeReport(reportJson: String?): com.poyka.ripdpi.diagnostics.ScanReport? =
-        reportJson?.takeIf { it.isNotBlank() }?.let {
+        private fun toneForConnection(session: BypassUsageSessionEntity): DiagnosticsTone =
+            when {
+                session.connectionState.equals("failed", ignoreCase = true) -> DiagnosticsTone.Negative
+                session.health.equals("degraded", ignoreCase = true) -> DiagnosticsTone.Warning
+                session.finishedAt == null -> DiagnosticsTone.Positive
+                else -> DiagnosticsTone.Neutral
+            }
+
+        private fun toneForOutcome(value: String): DiagnosticsTone {
+            val normalized = value.lowercase(Locale.US)
+            return when {
+                normalized.contains(
+                    "ok",
+                ) || normalized.contains("success") || normalized.contains("completed") -> DiagnosticsTone.Positive
+
+                normalized.contains("warn") || normalized.contains("timeout") || normalized.contains("partial") ||
+                    normalized.contains("degraded") ||
+                    normalized.contains("running") -> DiagnosticsTone.Warning
+
+                normalized.contains("error") || normalized.contains("failed") || normalized.contains("blocked") ||
+                    normalized.contains("stopped") -> DiagnosticsTone.Negative
+
+                normalized.contains("info") -> DiagnosticsTone.Info
+
+                else -> DiagnosticsTone.Neutral
+            }
+        }
+
+        private fun decodeReport(reportJson: String?): com.poyka.ripdpi.diagnostics.ScanReport? =
+            reportJson?.takeIf { it.isNotBlank() }?.let {
+                runCatching {
+                    json.decodeFromString(
+                        com.poyka.ripdpi.diagnostics.ScanReport
+                            .serializer(),
+                        it,
+                    )
+                }.getOrNull()
+            }
+
+        private fun decodeProbeDetails(detailJson: String): List<ProbeDetail> =
             runCatching {
-                json.decodeFromString(com.poyka.ripdpi.diagnostics.ScanReport.serializer(), it)
-            }.getOrNull()
+                json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
+            }.getOrElse { emptyList() }
+
+        private fun HistoryConnectionRowUiModel.matchesConnectionQuery(query: String): Boolean {
+            if (query.isBlank()) {
+                return true
+            }
+            val normalized = query.lowercase(Locale.US)
+            return listOf(title, subtitle, summary, serviceMode, connectionState, networkType).any {
+                it.lowercase(Locale.US).contains(normalized)
+            }
         }
 
-    private fun decodeProbeDetails(detailJson: String): List<ProbeDetail> =
-        runCatching {
-            json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
-        }.getOrElse { emptyList() }
-
-    private fun HistoryConnectionRowUiModel.matchesConnectionQuery(query: String): Boolean {
-        if (query.isBlank()) {
-            return true
-        }
-        val normalized = query.lowercase(Locale.US)
-        return listOf(title, subtitle, summary, serviceMode, connectionState, networkType).any {
-            it.lowercase(Locale.US).contains(normalized)
-        }
-    }
-
-    private fun DiagnosticsSessionRowUiModel.matchesDiagnosticsQuery(query: String): Boolean {
-        if (query.isBlank()) {
-            return true
-        }
-        val normalized = query.lowercase(Locale.US)
-        return listOf(title, subtitle, summary, pathMode, serviceMode, status).any {
-            it.lowercase(Locale.US).contains(normalized)
-        }
-    }
-
-    private fun DiagnosticsEventUiModel.matchesEventQuery(query: String): Boolean {
-        if (query.isBlank()) {
-            return true
-        }
-        val normalized = query.lowercase(Locale.US)
-        return listOf(source, severity, message).any { it.lowercase(Locale.US).contains(normalized) }
-    }
-
-    private fun toggleValue(
-        current: String?,
-        next: String?,
-    ): String? = if (current == next) null else next
-
-    private fun formatTimestamp(timestamp: Long): String = timestampFormatter.format(Date(timestamp))
-
-    private fun formatBytes(bytes: Long): String =
-        when {
-            bytes >= 1_000_000_000L -> String.format(Locale.US, "%.1f GB", bytes / 1_000_000_000f)
-            bytes >= 1_000_000L -> String.format(Locale.US, "%.1f MB", bytes / 1_000_000f)
-            bytes >= 1_000L -> String.format(Locale.US, "%.1f KB", bytes / 1_000f)
-            else -> "$bytes B"
+        private fun DiagnosticsSessionRowUiModel.matchesDiagnosticsQuery(query: String): Boolean {
+            if (query.isBlank()) {
+                return true
+            }
+            val normalized = query.lowercase(Locale.US)
+            return listOf(title, subtitle, summary, pathMode, serviceMode, status).any {
+                it.lowercase(Locale.US).contains(normalized)
+            }
         }
 
-    private fun formatDurationMs(durationMs: Long): String {
-        val totalSeconds = (durationMs / 1_000L).coerceAtLeast(0L)
-        val hours = totalSeconds / 3_600L
-        val minutes = (totalSeconds % 3_600L) / 60L
-        val seconds = totalSeconds % 60L
-        return when {
-            hours > 0L -> "${hours}h ${minutes}m"
-            minutes > 0L -> "${minutes}m ${seconds}s"
-            else -> "${seconds}s"
+        private fun DiagnosticsEventUiModel.matchesEventQuery(query: String): Boolean {
+            if (query.isBlank()) {
+                return true
+            }
+            val normalized = query.lowercase(Locale.US)
+            return listOf(source, severity, message).any { it.lowercase(Locale.US).contains(normalized) }
+        }
+
+        private fun toggleValue(
+            current: String?,
+            next: String?,
+        ): String? = if (current == next) null else next
+
+        private fun formatTimestamp(timestamp: Long): String = timestampFormatter.format(Date(timestamp))
+
+        private fun formatBytes(bytes: Long): String =
+            when {
+                bytes >= 1_000_000_000L -> String.format(Locale.US, "%.1f GB", bytes / 1_000_000_000f)
+                bytes >= 1_000_000L -> String.format(Locale.US, "%.1f MB", bytes / 1_000_000f)
+                bytes >= 1_000L -> String.format(Locale.US, "%.1f KB", bytes / 1_000f)
+                else -> "$bytes B"
+            }
+
+        private fun formatDurationMs(durationMs: Long): String {
+            val totalSeconds = (durationMs / 1_000L).coerceAtLeast(0L)
+            val hours = totalSeconds / 3_600L
+            val minutes = (totalSeconds % 3_600L) / 60L
+            val seconds = totalSeconds % 60L
+            return when {
+                hours > 0L -> "${hours}h ${minutes}m"
+                minutes > 0L -> "${minutes}m ${seconds}s"
+                else -> "${seconds}s"
+            }
         }
     }
-}

@@ -1,16 +1,15 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.ServiceStateStore
-import java.util.UUID
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import java.util.UUID
 
 internal object DiagnosticsReportPersister {
-
     suspend fun persistScanReport(
         report: ScanReport,
         historyRepository: DiagnosticsHistoryRepository,

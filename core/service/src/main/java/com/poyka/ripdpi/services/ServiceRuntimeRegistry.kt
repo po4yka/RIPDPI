@@ -6,14 +6,14 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import java.util.EnumMap
-import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.util.EnumMap
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
 interface ServiceRuntimeHandle {
     val runtimeId: String
@@ -28,7 +28,9 @@ abstract class ServiceRuntimeSession
     ) : ServiceRuntimeHandle {
         private val activeConnectionPolicyState = MutableStateFlow<ActiveConnectionPolicy?>(null)
 
-        final override val activeConnectionPolicy: StateFlow<ActiveConnectionPolicy?> = activeConnectionPolicyState.asStateFlow()
+        final override val activeConnectionPolicy: StateFlow<ActiveConnectionPolicy?> =
+            activeConnectionPolicyState
+                .asStateFlow()
 
         val currentActiveConnectionPolicy: ActiveConnectionPolicy?
             get() = activeConnectionPolicy.value
@@ -48,13 +50,13 @@ class VpnRuntimeSession(
         mode = Mode.VPN,
         runtimeId = runtimeId,
     ) {
-        var currentDnsSignature: String? = null
-        var tunnelStartCount: Int = 0
-        var tunnelRecoveryRetryCount: Long = 0
-        var pendingNetworkHandoverClass: String? = null
-        var lastSuccessfulHandoverFingerprintHash: String? = null
-        var lastSuccessfulHandoverAt: Long = 0L
-    }
+    var currentDnsSignature: String? = null
+    var tunnelStartCount: Int = 0
+    var tunnelRecoveryRetryCount: Long = 0
+    var pendingNetworkHandoverClass: String? = null
+    var lastSuccessfulHandoverFingerprintHash: String? = null
+    var lastSuccessfulHandoverAt: Long = 0L
+}
 
 class ProxyRuntimeSession(
     runtimeId: String = UUID.randomUUID().toString(),
@@ -62,10 +64,10 @@ class ProxyRuntimeSession(
         mode = Mode.Proxy,
         runtimeId = runtimeId,
     ) {
-        var pendingNetworkHandoverClass: String? = null
-        var lastSuccessfulHandoverFingerprintHash: String? = null
-        var lastSuccessfulHandoverAt: Long = 0L
-    }
+    var pendingNetworkHandoverClass: String? = null
+    var lastSuccessfulHandoverFingerprintHash: String? = null
+    var lastSuccessfulHandoverAt: Long = 0L
+}
 
 interface ServiceRuntimeRegistry {
     val runtimes: StateFlow<Map<Mode, ServiceRuntimeHandle>>
@@ -118,7 +120,5 @@ class DefaultServiceRuntimeRegistry
 abstract class ServiceRuntimeRegistryModule {
     @Binds
     @Singleton
-    abstract fun bindServiceRuntimeRegistry(
-        registry: DefaultServiceRuntimeRegistry,
-    ): ServiceRuntimeRegistry
+    abstract fun bindServiceRuntimeRegistry(registry: DefaultServiceRuntimeRegistry): ServiceRuntimeRegistry
 }

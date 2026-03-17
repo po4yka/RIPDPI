@@ -80,81 +80,82 @@ class DiagnosticsViewModelTest {
     @Test
     fun `ui state groups overview live sessions and share models`() =
         runTest {
-            val manager = FakeDiagnosticsManager().apply {
-                profilesState.value =
-                    listOf(
-                        DiagnosticProfileEntity(
-                            id = "default",
-                            name = "Default",
-                            source = "bundled",
-                            version = 1,
-                            requestJson = "{}",
-                            updatedAt = 1L,
-                        ),
-                    )
-                sessionsState.value =
-                    listOf(
-                        session(
-                            id = "session-1",
-                            profileId = "default",
-                            pathMode = "IN_PATH",
-                            summary = "Latest report",
-                        ),
-                    )
-                snapshotsState.value =
-                    listOf(
-                        snapshot(
-                            id = "snapshot-1",
-                            sessionId = "session-1",
-                        ),
-                    )
-                telemetryState.value =
-                    listOf(
-                        TelemetrySampleEntity(
-                            id = "telemetry-1",
-                            sessionId = null,
-                            activeMode = "VPN",
-                            connectionState = "Running",
-                            networkType = "wifi",
-                            publicIp = "198.51.100.8",
-                            lastFailureClass = "dns_tampering",
-                            lastFallbackAction = "resolver_override_recommended",
-                            txPackets = 3,
-                            txBytes = 4_000,
-                            rxPackets = 5,
-                            rxBytes = 6_000,
-                            createdAt = 20L,
-                        ),
-                    )
-                contextsState.value =
-                    listOf(
-                        context(
-                            id = "context-1",
-                            sessionId = null,
-                        ),
-                    )
-                nativeEventsState.value =
-                    listOf(
-                        NativeSessionEventEntity(
-                            id = "event-1",
-                            sessionId = "session-1",
-                            source = "proxy",
-                            level = "warn",
-                            message = "Route advanced",
-                            createdAt = 30L,
-                        ),
-                    )
-                exportsState.value =
-                    listOf(
-                        ExportRecordEntity(
-                            id = "export-1",
-                            sessionId = "session-1",
-                            uri = "/tmp/report.zip",
-                            fileName = "report.zip",
-                            createdAt = 40L,
-                        ),
-                    )
-            }
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = "default",
+                                name = "Default",
+                                source = "bundled",
+                                version = 1,
+                                requestJson = "{}",
+                                updatedAt = 1L,
+                            ),
+                        )
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-1",
+                                profileId = "default",
+                                pathMode = "IN_PATH",
+                                summary = "Latest report",
+                            ),
+                        )
+                    snapshotsState.value =
+                        listOf(
+                            snapshot(
+                                id = "snapshot-1",
+                                sessionId = "session-1",
+                            ),
+                        )
+                    telemetryState.value =
+                        listOf(
+                            TelemetrySampleEntity(
+                                id = "telemetry-1",
+                                sessionId = null,
+                                activeMode = "VPN",
+                                connectionState = "Running",
+                                networkType = "wifi",
+                                publicIp = "198.51.100.8",
+                                lastFailureClass = "dns_tampering",
+                                lastFallbackAction = "resolver_override_recommended",
+                                txPackets = 3,
+                                txBytes = 4_000,
+                                rxPackets = 5,
+                                rxBytes = 6_000,
+                                createdAt = 20L,
+                            ),
+                        )
+                    contextsState.value =
+                        listOf(
+                            context(
+                                id = "context-1",
+                                sessionId = null,
+                            ),
+                        )
+                    nativeEventsState.value =
+                        listOf(
+                            NativeSessionEventEntity(
+                                id = "event-1",
+                                sessionId = "session-1",
+                                source = "proxy",
+                                level = "warn",
+                                message = "Route advanced",
+                                createdAt = 30L,
+                            ),
+                        )
+                    exportsState.value =
+                        listOf(
+                            ExportRecordEntity(
+                                id = "export-1",
+                                sessionId = "session-1",
+                                uri = "/tmp/report.zip",
+                                fileName = "report.zip",
+                                createdAt = 40L,
+                            ),
+                        )
+                }
 
             val viewModel =
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
@@ -180,7 +181,12 @@ class DiagnosticsViewModelTest {
                     ?.fields
                     ?.any { it.label == "Host learning" && it.value.contains("Active") } == true,
             )
-            assertTrue(state.events.events.first().severity.contains("WARN"))
+            assertTrue(
+                state.events.events
+                    .first()
+                    .severity
+                    .contains("WARN"),
+            )
             collector.cancel()
         }
 
@@ -257,7 +263,11 @@ class DiagnosticsViewModelTest {
                     .build()
 
             val viewModel =
-                createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository(settings))
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(settings),
+                )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
@@ -370,7 +380,14 @@ class DiagnosticsViewModelTest {
             assertEquals("TLS record + hostfake + QUIC realistic burst", strategyProbe?.recommendation?.headline)
             assertEquals(2, strategyProbe?.families?.size)
             assertEquals("TCP candidates", strategyProbe?.families?.first()?.title)
-            assertTrue(strategyProbe?.families?.first()?.candidates?.first()?.recommended == true)
+            assertTrue(
+                strategyProbe
+                    ?.families
+                    ?.first()
+                    ?.candidates
+                    ?.first()
+                    ?.recommended == true,
+            )
             assertTrue(
                 strategyProbe
                     ?.recommendation
@@ -458,7 +475,13 @@ class DiagnosticsViewModelTest {
             assertEquals("default-session", scan.latestSession?.id)
             assertEquals(ScanPathMode.IN_PATH, scan.activePathMode)
             assertEquals(1, scan.latestResults.size)
-            assertEquals("https", scan.latestResults.first().probeType.lowercase())
+            assertEquals(
+                "https",
+                scan.latestResults
+                    .first()
+                    .probeType
+                    .lowercase(),
+            )
             assertNull(scan.strategyProbeReport)
             collector.cancel()
         }
@@ -510,7 +533,8 @@ class DiagnosticsViewModelTest {
                                                     selectedProtocol = "doh",
                                                     selectedEndpoint = "https://cloudflare-dns.com/dns-query",
                                                     selectedBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
-                                                    rationale = "Encrypted DNS stayed clean while UDP DNS was substituted.",
+                                                    rationale =
+                                                        "Encrypted DNS stayed clean while UDP DNS was substituted.",
                                                     appliedTemporarily = true,
                                                     persistable = true,
                                                 ),
@@ -661,11 +685,40 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            val families = viewModel.uiState.value.scan.strategyProbeReport?.families.orEmpty()
-            assertEquals("tlsrec_hostfake", families.first().candidates.first().id)
-            assertTrue(families.first().candidates.first().recommended)
-            assertEquals("quic_realistic_burst", families.last().candidates.first().id)
-            assertTrue(families.last().candidates.first().recommended)
+            val families =
+                viewModel.uiState.value.scan.strategyProbeReport
+                    ?.families
+                    .orEmpty()
+            assertEquals(
+                "tlsrec_hostfake",
+                families
+                    .first()
+                    .candidates
+                    .first()
+                    .id,
+            )
+            assertTrue(
+                families
+                    .first()
+                    .candidates
+                    .first()
+                    .recommended,
+            )
+            assertEquals(
+                "quic_realistic_burst",
+                families
+                    .last()
+                    .candidates
+                    .first()
+                    .id,
+            )
+            assertTrue(
+                families
+                    .last()
+                    .candidates
+                    .first()
+                    .recommended,
+            )
             collector.cancel()
         }
 
@@ -844,7 +897,14 @@ class DiagnosticsViewModelTest {
             assertTrue(selected.notes.contains("Adaptive warm-up applied"))
             assertTrue(selected.signature.any { it.label == "Chain" && it.value.contains("hostfake") })
             assertEquals("HTTPS results", selected.resultGroups.first().title)
-            assertEquals("audit.example", selected.resultGroups.first().items.first().target)
+            assertEquals(
+                "audit.example",
+                selected.resultGroups
+                    .first()
+                    .items
+                    .first()
+                    .target,
+            )
 
             viewModel.dismissStrategyProbeCandidate()
             advanceUntilIdle()
@@ -926,12 +986,13 @@ class DiagnosticsViewModelTest {
         runTest {
             val detail =
                 DiagnosticSessionDetail(
-                    session = session(
-                        id = "session-1",
-                        profileId = "default",
-                        pathMode = "RAW_PATH",
-                        summary = "Session"
-                    ),
+                    session =
+                        session(
+                            id = "session-1",
+                            profileId = "default",
+                            pathMode = "RAW_PATH",
+                            summary = "Session",
+                        ),
                     results =
                         listOf(
                             ProbeResultEntity(
@@ -969,8 +1030,23 @@ class DiagnosticsViewModelTest {
             val selected = viewModel.uiState.value.selectedSessionDetail
             assertNotNull(selected)
             assertEquals("Session", selected?.session?.title)
-            assertEquals(1, selected?.probeGroups?.first()?.items?.size)
-            assertEquals("example.org", selected?.probeGroups?.first()?.items?.first()?.target)
+            assertEquals(
+                1,
+                selected
+                    ?.probeGroups
+                    ?.first()
+                    ?.items
+                    ?.size,
+            )
+            assertEquals(
+                "example.org",
+                selected
+                    ?.probeGroups
+                    ?.first()
+                    ?.items
+                    ?.first()
+                    ?.target,
+            )
             assertEquals("Service", selected?.contextGroups?.first()?.title)
             collector.cancel()
         }
@@ -1013,7 +1089,12 @@ class DiagnosticsViewModelTest {
             val beforeDetail = viewModel.uiState.value
             assertEquals(DiagnosticsSection.Approaches, beforeDetail.selectedSection)
             assertEquals(1, beforeDetail.approaches.rows.size)
-            assertEquals("VPN Split", beforeDetail.approaches.rows.first().title)
+            assertEquals(
+                "VPN Split",
+                beforeDetail.approaches.rows
+                    .first()
+                    .title,
+            )
 
             viewModel.selectApproach("strategy-1")
             advanceUntilIdle()
@@ -1069,7 +1150,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-fake-tls")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(signature.any { it.label == "Fake TLS base" && it.value == "Original ClientHello" })
             assertTrue(signature.any { it.label == "Fake TLS SNI" && it.value == "Fixed (alt.example.org)" })
             assertTrue(
@@ -1127,7 +1211,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-hostfake")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(
                 signature.any {
                     it.label == "Chain" &&
@@ -1180,7 +1267,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-fakedsplit")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(signature.any { it.label == "Chain" && it.value.contains("fakedsplit(host+1)") })
             assertTrue(signature.any { it.label == "Fake TLS base" && it.value == "Original ClientHello" })
             collector.cancel()
@@ -1225,7 +1315,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-activation-window")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(signature.any { it.label == "Activation round" && it.value == "2-4" })
             assertTrue(signature.any { it.label == "Activation payload size" && it.value == "64-512" })
             assertTrue(signature.any { it.label == "Activation stream bytes" && it.value == "0-2047" })
@@ -1270,7 +1363,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-adaptive")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(signature.any { it.label == "Chain" && it.value.contains("adaptive balanced") })
             assertTrue(signature.any { it.label == "TLS record marker" && it.value == "adaptive TLS SNI extension" })
             assertTrue(signature.any { it.label == "Split marker" && it.value == "adaptive balanced" })
@@ -1315,7 +1411,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-quic-fake")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(signature.any { it.label == "QUIC fake profile" && it.value == "Realistic Initial" })
             assertTrue(signature.any { it.label == "QUIC fake host" && it.value == "video.example.test" })
             collector.cancel()
@@ -1358,7 +1457,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-quic-compat")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(signature.any { it.label == "QUIC fake profile" && it.value == "Zapret compatibility" })
             assertFalse(signature.any { it.label == "QUIC fake host" })
             collector.cancel()
@@ -1403,7 +1505,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-fake-payload-library")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(signature.any { it.label == "HTTP fake profile" && it.value == "Cloudflare GET" })
             assertTrue(signature.any { it.label == "TLS fake profile" && it.value == "Google Chrome" })
             assertTrue(signature.any { it.label == "UDP fake profile" && it.value == "DNS query" })
@@ -1455,7 +1560,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-http-parser-evasions")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(
                 signature.any {
                     it.label == "HTTP parser evasions" &&
@@ -1503,7 +1611,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-http-parser-evasions-cli")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertFalse(signature.any { it.label == "HTTP parser evasions" })
             collector.cancel()
         }
@@ -1545,7 +1656,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-http-parser-aggressive")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(
                 signature.any {
                     it.label == "HTTP parser evasions" &&
@@ -1595,11 +1709,19 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-adaptive-fake-ttl")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(signature.any { it.label == "Fake TTL mode" && it.value == "Custom adaptive TTL" })
             assertTrue(signature.any { it.label == "Adaptive fake TTL window" && it.value == "4-16" })
             assertTrue(signature.any { it.label == "Adaptive fake TTL fallback" && it.value == "11" })
-            assertTrue(signature.any { it.label == "Adaptive fake TTL bias" && it.value == "Prefer higher TTLs first (+2)" })
+            assertTrue(
+                signature.any {
+                    it.label == "Adaptive fake TTL bias" &&
+                        it.value == "Prefer higher TTLs first (+2)"
+                },
+            )
             collector.cancel()
         }
 
@@ -1639,7 +1761,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-adaptive-fake-ttl-cli")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertFalse(signature.any { it.label == "Fake TTL mode" })
             assertFalse(signature.any { it.label == "Adaptive fake TTL window" })
             assertFalse(signature.any { it.label == "Adaptive fake TTL fallback" })
@@ -1684,7 +1809,10 @@ class DiagnosticsViewModelTest {
             viewModel.selectApproach("strategy-custom-raw-fake")
             advanceUntilIdle()
 
-            val signature = viewModel.uiState.value.selectedApproachDetail?.signature.orEmpty()
+            val signature =
+                viewModel.uiState.value.selectedApproachDetail
+                    ?.signature
+                    .orEmpty()
             assertTrue(signature.any { it.label == "Fake payload source" && it.value == "Custom raw fake payload" })
             assertFalse(signature.any { it.label == "HTTP fake profile" })
             assertFalse(signature.any { it.label == "TLS fake profile" })
@@ -1697,12 +1825,13 @@ class DiagnosticsViewModelTest {
         runTest {
             val wifiDetail =
                 DiagnosticSessionDetail(
-                    session = session(
-                        id = "session-wifi",
-                        profileId = "default",
-                        pathMode = "RAW_PATH",
-                        summary = "Wi-Fi"
-                    ),
+                    session =
+                        session(
+                            id = "session-wifi",
+                            profileId = "default",
+                            pathMode = "RAW_PATH",
+                            summary = "Wi-Fi",
+                        ),
                     results = emptyList(),
                     snapshots =
                         listOf(
@@ -1723,18 +1852,24 @@ class DiagnosticsViewModelTest {
             viewModel.selectSession("session-wifi")
             advanceUntilIdle()
 
-            val wifiFields = viewModel.uiState.value.selectedSessionDetail?.snapshots?.first()?.fields.orEmpty()
+            val wifiFields =
+                viewModel.uiState.value.selectedSessionDetail
+                    ?.snapshots
+                    ?.first()
+                    ?.fields
+                    .orEmpty()
             assertTrue(wifiFields.any { it.label == "Wi-Fi band" && it.value == "5 GHz" })
             assertTrue(wifiFields.any { it.label == "Wi-Fi SSID" && it.value == "redacted" })
 
             manager.detail =
                 wifiDetail.copy(
-                    session = session(
-                        id = "session-cell",
-                        profileId = "default",
-                        pathMode = "RAW_PATH",
-                        summary = "Cell"
-                    ),
+                    session =
+                        session(
+                            id = "session-cell",
+                            profileId = "default",
+                            pathMode = "RAW_PATH",
+                            summary = "Cell",
+                        ),
                     snapshots =
                         listOf(
                             snapshot(
@@ -1766,7 +1901,12 @@ class DiagnosticsViewModelTest {
             viewModel.selectSession("session-cell")
             advanceUntilIdle()
 
-            val cellFields = viewModel.uiState.value.selectedSessionDetail?.snapshots?.first()?.fields.orEmpty()
+            val cellFields =
+                viewModel.uiState.value.selectedSessionDetail
+                    ?.snapshots
+                    ?.first()
+                    ?.fields
+                    .orEmpty()
             assertTrue(cellFields.any { it.label == "Carrier" && it.value == "Example Carrier" })
             assertTrue(cellFields.any { it.label == "Data network" && it.value == "NR" })
             collector.cancel()
@@ -1775,17 +1915,18 @@ class DiagnosticsViewModelTest {
     @Test
     fun `share summary emits effect and archive actions use selected target session`() =
         runTest {
-            val manager = FakeDiagnosticsManager().apply {
-                sessionsState.value =
-                    listOf(
-                        session(
-                            id = "session-1",
-                            profileId = "default",
-                            pathMode = "RAW_PATH",
-                            summary = "Selected",
-                        ),
-                    )
-            }
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-1",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "Selected",
+                            ),
+                        )
+                }
             val viewModel =
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
@@ -1820,27 +1961,28 @@ class DiagnosticsViewModelTest {
     @Test
     fun `event filter narrows the visible stream`() =
         runTest {
-            val manager = FakeDiagnosticsManager().apply {
-                nativeEventsState.value =
-                    listOf(
-                        NativeSessionEventEntity(
-                            id = "event-1",
-                            sessionId = null,
-                            source = "proxy",
-                            level = "warn",
-                            message = "First warning",
-                            createdAt = 1L,
-                        ),
-                        NativeSessionEventEntity(
-                            id = "event-2",
-                            sessionId = null,
-                            source = "tunnel",
-                            level = "info",
-                            message = "Healthy session",
-                            createdAt = 2L,
-                        ),
-                    )
-            }
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    nativeEventsState.value =
+                        listOf(
+                            NativeSessionEventEntity(
+                                id = "event-1",
+                                sessionId = null,
+                                source = "proxy",
+                                level = "warn",
+                                message = "First warning",
+                                createdAt = 1L,
+                            ),
+                            NativeSessionEventEntity(
+                                id = "event-2",
+                                sessionId = null,
+                                source = "tunnel",
+                                level = "info",
+                                message = "Healthy session",
+                                createdAt = 2L,
+                            ),
+                        )
+                }
             val viewModel =
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
@@ -1850,7 +1992,12 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
 
             assertEquals(1, viewModel.uiState.value.events.events.size)
-            assertEquals("Proxy", viewModel.uiState.value.events.events.first().source)
+            assertEquals(
+                "Proxy",
+                viewModel.uiState.value.events.events
+                    .first()
+                    .source,
+            )
             collector.cancel()
         }
 

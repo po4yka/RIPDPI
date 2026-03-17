@@ -89,7 +89,13 @@ internal class SettingsDnsActions(
             key = "dnsDohUrl",
             value = dohUrl,
         ) {
-            val host = runCatching { java.net.URI(dohUrl.trim()).host.orEmpty() }.getOrDefault("")
+            val host =
+                runCatching {
+                    java.net
+                        .URI(dohUrl.trim())
+                        .host
+                        .orEmpty()
+                }.getOrDefault("")
             val port =
                 runCatching {
                     val uri = java.net.URI(dohUrl.trim())

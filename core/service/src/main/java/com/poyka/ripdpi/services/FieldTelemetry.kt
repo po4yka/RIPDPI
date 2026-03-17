@@ -15,6 +15,7 @@ import javax.inject.Singleton
 
 interface TelemetryInstallSaltStore {
     fun loadSalt(): String
+
     fun rotateSalt()
 }
 
@@ -97,13 +98,9 @@ private fun ByteArray.toHexString(): String =
 abstract class FieldTelemetryModule {
     @Binds
     @Singleton
-    abstract fun bindTelemetryInstallSaltStore(
-        store: FileBackedTelemetryInstallSaltStore,
-    ): TelemetryInstallSaltStore
+    abstract fun bindTelemetryInstallSaltStore(store: FileBackedTelemetryInstallSaltStore): TelemetryInstallSaltStore
 
     @Binds
     @Singleton
-    abstract fun bindTelemetryFingerprintHasher(
-        hasher: DefaultTelemetryFingerprintHasher,
-    ): TelemetryFingerprintHasher
+    abstract fun bindTelemetryFingerprintHasher(hasher: DefaultTelemetryFingerprintHasher): TelemetryFingerprintHasher
 }

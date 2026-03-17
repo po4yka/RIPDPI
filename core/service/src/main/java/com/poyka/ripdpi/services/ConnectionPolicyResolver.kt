@@ -18,12 +18,12 @@ import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
-import com.poyka.ripdpi.data.toVpnDnsPolicyJson
-import com.poyka.ripdpi.data.toActiveDnsSettings
-import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.toPolicyJson
+import com.poyka.ripdpi.data.strategyFamily
+import com.poyka.ripdpi.data.toActiveDnsSettings
+import com.poyka.ripdpi.data.toVpnDnsPolicyJson
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.Binds
 import dagger.Module
@@ -261,7 +261,5 @@ private fun String.encodeSha256(): String {
 abstract class ConnectionPolicyResolverModule {
     @Binds
     @Singleton
-    abstract fun bindConnectionPolicyResolver(
-        resolver: DefaultConnectionPolicyResolver,
-    ): ConnectionPolicyResolver
+    abstract fun bindConnectionPolicyResolver(resolver: DefaultConnectionPolicyResolver): ConnectionPolicyResolver
 }

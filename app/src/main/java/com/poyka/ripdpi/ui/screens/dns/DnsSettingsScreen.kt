@@ -145,7 +145,9 @@ fun DnsSettingsRoute(
         onBack = onBack,
         onModeSelected = { mode ->
             if (mode == DnsModeEncrypted) {
-                if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh && uiState.dnsProviderId != DnsProviderCustom) {
+                if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh &&
+                    uiState.dnsProviderId != DnsProviderCustom
+                ) {
                     viewModel.selectBuiltInDnsProvider(uiState.dnsProviderId)
                 } else {
                     viewModel.setEncryptedDnsProtocol(
@@ -233,19 +235,40 @@ internal fun DnsSettingsScreen(
         mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot) uiState.encryptedDnsHost else "")
     }
     var customDnsCryptHost by rememberSaveable(uiState.encryptedDnsHost, uiState.encryptedDnsProtocol) {
-        mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) uiState.encryptedDnsHost else "")
+        mutableStateOf(
+            if (uiState.encryptedDnsProtocol ==
+                EncryptedDnsProtocolDnsCrypt
+            ) {
+                uiState.encryptedDnsHost
+            } else {
+                ""
+            },
+        )
     }
     var portInput by rememberSaveable(uiState.encryptedDnsPort, uiState.encryptedDnsProtocol) {
         val value =
-            if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot || uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) {
-                uiState.encryptedDnsPort.takeIf { it > 0 }?.toString().orEmpty()
+            if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot ||
+                uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt
+            ) {
+                uiState.encryptedDnsPort
+                    .takeIf { it > 0 }
+                    ?.toString()
+                    .orEmpty()
             } else {
                 ""
             }
         mutableStateOf(value)
     }
     var tlsServerNameInput by rememberSaveable(uiState.encryptedDnsTlsServerName, uiState.encryptedDnsProtocol) {
-        mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot) uiState.encryptedDnsTlsServerName else "")
+        mutableStateOf(
+            if (uiState.encryptedDnsProtocol ==
+                EncryptedDnsProtocolDot
+            ) {
+                uiState.encryptedDnsTlsServerName
+            } else {
+                ""
+            },
+        )
     }
     var bootstrapInput by rememberSaveable(uiState.encryptedDnsBootstrapIps, uiState.encryptedDnsProtocol) {
         mutableStateOf(
@@ -258,7 +281,7 @@ internal fun DnsSettingsScreen(
     }
     var dnscryptProviderInput by rememberSaveable(
         uiState.encryptedDnsDnscryptProviderName,
-        uiState.encryptedDnsProtocol
+        uiState.encryptedDnsProtocol,
     ) {
         mutableStateOf(
             if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) {
@@ -270,7 +293,7 @@ internal fun DnsSettingsScreen(
     }
     var dnscryptPublicKeyInput by rememberSaveable(
         uiState.encryptedDnsDnscryptPublicKey,
-        uiState.encryptedDnsProtocol
+        uiState.encryptedDnsProtocol,
     ) {
         mutableStateOf(
             if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) {
@@ -510,7 +533,9 @@ internal fun DnsSettingsScreen(
                     }
 
                     DnsModeEncrypted -> {
-                        if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh && uiState.dnsProviderId != DnsProviderCustom) {
+                        if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh &&
+                            uiState.dnsProviderId != DnsProviderCustom
+                        ) {
                             Text(
                                 text = stringResource(R.string.dns_custom_switch_hint),
                                 style = type.caption,
@@ -596,16 +621,17 @@ private fun DnsActiveConfigurationCard(
             } else {
                 stringResource(R.string.dns_mode_plain)
             }
-    val endpointSummary = remember(
-        uiState.dnsMode,
-        uiState.encryptedDnsProtocol,
-        uiState.encryptedDnsDohUrl,
-        uiState.encryptedDnsHost,
-        uiState.encryptedDnsPort,
-        uiState.dnsIp
-    ) {
-        activeEndpointSummary(uiState)
-    }
+    val endpointSummary =
+        remember(
+            uiState.dnsMode,
+            uiState.encryptedDnsProtocol,
+            uiState.encryptedDnsDohUrl,
+            uiState.encryptedDnsHost,
+            uiState.encryptedDnsPort,
+            uiState.dnsIp,
+        ) {
+            activeEndpointSummary(uiState)
+        }
     val bootstrapSummary =
         remember(uiState.dnsMode, uiState.encryptedDnsBootstrapIps) {
             if (uiState.dnsMode == DnsModeEncrypted) {
@@ -672,9 +698,16 @@ private fun DnsActiveConfigurationCard(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             DnsBadge(
-                text = if (uiState.dnsMode == DnsModeEncrypted) stringResource(R.string.dns_mode_doh) else stringResource(
-                    R.string.dns_mode_plain
-                )
+                text =
+                    if (uiState.dnsMode ==
+                        DnsModeEncrypted
+                    ) {
+                        stringResource(R.string.dns_mode_doh)
+                    } else {
+                        stringResource(
+                            R.string.dns_mode_plain,
+                        )
+                    },
             )
             if (uiState.dnsMode == DnsModeEncrypted) {
                 DnsBadge(text = protocolDisplayName(uiState.encryptedDnsProtocol))
@@ -805,8 +838,7 @@ private fun DnsBadge(
                 .background(
                     if (highlighted) colors.infoContainer else colors.inputBackground,
                     RipDpiThemeTokens.shapes.full,
-                )
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                ).padding(horizontal = 10.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -894,7 +926,14 @@ private fun CustomEncryptedDnsSection(
                 onBootstrapInputChange = onBootstrapInputChange,
                 hostLabel = stringResource(R.string.dns_custom_host_label),
                 hostHelper = stringResource(R.string.dns_custom_dot_host_helper),
-                bootstrapError = if (bootstrapInput.isNotBlank() && !bootstrapIpsValid) stringResource(R.string.dns_custom_bootstrap_error) else null,
+                bootstrapError =
+                    if (bootstrapInput.isNotBlank() &&
+                        !bootstrapIpsValid
+                    ) {
+                        stringResource(R.string.dns_custom_bootstrap_error)
+                    } else {
+                        null
+                    },
             )
             RipDpiTextField(
                 value = tlsServerNameInput,
@@ -946,7 +985,14 @@ private fun CustomEncryptedDnsSection(
                 onBootstrapInputChange = onBootstrapInputChange,
                 hostLabel = stringResource(R.string.dns_custom_host_label),
                 hostHelper = stringResource(R.string.dns_custom_dnscrypt_host_helper),
-                bootstrapError = if (bootstrapInput.isNotBlank() && !bootstrapIpsValid) stringResource(R.string.dns_custom_bootstrap_error) else null,
+                bootstrapError =
+                    if (bootstrapInput.isNotBlank() &&
+                        !bootstrapIpsValid
+                    ) {
+                        stringResource(R.string.dns_custom_bootstrap_error)
+                    } else {
+                        null
+                    },
             )
             RipDpiTextField(
                 value = dnscryptProviderInput,
@@ -1088,9 +1134,10 @@ private fun CommonEndpointFields(
         RipDpiTextField(
             value = host,
             onValueChange = onHostChange,
-            modifier = Modifier
-                .weight(1f)
-                .testTag("dns-custom-host"),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .testTag("dns-custom-host"),
             label = hostLabel,
             placeholder = stringResource(R.string.dns_placeholder_resolver_example),
             helperText = hostHelper,
@@ -1103,9 +1150,10 @@ private fun CommonEndpointFields(
         RipDpiTextField(
             value = portInput,
             onValueChange = onPortInputChange,
-            modifier = Modifier
-                .weight(0.4f)
-                .testTag("dns-custom-port"),
+            modifier =
+                Modifier
+                    .weight(0.4f)
+                    .testTag("dns-custom-port"),
             label = stringResource(R.string.dns_custom_port_label),
             placeholder = stringResource(R.string.dns_placeholder_port),
             helperText = stringResource(R.string.dns_custom_port_helper),
@@ -1144,9 +1192,10 @@ private fun DnsResolverCard(
     RipDpiCard(
         variant = if (selected) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
         onClick = onClick,
-        modifier = Modifier
-            .animateContentSize()
-            .testTag("dns-resolver-${resolver.providerId}"),
+        modifier =
+            Modifier
+                .animateContentSize()
+                .testTag("dns-resolver-${resolver.providerId}"),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1193,19 +1242,23 @@ private fun DnsResolverCard(
     }
 }
 
-private fun parseBootstrapIps(value: String): List<String> =
-    normalizeDnsBootstrapIps(listOf(value))
+private fun parseBootstrapIps(value: String): List<String> = normalizeDnsBootstrapIps(listOf(value))
 
 private fun activeEndpointSummary(uiState: SettingsUiState): String =
     when {
-        uiState.dnsMode != DnsModeEncrypted -> uiState.dnsIp
+        uiState.dnsMode != DnsModeEncrypted -> {
+            uiState.dnsIp
+        }
+
         uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh -> {
             uiState.encryptedDnsDohUrl.ifBlank {
                 "${uiState.encryptedDnsHost}:${uiState.encryptedDnsPort}"
             }
         }
 
-        else -> "${uiState.encryptedDnsHost}:${uiState.encryptedDnsPort}"
+        else -> {
+            "${uiState.encryptedDnsHost}:${uiState.encryptedDnsPort}"
+        }
     }
 
 private fun formatBootstrapPreview(values: List<String>): String =

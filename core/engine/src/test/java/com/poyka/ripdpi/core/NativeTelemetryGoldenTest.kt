@@ -10,7 +10,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NativeTelemetryGoldenTest {
-    private val json = Json { explicitNulls = true; encodeDefaults = true }
+    private val json =
+        Json {
+            explicitNulls = true
+            encodeDefaults = true
+        }
 
     @Test
     fun proxyTelemetryFirstAndSecondPollMatchGoldens() =

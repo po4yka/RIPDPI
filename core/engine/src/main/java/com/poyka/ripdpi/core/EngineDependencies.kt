@@ -119,9 +119,7 @@ class DefaultNetworkDiagnosticsBridgeFactory
 abstract class ProxyPreferencesResolverModule {
     @Binds
     @Singleton
-    abstract fun bindProxyPreferencesResolver(
-        resolver: DefaultProxyPreferencesResolver,
-    ): ProxyPreferencesResolver
+    abstract fun bindProxyPreferencesResolver(resolver: DefaultProxyPreferencesResolver): ProxyPreferencesResolver
 }
 
 @Module
@@ -129,9 +127,7 @@ abstract class ProxyPreferencesResolverModule {
 abstract class RipDpiProxyBindingsModule {
     @Binds
     @Singleton
-    abstract fun bindRipDpiProxyBindings(
-        bindings: RipDpiProxyNativeBindings,
-    ): RipDpiProxyBindings
+    abstract fun bindRipDpiProxyBindings(bindings: RipDpiProxyNativeBindings): RipDpiProxyBindings
 }
 
 @Module
@@ -139,9 +135,7 @@ abstract class RipDpiProxyBindingsModule {
 abstract class RipDpiProxyFactoryModule {
     @Binds
     @Singleton
-    abstract fun bindRipDpiProxyFactory(
-        factory: DefaultRipDpiProxyFactory,
-    ): RipDpiProxyFactory
+    abstract fun bindRipDpiProxyFactory(factory: DefaultRipDpiProxyFactory): RipDpiProxyFactory
 }
 
 @Module
@@ -149,9 +143,7 @@ abstract class RipDpiProxyFactoryModule {
 abstract class Tun2SocksBindingsModule {
     @Binds
     @Singleton
-    abstract fun bindTun2SocksBindings(
-        bindings: Tun2SocksNativeBindings,
-    ): Tun2SocksBindings
+    abstract fun bindTun2SocksBindings(bindings: Tun2SocksNativeBindings): Tun2SocksBindings
 }
 
 @Module
@@ -159,9 +151,7 @@ abstract class Tun2SocksBindingsModule {
 abstract class Tun2SocksBridgeFactoryModule {
     @Binds
     @Singleton
-    abstract fun bindTun2SocksBridgeFactory(
-        factory: DefaultTun2SocksBridgeFactory,
-    ): Tun2SocksBridgeFactory
+    abstract fun bindTun2SocksBridgeFactory(factory: DefaultTun2SocksBridgeFactory): Tun2SocksBridgeFactory
 }
 
 @Module
@@ -179,7 +169,5 @@ abstract class NetworkDiagnosticsBridgeFactoryModule {
 abstract class NetworkDiagnosticsBindingsModule {
     @Binds
     @Singleton
-    abstract fun bindNetworkDiagnosticsBindings(
-        bindings: NetworkDiagnosticsNativeBindings,
-    ): NetworkDiagnosticsBindings
+    abstract fun bindNetworkDiagnosticsBindings(bindings: NetworkDiagnosticsNativeBindings): NetworkDiagnosticsBindings
 }

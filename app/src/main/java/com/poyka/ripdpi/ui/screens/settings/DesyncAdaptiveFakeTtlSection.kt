@@ -79,10 +79,17 @@ internal fun AdaptiveFakeTtlProfileCard(
     val status = rememberAdaptiveFakeTtlStatus(uiState)
     val modeSummary =
         when (uiState.adaptiveFakeTtlMode) {
-            AdaptiveFakeTtlModeAdaptive -> stringResource(R.string.adaptive_fake_ttl_summary_mode_adaptive)
-            AdaptiveFakeTtlModeCustom ->
+            AdaptiveFakeTtlModeAdaptive -> {
+                stringResource(R.string.adaptive_fake_ttl_summary_mode_adaptive)
+            }
+
+            AdaptiveFakeTtlModeCustom -> {
                 stringResource(R.string.adaptive_fake_ttl_summary_mode_custom, uiState.adaptiveFakeTtlDelta)
-            else -> stringResource(R.string.adaptive_fake_ttl_summary_mode_fixed)
+            }
+
+            else -> {
+                stringResource(R.string.adaptive_fake_ttl_summary_mode_fixed)
+            }
         }
     val windowSummary =
         if (uiState.hasAdaptiveFakeTtl) {
@@ -210,54 +217,61 @@ internal fun AdaptiveFakeTtlProfileCard(
 @Composable
 private fun rememberAdaptiveFakeTtlStatus(uiState: SettingsUiState): AdaptiveFakeTtlStatusContent =
     when {
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             AdaptiveFakeTtlStatusContent(
                 label = stringResource(R.string.adaptive_fake_ttl_cli_title),
                 body = stringResource(R.string.adaptive_fake_ttl_cli_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.fakeTtlControlsRelevant && uiState.hasAdaptiveFakeTtl ->
+        !uiState.fakeTtlControlsRelevant && uiState.hasAdaptiveFakeTtl -> {
             AdaptiveFakeTtlStatusContent(
                 label = stringResource(R.string.adaptive_fake_ttl_saved_title),
                 body = stringResource(R.string.adaptive_fake_ttl_saved_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        !uiState.fakeTtlControlsRelevant ->
+        !uiState.fakeTtlControlsRelevant -> {
             AdaptiveFakeTtlStatusContent(
                 label = stringResource(R.string.adaptive_fake_ttl_fixed_title),
                 body = stringResource(R.string.adaptive_fake_ttl_fixed_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        uiState.isServiceRunning && uiState.hasAdaptiveFakeTtl ->
+        uiState.isServiceRunning && uiState.hasAdaptiveFakeTtl -> {
             AdaptiveFakeTtlStatusContent(
                 label = stringResource(R.string.adaptive_fake_ttl_restart_title),
                 body = stringResource(R.string.adaptive_fake_ttl_restart_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.hasCustomAdaptiveFakeTtl ->
+        uiState.hasCustomAdaptiveFakeTtl -> {
             AdaptiveFakeTtlStatusContent(
                 label = stringResource(R.string.adaptive_fake_ttl_custom_title),
                 body = stringResource(R.string.adaptive_fake_ttl_custom_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        uiState.hasAdaptiveFakeTtl ->
+        uiState.hasAdaptiveFakeTtl -> {
             AdaptiveFakeTtlStatusContent(
                 label = stringResource(R.string.adaptive_fake_ttl_adaptive_title),
                 body = stringResource(R.string.adaptive_fake_ttl_adaptive_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        else ->
+        else -> {
             AdaptiveFakeTtlStatusContent(
                 label = stringResource(R.string.adaptive_fake_ttl_fixed_title),
                 body = stringResource(R.string.adaptive_fake_ttl_fixed_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
     }
 
 @Composable

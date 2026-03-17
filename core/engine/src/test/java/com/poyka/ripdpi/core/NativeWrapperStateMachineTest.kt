@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.core
 
-import java.io.IOException
-import kotlin.random.Random
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -10,6 +8,8 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
+import kotlin.random.Random
 
 class NativeWrapperStateMachineTest {
     private val json = Json
@@ -162,6 +162,7 @@ class NativeWrapperStateMachineTest {
                         }.exceptionOrNull()
                     when (state) {
                         ProxyState.IDLE -> assertTrue(error is IOException)
+
                         ProxyState.RUNNING_FAILURE,
                         ProxyState.RUNNING_SUCCESS,
                         -> assertTrue(error is NativeError.AlreadyRunning)
@@ -172,7 +173,7 @@ class NativeWrapperStateMachineTest {
                 }
             }
 
-            ProxyCommand.START_BLOCKING_SUCCESS ->
+            ProxyCommand.START_BLOCKING_SUCCESS -> {
                 when (state) {
                     ProxyState.IDLE -> {
                         harness.beginStart(failAtStart = false)
@@ -190,8 +191,9 @@ class NativeWrapperStateMachineTest {
                         state
                     }
                 }
+            }
 
-            ProxyCommand.START_BLOCKING_FAILURE ->
+            ProxyCommand.START_BLOCKING_FAILURE -> {
                 when (state) {
                     ProxyState.IDLE -> {
                         harness.beginStart(failAtStart = true)
@@ -209,8 +211,9 @@ class NativeWrapperStateMachineTest {
                         state
                     }
                 }
+            }
 
-            ProxyCommand.STOP ->
+            ProxyCommand.STOP -> {
                 when (state) {
                     ProxyState.IDLE -> {
                         val error = runCatching { harness.proxy.stopProxy() }.exceptionOrNull()
@@ -225,8 +228,9 @@ class NativeWrapperStateMachineTest {
                         state
                     }
                 }
+            }
 
-            ProxyCommand.STOP_FAILURE ->
+            ProxyCommand.STOP_FAILURE -> {
                 when (state) {
                     ProxyState.IDLE -> {
                         harness.bindings.stopFailure = IOException("stop failure")
@@ -252,6 +256,7 @@ class NativeWrapperStateMachineTest {
                         state
                     }
                 }
+            }
 
             ProxyCommand.POLL_TELEMETRY -> {
                 val previousTelemetryCalls = harness.bindings.telemetryHandles.size
@@ -299,9 +304,11 @@ class NativeWrapperStateMachineTest {
                 }
             }
 
-            ProxyCommand.RELEASE ->
+            ProxyCommand.RELEASE -> {
                 when (state) {
-                    ProxyState.IDLE -> ProxyState.IDLE
+                    ProxyState.IDLE -> {
+                        ProxyState.IDLE
+                    }
 
                     ProxyState.RUNNING_SUCCESS -> {
                         harness.release()
@@ -313,6 +320,7 @@ class NativeWrapperStateMachineTest {
                         ProxyState.IDLE
                     }
                 }
+            }
         }
 
     private fun assertProxyState(
@@ -322,6 +330,7 @@ class NativeWrapperStateMachineTest {
         val handle = currentHandle(proxy)
         when (state) {
             ProxyState.IDLE -> assertEquals(0L, handle)
+
             ProxyState.RUNNING_FAILURE,
             ProxyState.RUNNING_SUCCESS,
             -> assertTrue(handle != 0L)
@@ -335,7 +344,7 @@ class NativeWrapperStateMachineTest {
         tunnel: Tun2SocksTunnel,
     ): TunnelCommandResult =
         when (command) {
-            TunnelCommand.START ->
+            TunnelCommand.START -> {
                 when (state) {
                     TunnelState.IDLE -> {
                         bindings.nativeStats = longArrayOf(1L, 2L, 3L, 4L)
@@ -353,6 +362,7 @@ class NativeWrapperStateMachineTest {
                         TunnelCommandResult(state)
                     }
                 }
+            }
 
             TunnelCommand.START_CREATE_FAILURE -> {
                 bindings.createFailure = IOException("create failure")
@@ -371,7 +381,7 @@ class NativeWrapperStateMachineTest {
                 }
             }
 
-            TunnelCommand.START_NATIVE_FAILURE ->
+            TunnelCommand.START_NATIVE_FAILURE -> {
                 when (state) {
                     TunnelState.IDLE -> {
                         bindings.startFailure = IOException("start failure")
@@ -396,8 +406,9 @@ class NativeWrapperStateMachineTest {
                         TunnelCommandResult(state)
                     }
                 }
+            }
 
-            TunnelCommand.STOP ->
+            TunnelCommand.STOP -> {
                 when (state) {
                     TunnelState.IDLE -> {
                         val error = runCatching { tunnel.stop() }.exceptionOrNull()
@@ -410,8 +421,9 @@ class NativeWrapperStateMachineTest {
                         TunnelCommandResult(TunnelState.IDLE, destroyIncrements = 1)
                     }
                 }
+            }
 
-            TunnelCommand.STOP_FAILURE ->
+            TunnelCommand.STOP_FAILURE -> {
                 when (state) {
                     TunnelState.IDLE -> {
                         val error = runCatching { tunnel.stop() }.exceptionOrNull()
@@ -430,6 +442,7 @@ class NativeWrapperStateMachineTest {
                         }
                     }
                 }
+            }
 
             TunnelCommand.STATS -> {
                 val previousStatsCalls = bindings.statsHandles.size
@@ -528,7 +541,7 @@ class NativeWrapperStateMachineTest {
         diagnostics: NetworkDiagnostics,
     ): DiagnosticsCommandResult =
         when (command) {
-            DiagnosticsCommand.START_SCAN ->
+            DiagnosticsCommand.START_SCAN -> {
                 when (state) {
                     DiagnosticsState.SCANNING -> {
                         val error =
@@ -546,6 +559,7 @@ class NativeWrapperStateMachineTest {
                         DiagnosticsCommandResult(DiagnosticsState.SCANNING)
                     }
                 }
+            }
 
             DiagnosticsCommand.START_SCAN_CREATE_FAILURE -> {
                 bindings.createdHandle = 0L
@@ -728,6 +742,7 @@ class NativeWrapperStateMachineTest {
         val handle = currentHandle(diagnostics)
         when (state) {
             DiagnosticsState.UNINITIALIZED -> assertEquals(0L, handle)
+
             DiagnosticsState.READY,
             DiagnosticsState.SCANNING,
             -> assertTrue(handle != 0L)

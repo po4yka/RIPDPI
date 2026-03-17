@@ -21,6 +21,7 @@ import java.util.regex.Pattern
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.X509TrustManager
+
 private const val DefaultFixtureControlHost = "10.0.2.2"
 private const val DefaultFixtureControlPort = 46090
 
@@ -111,7 +112,8 @@ class LocalFixtureClient(
         val connection = openConnection("/faults", method = "POST")
         connection.outputStream.use { output ->
             val body =
-                org.json.JSONObject()
+                org.json
+                    .JSONObject()
                     .put("target", spec.target.name.lowercase())
                     .put("outcome", spec.outcome.name.lowercase())
                     .put("scope", spec.scope.name.lowercase())
@@ -342,12 +344,18 @@ private fun socksConnect(
     val reply = input.readNBytes(4)
     check(reply.size == 4 && reply[1] == 0.toByte()) { "SOCKS connect failed: ${reply.toList()}" }
     when (reply[3].toInt() and 0xff) {
-        0x01 -> input.readNBytes(6)
+        0x01 -> {
+            input.readNBytes(6)
+        }
+
         0x03 -> {
             val length = input.read()
             input.readNBytes(length + 2)
         }
-        0x04 -> input.readNBytes(18)
+
+        0x04 -> {
+            input.readNBytes(18)
+        }
     }
     return socket
 }

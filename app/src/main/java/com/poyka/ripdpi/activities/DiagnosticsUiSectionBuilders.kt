@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
@@ -34,7 +35,7 @@ internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
 ): DiagnosticsOverviewUiModel =
     DiagnosticsOverviewUiModel(
         health = health,
-        headline = overviewHeadline(health, progress, latestSession),
+        headline = overviewHeadline(health, progress, latestSession, selectedProfile),
         body = overviewBody(health, latestSnapshot, currentTelemetry),
         activeProfile = selectedProfile,
         latestSnapshot = latestSnapshot,
@@ -55,6 +56,8 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
     latestStrategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
     progress: ScanProgress?,
     rawArgsEnabled: Boolean,
+    scanStartedAt: Long?,
+    completedProbes: List<CompletedProbeUiModel> = emptyList(),
 ): DiagnosticsScanUiModel {
     val selectedProfile = activeProfile?.let(::toProfileOptionUiModel)
     val strategyProbeSelected = selectedProfile?.isStrategyProbe == true
@@ -68,20 +71,27 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
         }
     val runRawHint =
         when {
-            strategyProbeSelected && rawArgsEnabled ->
+            strategyProbeSelected && rawArgsEnabled -> {
                 context.getString(R.string.diagnostics_scan_cli_active_format, workflowLabel)
+            }
 
-            strategyProbeSelected ->
+            strategyProbeSelected -> {
                 context.getString(R.string.diagnostics_scan_raw_path_format, workflowLabel)
+            }
 
-            else -> null
+            else -> {
+                null
+            }
         }
     val runInPathHint =
         when {
-            strategyProbeSelected ->
+            strategyProbeSelected -> {
                 context.getString(R.string.diagnostics_scan_raw_only_format, workflowLabel)
+            }
 
-            else -> null
+            else -> {
+                null
+            }
         }
 
     return DiagnosticsScanUiModel(
@@ -89,7 +99,16 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
         selectedProfileId = activeProfile?.id,
         selectedProfile = selectedProfile,
         activePathMode = latestProfileSession?.pathMode?.let(::parsePathMode) ?: ScanPathMode.RAW_PATH,
-        activeProgress = progress?.let(::toProgressUiModel),
+        activeProgress =
+            progress?.let { p ->
+                toProgressUiModel(
+                    progress = p,
+                    scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY,
+                    isFullAudit = selectedProfile?.isFullAudit == true,
+                    scanStartedAt = scanStartedAt ?: System.currentTimeMillis(),
+                    completedProbes = completedProbes,
+                )
+            },
         latestSession = latestProfileSession?.let(::toSessionRowUiModel),
         latestResults = latestReportResults,
         selectedProfileScopeLabel = toScopeLabel(activeProfileRequest, rawArgsEnabled),
@@ -118,7 +137,7 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
             currentTelemetry?.createdAt?.let {
                 context.getString(
                     R.string.diagnostics_live_updated_format,
-                    formatTimestamp(it)
+                    formatTimestamp(it),
                 )
             }
                 ?: context.getString(R.string.diagnostics_live_no_telemetry),
@@ -250,8 +269,8 @@ internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
                             context.getString(
                                 R.string.diagnostics_share_approach_format,
                                 summary.displayName,
-                                summary.verificationState
-                            )
+                                summary.verificationState,
+                            ),
                         )
                     }
             },
@@ -309,8 +328,8 @@ private fun DiagnosticsUiFactorySupport.buildOverviewMetrics(
         add(
             DiagnosticsMetricUiModel(
                 label = context.getString(R.string.diagnostics_metric_sessions),
-                value = sessions.size.toString()
-            )
+                value = sessions.size.toString(),
+            ),
         )
         add(
             DiagnosticsMetricUiModel(
@@ -330,15 +349,15 @@ private fun DiagnosticsUiFactorySupport.buildOverviewMetrics(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_tx),
                     value = formatBytes(sample.txBytes),
-                    tone = DiagnosticsTone.Info
-                )
+                    tone = DiagnosticsTone.Info,
+                ),
             )
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_rx),
                     value = formatBytes(sample.rxBytes),
-                    tone = DiagnosticsTone.Info
-                )
+                    tone = DiagnosticsTone.Info,
+                ),
             )
         }
     }
@@ -347,14 +366,36 @@ private fun DiagnosticsUiFactorySupport.overviewHeadline(
     health: DiagnosticsHealth,
     progress: ScanProgress?,
     latestSession: ScanSessionEntity?,
+    selectedProfile: DiagnosticsProfileOptionUiModel? = null,
 ): String =
     when {
-        progress != null -> context.getString(R.string.diagnostics_headline_scan_active)
-        latestSession == null -> context.getString(R.string.diagnostics_headline_no_data)
-        health == DiagnosticsHealth.Degraded -> context.getString(R.string.diagnostics_headline_degraded)
-        health == DiagnosticsHealth.Attention -> context.getString(R.string.diagnostics_headline_attention)
-        health == DiagnosticsHealth.Healthy -> context.getString(R.string.diagnostics_headline_healthy)
-        else -> context.getString(R.string.diagnostics_headline_waiting)
+        progress != null && selectedProfile?.isStrategyProbe == true -> {
+            context.getString(R.string.diagnostics_headline_probe_active)
+        }
+
+        progress != null -> {
+            context.getString(R.string.diagnostics_headline_scan_active)
+        }
+
+        latestSession == null -> {
+            context.getString(R.string.diagnostics_headline_no_data)
+        }
+
+        health == DiagnosticsHealth.Degraded -> {
+            context.getString(R.string.diagnostics_headline_degraded)
+        }
+
+        health == DiagnosticsHealth.Attention -> {
+            context.getString(R.string.diagnostics_headline_attention)
+        }
+
+        health == DiagnosticsHealth.Healthy -> {
+            context.getString(R.string.diagnostics_headline_healthy)
+        }
+
+        else -> {
+            context.getString(R.string.diagnostics_headline_waiting)
+        }
     }
 
 private fun DiagnosticsUiFactorySupport.overviewBody(
@@ -363,17 +404,21 @@ private fun DiagnosticsUiFactorySupport.overviewBody(
     telemetry: TelemetrySampleEntity?,
 ): String =
     when (health) {
-        DiagnosticsHealth.Healthy ->
+        DiagnosticsHealth.Healthy -> {
             context.getString(R.string.diagnostics_body_healthy)
+        }
 
-        DiagnosticsHealth.Attention ->
+        DiagnosticsHealth.Attention -> {
             context.getString(R.string.diagnostics_body_attention)
+        }
 
-        DiagnosticsHealth.Degraded ->
+        DiagnosticsHealth.Degraded -> {
             context.getString(R.string.diagnostics_body_degraded)
+        }
 
-        DiagnosticsHealth.Idle ->
+        DiagnosticsHealth.Idle -> {
             latestSnapshot?.subtitle ?: telemetry?.connectionState ?: context.getString(R.string.diagnostics_body_idle)
+        }
     }
 
 private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
@@ -385,22 +430,22 @@ private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_network),
-                    value = telemetry.networkType
-                )
+                    value = telemetry.networkType,
+                ),
             )
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_mode),
-                    value = telemetry.activeMode ?: context.getString(R.string.diagnostics_metric_idle)
-                )
+                    value = telemetry.activeMode ?: context.getString(R.string.diagnostics_metric_idle),
+                ),
             )
             telemetry.lastFailureClass?.let { failureClass ->
                 add(
                     DiagnosticsMetricUiModel(
                         label = context.getString(R.string.diagnostics_metric_latest_native_failure),
                         value = failureClass,
-                        tone = DiagnosticsTone.Warning
-                    )
+                        tone = DiagnosticsTone.Warning,
+                    ),
                 )
             }
             telemetry.lastFallbackAction?.let { fallbackAction ->
@@ -408,8 +453,8 @@ private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
                     DiagnosticsMetricUiModel(
                         label = context.getString(R.string.diagnostics_metric_fallback_action),
                         value = fallbackAction,
-                        tone = DiagnosticsTone.Info
-                    )
+                        tone = DiagnosticsTone.Info,
+                    ),
                 )
             }
             telemetry.failureClass?.let { failureClass ->
@@ -417,8 +462,8 @@ private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
                     DiagnosticsMetricUiModel(
                         label = context.getString(R.string.diagnostics_metric_failure_class),
                         value = failureClass,
-                        tone = DiagnosticsTone.Warning
-                    )
+                        tone = DiagnosticsTone.Warning,
+                    ),
                 )
             }
             telemetry.winningStrategyFamily()?.let { winningStrategy ->
@@ -426,16 +471,16 @@ private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
                     DiagnosticsMetricUiModel(
                         label = context.getString(R.string.diagnostics_metric_winning_strategy),
                         value = winningStrategy,
-                        tone = DiagnosticsTone.Positive
-                    )
+                        tone = DiagnosticsTone.Positive,
+                    ),
                 )
             }
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_rtt_band),
                     value = telemetry.rttBand(),
-                    tone = DiagnosticsTone.Info
-                )
+                    tone = DiagnosticsTone.Info,
+                ),
             )
             add(
                 DiagnosticsMetricUiModel(
@@ -458,8 +503,8 @@ private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
                     DiagnosticsMetricUiModel(
                         label = context.getString(R.string.diagnostics_metric_dns_latency),
                         value = context.getString(R.string.diagnostics_metric_dns_latency_format, latency),
-                        tone = DiagnosticsTone.Info
-                    )
+                        tone = DiagnosticsTone.Info,
+                    ),
                 )
             }
             if (telemetry.dnsFailuresTotal > 0) {
@@ -467,23 +512,23 @@ private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
                     DiagnosticsMetricUiModel(
                         label = context.getString(R.string.diagnostics_metric_dns_failures),
                         value = telemetry.dnsFailuresTotal.toString(),
-                        tone = DiagnosticsTone.Warning
-                    )
+                        tone = DiagnosticsTone.Warning,
+                    ),
                 )
             }
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_tx_packets),
                     value = telemetry.txPackets.toString(),
-                    tone = DiagnosticsTone.Info
-                )
+                    tone = DiagnosticsTone.Info,
+                ),
             )
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_rx_packets),
                     value = telemetry.rxPackets.toString(),
-                    tone = DiagnosticsTone.Info
-                )
+                    tone = DiagnosticsTone.Info,
+                ),
             )
         }
         add(
@@ -514,31 +559,31 @@ private fun DiagnosticsUiFactorySupport.buildLiveHighlights(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_tx),
                     value = formatBytes(it.txBytes),
-                    tone = DiagnosticsTone.Info
-                )
+                    tone = DiagnosticsTone.Info,
+                ),
             )
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_rx),
                     value = formatBytes(it.rxBytes),
-                    tone = DiagnosticsTone.Positive
-                )
+                    tone = DiagnosticsTone.Positive,
+                ),
             )
             it.winningStrategyFamily()?.let { winningStrategy ->
                 add(
                     DiagnosticsMetricUiModel(
                         label = context.getString(R.string.diagnostics_metric_strategy),
                         value = winningStrategy,
-                        tone = DiagnosticsTone.Positive
-                    )
+                        tone = DiagnosticsTone.Positive,
+                    ),
                 )
             }
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_rtt),
                     value = it.rttBand(),
-                    tone = DiagnosticsTone.Info
-                )
+                    tone = DiagnosticsTone.Info,
+                ),
             )
             add(
                 DiagnosticsMetricUiModel(
@@ -551,8 +596,9 @@ private fun DiagnosticsUiFactorySupport.buildLiveHighlights(
                 add(
                     DiagnosticsMetricUiModel(
                         label = context.getString(R.string.diagnostics_metric_resolver_fallback),
-                        value = it.resolverFallbackReason
-                            ?: context.getString(R.string.diagnostics_metric_resolver_fallback_active),
+                        value =
+                            it.resolverFallbackReason
+                                ?: context.getString(R.string.diagnostics_metric_resolver_fallback_active),
                         tone = DiagnosticsTone.Warning,
                     ),
                 )
@@ -561,8 +607,8 @@ private fun DiagnosticsUiFactorySupport.buildLiveHighlights(
                 DiagnosticsMetricUiModel(
                     label = context.getString(R.string.diagnostics_metric_packets),
                     value = (it.txPackets + it.rxPackets).toString(),
-                    tone = DiagnosticsTone.Neutral
-                )
+                    tone = DiagnosticsTone.Neutral,
+                ),
             )
         }
         add(
@@ -593,12 +639,12 @@ private fun DiagnosticsUiFactorySupport.buildLiveTrends(
         DiagnosticsSparklineUiModel(
             label = context.getString(R.string.diagnostics_sparkline_tx_bytes),
             values = samples.map { it.txBytes.toFloat() },
-            tone = DiagnosticsTone.Info
+            tone = DiagnosticsTone.Info,
         ),
         DiagnosticsSparklineUiModel(
             label = context.getString(R.string.diagnostics_sparkline_rx_bytes),
             values = samples.map { it.rxBytes.toFloat() },
-            tone = DiagnosticsTone.Positive
+            tone = DiagnosticsTone.Positive,
         ),
         DiagnosticsSparklineUiModel(
             label = context.getString(R.string.diagnostics_sparkline_errors),
@@ -626,14 +672,16 @@ private fun DiagnosticsUiFactorySupport.buildLiveHeadline(
     return when {
         surfacedEvent?.level?.equals(
             "error",
-            ignoreCase = true
+            ignoreCase = true,
         ) == true -> context.getString(R.string.diagnostics_live_headline_error)
 
         health == DiagnosticsHealth.Attention -> context.getString(R.string.diagnostics_live_headline_attention)
+
         telemetry == null -> context.getString(R.string.diagnostics_live_headline_standby)
+
         telemetry.connectionState.equals(
             "running",
-            ignoreCase = true
+            ignoreCase = true,
         ) -> context.getString(R.string.diagnostics_live_headline_traffic, telemetry.networkType)
 
         else -> telemetry.connectionState.replaceFirstChar { it.uppercase() }
@@ -658,11 +706,12 @@ private fun DiagnosticsUiFactorySupport.buildLiveBody(
     telemetry.resolverFallbackReason?.let {
         return context.getString(
             R.string.diagnostics_live_dns_override_format,
-            it
+            it,
         )
     }
     telemetry.networkHandoverClass?.let { return context.getString(R.string.diagnostics_live_handover_format, it) }
-    telemetry.winningStrategyFamily()
+    telemetry
+        .winningStrategyFamily()
         ?.let { return context.getString(R.string.diagnostics_live_winning_strategy_format, it) }
     val totalBytes = formatBytes(telemetry.txBytes + telemetry.rxBytes)
     val packetCount = telemetry.txPackets + telemetry.rxPackets
@@ -670,14 +719,12 @@ private fun DiagnosticsUiFactorySupport.buildLiveBody(
     return context.getString(R.string.diagnostics_live_mode_summary_format, modeLabel, totalBytes, packetCount)
 }
 
-private fun DiagnosticsUiFactorySupport.buildLiveSignalLabel(
-    telemetry: TelemetrySampleEntity?,
-): String =
+private fun DiagnosticsUiFactorySupport.buildLiveSignalLabel(telemetry: TelemetrySampleEntity?): String =
     telemetry?.let {
         context.getString(
             R.string.diagnostics_live_signal_format,
             formatBytes(it.txBytes),
-            formatBytes(it.rxBytes)
+            formatBytes(it.rxBytes),
         )
     }
         ?: context.getString(R.string.diagnostics_live_no_transfer)
@@ -686,25 +733,31 @@ private fun DiagnosticsUiFactorySupport.buildLiveEventSummaryLabel(events: List<
     val warningCount = events.count { it.level.equals("warn", ignoreCase = true) }
     val errorCount = events.count { it.level.equals("error", ignoreCase = true) }
     return when {
-        errorCount > 0 && warningCount > 0 ->
+        errorCount > 0 && warningCount > 0 -> {
             context.getString(
                 R.string.diagnostics_live_errors_and_warnings_format,
                 errorCount,
                 pluralSuffix(errorCount),
                 warningCount,
-                pluralSuffix(warningCount)
+                pluralSuffix(warningCount),
             )
+        }
 
-        errorCount > 0 ->
+        errorCount > 0 -> {
             context.getString(R.string.diagnostics_live_errors_format, errorCount, pluralSuffix(errorCount))
+        }
 
-        warningCount > 0 ->
+        warningCount > 0 -> {
             context.getString(R.string.diagnostics_live_warnings_format, warningCount, pluralSuffix(warningCount))
+        }
 
-        events.isNotEmpty() ->
+        events.isNotEmpty() -> {
             context.getString(R.string.diagnostics_live_info_events_format, events.size, pluralSuffix(events.size))
+        }
 
-        else -> context.getString(R.string.diagnostics_live_feed_quiet)
+        else -> {
+            context.getString(R.string.diagnostics_live_feed_quiet)
+        }
     }
 }
 
@@ -734,8 +787,14 @@ private fun DiagnosticsUiFactorySupport.buildSharePreview(
                 appendLine("Network ${it.subtitle}")
             }
             latestContext?.let {
-                appendLine("Context ${it.service.activeMode.lowercase(Locale.US)} · ${it.device.manufacturer} ${it.device.model} · Android ${it.device.androidVersion}")
-                appendLine("Permissions ${it.permissions.vpnPermissionState} VPN · ${it.permissions.notificationPermissionState} notifications")
+                appendLine(
+                    "Context ${it.service.activeMode.lowercase(
+                        Locale.US,
+                    )} · ${it.device.manufacturer} ${it.device.model} · Android ${it.device.androidVersion}",
+                )
+                appendLine(
+                    "Permissions ${it.permissions.vpnPermissionState} VPN · ${it.permissions.notificationPermissionState} notifications",
+                )
             }
             telemetry?.let {
                 appendLine("Live ${it.connectionState.lowercase(Locale.US)} · ${it.networkType}")
@@ -746,10 +805,18 @@ private fun DiagnosticsUiFactorySupport.buildSharePreview(
                     val tgDetails = tg.details.associate { it.key to it.value }
                     appendLine("Telegram: ${tgDetails["verdict"] ?: tg.outcome}")
                     tgDetails["downloadAvgBps"]?.toLongOrNull()?.let { bps ->
-                        appendLine("  Download: ${formatBps(bps)} avg, ${formatBytes(tgDetails["downloadBytes"]?.toLongOrNull() ?: 0)}")
+                        appendLine(
+                            "  Download: ${formatBps(
+                                bps,
+                            )} avg, ${formatBytes(tgDetails["downloadBytes"]?.toLongOrNull() ?: 0)}",
+                        )
                     }
                     tgDetails["uploadAvgBps"]?.toLongOrNull()?.let { bps ->
-                        appendLine("  Upload: ${formatBps(bps)} avg, ${formatBytes(tgDetails["uploadBytes"]?.toLongOrNull() ?: 0)}")
+                        appendLine(
+                            "  Upload: ${formatBps(
+                                bps,
+                            )} avg, ${formatBytes(tgDetails["uploadBytes"]?.toLongOrNull() ?: 0)}",
+                        )
                     }
                     appendLine("  DCs: ${tgDetails["dcReachable"] ?: "?"}/${tgDetails["dcTotal"] ?: "?"} reachable")
                 }
@@ -766,38 +833,39 @@ private fun DiagnosticsUiFactorySupport.buildSharePreview(
                 latestSession?.pathMode?.let {
                     com.poyka.ripdpi.diagnostics.SummaryMetric(
                         context.getString(R.string.diagnostics_share_metric_path),
-                        it
+                        it,
                     )
                 },
                 telemetry?.networkType?.let {
                     com.poyka.ripdpi.diagnostics.SummaryMetric(
                         context.getString(R.string.diagnostics_share_metric_network),
-                        it
+                        it,
                     )
                 },
                 latestContext?.service?.activeMode?.let {
                     com.poyka.ripdpi.diagnostics.SummaryMetric(
                         context.getString(R.string.diagnostics_share_metric_mode),
-                        it
+                        it,
                     )
                 },
                 latestContext?.device?.appVersionName?.let {
                     com.poyka.ripdpi.diagnostics.SummaryMetric(
                         context.getString(
-                            R.string.diagnostics_share_metric_app
-                        ), it
+                            R.string.diagnostics_share_metric_app,
+                        ),
+                        it,
                     )
                 },
                 telemetry?.txBytes?.let {
                     com.poyka.ripdpi.diagnostics.SummaryMetric(
                         context.getString(R.string.diagnostics_metric_tx),
-                        formatBytes(it)
+                        formatBytes(it),
                     )
                 },
                 telemetry?.rxBytes?.let {
                     com.poyka.ripdpi.diagnostics.SummaryMetric(
                         context.getString(R.string.diagnostics_metric_rx),
-                        formatBytes(it)
+                        formatBytes(it),
                     )
                 },
             ),

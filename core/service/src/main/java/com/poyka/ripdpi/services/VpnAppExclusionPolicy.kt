@@ -23,7 +23,5 @@ class DefaultVpnAppExclusionPolicy
 abstract class VpnAppExclusionPolicyModule {
     @Binds
     @Singleton
-    abstract fun bindVpnAppExclusionPolicy(
-        policy: DefaultVpnAppExclusionPolicy,
-    ): VpnAppExclusionPolicy
+    abstract fun bindVpnAppExclusionPolicy(policy: DefaultVpnAppExclusionPolicy): VpnAppExclusionPolicy
 }

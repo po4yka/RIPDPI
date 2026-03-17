@@ -44,6 +44,7 @@ fun WarningBanner(
     modifier: Modifier = Modifier,
     tone: WarningBannerTone = WarningBannerTone.Warning,
     icon: ImageVector? = null,
+    onClick: (() -> Unit)? = null,
 ) {
     val components = RipDpiThemeTokens.components
     val layout = RipDpiThemeTokens.layout
@@ -52,18 +53,12 @@ fun WarningBanner(
     val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Banner)
     val palette = warningBannerPalette(tone)
     val resolvedIcon = icon ?: defaultWarningBannerIcon(tone)
+    val surfaceModifier =
+        modifier
+            .fillMaxWidth()
+            .semantics { liveRegion = LiveRegionMode.Polite }
 
-    Surface(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .semantics { liveRegion = LiveRegionMode.Polite },
-        shape = RipDpiThemeTokens.shapes.xl,
-        color = palette.container,
-        border = BorderStroke(RipDpiStroke.Thin, palette.border),
-        contentColor = palette.title,
-        shadowElevation = surfaceStyle.shadowElevation,
-    ) {
+    val content: @Composable () -> Unit = {
         Row(
             modifier =
                 Modifier
@@ -102,6 +97,29 @@ fun WarningBanner(
                 )
             }
         }
+    }
+
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            modifier = surfaceModifier,
+            shape = RipDpiThemeTokens.shapes.xl,
+            color = palette.container,
+            border = BorderStroke(RipDpiStroke.Thin, palette.border),
+            contentColor = palette.title,
+            shadowElevation = surfaceStyle.shadowElevation,
+            content = content,
+        )
+    } else {
+        Surface(
+            modifier = surfaceModifier,
+            shape = RipDpiThemeTokens.shapes.xl,
+            color = palette.container,
+            border = BorderStroke(RipDpiStroke.Thin, palette.border),
+            contentColor = palette.title,
+            shadowElevation = surfaceStyle.shadowElevation,
+            content = content,
+        )
     }
 }
 

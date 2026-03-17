@@ -187,18 +187,22 @@ private fun TlsPreludeProfileCard(
         }
     val layoutSummary =
         when (uiState.tlsPreludeMode) {
-            TcpChainStepKind.TlsRandRec.wireName ->
+            TcpChainStepKind.TlsRandRec.wireName -> {
                 stringResource(
                     R.string.ripdpi_tls_prelude_summary_layout_random,
                     uiState.tlsRandRecFragmentCount,
                     uiState.tlsRandRecMinFragmentSize,
                     uiState.tlsRandRecMaxFragmentSize,
                 )
+            }
 
-            TcpChainStepKind.TlsRec.wireName ->
+            TcpChainStepKind.TlsRec.wireName -> {
                 stringResource(R.string.ripdpi_tls_prelude_summary_layout_single)
+            }
 
-            else -> stringResource(R.string.ripdpi_tls_prelude_summary_layout_off)
+            else -> {
+                stringResource(R.string.ripdpi_tls_prelude_summary_layout_off)
+            }
         }
     val scopeSummary =
         when {
@@ -211,18 +215,22 @@ private fun TlsPreludeProfileCard(
         buildList {
             add(stringResource(R.string.ripdpi_tls_prelude_badge_https_only) to SummaryCapsuleTone.Info)
             when (uiState.tlsPreludeMode) {
-                TcpChainStepKind.TlsRec.wireName ->
+                TcpChainStepKind.TlsRec.wireName -> {
                     add(stringResource(R.string.ripdpi_tls_prelude_badge_single) to SummaryCapsuleTone.Active)
+                }
 
-                TcpChainStepKind.TlsRandRec.wireName ->
+                TcpChainStepKind.TlsRandRec.wireName -> {
                     add(
                         stringResource(
                             R.string.ripdpi_tls_prelude_badge_random,
                             uiState.tlsRandRecFragmentCount,
                         ) to SummaryCapsuleTone.Active,
                     )
+                }
 
-                else -> Unit
+                else -> {
+                    Unit
+                }
             }
             if (uiState.hasStackedTlsPreludeSteps) {
                 add(
@@ -272,54 +280,61 @@ private fun TlsPreludeProfileCard(
 @Composable
 private fun rememberTlsPreludeStatus(uiState: SettingsUiState): TlsPreludeStatusContent =
     when {
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_cli_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_cli_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.tlsPreludeControlsRelevant && uiState.tlsPreludeStepCount > 0 ->
+        !uiState.tlsPreludeControlsRelevant && uiState.tlsPreludeStepCount > 0 -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_https_disabled_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_https_disabled_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        uiState.hasStackedTlsPreludeSteps ->
+        uiState.hasStackedTlsPreludeSteps -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_stacked_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_stacked_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.tlsPreludeMode == TlsPreludeModeDisabled ->
+        uiState.tlsPreludeMode == TlsPreludeModeDisabled -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_off_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_off_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        uiState.isServiceRunning ->
+        uiState.isServiceRunning -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_restart_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_restart_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.tlsPreludeUsesRandomRecords ->
+        uiState.tlsPreludeUsesRandomRecords -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_random_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_random_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        else ->
+        else -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_single_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_single_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
     }
 
 @Composable

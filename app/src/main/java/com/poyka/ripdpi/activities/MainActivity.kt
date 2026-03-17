@@ -31,8 +31,6 @@ import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import dagger.hilt.android.AndroidEntryPoint
-import java.io.IOException
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -40,6 +38,8 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
+import java.io.IOException
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -193,9 +193,18 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(viewModel, snackbarHostState) {
                 viewModel.effects.collect { effect ->
                     when (effect) {
-                        is MainEffect.RequestPermission -> handlePermissionEffect(effect)
-                        is MainEffect.OpenAppSettings -> startActivity(effect.intent)
-                        MainEffect.ShowVpnPermissionDialog -> showVpnPermissionDialog.value = true
+                        is MainEffect.RequestPermission -> {
+                            handlePermissionEffect(effect)
+                        }
+
+                        is MainEffect.OpenAppSettings -> {
+                            startActivity(effect.intent)
+                        }
+
+                        MainEffect.ShowVpnPermissionDialog -> {
+                            showVpnPermissionDialog.value = true
+                        }
+
                         is MainEffect.ShowError -> {
                             snackbarHostState.showRipDpiSnackbar(
                                 message = effect.message,
@@ -296,7 +305,7 @@ class MainActivity : ComponentActivity() {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = "text/plain"
                 putExtra(Intent.EXTRA_TITLE, "ripdpi.log")
-        }
+            }
         logsRegister.launch(intent)
     }
 

@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.testing
 
 import android.os.ParcelFileDescriptor
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
@@ -9,7 +8,6 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
-import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultQueue
 import com.poyka.ripdpi.core.testing.FaultSpec
@@ -17,16 +15,17 @@ import com.poyka.ripdpi.core.testing.faultThrowable
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.VpnTunnelSession
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,6 +34,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.CopyOnWriteArrayList
 
 class FakeAndroidAppSettingsRepository(
     initialSettings: AppSettings = AppSettingsSerializer.defaultValue,
@@ -46,7 +46,11 @@ class FakeAndroidAppSettingsRepository(
     override suspend fun snapshot(): AppSettings = state.value
 
     override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value = state.value.toBuilder().apply(transform).build()
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
     }
 
     override suspend fun replace(settings: AppSettings) {
@@ -74,7 +78,10 @@ class RecordingServiceStateStore(
         statusState.value = status to mode
     }
 
-    override fun emitFailed(sender: Sender, reason: FailureReason) {
+    override fun emitFailed(
+        sender: Sender,
+        reason: FailureReason,
+    ) {
         val event = ServiceEvent.Failed(sender, reason)
         eventHistory += event
         eventFlow.tryEmit(event)

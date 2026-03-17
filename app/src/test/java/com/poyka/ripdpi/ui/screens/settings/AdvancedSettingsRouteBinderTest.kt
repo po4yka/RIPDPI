@@ -10,16 +10,16 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AdvancedSettingsRouteBinderTest {
-
     // -- mapNoticeEffect --
 
     @Test
     fun `mapNoticeEffect maps Info tone`() {
-        val effect = SettingsEffect.Notice(
-            title = "Info title",
-            message = "Info body",
-            tone = SettingsNoticeTone.Info,
-        )
+        val effect =
+            SettingsEffect.Notice(
+                title = "Info title",
+                message = "Info body",
+                tone = SettingsNoticeTone.Info,
+            )
 
         val result = mapNoticeEffect(effect)
 
@@ -30,22 +30,24 @@ class AdvancedSettingsRouteBinderTest {
 
     @Test
     fun `mapNoticeEffect maps Warning tone`() {
-        val effect = SettingsEffect.Notice(
-            title = "Warn",
-            message = "msg",
-            tone = SettingsNoticeTone.Warning,
-        )
+        val effect =
+            SettingsEffect.Notice(
+                title = "Warn",
+                message = "msg",
+                tone = SettingsNoticeTone.Warning,
+            )
 
         assertEquals(WarningBannerTone.Warning, mapNoticeEffect(effect).tone)
     }
 
     @Test
     fun `mapNoticeEffect maps Error tone`() {
-        val effect = SettingsEffect.Notice(
-            title = "Err",
-            message = "msg",
-            tone = SettingsNoticeTone.Error,
-        )
+        val effect =
+            SettingsEffect.Notice(
+                title = "Err",
+                message = "msg",
+                tone = SettingsNoticeTone.Error,
+            )
 
         assertEquals(WarningBannerTone.Error, mapNoticeEffect(effect).tone)
     }

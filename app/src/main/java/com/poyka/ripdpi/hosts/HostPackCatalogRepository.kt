@@ -19,6 +19,10 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.ResponseBody
+import retrofit2.Response
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -28,10 +32,6 @@ import java.time.temporal.ChronoUnit
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import okhttp3.ResponseBody
-import retrofit2.Response
 
 interface HostPackCatalogRepository {
     suspend fun loadSnapshot(): HostPackCatalogSnapshot
@@ -229,9 +229,7 @@ internal fun formatHostPackGeneratedAt(epochMillis: Long): String =
 abstract class HostPackCatalogBindingsModule {
     @Binds
     @Singleton
-    abstract fun bindHostPackCatalogRepository(
-        repository: DefaultHostPackCatalogRepository,
-    ): HostPackCatalogRepository
+    abstract fun bindHostPackCatalogRepository(repository: DefaultHostPackCatalogRepository): HostPackCatalogRepository
 }
 
 const val HOST_PACK_CATALOG_ASSET_PATH = "host-packs/catalog.json"

@@ -111,28 +111,43 @@ internal class SettingsMaintenanceActions(
                         when (error) {
                             is HostPackChecksumMismatchException,
                             is HostPackChecksumFormatException,
-                                ->
+                            -> {
                                 SettingsEffect.Notice(
-                                    title = stringResolver.getString(R.string.notice_host_pack_verification_failed_title),
-                                    message = stringResolver.getString(R.string.notice_host_pack_verification_failed_message),
+                                    title =
+                                        stringResolver.getString(
+                                            R.string.notice_host_pack_verification_failed_title,
+                                        ),
+                                    message =
+                                        stringResolver.getString(
+                                            R.string.notice_host_pack_verification_failed_message,
+                                        ),
                                     tone = SettingsNoticeTone.Error,
                                 )
+                            }
 
                             is HostPackCatalogParseException,
                             is HostPackCatalogBuildException,
-                                ->
+                            -> {
                                 SettingsEffect.Notice(
                                     title = stringResolver.getString(R.string.notice_host_pack_refresh_failed_title),
-                                    message = stringResolver.getString(R.string.notice_host_pack_refresh_failed_message),
+                                    message =
+                                        stringResolver.getString(
+                                            R.string.notice_host_pack_refresh_failed_message,
+                                        ),
                                     tone = SettingsNoticeTone.Error,
                                 )
+                            }
 
-                            else ->
+                            else -> {
                                 SettingsEffect.Notice(
                                     title = stringResolver.getString(R.string.notice_host_pack_download_failed_title),
-                                    message = stringResolver.getString(R.string.notice_host_pack_download_failed_message),
+                                    message =
+                                        stringResolver.getString(
+                                            R.string.notice_host_pack_download_failed_message,
+                                        ),
                                     tone = SettingsNoticeTone.Warning,
                                 )
+                            }
                         }
                     },
                 )
@@ -146,26 +161,32 @@ internal class SettingsMaintenanceActions(
             hostAutolearnStoreRefresh.update { it + 1 }
             val effect =
                 when {
-                    !cleared ->
+                    !cleared -> {
                         SettingsEffect.Notice(
                             title = stringResolver.getString(R.string.notice_learned_hosts_clear_failed_title),
                             message = stringResolver.getString(R.string.notice_learned_hosts_clear_failed_message),
                             tone = SettingsNoticeTone.Error,
                         )
+                    }
 
-                    currentServiceStatus() == AppStatus.Running ->
+                    currentServiceStatus() == AppStatus.Running -> {
                         SettingsEffect.Notice(
                             title = stringResolver.getString(R.string.notice_learned_hosts_cleared_next_start_title),
-                            message = stringResolver.getString(R.string.notice_learned_hosts_cleared_next_start_message),
+                            message =
+                                stringResolver.getString(
+                                    R.string.notice_learned_hosts_cleared_next_start_message,
+                                ),
                             tone = SettingsNoticeTone.Info,
                         )
+                    }
 
-                    else ->
+                    else -> {
                         SettingsEffect.Notice(
                             title = stringResolver.getString(R.string.notice_learned_hosts_cleared_title),
                             message = stringResolver.getString(R.string.notice_learned_hosts_cleared_message),
                             tone = SettingsNoticeTone.Info,
                         )
+                    }
                 }
             emit(effect)
         }

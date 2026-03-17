@@ -4,11 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.material3.Text
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.AdaptiveSplitPresetCustom
 import com.poyka.ripdpi.activities.AdaptiveSplitPresetManual
@@ -103,13 +103,20 @@ internal fun AdaptiveSplitProfileCard(
     val status = rememberAdaptiveSplitStatus(uiState)
     val profileSummary =
         when (uiState.adaptiveSplitPreset) {
-            AdaptiveSplitPresetManual -> stringResource(R.string.adaptive_split_profile_manual)
-            AdaptiveSplitPresetCustom ->
+            AdaptiveSplitPresetManual -> {
+                stringResource(R.string.adaptive_split_profile_manual)
+            }
+
+            AdaptiveSplitPresetCustom -> {
                 stringResource(
                     R.string.adaptive_split_profile_custom,
                     formatOffsetExpressionLabel(uiState.splitMarker),
                 )
-            else -> formatOffsetExpressionLabel(uiState.splitMarker)
+            }
+
+            else -> {
+                formatOffsetExpressionLabel(uiState.splitMarker)
+            }
         }
     val targetSummary =
         if (uiState.settings.tcpChainStepsCount > 0 && primaryTcpChainStep(uiState.tcpChainSteps) != null) {
@@ -137,11 +144,21 @@ internal fun AdaptiveSplitProfileCard(
         }
     val protocolSummary =
         when {
-            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled ->
+            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
                 stringResource(R.string.adaptive_split_protocol_http_https)
-            uiState.desyncHttpEnabled -> stringResource(R.string.adaptive_split_protocol_http)
-            uiState.desyncHttpsEnabled -> stringResource(R.string.adaptive_split_protocol_https)
-            else -> stringResource(R.string.adaptive_split_protocol_none)
+            }
+
+            uiState.desyncHttpEnabled -> {
+                stringResource(R.string.adaptive_split_protocol_http)
+            }
+
+            uiState.desyncHttpsEnabled -> {
+                stringResource(R.string.adaptive_split_protocol_https)
+            }
+
+            else -> {
+                stringResource(R.string.adaptive_split_protocol_none)
+            }
         }
     val dslSummary = stringResource(R.string.adaptive_split_dsl_only_summary)
     val badges =
@@ -230,54 +247,61 @@ internal fun AdaptiveSplitProfileCard(
 @Composable
 private fun rememberAdaptiveSplitStatus(uiState: SettingsUiState): AdaptiveSplitStatusContent =
     when {
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_cli_title),
                 body = stringResource(R.string.adaptive_split_cli_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.adaptiveSplitVisualEditorSupported ->
+        !uiState.adaptiveSplitVisualEditorSupported -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_hostfake_title),
                 body = stringResource(R.string.adaptive_split_hostfake_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        !uiState.desyncEnabled && uiState.hasAdaptiveSplitPreset ->
+        !uiState.desyncEnabled && uiState.hasAdaptiveSplitPreset -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_saved_title),
                 body = stringResource(R.string.adaptive_split_saved_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        !uiState.desyncEnabled ->
+        !uiState.desyncEnabled -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_off_title),
                 body = stringResource(R.string.adaptive_split_off_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        uiState.isServiceRunning && uiState.hasAdaptiveSplitPreset ->
+        uiState.isServiceRunning && uiState.hasAdaptiveSplitPreset -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_restart_title),
                 body = stringResource(R.string.adaptive_split_restart_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.hasAdaptiveSplitPreset ->
+        uiState.hasAdaptiveSplitPreset -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_ready_title),
                 body = stringResource(R.string.adaptive_split_ready_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        else ->
+        else -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_manual_title),
                 body = stringResource(R.string.adaptive_split_manual_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
     }
 
 @Composable

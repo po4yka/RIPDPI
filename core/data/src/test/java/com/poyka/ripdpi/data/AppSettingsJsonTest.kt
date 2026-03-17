@@ -1,15 +1,15 @@
 package com.poyka.ripdpi.data
 
-import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.ActivationFilter
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.NumericRange
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppSettingsJsonTest {
@@ -97,8 +97,7 @@ class AppSettingsJsonTest {
                         .setPayloadSize(NumericRange.newBuilder().setStart(64).setEnd(512))
                         .setStreamBytes(NumericRange.newBuilder().setStart(0).setEnd(2047))
                         .build(),
-                )
-                .addTcpChainSteps(
+                ).addTcpChainSteps(
                     com.poyka.ripdpi.proto.StrategyTcpStep
                         .newBuilder()
                         .setKind("hostfake")
@@ -111,8 +110,7 @@ class AppSettingsJsonTest {
                                 .setRound(NumericRange.newBuilder().setStart(1).setEnd(1))
                                 .setPayloadSize(NumericRange.newBuilder().setStart(32).setEnd(256))
                                 .build(),
-                        )
-                        .build(),
+                        ).build(),
                 ).addTcpChainSteps(
                     com.poyka.ripdpi.proto.StrategyTcpStep
                         .newBuilder()
@@ -126,8 +124,7 @@ class AppSettingsJsonTest {
                                 .newBuilder()
                                 .setStreamBytes(NumericRange.newBuilder().setStart(0).setEnd(1199))
                                 .build(),
-                        )
-                        .build(),
+                        ).build(),
                 ).addUdpChainSteps(
                     com.poyka.ripdpi.proto.StrategyUdpStep
                         .newBuilder()
@@ -139,10 +136,8 @@ class AppSettingsJsonTest {
                                 .setRound(NumericRange.newBuilder().setStart(1).setEnd(3))
                                 .setStreamBytes(NumericRange.newBuilder().setStart(0).setEnd(1199))
                                 .build(),
-                        )
-                        .build(),
-                )
-                .build()
+                        ).build(),
+                ).build()
 
         val decoded = appSettingsFromJson(settings.toJson())
 
@@ -160,7 +155,12 @@ class AppSettingsJsonTest {
 
         val parsed = Json.parseToJsonElement(json).jsonObject
 
-        assertTrue(parsed.getValue("formatVersion").jsonPrimitive.content.toInt() >= 1)
+        assertTrue(
+            parsed
+                .getValue("formatVersion")
+                .jsonPrimitive.content
+                .toInt() >= 1,
+        )
         assertEquals("proxy", parsed.getValue("mode").jsonPrimitive.content)
     }
 

@@ -1,9 +1,15 @@
 {
   "entries": [
     {
-      "path": "app/src/main/java/com/poyka/ripdpi/activities/DiagnosticsUiStateFactory.kt",
+      "path": "app/src/main/java/com/poyka/ripdpi/activities/DiagnosticsUiSectionBuilders.kt",
       "kind": "kotlin",
-      "measuredLoc": 1764,
+      "measuredLoc": 831,
+      "limit": 700
+    },
+    {
+      "path": "app/src/main/java/com/poyka/ripdpi/activities/HistoryViewModel.kt",
+      "kind": "kotlin",
+      "measuredLoc": 715,
       "limit": 700
     },
     {
@@ -17,6 +23,12 @@
       "kind": "compose",
       "measuredLoc": 1219,
       "limit": 1000
+    },
+    {
+      "path": "core/diagnostics/src/main/java/com/poyka/ripdpi/diagnostics/DiagnosticsArchiveBuilder.kt",
+      "kind": "kotlin",
+      "measuredLoc": 710,
+      "limit": 700
     },
     {
       "path": "core/diagnostics-data/src/main/java/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
@@ -41,18 +53,6 @@
       "kind": "kotlin",
       "measuredLoc": 797,
       "limit": 700
-    },
-    {
-      "path": "native/rust/crates/ripdpi-android/src/lib.rs",
-      "kind": "rust",
-      "measuredLoc": 1515,
-      "limit": 1500
-    },
-    {
-      "path": "native/rust/crates/ripdpi-monitor/src/lib.rs",
-      "kind": "rust",
-      "measuredLoc": 4896,
-      "limit": 1500
     }
   ]
 }

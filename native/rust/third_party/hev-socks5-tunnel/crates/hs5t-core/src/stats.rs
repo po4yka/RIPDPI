@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DnsStatsSnapshot {
@@ -39,6 +39,11 @@ pub struct Stats {
     pub resolver_latency_window: Mutex<VecDeque<u64>>,
     pub resolver_fallback_active: AtomicU64,
     pub resolver_fallback_reason: Mutex<Option<String>>,
+    /// Optional callback invoked with the latency (ms) on each successful DNS
+    /// resolution. Kept in an `Arc<dyn Fn>` so callers can cheaply clone a
+    /// handle and share it with external histogram state without requiring
+    /// hs5t-core to depend on any telemetry crate.
+    pub dns_latency_observer: Mutex<Option<Arc<dyn Fn(u64) + Send + Sync>>>,
 }
 
 impl Default for Stats {
@@ -66,6 +71,15 @@ impl Stats {
             resolver_latency_window: Mutex::new(VecDeque::with_capacity(32)),
             resolver_fallback_active: AtomicU64::new(0),
             resolver_fallback_reason: Mutex::new(None),
+            dns_latency_observer: Mutex::new(None),
+        }
+    }
+
+    /// Installs a callback that is invoked with the resolver latency (ms) on
+    /// every successful DNS resolution. Call before the tunnel starts running.
+    pub fn set_dns_latency_observer(&self, observer: Arc<dyn Fn(u64) + Send + Sync>) {
+        if let Ok(mut guard) = self.dns_latency_observer.lock() {
+            *guard = Some(observer);
         }
     }
 
@@ -130,6 +144,11 @@ impl Stats {
                     guard.pop_front();
                 }
                 guard.push_back(latency_ms);
+            }
+            if let Ok(guard) = self.dns_latency_observer.lock() {
+                if let Some(observer) = guard.as_ref() {
+                    observer(latency_ms);
+                }
             }
         }
     }

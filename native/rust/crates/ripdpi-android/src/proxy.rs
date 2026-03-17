@@ -9,7 +9,7 @@ use ciadpi_config::RuntimeConfig;
 use jni::objects::JString;
 use jni::sys::{jint, jlong, jstring};
 use jni::JNIEnv;
-use ripdpi_proxy_config::ProxyRuntimeContext;
+use ripdpi_proxy_config::{NetworkSnapshot, ProxyRuntimeContext};
 use ripdpi_runtime::{runtime, EmbeddedProxyControl};
 
 use crate::config::{parse_proxy_config_json, runtime_config_envelope_from_payload};
@@ -83,6 +83,17 @@ pub(crate) fn proxy_destroy_entry(mut env: JNIEnv, handle: jlong) {
             throw_runtime_exception(&mut env, format!("Proxy session destroy panicked: {msg}"));
         },
     );
+}
+
+pub(crate) fn proxy_update_network_snapshot_entry(mut env: JNIEnv, handle: jlong, snapshot_json: JString) {
+    init_android_logging("ripdpi-native");
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        update_network_snapshot(&mut env, handle, snapshot_json)
+    }))
+    .map_err(|panic_payload| {
+        let msg = extract_panic_message(panic_payload);
+        throw_runtime_exception(&mut env, format!("Proxy network snapshot update panicked: {msg}"));
+    });
 }
 
 fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
@@ -200,6 +211,35 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
         session.telemetry.on_client_error(err.to_string());
     }
     session.telemetry.push_event("proxy", "info", "stop requested".to_string());
+}
+
+fn update_network_snapshot(env: &mut JNIEnv, handle: jlong, snapshot_json: JString) {
+    let json: String = match env.get_string(&snapshot_json) {
+        Ok(value) => value.into(),
+        Err(_) => {
+            throw_illegal_argument(env, "Invalid network snapshot JSON");
+            return;
+        }
+    };
+    let snapshot: NetworkSnapshot = match serde_json::from_str(&json) {
+        Ok(value) => value,
+        Err(err) => {
+            throw_illegal_argument(env, format!("Failed to parse network snapshot: {err}"));
+            return;
+        }
+    };
+    let session = match lookup_proxy_session(handle) {
+        Ok(session) => session,
+        Err(err) => {
+            err.throw(env);
+            return;
+        }
+    };
+    let state = session.state.lock().expect("proxy session poisoned");
+    if let ProxySessionState::Running { control, .. } = &*state {
+        control.update_network_snapshot(snapshot);
+    }
+    // If the session is Idle, ignore: snapshot will be re-pushed on next start.
 }
 
 fn destroy_session(env: &mut JNIEnv, handle: jlong) {

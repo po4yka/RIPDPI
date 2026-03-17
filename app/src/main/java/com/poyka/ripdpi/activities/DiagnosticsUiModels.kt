@@ -73,12 +73,33 @@ data class DiagnosticsProfileOptionUiModel(
     val strategyProbeSuiteId: String? = null,
 )
 
+enum class PhaseState { Completed, Active, Pending }
+
+data class PhaseStepUiModel(
+    val label: String,
+    val state: PhaseState,
+    val tone: DiagnosticsTone,
+)
+
+data class CompletedProbeUiModel(
+    val target: String,
+    val outcome: String,
+    val tone: DiagnosticsTone,
+)
+
 data class DiagnosticsProgressUiModel(
     val phase: String,
     val summary: String,
     val completedSteps: Int,
     val totalSteps: Int,
     val fraction: Float,
+    val scanKind: com.poyka.ripdpi.diagnostics.ScanKind,
+    val isFullAudit: Boolean,
+    val elapsedLabel: String,
+    val etaLabel: String?,
+    val phaseSteps: List<PhaseStepUiModel>,
+    val currentProbeLabel: String,
+    val completedProbes: List<CompletedProbeUiModel> = emptyList(),
 )
 
 data class DiagnosticsProbeResultUiModel(
@@ -352,6 +373,15 @@ sealed interface DiagnosticsEffect {
     data class SaveArchiveRequested(
         val absolutePath: String,
         val fileName: String,
+    ) : DiagnosticsEffect
+
+    data class ScanStarted(
+        val scanTypeLabel: String,
+    ) : DiagnosticsEffect
+
+    data class ScanCompleted(
+        val summary: String,
+        val tone: DiagnosticsTone,
     ) : DiagnosticsEffect
 }
 

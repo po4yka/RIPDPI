@@ -406,14 +406,21 @@ internal fun SummaryCapsule(
     val type = RipDpiThemeTokens.type
     val (container, content, border) =
         when (tone) {
-            SummaryCapsuleTone.Neutral ->
+            SummaryCapsuleTone.Neutral -> {
                 Triple(colors.muted, colors.foreground, colors.border)
-            SummaryCapsuleTone.Active ->
+            }
+
+            SummaryCapsuleTone.Active -> {
                 Triple(colors.infoContainer, colors.infoContainerForeground, colors.info)
-            SummaryCapsuleTone.Info ->
+            }
+
+            SummaryCapsuleTone.Info -> {
                 Triple(colors.card, colors.mutedForeground, colors.border)
-            SummaryCapsuleTone.Warning ->
+            }
+
+            SummaryCapsuleTone.Warning -> {
                 Triple(colors.warningContainer, colors.warningContainerForeground, colors.warning)
+            }
         }
 
     Text(

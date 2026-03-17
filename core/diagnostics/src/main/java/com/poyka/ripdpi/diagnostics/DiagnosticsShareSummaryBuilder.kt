@@ -13,7 +13,6 @@ import kotlinx.serialization.json.Json
 
 @Suppress("LongMethod")
 internal object DiagnosticsShareSummaryBuilder {
-
     suspend fun build(
         sessionId: String?,
         historyRepository: DiagnosticsHistoryRepository,
@@ -28,11 +27,16 @@ internal object DiagnosticsShareSummaryBuilder {
         val latestSnapshot =
             selectedSession
                 ?.id
-                ?.let { id -> historyRepository.observeSnapshots(limit = 200).first().firstOrNull { it.sessionId == id } }
+                ?.let { id ->
+                    historyRepository.observeSnapshots(limit = 200).first().firstOrNull { it.sessionId == id }
+                }
                 ?: historyRepository.observeSnapshots(limit = 1).first().firstOrNull()
         val latestSnapshotModel =
-            latestSnapshot?.payloadJson
-                ?.let { payload -> runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payload) }.getOrNull() }
+            latestSnapshot
+                ?.payloadJson
+                ?.let { payload ->
+                    runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), payload) }.getOrNull()
+                }
         val latestContext =
             selectedSession
                 ?.id
@@ -41,8 +45,11 @@ internal object DiagnosticsShareSummaryBuilder {
                 }
                 ?: historyRepository.observeContexts(limit = 1).first().firstOrNull()
         val latestContextModel =
-            latestContext?.payloadJson
-                ?.let { payload -> runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payload) }.getOrNull() }
+            latestContext
+                ?.payloadJson
+                ?.let { payload ->
+                    runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payload) }.getOrNull()
+                }
         val latestTelemetry = historyRepository.observeTelemetry(limit = 1).first().firstOrNull()
         val latestWarnings =
             historyRepository.observeNativeEvents(limit = 50).first().filter {
@@ -50,14 +57,15 @@ internal object DiagnosticsShareSummaryBuilder {
             }
         val title =
             selectedSession?.let { "RIPDPI diagnostics ${it.id.take(8)}" } ?: "RIPDPI diagnostics summary"
-        val body = buildBody(
-            selectedSession = selectedSession,
-            selectedResults = selectedResults,
-            latestSnapshotModel = latestSnapshotModel,
-            latestContextModel = latestContextModel,
-            latestTelemetry = latestTelemetry,
-            latestWarnings = latestWarnings,
-        )
+        val body =
+            buildBody(
+                selectedSession = selectedSession,
+                selectedResults = selectedResults,
+                latestSnapshotModel = latestSnapshotModel,
+                latestContextModel = latestContextModel,
+                latestTelemetry = latestTelemetry,
+                latestWarnings = latestWarnings,
+            )
         return ShareSummary(
             title = title,
             body = body.trim(),

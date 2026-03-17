@@ -16,6 +16,7 @@ use diagnostics::{
 };
 use proxy::{
     proxy_create_entry, proxy_destroy_entry, proxy_poll_telemetry_entry, proxy_start_entry, proxy_stop_entry,
+    proxy_update_network_snapshot_entry,
 };
 
 #[unsafe(no_mangle)]
@@ -76,6 +77,16 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniD
     handle: jlong,
 ) {
     proxy_destroy_entry(env, handle);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUpdateNetworkSnapshot(
+    env: JNIEnv,
+    _thiz: JObject,
+    handle: jlong,
+    snapshot_json: JString,
+) {
+    proxy_update_network_snapshot_entry(env, handle, snapshot_json);
 }
 
 export_diagnostics_jni!(

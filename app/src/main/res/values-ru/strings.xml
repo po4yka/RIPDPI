@@ -1355,6 +1355,7 @@ fakeddisorder endhost</string>
 
     <!-- Diagnostics overview headlines -->
     <string name="diagnostics_headline_scan_active">Диагностическое сканирование активно</string>
+    <string name="diagnostics_headline_probe_active">Стратегический зонд выполняется</string>
     <string name="diagnostics_headline_no_data">Данные диагностики ещё не собраны</string>
     <string name="diagnostics_headline_degraded">Сетевой путь требует внимания</string>
     <string name="diagnostics_headline_attention">Диагностика показывает неоднозначные сигналы</string>

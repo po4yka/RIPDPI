@@ -270,6 +270,7 @@ mod tests {
                     .expect("serialize probe ui config"),
                 ),
             }),
+            network_snapshot: None,
         }
     }
 
@@ -791,6 +792,7 @@ mod tests {
             whitelist_sni: vec![],
             telegram_target: None,
             strategy_probe: None,
+            network_snapshot: None,
         };
         let session = MonitorSession::new();
         session.start_scan("session-1".to_string(), request).expect("start scan");
@@ -835,6 +837,7 @@ mod tests {
             whitelist_sni: vec![],
             telegram_target: None,
             strategy_probe: None,
+            network_snapshot: None,
         };
         let session = MonitorSession::new();
         session.start_scan("session-golden".to_string(), request).expect("start scan");

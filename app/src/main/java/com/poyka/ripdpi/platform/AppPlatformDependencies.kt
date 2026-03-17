@@ -109,21 +109,15 @@ class AndroidHostAutolearnStoreController
 abstract class AppPlatformBindingsModule {
     @Binds
     @Singleton
-    abstract fun bindLauncherIconController(
-        controller: DefaultLauncherIconController,
-    ): LauncherIconController
+    abstract fun bindLauncherIconController(controller: DefaultLauncherIconController): LauncherIconController
 
     @Binds
     @Singleton
-    abstract fun bindStringResolver(
-        resolver: AndroidStringResolver,
-    ): StringResolver
+    abstract fun bindStringResolver(resolver: AndroidStringResolver): StringResolver
 
     @Binds
     @Singleton
-    abstract fun bindPermissionPlatformBridge(
-        bridge: AndroidPermissionPlatformBridge,
-    ): PermissionPlatformBridge
+    abstract fun bindPermissionPlatformBridge(bridge: AndroidPermissionPlatformBridge): PermissionPlatformBridge
 
     @Binds
     @Singleton

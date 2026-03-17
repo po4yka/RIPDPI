@@ -54,7 +54,5 @@ class DefaultVpnTunnelSessionProvider
 abstract class VpnTunnelSessionProviderModule {
     @Binds
     @Singleton
-    abstract fun bindVpnTunnelSessionProvider(
-        provider: DefaultVpnTunnelSessionProvider,
-    ): VpnTunnelSessionProvider
+    abstract fun bindVpnTunnelSessionProvider(provider: DefaultVpnTunnelSessionProvider): VpnTunnelSessionProvider
 }

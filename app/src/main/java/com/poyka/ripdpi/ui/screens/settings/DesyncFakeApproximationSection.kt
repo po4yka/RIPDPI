@@ -33,17 +33,38 @@ internal fun FakeApproximationProfileCard(
     val primaryStep = uiState.primaryFakeApproximationStep
     val profileSummary =
         when (uiState.fakeApproximationStepCount) {
-            0 -> stringResource(R.string.ripdpi_fake_approx_summary_profile_none)
-            1 -> stringResource(R.string.ripdpi_fake_approx_summary_profile_single)
-            else -> stringResource(R.string.ripdpi_fake_approx_summary_profile_multiple, uiState.fakeApproximationStepCount)
+            0 -> {
+                stringResource(R.string.ripdpi_fake_approx_summary_profile_none)
+            }
+
+            1 -> {
+                stringResource(R.string.ripdpi_fake_approx_summary_profile_single)
+            }
+
+            else -> {
+                stringResource(
+                    R.string.ripdpi_fake_approx_summary_profile_multiple,
+                    uiState.fakeApproximationStepCount,
+                )
+            }
         }
     val scopeSummary =
         when {
-            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled ->
+            uiState.desyncHttpEnabled && uiState.desyncHttpsEnabled -> {
                 stringResource(R.string.ripdpi_fake_approx_summary_scope_http_https)
-            uiState.desyncHttpEnabled -> stringResource(R.string.ripdpi_fake_approx_summary_scope_http)
-            uiState.desyncHttpsEnabled -> stringResource(R.string.ripdpi_fake_approx_summary_scope_https)
-            else -> stringResource(R.string.ripdpi_fake_approx_summary_scope_none)
+            }
+
+            uiState.desyncHttpEnabled -> {
+                stringResource(R.string.ripdpi_fake_approx_summary_scope_http)
+            }
+
+            uiState.desyncHttpsEnabled -> {
+                stringResource(R.string.ripdpi_fake_approx_summary_scope_https)
+            }
+
+            else -> {
+                stringResource(R.string.ripdpi_fake_approx_summary_scope_none)
+            }
         }
     val modeSummary =
         when (primaryStep?.kind) {
@@ -152,38 +173,43 @@ internal fun FakeApproximationProfileCard(
 @Composable
 private fun rememberFakeApproximationStatus(uiState: SettingsUiState): FakeApproximationStatusContent =
     when {
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             FakeApproximationStatusContent(
                 label = stringResource(R.string.ripdpi_fake_approx_cli_title),
                 body = stringResource(R.string.ripdpi_fake_approx_cli_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.fakeApproximationControlsRelevant ->
+        !uiState.fakeApproximationControlsRelevant -> {
             FakeApproximationStatusContent(
                 label = stringResource(R.string.ripdpi_fake_approx_protocols_off_title),
                 body = stringResource(R.string.ripdpi_fake_approx_protocols_off_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        uiState.hasFakeApproximation && uiState.isServiceRunning ->
+        uiState.hasFakeApproximation && uiState.isServiceRunning -> {
             FakeApproximationStatusContent(
                 label = stringResource(R.string.ripdpi_fake_approx_restart_title),
                 body = stringResource(R.string.ripdpi_fake_approx_restart_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.hasFakeApproximation ->
+        uiState.hasFakeApproximation -> {
             FakeApproximationStatusContent(
                 label = stringResource(R.string.ripdpi_fake_approx_ready_title),
                 body = stringResource(R.string.ripdpi_fake_approx_ready_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        else ->
+        else -> {
             FakeApproximationStatusContent(
                 label = stringResource(R.string.ripdpi_fake_approx_available_title),
                 body = stringResource(R.string.ripdpi_fake_approx_available_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
     }

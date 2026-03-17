@@ -1,13 +1,12 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.NativeError
-import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class FailureReasonTest {
-
     // -- displayMessage ---------------------------------------------------
 
     @Test

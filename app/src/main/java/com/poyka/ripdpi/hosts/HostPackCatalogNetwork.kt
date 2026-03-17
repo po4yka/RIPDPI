@@ -4,14 +4,14 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import java.util.concurrent.TimeUnit
-import javax.inject.Singleton
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Streaming
+import java.util.concurrent.TimeUnit
+import javax.inject.Singleton
 
 interface HostPackCatalogDownloadService {
     @Streaming
@@ -35,7 +35,9 @@ object HostPackCatalogNetworkModule {
             .callTimeout(120, TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 chain.proceed(
-                    chain.request().newBuilder()
+                    chain
+                        .request()
+                        .newBuilder()
                         .header("User-Agent", HOST_PACK_CATALOG_USER_AGENT)
                         .build(),
                 )
@@ -43,9 +45,7 @@ object HostPackCatalogNetworkModule {
 
     @Provides
     @Singleton
-    fun provideHostPackCatalogDownloadService(
-        client: OkHttpClient,
-    ): HostPackCatalogDownloadService =
+    fun provideHostPackCatalogDownloadService(client: OkHttpClient): HostPackCatalogDownloadService =
         Retrofit
             .Builder()
             .baseUrl(HOST_PACK_CATALOG_BASE_URL)

@@ -3,7 +3,6 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 
 internal object AutomaticProbeCoordinator {
-
     fun shouldLaunchProbe(
         settings: com.poyka.ripdpi.proto.AppSettings,
         event: PolicyHandoverEvent,
@@ -26,6 +25,5 @@ internal object AutomaticProbeCoordinator {
         return true
     }
 
-    fun probeKey(event: PolicyHandoverEvent): String =
-        "${event.mode.preferenceValue}|${event.currentFingerprintHash}"
+    fun probeKey(event: PolicyHandoverEvent): String = "${event.mode.preferenceValue}|${event.currentFingerprintHash}"
 }

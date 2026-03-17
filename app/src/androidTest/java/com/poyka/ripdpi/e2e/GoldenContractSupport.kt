@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.e2e
 
 import androidx.test.platform.app.InstrumentationRegistry
-import java.util.regex.Pattern
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.fail
+import java.util.regex.Pattern
 
 internal object GoldenContractSupport {
     fun assertJsonAsset(
@@ -61,12 +61,16 @@ internal object GoldenContractSupport {
                 sorted
             }
 
-            is JSONArray -> JSONArray().also { target ->
-                for (index in 0 until value.length()) {
-                    target.put(sortJson(value.get(index)))
+            is JSONArray -> {
+                JSONArray().also { target ->
+                    for (index in 0 until value.length()) {
+                        target.put(sortJson(value.get(index)))
+                    }
                 }
             }
 
-            else -> value
+            else -> {
+                value
+            }
         }
 }

@@ -1,15 +1,15 @@
 package com.poyka.ripdpi.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -74,8 +74,7 @@ fun BottomNavBar(
                         .fillMaxWidth()
                         .widthIn(
                             max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding,
-                        )
-                        .height(layout.bottomBarHeight)
+                        ).height(layout.bottomBarHeight)
                         .padding(horizontal = components.chipVerticalPadding + components.switchThumbPadding),
             ) {
                 val density = LocalDensity.current
@@ -170,10 +169,11 @@ private fun RowScope.BottomNavItem(
     )
     val selectionScale by animateFloatAsState(
         targetValue = if (selected) motion.selectionScale else 1f,
-        animationSpec = tween(
-            durationMillis = motion.duration(motion.quickDurationMillis),
-            easing = FastOutSlowInEasing,
-        ),
+        animationSpec =
+            tween(
+                durationMillis = motion.duration(motion.quickDurationMillis),
+                easing = FastOutSlowInEasing,
+            ),
         label = "bottomNavSelectionScale",
     )
     val interactionSource = remember { MutableInteractionSource() }
@@ -194,8 +194,7 @@ private fun RowScope.BottomNavItem(
                     scaleX = selectionScale
                     scaleY = selectionScale
                     alpha = contentAlpha
-                }
-                .ripDpiSelectable(
+                }.ripDpiSelectable(
                     selected = selected,
                     role = Role.Tab,
                     interactionSource = interactionSource,
@@ -223,7 +222,8 @@ private fun RowScope.BottomNavItem(
         }
         Text(
             text =
-                androidx.compose.ui.res.stringResource(destination.titleRes),
+                androidx.compose.ui.res
+                    .stringResource(destination.titleRes),
             style = type.navLabel,
             color = labelColor,
         )

@@ -4,14 +4,14 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 sealed class ServiceEvent {
     data class Failed(
@@ -44,7 +44,10 @@ interface ServiceStateStore {
         mode: Mode,
     )
 
-    fun emitFailed(sender: Sender, reason: FailureReason)
+    fun emitFailed(
+        sender: Sender,
+        reason: FailureReason,
+    )
 
     fun updateTelemetry(snapshot: ServiceTelemetrySnapshot)
 }
@@ -75,19 +78,37 @@ class DefaultServiceStateStore
                     status = status,
                     serviceStartedAt =
                         when {
-                            status == AppStatus.Running && previousStatus != AppStatus.Running -> System.currentTimeMillis()
-                            status == AppStatus.Running -> currentTelemetry.serviceStartedAt
-                            else -> null
+                            status == AppStatus.Running && previousStatus != AppStatus.Running -> {
+                                System
+                                    .currentTimeMillis()
+                            }
+
+                            status == AppStatus.Running -> {
+                                currentTelemetry.serviceStartedAt
+                            }
+
+                            else -> {
+                                null
+                            }
                         },
                     restartCount =
                         when {
-                            status == AppStatus.Running && previousStatus != AppStatus.Running -> currentTelemetry.restartCount + 1
-                            else -> currentTelemetry.restartCount
+                            status == AppStatus.Running && previousStatus != AppStatus.Running -> {
+                                currentTelemetry.restartCount +
+                                    1
+                            }
+
+                            else -> {
+                                currentTelemetry.restartCount
+                            }
                         },
                 )
         }
 
-        override fun emitFailed(sender: Sender, reason: FailureReason) {
+        override fun emitFailed(
+            sender: Sender,
+            reason: FailureReason,
+        ) {
             val currentTelemetry = _telemetry.value
             _telemetry.value =
                 currentTelemetry.copy(
@@ -130,7 +151,5 @@ class DefaultServiceStateStore
 abstract class ServiceStateStoreModule {
     @Binds
     @Singleton
-    abstract fun bindServiceStateStore(
-        serviceStateStore: DefaultServiceStateStore,
-    ): ServiceStateStore
+    abstract fun bindServiceStateStore(serviceStateStore: DefaultServiceStateStore): ServiceStateStore
 }

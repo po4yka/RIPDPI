@@ -4,11 +4,11 @@ import android.util.Log
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.RuntimeHistoryRecorder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 @Singleton
 class AppStartupInitializer

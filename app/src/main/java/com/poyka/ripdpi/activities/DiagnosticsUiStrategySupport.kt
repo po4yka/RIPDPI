@@ -17,8 +17,8 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
-import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
 import java.util.Locale
+import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
 
 internal fun DiagnosticsUiFactorySupport.toApproachDetailUiModel(
     detail: BypassApproachDetail,
@@ -50,14 +50,30 @@ internal fun DiagnosticsUiFactorySupport.toApproachDetailUiModel(
         runtimeSummary =
             listOf(
                 DiagnosticsMetricUiModel("Usage", detail.summary.usageCount.toString(), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("Runtime", formatDurationMs(detail.summary.totalRuntimeDurationMs), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("Errors", detail.summary.recentRuntimeHealth.totalErrors.toString(), DiagnosticsTone.Warning),
-                DiagnosticsMetricUiModel("Route changes", detail.summary.recentRuntimeHealth.routeChanges.toString(), DiagnosticsTone.Info),
+                DiagnosticsMetricUiModel(
+                    "Runtime",
+                    formatDurationMs(detail.summary.totalRuntimeDurationMs),
+                    DiagnosticsTone.Info,
+                ),
+                DiagnosticsMetricUiModel(
+                    "Errors",
+                    detail.summary.recentRuntimeHealth.totalErrors
+                        .toString(),
+                    DiagnosticsTone.Warning,
+                ),
+                DiagnosticsMetricUiModel(
+                    "Route changes",
+                    detail.summary.recentRuntimeHealth.routeChanges
+                        .toString(),
+                    DiagnosticsTone.Info,
+                ),
             ),
         recentSessions = detail.recentValidatedSessions.map(::toSessionRowUiModel),
         recentUsageNotes =
             detail.recentUsageSessions.map { usage ->
-                "${usage.serviceMode} · ${usage.networkType} · ${formatDurationMs((usage.finishedAt ?: usage.startedAt) - usage.startedAt)}"
+                "${usage.serviceMode} · ${usage.networkType} · ${formatDurationMs(
+                    (usage.finishedAt ?: usage.startedAt) - usage.startedAt,
+                )}"
             },
         failureNotes = detail.recentFailureNotes,
     )
@@ -90,7 +106,13 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
                         tone = summary.toDiagnosticsTone(),
                     ),
                 )
-                add(DiagnosticsMetricUiModel(label = "Usage", value = summary.usageCount.toString(), tone = DiagnosticsTone.Info))
+                add(
+                    DiagnosticsMetricUiModel(
+                        label = "Usage",
+                        value = summary.usageCount.toString(),
+                        tone = DiagnosticsTone.Info,
+                    ),
+                )
                 add(
                     DiagnosticsMetricUiModel(
                         label = "Runtime",
@@ -196,22 +218,33 @@ internal fun DiagnosticsUiFactorySupport.toScopeLabel(
     rawArgsEnabled: Boolean,
 ): String? =
     when (request?.kind) {
-        ScanKind.STRATEGY_PROBE ->
+        ScanKind.STRATEGY_PROBE -> {
             when {
-                rawArgsEnabled && request.strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1 ->
+                rawArgsEnabled && request.strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1 -> {
                     "Automatic audit · raw-path only · blocked by command-line mode"
+                }
 
-                rawArgsEnabled ->
+                rawArgsEnabled -> {
                     "Automatic probing · raw-path only · blocked by command-line mode"
+                }
 
-                request.strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1 ->
+                request.strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1 -> {
                     "Automatic audit · raw-path only"
+                }
 
-                else -> "Automatic probing · raw-path only"
+                else -> {
+                    "Automatic probing · raw-path only"
+                }
             }
+        }
 
-        ScanKind.CONNECTIVITY -> "Connectivity profile"
-        null -> null
+        ScanKind.CONNECTIVITY -> {
+            "Connectivity profile"
+        }
+
+        null -> {
+            null
+        }
     }
 
 private fun DiagnosticsUiFactorySupport.strategySignatureFields(
@@ -381,7 +414,7 @@ private fun buildStrategyProbeCandidateMetrics(
             ),
         )
         summary.averageLatencyMs?.let {
-            add(DiagnosticsMetricUiModel("Latency", "${it} ms", DiagnosticsTone.Info))
+            add(DiagnosticsMetricUiModel("Latency", "$it ms", DiagnosticsTone.Info))
         }
         if (recommended) {
             add(DiagnosticsMetricUiModel("Selected", "Winner", DiagnosticsTone.Positive))
@@ -403,8 +436,7 @@ private fun DiagnosticsUiFactorySupport.deriveSignature(
             )
         }
 
-private fun ProbeResult.detailValue(key: String): String? =
-    details.firstOrNull { it.key == key }?.value
+private fun ProbeResult.detailValue(key: String): String? = details.firstOrNull { it.key == key }?.value
 
 private fun DiagnosticsUiFactorySupport.buildStrategyProbeResultGroups(
     reportResults: List<ProbeResult>,
@@ -452,11 +484,12 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
         suiteLabel = strategyProbeSuiteLabel(suiteId),
         outcome = strategyProbeOutcomeLabel(outcome = candidate.outcome, skipped = candidate.skipped),
         rationale = candidate.rationale,
-        tone = strategyProbeCandidateTone(
-            outcome = candidate.outcome,
-            skipped = candidate.skipped,
-            recommended = recommended,
-        ),
+        tone =
+            strategyProbeCandidateTone(
+                outcome = candidate.outcome,
+                skipped = candidate.skipped,
+                recommended = recommended,
+            ),
         recommended = recommended,
         notes = candidate.notes,
         metrics = buildStrategyProbeCandidateMetrics(candidate, recommended),
@@ -493,9 +526,7 @@ private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(
         signature = recommendation.strategySignature?.let { signature -> strategySignatureFields(signature) }.orEmpty(),
     )
 
-private fun buildStrategyProbeSummaryMetrics(
-    report: StrategyProbeReport,
-): List<DiagnosticsMetricUiModel> {
+private fun buildStrategyProbeSummaryMetrics(report: StrategyProbeReport): List<DiagnosticsMetricUiModel> {
     val candidates = report.tcpCandidates + report.quicCandidates
     val worked = candidates.count { it.outcome.equals("success", ignoreCase = true) }
     val partial = candidates.count { it.outcome.equals("partial", ignoreCase = true) }

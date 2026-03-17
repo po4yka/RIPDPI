@@ -2,7 +2,7 @@ use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpStream};
 use crate::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::platform;
 use crate::runtime_policy::{extract_host, ConnectionRoute, TransportProtocol};
@@ -50,10 +50,12 @@ pub(super) fn relay(
             success_host = host.clone();
             success_payload = Some(original_request.clone());
 
+            let is_tls = original_request.first().copied() == Some(0x16);
             loop {
                 session_state = SessionState::default();
                 let progress = session_state.observe_outbound(&original_request);
                 let group = state.config.groups[route.group_index].clone();
+                let tls_send_start = is_tls.then(Instant::now);
                 if let Err(err) = send_with_group(
                     &mut upstream,
                     state,
@@ -91,6 +93,9 @@ pub(super) fn relay(
                     &original_request,
                 )? {
                     FirstResponse::Forward(bytes, server_ttl) => {
+                        if let (Some(start), Some(telemetry)) = (tls_send_start, &state.telemetry) {
+                            telemetry.on_tls_handshake_completed(target, start.elapsed().as_millis() as u64);
+                        }
                         session_state.observe_inbound(&bytes);
                         client.write_all(&bytes)?;
                         if session_state.recv_count > 0 {

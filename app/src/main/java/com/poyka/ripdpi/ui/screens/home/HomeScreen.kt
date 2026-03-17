@@ -52,25 +52,25 @@ import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.permissions.PermissionRecovery
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
-import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiDashboardScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
-import java.util.Locale
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import java.util.Locale
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 
@@ -152,19 +152,23 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .then(
                             when (issue.recovery) {
-                                PermissionRecovery.OpenBatteryOptimizationSettings ->
+                                PermissionRecovery.OpenBatteryOptimizationSettings -> {
                                     Modifier.ripDpiClickable(
                                         role = Role.Button,
                                         onClick = { onRepairPermission(PermissionKind.BatteryOptimization) },
                                     )
+                                }
 
-                                PermissionRecovery.ShowVpnPermissionDialog ->
+                                PermissionRecovery.ShowVpnPermissionDialog -> {
                                     Modifier.ripDpiClickable(
                                         role = Role.Button,
                                         onClick = onOpenVpnPermissionDialog,
                                     )
+                                }
 
-                                else -> Modifier
+                                else -> {
+                                    Modifier
+                                }
                             },
                         ),
             )
@@ -640,8 +644,7 @@ private fun HomeConnectionButton(
                         scaleX = haloScale.value
                         scaleY = haloScale.value
                         translationX = shakeOffset.value * 0.2f
-                    }
-                    .background(animatedHaloColor, CircleShape),
+                    }.background(animatedHaloColor, CircleShape),
         )
         Column(
             modifier =
@@ -651,8 +654,7 @@ private fun HomeConnectionButton(
                         scaleX = buttonScale.value * pressScale
                         scaleY = buttonScale.value * pressScale
                         translationX = shakeOffset.value
-                    }
-                    .background(animatedContainerColor, CircleShape)
+                    }.background(animatedContainerColor, CircleShape)
                     .border(width = 1.dp, color = animatedBorderColor, shape = CircleShape)
                     .ripDpiClickable(
                         enabled = state != ConnectionState.Connecting,
@@ -661,7 +663,9 @@ private fun HomeConnectionButton(
                         hapticFeedback =
                             when (state) {
                                 ConnectionState.Connected -> RipDpiHapticFeedback.Toggle
+
                                 ConnectionState.Connecting -> RipDpiHapticFeedback.None
+
                                 ConnectionState.Disconnected,
                                 ConnectionState.Error,
                                 -> RipDpiHapticFeedback.Action
@@ -702,9 +706,10 @@ private fun HomeConnectionButton(
                 transitionSpec = {
                     fadeIn(
                         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                    ) togetherWith fadeOut(
-                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                    )
+                    ) togetherWith
+                        fadeOut(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
                 },
                 label = "homeConnectionLabel",
             ) { currentLabel ->
@@ -721,9 +726,10 @@ private fun HomeConnectionButton(
                 transitionSpec = {
                     fadeIn(
                         animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                    ) togetherWith fadeOut(
-                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                    )
+                    ) togetherWith
+                        fadeOut(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
                 },
                 label = "homeConnectionModeLabel",
             ) { currentModeLabel ->

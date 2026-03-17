@@ -98,17 +98,19 @@ fun buildEncryptedDnsCandidatePlan(
 ): List<EncryptedDnsPathCandidate> {
     val currentPath = activeDns.toEncryptedDnsPathCandidate()
     val candidates =
-        linkedMapOf<String, EncryptedDnsPathCandidate>().apply {
-            builtInEncryptedDnsPathCandidates().forEach { candidate ->
-                put(candidate.pathKey(), candidate)
-            }
-            preferredPath?.let { candidate ->
-                put(candidate.pathKey(), candidate)
-            }
-            currentPath?.let { candidate ->
-                put(candidate.pathKey(), candidate)
-            }
-        }.values.toList()
+        linkedMapOf<String, EncryptedDnsPathCandidate>()
+            .apply {
+                builtInEncryptedDnsPathCandidates().forEach { candidate ->
+                    put(candidate.pathKey(), candidate)
+                }
+                preferredPath?.let { candidate ->
+                    put(candidate.pathKey(), candidate)
+                }
+                currentPath?.let { candidate ->
+                    put(candidate.pathKey(), candidate)
+                }
+            }.values
+            .toList()
 
     if (candidates.isEmpty()) {
         return emptyList()
@@ -170,7 +172,7 @@ fun buildEncryptedDnsCandidatePlan(
 
 private fun DnsProviderDefinition.toEncryptedDnsPathCandidate(protocol: String): EncryptedDnsPathCandidate? =
     when (protocol) {
-        EncryptedDnsProtocolDoh ->
+        EncryptedDnsProtocolDoh -> {
             EncryptedDnsPathCandidate(
                 resolverId = providerId,
                 resolverLabel = displayName,
@@ -181,8 +183,9 @@ private fun DnsProviderDefinition.toEncryptedDnsPathCandidate(protocol: String):
                 bootstrapIps = bootstrapIps,
                 dohUrl = dohUrl.orEmpty(),
             )
+        }
 
-        EncryptedDnsProtocolDot ->
+        EncryptedDnsProtocolDot -> {
             EncryptedDnsPathCandidate(
                 resolverId = providerId,
                 resolverLabel = displayName,
@@ -192,8 +195,9 @@ private fun DnsProviderDefinition.toEncryptedDnsPathCandidate(protocol: String):
                 tlsServerName = tlsServerName.ifBlank { host },
                 bootstrapIps = bootstrapIps,
             )
+        }
 
-        EncryptedDnsProtocolDnsCrypt ->
+        EncryptedDnsProtocolDnsCrypt -> {
             dnscryptProviderName
                 ?.takeIf { it.isNotBlank() }
                 ?.takeIf { !dnscryptPublicKey.isNullOrBlank() }
@@ -209,6 +213,9 @@ private fun DnsProviderDefinition.toEncryptedDnsPathCandidate(protocol: String):
                         dnscryptPublicKey = dnscryptPublicKey.orEmpty(),
                     )
                 }
+        }
 
-        else -> null
+        else -> {
+            null
+        }
     }

@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import org.junit.Assert.assertTrue
+import org.junit.Test
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-import org.junit.Assert.assertTrue
-import org.junit.Test
 
 class RipDpiColorContrastTest {
     @Test
@@ -22,7 +22,10 @@ class RipDpiColorContrastTest {
         assertTrue("Expected AA contrast for dark secondary text, was $contrast", contrast >= 4.5f)
     }
 
-    private fun contrastRatio(foreground: Color, background: Color): Float {
+    private fun contrastRatio(
+        foreground: Color,
+        background: Color,
+    ): Float {
         val foregroundLuminance = foreground.relativeLuminance()
         val backgroundLuminance = background.relativeLuminance()
         val lighter = max(foregroundLuminance, backgroundLuminance)

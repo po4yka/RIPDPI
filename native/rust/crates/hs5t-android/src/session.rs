@@ -153,6 +153,12 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     let last_error = session.last_error.clone();
     let telemetry = session.telemetry.clone();
 
+    // Wire the DNS latency histogram: clone shares the Arc<Mutex<Histogram>>
+    // inside LatencyHistogram so the closure and telemetry state observe the
+    // same underlying data without requiring hs5t-core to import ripdpi-telemetry.
+    let dns_histogram = telemetry.dns_histogram.clone();
+    stats.set_dns_latency_observer(Arc::new(move |ms| dns_histogram.record(ms)));
+
     {
         let mut state = session.state.lock().expect("tunnel session poisoned");
         if let Err(message) = ensure_tunnel_start_allowed(&state) {

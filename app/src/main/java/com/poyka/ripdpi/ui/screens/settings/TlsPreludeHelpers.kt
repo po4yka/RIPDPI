@@ -19,13 +19,14 @@ internal fun SettingsUiState.toTlsPreludeEditorStep(
 ): TcpChainStepModel? {
     val normalizedMarker = normalizeOffsetExpression(marker, DefaultTlsRecordMarker)
     return when (mode) {
-        TcpChainStepKind.TlsRec.wireName ->
+        TcpChainStepKind.TlsRec.wireName -> {
             TcpChainStepModel(
                 kind = TcpChainStepKind.TlsRec,
                 marker = normalizedMarker,
             )
+        }
 
-        TcpChainStepKind.TlsRandRec.wireName ->
+        TcpChainStepKind.TlsRandRec.wireName -> {
             TcpChainStepModel(
                 kind = TcpChainStepKind.TlsRandRec,
                 marker = normalizedMarker,
@@ -33,8 +34,11 @@ internal fun SettingsUiState.toTlsPreludeEditorStep(
                 minFragmentSize = minFragmentSize.takeIf { it > 0 } ?: DefaultTlsRandRecMinFragmentSize,
                 maxFragmentSize = maxFragmentSize.takeIf { it > 0 } ?: DefaultTlsRandRecMaxFragmentSize,
             )
+        }
 
-        else -> null
+        else -> {
+            null
+        }
     }
 }
 
