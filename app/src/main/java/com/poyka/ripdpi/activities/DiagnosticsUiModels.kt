@@ -3,60 +3,8 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.ScanKind
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-
-internal fun defaultRememberedNetworkPolicyStore(): RememberedNetworkPolicyStore {
-    val policies = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
-    return object : RememberedNetworkPolicyStore {
-        override fun observePolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> = policies
-
-        override suspend fun findValidatedMatch(
-            fingerprintHash: String,
-            mode: Mode,
-            now: Long,
-        ): RememberedNetworkPolicyEntity? = null
-
-        override suspend fun upsertObservedPolicy(
-            policy: RememberedNetworkPolicyJson,
-            source: String,
-            now: Long,
-        ): RememberedNetworkPolicyEntity =
-            error("Default DiagnosticsViewModel remembered network store does not support persistence")
-
-        override suspend fun rememberValidatedPolicy(
-            policy: RememberedNetworkPolicyJson,
-            source: String,
-            now: Long,
-        ): RememberedNetworkPolicyEntity =
-            error("Default DiagnosticsViewModel remembered network store does not support persistence")
-
-        override suspend fun recordApplied(
-            policy: RememberedNetworkPolicyEntity,
-            appliedAt: Long,
-        ): RememberedNetworkPolicyEntity = policy
-
-        override suspend fun recordSuccess(
-            policy: RememberedNetworkPolicyEntity,
-            validated: Boolean,
-            strategySignatureJson: String?,
-            completedAt: Long,
-        ): RememberedNetworkPolicyEntity = policy
-
-        override suspend fun recordFailure(
-            policy: RememberedNetworkPolicyEntity,
-            failedAt: Long,
-            allowSuppression: Boolean,
-        ): RememberedNetworkPolicyEntity = policy
-
-        override suspend fun clearAll() {
-            policies.value = emptyList()
-        }
-    }
-}
 
 internal const val StrategyProbeSuiteQuickV1 = "quick_v1"
 internal const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"

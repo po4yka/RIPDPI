@@ -15,10 +15,8 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicySourceStrategyProbe
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -27,8 +25,6 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
-import com.poyka.ripdpi.services.DefaultResolverOverrideStore
-import com.poyka.ripdpi.services.DefaultPolicyHandoverEventStore
 import com.poyka.ripdpi.services.NetworkFingerprintProvider
 import com.poyka.ripdpi.services.PolicyHandoverEvent
 import com.poyka.ripdpi.services.PolicyHandoverEventStore
@@ -48,7 +44,6 @@ import javax.inject.Named
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -101,7 +96,9 @@ interface DiagnosticsManager {
 
 @Singleton
 class DefaultDiagnosticsManager
-    private constructor(
+    @Inject
+    constructor(
+        @param:ApplicationContext
         private val context: Context,
         private val appSettingsRepository: AppSettingsRepository,
         private val historyRepository: DiagnosticsHistoryRepository,
@@ -116,12 +113,14 @@ class DefaultDiagnosticsManager
         private val serviceStateStore: ServiceStateStore,
         private val resolverOverrideStore: ResolverOverrideStore,
         private val policyHandoverEventStore: PolicyHandoverEventStore,
+        @param:Named("automaticHandoverProbeDelayMs")
         private val automaticHandoverProbeDelayMs: Long,
+        @param:Named("automaticHandoverProbeCooldownMs")
         private val automaticHandoverProbeCooldownMs: Long,
+        @param:Named("importBundledProfilesOnInitialize")
         private val importBundledProfilesOnInitialize: Boolean,
+        @param:ApplicationIoScope
         private val scope: CoroutineScope,
-        @Suppress("UNUSED_PARAMETER")
-        private val constructorToken: Any,
     ) : DiagnosticsManager {
     private companion object {
         private const val FinishedReportPollAttempts = 5
@@ -130,99 +129,7 @@ class DefaultDiagnosticsManager
         private const val AutomaticProbeProfileId = "automatic-probing"
         private const val AutomaticHandoverProbeDelayMs = 15_000L
         private const val AutomaticHandoverProbeCooldownMs = 24L * 60L * 60L * 1_000L
-        private object ConstructionToken
     }
-
-    @Inject
-    constructor(
-        @ApplicationContext context: Context,
-        appSettingsRepository: AppSettingsRepository,
-        historyRepository: DiagnosticsHistoryRepository,
-        logcatSnapshotCollector: LogcatSnapshotCollector,
-        rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-        networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
-        networkMetadataProvider: NetworkMetadataProvider,
-        networkFingerprintProvider: NetworkFingerprintProvider,
-        diagnosticsContextProvider: DiagnosticsContextProvider,
-        networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
-        runtimeCoordinator: DiagnosticsRuntimeCoordinator,
-        serviceStateStore: ServiceStateStore,
-        resolverOverrideStore: ResolverOverrideStore,
-        policyHandoverEventStore: PolicyHandoverEventStore,
-        @Named("automaticHandoverProbeDelayMs")
-        automaticHandoverProbeDelayMs: Long,
-        @Named("automaticHandoverProbeCooldownMs")
-        automaticHandoverProbeCooldownMs: Long,
-        @Named("importBundledProfilesOnInitialize")
-        importBundledProfilesOnInitialize: Boolean,
-        @ApplicationIoScope scope: CoroutineScope,
-    ) : this(
-        context = context,
-        appSettingsRepository = appSettingsRepository,
-        historyRepository = historyRepository,
-        logcatSnapshotCollector = logcatSnapshotCollector,
-        rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-        networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
-        networkMetadataProvider = networkMetadataProvider,
-        networkFingerprintProvider = networkFingerprintProvider,
-        diagnosticsContextProvider = diagnosticsContextProvider,
-        networkDiagnosticsBridgeFactory = networkDiagnosticsBridgeFactory,
-        runtimeCoordinator = runtimeCoordinator,
-        serviceStateStore = serviceStateStore,
-        resolverOverrideStore = resolverOverrideStore,
-        policyHandoverEventStore = policyHandoverEventStore,
-        automaticHandoverProbeDelayMs = automaticHandoverProbeDelayMs,
-        automaticHandoverProbeCooldownMs = automaticHandoverProbeCooldownMs,
-        importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
-        scope = scope,
-        constructorToken = ConstructionToken,
-    )
-
-    constructor(
-        context: Context,
-        appSettingsRepository: AppSettingsRepository,
-        historyRepository: DiagnosticsHistoryRepository,
-        networkMetadataProvider: NetworkMetadataProvider,
-        diagnosticsContextProvider: DiagnosticsContextProvider,
-        networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
-        runtimeCoordinator: DiagnosticsRuntimeCoordinator,
-        serviceStateStore: ServiceStateStore,
-        logcatSnapshotCollector: LogcatSnapshotCollector = LogcatSnapshotCollector(),
-        rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
-            DefaultRememberedNetworkPolicyStore(historyRepository),
-        networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore =
-            DefaultNetworkDnsPathPreferenceStore(historyRepository),
-        networkFingerprintProvider: NetworkFingerprintProvider =
-            object : NetworkFingerprintProvider {
-                override fun capture() = null
-            },
-        resolverOverrideStore: ResolverOverrideStore = DefaultResolverOverrideStore(),
-        policyHandoverEventStore: PolicyHandoverEventStore = DefaultPolicyHandoverEventStore(),
-        automaticHandoverProbeDelayMs: Long = AutomaticHandoverProbeDelayMs,
-        automaticHandoverProbeCooldownMs: Long = AutomaticHandoverProbeCooldownMs,
-        importBundledProfilesOnInitialize: Boolean = true,
-        scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-    ) : this(
-        context = context,
-        appSettingsRepository = appSettingsRepository,
-        historyRepository = historyRepository,
-        logcatSnapshotCollector = logcatSnapshotCollector,
-        rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-        networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
-        networkMetadataProvider = networkMetadataProvider,
-        networkFingerprintProvider = networkFingerprintProvider,
-        diagnosticsContextProvider = diagnosticsContextProvider,
-        networkDiagnosticsBridgeFactory = networkDiagnosticsBridgeFactory,
-        runtimeCoordinator = runtimeCoordinator,
-        serviceStateStore = serviceStateStore,
-        resolverOverrideStore = resolverOverrideStore,
-        policyHandoverEventStore = policyHandoverEventStore,
-        automaticHandoverProbeDelayMs = automaticHandoverProbeDelayMs,
-        automaticHandoverProbeCooldownMs = automaticHandoverProbeCooldownMs,
-        importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
-        scope = scope,
-        constructorToken = ConstructionToken,
-    )
 
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
     private val _activeScanProgress = MutableStateFlow<ScanProgress?>(null)
