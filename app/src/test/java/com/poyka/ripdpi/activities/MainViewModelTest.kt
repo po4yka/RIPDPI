@@ -459,13 +459,13 @@ class MainViewModelTest {
         diagnosticsManager: FakeMainDiagnosticsManager = FakeMainDiagnosticsManager(),
     ): MainViewModel =
         MainViewModel(
-            appContext = RuntimeEnvironment.getApplication(),
             appSettingsRepository = appSettingsRepository,
             serviceStateStore = serviceStateStore,
             serviceController = serviceController,
             diagnosticsManager = diagnosticsManager,
             stringResolver = FakeStringResolver(),
             trafficStatsReader = FakeTrafficStatsReader(),
+            permissionPlatformBridge = FakePermissionPlatformBridge(),
             permissionStatusProvider = permissionStatusProvider,
             permissionCoordinator = PermissionCoordinator(),
         )
