@@ -53,6 +53,7 @@ fun SettingsRoute(
     onShareDebugBundle: () -> Unit,
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
+    onOpenVpnPermissionDialog: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -68,6 +69,7 @@ fun SettingsRoute(
         onShareDebugBundle = onShareDebugBundle,
         permissionSummary = permissionSummary,
         onRepairPermission = onRepairPermission,
+        onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
         onThemeSelected = viewModel::setAppTheme,
         onWebRtcProtectionChanged = viewModel::setWebRtcProtectionEnabled,
         onBiometricChanged = viewModel::setBiometricEnabled,
@@ -87,6 +89,7 @@ internal fun SettingsScreen(
     onShareDebugBundle: () -> Unit,
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
+    onOpenVpnPermissionDialog: () -> Unit,
     onThemeSelected: (String) -> Unit,
     onWebRtcProtectionChanged: (Boolean) -> Unit,
     onBiometricChanged: (Boolean) -> Unit,
@@ -256,7 +259,14 @@ internal fun SettingsScreen(
                         title = item.title,
                         subtitle = item.subtitle,
                         value = item.actionLabel ?: item.statusLabel,
-                        onClick = item.actionLabel?.let { { onRepairPermission(item.kind) } },
+                        onClick =
+                            item.actionLabel?.let {
+                                if (item.kind == PermissionKind.VpnConsent) {
+                                    { onOpenVpnPermissionDialog() }
+                                } else {
+                                    { onRepairPermission(item.kind) }
+                                }
+                            },
                         enabled = item.enabled,
                         showDivider = index != permissionSummary.items.lastIndex,
                     )
@@ -399,6 +409,7 @@ private fun SettingsScreenPreview() {
             onShareDebugBundle = {},
             permissionSummary = PermissionSummaryUiState(),
             onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
             onBiometricChanged = {},
@@ -428,6 +439,7 @@ private fun SettingsScreenDarkPreview() {
             onShareDebugBundle = {},
             permissionSummary = PermissionSummaryUiState(),
             onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
             onThemeSelected = {},
             onWebRtcProtectionChanged = {},
             onBiometricChanged = {},

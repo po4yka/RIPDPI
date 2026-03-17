@@ -256,7 +256,8 @@ class MainViewModel
         }
 
         fun onOpenVpnPermissionRequested() {
-            resolvePermissionAction(PermissionAction.ShowVpnPermissionDialog)
+            permissionState.update { current -> current.copy(issue = null) }
+            _effects.trySend(MainEffect.ShowVpnPermissionDialog)
         }
 
         fun onRepairPermissionRequested(kind: PermissionKind) {
@@ -301,12 +302,6 @@ class MainViewModel
         }
 
         private fun resolvePermissionAction(action: PermissionAction) {
-            if (action is PermissionAction.ShowVpnPermissionDialog) {
-                permissionState.update { current -> current.copy(issue = null) }
-                _effects.trySend(MainEffect.ShowVpnPermissionDialog)
-                return
-            }
-
             if (
                 (action is PermissionAction.StartConfiguredMode || action is PermissionAction.StartVpnMode) &&
                 uiState.value.connectionState == ConnectionState.Connecting
@@ -368,9 +363,8 @@ class MainViewModel
 
                 PermissionKind.VpnConsent -> {
                     when (action) {
-                        PermissionAction.StartConfiguredMode,
-                        PermissionAction.ShowVpnPermissionDialog,
-                        -> _effects.trySend(MainEffect.ShowVpnPermissionDialog)
+                        PermissionAction.StartConfiguredMode ->
+                            _effects.trySend(MainEffect.ShowVpnPermissionDialog)
 
                         PermissionAction.StartVpnMode,
                         is PermissionAction.RepairPermission,
@@ -512,7 +506,6 @@ class MainViewModel
             when (action) {
                 PermissionAction.StartConfiguredMode -> startMode(uiState.value.configuredMode)
                 PermissionAction.StartVpnMode -> startMode(Mode.VPN)
-                PermissionAction.ShowVpnPermissionDialog -> _effects.trySend(MainEffect.ShowVpnPermissionDialog)
                 is PermissionAction.RepairPermission -> {
                     if (action.kind == PermissionKind.BatteryOptimization && recommended.isEmpty()) {
                         refreshPermissionSnapshot()
