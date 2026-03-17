@@ -8,7 +8,7 @@ use rustls::client::danger::ServerCertVerifier;
 static PLATFORM_VERIFIER: OnceCell<Arc<dyn ServerCertVerifier>> = OnceCell::new();
 
 pub(crate) fn init_platform_tls(env: &mut JNIEnv, context: JObject) {
-    rustls_platform_verifier::android::init_hosted(env, context);
+    let _ = rustls_platform_verifier::android::init_hosted(env, context);
     let verifier = Arc::new(rustls_platform_verifier::Verifier::new());
     let _ = PLATFORM_VERIFIER.set(verifier);
 }
