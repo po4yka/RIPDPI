@@ -58,7 +58,7 @@ sealed interface PermissionAction {
 
     data object StartVpnMode : PermissionAction
 
-    data object OpenVpnPermissionScreen : PermissionAction
+    data object ShowVpnPermissionDialog : PermissionAction
 
     data class RepairPermission(
         val kind: PermissionKind,
@@ -81,7 +81,7 @@ enum class PermissionResult {
 enum class PermissionRecovery {
     RetryPrompt,
     OpenSettings,
-    OpenVpnPermissionScreen,
+    ShowVpnPermissionDialog,
     OpenBatteryOptimizationSettings,
 }
 
@@ -168,7 +168,7 @@ class PermissionCoordinator
                 when (action) {
                     PermissionAction.StartConfiguredMode -> buildStartRequirements(mode = configuredMode, snapshot = snapshot)
                     PermissionAction.StartVpnMode -> buildStartRequirements(mode = Mode.VPN, snapshot = snapshot)
-                    PermissionAction.OpenVpnPermissionScreen -> emptyList()
+                    PermissionAction.ShowVpnPermissionDialog -> emptyList()
                     is PermissionAction.RepairPermission ->
                         buildList {
                             val status = snapshot.statusFor(action.kind)
@@ -184,7 +184,7 @@ class PermissionCoordinator
                     PermissionAction.StartVpnMode,
                     -> buildRecommendationList(snapshot)
 
-                    PermissionAction.OpenVpnPermissionScreen,
+                    PermissionAction.ShowVpnPermissionDialog,
                     is PermissionAction.RepairPermission,
                     -> emptyList()
                 }

@@ -11,15 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -29,124 +24,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.MainUiState
-import com.poyka.ripdpi.activities.MainViewModel
-import com.poyka.ripdpi.permissions.PermissionKind
-import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.feedback.WarningBanner
-import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.ripDpiClickable
-import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiIntroScaffold
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-
-private const val PermissionProgressPage = 1
-private const val PermissionProgressPageCount = 3
-
-@Composable
-fun VpnPermissionRoute(
-    onDismiss: () -> Unit,
-    onGranted: () -> Unit,
-    onContinue: () -> Unit,
-    modifier: Modifier = Modifier,
-    viewModel: MainViewModel,
-) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val performHaptic = rememberRipDpiHapticPerformer()
-    val isPermissionGranted =
-        uiState.connectionState == ConnectionState.Connecting ||
-            uiState.connectionState == ConnectionState.Connected
-    val previousGranted = remember { mutableStateOf(isPermissionGranted) }
-
-    LaunchedEffect(isPermissionGranted) {
-        val wasGranted = previousGranted.value
-        previousGranted.value = isPermissionGranted
-        if (isPermissionGranted && !wasGranted) {
-            performHaptic(RipDpiHapticFeedback.Success)
-            onGranted()
-        }
-    }
-
-    VpnPermissionScreen(
-        uiState = uiState,
-        onDismiss = onDismiss,
-        onContinue = onContinue,
-        modifier = modifier,
-    )
-}
-
-@Composable
-fun VpnPermissionScreen(
-    uiState: MainUiState,
-    onDismiss: () -> Unit,
-    onContinue: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val introLayout = rememberRipDpiIntroScaffoldMetrics()
-
-    AuthPromptScaffold(
-        title = stringResource(R.string.permissions_vpn_title),
-        message = stringResource(R.string.permissions_vpn_body),
-        illustration = AuthPromptIllustration.Permission,
-        modifier = modifier,
-        topActionText = stringResource(R.string.permissions_vpn_not_now),
-        onTopAction = onDismiss,
-        banner = {
-            val permissionIssue = uiState.permissionSummary.issue
-            if (permissionIssue?.kind == PermissionKind.VpnConsent) {
-                WarningBanner(
-                    title = permissionIssue.title,
-                    message = permissionIssue.message,
-                    tone = WarningBannerTone.Error,
-                )
-            } else if (uiState.connectionState == ConnectionState.Error && uiState.errorMessage != null) {
-                WarningBanner(
-                    title = stringResource(R.string.permissions_vpn_error_title),
-                    message = uiState.errorMessage,
-                    tone = WarningBannerTone.Error,
-                )
-            }
-        },
-        progress = {
-            RipDpiPageIndicators(
-                currentPage = PermissionProgressPage,
-                pageCount = PermissionProgressPageCount,
-            )
-        },
-        footer = {
-            RipDpiButton(
-                text =
-                    if (uiState.connectionState == ConnectionState.Connecting) {
-                        stringResource(R.string.home_connection_button_connecting)
-                    } else {
-                        stringResource(R.string.permissions_vpn_continue)
-                    },
-                onClick = onContinue,
-                enabled = uiState.connectionState != ConnectionState.Connecting,
-                hapticFeedback = RipDpiHapticFeedback.Confirm,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                        .heightIn(min = introLayout.footerButtonMinHeight),
-                trailingIcon = RipDpiIcons.ChevronRight,
-            )
-        },
-    )
-}
 
 internal enum class AuthPromptIllustration {
     Permission,
@@ -379,33 +263,5 @@ private fun AuthPromptBadge(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
-@Composable
-private fun VpnPermissionScreenPreview() {
-    RipDpiTheme(themePreference = "light") {
-        VpnPermissionScreen(
-            uiState = MainUiState(),
-            onDismiss = {},
-            onContinue = {},
-        )
-    }
-}
-
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
-@Composable
-private fun VpnPermissionScreenErrorPreview() {
-    RipDpiTheme(themePreference = "dark") {
-        VpnPermissionScreen(
-            uiState =
-                MainUiState(
-                    connectionState = ConnectionState.Error,
-                    errorMessage = "VPN permission denied",
-                ),
-            onDismiss = {},
-            onContinue = {},
-        )
     }
 }
