@@ -133,6 +133,11 @@ jobs:
         with:
           manifest-path: native/rust/Cargo.toml
 
+      - name: Run cargo-deny (byedpi)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: native/rust/third_party/byedpi/Cargo.toml
+
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
         with:
@@ -259,6 +264,31 @@ jobs:
             core/**/build/reports/jacoco/
             native/rust/target/coverage/
           retention-days: 7
+
+  rust-loom:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+          prefix-key: loom
+
+      - name: Run loom concurrency tests
+        env:
+          LOOM_MAX_PREEMPTIONS: 3
+        run: |
+          cd native/rust
+          cargo test --features loom -- loom
 
   rust-native-soak:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

@@ -2,6 +2,7 @@
 name = "hs5t-jni"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 description = "Android JNI shim for hev-socks5-tunnel"
 
 [lib]

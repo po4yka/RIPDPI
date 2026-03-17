@@ -13,3 +13,9 @@ resolver = "2"
 edition = "2021"
 license = "MIT"
 version = "0.1.0"
+
+[workspace.dependencies]
+aes = "0.8"
+aes-gcm = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"

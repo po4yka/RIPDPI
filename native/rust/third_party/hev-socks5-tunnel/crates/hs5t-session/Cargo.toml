@@ -2,6 +2,7 @@
 name = "hs5t-session"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 description = "Async TCP and UDP SOCKS5 session handlers"
 
 [dependencies]
