@@ -13,6 +13,12 @@ cargo fmt --manifest-path "$workspace_manifest" --all --check
 echo "==> clippy"
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 
+echo "==> cargo-deny (workspace)"
+cargo deny --manifest-path "$workspace_manifest" check
+
+echo "==> cargo-deny (byedpi)"
+cargo deny --manifest-path "$byedpi_manifest" check
+
 NEXTEST_PROFILE="${CI:+ci}"
 NEXTEST_ARGS=(${NEXTEST_PROFILE:+--profile "$NEXTEST_PROFILE"})
 
