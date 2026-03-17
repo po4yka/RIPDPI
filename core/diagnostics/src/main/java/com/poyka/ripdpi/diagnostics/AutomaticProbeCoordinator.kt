@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.services.PolicyHandoverEvent
+import com.poyka.ripdpi.data.PolicyHandoverEvent
 
 internal object AutomaticProbeCoordinator {
 

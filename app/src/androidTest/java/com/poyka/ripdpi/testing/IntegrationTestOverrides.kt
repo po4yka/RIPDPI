@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.testing
 
 import android.os.ParcelFileDescriptor
-import com.poyka.ripdpi.core.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
@@ -9,7 +9,7 @@ import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
-import com.poyka.ripdpi.core.TunnelStats
+import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultQueue
 import com.poyka.ripdpi.core.testing.FaultSpec
@@ -20,10 +20,10 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.FailureReason
-import com.poyka.ripdpi.services.ServiceEvent
-import com.poyka.ripdpi.services.ServiceStateStore
-import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.services.VpnTunnelSession
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import java.util.concurrent.CopyOnWriteArrayList

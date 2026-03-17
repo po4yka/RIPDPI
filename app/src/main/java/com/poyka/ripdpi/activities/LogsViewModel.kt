@@ -7,9 +7,9 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.services.FailureReason
-import com.poyka.ripdpi.services.ServiceEvent
-import com.poyka.ripdpi.services.ServiceStateStore
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.services.displayMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

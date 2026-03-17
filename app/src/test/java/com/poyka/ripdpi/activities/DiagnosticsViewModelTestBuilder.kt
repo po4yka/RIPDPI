@@ -7,10 +7,10 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
-import com.poyka.ripdpi.services.ActiveConnectionPolicy
-import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
-import com.poyka.ripdpi.services.DefaultServiceStateStore
-import com.poyka.ripdpi.services.ServiceStateStore
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
+import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.ServiceStateStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

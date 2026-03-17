@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.ContextWrapper
-import com.poyka.ripdpi.core.NativeRuntimeEvent
+import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
@@ -35,16 +35,16 @@ import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.decodePath
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
-import com.poyka.ripdpi.services.FailureReason
-import com.poyka.ripdpi.services.NetworkFingerprintProvider
-import com.poyka.ripdpi.services.PolicyHandoverEvent
-import com.poyka.ripdpi.services.PolicyHandoverEventStore
-import com.poyka.ripdpi.services.ResolverOverrideStore
-import com.poyka.ripdpi.services.ServiceEvent
-import com.poyka.ripdpi.services.ServiceStateStore
-import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.services.TemporaryResolverOverride
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.ResolverOverrideStore
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import kotlinx.serialization.builtins.ListSerializer
@@ -1198,7 +1198,7 @@ class DiagnosticsManagerTest {
             manager.persistServiceNativeEvents(
                 ServiceTelemetrySnapshot(
                     proxyTelemetry =
-                        com.poyka.ripdpi.core.NativeRuntimeSnapshot(
+                        com.poyka.ripdpi.data.NativeRuntimeSnapshot(
                             source = "proxy",
                             nativeEvents =
                                 listOf(
@@ -1211,7 +1211,7 @@ class DiagnosticsManagerTest {
                                 ),
                         ),
                     tunnelTelemetry =
-                        com.poyka.ripdpi.core.NativeRuntimeSnapshot(
+                        com.poyka.ripdpi.data.NativeRuntimeSnapshot(
                             source = "tunnel",
                             nativeEvents =
                                 listOf(
@@ -1249,7 +1249,7 @@ class DiagnosticsManagerTest {
             manager.persistServiceNativeEvents(
                 ServiceTelemetrySnapshot(
                     proxyTelemetry =
-                        com.poyka.ripdpi.core.NativeRuntimeSnapshot(
+                        com.poyka.ripdpi.data.NativeRuntimeSnapshot(
                             source = "proxy",
                             nativeEvents =
                                 listOf(
@@ -1262,7 +1262,7 @@ class DiagnosticsManagerTest {
                                 ),
                         ),
                     tunnelTelemetry =
-                        com.poyka.ripdpi.core.NativeRuntimeSnapshot(
+                        com.poyka.ripdpi.data.NativeRuntimeSnapshot(
                             source = "tunnel",
                             nativeEvents =
                                 listOf(

@@ -10,6 +10,7 @@ import android.os.Build
 import android.telephony.TelephonyManager
 import com.poyka.ripdpi.data.CellularNetworkIdentityTuple
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import dagger.Binds
 import dagger.Module
@@ -20,10 +21,6 @@ import java.net.InetAddress
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
-
-interface NetworkFingerprintProvider {
-    fun capture(): NetworkFingerprint?
-}
 
 @Singleton
 class AndroidNetworkFingerprintProvider

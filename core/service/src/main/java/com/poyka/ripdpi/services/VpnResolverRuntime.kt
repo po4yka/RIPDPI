@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.proto.AppSettings
 

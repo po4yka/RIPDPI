@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -10,22 +11,6 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-
-data class PolicyHandoverEvent(
-    val mode: Mode,
-    val previousFingerprintHash: String? = null,
-    val currentFingerprintHash: String,
-    val classification: String,
-    val usedRememberedPolicy: Boolean,
-    val policySignature: String,
-    val occurredAt: Long,
-)
-
-interface PolicyHandoverEventStore {
-    val events: SharedFlow<PolicyHandoverEvent>
-
-    fun publish(event: PolicyHandoverEvent)
-}
 
 @Singleton
 class DefaultPolicyHandoverEventStore

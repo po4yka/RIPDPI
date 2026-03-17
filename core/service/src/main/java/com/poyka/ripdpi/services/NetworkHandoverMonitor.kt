@@ -8,6 +8,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
