@@ -240,6 +240,7 @@ internal object DiagnosticsArchiveBuilder {
                     sessionContexts = payload.sessionContexts.map { it.redactPayload(json) },
                     latestPassiveSnapshot = payload.latestPassiveSnapshot?.redactPayload(json),
                     latestPassiveContext = payload.latestPassiveContext?.redactPayload(json),
+                    telemetry = payload.telemetry.map { it.copy(publicIp = if (it.publicIp != null) "redacted" else null) },
                 )
             val reportJson =
                 json.encodeToString(DiagnosticsArchivePayload.serializer(), redactedPayload)
@@ -272,8 +273,18 @@ internal object DiagnosticsArchiveBuilder {
                 json.encodeToString(
                     DiagnosticsArchiveSnapshotPayload.serializer(),
                     DiagnosticsArchiveSnapshotPayload(
-                        sessionSnapshots = primarySnapshots.map { it.redactPayload(json) },
-                        latestPassiveSnapshot = latestPassiveSnapshot?.redactPayload(json),
+                        sessionSnapshots =
+                            primarySnapshots.mapNotNull { entity ->
+                                runCatching {
+                                    json.decodeFromString(NetworkSnapshotModel.serializer(), entity.payloadJson)
+                                }.getOrNull()?.redact()
+                            },
+                        latestPassiveSnapshot =
+                            latestPassiveSnapshot?.let { entity ->
+                                runCatching {
+                                    json.decodeFromString(NetworkSnapshotModel.serializer(), entity.payloadJson)
+                                }.getOrNull()?.redact()
+                            },
                     ),
                 )
             zip.write(snapshotsJson.toByteArray())
@@ -284,8 +295,18 @@ internal object DiagnosticsArchiveBuilder {
                 json.encodeToString(
                     DiagnosticsArchiveContextPayload.serializer(),
                     DiagnosticsArchiveContextPayload(
-                        sessionContexts = primaryContexts.map { it.redactPayload(json) },
-                        latestPassiveContext = latestPassiveContext?.redactPayload(json),
+                        sessionContexts =
+                            primaryContexts.mapNotNull { entity ->
+                                runCatching {
+                                    json.decodeFromString(DiagnosticContextModel.serializer(), entity.payloadJson)
+                                }.getOrNull()?.redact()
+                            },
+                        latestPassiveContext =
+                            latestPassiveContext?.let { entity ->
+                                runCatching {
+                                    json.decodeFromString(DiagnosticContextModel.serializer(), entity.payloadJson)
+                                }.getOrNull()?.redact()
+                            },
                     ),
                 )
             zip.write(contextsJson.toByteArray())
@@ -685,14 +706,14 @@ internal data class StrategyMatrixArchivePayload(
 
 @Serializable
 internal data class DiagnosticsArchiveSnapshotPayload(
-    val sessionSnapshots: List<NetworkSnapshotEntity>,
-    val latestPassiveSnapshot: NetworkSnapshotEntity?,
+    val sessionSnapshots: List<NetworkSnapshotModel>,
+    val latestPassiveSnapshot: NetworkSnapshotModel?,
 )
 
 @Serializable
 internal data class DiagnosticsArchiveContextPayload(
-    val sessionContexts: List<DiagnosticContextEntity>,
-    val latestPassiveContext: DiagnosticContextEntity?,
+    val sessionContexts: List<DiagnosticContextModel>,
+    val latestPassiveContext: DiagnosticContextModel?,
 )
 
 @Serializable

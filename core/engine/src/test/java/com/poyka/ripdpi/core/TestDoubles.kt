@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultQueue
 import com.poyka.ripdpi.core.testing.FaultSpec

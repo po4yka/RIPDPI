@@ -21,6 +21,7 @@
     "lastRetryReason": null,
     "lastRouteGroup": null,
     "lastTarget": null,
+    "latencyDistributions": null,
     "learnedHostCount": 0,
     "listenerAddress": null,
     "nativeEvents": [],
