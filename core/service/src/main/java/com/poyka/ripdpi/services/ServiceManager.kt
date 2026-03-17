@@ -3,7 +3,9 @@ package com.poyka.ripdpi.services
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import dagger.Binds
@@ -69,16 +71,6 @@ class DefaultServiceController
             }
         }
     }
-
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class ServiceStateStoreModule {
-    @Binds
-    @Singleton
-    abstract fun bindServiceStateStore(
-        serviceStateStore: DefaultServiceStateStore,
-    ): ServiceStateStore
-}
 
 @Module
 @InstallIn(SingletonComponent::class)

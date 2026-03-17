@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.NativeError
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CompletableDeferred

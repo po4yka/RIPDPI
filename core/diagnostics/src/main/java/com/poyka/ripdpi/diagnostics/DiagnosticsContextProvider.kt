@@ -16,7 +16,7 @@ import com.poyka.ripdpi.data.effectiveChainSummary
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.legacyDesyncMethod
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
-import com.poyka.ripdpi.services.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceStateStore
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

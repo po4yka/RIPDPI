@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import androidx.annotation.VisibleForTesting
-import com.poyka.ripdpi.core.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback

@@ -14,7 +14,7 @@ import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.strategyLabel
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
-import com.poyka.ripdpi.services.TemporaryResolverOverride
+import com.poyka.ripdpi.data.TemporaryResolverOverride
 import kotlinx.serialization.json.Json
 
 internal object DiagnosticsScanWorkflow {

@@ -2,16 +2,12 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ServiceStateStore
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.delay
-
-interface DiagnosticsRuntimeCoordinator {
-    suspend fun runRawPathScan(block: suspend () -> Unit)
-
-    suspend fun runAutomaticRawPathScan(block: suspend () -> Unit)
-}
 
 @Singleton
 class DefaultDiagnosticsRuntimeCoordinator

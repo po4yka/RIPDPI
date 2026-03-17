@@ -24,12 +24,12 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
-import com.poyka.ripdpi.services.DiagnosticsRuntimeCoordinator
-import com.poyka.ripdpi.services.NetworkFingerprintProvider
-import com.poyka.ripdpi.services.PolicyHandoverEvent
-import com.poyka.ripdpi.services.PolicyHandoverEventStore
-import com.poyka.ripdpi.services.ResolverOverrideStore
-import com.poyka.ripdpi.services.ServiceStateStore
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.ResolverOverrideStore
+import com.poyka.ripdpi.data.ServiceStateStore
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -670,7 +670,7 @@ class DefaultDiagnosticsManager
         )
     }
 
-    internal suspend fun persistServiceNativeEvents(serviceTelemetry: com.poyka.ripdpi.services.ServiceTelemetrySnapshot) {
+    internal suspend fun persistServiceNativeEvents(serviceTelemetry: com.poyka.ripdpi.data.ServiceTelemetrySnapshot) {
         DiagnosticsReportPersister.persistServiceNativeEvents(serviceTelemetry, historyRepository)
     }
 }

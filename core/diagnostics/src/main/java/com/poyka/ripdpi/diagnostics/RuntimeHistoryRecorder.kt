@@ -16,13 +16,13 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
-import com.poyka.ripdpi.services.ActiveConnectionPolicy
-import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
-import com.poyka.ripdpi.services.FailureReason
-import com.poyka.ripdpi.services.ServiceEvent
-import com.poyka.ripdpi.services.ServiceStateStore
-import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.services.displayMessage
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.displayMessage
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -555,7 +555,7 @@ class DefaultRuntimeHistoryRecorder
 
         private fun applyRuntimeFieldTelemetry(
             session: BypassUsageSessionEntity,
-            runtimeFieldTelemetry: com.poyka.ripdpi.services.RuntimeFieldTelemetry,
+            runtimeFieldTelemetry: com.poyka.ripdpi.data.RuntimeFieldTelemetry,
         ): BypassUsageSessionEntity =
             session.copy(
                 failureClass = runtimeFieldTelemetry.failureClass?.wireValue,

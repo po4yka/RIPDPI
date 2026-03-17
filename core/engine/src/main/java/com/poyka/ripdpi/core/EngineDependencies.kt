@@ -2,6 +2,8 @@ package com.poyka.ripdpi.core
 
 import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.TunnelStats
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

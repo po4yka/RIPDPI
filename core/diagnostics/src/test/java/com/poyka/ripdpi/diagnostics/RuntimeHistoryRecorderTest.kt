@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.core.NativeRuntimeEvent
-import com.poyka.ripdpi.core.NativeRuntimeSnapshot
-import com.poyka.ripdpi.core.TunnelStats
+import com.poyka.ripdpi.data.NativeRuntimeEvent
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -25,14 +25,14 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.ActiveConnectionPolicy
-import com.poyka.ripdpi.services.ActiveConnectionPolicyStore
-import com.poyka.ripdpi.services.DefaultServiceStateStore
-import com.poyka.ripdpi.services.FailureClass
-import com.poyka.ripdpi.services.FailureReason
-import com.poyka.ripdpi.services.RttBand
-import com.poyka.ripdpi.services.RuntimeFieldTelemetry
-import com.poyka.ripdpi.services.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
+import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.FailureClass
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.RttBand
+import com.poyka.ripdpi.data.RuntimeFieldTelemetry
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest

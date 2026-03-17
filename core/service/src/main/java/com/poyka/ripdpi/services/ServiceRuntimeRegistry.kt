@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

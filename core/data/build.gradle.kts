@@ -16,10 +16,8 @@ extensions.configure<LibraryExtension> {
 dependencies {
     api(libs.protobuf.javalite)
     implementation(libs.androidx.datastore)
-    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.logcat)
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.androidx.test.core.ktx)
