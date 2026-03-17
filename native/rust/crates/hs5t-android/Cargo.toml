@@ -16,6 +16,7 @@ hs5t-config = { workspace = true }
 hs5t-core = { workspace = true }
 jni = { workspace = true }
 log = { workspace = true }
+loom = { workspace = true, optional = true }
 nix = { workspace = true }
 once_cell = { workspace = true }
 serde = { workspace = true }
@@ -31,3 +32,6 @@ libc = { workspace = true }
 local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }
 proptest = { workspace = true }
+
+[features]
+loom = ["dep:loom"]
