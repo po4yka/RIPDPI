@@ -197,6 +197,7 @@ pub struct ProxyUiConfig {
     pub drop_sack: bool,
     #[serde(default)]
     pub fake_offset_marker: Option<String>,
+    #[serde(default)]
     pub fake_offset: i32,
     #[serde(default)]
     pub quic_initial_mode: Option<String>,
