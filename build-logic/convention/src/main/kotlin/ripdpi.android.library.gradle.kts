@@ -4,10 +4,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("com.android.library")
     id("ripdpi.android.native")
-    id("ripdpi.android.jacoco")
-    id("ripdpi.android.lint")
-    id("ripdpi.android.detekt")
-    id("ripdpi.android.ktlint")
 }
 
 extensions.configure<LibraryExtension> {

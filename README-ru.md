@@ -103,10 +103,12 @@ cd RIPDPI
 ./gradlew assembleDebug
 ```
 
-Быстрая локальная native-сборка только для одного ABI:
+Для локальных non-release сборок по умолчанию используется `ripdpi.localNativeAbisDefault=arm64-v8a`.
+
+Быстрая локальная native-сборка для ABI эмулятора:
 
 ```bash
-./gradlew assembleDebug -Pripdpi.localNativeAbis=arm64-v8a
+./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64
 ```
 
 APK:

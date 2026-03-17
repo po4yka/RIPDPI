@@ -103,10 +103,12 @@ cd RIPDPI
 ./gradlew assembleDebug
 ```
 
-Fast local native build for one ABI:
+Local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`.
+
+Fast local native build for the emulator ABI:
 
 ```bash
-./gradlew assembleDebug -Pripdpi.localNativeAbis=arm64-v8a
+./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64
 ```
 
 APK outputs:

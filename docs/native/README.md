@@ -101,7 +101,9 @@ See [byedpi.md](byedpi.md) for the proxy-specific details.
 - `build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts` cross-compiles the `native/rust` workspace with Cargo plus the Android NDK linker toolchain.
 - `native/rust/.cargo/config.toml` holds the 16 KiB page-size linker flags per Android target.
 - The Android build targets these ABIs: `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`.
-- `ripdpi.localNativeAbis` can narrow the ABI set for local debug builds only.
+- Local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`.
+- `ripdpi.localNativeAbis=x86_64` is the fast path for emulator-oriented local builds.
+- `ripdpi.localNativeAbis` can still override the ABI set explicitly for local debug builds.
 
 ## Test Coverage
 

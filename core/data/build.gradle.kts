@@ -1,9 +1,11 @@
 import com.android.build.api.dsl.LibraryExtension
 
 plugins {
+    id("ripdpi.android.coverage")
     id("ripdpi.android.library")
     id("ripdpi.android.hilt")
     id("ripdpi.android.protobuf")
+    id("ripdpi.android.quality")
     id("ripdpi.android.serialization")
 }
 
