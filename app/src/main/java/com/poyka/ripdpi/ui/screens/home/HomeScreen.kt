@@ -139,7 +139,7 @@ fun HomeScreen(
                         PermissionRecovery.OpenBatteryOptimizationSettings,
                         -> stringResource(R.string.home_permission_issue_with_settings, issue.message)
 
-                        PermissionRecovery.OpenVpnPermissionScreen,
+                        PermissionRecovery.ShowVpnPermissionDialog,
                         PermissionRecovery.RetryPrompt,
                         -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
                     },

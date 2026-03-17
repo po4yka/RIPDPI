@@ -28,6 +28,7 @@ import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
+import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.IOException
@@ -50,7 +51,7 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
     private val openHomeRequests = MutableStateFlow(false)
-    private val openVpnPermissionRequests = MutableStateFlow(false)
+    private val showVpnPermissionDialog = MutableStateFlow(false)
     private val startConfiguredModeRequests = MutableStateFlow(false)
     private var pendingDiagnosticsArchive: PendingDiagnosticsArchive? = null
 
@@ -184,7 +185,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val startupState by viewModel.startupState.collectAsStateWithLifecycle()
             val openHomeRequested by openHomeRequests.collectAsStateWithLifecycle()
-            val openVpnPermissionRequested by openVpnPermissionRequests.collectAsStateWithLifecycle()
+            val vpnPermissionDialogVisible by showVpnPermissionDialog.collectAsStateWithLifecycle()
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val launchConfiguredStartRequested by startConfiguredModeRequests.collectAsStateWithLifecycle()
             val snackbarHostState = remember { SnackbarHostState() }
 
@@ -193,7 +195,7 @@ class MainActivity : ComponentActivity() {
                     when (effect) {
                         is MainEffect.RequestPermission -> handlePermissionEffect(effect)
                         is MainEffect.OpenAppSettings -> startActivity(effect.intent)
-                        MainEffect.OpenVpnPermissionScreen -> openVpnPermissionRequests.value = true
+                        MainEffect.ShowVpnPermissionDialog -> showVpnPermissionDialog.value = true
                         is MainEffect.ShowError -> {
                             snackbarHostState.showRipDpiSnackbar(
                                 message = effect.message,
@@ -229,20 +231,28 @@ class MainActivity : ComponentActivity() {
                             shareDiagnosticsSummary(title = title, body = body)
                         },
                         mainViewModel = viewModel,
-                        openVpnPermissionRequested = openVpnPermissionRequested,
-                        onOpenVpnPermissionHandled = {
-                            openVpnPermissionRequests.value = false
-                        },
                         launchHomeRequested = openHomeRequested,
                         onLaunchHomeHandled = {
                             openHomeRequests.value = false
                         },
                         onStartConfiguredMode = viewModel::onPrimaryConnectionAction,
-                        onOpenVpnPermission = viewModel::onOpenVpnPermissionRequested,
-                        onRequestVpnPermission = viewModel::onVpnPermissionContinueRequested,
                         onRepairPermission = viewModel::onRepairPermissionRequested,
                         snackbarHostState = snackbarHostState,
                     )
+                    if (vpnPermissionDialogVisible) {
+                        LaunchedEffect(uiState.connectionState) {
+                            if (uiState.connectionState == ConnectionState.Connecting ||
+                                uiState.connectionState == ConnectionState.Connected
+                            ) {
+                                showVpnPermissionDialog.value = false
+                            }
+                        }
+                        VpnPermissionDialog(
+                            uiState = uiState,
+                            onDismiss = { showVpnPermissionDialog.value = false },
+                            onContinue = viewModel::onVpnPermissionContinueRequested,
+                        )
+                    }
                 }
             }
         }

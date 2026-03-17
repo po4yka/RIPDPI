@@ -199,7 +199,7 @@ class MainViewModelTest {
                     )
                 viewModel.onPermissionResult(PermissionKind.Notifications, PermissionResult.Granted)
 
-                assertEquals(MainEffect.OpenVpnPermissionScreen, awaitItem())
+                assertEquals(MainEffect.ShowVpnPermissionDialog, awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
             collector.cancel()
@@ -239,7 +239,7 @@ class MainViewModelTest {
             assertTrue(serviceController.startedModes.isEmpty())
             val issue = viewModel.uiState.value.permissionSummary.issue
             assertEquals(PermissionKind.VpnConsent, issue?.kind)
-            assertEquals(PermissionRecovery.OpenVpnPermissionScreen, issue?.recovery)
+            assertEquals(PermissionRecovery.ShowVpnPermissionDialog, issue?.recovery)
             collector.cancel()
         }
 
@@ -342,7 +342,7 @@ class MainViewModelTest {
                         notifications = PermissionStatus.Granted,
                     )
                 viewModel.onPermissionResult(PermissionKind.Notifications, PermissionResult.Granted)
-                assertEquals(MainEffect.OpenVpnPermissionScreen, awaitItem())
+                assertEquals(MainEffect.ShowVpnPermissionDialog, awaitItem())
 
                 viewModel.onVpnPermissionContinueRequested()
                 assertEquals(PermissionKind.VpnConsent, (awaitItem() as MainEffect.RequestPermission).kind)
