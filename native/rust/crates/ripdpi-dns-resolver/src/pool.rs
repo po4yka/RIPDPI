@@ -67,7 +67,7 @@ impl ResolverPool {
             return vec![];
         }
 
-        let label_refs: Vec<&str> = self.inner.labels.iter().map(|s| s.as_str()).collect();
+        let label_refs: Vec<&str> = self.inner.labels.iter().map(String::as_str).collect();
         let mut ranked = self.inner.health.rank_indices(&label_refs);
 
         // Cold start: if the top-ranked endpoint has no observations, prefer a cached success.
@@ -96,7 +96,7 @@ impl ResolverPool {
         if n > 1 {
             let counter = self.inner.rotation_counter.fetch_add(1, Ordering::Relaxed);
             let rr = counter % n;
-            let already_top2 = ranked.get(0).copied() == Some(rr) || ranked.get(1).copied() == Some(rr);
+            let already_top2 = ranked.first().copied() == Some(rr) || ranked.get(1).copied() == Some(rr);
             if !already_top2 {
                 ranked.retain(|&i| i != rr);
                 ranked.insert(1.min(ranked.len()), rr);
