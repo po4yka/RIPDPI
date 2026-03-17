@@ -38,13 +38,13 @@ class BaselineEntry:
 
 def git_ls_files(repo_root: Path) -> list[str]:
     completed = subprocess.run(
-        ["git", "ls-files"],
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
         cwd=repo_root,
         check=True,
         capture_output=True,
         text=True,
     )
-    return [line for line in completed.stdout.splitlines() if line]
+    return [line for line in completed.stdout.splitlines() if line and (repo_root / line).is_file()]
 
 
 def is_rust_source(path: Path) -> bool:

@@ -75,6 +75,7 @@ dependencies {
     // Modules
     implementation(project(":core:data"))
     implementation(project(":core:diagnostics"))
+    implementation(project(":core:diagnostics-data"))
     implementation(project(":core:engine"))
     implementation(project(":core:service"))
 

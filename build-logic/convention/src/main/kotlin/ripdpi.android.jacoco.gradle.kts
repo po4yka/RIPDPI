@@ -32,45 +32,40 @@ tasks.withType<Test>().configureEach {
     }
 }
 
-afterEvaluate {
-    val debugUnitTest = tasks.findByName("testDebugUnitTest") ?: return@afterEvaluate
-    val reportName = "jacocoDebugUnitTestReport"
+tasks.register<JacocoReport>("jacocoDebugUnitTestReport") {
+    group = "verification"
+    description = "Generates JaCoCo coverage reports for debug unit tests."
+    dependsOn("testDebugUnitTest")
 
-    tasks.register<JacocoReport>(reportName) {
-        group = "verification"
-        description = "Generates JaCoCo coverage reports for debug unit tests."
-        dependsOn(debugUnitTest)
-
-        reports {
-            xml.required.set(true)
-            html.required.set(true)
-            csv.required.set(false)
-        }
-
-        sourceDirectories.setFrom(
-            files(
-                "src/main/java",
-                "src/main/kotlin",
-            ),
-        )
-
-        classDirectories.setFrom(
-            files(
-                fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
-                    exclude(jacocoExcludes)
-                },
-                fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
-                    exclude(jacocoExcludes)
-                },
-            ),
-        )
-
-        executionData.setFrom(
-            fileTree(layout.buildDirectory) {
-                include("jacoco/testDebugUnitTest.exec")
-                include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
-            },
-        )
-        onlyIf { executionData.files.any { it.exists() } }
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
     }
+
+    sourceDirectories.setFrom(
+        files(
+            "src/main/java",
+            "src/main/kotlin",
+        ),
+    )
+
+    classDirectories.setFrom(
+        files(
+            fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+                exclude(jacocoExcludes)
+            },
+            fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
+                exclude(jacocoExcludes)
+            },
+        ),
+    )
+
+    executionData.setFrom(
+        fileTree(layout.buildDirectory) {
+            include("jacoco/testDebugUnitTest.exec")
+            include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+        },
+    )
+    onlyIf { executionData.files.any { it.exists() } }
 }

@@ -561,7 +561,7 @@ interface DiagnosticsDao {
         RememberedNetworkPolicyEntity::class,
         NetworkDnsPathPreferenceEntity::class,
     ],
-    version = 9,
+    version = 1,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
@@ -888,7 +888,8 @@ object DiagnosticsDatabaseModule {
             context,
             DiagnosticsDatabase::class.java,
             "diagnostics.db",
-        ).fallbackToDestructiveMigration()
+        ).fallbackToDestructiveMigration(true)
+            .fallbackToDestructiveMigrationOnDowngrade(true)
             .build()
 
     @Provides

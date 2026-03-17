@@ -21,5 +21,6 @@ rootProject.name = "RipDpi"
 include(":app")
 include(":core:data")
 include(":core:diagnostics")
+include(":core:diagnostics-data")
 include(":core:engine")
 include(":core:service")
