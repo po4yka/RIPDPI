@@ -109,6 +109,8 @@ data class ScanProgress(
     val totalSteps: Int,
     val message: String,
     val isFinished: Boolean = false,
+    val latestProbeTarget: String? = null,
+    val latestProbeOutcome: String? = null,
 )
 
 @Serializable

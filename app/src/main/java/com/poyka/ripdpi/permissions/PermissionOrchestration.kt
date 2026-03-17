@@ -164,15 +164,22 @@ class PermissionCoordinator
         ): PermissionResolution {
             val required =
                 when (action) {
-                    PermissionAction.StartConfiguredMode -> buildStartRequirements(mode = configuredMode, snapshot = snapshot)
-                    PermissionAction.StartVpnMode -> buildStartRequirements(mode = Mode.VPN, snapshot = snapshot)
-                    is PermissionAction.RepairPermission ->
+                    PermissionAction.StartConfiguredMode -> {
+                        buildStartRequirements(mode = configuredMode, snapshot = snapshot)
+                    }
+
+                    PermissionAction.StartVpnMode -> {
+                        buildStartRequirements(mode = Mode.VPN, snapshot = snapshot)
+                    }
+
+                    is PermissionAction.RepairPermission -> {
                         buildList {
                             val status = snapshot.statusFor(action.kind)
                             if (status != PermissionStatus.Granted && status != PermissionStatus.NotApplicable) {
                                 add(action.kind)
                             }
                         }
+                    }
                 }
 
             val recommended =
@@ -220,7 +227,5 @@ class PermissionCoordinator
 abstract class PermissionStatusProviderModule {
     @Binds
     @Singleton
-    abstract fun bindPermissionStatusProvider(
-        provider: AndroidPermissionStatusProvider,
-    ): PermissionStatusProvider
+    abstract fun bindPermissionStatusProvider(provider: AndroidPermissionStatusProvider): PermissionStatusProvider
 }

@@ -10,57 +10,57 @@ import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.DefaultSplitMarker
+import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
-import com.poyka.ripdpi.data.DefaultSplitMarker
-import com.poyka.ripdpi.data.DefaultTlsRecordMarker
-import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
-import com.poyka.ripdpi.data.effectiveHttpFakeProfile
-import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
-import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
-import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
-import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMin
-import com.poyka.ripdpi.data.effectiveQuicFakeHost
-import com.poyka.ripdpi.data.effectiveQuicFakeProfile
-import com.poyka.ripdpi.data.effectiveTlsFakeProfile
-import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
+import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
+import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
+import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
-import com.poyka.ripdpi.data.effectiveUdpFakeProfile
+import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
+import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
+import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
+import com.poyka.ripdpi.data.effectiveGroupActivationFilter
+import com.poyka.ripdpi.data.effectiveHttpFakeProfile
+import com.poyka.ripdpi.data.effectiveQuicFakeHost
+import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.effectiveQuicInitialMode
 import com.poyka.ripdpi.data.effectiveQuicSupportV1
 import com.poyka.ripdpi.data.effectiveQuicSupportV2
-import com.poyka.ripdpi.data.effectiveGroupActivationFilter
 import com.poyka.ripdpi.data.effectiveSplitMarker
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.effectiveTlsFakeProfile
 import com.poyka.ripdpi.data.effectiveTlsRecordMarker
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
+import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.formatChainSummary
-import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
-import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
-import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
-import com.poyka.ripdpi.data.normalizeHttpFakeProfile
+import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeActivationFilter
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMin
+import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
+import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
+import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.normalizeHttpFakeProfile
+import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeQuicFakeProfile
-import com.poyka.ripdpi.data.normalizeTlsFakeProfile
-import com.poyka.ripdpi.data.NumericRangeModel
-import com.poyka.ripdpi.data.isTlsPrelude
-import com.poyka.ripdpi.data.StrategyLaneFamilies
-import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
-import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
-import com.poyka.ripdpi.data.normalizeOffsetExpression
+import com.poyka.ripdpi.data.normalizeTcpChainStepModel
+import com.poyka.ripdpi.data.normalizeTlsFakeProfile
 import com.poyka.ripdpi.data.normalizeUdpFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.shellSplit
@@ -124,8 +124,7 @@ private data class NativeRuntimeContext(
     val encryptedDns: NativeEncryptedDnsContext? = null,
 )
 
-private fun NativeNumericRange.toModel(): NumericRangeModel =
-    NumericRangeModel(start = start, end = end)
+private fun NativeNumericRange.toModel(): NumericRangeModel = NumericRangeModel(start = start, end = end)
 
 private fun NumericRangeModel.toNative(): NativeNumericRange? =
     if (start == null && end == null) {
@@ -196,11 +195,13 @@ private fun RipDpiRuntimeContext.toNative(): NativeRuntimeContext? {
 
 fun stripRipDpiRuntimeContext(configJson: String): String =
     when (val payload = NativeProxyJson.decodeFromString<NativeProxyConfig>(configJson)) {
-        is NativeProxyConfig.CommandLine ->
+        is NativeProxyConfig.CommandLine -> {
             NativeProxyJson.encodeToString<NativeProxyConfig>(payload.copy(runtimeContext = null))
+        }
 
-        is NativeProxyConfig.Ui ->
+        is NativeProxyConfig.Ui -> {
             NativeProxyJson.encodeToString<NativeProxyConfig>(payload.copy(runtimeContext = null))
+        }
     }
 
 fun ActiveDnsSettings.toRipDpiRuntimeContext(): RipDpiRuntimeContext? {
@@ -316,9 +317,7 @@ fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences
     )
 }
 
-fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(
-    activeDns: ActiveDnsSettings? = null,
-): StrategyLaneFamilies =
+fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(activeDns: ActiveDnsSettings? = null): StrategyLaneFamilies =
     deriveStrategyLaneFamilies(
         tcpSteps = tcpChainSteps,
         desyncUdp = desyncUdp,
@@ -335,12 +334,13 @@ class RipDpiProxyJsonPreferences(
 ) : RipDpiProxyPreferences {
     override fun toNativeConfigJson(): String =
         when (val payload = NativeProxyJson.decodeFromString<NativeProxyConfig>(configJson)) {
-            is NativeProxyConfig.CommandLine ->
+            is NativeProxyConfig.CommandLine -> {
                 NativeProxyJson.encodeToString<NativeProxyConfig>(
                     payload.copy(runtimeContext = runtimeContext?.toNative() ?: payload.runtimeContext),
                 )
+            }
 
-            is NativeProxyConfig.Ui ->
+            is NativeProxyConfig.Ui -> {
                 requireNotNull(decodeRipDpiProxyUiPreferences(configJson)) {
                     "Unable to decode proxy UI preferences"
                 }.copyWith(
@@ -348,6 +348,7 @@ class RipDpiProxyJsonPreferences(
                     networkScopeKey = networkScopeKey ?: payload.networkScopeKey,
                     runtimeContext = runtimeContext ?: payload.runtimeContext?.toModel(),
                 ).toNativeConfigJson()
+            }
         }
 }
 
@@ -444,7 +445,8 @@ class RipDpiProxyUIPreferences(
     val desyncUdp: Boolean = desyncUdp ?: false
     val desyncMethod: DesyncMethod = desyncMethod ?: DesyncMethod.Disorder
     val splitMarker: String = normalizeOffsetExpression(splitMarker.orEmpty(), DefaultSplitMarker)
-    val groupActivationFilter: ActivationFilterModel = normalizeActivationFilter(groupActivationFilter ?: ActivationFilterModel())
+    val groupActivationFilter: ActivationFilterModel =
+        normalizeActivationFilter(groupActivationFilter ?: ActivationFilterModel())
     val tcpChainSteps: List<TcpChainStepModel> =
         tcpChainSteps?.map(::normalizeTcpChainStep)
             ?: buildLegacyTcpChain(
@@ -468,14 +470,16 @@ class RipDpiProxyUIPreferences(
             normalizedFakeTtl.takeIf { it > 0 } ?: DefaultAdaptiveFakeTtlFallback,
         )
     val fakeSni: String = fakeSni ?: DefaultFakeSni
-    val httpFakeProfile: String = normalizeHttpFakeProfile(httpFakeProfile.orEmpty().ifBlank { FakePayloadProfileCompatDefault })
+    val httpFakeProfile: String =
+        normalizeHttpFakeProfile(httpFakeProfile.orEmpty().ifBlank { FakePayloadProfileCompatDefault })
     val fakeTlsUseOriginal: Boolean = fakeTlsUseOriginal ?: false
     val fakeTlsRandomize: Boolean = fakeTlsRandomize ?: false
     val fakeTlsDupSessionId: Boolean = fakeTlsDupSessionId ?: false
     val fakeTlsPadEncap: Boolean = fakeTlsPadEncap ?: false
     val fakeTlsSize: Int = fakeTlsSize ?: 0
     val fakeTlsSniMode: String = normalizeFakeTlsSniMode(fakeTlsSniMode.orEmpty())
-    val tlsFakeProfile: String = normalizeTlsFakeProfile(tlsFakeProfile.orEmpty().ifBlank { FakePayloadProfileCompatDefault })
+    val tlsFakeProfile: String =
+        normalizeTlsFakeProfile(tlsFakeProfile.orEmpty().ifBlank { FakePayloadProfileCompatDefault })
     val oobChar: Byte = (oobChar ?: "a")[0].code.toByte()
     val hostMixedCase: Boolean = hostMixedCase ?: false
     val domainMixedCase: Boolean = domainMixedCase ?: false
@@ -499,13 +503,16 @@ class RipDpiProxyUIPreferences(
     val tcpFastOpen: Boolean = tcpFastOpen ?: false
     val udpFakeCount: Int = udpFakeCount ?: 0
     val udpChainSteps: List<UdpChainStepModel> = udpChainSteps ?: buildLegacyUdpChain(this.udpFakeCount)
-    val udpFakeProfile: String = normalizeUdpFakeProfile(udpFakeProfile.orEmpty().ifBlank { FakePayloadProfileCompatDefault })
+    val udpFakeProfile: String =
+        normalizeUdpFakeProfile(udpFakeProfile.orEmpty().ifBlank { FakePayloadProfileCompatDefault })
     val dropSack: Boolean = dropSack ?: false
     val fakeOffsetMarker: String = normalizeOffsetExpression(fakeOffsetMarker.orEmpty(), DefaultFakeOffsetMarker)
-    val quicInitialMode: String = normalizeQuicInitialMode(quicInitialMode.orEmpty().ifBlank { QuicInitialModeRouteAndCache })
+    val quicInitialMode: String =
+        normalizeQuicInitialMode(quicInitialMode.orEmpty().ifBlank { QuicInitialModeRouteAndCache })
     val quicSupportV1: Boolean = quicSupportV1 ?: true
     val quicSupportV2: Boolean = quicSupportV2 ?: true
-    val quicFakeProfile: String = normalizeQuicFakeProfile(quicFakeProfile.orEmpty().ifBlank { QuicFakeProfileDisabled })
+    val quicFakeProfile: String =
+        normalizeQuicFakeProfile(quicFakeProfile.orEmpty().ifBlank { QuicFakeProfileDisabled })
     val quicFakeHost: String = normalizeQuicFakeHost(quicFakeHost.orEmpty())
     val hostAutolearnEnabled: Boolean = hostAutolearnEnabled ?: false
     val hostAutolearnPenaltyTtlHours: Int =
@@ -610,19 +617,20 @@ class RipDpiProxyUIPreferences(
                 desyncMethod = desyncMethod.wireName,
                 splitMarker = splitMarker,
                 groupActivationFilter = groupActivationFilter.toNative(),
-                tcpChainSteps = tcpChainSteps.map {
-                    val step = normalizeTcpChainStepModel(it)
-                    NativeProxyConfig.NativeTcpChainStep(
-                        kind = step.kind.wireName,
-                        marker = step.marker,
-                        midhostMarker = step.midhostMarker,
-                        fakeHostTemplate = step.fakeHostTemplate,
-                        fragmentCount = step.fragmentCount,
-                        minFragmentSize = step.minFragmentSize,
-                        maxFragmentSize = step.maxFragmentSize,
-                        activationFilter = step.activationFilter.toNative(),
-                    )
-                },
+                tcpChainSteps =
+                    tcpChainSteps.map {
+                        val step = normalizeTcpChainStepModel(it)
+                        NativeProxyConfig.NativeTcpChainStep(
+                            kind = step.kind.wireName,
+                            marker = step.marker,
+                            midhostMarker = step.midhostMarker,
+                            fakeHostTemplate = step.fakeHostTemplate,
+                            fragmentCount = step.fragmentCount,
+                            minFragmentSize = step.minFragmentSize,
+                            maxFragmentSize = step.maxFragmentSize,
+                            activationFilter = step.activationFilter.toNative(),
+                        )
+                    },
                 fakeTtl = fakeTtl,
                 adaptiveFakeTtlEnabled = adaptiveFakeTtlEnabled,
                 adaptiveFakeTtlDelta = adaptiveFakeTtlDelta,
@@ -650,13 +658,14 @@ class RipDpiProxyUIPreferences(
                 hosts = hosts,
                 tcpFastOpen = tcpFastOpen,
                 udpFakeCount = udpFakeCount,
-                udpChainSteps = udpChainSteps.map {
-                    NativeProxyConfig.NativeUdpChainStep(
-                        kind = it.kind.wireName,
-                        count = it.count,
-                        activationFilter = it.activationFilter.toNative(),
-                    )
-                },
+                udpChainSteps =
+                    udpChainSteps.map {
+                        NativeProxyConfig.NativeUdpChainStep(
+                            kind = it.kind.wireName,
+                            count = it.count,
+                            activationFilter = it.activationFilter.toNative(),
+                        )
+                    },
                 udpFakeProfile = udpFakeProfile,
                 dropSack = dropSack,
                 fakeOffsetMarker = fakeOffsetMarker,
@@ -895,15 +904,39 @@ private fun buildLegacyTcpChain(
 ): List<TcpChainStepModel> =
     buildList {
         if (tlsRecordSplit) {
-            add(TcpChainStepModel(TcpChainStepKind.TlsRec, normalizeOffsetExpression(tlsRecordSplitMarker.orEmpty(), DefaultTlsRecordMarker)))
+            add(
+                TcpChainStepModel(
+                    TcpChainStepKind.TlsRec,
+                    normalizeOffsetExpression(tlsRecordSplitMarker.orEmpty(), DefaultTlsRecordMarker),
+                ),
+            )
         }
         when (desyncMethod) {
-            RipDpiProxyUIPreferences.DesyncMethod.None -> Unit
-            RipDpiProxyUIPreferences.DesyncMethod.Split -> add(TcpChainStepModel(TcpChainStepKind.Split, splitMarker))
-            RipDpiProxyUIPreferences.DesyncMethod.Disorder -> add(TcpChainStepModel(TcpChainStepKind.Disorder, splitMarker))
-            RipDpiProxyUIPreferences.DesyncMethod.Fake -> add(TcpChainStepModel(TcpChainStepKind.Fake, splitMarker))
-            RipDpiProxyUIPreferences.DesyncMethod.OOB -> add(TcpChainStepModel(TcpChainStepKind.Oob, splitMarker))
-            RipDpiProxyUIPreferences.DesyncMethod.DISOOB -> add(TcpChainStepModel(TcpChainStepKind.Disoob, splitMarker))
+            RipDpiProxyUIPreferences.DesyncMethod.None -> {
+                Unit
+            }
+
+            RipDpiProxyUIPreferences.DesyncMethod.Split -> {
+                add(TcpChainStepModel(TcpChainStepKind.Split, splitMarker))
+            }
+
+            RipDpiProxyUIPreferences.DesyncMethod.Disorder -> {
+                add(
+                    TcpChainStepModel(TcpChainStepKind.Disorder, splitMarker),
+                )
+            }
+
+            RipDpiProxyUIPreferences.DesyncMethod.Fake -> {
+                add(TcpChainStepModel(TcpChainStepKind.Fake, splitMarker))
+            }
+
+            RipDpiProxyUIPreferences.DesyncMethod.OOB -> {
+                add(TcpChainStepModel(TcpChainStepKind.Oob, splitMarker))
+            }
+
+            RipDpiProxyUIPreferences.DesyncMethod.DISOOB -> {
+                add(TcpChainStepModel(TcpChainStepKind.Disoob, splitMarker))
+            }
         }
     }
 

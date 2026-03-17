@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.ContextWrapper
-import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
@@ -11,13 +10,24 @@ import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.core.testing.faultThrowable
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
@@ -34,33 +44,17 @@ import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.decodePath
-import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
-import com.poyka.ripdpi.data.FailureReason
-import com.poyka.ripdpi.data.NetworkFingerprintProvider
-import com.poyka.ripdpi.data.PolicyHandoverEvent
-import com.poyka.ripdpi.data.PolicyHandoverEventStore
-import com.poyka.ripdpi.data.ResolverOverrideStore
-import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.QuicTarget
-import kotlinx.serialization.builtins.ListSerializer
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
-import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
-import java.io.File
-import java.io.IOException
-import java.nio.file.Files
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.zip.ZipFile
-import kotlinx.coroutines.delay
+import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,6 +65,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -80,6 +75,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.zip.ZipFile
 
 class DiagnosticsManagerTest {
     private val json = Json { ignoreUnknownKeys = true }
@@ -129,7 +129,12 @@ class DiagnosticsManagerTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
             val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
-            val settings = defaultAppSettings().toBuilder().setProxyIp("10.0.0.2").setProxyPort(2080).build()
+            val settings =
+                defaultAppSettings()
+                    .toBuilder()
+                    .setProxyIp("10.0.0.2")
+                    .setProxyPort(2080)
+                    .build()
             val manager =
                 createDiagnosticsManager(
                     context = TestContext(),
@@ -185,9 +190,10 @@ class DiagnosticsManagerTest {
     fun `connectivity dns recommendation is persisted and temporarily applied on vpn plain dns`() =
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
-            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
-                bridge.autoCompleteOnStart = false
-            }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
             val overrideStore = FakeResolverOverrideStore()
             val appSettingsRepository =
                 FakeAppSettingsRepository(
@@ -283,9 +289,10 @@ class DiagnosticsManagerTest {
     fun `resolver recommendation prefers current provider when match and bootstrap scores tie`() =
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
-            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
-                bridge.autoCompleteOnStart = false
-            }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
             val settings =
                 defaultAppSettings()
                     .toBuilder()
@@ -425,9 +432,10 @@ class DiagnosticsManagerTest {
     fun `resolver recommendation persists exact dot settings and updates per-network preference`() =
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
-            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
-                bridge.autoCompleteOnStart = false
-            }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
             val appSettingsRepository = FakeAppSettingsRepository()
             val manager =
                 createDiagnosticsManager(
@@ -494,7 +502,10 @@ class DiagnosticsManagerTest {
             assertEquals("dns.google", persisted.resolverRecommendation?.selectedTlsServerName)
             assertEquals(
                 EncryptedDnsProtocolDot,
-                history.networkDnsPathPreferencesState.value.single().decodePath(json)?.protocol,
+                history.networkDnsPathPreferencesState.value
+                    .single()
+                    .decodePath(json)
+                    ?.protocol,
             )
 
             manager.saveResolverRecommendation(sessionId)
@@ -514,9 +525,10 @@ class DiagnosticsManagerTest {
     fun `strategy probe reports preserve resolver recommendations when dns tampering is detected`() =
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
-            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
-                bridge.autoCompleteOnStart = false
-            }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
             val manager =
                 createDiagnosticsManager(
                     context = TestContext(),
@@ -583,7 +595,11 @@ class DiagnosticsManagerTest {
 
             waitForCompletion(history, sessionId, minNativeEvents = 0)
 
-            val persisted = json.decodeFromString(ScanReport.serializer(), history.getScanSession(sessionId)?.reportJson.orEmpty())
+            val persisted =
+                json.decodeFromString(
+                    ScanReport.serializer(),
+                    history.getScanSession(sessionId)?.reportJson.orEmpty(),
+                )
             assertEquals("cloudflare", persisted.resolverRecommendation?.selectedResolverId)
             assertEquals("quick_v1", persisted.strategyProbeReport?.suiteId)
         }
@@ -693,9 +709,10 @@ class DiagnosticsManagerTest {
     fun `automatic probing report is enriched with strategy signature before persistence`() =
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }
-            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
-                bridge.autoCompleteOnStart = false
-            }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
             val settings =
                 defaultAppSettings()
                     .toBuilder()
@@ -812,7 +829,11 @@ class DiagnosticsManagerTest {
 
             waitForCompletion(history, sessionId, minNativeEvents = 0)
 
-            val persisted = json.decodeFromString(ScanReport.serializer(), history.getScanSession(sessionId)?.reportJson.orEmpty())
+            val persisted =
+                json.decodeFromString(
+                    ScanReport.serializer(),
+                    history.getScanSession(sessionId)?.reportJson.orEmpty(),
+                )
             val signature = persisted.strategyProbeReport?.recommendation?.strategySignature
             val recommendation = persisted.strategyProbeReport?.recommendation
 
@@ -828,9 +849,10 @@ class DiagnosticsManagerTest {
     fun `automatic probing remembers winning tcp and quic strategy families`() =
         runTest {
             val history = FakeDiagnosticsHistoryRepository().apply { seedStrategyProbeProfile(json) }
-            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
-                bridge.autoCompleteOnStart = false
-            }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
             val settings =
                 defaultAppSettings()
                     .toBuilder()
@@ -1077,9 +1099,10 @@ class DiagnosticsManagerTest {
                         suiteId = "full_matrix_v1",
                     )
                 }
-            val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply {
-                bridge.autoCompleteOnStart = false
-            }
+            val bridgeFactory =
+                FakeNetworkDiagnosticsBridgeFactory(json).apply {
+                    bridge.autoCompleteOnStart = false
+                }
             val settings =
                 defaultAppSettings()
                     .toBuilder()
@@ -1227,7 +1250,12 @@ class DiagnosticsManagerTest {
             )
 
             assertEquals(2, history.nativeEventsState.value.size)
-            assertEquals(setOf("proxy", "tunnel"), history.nativeEventsState.value.map { it.source }.toSet())
+            assertEquals(
+                setOf("proxy", "tunnel"),
+                history.nativeEventsState.value
+                    .map { it.source }
+                    .toSet(),
+            )
         }
 
     @Test
@@ -1372,8 +1400,12 @@ class DiagnosticsManagerTest {
                     upsertContextSnapshot(context(id = "context-selected", sessionId = "session-selected"))
                     upsertContextSnapshot(context(id = "context-passive", sessionId = null))
                     insertTelemetrySample(sample(id = "telemetry-1", publicIp = "198.51.100.8"))
-                    insertNativeSessionEvent(event(id = "event-selected", sessionId = "session-selected", source = "dns", level = "warn"))
-                    insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "warn"))
+                    insertNativeSessionEvent(
+                        event(id = "event-selected", sessionId = "session-selected", source = "dns", level = "warn"),
+                    )
+                    insertNativeSessionEvent(
+                        event(id = "event-global", sessionId = null, source = "proxy", level = "warn"),
+                    )
                 }
             val manager =
                 createDiagnosticsManager(
@@ -1429,7 +1461,12 @@ class DiagnosticsManagerTest {
             assertTrue(entries.getValue("strategy-matrix.json").contains("\"sessionId\": \"session-selected\""))
             assertTrue(entries.getValue("strategy-matrix.json").contains("\"profileId\": \"default\""))
             assertFalse(entries.getValue("strategy-matrix.json").contains("strategyProbeReport"))
-            assertTrue(entries.getValue("probe-results.csv").contains("\"session-selected\",\"dns\",\"blocked.example\",\"substituted\""))
+            assertTrue(
+                entries
+                    .getValue(
+                        "probe-results.csv",
+                    ).contains("\"session-selected\",\"dns\",\"blocked.example\",\"substituted\""),
+            )
             assertTrue(entries.getValue("probe-results.csv").contains("probeRetryCount"))
             assertTrue(entries.getValue("probe-results.csv").contains("\"1\""))
             assertTrue(entries.getValue("native-events.csv").contains("\"global\""))
@@ -1454,7 +1491,12 @@ class DiagnosticsManagerTest {
             assertTrue(entries.getValue("manifest.json").contains("\"logcatCaptureScope\": \"app_visible_snapshot\""))
             assertTrue(entries.getValue("manifest.json").contains("\"logcatByteCount\": ${logcatSnapshot.byteCount}"))
             assertFalse(entries.getValue("manifest.json").contains("198.51.100.8"))
-            assertEquals("session-selected", history.exportsState.value.single().sessionId)
+            assertEquals(
+                "session-selected",
+                history.exportsState.value
+                    .single()
+                    .sessionId,
+            )
         }
 
     @Test
@@ -1489,8 +1531,12 @@ class DiagnosticsManagerTest {
                     upsertSnapshot(snapshot(id = "snapshot-selected", sessionId = "session-selected"))
                     upsertContextSnapshot(context(id = "context-selected", sessionId = "session-selected"))
                     insertTelemetrySample(sample(id = "telemetry-1", publicIp = "198.51.100.8"))
-                    insertNativeSessionEvent(event(id = "event-selected", sessionId = "session-selected", source = "dns", level = "warn"))
-                    insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "warn"))
+                    insertNativeSessionEvent(
+                        event(id = "event-selected", sessionId = "session-selected", source = "dns", level = "warn"),
+                    )
+                    insertNativeSessionEvent(
+                        event(id = "event-global", sessionId = null, source = "proxy", level = "warn"),
+                    )
                 }
             val manager =
                 createDiagnosticsManager(
@@ -1503,7 +1549,11 @@ class DiagnosticsManagerTest {
                                 LogcatSnapshot(
                                     content = "03-12 10:00:00.000 I/RIPDPI: diagnostics ready\n",
                                     captureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
-                                    byteCount = "03-12 10:00:00.000 I/RIPDPI: diagnostics ready\n".toByteArray(Charsets.UTF_8).size,
+                                    byteCount =
+                                        "03-12 10:00:00.000 I/RIPDPI: diagnostics ready\n"
+                                            .toByteArray(
+                                                Charsets.UTF_8,
+                                            ).size,
                                 ),
                         ),
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
@@ -1594,7 +1644,15 @@ class DiagnosticsManagerTest {
             val cacheDir = Files.createTempDirectory("diagnostics-archive-cellular").toFile()
             val history =
                 FakeDiagnosticsHistoryRepository().apply {
-                    sessionsState.value = listOf(session(id = "session-cell", profileId = "default", pathMode = "RAW_PATH", summary = "Carrier"))
+                    sessionsState.value =
+                        listOf(
+                            session(
+                                id = "session-cell",
+                                profileId = "default",
+                                pathMode = "RAW_PATH",
+                                summary = "Carrier",
+                            ),
+                        )
                     upsertSnapshot(
                         snapshot(
                             id = "snapshot-cell",
@@ -1667,11 +1725,16 @@ class DiagnosticsManagerTest {
                                 reportJson = null,
                             ),
                         )
-                    replaceProbeResults("session-latest", listOf(ProbeResultEntity("probe-1", "session-latest", "http", "example.org", "ok", "[]", 20L)))
+                    replaceProbeResults(
+                        "session-latest",
+                        listOf(ProbeResultEntity("probe-1", "session-latest", "http", "example.org", "ok", "[]", 20L)),
+                    )
                     upsertSnapshot(snapshot(id = "snapshot-passive", sessionId = null))
                     upsertContextSnapshot(context(id = "context-latest", sessionId = "session-latest"))
                     insertTelemetrySample(sample(id = "telemetry-1", publicIp = "198.51.100.8"))
-                    insertNativeSessionEvent(event(id = "event-global", sessionId = null, source = "proxy", level = "info"))
+                    insertNativeSessionEvent(
+                        event(id = "event-global", sessionId = null, source = "proxy", level = "info"),
+                    )
                 }
             val manager =
                 createDiagnosticsManager(
@@ -1692,7 +1755,12 @@ class DiagnosticsManagerTest {
             assertTrue(entries.getValue("manifest.json").contains("\"includedSessionId\": \"session-latest\""))
             assertTrue(entries.getValue("report.json").contains("\"id\": \"session-latest\""))
             assertTrue(entries.getValue("report.json").contains("\"contextKind\": \"post_scan\""))
-            assertEquals("session-latest", history.exportsState.value.single().sessionId)
+            assertEquals(
+                "session-latest",
+                history.exportsState.value
+                    .single()
+                    .sessionId,
+            )
         }
 
     @Test
@@ -1929,8 +1997,18 @@ class DiagnosticsManagerTest {
             val error = runCatching { manager.startScan(ScanPathMode.RAW_PATH) }.exceptionOrNull()
 
             assertTrue(error is IOException)
-            assertEquals("failed", history.sessionsState.value.single().status)
-            assertEquals("bridge start failed", history.sessionsState.value.single().summary)
+            assertEquals(
+                "failed",
+                history.sessionsState.value
+                    .single()
+                    .status,
+            )
+            assertEquals(
+                "bridge start failed",
+                history.sessionsState.value
+                    .single()
+                    .summary,
+            )
             assertEquals(1, bridgeFactory.bridge.destroyCount)
             assertEquals(null, manager.activeScanProgress.value)
         }
@@ -2533,7 +2611,11 @@ private class FakeAppSettingsRepository(
     override suspend fun snapshot(): AppSettings = state.value
 
     override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value = state.value.toBuilder().apply(transform).build()
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
     }
 
     override suspend fun replace(settings: AppSettings) {
@@ -2613,7 +2695,8 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
 
     override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> = usageSessionsState
 
-    override fun observeRememberedNetworkPolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> = rememberedPoliciesState
+    override fun observeRememberedNetworkPolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
+        rememberedPoliciesState
 
     override suspend fun getProfile(id: String): DiagnosticProfileEntity? = profilesState.value.find { it.id == id }
 
@@ -2631,9 +2714,7 @@ private class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
     ): RememberedNetworkPolicyEntity? =
         rememberedPoliciesState.value.find { it.fingerprintHash == fingerprintHash && it.mode == mode }
 
-    override suspend fun getNetworkDnsPathPreference(
-        fingerprintHash: String,
-    ): NetworkDnsPathPreferenceEntity? =
+    override suspend fun getNetworkDnsPathPreference(fingerprintHash: String): NetworkDnsPathPreferenceEntity? =
         networkDnsPathPreferencesState.value.find { it.fingerprintHash == fingerprintHash }
 
     override suspend fun findValidatedRememberedNetworkPolicy(
@@ -3015,7 +3096,14 @@ private class FakeNetworkDiagnosticsBridge(
     override suspend fun pollPassiveEventsJson(): String? {
         faults.next(DiagnosticsBridgeFaultTarget.PASSIVE_EVENTS)?.throwOrIgnore()
         val scripted = scriptedPassiveEvents.removeFirstOrNull()
-        val defaultValue = if (scripted == null) passiveEventsPayloads.removeFirstOrNull() else passiveEventsPayloads.firstOrNull()
+        val defaultValue =
+            if (scripted ==
+                null
+            ) {
+                passiveEventsPayloads.removeFirstOrNull()
+            } else {
+                passiveEventsPayloads.firstOrNull()
+            }
         return scripted.resolve(defaultValue)
     }
 
@@ -3134,10 +3222,20 @@ private fun dnsProbeResult(
         host.ifBlank {
             runCatching {
                 when {
-                    endpoint.startsWith("http://") || endpoint.startsWith("https://") ->
-                        java.net.URI(endpoint).host.orEmpty()
-                    ':' in endpoint -> endpoint.substringBefore(':')
-                    else -> endpoint
+                    endpoint.startsWith("http://") || endpoint.startsWith("https://") -> {
+                        java.net
+                            .URI(endpoint)
+                            .host
+                            .orEmpty()
+                    }
+
+                    ':' in endpoint -> {
+                        endpoint.substringBefore(':')
+                    }
+
+                    else -> {
+                        endpoint
+                    }
                 }
             }.getOrDefault("")
         }
@@ -3153,9 +3251,18 @@ private fun dnsProbeResult(
                             443
                         }
                     }
-                    ':' in endpoint -> endpoint.substringAfterLast(':').toIntOrNull() ?: 443
-                    protocol == EncryptedDnsProtocolDot -> 853
-                    else -> 443
+
+                    ':' in endpoint -> {
+                        endpoint.substringAfterLast(':').toIntOrNull() ?: 443
+                    }
+
+                    protocol == EncryptedDnsProtocolDot -> {
+                        853
+                    }
+
+                    else -> {
+                        443
+                    }
                 }
             }.getOrDefault(if (protocol == EncryptedDnsProtocolDot) 853 else 443)
     val resolvedTlsServerName =
@@ -3214,7 +3321,10 @@ private class FakeServiceStateStore(
         statusState.value = status to mode
     }
 
-    override fun emitFailed(sender: Sender, reason: FailureReason) {
+    override fun emitFailed(
+        sender: Sender,
+        reason: FailureReason,
+    ) {
         eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
     }
 
@@ -3328,7 +3438,7 @@ private fun snapshot(
                     cellularDetails = if (transport == "cellular") cellularDetails else null,
                     capturedAt = 123L,
                 ),
-        ),
+            ),
         capturedAt = 123L,
     )
 
@@ -3402,12 +3512,16 @@ private fun unzipEntries(absolutePath: String): Map<String, String> =
 
 private fun scrubDiagnosticsJson(value: JsonElement): JsonElement =
     when (value) {
-        is JsonArray -> JsonArray(value.map(::scrubDiagnosticsJson))
-        is JsonObject ->
+        is JsonArray -> {
+            JsonArray(value.map(::scrubDiagnosticsJson))
+        }
+
+        is JsonObject -> {
             JsonObject(
                 value.mapValues { (key, element) ->
                     when (key) {
                         "id" -> Json.parseToJsonElement("\"<id>\"")
+
                         "createdAt",
                         "capturedAt",
                         "startedAt",
@@ -3415,10 +3529,14 @@ private fun scrubDiagnosticsJson(value: JsonElement): JsonElement =
                         -> Json.parseToJsonElement("0")
 
                         "fileName" -> Json.parseToJsonElement("\"ripdpi-diagnostics-<timestamp>.zip\"")
+
                         else -> scrubDiagnosticsJson(element)
                     }
                 },
             )
+        }
 
-        else -> value
+        else -> {
+            value
+        }
     }

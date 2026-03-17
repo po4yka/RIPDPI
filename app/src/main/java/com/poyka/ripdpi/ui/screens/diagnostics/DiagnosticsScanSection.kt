@@ -1,9 +1,17 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,20 +23,25 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.CompletedProbeUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
+import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
-import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
+import com.poyka.ripdpi.activities.PhaseState
+import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.PresetCard
@@ -60,7 +73,11 @@ internal fun ScanSection(
     val strategyProbeSelected = selectedProfile?.kind == com.poyka.ripdpi.diagnostics.ScanKind.STRATEGY_PROBE
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
+        contentPadding =
+            androidx.compose.foundation.layout.PaddingValues(
+                horizontal = layout.horizontalPadding,
+                vertical = spacing.sm,
+            ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
@@ -101,30 +118,22 @@ internal fun ScanSection(
         }
         uiState.scan.activeProgress?.let { progress ->
             item {
-                RipDpiCard {
-                    StatusIndicator(
-                        label =
-                            if (strategyProbeSelected) {
-                                stringResource(R.string.diagnostics_probe_progress_title)
-                            } else {
-                                stringResource(R.string.diagnostics_status_running)
-                            },
-                        tone = StatusIndicatorTone.Warning,
-                    )
-                    Text(
-                        text = progress.summary,
-                        style = RipDpiThemeTokens.type.bodyEmphasis,
-                        color = RipDpiThemeTokens.colors.foreground,
-                    )
-                    LinearProgressIndicator(
-                        progress = { progress.fraction.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text(
-                        text = "${progress.completedSteps}/${progress.totalSteps} · ${progress.phase}",
-                        style = RipDpiThemeTokens.type.monoInline,
-                        color = RipDpiThemeTokens.colors.mutedForeground,
-                    )
+                ScanProgressCard(progress = progress, strategyProbeSelected = strategyProbeSelected)
+            }
+            if (progress.completedProbes.isNotEmpty()) {
+                item {
+                    SettingsCategoryHeader(title = "Live results")
+                }
+                items(
+                    items = progress.completedProbes.reversed().take(8),
+                    key = { "${it.target}-${it.outcome}" },
+                ) { probe ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn() + slideInVertically { it / 2 },
+                    ) {
+                        LiveProbeResultRow(probe = probe)
+                    }
                 }
             }
         }
@@ -181,6 +190,156 @@ internal fun ScanSection(
 }
 
 @Composable
+private fun ScanProgressCard(
+    progress: DiagnosticsProgressUiModel,
+    strategyProbeSelected: Boolean,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val motion = RipDpiThemeTokens.motion
+    RipDpiCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StatusIndicator(
+                label =
+                    if (strategyProbeSelected) {
+                        stringResource(R.string.diagnostics_probe_progress_title)
+                    } else {
+                        stringResource(R.string.diagnostics_status_running)
+                    },
+                tone = StatusIndicatorTone.Warning,
+            )
+            Text(
+                text = progress.elapsedLabel,
+                style = RipDpiThemeTokens.type.monoInline,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
+        AnimatedContent(
+            targetState = progress.currentProbeLabel,
+            transitionSpec = {
+                androidx.compose.animation.fadeIn(
+                    animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                ) togetherWith
+                    androidx.compose.animation.fadeOut(
+                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    )
+            },
+            label = "scanProgressLabel",
+        ) { label ->
+            Text(
+                text = label,
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = RipDpiThemeTokens.colors.foreground,
+            )
+        }
+        if (progress.phaseSteps.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                progress.phaseSteps.forEach { step ->
+                    PhaseChip(step = step)
+                }
+            }
+        }
+        LinearProgressIndicator(
+            progress = { progress.fraction.coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "${progress.completedSteps}/${progress.totalSteps}",
+                style = RipDpiThemeTokens.type.monoInline,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+            progress.etaLabel?.let { eta ->
+                Text(
+                    text = eta,
+                    style = RipDpiThemeTokens.type.monoSmall,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhaseChip(step: PhaseStepUiModel) {
+    val motion = RipDpiThemeTokens.motion
+    val palette = metricPalette(step.tone)
+    val animatedContainer by animateColorAsState(
+        targetValue = palette.container,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "phaseChipContainer",
+    )
+    val animatedContent by animateColorAsState(
+        targetValue = palette.content,
+        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        label = "phaseChipContent",
+    )
+    Surface(
+        shape = RipDpiThemeTokens.shapes.full,
+        color = animatedContainer,
+        contentColor = animatedContent,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val dotAlpha =
+                when (step.state) {
+                    PhaseState.Completed -> 0.72f
+                    PhaseState.Active -> 1f
+                    PhaseState.Pending -> 0.38f
+                }
+            Text(
+                text =
+                    when (step.state) {
+                        PhaseState.Completed -> "✓ ${step.label}"
+                        else -> step.label
+                    },
+                style = RipDpiThemeTokens.type.monoSmall,
+                color = animatedContent.copy(alpha = dotAlpha),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LiveProbeResultRow(probe: CompletedProbeUiModel) {
+    val palette = metricPalette(probe.tone)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = RipDpiThemeTokens.spacing.md, vertical = RipDpiThemeTokens.spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StatusIndicator(
+            label = probe.outcome,
+            tone =
+                when (probe.tone) {
+                    DiagnosticsTone.Positive -> StatusIndicatorTone.Active
+                    DiagnosticsTone.Negative -> StatusIndicatorTone.Error
+                    DiagnosticsTone.Warning -> StatusIndicatorTone.Warning
+                    else -> StatusIndicatorTone.Idle
+                },
+        )
+        Text(
+            text = probe.target,
+            style = RipDpiThemeTokens.type.monoInline,
+            color = palette.content,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
 internal fun DiagnosticsProfileCard(
     profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel,
     selected: Boolean,
@@ -188,17 +347,20 @@ internal fun DiagnosticsProfileCard(
 ) {
     val (badge, description) =
         when {
-            profile.strategyProbeSuiteId == "full_matrix_v1" ->
+            profile.strategyProbeSuiteId == "full_matrix_v1" -> {
                 stringResource(R.string.diagnostics_profile_audit_badge) to
                     stringResource(R.string.diagnostics_profile_audit_body)
+            }
 
-            profile.kind == com.poyka.ripdpi.diagnostics.ScanKind.STRATEGY_PROBE ->
+            profile.kind == com.poyka.ripdpi.diagnostics.ScanKind.STRATEGY_PROBE -> {
                 stringResource(R.string.diagnostics_profile_probe_badge) to
                     stringResource(R.string.diagnostics_profile_probe_body)
+            }
 
-            else ->
+            else -> {
                 stringResource(R.string.diagnostics_profile_connectivity_badge) to
                     stringResource(R.string.diagnostics_profile_connectivity_body)
+            }
         }
 
     PresetCard(
@@ -219,8 +381,10 @@ internal fun ResolverRecommendationCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(variant = RipDpiCardVariant.Elevated) {
         StatusIndicator(
-            label = if (recommendation.appliedTemporarily) "Temporary DNS override active" else "Encrypted DNS recommended",
-            tone = if (recommendation.appliedTemporarily) StatusIndicatorTone.Active else StatusIndicatorTone.Warning,
+            label =
+                if (recommendation.appliedTemporarily) "Temporary DNS override active" else "Encrypted DNS recommended",
+            tone =
+                if (recommendation.appliedTemporarily) StatusIndicatorTone.Active else StatusIndicatorTone.Warning,
         )
         Text(
             text = recommendation.headline,
@@ -274,75 +438,85 @@ internal fun DiagnosticsScanWorkflowCard(
     val spacing = RipDpiThemeTokens.spacing
     val status =
         when {
-            scan.isBusy && isFullAudit ->
+            scan.isBusy && isFullAudit -> {
                 Triple(
                     stringResource(R.string.diagnostics_audit_progress_title),
                     stringResource(R.string.diagnostics_profile_audit_running_body),
                     StatusIndicatorTone.Warning,
                 )
+            }
 
-            scan.isBusy && strategyProbeSelected ->
+            scan.isBusy && strategyProbeSelected -> {
                 Triple(
                     stringResource(R.string.diagnostics_probe_progress_title),
                     stringResource(R.string.diagnostics_profile_probe_running_body),
                     StatusIndicatorTone.Warning,
                 )
+            }
 
-            scan.isBusy ->
+            scan.isBusy -> {
                 Triple(
                     stringResource(R.string.diagnostics_status_running),
                     stringResource(R.string.diagnostics_profile_connectivity_running_body),
                     StatusIndicatorTone.Warning,
                 )
+            }
 
-            isFullAudit && !scan.runRawEnabled ->
+            isFullAudit && !scan.runRawEnabled -> {
                 Triple(
                     stringResource(R.string.diagnostics_audit_unavailable_title),
                     stringResource(R.string.diagnostics_profile_audit_unavailable_body),
                     StatusIndicatorTone.Error,
                 )
+            }
 
-            strategyProbeSelected && !scan.runRawEnabled ->
+            strategyProbeSelected && !scan.runRawEnabled -> {
                 Triple(
                     stringResource(R.string.diagnostics_probe_unavailable_title),
                     stringResource(R.string.diagnostics_profile_probe_unavailable_body),
                     StatusIndicatorTone.Error,
                 )
+            }
 
-            isFullAudit && scan.strategyProbeReport != null ->
+            isFullAudit && scan.strategyProbeReport != null -> {
                 Triple(
                     stringResource(R.string.diagnostics_audit_ready_title),
                     stringResource(R.string.diagnostics_profile_audit_ready_body),
                     StatusIndicatorTone.Active,
                 )
+            }
 
-            strategyProbeSelected && scan.strategyProbeReport != null ->
+            strategyProbeSelected && scan.strategyProbeReport != null -> {
                 Triple(
                     stringResource(R.string.diagnostics_probe_ready_title),
                     stringResource(R.string.diagnostics_profile_probe_ready_body),
                     StatusIndicatorTone.Active,
                 )
+            }
 
-            isFullAudit ->
+            isFullAudit -> {
                 Triple(
                     stringResource(R.string.diagnostics_audit_profile_title),
                     stringResource(R.string.diagnostics_profile_audit_body),
                     StatusIndicatorTone.Idle,
                 )
+            }
 
-            strategyProbeSelected ->
+            strategyProbeSelected -> {
                 Triple(
                     stringResource(R.string.diagnostics_probe_profile_title),
                     stringResource(R.string.diagnostics_profile_probe_body),
                     StatusIndicatorTone.Idle,
                 )
+            }
 
-            else ->
+            else -> {
                 Triple(
                     stringResource(R.string.diagnostics_profile_connectivity_title),
                     stringResource(R.string.diagnostics_profile_connectivity_body),
                     StatusIndicatorTone.Idle,
                 )
+            }
         }
     val badges =
         buildList {
@@ -562,9 +736,10 @@ internal fun StrategyProbeReportCard(
                 family.candidates.forEach { candidate ->
                     StrategyProbeCandidateRow(
                         candidate = candidate,
-                        onClick = report.candidateDetails[candidate.id]?.let { detail ->
-                            { onSelectCandidate(detail) }
-                        },
+                        onClick =
+                            report.candidateDetails[candidate.id]?.let { detail ->
+                                { onSelectCandidate(detail) }
+                            },
                     )
                 }
             }

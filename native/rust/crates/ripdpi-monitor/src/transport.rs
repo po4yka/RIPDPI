@@ -456,6 +456,7 @@ mod tests {
             whitelist_sni: vec![],
             telegram_target: None,
             strategy_probe: None,
+            network_snapshot: None,
         };
         match transport_for_request(&request) {
             TransportConfig::Direct => {}
@@ -479,6 +480,7 @@ mod tests {
             whitelist_sni: vec![],
             telegram_target: None,
             strategy_probe: None,
+            network_snapshot: None,
         };
         match transport_for_request(&request) {
             TransportConfig::Socks5 { host, port } => {

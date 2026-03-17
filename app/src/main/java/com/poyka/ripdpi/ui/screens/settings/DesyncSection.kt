@@ -96,7 +96,13 @@ internal fun LazyListScope.desyncSection(
                         value = uiState.splitMarker,
                         placeholder = stringResource(R.string.config_placeholder_split_marker),
                         enabled = visualEditorEnabled && uiState.adaptiveSplitVisualEditorSupported,
-                        validator = { it.isBlank() || (isValidOffsetExpression(it) && !isAdaptiveOffsetExpression(it)) },
+                        validator = {
+                            it.isBlank() || (
+                                isValidOffsetExpression(
+                                    it,
+                                ) && !isAdaptiveOffsetExpression(it)
+                            )
+                        },
                         invalidMessage = stringResource(R.string.config_error_invalid_marker),
                         disabledMessage =
                             if (uiState.adaptiveSplitVisualEditorSupported) {
@@ -104,7 +110,11 @@ internal fun LazyListScope.desyncSection(
                             } else {
                                 stringResource(R.string.adaptive_split_hostfake_disabled)
                             },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Ascii,
+                                imeAction = ImeAction.Done,
+                            ),
                         setting = AdvancedTextSetting.SplitMarker,
                         onConfirm = onTextConfirmed,
                         showDivider = true,
@@ -282,12 +292,25 @@ internal fun LazyListScope.desyncSection(
                         profileLabel = formatHttpFakeProfileLabel(uiState.httpFakeProfile),
                         statusLabel =
                             when {
-                                uiState.enableCmdSettings -> stringResource(R.string.fake_payload_library_cli_title)
-                                !uiState.desyncHttpEnabled -> stringResource(R.string.fake_payload_profile_status_off)
-                                uiState.httpFakeProfileActiveInStrategy ->
+                                uiState.enableCmdSettings -> {
+                                    stringResource(R.string.fake_payload_library_cli_title)
+                                }
+
+                                !uiState.desyncHttpEnabled -> {
+                                    stringResource(R.string.fake_payload_profile_status_off)
+                                }
+
+                                uiState.httpFakeProfileActiveInStrategy -> {
                                     stringResource(R.string.fake_payload_profile_status_live)
-                                uiState.hasHostFake -> stringResource(R.string.fake_payload_profile_status_separate)
-                                else -> stringResource(R.string.fake_payload_profile_status_ready)
+                                }
+
+                                uiState.hasHostFake -> {
+                                    stringResource(R.string.fake_payload_profile_status_separate)
+                                }
+
+                                else -> {
+                                    stringResource(R.string.fake_payload_profile_status_ready)
+                                }
                             },
                         statusTone =
                             when {
@@ -327,13 +350,21 @@ internal fun LazyListScope.desyncSection(
                             },
                         appliesSummary =
                             when {
-                                !uiState.desyncHttpEnabled ->
+                                !uiState.desyncHttpEnabled -> {
                                     stringResource(R.string.http_fake_profile_scope_off)
-                                uiState.httpFakeProfileActiveInStrategy ->
+                                }
+
+                                uiState.httpFakeProfileActiveInStrategy -> {
                                     stringResource(R.string.http_fake_profile_scope_live)
-                                uiState.hasHostFake ->
+                                }
+
+                                uiState.hasHostFake -> {
                                     stringResource(R.string.http_fake_profile_scope_hostfake)
-                                else -> stringResource(R.string.http_fake_profile_scope_ready)
+                                }
+
+                                else -> {
+                                    stringResource(R.string.http_fake_profile_scope_ready)
+                                }
                             },
                         interactionSummary = stringResource(R.string.http_fake_profile_interaction),
                         value = uiState.httpFakeProfile,
@@ -349,12 +380,25 @@ internal fun LazyListScope.desyncSection(
                         profileLabel = formatTlsFakeProfileLabel(uiState.tlsFakeProfile),
                         statusLabel =
                             when {
-                                uiState.enableCmdSettings -> stringResource(R.string.fake_payload_library_cli_title)
-                                !uiState.desyncHttpsEnabled -> stringResource(R.string.fake_payload_profile_status_off)
-                                uiState.tlsFakeProfileActiveInStrategy ->
+                                uiState.enableCmdSettings -> {
+                                    stringResource(R.string.fake_payload_library_cli_title)
+                                }
+
+                                !uiState.desyncHttpsEnabled -> {
+                                    stringResource(R.string.fake_payload_profile_status_off)
+                                }
+
+                                uiState.tlsFakeProfileActiveInStrategy -> {
                                     stringResource(R.string.fake_payload_profile_status_live)
-                                uiState.hasHostFake -> stringResource(R.string.fake_payload_profile_status_separate)
-                                else -> stringResource(R.string.fake_payload_profile_status_ready)
+                                }
+
+                                uiState.hasHostFake -> {
+                                    stringResource(R.string.fake_payload_profile_status_separate)
+                                }
+
+                                else -> {
+                                    stringResource(R.string.fake_payload_profile_status_ready)
+                                }
                             },
                         statusTone =
                             when {
@@ -392,18 +436,27 @@ internal fun LazyListScope.desyncSection(
                                         },
                                 )
                                 add(
-                                    stringResource(R.string.fake_payload_badge_fake_tls_layers) to SummaryCapsuleTone.Info,
+                                    stringResource(R.string.fake_payload_badge_fake_tls_layers) to
+                                        SummaryCapsuleTone.Info,
                                 )
                             },
                         appliesSummary =
                             when {
-                                !uiState.desyncHttpsEnabled ->
+                                !uiState.desyncHttpsEnabled -> {
                                     stringResource(R.string.tls_fake_profile_scope_off)
-                                uiState.tlsFakeProfileActiveInStrategy ->
+                                }
+
+                                uiState.tlsFakeProfileActiveInStrategy -> {
                                     stringResource(R.string.tls_fake_profile_scope_live)
-                                uiState.hasHostFake ->
+                                }
+
+                                uiState.hasHostFake -> {
                                     stringResource(R.string.tls_fake_profile_scope_hostfake)
-                                else -> stringResource(R.string.tls_fake_profile_scope_ready)
+                                }
+
+                                else -> {
+                                    stringResource(R.string.tls_fake_profile_scope_ready)
+                                }
                             },
                         interactionSummary = stringResource(R.string.tls_fake_profile_interaction),
                         value = uiState.tlsFakeProfile,
@@ -419,11 +472,21 @@ internal fun LazyListScope.desyncSection(
                         profileLabel = formatUdpFakeProfileLabel(uiState.udpFakeProfile),
                         statusLabel =
                             when {
-                                uiState.enableCmdSettings -> stringResource(R.string.fake_payload_library_cli_title)
-                                !uiState.desyncUdpEnabled -> stringResource(R.string.fake_payload_profile_status_off)
-                                uiState.udpFakeProfileActiveInStrategy ->
+                                uiState.enableCmdSettings -> {
+                                    stringResource(R.string.fake_payload_library_cli_title)
+                                }
+
+                                !uiState.desyncUdpEnabled -> {
+                                    stringResource(R.string.fake_payload_profile_status_off)
+                                }
+
+                                uiState.udpFakeProfileActiveInStrategy -> {
                                     stringResource(R.string.fake_payload_profile_status_live)
-                                else -> stringResource(R.string.fake_payload_profile_status_ready)
+                                }
+
+                                else -> {
+                                    stringResource(R.string.fake_payload_profile_status_ready)
+                                }
                             },
                         statusTone =
                             when {
@@ -462,20 +525,27 @@ internal fun LazyListScope.desyncSection(
                                 )
                                 if (uiState.quicFakeProfileActive) {
                                     add(
-                                        stringResource(R.string.fake_payload_badge_quic_separate) to SummaryCapsuleTone.Info,
+                                        stringResource(R.string.fake_payload_badge_quic_separate) to
+                                            SummaryCapsuleTone.Info,
                                     )
                                 }
                             },
                         appliesSummary =
                             when {
-                                !uiState.desyncUdpEnabled ->
+                                !uiState.desyncUdpEnabled -> {
                                     stringResource(R.string.udp_fake_profile_scope_off)
-                                uiState.udpFakeProfileActiveInStrategy ->
+                                }
+
+                                uiState.udpFakeProfileActiveInStrategy -> {
                                     stringResource(
                                         R.string.udp_fake_profile_scope_live,
                                         uiState.udpFakeCount,
                                     )
-                                else -> stringResource(R.string.udp_fake_profile_scope_ready)
+                                }
+
+                                else -> {
+                                    stringResource(R.string.udp_fake_profile_scope_ready)
+                                }
                             },
                         interactionSummary =
                             if (uiState.quicFakeProfileActive) {
@@ -577,7 +647,11 @@ internal fun LazyListScope.desyncSection(
                         validator = { it.isEmpty() || it.toIntOrNull() != null },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
                         disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Ascii,
+                                imeAction = ImeAction.Done,
+                            ),
                         setting = AdvancedTextSetting.FakeTlsSize,
                         onConfirm = onTextConfirmed,
                         showDivider = true,

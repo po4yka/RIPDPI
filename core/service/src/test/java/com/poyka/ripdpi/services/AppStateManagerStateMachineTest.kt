@@ -1,16 +1,16 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.Sender
-import kotlin.random.Random
+import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
+import kotlin.random.Random
 
 class AppStateManagerStateMachineTest {
     @Test

@@ -33,8 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -116,10 +116,11 @@ fun RipDpiButton(
     )
     val pressedScale by animateFloatAsState(
         targetValue = if (isPressed && isInteractive) motion.pressScale else 1f,
-        animationSpec = tween(
-            durationMillis = motion.duration(motion.quickDurationMillis),
-            easing = FastOutSlowInEasing,
-        ),
+        animationSpec =
+            tween(
+                durationMillis = motion.duration(motion.quickDurationMillis),
+                easing = FastOutSlowInEasing,
+            ),
         label = "buttonScale",
     )
     val contentAlpha by animateFloatAsState(
@@ -151,8 +152,7 @@ fun RipDpiButton(
                     .graphicsLayer {
                         scaleX = pressedScale
                         scaleY = pressedScale
-                    }
-                    .padding(
+                    }.padding(
                         horizontal = horizontalPadding,
                         vertical = components.buttonVerticalPadding,
                     ),
@@ -213,9 +213,10 @@ fun RipDpiButton(
                         transitionSpec = {
                             fadeIn(
                                 animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                            ) togetherWith fadeOut(
-                                animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                            )
+                            ) togetherWith
+                                fadeOut(
+                                    animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                                )
                         },
                         label = "buttonTrailingContent",
                     ) { isLoading ->

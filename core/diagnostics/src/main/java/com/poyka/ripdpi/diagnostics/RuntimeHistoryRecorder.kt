@@ -1,13 +1,19 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.ApplicationIoScope
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
 import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
@@ -16,23 +22,11 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
-import com.poyka.ripdpi.data.FailureReason
-import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.displayMessage
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import java.util.LinkedHashSet
-import java.util.Locale
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -41,6 +35,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
+import java.util.LinkedHashSet
+import java.util.Locale
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
+import javax.inject.Singleton
 
 interface RuntimeHistoryRecorder {
     fun start()
@@ -172,8 +172,10 @@ class DefaultRuntimeHistoryRecorder
                                     publicIp = snapshot?.publicIp ?: current.publicIp,
                                     txBytes = telemetry.tunnelStats.txBytes,
                                     rxBytes = telemetry.tunnelStats.rxBytes,
-                                    totalErrors = telemetry.proxyTelemetry.totalErrors + telemetry.tunnelTelemetry.totalErrors,
-                                    routeChanges = telemetry.proxyTelemetry.routeChanges + telemetry.tunnelTelemetry.routeChanges,
+                                    totalErrors =
+                                        telemetry.proxyTelemetry.totalErrors + telemetry.tunnelTelemetry.totalErrors,
+                                    routeChanges =
+                                        telemetry.proxyTelemetry.routeChanges + telemetry.tunnelTelemetry.routeChanges,
                                     restartCount = telemetry.restartCount,
                                     endedReason = "failed:${sender.senderName.lowercase(Locale.US)}",
                                     failureMessage = failureMessage,
@@ -217,280 +219,291 @@ class DefaultRuntimeHistoryRecorder
             }
         }
 
-    private fun startSampling() {
-        if (samplingJob?.isActive == true) {
-            return
-        }
-
-        samplingJob =
-            scope.launch {
-                while (true) {
-                    val settings = appSettingsRepository.snapshot()
-                    val currentSessionId =
-                        stateMutex.withLock {
-                            activeUsageSession?.id
-                        } ?: break
-
-                    if (settings.diagnosticsMonitorEnabled && serviceStateStore.status.value.first == AppStatus.Running) {
-                        persistSample(currentSessionId)
-                        historyRepository.trimOldData(settings.diagnosticsHistoryRetentionDays)
-                    }
-
-                    delay(settings.diagnosticsSampleIntervalSeconds.coerceIn(5, 300) * 1_000L)
-                }
+        private fun startSampling() {
+            if (samplingJob?.isActive == true) {
+                return
             }
-    }
 
-    private fun stopSampling() {
-        samplingJob?.cancel()
-        samplingJob = null
-    }
+            samplingJob =
+                scope.launch {
+                    while (true) {
+                        val settings = appSettingsRepository.snapshot()
+                        val currentSessionId =
+                            stateMutex.withLock {
+                                activeUsageSession?.id
+                            } ?: break
 
-    private suspend fun ensureActiveUsageSession(mode: Mode) {
-        val current = activeUsageSession
-        if (current != null && current.serviceMode == mode.name && current.finishedAt == null) {
-            return
+                        if (settings.diagnosticsMonitorEnabled &&
+                            serviceStateStore.status.value.first == AppStatus.Running
+                        ) {
+                            persistSample(currentSessionId)
+                            historyRepository.trimOldData(settings.diagnosticsHistoryRetentionDays)
+                        }
+
+                        delay(settings.diagnosticsSampleIntervalSeconds.coerceIn(5, 300) * 1_000L)
+                    }
+                }
         }
 
-        if (current != null) {
-            finalizeActiveUsageSession(serviceStateStore.telemetry.value)
+        private fun stopSampling() {
+            samplingJob?.cancel()
+            samplingJob = null
         }
 
-        val settings = appSettingsRepository.snapshot()
-        val profile =
-            settings.diagnosticsActiveProfileId
-                .takeIf { it.isNotBlank() }
-                ?.let { historyRepository.getProfile(it) }
-        val context = diagnosticsContextProvider.captureContext()
-        val approach = createStoredApproachSnapshot(json, settings, profile, context)
-        val snapshot = runCatching { networkMetadataProvider.captureSnapshot() }.getOrNull()
-        val telemetry = serviceStateStore.telemetry.value
-        val startedAt = maxOf(System.currentTimeMillis(), telemetry.updatedAt)
-        val session =
-            applyRuntimeFieldTelemetry(
-                BypassUsageSessionEntity(
+        private suspend fun ensureActiveUsageSession(mode: Mode) {
+            val current = activeUsageSession
+            if (current != null && current.serviceMode == mode.name && current.finishedAt == null) {
+                return
+            }
+
+            if (current != null) {
+                finalizeActiveUsageSession(serviceStateStore.telemetry.value)
+            }
+
+            val settings = appSettingsRepository.snapshot()
+            val profile =
+                settings.diagnosticsActiveProfileId
+                    .takeIf { it.isNotBlank() }
+                    ?.let { historyRepository.getProfile(it) }
+            val context = diagnosticsContextProvider.captureContext()
+            val approach = createStoredApproachSnapshot(json, settings, profile, context)
+            val snapshot = runCatching { networkMetadataProvider.captureSnapshot() }.getOrNull()
+            val telemetry = serviceStateStore.telemetry.value
+            val startedAt = maxOf(System.currentTimeMillis(), telemetry.updatedAt)
+            val session =
+                applyRuntimeFieldTelemetry(
+                    BypassUsageSessionEntity(
+                        id = UUID.randomUUID().toString(),
+                        startedAt = startedAt,
+                        finishedAt = null,
+                        updatedAt = startedAt,
+                        serviceMode = mode.name,
+                        connectionState = AppStatus.Running.name,
+                        health = deriveConnectionHealth(telemetry),
+                        approachProfileId = approach.profileId,
+                        approachProfileName = approach.profileName,
+                        strategyId = approach.strategyId,
+                        strategyLabel = approach.strategyLabel,
+                        strategyJson = approach.strategyJson,
+                        networkType = snapshot?.transport ?: "unknown",
+                        publicIp = snapshot?.publicIp,
+                        txBytes = telemetry.tunnelStats.txBytes,
+                        rxBytes = telemetry.tunnelStats.rxBytes,
+                        totalErrors = telemetry.proxyTelemetry.totalErrors + telemetry.tunnelTelemetry.totalErrors,
+                        routeChanges = telemetry.proxyTelemetry.routeChanges + telemetry.tunnelTelemetry.routeChanges,
+                        restartCount = context.service.restartCount,
+                        endedReason = null,
+                        failureMessage = null,
+                    ),
+                    telemetry.runtimeFieldTelemetry,
+                )
+            activeUsageSession = session
+            historyRepository.upsertBypassUsageSession(session)
+            syncRememberedPolicySession(
+                session = session,
+                activePolicy = activeConnectionPolicyStore.current(serviceStateStore.status.value.second),
+            )
+        }
+
+        private suspend fun createFailedUsageSession(
+            sender: Sender,
+            failureMessage: String,
+            timestamp: Long,
+            serviceTelemetry: ServiceTelemetrySnapshot,
+            snapshot: NetworkSnapshotModel?,
+        ): String {
+            val settings = appSettingsRepository.snapshot()
+            val profile =
+                settings.diagnosticsActiveProfileId
+                    .takeIf { it.isNotBlank() }
+                    ?.let { historyRepository.getProfile(it) }
+            val context = diagnosticsContextProvider.captureContext()
+            val approach = createStoredApproachSnapshot(json, settings, profile, context)
+            val session =
+                applyRuntimeFieldTelemetry(
+                    BypassUsageSessionEntity(
+                        id = UUID.randomUUID().toString(),
+                        startedAt = timestamp,
+                        finishedAt = timestamp,
+                        updatedAt = timestamp,
+                        serviceMode = serviceStateStore.status.value.second.name,
+                        connectionState = "Failed",
+                        health = "degraded",
+                        approachProfileId = approach.profileId,
+                        approachProfileName = approach.profileName,
+                        strategyId = approach.strategyId,
+                        strategyLabel = approach.strategyLabel,
+                        strategyJson = approach.strategyJson,
+                        networkType = snapshot?.transport ?: "unknown",
+                        publicIp = snapshot?.publicIp,
+                        txBytes = serviceTelemetry.tunnelStats.txBytes,
+                        rxBytes = serviceTelemetry.tunnelStats.rxBytes,
+                        totalErrors =
+                            serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
+                        routeChanges =
+                            serviceTelemetry.proxyTelemetry.routeChanges +
+                                serviceTelemetry.tunnelTelemetry.routeChanges,
+                        restartCount = context.service.restartCount,
+                        endedReason = "failed:${sender.senderName.lowercase(Locale.US)}",
+                        failureMessage = failureMessage,
+                    ),
+                    serviceTelemetry.runtimeFieldTelemetry,
+                )
+            historyRepository.upsertBypassUsageSession(session)
+            return session.id
+        }
+
+        private suspend fun updateActiveUsageSession(
+            serviceMode: Mode,
+            serviceTelemetry: ServiceTelemetrySnapshot,
+            networkType: String,
+            publicIp: String?,
+        ) {
+            val current = activeUsageSession ?: return
+            val updated =
+                applyRuntimeFieldTelemetry(
+                    current.copy(
+                        updatedAt = maxOf(System.currentTimeMillis(), serviceTelemetry.updatedAt),
+                        serviceMode = serviceMode.name,
+                        connectionState = serviceTelemetry.status.name,
+                        health = deriveConnectionHealth(serviceTelemetry),
+                        networkType = networkType,
+                        publicIp = publicIp ?: current.publicIp,
+                        txBytes = serviceTelemetry.tunnelStats.txBytes,
+                        rxBytes = serviceTelemetry.tunnelStats.rxBytes,
+                        totalErrors =
+                            serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
+                        routeChanges =
+                            serviceTelemetry.proxyTelemetry.routeChanges +
+                                serviceTelemetry.tunnelTelemetry.routeChanges,
+                        restartCount = serviceTelemetry.restartCount,
+                    ),
+                    serviceTelemetry.runtimeFieldTelemetry,
+                )
+            activeUsageSession = updated
+            historyRepository.upsertBypassUsageSession(updated)
+        }
+
+        private suspend fun finalizeActiveUsageSession(serviceTelemetry: ServiceTelemetrySnapshot) {
+            val current = activeUsageSession ?: return
+            val finalizedAt = maxOf(System.currentTimeMillis(), serviceTelemetry.updatedAt)
+            val finishedSession =
+                applyRuntimeFieldTelemetry(
+                    current.copy(
+                        finishedAt = finalizedAt,
+                        updatedAt = finalizedAt,
+                        connectionState =
+                            if (current.failureMessage.isNullOrBlank()) {
+                                "Stopped"
+                            } else {
+                                "Failed"
+                            },
+                        health =
+                            if (current.failureMessage.isNullOrBlank()) {
+                                current.health
+                            } else {
+                                "degraded"
+                            },
+                        txBytes = serviceTelemetry.tunnelStats.txBytes,
+                        rxBytes = serviceTelemetry.tunnelStats.rxBytes,
+                        totalErrors =
+                            serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
+                        routeChanges =
+                            serviceTelemetry.proxyTelemetry.routeChanges +
+                                serviceTelemetry.tunnelTelemetry.routeChanges,
+                        restartCount = serviceTelemetry.restartCount,
+                        endedReason =
+                            current.endedReason
+                                ?: serviceTelemetry.lastFailureSender
+                                    ?.senderName
+                                    ?.lowercase(Locale.US)
+                                    ?.let { "failed:$it" }
+                                ?: "stopped",
+                    ),
+                    serviceTelemetry.runtimeFieldTelemetry,
+                )
+            maybeFinalizeRememberedPolicySession(finishedSession, finalizedAt)
+            historyRepository.upsertBypassUsageSession(
+                finishedSession,
+            )
+            activeUsageSession = null
+            activeRememberedPolicySession = null
+        }
+
+        private suspend fun persistSample(connectionSessionId: String) {
+            val snapshot = runCatching { networkMetadataProvider.captureSnapshot() }.getOrNull() ?: return
+            val context = diagnosticsContextProvider.captureContext()
+            val telemetry = serviceStateStore.telemetry.value
+
+            historyRepository.upsertSnapshot(
+                NetworkSnapshotEntity(
                     id = UUID.randomUUID().toString(),
-                    startedAt = startedAt,
-                    finishedAt = null,
-                    updatedAt = startedAt,
-                    serviceMode = mode.name,
-                    connectionState = AppStatus.Running.name,
-                    health = deriveConnectionHealth(telemetry),
-                    approachProfileId = approach.profileId,
-                    approachProfileName = approach.profileName,
-                    strategyId = approach.strategyId,
-                    strategyLabel = approach.strategyLabel,
-                    strategyJson = approach.strategyJson,
-                    networkType = snapshot?.transport ?: "unknown",
-                    publicIp = snapshot?.publicIp,
-                    txBytes = telemetry.tunnelStats.txBytes,
-                    rxBytes = telemetry.tunnelStats.rxBytes,
-                    totalErrors = telemetry.proxyTelemetry.totalErrors + telemetry.tunnelTelemetry.totalErrors,
-                    routeChanges = telemetry.proxyTelemetry.routeChanges + telemetry.tunnelTelemetry.routeChanges,
-                    restartCount = context.service.restartCount,
-                    endedReason = null,
-                    failureMessage = null,
+                    sessionId = null,
+                    connectionSessionId = connectionSessionId,
+                    snapshotKind = "connection_sample",
+                    payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), snapshot),
+                    capturedAt = snapshot.capturedAt,
                 ),
-                telemetry.runtimeFieldTelemetry,
             )
-        activeUsageSession = session
-        historyRepository.upsertBypassUsageSession(session)
-        syncRememberedPolicySession(
-            session = session,
-            activePolicy = activeConnectionPolicyStore.current(serviceStateStore.status.value.second),
-        )
-    }
-
-    private suspend fun createFailedUsageSession(
-        sender: Sender,
-        failureMessage: String,
-        timestamp: Long,
-        serviceTelemetry: ServiceTelemetrySnapshot,
-        snapshot: NetworkSnapshotModel?,
-    ): String {
-        val settings = appSettingsRepository.snapshot()
-        val profile =
-            settings.diagnosticsActiveProfileId
-                .takeIf { it.isNotBlank() }
-                ?.let { historyRepository.getProfile(it) }
-        val context = diagnosticsContextProvider.captureContext()
-        val approach = createStoredApproachSnapshot(json, settings, profile, context)
-        val session =
-            applyRuntimeFieldTelemetry(
-                BypassUsageSessionEntity(
+            historyRepository.upsertContextSnapshot(
+                DiagnosticContextEntity(
                     id = UUID.randomUUID().toString(),
-                    startedAt = timestamp,
-                    finishedAt = timestamp,
-                    updatedAt = timestamp,
-                    serviceMode = serviceStateStore.status.value.second.name,
-                    connectionState = "Failed",
-                    health = "degraded",
-                    approachProfileId = approach.profileId,
-                    approachProfileName = approach.profileName,
-                    strategyId = approach.strategyId,
-                    strategyLabel = approach.strategyLabel,
-                    strategyJson = approach.strategyJson,
-                    networkType = snapshot?.transport ?: "unknown",
-                    publicIp = snapshot?.publicIp,
-                    txBytes = serviceTelemetry.tunnelStats.txBytes,
-                    rxBytes = serviceTelemetry.tunnelStats.rxBytes,
-                    totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
-                    routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
-                    restartCount = context.service.restartCount,
-                    endedReason = "failed:${sender.senderName.lowercase(Locale.US)}",
-                    failureMessage = failureMessage,
+                    sessionId = null,
+                    connectionSessionId = connectionSessionId,
+                    contextKind = "connection_sample",
+                    payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), context),
+                    capturedAt = snapshot.capturedAt,
                 ),
-                serviceTelemetry.runtimeFieldTelemetry,
             )
-        historyRepository.upsertBypassUsageSession(session)
-        return session.id
-    }
-
-    private suspend fun updateActiveUsageSession(
-        serviceMode: Mode,
-        serviceTelemetry: ServiceTelemetrySnapshot,
-        networkType: String,
-        publicIp: String?,
-    ) {
-        val current = activeUsageSession ?: return
-        val updated =
-            applyRuntimeFieldTelemetry(
-                current.copy(
-                    updatedAt = maxOf(System.currentTimeMillis(), serviceTelemetry.updatedAt),
-                    serviceMode = serviceMode.name,
-                    connectionState = serviceTelemetry.status.name,
-                    health = deriveConnectionHealth(serviceTelemetry),
-                    networkType = networkType,
-                    publicIp = publicIp ?: current.publicIp,
-                    txBytes = serviceTelemetry.tunnelStats.txBytes,
-                    rxBytes = serviceTelemetry.tunnelStats.rxBytes,
-                    totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
-                    routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
-                    restartCount = serviceTelemetry.restartCount,
+            historyRepository.insertTelemetrySample(
+                buildTelemetrySampleEntity(
+                    connectionSessionId = connectionSessionId,
+                    networkType = snapshot.transport,
+                    publicIp = snapshot.publicIp,
+                    telemetry = telemetry,
+                    createdAt = snapshot.capturedAt,
                 ),
-                serviceTelemetry.runtimeFieldTelemetry,
             )
-        activeUsageSession = updated
-        historyRepository.upsertBypassUsageSession(updated)
-    }
 
-    private suspend fun finalizeActiveUsageSession(serviceTelemetry: ServiceTelemetrySnapshot) {
-        val current = activeUsageSession ?: return
-        val finalizedAt = maxOf(System.currentTimeMillis(), serviceTelemetry.updatedAt)
-        val finishedSession =
-            applyRuntimeFieldTelemetry(
-                current.copy(
-                    finishedAt = finalizedAt,
-                    updatedAt = finalizedAt,
-                    connectionState =
-                        if (current.failureMessage.isNullOrBlank()) {
-                            "Stopped"
-                        } else {
-                            "Failed"
-                        },
-                    health =
-                        if (current.failureMessage.isNullOrBlank()) {
-                            current.health
-                        } else {
-                            "degraded"
-                        },
-                    txBytes = serviceTelemetry.tunnelStats.txBytes,
-                    rxBytes = serviceTelemetry.tunnelStats.rxBytes,
-                    totalErrors = serviceTelemetry.proxyTelemetry.totalErrors + serviceTelemetry.tunnelTelemetry.totalErrors,
-                    routeChanges = serviceTelemetry.proxyTelemetry.routeChanges + serviceTelemetry.tunnelTelemetry.routeChanges,
-                    restartCount = serviceTelemetry.restartCount,
-                    endedReason =
-                        current.endedReason
-                            ?: serviceTelemetry.lastFailureSender
-                                ?.senderName
-                                ?.lowercase(Locale.US)
-                                ?.let { "failed:$it" }
-                            ?: "stopped",
-                ),
-                serviceTelemetry.runtimeFieldTelemetry,
-            )
-        maybeFinalizeRememberedPolicySession(finishedSession, finalizedAt)
-        historyRepository.upsertBypassUsageSession(
-            finishedSession,
-        )
-        activeUsageSession = null
-        activeRememberedPolicySession = null
-    }
-
-    private suspend fun persistSample(connectionSessionId: String) {
-        val snapshot = runCatching { networkMetadataProvider.captureSnapshot() }.getOrNull() ?: return
-        val context = diagnosticsContextProvider.captureContext()
-        val telemetry = serviceStateStore.telemetry.value
-
-        historyRepository.upsertSnapshot(
-            NetworkSnapshotEntity(
-                id = UUID.randomUUID().toString(),
-                sessionId = null,
-                connectionSessionId = connectionSessionId,
-                snapshotKind = "connection_sample",
-                payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), snapshot),
-                capturedAt = snapshot.capturedAt,
-            ),
-        )
-        historyRepository.upsertContextSnapshot(
-            DiagnosticContextEntity(
-                id = UUID.randomUUID().toString(),
-                sessionId = null,
-                connectionSessionId = connectionSessionId,
-                contextKind = "connection_sample",
-                payloadJson = json.encodeToString(DiagnosticContextModel.serializer(), context),
-                capturedAt = snapshot.capturedAt,
-            ),
-        )
-        historyRepository.insertTelemetrySample(
-            buildTelemetrySampleEntity(
-                connectionSessionId = connectionSessionId,
-                networkType = snapshot.transport,
-                publicIp = snapshot.publicIp,
-                telemetry = telemetry,
-                createdAt = snapshot.capturedAt,
-            ),
-        )
-
-        stateMutex.withLock {
-            updateActiveUsageSession(
-                serviceMode = serviceStateStore.status.value.second,
-                serviceTelemetry = telemetry,
-                networkType = snapshot.transport,
-                publicIp = snapshot.publicIp,
-            )
-        }
-    }
-
-    private suspend fun persistRuntimeEvents(
-        serviceTelemetry: ServiceTelemetrySnapshot,
-        connectionSessionId: String?,
-    ) {
-        (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
-            .forEach { event ->
-                persistRuntimeEvent(
-                    event =
-                        NativeSessionEventEntity(
-                            id = UUID.randomUUID().toString(),
-                            sessionId = null,
-                            connectionSessionId = connectionSessionId,
-                            source = event.source,
-                            level = event.level,
-                            message = event.message,
-                            createdAt = event.createdAt,
-                        ),
+            stateMutex.withLock {
+                updateActiveUsageSession(
+                    serviceMode = serviceStateStore.status.value.second,
+                    serviceTelemetry = telemetry,
+                    networkType = snapshot.transport,
+                    publicIp = snapshot.publicIp,
                 )
             }
-    }
-
-    private suspend fun persistRuntimeEvent(event: NativeSessionEventEntity) {
-        val key = "${event.source}|${event.level}|${event.message}|${event.createdAt}"
-        if (!persistedEventKeys.add(key)) {
-            return
         }
-        trimPersistedEventKeys()
-        historyRepository.insertNativeSessionEvent(event)
-    }
+
+        private suspend fun persistRuntimeEvents(
+            serviceTelemetry: ServiceTelemetrySnapshot,
+            connectionSessionId: String?,
+        ) {
+            (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
+                .forEach { event ->
+                    persistRuntimeEvent(
+                        event =
+                            NativeSessionEventEntity(
+                                id = UUID.randomUUID().toString(),
+                                sessionId = null,
+                                connectionSessionId = connectionSessionId,
+                                source = event.source,
+                                level = event.level,
+                                message = event.message,
+                                createdAt = event.createdAt,
+                            ),
+                    )
+                }
+        }
+
+        private suspend fun persistRuntimeEvent(event: NativeSessionEventEntity) {
+            val key = "${event.source}|${event.level}|${event.message}|${event.createdAt}"
+            if (!persistedEventKeys.add(key)) {
+                return
+            }
+            trimPersistedEventKeys()
+            historyRepository.insertNativeSessionEvent(event)
+        }
 
         private suspend fun persistTerminalTelemetrySample(
             connectionSessionId: String,
@@ -568,125 +581,127 @@ class DefaultRuntimeHistoryRecorder
                 tunnelRecoveryRetryCount = runtimeFieldTelemetry.tunnelRecoveryRetryCount,
             )
 
-    private fun trimPersistedEventKeys() {
-        while (persistedEventKeys.size > MaxPersistedEventKeys) {
-            val iterator = persistedEventKeys.iterator()
-            if (iterator.hasNext()) {
-                iterator.next()
-                iterator.remove()
+        private fun trimPersistedEventKeys() {
+            while (persistedEventKeys.size > MaxPersistedEventKeys) {
+                val iterator = persistedEventKeys.iterator()
+                if (iterator.hasNext()) {
+                    iterator.next()
+                    iterator.remove()
+                }
             }
         }
-    }
 
-    private fun deriveConnectionHealth(serviceTelemetry: ServiceTelemetrySnapshot): String {
-        val healths =
-            listOf(
-                serviceTelemetry.proxyTelemetry.health.lowercase(Locale.US),
-                serviceTelemetry.tunnelTelemetry.health.lowercase(Locale.US),
-            )
-        return when {
-            serviceTelemetry.lastFailureSender != null -> "degraded"
-            healths.any { it == "degraded" } -> "degraded"
-            healths.any { it == "healthy" } -> "healthy"
-            serviceTelemetry.status == AppStatus.Running -> "active"
-            else -> "idle"
+        private fun deriveConnectionHealth(serviceTelemetry: ServiceTelemetrySnapshot): String {
+            val healths =
+                listOf(
+                    serviceTelemetry.proxyTelemetry.health.lowercase(Locale.US),
+                    serviceTelemetry.tunnelTelemetry.health.lowercase(Locale.US),
+                )
+            return when {
+                serviceTelemetry.lastFailureSender != null -> "degraded"
+                healths.any { it == "degraded" } -> "degraded"
+                healths.any { it == "healthy" } -> "healthy"
+                serviceTelemetry.status == AppStatus.Running -> "active"
+                else -> "idle"
+            }
         }
-    }
 
-    private suspend fun syncRememberedPolicySession(
-        session: BypassUsageSessionEntity,
-        activePolicy: ActiveConnectionPolicy?,
-    ) {
-        val policy = activePolicy ?: run {
-            activeRememberedPolicySession = null
-            return
-        }
-        val existing = activeRememberedPolicySession
-        if (
-            existing != null &&
-            existing.usedRememberedPolicy == policy.usedRememberedPolicy &&
-            existing.fingerprintHash == policy.fingerprintHash &&
-            existing.policySignature == policy.policySignature
+        private suspend fun syncRememberedPolicySession(
+            session: BypassUsageSessionEntity,
+            activePolicy: ActiveConnectionPolicy?,
         ) {
-            return
-        }
-        val entity =
-            if (policy.usedRememberedPolicy) {
-                policy.matchedPolicy?.let { rememberedNetworkPolicyStore.recordApplied(it, policy.appliedAt) }
-                    ?: return
-            } else {
-                rememberedNetworkPolicyStore.upsertObservedPolicy(
-                    policy = policy.policy.copy(strategySignatureJson = session.strategyJson),
-                    source = RememberedNetworkPolicySourceManualSession,
-                    now = policy.appliedAt,
-                )
+            val policy =
+                activePolicy ?: run {
+                    activeRememberedPolicySession = null
+                    return
+                }
+            val existing = activeRememberedPolicySession
+            if (
+                existing != null &&
+                existing.usedRememberedPolicy == policy.usedRememberedPolicy &&
+                existing.fingerprintHash == policy.fingerprintHash &&
+                existing.policySignature == policy.policySignature
+            ) {
+                return
             }
-        activeRememberedPolicySession =
-            ActiveRememberedPolicySession(
-                entity = entity,
-                usedRememberedPolicy = policy.usedRememberedPolicy,
-                startedAt = policy.appliedAt,
-                fingerprintHash = policy.fingerprintHash,
-                policySignature = policy.policySignature,
-            )
-    }
-
-    private suspend fun maybeFinalizeRememberedPolicySession(
-        session: BypassUsageSessionEntity,
-        finalizedAt: Long,
-    ) {
-        val rememberedPolicySession = activeRememberedPolicySession ?: return
-        val transferBytes = session.txBytes + session.rxBytes
-        val durationMs = finalizedAt - rememberedPolicySession.startedAt
-        val proved =
-            session.failureMessage.isNullOrBlank() &&
-                durationMs >= RememberedNetworkPolicyProofDurationMs &&
-                transferBytes >= RememberedNetworkPolicyProofTransferBytes
-        val failed =
-            !session.failureMessage.isNullOrBlank() ||
-                session.endedReason?.startsWith("failed:") == true
-
-        when {
-            rememberedPolicySession.usedRememberedPolicy && failed && !proved ->
-                rememberedNetworkPolicyStore.recordFailure(
-                    policy = rememberedPolicySession.entity,
-                    failedAt = finalizedAt,
-                    allowSuppression = true,
-                )
-
-            rememberedPolicySession.usedRememberedPolicy && proved ->
-                rememberedNetworkPolicyStore.recordSuccess(
-                    policy = rememberedPolicySession.entity,
-                    validated = true,
-                    strategySignatureJson = session.strategyJson,
-                    completedAt = finalizedAt,
-                )
-
-            !rememberedPolicySession.usedRememberedPolicy && proved ->
-                rememberedNetworkPolicyStore.recordSuccess(
-                    policy = rememberedPolicySession.entity,
-                    validated = true,
-                    strategySignatureJson = session.strategyJson,
-                    completedAt = finalizedAt,
+            val entity =
+                if (policy.usedRememberedPolicy) {
+                    policy.matchedPolicy?.let { rememberedNetworkPolicyStore.recordApplied(it, policy.appliedAt) }
+                        ?: return
+                } else {
+                    rememberedNetworkPolicyStore.upsertObservedPolicy(
+                        policy = policy.policy.copy(strategySignatureJson = session.strategyJson),
+                        source = RememberedNetworkPolicySourceManualSession,
+                        now = policy.appliedAt,
+                    )
+                }
+            activeRememberedPolicySession =
+                ActiveRememberedPolicySession(
+                    entity = entity,
+                    usedRememberedPolicy = policy.usedRememberedPolicy,
+                    startedAt = policy.appliedAt,
+                    fingerprintHash = policy.fingerprintHash,
+                    policySignature = policy.policySignature,
                 )
         }
-    }
 
-    private data class ActiveRememberedPolicySession(
-        val entity: RememberedNetworkPolicyEntity,
-        val usedRememberedPolicy: Boolean,
-        val startedAt: Long,
-        val fingerprintHash: String?,
-        val policySignature: String,
-    )
-}
+        private suspend fun maybeFinalizeRememberedPolicySession(
+            session: BypassUsageSessionEntity,
+            finalizedAt: Long,
+        ) {
+            val rememberedPolicySession = activeRememberedPolicySession ?: return
+            val transferBytes = session.txBytes + session.rxBytes
+            val durationMs = finalizedAt - rememberedPolicySession.startedAt
+            val proved =
+                session.failureMessage.isNullOrBlank() &&
+                    durationMs >= RememberedNetworkPolicyProofDurationMs &&
+                    transferBytes >= RememberedNetworkPolicyProofTransferBytes
+            val failed =
+                !session.failureMessage.isNullOrBlank() ||
+                    session.endedReason?.startsWith("failed:") == true
+
+            when {
+                rememberedPolicySession.usedRememberedPolicy && failed && !proved -> {
+                    rememberedNetworkPolicyStore.recordFailure(
+                        policy = rememberedPolicySession.entity,
+                        failedAt = finalizedAt,
+                        allowSuppression = true,
+                    )
+                }
+
+                rememberedPolicySession.usedRememberedPolicy && proved -> {
+                    rememberedNetworkPolicyStore.recordSuccess(
+                        policy = rememberedPolicySession.entity,
+                        validated = true,
+                        strategySignatureJson = session.strategyJson,
+                        completedAt = finalizedAt,
+                    )
+                }
+
+                !rememberedPolicySession.usedRememberedPolicy && proved -> {
+                    rememberedNetworkPolicyStore.recordSuccess(
+                        policy = rememberedPolicySession.entity,
+                        validated = true,
+                        strategySignatureJson = session.strategyJson,
+                        completedAt = finalizedAt,
+                    )
+                }
+            }
+        }
+
+        private data class ActiveRememberedPolicySession(
+            val entity: RememberedNetworkPolicyEntity,
+            val usedRememberedPolicy: Boolean,
+            val startedAt: Long,
+            val fingerprintHash: String?,
+            val policySignature: String,
+        )
+    }
 
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RuntimeHistoryRecorderModule {
     @Binds
     @Singleton
-    abstract fun bindRuntimeHistoryRecorder(
-        recorder: DefaultRuntimeHistoryRecorder,
-    ): RuntimeHistoryRecorder
+    abstract fun bindRuntimeHistoryRecorder(recorder: DefaultRuntimeHistoryRecorder): RuntimeHistoryRecorder
 }

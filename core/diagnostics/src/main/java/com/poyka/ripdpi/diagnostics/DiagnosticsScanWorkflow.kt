@@ -10,15 +10,14 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
+import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.strategyLabel
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
-import com.poyka.ripdpi.data.TemporaryResolverOverride
 import kotlinx.serialization.json.Json
 
 internal object DiagnosticsScanWorkflow {
-
     private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
 
     fun enrichScanReport(

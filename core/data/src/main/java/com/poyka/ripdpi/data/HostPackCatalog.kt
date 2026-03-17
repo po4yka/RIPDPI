@@ -95,7 +95,8 @@ fun hostPackCatalogFromJson(payload: String): HostPackCatalog = hostPackCatalogJ
 
 fun HostPackCatalog.toJson(): String = hostPackCatalogJson.encodeToString(this)
 
-fun hostPackCatalogSnapshotFromJson(payload: String): HostPackCatalogSnapshot = hostPackCatalogJson.decodeFromString(payload)
+fun hostPackCatalogSnapshotFromJson(payload: String): HostPackCatalogSnapshot =
+    hostPackCatalogJson.decodeFromString(payload)
 
 fun HostPackCatalogSnapshot.toJson(): String = hostPackCatalogJson.encodeToString(this)
 
@@ -185,19 +186,21 @@ fun applyCuratedHostPack(
         }
 
     return when (normalizedTargetMode) {
-        HostPackTargetWhitelist ->
+        HostPackTargetWhitelist -> {
             HostPackApplyResult(
                 hostsMode = HostPackTargetWhitelist,
                 hostsBlacklist = currentBlacklist,
                 hostsWhitelist = updatedTargetText,
             )
+        }
 
-        else ->
+        else -> {
             HostPackApplyResult(
                 hostsMode = HostPackTargetBlacklist,
                 hostsBlacklist = updatedTargetText,
                 hostsWhitelist = currentWhitelist,
             )
+        }
     }
 }
 
@@ -247,7 +250,7 @@ fun safeGeositeDomainToHost(domain: GeositeDomain): String? =
     when (domain.type) {
         GeositeDomain.Type.ROOT_DOMAIN,
         GeositeDomain.Type.FULL,
-            -> normalizeHostSpecToken(domain.value)
+        -> normalizeHostSpecToken(domain.value)
 
         else -> null
     }

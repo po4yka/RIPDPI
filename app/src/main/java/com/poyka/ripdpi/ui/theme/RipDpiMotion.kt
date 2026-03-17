@@ -64,6 +64,8 @@ internal fun rememberRipDpiMotion(): RipDpiMotion {
             )
         }
 
-        else -> DefaultRipDpiMotion
+        else -> {
+            DefaultRipDpiMotion
+        }
     }
 }

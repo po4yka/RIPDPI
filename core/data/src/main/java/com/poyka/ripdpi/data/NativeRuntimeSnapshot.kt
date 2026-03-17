@@ -3,6 +3,23 @@ package com.poyka.ripdpi.data
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class LatencyPercentiles(
+    val p50: Long,
+    val p95: Long,
+    val p99: Long,
+    val min: Long,
+    val max: Long,
+    val count: Long,
+)
+
+@Serializable
+data class LatencyDistributions(
+    val dnsResolution: LatencyPercentiles? = null,
+    val tcpConnect: LatencyPercentiles? = null,
+    val tlsHandshake: LatencyPercentiles? = null,
+)
+
+@Serializable
 data class NativeRuntimeEvent(
     val source: String,
     val level: String,
@@ -55,6 +72,7 @@ data class NativeRuntimeSnapshot(
     val lastAutolearnAction: String? = null,
     val tunnelStats: TunnelStats = TunnelStats(),
     val nativeEvents: List<NativeRuntimeEvent> = emptyList(),
+    val latencyDistributions: LatencyDistributions? = null,
     val capturedAt: Long = 0,
 ) {
     companion object {

@@ -360,3 +360,95 @@ fn preset_field_in_ui_config_round_trips_json() {
     let decoded: ProxyUiConfig = serde_json::from_str(&json).unwrap();
     assert_eq!(decoded.strategy_preset.as_deref(), Some("byedpi_default"));
 }
+
+// --- NetworkSnapshot serde tests ---
+
+#[test]
+fn network_snapshot_deserializes_from_empty_json() {
+    let snapshot: NetworkSnapshot = serde_json::from_str("{}").expect("deserialize");
+    assert_eq!(snapshot.transport, "");
+    assert!(!snapshot.validated);
+    assert!(!snapshot.captive_portal);
+    assert!(!snapshot.metered);
+    assert_eq!(snapshot.private_dns_mode, "");
+    assert!(snapshot.dns_servers.is_empty());
+    assert!(snapshot.cellular.is_none());
+    assert!(snapshot.wifi.is_none());
+    assert_eq!(snapshot.traffic_tx_bytes, 0);
+    assert_eq!(snapshot.traffic_rx_bytes, 0);
+    assert_eq!(snapshot.captured_at_ms, 0);
+}
+
+#[test]
+fn network_snapshot_round_trips_wifi_snapshot() {
+    let snapshot = NetworkSnapshot {
+        transport: "wifi".to_string(),
+        validated: true,
+        captive_portal: false,
+        metered: false,
+        private_dns_mode: "system".to_string(),
+        dns_servers: vec!["8.8.8.8".to_string(), "8.8.4.4".to_string()],
+        cellular: None,
+        wifi: Some(WifiSnapshot {
+            frequency_band: "5ghz".to_string(),
+            ssid_hash: "abc123def456".to_string(),
+        }),
+        traffic_tx_bytes: 1_234_567,
+        traffic_rx_bytes: 9_876_543,
+        captured_at_ms: 1_700_000_000_000,
+    };
+    let json = serde_json::to_string(&snapshot).expect("serialize");
+    let decoded: NetworkSnapshot = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(decoded, snapshot);
+}
+
+#[test]
+fn network_snapshot_round_trips_cellular_snapshot() {
+    let snapshot = NetworkSnapshot {
+        transport: "cellular".to_string(),
+        validated: true,
+        captive_portal: false,
+        metered: true,
+        private_dns_mode: "system".to_string(),
+        dns_servers: vec!["10.0.0.1".to_string()],
+        cellular: Some(CellularSnapshot {
+            generation: "4g".to_string(),
+            roaming: false,
+            operator_code: "25001".to_string(),
+        }),
+        wifi: None,
+        traffic_tx_bytes: 0,
+        traffic_rx_bytes: 0,
+        captured_at_ms: 1_700_000_000_000,
+    };
+    let json = serde_json::to_string(&snapshot).expect("serialize");
+    let decoded: NetworkSnapshot = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(decoded, snapshot);
+}
+
+#[test]
+fn network_snapshot_ignores_unknown_fields() {
+    let json = r#"{
+        "transport": "wifi",
+        "validated": true,
+        "futureField": "some_value",
+        "anotherNewField": 42
+    }"#;
+    let snapshot: NetworkSnapshot = serde_json::from_str(json).expect("deserialize with unknown fields");
+    assert_eq!(snapshot.transport, "wifi");
+    assert!(snapshot.validated);
+}
+
+#[test]
+fn network_snapshot_uses_camel_case_keys() {
+    let snapshot = NetworkSnapshot {
+        transport: "cellular".to_string(),
+        metered: true,
+        captive_portal: true,
+        private_dns_mode: "dns.example.com".to_string(),
+        ..NetworkSnapshot::default()
+    };
+    let json = serde_json::to_string(&snapshot).expect("serialize");
+    assert!(json.contains("\"captivePortal\""), "expected camelCase key in: {json}");
+    assert!(json.contains("\"privateDnsMode\""), "expected camelCase key in: {json}");
+}

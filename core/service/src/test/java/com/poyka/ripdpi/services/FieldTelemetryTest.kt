@@ -4,12 +4,12 @@ import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
-import java.nio.file.Files
-import java.security.SecureRandom
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.nio.file.Files
+import java.security.SecureRandom
 
 class FieldTelemetryTest {
     @Test
@@ -87,6 +87,7 @@ class FieldTelemetryTest {
                 saltStore =
                     object : TelemetryInstallSaltStore {
                         override fun loadSalt(): String = "test-salt"
+
                         override fun rotateSalt() = Unit
                     },
             )

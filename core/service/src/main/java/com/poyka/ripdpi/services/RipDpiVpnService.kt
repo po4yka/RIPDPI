@@ -5,12 +5,14 @@ import android.app.PendingIntent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.lifecycle.lifecycleScope
-import com.poyka.ripdpi.core.RipDpiProxyPreferences
+import android.content.Context
+import android.net.ConnectivityManager
 import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
-import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
+import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -37,10 +39,9 @@ import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.deriveRuntimeFieldTelemetry
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +53,7 @@ import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class RipDpiVpnService : LifecycleVpnService() {
@@ -97,6 +99,9 @@ class RipDpiVpnService : LifecycleVpnService() {
     @Inject
     lateinit var policyHandoverEventStore: PolicyHandoverEventStore
 
+    @Inject
+    lateinit var networkSnapshotFactory: NetworkSnapshotFactory
+
     private var ripDpiProxy: RipDpiProxyRuntime? = null
     private var tun2SocksBridge: Tun2SocksBridge? = null
     private var proxyJob: Job? = null
@@ -105,6 +110,7 @@ class RipDpiVpnService : LifecycleVpnService() {
     private var tunSession: VpnTunnelSession? = null
     private var runtimeSession: VpnRuntimeSession? = null
     private val mutex = Mutex()
+
     @Volatile
     private var stopping: Boolean = false
 
@@ -414,6 +420,7 @@ class RipDpiVpnService : LifecycleVpnService() {
             }
         }
 
+        runCatching { proxyInstance.updateNetworkSnapshot(networkSnapshotFactory.capture()) }
         logcat(LogPriority.INFO) { "Proxy started" }
     }
 
@@ -445,7 +452,8 @@ class RipDpiVpnService : LifecycleVpnService() {
                 val error = throwable as? Exception ?: IllegalStateException("Proxy runtime failed", throwable)
                 logcat(LogPriority.ERROR) { "Proxy failed\n${error.asLog()}" }
                 classifyFailureReason(error)
-            } ?: result.getOrNull()
+            } ?: result
+                .getOrNull()
                 ?.takeIf { it != 0 }
                 ?.let { code ->
                     logcat(LogPriority.ERROR) { "Proxy stopped with code $code" }
@@ -493,6 +501,7 @@ class RipDpiVpnService : LifecycleVpnService() {
             throw e
         }
 
+        setUnderlyingNetworksFromActiveNetwork()
         logcat(LogPriority.INFO) { "Tun2Socks started" }
     }
 
@@ -516,7 +525,10 @@ class RipDpiVpnService : LifecycleVpnService() {
         logcat(LogPriority.INFO) { "Tun2socks stopped" }
     }
 
-    private fun updateStatus(newStatus: ServiceStatus, failureReason: FailureReason? = null) {
+    private fun updateStatus(
+        newStatus: ServiceStatus,
+        failureReason: FailureReason? = null,
+    ) {
         logcat { "VPN status changed from $status to $newStatus" }
 
         status = newStatus
@@ -700,7 +712,9 @@ class RipDpiVpnService : LifecycleVpnService() {
                 mode = Mode.VPN,
                 resolverOverride = resolverOverrideStore.override.value,
             )
-        if (resolution.settings.activeDnsSettings() == resolution.activeDns && resolverOverrideStore.override.value != null) {
+        if (resolution.settings.activeDnsSettings() == resolution.activeDns &&
+            resolverOverrideStore.override.value != null
+        ) {
             resolverOverrideStore.clear()
         }
         val signature = dnsSignature(resolution.activeDns, resolution.resolverFallbackReason)
@@ -710,7 +724,9 @@ class RipDpiVpnService : LifecycleVpnService() {
 
         mutex.withLock {
             val activeSession = runtimeSession
-            if (status != ServiceStatus.Connected || tunSession == null || activeSession?.runtimeId != session.runtimeId) {
+            if (status != ServiceStatus.Connected || tunSession == null ||
+                activeSession?.runtimeId != session.runtimeId
+            ) {
                 return
             }
             val latestResolution =
@@ -718,7 +734,9 @@ class RipDpiVpnService : LifecycleVpnService() {
                     mode = Mode.VPN,
                     resolverOverride = resolverOverrideStore.override.value,
                 )
-            if (latestResolution.settings.activeDnsSettings() == latestResolution.activeDns && resolverOverrideStore.override.value != null) {
+            if (latestResolution.settings.activeDnsSettings() == latestResolution.activeDns &&
+                resolverOverrideStore.override.value != null
+            ) {
                 resolverOverrideStore.clear()
             }
             val latestSignature = dnsSignature(latestResolution.activeDns, latestResolution.resolverFallbackReason)
@@ -855,10 +873,11 @@ class RipDpiVpnService : LifecycleVpnService() {
         restartReason: String,
         appliedAt: Long,
     ) {
-        val policy = resolution.appliedPolicy ?: run {
-            session.clearActiveConnectionPolicy()
-            return
-        }
+        val policy =
+            resolution.appliedPolicy ?: run {
+                session.clearActiveConnectionPolicy()
+                return
+            }
         session.updateActiveConnectionPolicy(
             ActiveConnectionPolicy(
                 mode = Mode.VPN,
@@ -879,6 +898,12 @@ class RipDpiVpnService : LifecycleVpnService() {
         val classification = session.pendingNetworkHandoverClass ?: return snapshot
         session.pendingNetworkHandoverClass = null
         return snapshot.copy(networkHandoverClass = classification)
+    }
+
+    private fun setUnderlyingNetworksFromActiveNetwork() {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = cm.activeNetwork
+        setUnderlyingNetworks(activeNetwork?.let { arrayOf(it) })
     }
 
     internal fun createBuilder(

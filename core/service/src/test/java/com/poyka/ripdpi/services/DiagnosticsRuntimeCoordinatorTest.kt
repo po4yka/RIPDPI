@@ -5,7 +5,6 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.proto.AppSettings
-import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class DiagnosticsRuntimeCoordinatorTest {
     @Test
@@ -195,7 +195,11 @@ private class FakeCoordinatorSettingsRepository(
     override suspend fun snapshot(): AppSettings = state.value
 
     override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value = state.value.toBuilder().apply(transform).build()
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
     }
 
     override suspend fun replace(settings: AppSettings) {
@@ -221,7 +225,10 @@ private class FakeCoordinatorStateStore(
         statusState.value = status to mode
     }
 
-    override fun emitFailed(sender: com.poyka.ripdpi.data.Sender, reason: FailureReason) = Unit
+    override fun emitFailed(
+        sender: com.poyka.ripdpi.data.Sender,
+        reason: FailureReason,
+    ) = Unit
 
     override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
         telemetryState.value = snapshot

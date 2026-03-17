@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use ripdpi_proxy_config::NetworkSnapshot;
 use serde::{Deserialize, Serialize};
 
 use crate::util::*;
@@ -145,6 +146,11 @@ pub struct ScanRequest {
     pub telegram_target: Option<TelegramTarget>,
     #[serde(default)]
     pub strategy_probe: Option<StrategyProbeRequest>,
+    /// Optional OS-level network state snapshot from Android ConnectivityManager/TelephonyManager.
+    /// When present, used to short-circuit probes when the OS reports no network, annotate
+    /// results with transport context, and emit environment metadata in the scan report.
+    #[serde(default)]
+    pub network_snapshot: Option<NetworkSnapshot>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -156,6 +162,10 @@ pub struct ScanProgress {
     pub total_steps: usize,
     pub message: String,
     pub is_finished: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_probe_target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_probe_outcome: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -289,5 +299,85 @@ mod tests {
         let json = r#"{}"#;
         let req: StrategyProbeRequest = serde_json::from_str(json).expect("deserialize");
         assert_eq!(req.suite_id, "quick_v1");
+    }
+
+    #[test]
+    fn scan_request_network_snapshot_defaults_to_none() {
+        let json = r#"{
+            "profileId": "test",
+            "displayName": "Test",
+            "pathMode": "RAW_PATH",
+            "proxyHost": null,
+            "proxyPort": null,
+            "domainTargets": [],
+            "dnsTargets": [],
+            "tcpTargets": [],
+            "whitelistSni": []
+        }"#;
+        let request: ScanRequest = serde_json::from_str(json).expect("deserialize");
+        assert!(request.network_snapshot.is_none());
+    }
+
+    #[test]
+    fn scan_request_with_network_snapshot_deserializes() {
+        let json = r#"{
+            "profileId": "p1",
+            "displayName": "Test",
+            "pathMode": "RAW_PATH",
+            "proxyHost": null,
+            "proxyPort": null,
+            "domainTargets": [],
+            "dnsTargets": [],
+            "tcpTargets": [],
+            "whitelistSni": [],
+            "networkSnapshot": {
+                "transport": "wifi",
+                "validated": true,
+                "captivePortal": false,
+                "metered": false,
+                "privateDnsMode": "system",
+                "dnsServers": ["8.8.8.8"],
+                "capturedAtMs": 1700000000000
+            }
+        }"#;
+        let request: ScanRequest = serde_json::from_str(json).expect("deserialize");
+        let snap = request.network_snapshot.expect("network snapshot present");
+        assert_eq!(snap.transport, "wifi");
+        assert!(snap.validated);
+        assert!(!snap.metered);
+        assert_eq!(snap.dns_servers, vec!["8.8.8.8"]);
+    }
+
+    #[test]
+    fn scan_progress_new_probe_fields_default_to_none() {
+        let json = r#"{
+            "sessionId": "s1",
+            "phase": "dns",
+            "completedSteps": 1,
+            "totalSteps": 8,
+            "message": "DNS probe",
+            "isFinished": false
+        }"#;
+        let progress: ScanProgress = serde_json::from_str(json).expect("deserialize");
+        assert!(progress.latest_probe_target.is_none());
+        assert!(progress.latest_probe_outcome.is_none());
+    }
+
+    #[test]
+    fn scan_progress_serializes_probe_fields_when_present() {
+        let progress = ScanProgress {
+            session_id: "s1".to_string(),
+            phase: "dns".to_string(),
+            completed_steps: 1,
+            total_steps: 8,
+            message: "done".to_string(),
+            is_finished: false,
+            latest_probe_target: Some("youtube.com".to_string()),
+            latest_probe_outcome: Some("ok".to_string()),
+        };
+        let json = serde_json::to_string(&progress).expect("serialize");
+        assert!(json.contains("latestProbeTarget"));
+        assert!(json.contains("youtube.com"));
+        assert!(json.contains("latestProbeOutcome"));
     }
 }

@@ -211,11 +211,12 @@ class AdvancedSettingsScreenCharacterizationTest {
     @Test
     fun `notice banner shown when present`() {
         setScreen(
-            notice = AdvancedNotice(
-                title = "Test notice title",
-                message = "Test notice message",
-                tone = com.poyka.ripdpi.ui.components.feedback.WarningBannerTone.Info,
-            ),
+            notice =
+                AdvancedNotice(
+                    title = "Test notice title",
+                    message = "Test notice message",
+                    tone = com.poyka.ripdpi.ui.components.feedback.WarningBannerTone.Info,
+                ),
         )
 
         scrollToKey("advanced_settings_notice")

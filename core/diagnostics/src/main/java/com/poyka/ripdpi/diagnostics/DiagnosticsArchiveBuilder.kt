@@ -12,18 +12,17 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
-import java.io.File
-import java.util.UUID
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import java.io.File
+import java.util.UUID
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "TooManyFunctions", "LargeClass")
 internal object DiagnosticsArchiveBuilder {
-
     private const val DiagnosticsArchiveDirectory = "diagnostics-archives"
     private const val DiagnosticsArchivePrefix = "ripdpi-diagnostics-"
     private const val ArchiveSchemaVersion = 7
@@ -45,7 +44,10 @@ internal object DiagnosticsArchiveBuilder {
         historyRepository: DiagnosticsHistoryRepository,
         logcatSnapshotCollector: LogcatSnapshotCollector,
         json: Json,
-        approachSummariesProvider: suspend (List<ScanSessionEntity>, List<com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity>) -> List<BypassApproachSummary>,
+        approachSummariesProvider: suspend (
+            List<ScanSessionEntity>,
+            List<com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity>,
+        ) -> List<BypassApproachSummary>,
         scanReportDecoder: (String?) -> ScanReport?,
     ): DiagnosticsArchive {
         cleanupArchiveCache(context)
@@ -396,7 +398,11 @@ internal object DiagnosticsArchiveBuilder {
             selectedApproach?.let {
                 appendLine("approach=${it.displayName}")
                 appendLine("approachVerification=${it.verificationState}")
-                appendLine("approachSuccessRate=${it.validatedSuccessRate?.let { rate -> "${(rate * 100).toInt()}%" } ?: "unverified"}")
+                appendLine(
+                    "approachSuccessRate=${it.validatedSuccessRate?.let { rate ->
+                        "${(rate * 100).toInt()}%"
+                    } ?: "unverified"}",
+                )
                 appendLine("approachUsageCount=${it.usageCount}")
                 appendLine("approachRuntimeMs=${it.totalRuntimeDurationMs}")
             }
@@ -533,7 +539,10 @@ internal object DiagnosticsArchiveBuilder {
             }
         }
 
-    private fun buildProbeResultsCsv(results: List<ProbeResultEntity>, json: Json): String =
+    private fun buildProbeResultsCsv(
+        results: List<ProbeResultEntity>,
+        json: Json,
+    ): String =
         buildString {
             appendLine("sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson")
             results.forEach { result ->

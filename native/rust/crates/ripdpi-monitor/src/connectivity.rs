@@ -36,6 +36,8 @@ pub(crate) fn run_connectivity_scan(
             total_steps,
             message: format!("Preparing {}", request.display_name),
             is_finished: false,
+            latest_probe_target: None,
+            latest_probe_outcome: None,
         },
     );
     push_event(
@@ -50,6 +52,57 @@ pub(crate) fn run_connectivity_scan(
         ),
     );
 
+    // --- Network snapshot handling ---
+    // Build the network_environment ProbeResult from the OS-provided snapshot (if any), and
+    // short-circuit if the OS reports no network is available.
+    let network_env_probe = build_network_environment_probe(request.network_snapshot.as_ref());
+    if let Some(ref snap) = request.network_snapshot {
+        if snap.transport == "none" {
+            push_event(&shared, "engine", "warn", "OS reports no network; aborting scan".to_string());
+            let mut short_results = Vec::new();
+            if let Some(probe) = network_env_probe {
+                short_results.push(probe);
+            }
+            let report = ScanReport {
+                session_id: session_id.clone(),
+                profile_id: request.profile_id,
+                path_mode: request.path_mode,
+                started_at,
+                finished_at: now_ms(),
+                summary: "network_unavailable".to_string(),
+                results: short_results,
+                strategy_probe_report: None,
+            };
+            set_report(&shared, report);
+            set_progress(
+                &shared,
+                ScanProgress {
+                    session_id,
+                    phase: "finished".to_string(),
+                    completed_steps: total_steps,
+                    total_steps,
+                    message: "No network available".to_string(),
+                    is_finished: true,
+                    latest_probe_target: None,
+                    latest_probe_outcome: None,
+                },
+            );
+            return;
+        }
+        if !snap.validated && !snap.captive_portal {
+            push_event(
+                &shared,
+                "engine",
+                "warn",
+                "OS reports unvalidated network; probe results may be unreliable".to_string(),
+            );
+        }
+    }
+    // Prepend the environment probe so it appears first in results.
+    if let Some(probe) = network_env_probe {
+        results.push(probe);
+    }
+
     for dns_target in &request.dns_targets {
         if cancel.load(Ordering::Acquire) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
@@ -57,6 +110,8 @@ pub(crate) fn run_connectivity_scan(
         }
         let probe = run_dns_probe(dns_target, &transport, &request.path_mode);
         push_event(&shared, "dns_integrity", event_level_for_outcome(&probe.outcome), summarize_probe_event(&probe));
+        let probe_target = probe.target.clone();
+        let probe_outcome = probe.outcome.clone();
         results.push(probe);
         completed_steps += 1;
         set_progress(
@@ -68,6 +123,8 @@ pub(crate) fn run_connectivity_scan(
                 total_steps,
                 message: format!("DNS probe {}", dns_target.domain),
                 is_finished: false,
+                latest_probe_target: Some(probe_target),
+                latest_probe_outcome: Some(probe_outcome),
             },
         );
     }
@@ -84,6 +141,8 @@ pub(crate) fn run_connectivity_scan(
             event_level_for_outcome(&probe.outcome),
             summarize_probe_event(&probe),
         );
+        let probe_target = probe.target.clone();
+        let probe_outcome = probe.outcome.clone();
         results.push(probe);
         completed_steps += 1;
         set_progress(
@@ -95,6 +154,8 @@ pub(crate) fn run_connectivity_scan(
                 total_steps,
                 message: format!("Reachability {}", domain_target.host),
                 is_finished: false,
+                latest_probe_target: Some(probe_target),
+                latest_probe_outcome: Some(probe_outcome),
             },
         );
     }
@@ -106,6 +167,8 @@ pub(crate) fn run_connectivity_scan(
         }
         let probe = run_tcp_probe(tcp_target, &request.whitelist_sni, &transport);
         push_event(&shared, "tcp_fat_header", event_level_for_outcome(&probe.outcome), summarize_probe_event(&probe));
+        let probe_target = probe.target.clone();
+        let probe_outcome = probe.outcome.clone();
         results.push(probe);
         completed_steps += 1;
         set_progress(
@@ -117,6 +180,8 @@ pub(crate) fn run_connectivity_scan(
                 total_steps,
                 message: format!("TCP {}", tcp_target.provider),
                 is_finished: false,
+                latest_probe_target: Some(probe_target),
+                latest_probe_outcome: Some(probe_outcome),
             },
         );
     }
@@ -135,6 +200,8 @@ pub(crate) fn run_connectivity_scan(
                 total_steps,
                 message: "Telegram download probe".to_string(),
                 is_finished: false,
+                latest_probe_target: None,
+                latest_probe_outcome: None,
             },
         );
         let probe = run_telegram_probe(telegram_target, &transport);
@@ -144,6 +211,8 @@ pub(crate) fn run_connectivity_scan(
             event_level_for_outcome(&probe.outcome),
             summarize_probe_event(&probe),
         );
+        let probe_target = probe.target.clone();
+        let probe_outcome = probe.outcome.clone();
         results.push(probe);
         completed_steps += 1;
         set_progress(
@@ -155,6 +224,8 @@ pub(crate) fn run_connectivity_scan(
                 total_steps,
                 message: "Telegram availability checked".to_string(),
                 is_finished: false,
+                latest_probe_target: Some(probe_target),
+                latest_probe_outcome: Some(probe_outcome),
             },
         );
     }
@@ -183,6 +254,8 @@ pub(crate) fn run_connectivity_scan(
             total_steps,
             message: "Diagnostics finished".to_string(),
             is_finished: true,
+            latest_probe_target: None,
+            latest_probe_outcome: None,
         },
     );
 }
@@ -215,6 +288,8 @@ pub(crate) fn persist_cancelled_report(
             total_steps: 0,
             message: "Diagnostics cancelled".to_string(),
             is_finished: true,
+            latest_probe_target: None,
+            latest_probe_outcome: None,
         },
     );
 }
@@ -482,6 +557,37 @@ pub(crate) fn summarize_probe_event(probe: &ProbeResult) -> String {
 
 pub(crate) fn probe_detail_value<'a>(probe: &'a ProbeResult, key: &str) -> &'a str {
     probe.details.iter().find(|detail| detail.key == key).map_or("unknown", |detail| detail.value.as_str())
+}
+
+/// Build a synthetic `network_environment` ProbeResult from the OS-provided NetworkSnapshot.
+/// Returns `None` when no snapshot is present (backward compat: no snapshot = no probe).
+pub(crate) fn build_network_environment_probe(
+    snapshot: Option<&ripdpi_proxy_config::NetworkSnapshot>,
+) -> Option<ProbeResult> {
+    let snap = snapshot?;
+    let outcome = if snap.transport == "none" { "network_unavailable" } else { "network_available" };
+    let mut details = vec![
+        ProbeDetail { key: "transport".to_string(), value: snap.transport.clone() },
+        ProbeDetail { key: "validated".to_string(), value: snap.validated.to_string() },
+        ProbeDetail { key: "captivePortal".to_string(), value: snap.captive_portal.to_string() },
+        ProbeDetail { key: "metered".to_string(), value: snap.metered.to_string() },
+        ProbeDetail { key: "privateDnsMode".to_string(), value: snap.private_dns_mode.clone() },
+        ProbeDetail { key: "dnsServerCount".to_string(), value: snap.dns_servers.len().to_string() },
+        ProbeDetail { key: "capturedAtMs".to_string(), value: snap.captured_at_ms.to_string() },
+    ];
+    if let Some(ref cell) = snap.cellular {
+        details.push(ProbeDetail { key: "cellularGeneration".to_string(), value: cell.generation.clone() });
+        details.push(ProbeDetail { key: "cellularRoaming".to_string(), value: cell.roaming.to_string() });
+    }
+    if let Some(ref wifi) = snap.wifi {
+        details.push(ProbeDetail { key: "wifiFrequencyBand".to_string(), value: wifi.frequency_band.clone() });
+    }
+    Some(ProbeResult {
+        probe_type: "network_environment".to_string(),
+        target: snap.transport.clone(),
+        outcome: outcome.to_string(),
+        details,
+    })
 }
 
 pub(crate) fn set_progress(shared: &Arc<Mutex<SharedState>>, progress: ScanProgress) {

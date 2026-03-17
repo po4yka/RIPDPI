@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
-import com.poyka.ripdpi.data.TcpChainStepKind
-import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.NumericRangeModel
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import kotlinx.serialization.encodeToString
@@ -647,14 +647,21 @@ class NativeConfigContractSnapshotTest {
 
     private fun JsonElement.sortedKeys(): JsonElement =
         when (this) {
-            is JsonArray -> JsonArray(map { it.sortedKeys() })
-            is JsonObject ->
+            is JsonArray -> {
+                JsonArray(map { it.sortedKeys() })
+            }
+
+            is JsonObject -> {
                 JsonObject(
                     entries
                         .sortedBy { it.key }
                         .associate { (key, value) -> key to value.sortedKeys() },
                 )
-            else -> this
+            }
+
+            else -> {
+                this
+            }
         }
 
     private companion object {

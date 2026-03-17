@@ -136,45 +136,51 @@ internal fun FakeTlsProfileCard(
 @Composable
 private fun rememberFakeTlsStatus(uiState: SettingsUiState): FakeTlsStatusContent =
     when {
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             FakeTlsStatusContent(
                 label = stringResource(R.string.ripdpi_fake_tls_cli_status_title),
                 body = stringResource(R.string.ripdpi_fake_tls_cli_status_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.desyncHttpsEnabled ->
+        !uiState.desyncHttpsEnabled -> {
             FakeTlsStatusContent(
                 label = stringResource(R.string.ripdpi_fake_tls_https_disabled_title),
                 body = stringResource(R.string.ripdpi_fake_tls_https_disabled_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        !uiState.isFake && uiState.hasCustomFakeTlsProfile ->
+        !uiState.isFake && uiState.hasCustomFakeTlsProfile -> {
             FakeTlsStatusContent(
                 label = stringResource(R.string.ripdpi_fake_tls_saved_title),
                 body = stringResource(R.string.ripdpi_fake_tls_saved_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.isFake ->
+        !uiState.isFake -> {
             FakeTlsStatusContent(
                 label = stringResource(R.string.ripdpi_fake_tls_waiting_title),
                 body = stringResource(R.string.ripdpi_fake_tls_waiting_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        uiState.hasCustomFakeTlsProfile ->
+        uiState.hasCustomFakeTlsProfile -> {
             FakeTlsStatusContent(
                 label = stringResource(R.string.ripdpi_fake_tls_custom_title),
                 body = stringResource(R.string.ripdpi_fake_tls_custom_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        else ->
+        else -> {
             FakeTlsStatusContent(
                 label = stringResource(R.string.ripdpi_fake_tls_default_title),
                 body = stringResource(R.string.ripdpi_fake_tls_default_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
     }

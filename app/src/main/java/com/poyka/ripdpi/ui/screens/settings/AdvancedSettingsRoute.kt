@@ -44,15 +44,15 @@ internal fun mapNoticeEffect(effect: SettingsEffect.Notice): AdvancedNotice =
     AdvancedNotice(
         title = effect.title,
         message = effect.message,
-        tone = when (effect.tone) {
-            SettingsNoticeTone.Info -> WarningBannerTone.Info
-            SettingsNoticeTone.Warning -> WarningBannerTone.Warning
-            SettingsNoticeTone.Error -> WarningBannerTone.Error
-        },
+        tone =
+            when (effect.tone) {
+                SettingsNoticeTone.Info -> WarningBannerTone.Info
+                SettingsNoticeTone.Warning -> WarningBannerTone.Warning
+                SettingsNoticeTone.Error -> WarningBannerTone.Error
+            },
     )
 
-internal fun parseOptionalRangeValue(value: String): Long? =
-    value.trim().takeIf { it.isNotEmpty() }?.toLongOrNull()
+internal fun parseOptionalRangeValue(value: String): Long? = value.trim().takeIf { it.isNotEmpty() }?.toLongOrNull()
 
 internal fun manualSplitMarkerFallback(uiState: SettingsUiState): String =
     uiState.splitMarker.takeUnless(::isAdaptiveOffsetExpression) ?: DefaultSplitMarker
@@ -537,11 +537,23 @@ fun AdvancedSettingsRoute(
                 }
 
                 AdvancedTextSetting.ActivationRoundFrom -> {
-                    updateRoundRangeBoundary(viewModel, uiState, "groupActivationFilter.round.start", value, updateStart = true)
+                    updateRoundRangeBoundary(
+                        viewModel,
+                        uiState,
+                        "groupActivationFilter.round.start",
+                        value,
+                        updateStart = true,
+                    )
                 }
 
                 AdvancedTextSetting.ActivationRoundTo -> {
-                    updateRoundRangeBoundary(viewModel, uiState, "groupActivationFilter.round.end", value, updateStart = false)
+                    updateRoundRangeBoundary(
+                        viewModel,
+                        uiState,
+                        "groupActivationFilter.round.end",
+                        value,
+                        updateStart = false,
+                    )
                 }
 
                 AdvancedTextSetting.ActivationPayloadSizeFrom -> {
@@ -812,37 +824,46 @@ fun AdvancedSettingsRoute(
 
                 AdvancedOptionSetting.AdaptiveSplitPreset -> {
                     when (value) {
-                        AdaptiveSplitPresetCustom -> Unit
-                        AdaptiveSplitPresetManual ->
+                        AdaptiveSplitPresetCustom -> {
+                            Unit
+                        }
+
+                        AdaptiveSplitPresetManual -> {
                             updatePrimarySplitMarker(
                                 viewModel = viewModel,
                                 uiState = uiState,
                                 key = "splitMarker",
                                 marker = manualSplitMarkerFallback(uiState),
                             )
+                        }
 
-                        else ->
+                        else -> {
                             updatePrimarySplitMarker(
                                 viewModel = viewModel,
                                 uiState = uiState,
                                 key = "splitMarker",
                                 marker = value,
                             )
+                        }
                     }
                 }
 
                 AdvancedOptionSetting.AdaptiveFakeTtlMode -> {
                     when (value) {
-                        AdaptiveFakeTtlModeCustom -> Unit
-                        AdaptiveFakeTtlModeFixed ->
+                        AdaptiveFakeTtlModeCustom -> {
+                            Unit
+                        }
+
+                        AdaptiveFakeTtlModeFixed -> {
                             viewModel.updateSetting(
                                 key = "adaptiveFakeTtlEnabled",
                                 value = "false",
                             ) {
                                 setAdaptiveFakeTtlEnabled(false)
                             }
+                        }
 
-                        AdaptiveFakeTtlModeAdaptive ->
+                        AdaptiveFakeTtlModeAdaptive -> {
                             viewModel.updateSetting(
                                 key = "adaptiveFakeTtlEnabled",
                                 value = "true",
@@ -850,9 +871,17 @@ fun AdvancedSettingsRoute(
                                 setAdaptiveFakeTtlEnabled(true)
                                 setAdaptiveFakeTtlDelta(-1)
                                 setAdaptiveFakeTtlMin(uiState.adaptiveFakeTtlMin.coerceIn(1, 255))
-                                setAdaptiveFakeTtlMax(uiState.adaptiveFakeTtlMax.coerceIn(uiState.adaptiveFakeTtlMin.coerceIn(1, 255), 255))
-                                setAdaptiveFakeTtlFallback(uiState.fakeTtl.takeIf { it in 1..255 } ?: DefaultAdaptiveFakeTtlFallback)
+                                setAdaptiveFakeTtlMax(
+                                    uiState.adaptiveFakeTtlMax.coerceIn(
+                                        uiState.adaptiveFakeTtlMin.coerceIn(1, 255),
+                                        255,
+                                    ),
+                                )
+                                setAdaptiveFakeTtlFallback(
+                                    uiState.fakeTtl.takeIf { it in 1..255 } ?: DefaultAdaptiveFakeTtlFallback,
+                                )
                             }
+                        }
                     }
                 }
 
@@ -947,7 +976,7 @@ fun AdvancedSettingsRoute(
         onRotateTelemetrySalt = viewModel::rotateTelemetrySalt,
         onSaveActivationRange = { dimension, start, end ->
             when (dimension) {
-                ActivationWindowDimension.Round ->
+                ActivationWindowDimension.Round -> {
                     updateGroupActivationFilter(
                         viewModel = viewModel,
                         key = "groupActivationFilter.round",
@@ -957,8 +986,9 @@ fun AdvancedSettingsRoute(
                                 round = normalizeRoundRange(start, end),
                             ),
                     )
+                }
 
-                ActivationWindowDimension.PayloadSize ->
+                ActivationWindowDimension.PayloadSize -> {
                     updateGroupActivationFilter(
                         viewModel = viewModel,
                         key = "groupActivationFilter.payloadSize",
@@ -968,8 +998,9 @@ fun AdvancedSettingsRoute(
                                 payloadSize = normalizePayloadSizeRange(start, end),
                             ),
                     )
+                }
 
-                ActivationWindowDimension.StreamBytes ->
+                ActivationWindowDimension.StreamBytes -> {
                     updateGroupActivationFilter(
                         viewModel = viewModel,
                         key = "groupActivationFilter.streamBytes",
@@ -979,6 +1010,7 @@ fun AdvancedSettingsRoute(
                                 streamBytes = normalizeStreamBytesRange(start, end),
                             ),
                     )
+                }
             }
         },
         onResetAdaptiveSplit = {

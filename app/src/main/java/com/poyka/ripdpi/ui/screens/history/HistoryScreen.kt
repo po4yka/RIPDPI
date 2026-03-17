@@ -144,7 +144,7 @@ internal fun HistoryScreen(
                     onSelectSection = onSelectSection,
                 )
                 when (uiState.selectedSection) {
-                    HistorySection.Connections ->
+                    HistorySection.Connections -> {
                         ConnectionsSection(
                             uiState = uiState,
                             onModeFilter = onConnectionModeFilter,
@@ -152,8 +152,9 @@ internal fun HistoryScreen(
                             onSearch = onConnectionSearch,
                             onSelectConnection = onSelectConnection,
                         )
+                    }
 
-                    HistorySection.Diagnostics ->
+                    HistorySection.Diagnostics -> {
                         DiagnosticsSection(
                             uiState = uiState,
                             onPathFilter = onDiagnosticsPathFilter,
@@ -161,8 +162,9 @@ internal fun HistoryScreen(
                             onSearch = onDiagnosticsSearch,
                             onSelectSession = onSelectDiagnosticsSession,
                         )
+                    }
 
-                    HistorySection.Events ->
+                    HistorySection.Events -> {
                         EventsSection(
                             uiState = uiState,
                             onToggleFilter = onToggleEventFilter,
@@ -170,6 +172,7 @@ internal fun HistoryScreen(
                             onAutoScroll = onEventAutoScroll,
                             onSelectEvent = onSelectEvent,
                         )
+                    }
                 }
             }
         }
@@ -405,7 +408,12 @@ private fun EventsSection(
         }
     }
 
-    LaunchedEffect(uiState.events.filters.autoScroll, uiState.events.events.firstOrNull()?.id) {
+    LaunchedEffect(
+        uiState.events.filters.autoScroll,
+        uiState.events.events
+            .firstOrNull()
+            ?.id,
+    ) {
         if (uiState.events.filters.autoScroll && uiState.events.events.isNotEmpty() && isAtLiveEdge) {
             listState.animateScrollToItem(0)
         }

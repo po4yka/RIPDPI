@@ -1,17 +1,21 @@
 package com.poyka.ripdpi.diagnostics
 
-import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonElement.Companion.serializer
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.fail
+import java.io.File
 
 internal object GoldenContractSupport {
     private const val ModulePath = "core/diagnostics"
 
-    private val snapshotJson = Json { prettyPrint = true; explicitNulls = true }
+    private val snapshotJson =
+        Json {
+            prettyPrint = true
+            explicitNulls = true
+        }
 
     fun assertJsonGolden(
         relativePath: String,
@@ -83,7 +87,8 @@ internal object GoldenContractSupport {
     private fun resolveRepoPath(relativePath: String): File {
         var current = File(System.getProperty("user.dir")).absoluteFile
         while (!File(current, "settings.gradle.kts").exists()) {
-            current = current.parentFile ?: error("Unable to locate repository root from ${System.getProperty("user.dir")}")
+            current =
+                current.parentFile ?: error("Unable to locate repository root from ${System.getProperty("user.dir")}")
         }
         return File(current, relativePath)
     }

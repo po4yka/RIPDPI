@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultQueue
 import com.poyka.ripdpi.core.testing.FaultSpec
@@ -47,6 +48,10 @@ class FakeRipDpiProxyRuntime : RipDpiProxyRuntime {
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot = telemetryValue
+
+    override suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot) {
+        // No-op in fake.
+    }
 }
 
 enum class ProxyBindingFaultTarget {
@@ -132,6 +137,10 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     override fun destroy(handle: Long) {
         lastDestroyedHandle = handle
         destroyedHandles += handle
+    }
+
+    override fun updateNetworkSnapshot(handle: Long, snapshotJson: String) {
+        // No-op in fake.
     }
 }
 
@@ -357,8 +366,14 @@ private fun <T> FaultSpec<T>.throwOrIgnore() {
 
 private fun <T> FaultSpec<T>.payloadResult(): String? =
     when (outcome) {
-        FaultOutcome.MALFORMED_PAYLOAD -> payload ?: """{"malformed"""
-        FaultOutcome.BLANK_PAYLOAD -> payload ?: ""
+        FaultOutcome.MALFORMED_PAYLOAD -> {
+            payload ?: """{"malformed"""
+        }
+
+        FaultOutcome.BLANK_PAYLOAD -> {
+            payload ?: ""
+        }
+
         else -> {
             throw faultThrowable(outcome, message)
         }

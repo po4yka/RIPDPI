@@ -7,14 +7,13 @@ import android.net.VpnService
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.ProxyPreferencesResolverModule
+import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule
-import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultScope
 import com.poyka.ripdpi.core.testing.FaultSpec
@@ -22,16 +21,17 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.services.RipDpiProxyService
-import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStateStoreModule
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
+import com.poyka.ripdpi.services.RipDpiProxyService
+import com.poyka.ripdpi.services.RipDpiVpnService
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
 import com.poyka.ripdpi.testing.IntegrationTestOverrides
@@ -41,9 +41,6 @@ import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
-import java.io.IOException
-import javax.inject.Inject
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -54,6 +51,9 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import java.io.IOException
+import javax.inject.Inject
+import kotlin.time.Duration.Companion.seconds
 
 @HiltAndroidTest
 @UninstallModules(
@@ -247,7 +247,11 @@ class ServiceLifecycleIntegrationTest {
 
             assertEquals("9.9.9.9", IntegrationTestOverrides.vpnTunnelSessionProvider.lastDns)
             assertEquals(true, IntegrationTestOverrides.vpnTunnelSessionProvider.lastIpv6)
-            assertEquals(1091, IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.startedConfig?.socks5Port)
+            assertEquals(
+                1091,
+                IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.startedConfig
+                    ?.socks5Port,
+            )
             assertContainsSubsequence(
                 IntegrationTestOverrides.orderSnapshot(),
                 listOf("vpn:establish", "tunnel:start"),
@@ -317,7 +321,9 @@ class ServiceLifecycleIntegrationTest {
             awaitTelemetry(
                 mode = Mode.VPN,
                 status = AppStatus.Running,
-                expectedStats = com.poyka.ripdpi.data.TunnelStats(),
+                expectedStats =
+                    com.poyka.ripdpi.data
+                        .TunnelStats(),
             )
         }
     }
@@ -542,7 +548,9 @@ class ServiceLifecycleIntegrationTest {
                     state = "running",
                     health = "healthy",
                     activeSessions = 1,
-                    tunnelStats = com.poyka.ripdpi.data.TunnelStats(txPackets = 5, rxPackets = 6),
+                    tunnelStats =
+                        com.poyka.ripdpi.data
+                            .TunnelStats(txPackets = 5, rxPackets = 6),
                 )
 
             startService(RipDpiVpnService::class.java)
@@ -564,7 +572,9 @@ class ServiceLifecycleIntegrationTest {
                 snapshot.mode == Mode.VPN &&
                     snapshot.status == AppStatus.Running &&
                     snapshot.tunnelTelemetry.state == "idle" &&
-                    snapshot.tunnelStats == com.poyka.ripdpi.data.TunnelStats()
+                    snapshot.tunnelStats ==
+                    com.poyka.ripdpi.data
+                        .TunnelStats()
             }
         }
     }

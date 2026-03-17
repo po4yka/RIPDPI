@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.ui
 
-import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class DesignSystemSourceRulesTest {
     @Test

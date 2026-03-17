@@ -20,6 +20,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,7 +49,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
+import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
+import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
@@ -74,6 +78,7 @@ fun DiagnosticsRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.selectedSection) {
         if (pagerState.currentPage != uiState.selectedSection.ordinal) {
@@ -91,9 +96,36 @@ fun DiagnosticsRoute(
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                is DiagnosticsEffect.SaveArchiveRequested -> onSaveArchive(effect.absolutePath, effect.fileName)
-                is DiagnosticsEffect.ShareArchiveRequested -> onShareArchive(effect.absolutePath, effect.fileName)
-                is DiagnosticsEffect.ShareSummaryRequested -> onShareSummary(effect.title, effect.body)
+                is DiagnosticsEffect.SaveArchiveRequested -> {
+                    onSaveArchive(effect.absolutePath, effect.fileName)
+                }
+
+                is DiagnosticsEffect.ShareArchiveRequested -> {
+                    onShareArchive(effect.absolutePath, effect.fileName)
+                }
+
+                is DiagnosticsEffect.ShareSummaryRequested -> {
+                    onShareSummary(effect.title, effect.body)
+                }
+
+                is DiagnosticsEffect.ScanStarted -> {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = effect.scanTypeLabel,
+                        tone = RipDpiSnackbarTone.Info,
+                    )
+                }
+
+                is DiagnosticsEffect.ScanCompleted -> {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = effect.summary,
+                        tone =
+                            when (effect.tone) {
+                                DiagnosticsTone.Positive -> RipDpiSnackbarTone.Default
+                                DiagnosticsTone.Negative, DiagnosticsTone.Warning -> RipDpiSnackbarTone.Warning
+                                else -> RipDpiSnackbarTone.Default
+                            },
+                    )
+                }
             }
         }
     }
@@ -108,6 +140,7 @@ fun DiagnosticsRoute(
     DiagnosticsScreen(
         uiState = uiState,
         pagerState = pagerState,
+        snackbarHostState = snackbarHostState,
         onSelectSection = viewModel::selectSection,
         onSelectProfile = viewModel::selectProfile,
         onRunRawScan = viewModel::startRawScan,
@@ -147,6 +180,7 @@ fun DiagnosticsRoute(
 fun DiagnosticsScreen(
     uiState: DiagnosticsUiState,
     pagerState: androidx.compose.foundation.pager.PagerState,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     onSelectSection: (DiagnosticsSection) -> Unit,
     onSelectProfile: (String) -> Unit,
     onRunRawScan: () -> Unit,
@@ -187,6 +221,7 @@ fun DiagnosticsScreen(
             modifier
                 .fillMaxSize()
                 .background(colors.background),
+        snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
         topBar = {
             RipDpiTopAppBar(
                 title = stringResource(R.string.diagnostics_title),
@@ -227,14 +262,16 @@ fun DiagnosticsScreen(
                             .weight(1f),
                 ) { page ->
                     when (DiagnosticsSection.entries[page]) {
-                        DiagnosticsSection.Overview ->
+                        DiagnosticsSection.Overview -> {
                             OverviewSection(
                                 uiState = uiState,
+                                onSelectSection = onSelectSection,
                                 onSelectSession = onSelectSession,
                                 onOpenHistory = onOpenHistory,
                             )
+                        }
 
-                        DiagnosticsSection.Scan ->
+                        DiagnosticsSection.Scan -> {
                             ScanSection(
                                 uiState = uiState,
                                 onSelectProfile = onSelectProfile,
@@ -246,18 +283,21 @@ fun DiagnosticsScreen(
                                 onSelectStrategyProbeCandidate = onSelectStrategyProbeCandidate,
                                 onSelectProbe = onSelectProbe,
                             )
+                        }
 
-                        DiagnosticsSection.Live ->
+                        DiagnosticsSection.Live -> {
                             LiveSection(uiState = uiState)
+                        }
 
-                        DiagnosticsSection.Approaches ->
+                        DiagnosticsSection.Approaches -> {
                             ApproachesSection(
                                 uiState = uiState,
                                 onSelectMode = onSelectApproachMode,
                                 onSelectApproach = onSelectApproach,
                             )
+                        }
 
-                        DiagnosticsSection.Share ->
+                        DiagnosticsSection.Share -> {
                             ShareSection(
                                 uiState = uiState,
                                 onShareSummary = onShareSummary,
@@ -265,6 +305,7 @@ fun DiagnosticsScreen(
                                 onSaveArchive = onSaveArchive,
                                 onSaveLogs = onSaveLogs,
                             )
+                        }
                     }
                 }
             }
@@ -313,6 +354,7 @@ private fun DiagnosticsSectionSwitcher(
 @Composable
 private fun OverviewSection(
     uiState: DiagnosticsUiState,
+    onSelectSection: (DiagnosticsSection) -> Unit,
     onSelectSession: (String) -> Unit,
     onOpenHistory: () -> Unit,
 ) {
@@ -320,11 +362,15 @@ private fun OverviewSection(
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
+        contentPadding =
+            androidx.compose.foundation.layout.PaddingValues(
+                horizontal = layout.horizontalPadding,
+                vertical = spacing.sm,
+            ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
-            DiagnosticsHealthHero(uiState = uiState)
+            DiagnosticsHealthHero(uiState = uiState, onSelectSection = onSelectSection)
         }
         uiState.overview.activeProfile?.let { profile ->
             item {
@@ -469,17 +515,27 @@ private fun HistoryCalloutCard(onOpenHistory: () -> Unit) {
 }
 
 @Composable
-private fun DiagnosticsHealthHero(uiState: DiagnosticsUiState) {
+private fun DiagnosticsHealthHero(
+    uiState: DiagnosticsUiState,
+    onSelectSection: (DiagnosticsSection) -> Unit,
+) {
     val overview = uiState.overview
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val tone = warningBannerTone(overview.health)
+    val isActiveScan = uiState.scan.activeProgress != null
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         WarningBanner(
             title = overview.headline,
             message = overview.body,
             tone = tone,
+            onClick =
+                if (isActiveScan) {
+                    { onSelectSection(DiagnosticsSection.Scan) }
+                } else {
+                    null
+                },
         )
         RipDpiCard(variant = RipDpiCardVariant.Elevated) {
             StatusIndicator(
@@ -506,7 +562,11 @@ private fun ApproachesSection(
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
+        contentPadding =
+            androidx.compose.foundation.layout.PaddingValues(
+                horizontal = layout.horizontalPadding,
+                vertical = spacing.sm,
+            ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
@@ -533,7 +593,14 @@ private fun ApproachesSection(
         items(uiState.approaches.rows, key = { it.id }) { row ->
             RipDpiCard(
                 onClick = { onSelectApproach(row.id) },
-                variant = if (row.id == uiState.approaches.focusedApproachId) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
+                variant =
+                    if (row.id ==
+                        uiState.approaches.focusedApproachId
+                    ) {
+                        RipDpiCardVariant.Elevated
+                    } else {
+                        RipDpiCardVariant.Outlined
+                    },
             ) {
                 StatusIndicator(label = row.verificationState, tone = statusTone(row.tone))
                 Text(
@@ -574,7 +641,11 @@ private fun SessionsSection(
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
+        contentPadding =
+            androidx.compose.foundation.layout.PaddingValues(
+                horizontal = layout.horizontalPadding,
+                vertical = spacing.sm,
+            ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
@@ -642,7 +713,12 @@ private fun EventsSection(
         }
     }
 
-    LaunchedEffect(uiState.events.filters.autoScroll, uiState.events.events.firstOrNull()?.id) {
+    LaunchedEffect(
+        uiState.events.filters.autoScroll,
+        uiState.events.events
+            .firstOrNull()
+            ?.id,
+    ) {
         if (
             uiState.events.filters.autoScroll &&
             uiState.events.events.isNotEmpty() &&
@@ -655,7 +731,11 @@ private fun EventsSection(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
+        contentPadding =
+            androidx.compose.foundation.layout.PaddingValues(
+                horizontal = layout.horizontalPadding,
+                vertical = spacing.sm,
+            ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
@@ -725,7 +805,11 @@ private fun ShareSection(
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
+        contentPadding =
+            androidx.compose.foundation.layout.PaddingValues(
+                horizontal = layout.horizontalPadding,
+                vertical = spacing.sm,
+            ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
@@ -763,7 +847,11 @@ private fun ShareSection(
         item {
             ShareActionCard(
                 title = stringResource(R.string.diagnostics_save_archive_title),
-                body = stringResource(R.string.diagnostics_save_archive_body, uiState.share.latestArchiveFileName ?: "latest archive"),
+                body =
+                    stringResource(
+                        R.string.diagnostics_save_archive_body,
+                        uiState.share.latestArchiveFileName ?: "latest archive",
+                    ),
                 buttonLabel = stringResource(R.string.diagnostics_save_archive_action),
                 onClick = { onSaveArchive(uiState.share.targetSessionId) },
                 iconTint = RipDpiThemeTokens.colors.info,

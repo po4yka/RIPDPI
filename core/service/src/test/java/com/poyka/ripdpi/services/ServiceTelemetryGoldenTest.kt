@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.data.NativeRuntimeEvent
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeEvent
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -108,7 +108,7 @@ class ServiceTelemetryGoldenTest {
 
     private fun scrubVolatileFields(value: JsonElement): JsonElement =
         when (value) {
-            is JsonObject ->
+            is JsonObject -> {
                 JsonObject(
                     value.mapValues { (key, element) ->
                         when (key) {
@@ -123,8 +123,11 @@ class ServiceTelemetryGoldenTest {
                         }
                     },
                 )
+            }
 
-            else -> value
+            else -> {
+                value
+            }
         }
 
     private fun proxyTelemetry(): NativeRuntimeSnapshot =

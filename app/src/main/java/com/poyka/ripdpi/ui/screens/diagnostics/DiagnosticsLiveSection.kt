@@ -2,8 +2,8 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,7 +38,11 @@ internal fun LiveSection(uiState: DiagnosticsUiState) {
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.horizontalPadding, vertical = spacing.sm),
+        contentPadding =
+            androidx.compose.foundation.layout.PaddingValues(
+                horizontal = layout.horizontalPadding,
+                vertical = spacing.sm,
+            ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
@@ -140,9 +144,10 @@ internal fun LiveHeroCard(
                 transitionSpec = {
                     androidx.compose.animation.fadeIn(
                         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                    ) togetherWith androidx.compose.animation.fadeOut(
-                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                    )
+                    ) togetherWith
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
                 },
                 label = "liveHeroHeadline",
             ) { headline ->
@@ -157,9 +162,10 @@ internal fun LiveHeroCard(
                 transitionSpec = {
                     androidx.compose.animation.fadeIn(
                         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                    ) togetherWith androidx.compose.animation.fadeOut(
-                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                    )
+                    ) togetherWith
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
                 },
                 label = "liveHeroBody",
             ) { body ->
@@ -179,9 +185,10 @@ internal fun LiveHeroCard(
                     transitionSpec = {
                         androidx.compose.animation.fadeIn(
                             animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                        ) togetherWith androidx.compose.animation.fadeOut(
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                        )
+                        ) togetherWith
+                            androidx.compose.animation.fadeOut(
+                                animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                            )
                     },
                     label = "liveHeroSignalLabel",
                 ) { signalLabel ->
@@ -196,9 +203,10 @@ internal fun LiveHeroCard(
                     transitionSpec = {
                         androidx.compose.animation.fadeIn(
                             animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                        ) togetherWith androidx.compose.animation.fadeOut(
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                        )
+                        ) togetherWith
+                            androidx.compose.animation.fadeOut(
+                                animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                            )
                     },
                     label = "liveHeroMeta",
                 ) { meta ->
@@ -281,9 +289,10 @@ internal fun LiveHighlightCard(
                 transitionSpec = {
                     androidx.compose.animation.fadeIn(
                         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                    ) togetherWith androidx.compose.animation.fadeOut(
-                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                    )
+                    ) togetherWith
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
                 },
                 label = "liveHighlightValue",
             ) { value ->

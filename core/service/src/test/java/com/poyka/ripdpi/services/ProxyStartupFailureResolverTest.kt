@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.services
 
-import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class ProxyStartupFailureResolverTest {
     @Test

@@ -37,16 +37,33 @@ internal fun FakePayloadLibraryCard(
     val status = rememberFakePayloadLibraryStatus(uiState)
     val scopeSummary =
         when {
-            uiState.enableCmdSettings -> stringResource(R.string.fake_payload_library_scope_cli)
-            !uiState.fakePayloadLibraryControlsRelevant ->
+            uiState.enableCmdSettings -> {
+                stringResource(R.string.fake_payload_library_scope_cli)
+            }
+
+            !uiState.fakePayloadLibraryControlsRelevant -> {
                 stringResource(R.string.fake_payload_library_scope_protocols_disabled)
-            uiState.httpFakeProfileActiveInStrategy && uiState.udpFakeProfileActiveInStrategy ->
+            }
+
+            uiState.httpFakeProfileActiveInStrategy && uiState.udpFakeProfileActiveInStrategy -> {
                 stringResource(R.string.fake_payload_library_scope_tcp_and_udp_live)
-            uiState.httpFakeProfileActiveInStrategy || uiState.tlsFakeProfileActiveInStrategy ->
+            }
+
+            uiState.httpFakeProfileActiveInStrategy || uiState.tlsFakeProfileActiveInStrategy -> {
                 stringResource(R.string.fake_payload_library_scope_tcp_live)
-            uiState.udpFakeProfileActiveInStrategy -> stringResource(R.string.fake_payload_library_scope_udp_live)
-            uiState.hasHostFake -> stringResource(R.string.fake_payload_library_scope_hostfake_only)
-            else -> stringResource(R.string.fake_payload_library_scope_active)
+            }
+
+            uiState.udpFakeProfileActiveInStrategy -> {
+                stringResource(R.string.fake_payload_library_scope_udp_live)
+            }
+
+            uiState.hasHostFake -> {
+                stringResource(R.string.fake_payload_library_scope_hostfake_only)
+            }
+
+            else -> {
+                stringResource(R.string.fake_payload_library_scope_active)
+            }
         }
     val badges =
         buildList {
@@ -180,38 +197,43 @@ internal fun FakePayloadProfileCard(
 @Composable
 private fun rememberFakePayloadLibraryStatus(uiState: SettingsUiState): FakePayloadLibraryStatusContent =
     when {
-        uiState.enableCmdSettings ->
+        uiState.enableCmdSettings -> {
             FakePayloadLibraryStatusContent(
                 label = stringResource(R.string.fake_payload_library_cli_title),
                 body = stringResource(R.string.fake_payload_library_cli_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        !uiState.fakePayloadLibraryControlsRelevant ->
+        !uiState.fakePayloadLibraryControlsRelevant -> {
             FakePayloadLibraryStatusContent(
                 label = stringResource(R.string.fake_payload_library_protocols_disabled_title),
                 body = stringResource(R.string.fake_payload_library_protocols_disabled_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
 
-        uiState.isServiceRunning && uiState.hasCustomFakePayloadProfiles ->
+        uiState.isServiceRunning && uiState.hasCustomFakePayloadProfiles -> {
             FakePayloadLibraryStatusContent(
                 label = stringResource(R.string.fake_payload_library_restart_title),
                 body = stringResource(R.string.fake_payload_library_restart_body),
                 tone = StatusIndicatorTone.Warning,
             )
+        }
 
-        uiState.hasCustomFakePayloadProfiles ->
+        uiState.hasCustomFakePayloadProfiles -> {
             FakePayloadLibraryStatusContent(
                 label = stringResource(R.string.fake_payload_library_custom_title),
                 body = stringResource(R.string.fake_payload_library_custom_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        else ->
+        else -> {
             FakePayloadLibraryStatusContent(
                 label = stringResource(R.string.fake_payload_library_default_title),
                 body = stringResource(R.string.fake_payload_library_default_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
     }

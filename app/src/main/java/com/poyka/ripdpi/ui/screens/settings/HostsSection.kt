@@ -233,26 +233,29 @@ internal fun HostPackCatalogStatusCard(
 @Composable
 private fun rememberHostPackCatalogStatus(hostPackCatalog: HostPackCatalogUiState): HostPackCatalogStatusContent =
     when {
-        hostPackCatalog.isRefreshing ->
+        hostPackCatalog.isRefreshing -> {
             HostPackCatalogStatusContent(
                 label = stringResource(R.string.host_pack_refresh_status_title),
                 body = stringResource(R.string.host_pack_refresh_status_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        hostPackCatalog.snapshot.source == HostPackCatalogSourceDownloaded ->
+        hostPackCatalog.snapshot.source == HostPackCatalogSourceDownloaded -> {
             HostPackCatalogStatusContent(
                 label = stringResource(R.string.host_pack_downloaded_status_title),
                 body = stringResource(R.string.host_pack_downloaded_status_body),
                 tone = StatusIndicatorTone.Active,
             )
+        }
 
-        else ->
+        else -> {
             HostPackCatalogStatusContent(
                 label = stringResource(R.string.host_pack_bundled_status_title),
                 body = stringResource(R.string.host_pack_bundled_status_body),
                 tone = StatusIndicatorTone.Idle,
             )
+        }
     }
 
 @Composable
@@ -312,7 +315,11 @@ private fun HostPackPresetCard(
         title = preset.title,
         description = description,
         modifier = modifier,
-        badgeText = stringResource(R.string.host_pack_hosts_badge, preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size),
+        badgeText =
+            stringResource(
+                R.string.host_pack_hosts_badge,
+                preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size,
+            ),
         selected = selected,
         enabled = enabled,
         onClick = onClick,
@@ -354,7 +361,10 @@ internal fun HostPackApplyDialog(
     val sourceSummary = hostPackSourceSummary(preset)
     val summary =
         if (sourceSummary.isBlank()) {
-            stringResource(R.string.host_pack_apply_summary_hosts_only, preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size)
+            stringResource(
+                R.string.host_pack_apply_summary_hosts_only,
+                preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size,
+            )
         } else {
             stringResource(
                 R.string.host_pack_apply_summary,

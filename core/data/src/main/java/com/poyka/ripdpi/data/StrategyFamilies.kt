@@ -9,9 +9,7 @@ data class StrategyLaneFamilies(
     val dnsStrategyLabel: String? = null,
 )
 
-fun AppSettings.deriveStrategyLaneFamilies(
-    activeDns: ActiveDnsSettings = activeDnsSettings(),
-): StrategyLaneFamilies =
+fun AppSettings.deriveStrategyLaneFamilies(activeDns: ActiveDnsSettings = activeDnsSettings()): StrategyLaneFamilies =
     deriveStrategyLaneFamilies(
         tcpSteps = effectiveTcpChainSteps(),
         desyncUdp = desyncUdp,
@@ -50,18 +48,34 @@ fun deriveTcpStrategyFamily(tcpSteps: List<TcpChainStepModel>): String? {
         }
     }
     return when {
-        primary.kind == TcpChainStepKind.HostFake -> "hostfake"
-        primary.kind == TcpChainStepKind.FakeSplit || primary.kind == TcpChainStepKind.FakeDisorder -> "fake_approx"
-        primary.kind == TcpChainStepKind.Split && tlsPrelude != null -> "tlsrec_split"
-        primary.kind == TcpChainStepKind.Disorder && tlsPrelude != null -> "tlsrec_disorder"
+        primary.kind == TcpChainStepKind.HostFake -> {
+            "hostfake"
+        }
+
+        primary.kind == TcpChainStepKind.FakeSplit || primary.kind == TcpChainStepKind.FakeDisorder -> {
+            "fake_approx"
+        }
+
+        primary.kind == TcpChainStepKind.Split && tlsPrelude != null -> {
+            "tlsrec_split"
+        }
+
+        primary.kind == TcpChainStepKind.Disorder && tlsPrelude != null -> {
+            "tlsrec_disorder"
+        }
+
         tlsPrelude != null &&
             (
                 primary.kind == TcpChainStepKind.Fake ||
                     primary.kind == TcpChainStepKind.Oob ||
                     primary.kind == TcpChainStepKind.Disoob
-            ) ->
+            ) -> {
             "tlsrec_fake"
-        else -> primary.kind.wireName
+        }
+
+        else -> {
+            primary.kind.wireName
+        }
     }
 }
 

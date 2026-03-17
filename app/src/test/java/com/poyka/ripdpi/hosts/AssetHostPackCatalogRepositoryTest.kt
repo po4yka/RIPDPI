@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
 import com.poyka.ripdpi.proto.GeositeCatalog
 import com.poyka.ripdpi.proto.GeositeDomain
 import com.poyka.ripdpi.proto.GeositeEntry
-import java.security.MessageDigest
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -20,6 +19,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import retrofit2.Response
+import java.security.MessageDigest
 
 @RunWith(RobolectricTestRunner::class)
 class AssetHostPackCatalogRepositoryTest {
@@ -70,7 +70,14 @@ class AssetHostPackCatalogRepositoryTest {
             assertNotNull(snapshot.lastFetchedAtEpochMillis)
             assertEquals(HostPackCatalogSourceDownloaded, reloaded.source)
             assertEquals(checksum, reloaded.verifiedChecksumSha256)
-            assertEquals(HostPackCatalogRemoteSourceUrl, reloaded.packs.first().sources.single().url)
+            assertEquals(
+                HostPackCatalogRemoteSourceUrl,
+                reloaded.packs
+                    .first()
+                    .sources
+                    .single()
+                    .url,
+            )
             assertEquals(listOf("youtube.com", "ytimg.com"), reloaded.packs.first().hosts)
         }
 

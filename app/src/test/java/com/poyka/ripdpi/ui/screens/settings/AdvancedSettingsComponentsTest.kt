@@ -127,10 +127,11 @@ class AdvancedSettingsComponentsTest {
                 AdvancedDropdownSetting(
                     title = "Desync method",
                     value = "fake",
-                    options = listOf(
-                        RipDpiDropdownOption(value = "fake", label = "Fake"),
-                        RipDpiDropdownOption(value = "split", label = "Split"),
-                    ),
+                    options =
+                        listOf(
+                            RipDpiDropdownOption(value = "fake", label = "Fake"),
+                            RipDpiDropdownOption(value = "split", label = "Split"),
+                        ),
                     setting = AdvancedOptionSetting.DesyncMethod,
                     onSelected = { _, _ -> },
                     description = "Choose method",
@@ -213,11 +214,12 @@ class AdvancedSettingsComponentsTest {
         composeRule.setContent {
             RipDpiTheme {
                 SummaryCapsuleFlow(
-                    items = listOf(
-                        "Desync" to SummaryCapsuleTone.Active,
-                        "HTTP" to SummaryCapsuleTone.Neutral,
-                        "Warning" to SummaryCapsuleTone.Warning,
-                    ),
+                    items =
+                        listOf(
+                            "Desync" to SummaryCapsuleTone.Active,
+                            "HTTP" to SummaryCapsuleTone.Neutral,
+                            "Warning" to SummaryCapsuleTone.Warning,
+                        ),
                 )
             }
         }

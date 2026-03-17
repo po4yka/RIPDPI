@@ -14,8 +14,6 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +23,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.shareIn
+import javax.inject.Inject
+import javax.inject.Singleton
 
 data class NetworkHandoverEvent(
     val previousFingerprint: NetworkFingerprint?,
@@ -64,7 +64,9 @@ class DefaultNetworkHandoverMonitor
                 clock = System::currentTimeMillis,
             ).shareIn(
                 scope = scope,
-                started = kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(stopTimeoutMillis = StopTimeoutMs),
+                started =
+                    kotlinx.coroutines.flow.SharingStarted
+                        .WhileSubscribed(stopTimeoutMillis = StopTimeoutMs),
                 replay = 0,
             )
 
@@ -114,8 +116,8 @@ internal fun observeNetworkHandoverEvents(
     captureFingerprint: () -> NetworkFingerprint?,
     debounceMs: Long,
     clock: () -> Long,
-): Flow<NetworkHandoverEvent> {
-    return flow {
+): Flow<NetworkHandoverEvent> =
+    flow {
         var previousFingerprint = captureFingerprint()
         val eventSignals =
             if (debounceMs > 0L) {
@@ -139,7 +141,6 @@ internal fun observeNetworkHandoverEvents(
             previousFingerprint = currentFingerprint
         }
     }
-}
 
 @OptIn(FlowPreview::class)
 private fun debouncedSignals(
@@ -152,7 +153,5 @@ private fun debouncedSignals(
 abstract class NetworkHandoverMonitorModule {
     @Binds
     @Singleton
-    abstract fun bindNetworkHandoverMonitor(
-        monitor: DefaultNetworkHandoverMonitor,
-    ): NetworkHandoverMonitor
+    abstract fun bindNetworkHandoverMonitor(monitor: DefaultNetworkHandoverMonitor): NetworkHandoverMonitor
 }

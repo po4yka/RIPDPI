@@ -9,10 +9,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import javax.inject.Inject
+import javax.inject.Singleton
 
 interface AppSettingsRepository {
     val settings: Flow<AppSettings>
@@ -50,9 +50,7 @@ class DefaultAppSettingsRepository
 abstract class AppSettingsRepositoryModule {
     @Binds
     @Singleton
-    abstract fun bindAppSettingsRepository(
-        repository: DefaultAppSettingsRepository,
-    ): AppSettingsRepository
+    abstract fun bindAppSettingsRepository(repository: DefaultAppSettingsRepository): AppSettingsRepository
 }
 
 @Module

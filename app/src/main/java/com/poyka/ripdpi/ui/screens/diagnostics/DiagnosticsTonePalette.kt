@@ -63,29 +63,33 @@ internal fun warningBannerTone(health: DiagnosticsHealth): WarningBannerTone =
 internal fun liveHeroPalette(health: DiagnosticsHealth): MetricPalette {
     val colors = RipDpiThemeTokens.colors
     return when (health) {
-        DiagnosticsHealth.Healthy ->
+        DiagnosticsHealth.Healthy -> {
             MetricPalette(
                 container = colors.muted,
                 content = colors.success,
             )
+        }
 
-        DiagnosticsHealth.Attention ->
+        DiagnosticsHealth.Attention -> {
             MetricPalette(
                 container = colors.warningContainer,
                 content = colors.warning,
             )
+        }
 
-        DiagnosticsHealth.Degraded ->
+        DiagnosticsHealth.Degraded -> {
             MetricPalette(
                 container = colors.destructiveContainer,
                 content = colors.destructive,
             )
+        }
 
-        DiagnosticsHealth.Idle ->
+        DiagnosticsHealth.Idle -> {
             MetricPalette(
                 container = colors.accent,
                 content = colors.foreground,
             )
+        }
     }
 }
 
@@ -93,34 +97,39 @@ internal fun liveHeroPalette(health: DiagnosticsHealth): MetricPalette {
 internal fun metricPalette(tone: DiagnosticsTone): MetricPalette {
     val colors = RipDpiThemeTokens.colors
     return when (tone) {
-        DiagnosticsTone.Positive ->
+        DiagnosticsTone.Positive -> {
             MetricPalette(
                 container = colors.muted,
                 content = colors.success,
             )
+        }
 
-        DiagnosticsTone.Warning ->
+        DiagnosticsTone.Warning -> {
             MetricPalette(
                 container = colors.warningContainer,
                 content = colors.warning,
             )
+        }
 
-        DiagnosticsTone.Negative ->
+        DiagnosticsTone.Negative -> {
             MetricPalette(
                 container = colors.destructiveContainer,
                 content = colors.destructive,
             )
+        }
 
-        DiagnosticsTone.Info ->
+        DiagnosticsTone.Info -> {
             MetricPalette(
                 container = colors.infoContainer,
                 content = colors.info,
             )
+        }
 
-        DiagnosticsTone.Neutral ->
+        DiagnosticsTone.Neutral -> {
             MetricPalette(
                 container = colors.inputBackground,
                 content = colors.foreground,
             )
+        }
     }
 }
