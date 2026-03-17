@@ -1,4 +1,6 @@
 mod dnscrypt;
+mod health;
+mod pool;
 mod resolver;
 mod transport;
 mod types;
@@ -7,6 +9,8 @@ mod types;
 mod tests;
 
 // Public API re-exports
+pub use health::{HealthRegistry, HealthScoreSnapshot};
+pub use pool::{ResolverPool, ResolverPoolBuilder};
 pub use resolver::EncryptedDnsResolver;
 pub use transport::extract_ip_answers;
 pub use types::{

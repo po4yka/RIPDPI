@@ -240,7 +240,10 @@ internal object DiagnosticsArchiveBuilder {
                     sessionContexts = payload.sessionContexts.map { it.redactPayload(json) },
                     latestPassiveSnapshot = payload.latestPassiveSnapshot?.redactPayload(json),
                     latestPassiveContext = payload.latestPassiveContext?.redactPayload(json),
-                    telemetry = payload.telemetry.map { it.copy(publicIp = if (it.publicIp != null) "redacted" else null) },
+                    telemetry =
+                        payload.telemetry.map { snapshot ->
+                            snapshot.copy(publicIp = if (snapshot.publicIp != null) "redacted" else null)
+                        },
                 )
             val reportJson =
                 json.encodeToString(DiagnosticsArchivePayload.serializer(), redactedPayload)

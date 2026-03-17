@@ -9,6 +9,7 @@
     <ID>LargeClass:NativeWrapperStateMachineTest.kt$NativeWrapperStateMachineTest</ID>
     <ID>LongMethod:NativeConfigContractSnapshotTest.kt$NativeConfigContractSnapshotTest$@Test fun proxyActivationFilterUiPayloadMatchesSnapshot()</ID>
     <ID>LongMethod:NativeConfigContractSnapshotTest.kt$NativeConfigContractSnapshotTest$@Test fun proxyCustomUiPayloadMatchesSnapshot()</ID>
+    <ID>LongMethod:NativeConfigContractSnapshotTest.kt$NativeConfigContractSnapshotTest$@Test fun proxyTlsRandRecUiPayloadMatchesSnapshot()</ID>
     <ID>LongMethod:NativeConfigContractSnapshotTest.kt$NativeConfigContractSnapshotTest$@Test fun tunnelPayloadMatchesSnapshot()</ID>
     <ID>LongMethod:NativeWrapperStateMachineTest.kt$NativeWrapperStateMachineTest$private suspend fun executeDiagnosticsCommand( command: DiagnosticsCommand, state: DiagnosticsState, bindings: FakeNetworkDiagnosticsBindings, diagnostics: NetworkDiagnostics, ): DiagnosticsCommandResult</ID>
     <ID>LongMethod:NativeWrapperStateMachineTest.kt$NativeWrapperStateMachineTest$private suspend fun executeProxyCommand( command: ProxyCommand, state: ProxyState, harness: ProxyHarness, ): ProxyState</ID>
