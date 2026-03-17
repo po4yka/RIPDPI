@@ -323,6 +323,7 @@ abstract class BuildRustNativeLibsTask
     }
 
 val rustNativeAbis = resolvedNativeAbis()
+val rustNativeCargoProfile = resolvedNativeCargoProfile()
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
 val rustNativeBuildDir = layout.buildDirectory.dir("intermediates/rust")
 
@@ -345,7 +346,7 @@ val buildRustNativeLibs =
         cargoExecutable.set(resolveRustTool("cargo"))
         rustupExecutable.set(resolveRustTool("rustup"))
         ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
-        cargoProfile.set(providers.gradleProperty("ripdpi.nativeCargoProfile"))
+        cargoProfile.set(rustNativeCargoProfile)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         artifactSpecs.set(

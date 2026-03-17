@@ -24,6 +24,19 @@ internal fun Project.isReleaseLikeBuild(): Boolean {
     }
 }
 
+internal fun Project.resolvedNativeCargoProfile(): String {
+    val defaultProfile = providers.gradleProperty("ripdpi.nativeCargoProfile").get()
+    val localDefaultProfile = providers.gradleProperty("ripdpi.localNativeCargoProfileDefault").orNull
+    val canUseLocalProfile = !isCiBuild() && !isReleaseLikeBuild()
+
+    return if (localDefaultProfile != null && canUseLocalProfile) {
+        logger.lifecycle("Using local native Cargo profile for non-release build: $localDefaultProfile")
+        localDefaultProfile
+    } else {
+        defaultProfile
+    }
+}
+
 internal fun Project.resolvedNativeAbis(): List<String> {
     val defaultAbis = parseAbiList(providers.gradleProperty("ripdpi.nativeAbis").get())
     val overrideAbis = providers.gradleProperty("ripdpi.localNativeAbis").orNull?.let(::parseAbiList).orEmpty()
