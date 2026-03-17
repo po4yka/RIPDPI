@@ -2,10 +2,17 @@ import com.android.build.api.dsl.ApplicationExtension
 
 plugins {
     id("ripdpi.android.application")
+    id("ripdpi.android.coverage")
     id("ripdpi.android.compose")
     id("ripdpi.android.hilt")
+    id("ripdpi.android.quality")
     id("ripdpi.android.roborazzi")
 }
+
+val releaseStoreFilePath = providers.environmentVariable("RIPDPI_SIGNING_STORE_FILE")
+val releaseStorePassword = providers.environmentVariable("RIPDPI_SIGNING_STORE_PASSWORD")
+val releaseKeyAlias = providers.environmentVariable("RIPDPI_SIGNING_KEY_ALIAS")
+val releaseKeyPassword = providers.environmentVariable("RIPDPI_SIGNING_KEY_PASSWORD")
 
 extensions.configure<ApplicationExtension> {
     namespace = "com.poyka.ripdpi"
@@ -19,13 +26,12 @@ extensions.configure<ApplicationExtension> {
     }
 
     signingConfigs {
-        val storeFilePath = System.getenv("RIPDPI_SIGNING_STORE_FILE")
-        if (storeFilePath != null) {
+        releaseStoreFilePath.orNull?.let { configuredStoreFile ->
             create("release") {
-                storeFile = file(storeFilePath)
-                storePassword = System.getenv("RIPDPI_SIGNING_STORE_PASSWORD")
-                keyAlias = System.getenv("RIPDPI_SIGNING_KEY_ALIAS")
-                keyPassword = System.getenv("RIPDPI_SIGNING_KEY_PASSWORD")
+                storeFile = file(configuredStoreFile)
+                storePassword = releaseStorePassword.orNull
+                keyAlias = releaseKeyAlias.orNull
+                keyPassword = releaseKeyPassword.orNull
             }
         }
     }

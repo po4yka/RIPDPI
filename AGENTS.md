@@ -50,14 +50,15 @@ Two native libraries are built from repo-owned Android adapter crates in the nat
 - Kotlin bridge for `libhev-socks5-tunnel.so`: `core/engine/src/main/java/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`
 - Supported ABIs: armeabi-v7a, arm64-v8a, x86, x86_64
 - Never edit `.so` files -- they are compiled from source
-- Use `ripdpi.localNativeAbis=arm64-v8a` only for local debug-only native iteration. CI and release always build the full ABI set.
+- Local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`.
+- Use `ripdpi.localNativeAbis=x86_64` for emulator-heavy local iteration. CI and release always build the full ABI set.
 
 ## Build Logic
 
 Convention plugins live in `build-logic/convention/` and provide shared configuration:
 - `ripdpi.android.application`, `ripdpi.android.library`, `ripdpi.android.compose`
 - `ripdpi.android.native`, `ripdpi.android.protobuf`
-- `ripdpi.android.detekt`, `ripdpi.android.ktlint`, `ripdpi.android.lint`
+- `ripdpi.android.quality`, `ripdpi.android.coverage`
 
 All dependency versions are in `gradle/libs.versions.toml`.
 
