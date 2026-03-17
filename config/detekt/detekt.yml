@@ -1,6 +1,13 @@
 build:
   maxIssues: 0
 
+diGuardrails:
+  active: true
+  InjectConstructorDefaultParameter:
+    active: true
+  HiltViewModelApplicationContext:
+    active: true
+
 complexity:
   LongParameterList:
     functionThreshold: 15
