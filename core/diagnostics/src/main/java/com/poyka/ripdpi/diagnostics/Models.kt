@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -99,6 +100,7 @@ data class ScanRequest(
     val whitelistSni: List<String> = emptyList(),
     val telegramTarget: TelegramTarget? = null,
     val strategyProbe: StrategyProbeRequest? = null,
+    val networkSnapshot: NativeNetworkSnapshot? = null,
 )
 
 @Serializable

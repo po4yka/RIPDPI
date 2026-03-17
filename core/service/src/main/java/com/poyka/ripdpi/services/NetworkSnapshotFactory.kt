@@ -2,12 +2,17 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import android.net.TrafficStats
-import com.poyka.ripdpi.data.NetworkFingerprint
-import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.NativeCellularSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeWifiSnapshot
+import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,8 +23,8 @@ class NetworkSnapshotFactory
     constructor(
         @param:ApplicationContext private val context: Context,
         private val fingerprintProvider: NetworkFingerprintProvider,
-    ) {
-        fun capture(): NativeNetworkSnapshot {
+    ) : NativeNetworkSnapshotProvider {
+        override fun capture(): NativeNetworkSnapshot {
             val fingerprint = fingerprintProvider.capture()
             val uid = context.applicationInfo.uid
             val txBytes = TrafficStats.getUidTxBytes(uid).takeIf { it >= 0 } ?: 0L
@@ -87,3 +92,11 @@ class NetworkSnapshotFactory
             }
         }
     }
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class NativeNetworkSnapshotProviderModule {
+    @Binds
+    @Singleton
+    abstract fun bindNativeNetworkSnapshotProvider(factory: NetworkSnapshotFactory): NativeNetworkSnapshotProvider
+}

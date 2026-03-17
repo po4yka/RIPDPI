@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.RememberedNetworkPolicySourceStrategyProbe
@@ -107,6 +108,7 @@ class DefaultDiagnosticsManager
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val networkMetadataProvider: NetworkMetadataProvider,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
+        private val nativeNetworkSnapshotProvider: NativeNetworkSnapshotProvider,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
@@ -209,6 +211,7 @@ class DefaultDiagnosticsManager
         ): String {
             val request = json.decodeFromString(ScanRequest.serializer(), profile.requestJson)
             val networkFingerprint = networkFingerprintProvider.capture()
+            val nativeNetworkSnapshot = nativeNetworkSnapshotProvider.capture()
             val preferredDnsPath =
                 networkFingerprint
                     ?.scopeKey()
@@ -236,6 +239,7 @@ class DefaultDiagnosticsManager
                                 } else {
                                     null
                                 },
+                            networkSnapshot = nativeNetworkSnapshot,
                         )
                     }
 
@@ -260,6 +264,7 @@ class DefaultDiagnosticsManager
                                 (request.strategyProbe ?: StrategyProbeRequest()).copy(
                                     baseProxyConfigJson = baseProxyConfigJson,
                                 ),
+                            networkSnapshot = nativeNetworkSnapshot,
                         )
                     }
                 }
