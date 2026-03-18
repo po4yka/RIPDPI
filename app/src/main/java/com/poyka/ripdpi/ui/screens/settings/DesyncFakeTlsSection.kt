@@ -39,33 +39,35 @@ internal fun FakeTlsProfileCard(
     val status = rememberFakeTlsStatus(uiState)
     val baseSummary =
         stringResource(
-            if (uiState.fakeTlsUseOriginal) {
+            if (uiState.fake.fakeTlsUseOriginal) {
                 R.string.ripdpi_fake_tls_summary_base_original
             } else {
                 R.string.ripdpi_fake_tls_summary_base_default
             },
         )
     val sniSummary =
-        if (uiState.fakeTlsSniMode == FakeTlsSniModeFixed) {
+        if (uiState.fake.fakeTlsSniMode == FakeTlsSniModeFixed) {
             stringResource(
                 R.string.ripdpi_fake_tls_summary_sni_fixed,
-                uiState.fakeSni.ifBlank { DefaultFakeSni },
+                uiState.fake.fakeSni.ifBlank { DefaultFakeSni },
             )
         } else {
             stringResource(R.string.ripdpi_fake_tls_summary_sni_randomized)
         }
     val mutationSummary =
         buildList {
-            if (uiState.fakeTlsRandomize) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_randomize))
-            if (uiState.fakeTlsDupSessionId) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_dup_sid))
-            if (uiState.fakeTlsPadEncap) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_pad_encap))
+            if (uiState.fake.fakeTlsRandomize) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_randomize))
+            if (uiState.fake.fakeTlsDupSessionId) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_dup_sid))
+            if (uiState.fake.fakeTlsPadEncap) add(stringResource(R.string.ripdpi_fake_tls_summary_mutation_pad_encap))
         }.ifEmpty {
             listOf(stringResource(R.string.ripdpi_fake_tls_summary_mutation_none))
         }.joinToString(", ")
     val sizeSummary =
         when {
-            uiState.fakeTlsSize > 0 -> stringResource(R.string.ripdpi_fake_tls_summary_size_exact, uiState.fakeTlsSize)
-            uiState.fakeTlsSize < 0 -> stringResource(R.string.ripdpi_fake_tls_summary_size_minus, -uiState.fakeTlsSize)
+            uiState.fake.fakeTlsSize > 0 ->
+                stringResource(R.string.ripdpi_fake_tls_summary_size_exact, uiState.fake.fakeTlsSize)
+            uiState.fake.fakeTlsSize < 0 ->
+                stringResource(R.string.ripdpi_fake_tls_summary_size_minus, -uiState.fake.fakeTlsSize)
             else -> stringResource(R.string.ripdpi_fake_tls_summary_size_input)
         }
     val scopeSummary =
@@ -152,7 +154,7 @@ private fun rememberFakeTlsStatus(uiState: SettingsUiState): FakeTlsStatusConten
             )
         }
 
-        !uiState.isFake && uiState.hasCustomFakeTlsProfile -> {
+        !uiState.isFake && uiState.fake.hasCustomFakeTlsProfile -> {
             FakeTlsStatusContent(
                 label = stringResource(R.string.ripdpi_fake_tls_saved_title),
                 body = stringResource(R.string.ripdpi_fake_tls_saved_body),
@@ -168,7 +170,7 @@ private fun rememberFakeTlsStatus(uiState: SettingsUiState): FakeTlsStatusConten
             )
         }
 
-        uiState.hasCustomFakeTlsProfile -> {
+        uiState.fake.hasCustomFakeTlsProfile -> {
             FakeTlsStatusContent(
                 label = stringResource(R.string.ripdpi_fake_tls_custom_title),
                 body = stringResource(R.string.ripdpi_fake_tls_custom_body),

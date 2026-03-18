@@ -62,11 +62,11 @@ private fun updateTlsPreludeProfile(
     uiState: SettingsUiState,
     key: String,
     value: String,
-    mode: String = uiState.tlsPreludeMode,
-    marker: String = uiState.tlsrecMarker,
-    fragmentCount: Int = uiState.tlsRandRecFragmentCount,
-    minFragmentSize: Int = uiState.tlsRandRecMinFragmentSize,
-    maxFragmentSize: Int = uiState.tlsRandRecMaxFragmentSize,
+    mode: String = uiState.tlsPrelude.tlsPreludeMode,
+    marker: String = uiState.tlsPrelude.tlsrecMarker,
+    fragmentCount: Int = uiState.tlsPrelude.tlsRandRecFragmentCount,
+    minFragmentSize: Int = uiState.tlsPrelude.tlsRandRecMinFragmentSize,
+    maxFragmentSize: Int = uiState.tlsPrelude.tlsRandRecMaxFragmentSize,
 ) {
     viewModel.updateSetting(
         key = key,
@@ -620,7 +620,7 @@ fun AdvancedSettingsRoute(
                 AdvancedTextSetting.AdaptiveFakeTtlMin -> {
                     value.toIntOrNull()?.let { minTtl ->
                         val normalized = minTtl.coerceIn(1, 255)
-                        val maxTtl = uiState.adaptiveFakeTtlMax.coerceAtLeast(normalized)
+                        val maxTtl = uiState.fake.adaptiveFakeTtlMax.coerceAtLeast(normalized)
                         viewModel.updateSetting(
                             key = "adaptiveFakeTtlMin",
                             value = normalized.toString(),
@@ -634,7 +634,7 @@ fun AdvancedSettingsRoute(
 
                 AdvancedTextSetting.AdaptiveFakeTtlMax -> {
                     value.toIntOrNull()?.let { maxTtl ->
-                        val minTtl = uiState.adaptiveFakeTtlMin.coerceIn(1, 255)
+                        val minTtl = uiState.fake.adaptiveFakeTtlMin.coerceIn(1, 255)
                         val normalized = maxTtl.coerceIn(minTtl, 255)
                         viewModel.updateSetting(
                             key = "adaptiveFakeTtlMax",
@@ -870,15 +870,15 @@ fun AdvancedSettingsRoute(
                             ) {
                                 setAdaptiveFakeTtlEnabled(true)
                                 setAdaptiveFakeTtlDelta(-1)
-                                setAdaptiveFakeTtlMin(uiState.adaptiveFakeTtlMin.coerceIn(1, 255))
+                                setAdaptiveFakeTtlMin(uiState.fake.adaptiveFakeTtlMin.coerceIn(1, 255))
                                 setAdaptiveFakeTtlMax(
-                                    uiState.adaptiveFakeTtlMax.coerceIn(
-                                        uiState.adaptiveFakeTtlMin.coerceIn(1, 255),
+                                    uiState.fake.adaptiveFakeTtlMax.coerceIn(
+                                        uiState.fake.adaptiveFakeTtlMin.coerceIn(1, 255),
                                         255,
                                     ),
                                 )
                                 setAdaptiveFakeTtlFallback(
-                                    uiState.fakeTtl.takeIf { it in 1..255 } ?: DefaultAdaptiveFakeTtlFallback,
+                                    uiState.fake.fakeTtl.takeIf { it in 1..255 } ?: DefaultAdaptiveFakeTtlFallback,
                                 )
                             }
                         }

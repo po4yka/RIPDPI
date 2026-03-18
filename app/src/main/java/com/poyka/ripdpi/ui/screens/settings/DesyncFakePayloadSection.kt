@@ -67,7 +67,7 @@ internal fun FakePayloadLibraryCard(
         }
     val badges =
         buildList {
-            if (uiState.hasCustomFakePayloadProfiles) {
+            if (uiState.fake.hasCustomFakePayloadProfiles) {
                 add(stringResource(R.string.fake_payload_library_badge_custom) to SummaryCapsuleTone.Active)
             } else {
                 add(stringResource(R.string.fake_payload_library_badge_default) to SummaryCapsuleTone.Neutral)
@@ -83,7 +83,7 @@ internal fun FakePayloadLibraryCard(
                         SummaryCapsuleTone.Active,
                 )
             }
-            if (uiState.quicFakeProfileActive) {
+            if (uiState.quic.quicFakeProfileActive) {
                 add(stringResource(R.string.fake_payload_library_badge_quic_separate) to SummaryCapsuleTone.Info)
             }
         }
@@ -105,15 +105,15 @@ internal fun FakePayloadLibraryCard(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             ProfileSummaryLine(
                 label = stringResource(R.string.fake_payload_library_summary_label_http),
-                value = formatHttpFakeProfileLabel(uiState.httpFakeProfile),
+                value = formatHttpFakeProfileLabel(uiState.fake.httpFakeProfile),
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.fake_payload_library_summary_label_tls),
-                value = formatTlsFakeProfileLabel(uiState.tlsFakeProfile),
+                value = formatTlsFakeProfileLabel(uiState.fake.tlsFakeProfile),
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.fake_payload_library_summary_label_udp),
-                value = formatUdpFakeProfileLabel(uiState.udpFakeProfile),
+                value = formatUdpFakeProfileLabel(uiState.fake.udpFakeProfile),
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.fake_payload_library_summary_label_scope),
@@ -213,7 +213,7 @@ private fun rememberFakePayloadLibraryStatus(uiState: SettingsUiState): FakePayl
             )
         }
 
-        uiState.isServiceRunning && uiState.hasCustomFakePayloadProfiles -> {
+        uiState.isServiceRunning && uiState.fake.hasCustomFakePayloadProfiles -> {
             FakePayloadLibraryStatusContent(
                 label = stringResource(R.string.fake_payload_library_restart_title),
                 body = stringResource(R.string.fake_payload_library_restart_body),
@@ -221,7 +221,7 @@ private fun rememberFakePayloadLibraryStatus(uiState: SettingsUiState): FakePayl
             )
         }
 
-        uiState.hasCustomFakePayloadProfiles -> {
+        uiState.fake.hasCustomFakePayloadProfiles -> {
             FakePayloadLibraryStatusContent(
                 label = stringResource(R.string.fake_payload_library_custom_title),
                 body = stringResource(R.string.fake_payload_library_custom_body),

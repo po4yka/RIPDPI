@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.DnsModeEncrypted
@@ -145,24 +146,24 @@ fun DnsSettingsRoute(
         onBack = onBack,
         onModeSelected = { mode ->
             if (mode == DnsModeEncrypted) {
-                if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh &&
-                    uiState.dnsProviderId != DnsProviderCustom
+                if (uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh &&
+                    uiState.dns.dnsProviderId != DnsProviderCustom
                 ) {
-                    viewModel.selectBuiltInDnsProvider(uiState.dnsProviderId)
+                    viewModel.selectBuiltInDnsProvider(uiState.dns.dnsProviderId)
                 } else {
                     viewModel.setEncryptedDnsProtocol(
-                        uiState.encryptedDnsProtocol.ifBlank { EncryptedDnsProtocolDoh },
+                        uiState.dns.encryptedDnsProtocol.ifBlank { EncryptedDnsProtocolDoh },
                     )
                 }
             } else {
-                viewModel.setPlainDnsServer(uiState.dnsIp)
+                viewModel.setPlainDnsServer(uiState.dns.dnsIp)
             }
         },
         onProtocolSelected = { protocol ->
             when (protocol) {
                 EncryptedDnsProtocolDoh -> {
                     val providerId =
-                        resolverOptions.firstOrNull { it.providerId == uiState.dnsProviderId }?.providerId
+                        resolverOptions.firstOrNull { it.providerId == uiState.dns.dnsProviderId }?.providerId
                             ?: DnsProviderCloudflare
                     viewModel.selectBuiltInDnsProvider(providerId)
                 }
@@ -217,40 +218,44 @@ internal fun DnsSettingsScreen(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val selectedResolver =
-        remember(uiState.dnsProviderId, uiState.encryptedDnsProtocol) {
+        remember(uiState.dns.dnsProviderId, uiState.dns.encryptedDnsProtocol) {
             resolverOptions.firstOrNull {
-                uiState.dnsMode == DnsModeEncrypted &&
-                    uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh &&
-                    it.providerId == uiState.dnsProviderId
+                uiState.dns.dnsMode == DnsModeEncrypted &&
+                    uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh &&
+                    it.providerId == uiState.dns.dnsProviderId
             }
         }
 
-    var plainDnsInput by rememberSaveable(uiState.dnsIp, uiState.dnsMode) {
-        mutableStateOf(if (uiState.dnsMode == DnsModePlainUdp) uiState.dnsIp else "")
+    var plainDnsInput by rememberSaveable(uiState.dns.dnsIp, uiState.dns.dnsMode) {
+        mutableStateOf(if (uiState.dns.dnsMode == DnsModePlainUdp) uiState.dns.dnsIp else "")
     }
-    var customDohUrl by rememberSaveable(uiState.encryptedDnsDohUrl, uiState.encryptedDnsProtocol) {
-        mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh) uiState.encryptedDnsDohUrl else "")
-    }
-    var customDotHost by rememberSaveable(uiState.encryptedDnsHost, uiState.encryptedDnsProtocol) {
-        mutableStateOf(if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot) uiState.encryptedDnsHost else "")
-    }
-    var customDnsCryptHost by rememberSaveable(uiState.encryptedDnsHost, uiState.encryptedDnsProtocol) {
+    var customDohUrl by rememberSaveable(uiState.dns.encryptedDnsDohUrl, uiState.dns.encryptedDnsProtocol) {
         mutableStateOf(
-            if (uiState.encryptedDnsProtocol ==
+            if (uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh) uiState.dns.encryptedDnsDohUrl else "",
+        )
+    }
+    var customDotHost by rememberSaveable(uiState.dns.encryptedDnsHost, uiState.dns.encryptedDnsProtocol) {
+        mutableStateOf(
+            if (uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDot) uiState.dns.encryptedDnsHost else "",
+        )
+    }
+    var customDnsCryptHost by rememberSaveable(uiState.dns.encryptedDnsHost, uiState.dns.encryptedDnsProtocol) {
+        mutableStateOf(
+            if (uiState.dns.encryptedDnsProtocol ==
                 EncryptedDnsProtocolDnsCrypt
             ) {
-                uiState.encryptedDnsHost
+                uiState.dns.encryptedDnsHost
             } else {
                 ""
             },
         )
     }
-    var portInput by rememberSaveable(uiState.encryptedDnsPort, uiState.encryptedDnsProtocol) {
+    var portInput by rememberSaveable(uiState.dns.encryptedDnsPort, uiState.dns.encryptedDnsProtocol) {
         val value =
-            if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot ||
-                uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt
+            if (uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDot ||
+                uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt
             ) {
-                uiState.encryptedDnsPort
+                uiState.dns.encryptedDnsPort
                     .takeIf { it > 0 }
                     ?.toString()
                     .orEmpty()
@@ -259,45 +264,48 @@ internal fun DnsSettingsScreen(
             }
         mutableStateOf(value)
     }
-    var tlsServerNameInput by rememberSaveable(uiState.encryptedDnsTlsServerName, uiState.encryptedDnsProtocol) {
+    var tlsServerNameInput by rememberSaveable(
+        uiState.dns.encryptedDnsTlsServerName,
+        uiState.dns.encryptedDnsProtocol,
+    ) {
         mutableStateOf(
-            if (uiState.encryptedDnsProtocol ==
+            if (uiState.dns.encryptedDnsProtocol ==
                 EncryptedDnsProtocolDot
             ) {
-                uiState.encryptedDnsTlsServerName
+                uiState.dns.encryptedDnsTlsServerName
             } else {
                 ""
             },
         )
     }
-    var bootstrapInput by rememberSaveable(uiState.encryptedDnsBootstrapIps, uiState.encryptedDnsProtocol) {
+    var bootstrapInput by rememberSaveable(uiState.dns.encryptedDnsBootstrapIps, uiState.dns.encryptedDnsProtocol) {
         mutableStateOf(
-            if (uiState.dnsMode == DnsModeEncrypted) {
-                uiState.encryptedDnsBootstrapIps.joinToString(separator = ", ")
+            if (uiState.dns.dnsMode == DnsModeEncrypted) {
+                uiState.dns.encryptedDnsBootstrapIps.joinToString(separator = ", ")
             } else {
                 ""
             },
         )
     }
     var dnscryptProviderInput by rememberSaveable(
-        uiState.encryptedDnsDnscryptProviderName,
-        uiState.encryptedDnsProtocol,
+        uiState.dns.encryptedDnsDnscryptProviderName,
+        uiState.dns.encryptedDnsProtocol,
     ) {
         mutableStateOf(
-            if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) {
-                uiState.encryptedDnsDnscryptProviderName
+            if (uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) {
+                uiState.dns.encryptedDnsDnscryptProviderName
             } else {
                 ""
             },
         )
     }
     var dnscryptPublicKeyInput by rememberSaveable(
-        uiState.encryptedDnsDnscryptPublicKey,
-        uiState.encryptedDnsProtocol,
+        uiState.dns.encryptedDnsDnscryptPublicKey,
+        uiState.dns.encryptedDnsProtocol,
     ) {
         mutableStateOf(
-            if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) {
-                uiState.encryptedDnsDnscryptPublicKey
+            if (uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt) {
+                uiState.dns.encryptedDnsDnscryptPublicKey
             } else {
                 ""
             },
@@ -309,16 +317,16 @@ internal fun DnsSettingsScreen(
     val bootstrapIpsValid = normalizedBootstrapIps.isNotEmpty() && normalizedBootstrapIps.all(::checkNotLocalIp)
 
     val plainDnsValid = trimmedPlainDns.isNotEmpty() && checkNotLocalIp(trimmedPlainDns)
-    val plainDnsDirty = uiState.dnsMode != DnsModePlainUdp || trimmedPlainDns != uiState.dnsIp
+    val plainDnsDirty = uiState.dns.dnsMode != DnsModePlainUdp || trimmedPlainDns != uiState.dns.dnsIp
 
     val trimmedDohUrl = customDohUrl.trim()
     val customDohValid = isValidHttpsUrl(trimmedDohUrl) && bootstrapIpsValid
     val customDohDirty =
-        uiState.dnsMode != DnsModeEncrypted ||
-            uiState.encryptedDnsProtocol != EncryptedDnsProtocolDoh ||
-            uiState.dnsProviderId != DnsProviderCustom ||
-            trimmedDohUrl != uiState.encryptedDnsDohUrl ||
-            normalizedBootstrapIps != uiState.encryptedDnsBootstrapIps
+        uiState.dns.dnsMode != DnsModeEncrypted ||
+            uiState.dns.encryptedDnsProtocol != EncryptedDnsProtocolDoh ||
+            uiState.dns.dnsProviderId != DnsProviderCustom ||
+            trimmedDohUrl != uiState.dns.encryptedDnsDohUrl ||
+            normalizedBootstrapIps != uiState.dns.encryptedDnsBootstrapIps
 
     val trimmedDotHost = customDotHost.trim()
     val trimmedDotTlsServerName = tlsServerNameInput.trim()
@@ -329,13 +337,13 @@ internal fun DnsSettingsScreen(
             trimmedDotTlsServerName.isNotEmpty() &&
             bootstrapIpsValid
     val customDotDirty =
-        uiState.dnsMode != DnsModeEncrypted ||
-            uiState.encryptedDnsProtocol != EncryptedDnsProtocolDot ||
-            uiState.dnsProviderId != DnsProviderCustom ||
-            trimmedDotHost != uiState.encryptedDnsHost ||
-            dotPort != uiState.encryptedDnsPort ||
-            trimmedDotTlsServerName != uiState.encryptedDnsTlsServerName ||
-            normalizedBootstrapIps != uiState.encryptedDnsBootstrapIps
+        uiState.dns.dnsMode != DnsModeEncrypted ||
+            uiState.dns.encryptedDnsProtocol != EncryptedDnsProtocolDot ||
+            uiState.dns.dnsProviderId != DnsProviderCustom ||
+            trimmedDotHost != uiState.dns.encryptedDnsHost ||
+            dotPort != uiState.dns.encryptedDnsPort ||
+            trimmedDotTlsServerName != uiState.dns.encryptedDnsTlsServerName ||
+            normalizedBootstrapIps != uiState.dns.encryptedDnsBootstrapIps
 
     val trimmedDnsCryptHost = customDnsCryptHost.trim()
     val dnscryptPort = portInput.toIntOrNull() ?: 0
@@ -349,14 +357,14 @@ internal fun DnsSettingsScreen(
             dnscryptPublicKeyValid &&
             bootstrapIpsValid
     val customDnsCryptDirty =
-        uiState.dnsMode != DnsModeEncrypted ||
-            uiState.encryptedDnsProtocol != EncryptedDnsProtocolDnsCrypt ||
-            uiState.dnsProviderId != DnsProviderCustom ||
-            trimmedDnsCryptHost != uiState.encryptedDnsHost ||
-            dnscryptPort != uiState.encryptedDnsPort ||
-            trimmedDnsCryptProvider != uiState.encryptedDnsDnscryptProviderName ||
-            trimmedDnsCryptPublicKey != uiState.encryptedDnsDnscryptPublicKey ||
-            normalizedBootstrapIps != uiState.encryptedDnsBootstrapIps
+        uiState.dns.dnsMode != DnsModeEncrypted ||
+            uiState.dns.encryptedDnsProtocol != EncryptedDnsProtocolDnsCrypt ||
+            uiState.dns.dnsProviderId != DnsProviderCustom ||
+            trimmedDnsCryptHost != uiState.dns.encryptedDnsHost ||
+            dnscryptPort != uiState.dns.encryptedDnsPort ||
+            trimmedDnsCryptProvider != uiState.dns.encryptedDnsDnscryptProviderName ||
+            trimmedDnsCryptPublicKey != uiState.dns.encryptedDnsDnscryptPublicKey ||
+            normalizedBootstrapIps != uiState.dns.encryptedDnsBootstrapIps
 
     RipDpiContentScreenScaffold(
         modifier =
@@ -393,23 +401,23 @@ internal fun DnsSettingsScreen(
                     icon = RipDpiIcons.Lock,
                     title = stringResource(R.string.dns_mode_doh),
                     body = stringResource(R.string.dns_mode_encrypted_body),
-                    selected = uiState.dnsMode == DnsModeEncrypted,
-                    badges = listOf(protocolDisplayName(uiState.encryptedDnsProtocol)),
+                    selected = uiState.dns.dnsMode == DnsModeEncrypted,
+                    badges = listOf(protocolDisplayName(uiState.dns.encryptedDnsProtocol)),
                     onClick = { onModeSelected(DnsModeEncrypted) },
                 )
                 DnsOptionCard(
                     icon = RipDpiIcons.Dns,
                     title = stringResource(R.string.dns_mode_plain),
                     body = stringResource(R.string.dns_mode_plain_body),
-                    selected = uiState.dnsMode == DnsModePlainUdp,
-                    badges = listOf(uiState.dnsIp),
+                    selected = uiState.dns.dnsMode == DnsModePlainUdp,
+                    badges = listOf(uiState.dns.dnsIp),
                     onClick = { onModeSelected(DnsModePlainUdp) },
                 )
             }
         }
 
         AnimatedVisibility(
-            visible = uiState.dnsMode == DnsModeEncrypted,
+            visible = uiState.dns.dnsMode == DnsModeEncrypted,
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
@@ -425,7 +433,7 @@ internal fun DnsSettingsScreen(
                         icon = RipDpiIcons.Lock,
                         title = stringResource(R.string.dns_protocol_doh),
                         body = stringResource(R.string.dns_protocol_doh_body),
-                        selected = uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh,
+                        selected = uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh,
                         badges = listOf(stringResource(R.string.dns_protocol_builtin_and_custom)),
                         onClick = { onProtocolSelected(EncryptedDnsProtocolDoh) },
                     )
@@ -433,7 +441,7 @@ internal fun DnsSettingsScreen(
                         icon = RipDpiIcons.Lock,
                         title = stringResource(R.string.dns_protocol_dot),
                         body = stringResource(R.string.dns_protocol_dot_body),
-                        selected = uiState.encryptedDnsProtocol == EncryptedDnsProtocolDot,
+                        selected = uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDot,
                         badges = listOf(stringResource(R.string.dns_protocol_custom_only)),
                         onClick = { onProtocolSelected(EncryptedDnsProtocolDot) },
                     )
@@ -441,7 +449,7 @@ internal fun DnsSettingsScreen(
                         icon = RipDpiIcons.Vpn,
                         title = stringResource(R.string.dns_protocol_dnscrypt),
                         body = stringResource(R.string.dns_protocol_dnscrypt_body),
-                        selected = uiState.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt,
+                        selected = uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDnsCrypt,
                         badges = listOf(stringResource(R.string.dns_protocol_custom_only)),
                         onClick = { onProtocolSelected(EncryptedDnsProtocolDnsCrypt) },
                     )
@@ -450,7 +458,8 @@ internal fun DnsSettingsScreen(
         }
 
         AnimatedVisibility(
-            visible = uiState.dnsMode == DnsModeEncrypted && uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh,
+            visible = uiState.dns.dnsMode == DnsModeEncrypted &&
+                uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh,
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
@@ -465,7 +474,7 @@ internal fun DnsSettingsScreen(
                     resolverOptions.forEach { resolver ->
                         DnsResolverCard(
                             resolver = resolver,
-                            selected = resolver.providerId == uiState.dnsProviderId,
+                            selected = resolver.providerId == uiState.dns.dnsProviderId,
                             onClick = { onResolverSelected(resolver) },
                         )
                     }
@@ -481,7 +490,7 @@ internal fun DnsSettingsScreen(
                 color = colors.mutedForeground,
             )
             RipDpiCard(modifier = Modifier.animateContentSize()) {
-                when (uiState.dnsMode) {
+                when (uiState.dns.dnsMode) {
                     DnsModePlainUdp -> {
                         Text(
                             text = stringResource(R.string.dns_custom_title),
@@ -533,8 +542,8 @@ internal fun DnsSettingsScreen(
                     }
 
                     DnsModeEncrypted -> {
-                        if (uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh &&
-                            uiState.dnsProviderId != DnsProviderCustom
+                        if (uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh &&
+                            uiState.dns.dnsProviderId != DnsProviderCustom
                         ) {
                             Text(
                                 text = stringResource(R.string.dns_custom_switch_hint),
@@ -616,33 +625,33 @@ private fun DnsActiveConfigurationCard(
     val type = RipDpiThemeTokens.type
     val title =
         selectedResolver?.let { stringResource(it.titleRes) }
-            ?: if (uiState.dnsMode == DnsModeEncrypted) {
+            ?: if (uiState.dns.dnsMode == DnsModeEncrypted) {
                 stringResource(R.string.dns_custom_title)
             } else {
                 stringResource(R.string.dns_mode_plain)
             }
     val endpointSummary =
         remember(
-            uiState.dnsMode,
-            uiState.encryptedDnsProtocol,
-            uiState.encryptedDnsDohUrl,
-            uiState.encryptedDnsHost,
-            uiState.encryptedDnsPort,
-            uiState.dnsIp,
+            uiState.dns.dnsMode,
+            uiState.dns.encryptedDnsProtocol,
+            uiState.dns.encryptedDnsDohUrl,
+            uiState.dns.encryptedDnsHost,
+            uiState.dns.encryptedDnsPort,
+            uiState.dns.dnsIp,
         ) {
             activeEndpointSummary(uiState)
         }
     val bootstrapSummary =
-        remember(uiState.dnsMode, uiState.encryptedDnsBootstrapIps) {
-            if (uiState.dnsMode == DnsModeEncrypted) {
-                formatBootstrapPreview(uiState.encryptedDnsBootstrapIps)
+        remember(uiState.dns.dnsMode, uiState.dns.encryptedDnsBootstrapIps) {
+            if (uiState.dns.dnsMode == DnsModeEncrypted) {
+                formatBootstrapPreview(uiState.dns.encryptedDnsBootstrapIps)
             } else {
                 ""
             }
         }
 
     RipDpiCard(
-        variant = if (uiState.dnsMode == DnsModeEncrypted) RipDpiCardVariant.Elevated else RipDpiCardVariant.Tonal,
+        variant = if (uiState.dns.dnsMode == DnsModeEncrypted) RipDpiCardVariant.Elevated else RipDpiCardVariant.Tonal,
         modifier = Modifier.animateContentSize(),
     ) {
         Text(
@@ -660,16 +669,20 @@ private fun DnsActiveConfigurationCard(
                     Modifier
                         .size(40.dp)
                         .background(
-                            if (uiState.dnsMode == DnsModeEncrypted) colors.infoContainer else colors.inputBackground,
+                            if (uiState.dns.dnsMode == DnsModeEncrypted) {
+                                colors.infoContainer
+                            } else {
+                                colors.inputBackground
+                            },
                             RipDpiThemeTokens.shapes.full,
                         ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = if (uiState.dnsMode == DnsModeEncrypted) RipDpiIcons.Lock else RipDpiIcons.Dns,
+                    imageVector = if (uiState.dns.dnsMode == DnsModeEncrypted) RipDpiIcons.Lock else RipDpiIcons.Dns,
                     contentDescription = null,
                     tint =
-                        if (uiState.dnsMode == DnsModeEncrypted) {
+                        if (uiState.dns.dnsMode == DnsModeEncrypted) {
                             colors.infoContainerForeground
                         } else {
                             colors.foreground
@@ -687,7 +700,7 @@ private fun DnsActiveConfigurationCard(
                     color = colors.foreground,
                 )
                 Text(
-                    text = uiState.dnsSummary,
+                    text = uiState.dns.dnsSummary,
                     style = type.body,
                     color = colors.mutedForeground,
                 )
@@ -699,7 +712,7 @@ private fun DnsActiveConfigurationCard(
         ) {
             DnsBadge(
                 text =
-                    if (uiState.dnsMode ==
+                    if (uiState.dns.dnsMode ==
                         DnsModeEncrypted
                     ) {
                         stringResource(R.string.dns_mode_doh)
@@ -709,12 +722,12 @@ private fun DnsActiveConfigurationCard(
                         )
                     },
             )
-            if (uiState.dnsMode == DnsModeEncrypted) {
-                DnsBadge(text = protocolDisplayName(uiState.encryptedDnsProtocol))
+            if (uiState.dns.dnsMode == DnsModeEncrypted) {
+                DnsBadge(text = protocolDisplayName(uiState.dns.encryptedDnsProtocol))
             }
             DnsBadge(
                 text =
-                    if (selectedResolver != null || uiState.dnsMode == DnsModePlainUdp) {
+                    if (selectedResolver != null || uiState.dns.dnsMode == DnsModePlainUdp) {
                         stringResource(R.string.dns_selected_badge)
                     } else {
                         stringResource(R.string.dns_resolver_custom_active)
@@ -729,19 +742,19 @@ private fun DnsActiveConfigurationCard(
         DnsDetailRow(
             label = stringResource(R.string.dns_active_detail_bootstrap),
             value =
-                if (uiState.dnsMode == DnsModeEncrypted) {
+                if (uiState.dns.dnsMode == DnsModeEncrypted) {
                     bootstrapSummary
                 } else {
                     stringResource(R.string.dns_active_bootstrap_not_required)
                 },
-            monospace = uiState.dnsMode == DnsModeEncrypted,
+            monospace = uiState.dns.dnsMode == DnsModeEncrypted,
         )
         DnsDetailRow(
             label = stringResource(R.string.dns_active_detail_route),
             value =
                 when {
                     !uiState.isVpn -> stringResource(R.string.dns_active_route_saved)
-                    uiState.dnsMode == DnsModeEncrypted -> stringResource(R.string.dns_active_route_encrypted_vpn)
+                    uiState.dns.dnsMode == DnsModeEncrypted -> stringResource(R.string.dns_active_route_encrypted_vpn)
                     else -> stringResource(R.string.dns_active_route_plain_vpn)
                 },
             monospace = false,
@@ -905,7 +918,7 @@ private fun CustomEncryptedDnsSection(
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    when (uiState.encryptedDnsProtocol) {
+    when (uiState.dns.encryptedDnsProtocol) {
         EncryptedDnsProtocolDot -> {
             Text(
                 text = stringResource(R.string.dns_custom_dot_title),
@@ -1102,7 +1115,7 @@ private fun CustomEncryptedDnsSection(
                 enabled = customDohValid && customDohDirty,
                 modifier = Modifier.testTag("dns-custom-save"),
                 variant =
-                    if (uiState.dnsProviderId == DnsProviderCustom) {
+                    if (uiState.dns.dnsProviderId == DnsProviderCustom) {
                         RipDpiButtonVariant.Primary
                     } else {
                         RipDpiButtonVariant.Outline
@@ -1246,18 +1259,18 @@ private fun parseBootstrapIps(value: String): List<String> = normalizeDnsBootstr
 
 private fun activeEndpointSummary(uiState: SettingsUiState): String =
     when {
-        uiState.dnsMode != DnsModeEncrypted -> {
-            uiState.dnsIp
+        uiState.dns.dnsMode != DnsModeEncrypted -> {
+            uiState.dns.dnsIp
         }
 
-        uiState.encryptedDnsProtocol == EncryptedDnsProtocolDoh -> {
-            uiState.encryptedDnsDohUrl.ifBlank {
-                "${uiState.encryptedDnsHost}:${uiState.encryptedDnsPort}"
+        uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh -> {
+            uiState.dns.encryptedDnsDohUrl.ifBlank {
+                "${uiState.dns.encryptedDnsHost}:${uiState.dns.encryptedDnsPort}"
             }
         }
 
         else -> {
-            "${uiState.encryptedDnsHost}:${uiState.encryptedDnsPort}"
+            "${uiState.dns.encryptedDnsHost}:${uiState.dns.encryptedDnsPort}"
         }
     }
 
@@ -1282,15 +1295,17 @@ private fun DnsSettingsEncryptedPreview() {
             uiState =
                 SettingsUiState(
                     ripdpiMode = Mode.VPN.preferenceValue,
-                    dnsMode = DnsModeEncrypted,
-                    dnsProviderId = DnsProviderCloudflare,
-                    dnsSummary = "Encrypted DNS · Cloudflare (DoH)",
-                    encryptedDnsProtocol = EncryptedDnsProtocolDoh,
-                    encryptedDnsHost = "cloudflare-dns.com",
-                    encryptedDnsPort = 443,
-                    encryptedDnsTlsServerName = "cloudflare-dns.com",
-                    encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
-                    encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
+                    dns = DnsUiState(
+                        dnsMode = DnsModeEncrypted,
+                        dnsProviderId = DnsProviderCloudflare,
+                        dnsSummary = "Encrypted DNS · Cloudflare (DoH)",
+                        encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                        encryptedDnsHost = "cloudflare-dns.com",
+                        encryptedDnsPort = 443,
+                        encryptedDnsTlsServerName = "cloudflare-dns.com",
+                        encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                        encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
+                    ),
                     isVpn = true,
                 ),
             onBack = {},
@@ -1314,10 +1329,12 @@ private fun DnsSettingsPlainPreview() {
             uiState =
                 SettingsUiState(
                     ripdpiMode = Mode.VPN.preferenceValue,
-                    dnsMode = DnsModePlainUdp,
-                    dnsProviderId = DnsProviderCustom,
-                    dnsIp = "9.9.9.9",
-                    dnsSummary = "Plain DNS · 9.9.9.9",
+                    dns = DnsUiState(
+                        dnsMode = DnsModePlainUdp,
+                        dnsProviderId = DnsProviderCustom,
+                        dnsIp = "9.9.9.9",
+                        dnsSummary = "Plain DNS · 9.9.9.9",
+                    ),
                     isVpn = true,
                 ),
             onBack = {},

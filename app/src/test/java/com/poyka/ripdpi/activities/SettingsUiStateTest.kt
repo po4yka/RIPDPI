@@ -50,9 +50,9 @@ class SettingsUiStateTest {
         assertTrue(state.isVpn)
         assertFalse(state.useCmdSettings)
         assertEquals("disorder", state.desyncMethod)
-        assertFalse(state.hostAutolearnEnabled)
-        assertEquals(DefaultHostAutolearnPenaltyTtlHours, state.hostAutolearnPenaltyTtlHours)
-        assertEquals(DefaultHostAutolearnMaxHosts, state.hostAutolearnMaxHosts)
+        assertFalse(state.autolearn.hostAutolearnEnabled)
+        assertEquals(DefaultHostAutolearnPenaltyTtlHours, state.autolearn.hostAutolearnPenaltyTtlHours)
+        assertEquals(DefaultHostAutolearnMaxHosts, state.autolearn.hostAutolearnMaxHosts)
         assertTrue(state.desyncEnabled)
         assertFalse(state.isFake)
         assertFalse(state.usesFakeTransport)
@@ -65,12 +65,12 @@ class SettingsUiStateTest {
         assertTrue(state.fakeApproximationControlsRelevant)
         assertTrue(state.showFakeApproximationProfile)
         assertFalse(state.isOob)
-        assertEquals(FakeTlsSniModeFixed, state.fakeTlsSniMode)
-        assertEquals(0, state.fakeTlsSize)
-        assertEquals(FakePayloadProfileCompatDefault, state.httpFakeProfile)
-        assertEquals(FakePayloadProfileCompatDefault, state.tlsFakeProfile)
-        assertEquals(FakePayloadProfileCompatDefault, state.udpFakeProfile)
-        assertFalse(state.hasCustomFakePayloadProfiles)
+        assertEquals(FakeTlsSniModeFixed, state.fake.fakeTlsSniMode)
+        assertEquals(0, state.fake.fakeTlsSize)
+        assertEquals(FakePayloadProfileCompatDefault, state.fake.httpFakeProfile)
+        assertEquals(FakePayloadProfileCompatDefault, state.fake.tlsFakeProfile)
+        assertEquals(FakePayloadProfileCompatDefault, state.fake.udpFakeProfile)
+        assertFalse(state.fake.hasCustomFakePayloadProfiles)
         assertFalse(state.canResetFakePayloadLibrary)
         assertFalse(state.httpFakeProfileActiveInStrategy)
         assertFalse(state.tlsFakeProfileActiveInStrategy)
@@ -78,48 +78,48 @@ class SettingsUiStateTest {
         assertTrue(state.fakePayloadLibraryControlsRelevant)
         assertTrue(state.showFakePayloadLibrary)
         assertFalse(state.fakeTlsControlsRelevant)
-        assertFalse(state.hasCustomFakeTlsProfile)
+        assertFalse(state.fake.hasCustomFakeTlsProfile)
         assertFalse(state.canResetFakeTlsProfile)
-        assertFalse(state.adaptiveFakeTtlEnabled)
-        assertEquals(DefaultAdaptiveFakeTtlDelta, state.adaptiveFakeTtlDelta)
-        assertEquals(DefaultAdaptiveFakeTtlMin, state.adaptiveFakeTtlMin)
-        assertEquals(DefaultAdaptiveFakeTtlMax, state.adaptiveFakeTtlMax)
-        assertEquals(DefaultAdaptiveFakeTtlFallback, state.adaptiveFakeTtlFallback)
-        assertEquals(AdaptiveFakeTtlModeFixed, state.adaptiveFakeTtlMode)
-        assertFalse(state.hasAdaptiveFakeTtl)
-        assertFalse(state.hasCustomAdaptiveFakeTtl)
+        assertFalse(state.fake.adaptiveFakeTtlEnabled)
+        assertEquals(DefaultAdaptiveFakeTtlDelta, state.fake.adaptiveFakeTtlDelta)
+        assertEquals(DefaultAdaptiveFakeTtlMin, state.fake.adaptiveFakeTtlMin)
+        assertEquals(DefaultAdaptiveFakeTtlMax, state.fake.adaptiveFakeTtlMax)
+        assertEquals(DefaultAdaptiveFakeTtlFallback, state.fake.adaptiveFakeTtlFallback)
+        assertEquals(AdaptiveFakeTtlModeFixed, state.fake.adaptiveFakeTtlMode)
+        assertFalse(state.fake.hasAdaptiveFakeTtl)
+        assertFalse(state.fake.hasCustomAdaptiveFakeTtl)
         assertFalse(state.showAdaptiveFakeTtlProfile)
         assertFalse(state.canResetAdaptiveFakeTtlProfile)
         assertTrue(state.desyncHttpEnabled)
         assertTrue(state.desyncHttpsEnabled)
         assertFalse(state.desyncUdpEnabled)
-        assertFalse(state.httpMethodEol)
-        assertFalse(state.httpUnixEol)
-        assertFalse(state.hasSafeHttpParserTweaks)
-        assertFalse(state.hasAggressiveHttpParserEvasions)
-        assertFalse(state.hasCustomHttpParserEvasions)
+        assertFalse(state.httpParser.httpMethodEol)
+        assertFalse(state.httpParser.httpUnixEol)
+        assertFalse(state.httpParser.hasSafeHttpParserTweaks)
+        assertFalse(state.httpParser.hasAggressiveHttpParserEvasions)
+        assertFalse(state.httpParser.hasCustomHttpParserEvasions)
         assertFalse(state.canResetHttpParserEvasions)
         assertTrue(state.httpParserControlsRelevant)
         assertTrue(state.showHttpParserProfile)
-        assertEquals(QuicFakeProfileDisabled, state.quicFakeProfile)
-        assertEquals("", state.quicFakeHost)
-        assertFalse(state.quicFakeProfileActive)
+        assertEquals(QuicFakeProfileDisabled, state.quic.quicFakeProfile)
+        assertEquals("", state.quic.quicFakeHost)
+        assertFalse(state.quic.quicFakeProfileActive)
         assertFalse(state.hasUdpFakeBurst)
         assertFalse(state.quicFakeControlsRelevant)
-        assertFalse(state.showQuicFakeHostOverride)
-        assertFalse(state.quicFakeUsesCustomHost)
-        assertEquals("", state.quicFakeEffectiveHost)
+        assertFalse(state.quic.showQuicFakeHostOverride)
+        assertFalse(state.quic.quicFakeUsesCustomHost)
+        assertEquals("", state.quic.quicFakeEffectiveHost)
         assertFalse(state.showQuicFakeProfile)
         assertFalse(state.tlsRecEnabled)
-        assertEquals("disabled", state.tlsPreludeMode)
-        assertEquals(0, state.tlsPreludeStepCount)
-        assertEquals(DefaultTlsRandRecFragmentCount, state.tlsRandRecFragmentCount)
-        assertEquals(DefaultTlsRandRecMinFragmentSize, state.tlsRandRecMinFragmentSize)
-        assertEquals(DefaultTlsRandRecMaxFragmentSize, state.tlsRandRecMaxFragmentSize)
+        assertEquals("disabled", state.tlsPrelude.tlsPreludeMode)
+        assertEquals(0, state.tlsPrelude.tlsPreludeStepCount)
+        assertEquals(DefaultTlsRandRecFragmentCount, state.tlsPrelude.tlsRandRecFragmentCount)
+        assertEquals(DefaultTlsRandRecMinFragmentSize, state.tlsPrelude.tlsRandRecMinFragmentSize)
+        assertEquals(DefaultTlsRandRecMaxFragmentSize, state.tlsPrelude.tlsRandRecMaxFragmentSize)
         assertTrue(state.tlsPreludeControlsRelevant)
         assertTrue(state.showTlsPreludeProfile)
-        assertFalse(state.tlsPreludeUsesRandomRecords)
-        assertFalse(state.hasStackedTlsPreludeSteps)
+        assertFalse(state.tlsPrelude.tlsPreludeUsesRandomRecords)
+        assertFalse(state.tlsPrelude.hasStackedTlsPreludeSteps)
         assertTrue(state.showActivationWindowProfile)
         assertFalse(state.canResetActivationWindow)
         assertFalse(state.hasStepActivationFilters)
@@ -184,16 +184,16 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertTrue(state.hostMixedCase)
-        assertTrue(state.domainMixedCase)
-        assertTrue(state.hostRemoveSpaces)
-        assertTrue(state.httpMethodEol)
-        assertTrue(state.httpUnixEol)
-        assertTrue(state.hasSafeHttpParserTweaks)
-        assertTrue(state.hasAggressiveHttpParserEvasions)
-        assertTrue(state.hasCustomHttpParserEvasions)
-        assertEquals(3, state.httpParserSafeCount)
-        assertEquals(2, state.httpParserAggressiveCount)
+        assertTrue(state.httpParser.hostMixedCase)
+        assertTrue(state.httpParser.domainMixedCase)
+        assertTrue(state.httpParser.hostRemoveSpaces)
+        assertTrue(state.httpParser.httpMethodEol)
+        assertTrue(state.httpParser.httpUnixEol)
+        assertTrue(state.httpParser.hasSafeHttpParserTweaks)
+        assertTrue(state.httpParser.hasAggressiveHttpParserEvasions)
+        assertTrue(state.httpParser.hasCustomHttpParserEvasions)
+        assertEquals(3, state.httpParser.httpParserSafeCount)
+        assertEquals(2, state.httpParser.httpParserAggressiveCount)
         assertTrue(state.canResetHttpParserEvasions)
     }
 
@@ -212,7 +212,7 @@ class SettingsUiStateTest {
 
         assertTrue(state.enableCmdSettings)
         assertFalse(state.httpParserControlsRelevant)
-        assertTrue(state.hasCustomHttpParserEvasions)
+        assertTrue(state.httpParser.hasCustomHttpParserEvasions)
         assertTrue(state.showHttpParserProfile)
         assertFalse(state.canResetHttpParserEvasions)
     }
@@ -231,7 +231,7 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertFalse(state.httpParserControlsRelevant)
-        assertTrue(state.hasCustomHttpParserEvasions)
+        assertTrue(state.httpParser.hasCustomHttpParserEvasions)
         assertTrue(state.showHttpParserProfile)
     }
 
@@ -654,7 +654,7 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertTrue(state.hasCustomFakePayloadProfiles)
+        assertTrue(state.fake.hasCustomFakePayloadProfiles)
         assertTrue(state.canResetFakePayloadLibrary)
     }
 
@@ -675,9 +675,9 @@ class SettingsUiStateTest {
 
         assertTrue(state.fakeTtlControlsRelevant)
         assertTrue(state.showAdaptiveFakeTtlProfile)
-        assertEquals(AdaptiveFakeTtlModeAdaptive, state.adaptiveFakeTtlMode)
-        assertTrue(state.hasAdaptiveFakeTtl)
-        assertFalse(state.hasCustomAdaptiveFakeTtl)
+        assertEquals(AdaptiveFakeTtlModeAdaptive, state.fake.adaptiveFakeTtlMode)
+        assertTrue(state.fake.hasAdaptiveFakeTtl)
+        assertFalse(state.fake.hasCustomAdaptiveFakeTtl)
         assertTrue(state.canResetAdaptiveFakeTtlProfile)
     }
 
@@ -776,9 +776,9 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertEquals(AdaptiveFakeTtlModeCustom, state.adaptiveFakeTtlMode)
-        assertTrue(state.hasAdaptiveFakeTtl)
-        assertTrue(state.hasCustomAdaptiveFakeTtl)
+        assertEquals(AdaptiveFakeTtlModeCustom, state.fake.adaptiveFakeTtlMode)
+        assertTrue(state.fake.hasAdaptiveFakeTtl)
+        assertTrue(state.fake.hasCustomAdaptiveFakeTtl)
         assertTrue(state.showAdaptiveFakeTtlProfile)
         assertTrue(state.canResetAdaptiveFakeTtlProfile)
     }
@@ -797,7 +797,7 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertFalse(state.fakeTtlControlsRelevant)
-        assertTrue(state.hasAdaptiveFakeTtl)
+        assertTrue(state.fake.hasAdaptiveFakeTtl)
         assertTrue(state.showAdaptiveFakeTtlProfile)
         assertTrue(state.canResetAdaptiveFakeTtlProfile)
     }
@@ -817,7 +817,7 @@ class SettingsUiStateTest {
 
         assertTrue(state.enableCmdSettings)
         assertTrue(state.showAdaptiveFakeTtlProfile)
-        assertEquals(AdaptiveFakeTtlModeCustom, state.adaptiveFakeTtlMode)
+        assertEquals(AdaptiveFakeTtlModeCustom, state.fake.adaptiveFakeTtlMode)
         assertFalse(state.canResetAdaptiveFakeTtlProfile)
     }
 
@@ -838,7 +838,7 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertTrue(state.enableCmdSettings)
-        assertTrue(state.hasCustomFakePayloadProfiles)
+        assertTrue(state.fake.hasCustomFakePayloadProfiles)
         assertTrue(state.showFakePayloadLibrary)
         assertFalse(state.canResetFakePayloadLibrary)
         assertFalse(state.httpFakeProfileActiveInStrategy)
@@ -1005,13 +1005,13 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertTrue(state.tlsRecEnabled)
-        assertEquals("sniext+4", state.tlsrecMarker)
-        assertEquals(TcpChainStepKind.TlsRandRec.wireName, state.tlsPreludeMode)
-        assertEquals(1, state.tlsPreludeStepCount)
-        assertEquals(5, state.tlsRandRecFragmentCount)
-        assertEquals(24, state.tlsRandRecMinFragmentSize)
-        assertEquals(48, state.tlsRandRecMaxFragmentSize)
-        assertTrue(state.tlsPreludeUsesRandomRecords)
+        assertEquals("sniext+4", state.tlsPrelude.tlsrecMarker)
+        assertEquals(TcpChainStepKind.TlsRandRec.wireName, state.tlsPrelude.tlsPreludeMode)
+        assertEquals(1, state.tlsPrelude.tlsPreludeStepCount)
+        assertEquals(5, state.tlsPrelude.tlsRandRecFragmentCount)
+        assertEquals(24, state.tlsPrelude.tlsRandRecMinFragmentSize)
+        assertEquals(48, state.tlsPrelude.tlsRandRecMaxFragmentSize)
+        assertTrue(state.tlsPrelude.tlsPreludeUsesRandomRecords)
     }
 
     @Test
@@ -1038,9 +1038,9 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertEquals(TcpChainStepKind.TlsRec.wireName, state.tlsPreludeMode)
-        assertEquals(2, state.tlsPreludeStepCount)
-        assertTrue(state.hasStackedTlsPreludeSteps)
+        assertEquals(TcpChainStepKind.TlsRec.wireName, state.tlsPrelude.tlsPreludeMode)
+        assertEquals(2, state.tlsPrelude.tlsPreludeStepCount)
+        assertTrue(state.tlsPrelude.hasStackedTlsPreludeSteps)
     }
 
     @Test
@@ -1130,9 +1130,9 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertTrue(state.hostAutolearnEnabled)
-        assertEquals(DefaultHostAutolearnPenaltyTtlHours, state.hostAutolearnPenaltyTtlHours)
-        assertEquals(DefaultHostAutolearnMaxHosts, state.hostAutolearnMaxHosts)
+        assertTrue(state.autolearn.hostAutolearnEnabled)
+        assertEquals(DefaultHostAutolearnPenaltyTtlHours, state.autolearn.hostAutolearnPenaltyTtlHours)
+        assertEquals(DefaultHostAutolearnMaxHosts, state.autolearn.hostAutolearnMaxHosts)
     }
 
     @Test
@@ -1154,13 +1154,13 @@ class SettingsUiStateTest {
             )
 
         assertTrue(state.isServiceRunning)
-        assertTrue(state.hostAutolearnRuntimeEnabled)
-        assertTrue(state.hostAutolearnStorePresent)
-        assertEquals(7, state.hostAutolearnLearnedHostCount)
-        assertEquals(2, state.hostAutolearnPenalizedHostCount)
-        assertEquals("example.org", state.hostAutolearnLastHost)
-        assertEquals(3, state.hostAutolearnLastGroup)
-        assertEquals("host_promoted", state.hostAutolearnLastAction)
+        assertTrue(state.autolearn.hostAutolearnRuntimeEnabled)
+        assertTrue(state.autolearn.hostAutolearnStorePresent)
+        assertEquals(7, state.autolearn.hostAutolearnLearnedHostCount)
+        assertEquals(2, state.autolearn.hostAutolearnPenalizedHostCount)
+        assertEquals("example.org", state.autolearn.hostAutolearnLastHost)
+        assertEquals(3, state.autolearn.hostAutolearnLastGroup)
+        assertEquals("host_promoted", state.autolearn.hostAutolearnLastAction)
     }
 
     @Test
@@ -1181,13 +1181,13 @@ class SettingsUiStateTest {
 
         assertTrue(state.isFake)
         assertTrue(state.fakeTlsControlsRelevant)
-        assertTrue(state.hasCustomFakeTlsProfile)
-        assertEquals(FakeTlsSniModeRandomized, state.fakeTlsSniMode)
-        assertEquals(-24, state.fakeTlsSize)
-        assertTrue(state.fakeTlsUseOriginal)
-        assertTrue(state.fakeTlsRandomize)
-        assertTrue(state.fakeTlsDupSessionId)
-        assertTrue(state.fakeTlsPadEncap)
+        assertTrue(state.fake.hasCustomFakeTlsProfile)
+        assertEquals(FakeTlsSniModeRandomized, state.fake.fakeTlsSniMode)
+        assertEquals(-24, state.fake.fakeTlsSize)
+        assertTrue(state.fake.fakeTlsUseOriginal)
+        assertTrue(state.fake.fakeTlsRandomize)
+        assertTrue(state.fake.fakeTlsDupSessionId)
+        assertTrue(state.fake.fakeTlsPadEncap)
         assertTrue(state.canResetFakeTlsProfile)
     }
 
@@ -1209,13 +1209,13 @@ class SettingsUiStateTest {
         assertTrue(state.desyncUdpEnabled)
         assertTrue(state.quicFakeControlsRelevant)
         assertTrue(state.hasUdpFakeBurst)
-        assertTrue(state.quicFakeProfileActive)
+        assertTrue(state.quic.quicFakeProfileActive)
         assertTrue(state.showQuicFakeProfile)
-        assertTrue(state.showQuicFakeHostOverride)
-        assertTrue(state.quicFakeUsesCustomHost)
-        assertEquals("video.example.test", state.quicFakeEffectiveHost)
-        assertEquals(QuicFakeProfileRealisticInitial, state.quicFakeProfile)
-        assertEquals("video.example.test", state.quicFakeHost)
+        assertTrue(state.quic.showQuicFakeHostOverride)
+        assertTrue(state.quic.quicFakeUsesCustomHost)
+        assertEquals("video.example.test", state.quic.quicFakeEffectiveHost)
+        assertEquals(QuicFakeProfileRealisticInitial, state.quic.quicFakeProfile)
+        assertEquals("video.example.test", state.quic.quicFakeHost)
     }
 
     @Test
@@ -1231,9 +1231,9 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertTrue(state.showQuicFakeHostOverride)
-        assertFalse(state.quicFakeUsesCustomHost)
-        assertEquals(DefaultQuicFakeHost, state.quicFakeEffectiveHost)
+        assertTrue(state.quic.showQuicFakeHostOverride)
+        assertFalse(state.quic.quicFakeUsesCustomHost)
+        assertEquals(DefaultQuicFakeHost, state.quic.quicFakeEffectiveHost)
     }
 
     @Test
@@ -1252,9 +1252,9 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertTrue(state.showQuicFakeProfile)
-        assertFalse(state.showQuicFakeHostOverride)
-        assertFalse(state.quicFakeUsesCustomHost)
-        assertEquals("", state.quicFakeEffectiveHost)
+        assertFalse(state.quic.showQuicFakeHostOverride)
+        assertFalse(state.quic.quicFakeUsesCustomHost)
+        assertEquals("", state.quic.quicFakeEffectiveHost)
     }
 
     @Test
@@ -1285,10 +1285,10 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertTrue(state.fakeTlsControlsRelevant)
-        assertTrue(state.hasCustomFakeTlsProfile)
+        assertTrue(state.fake.hasCustomFakeTlsProfile)
         assertTrue(state.canResetFakeTlsProfile)
-        assertEquals("alt.example.org", state.fakeSni)
-        assertTrue(DefaultFakeSni != state.fakeSni)
+        assertEquals("alt.example.org", state.fake.fakeSni)
+        assertTrue(DefaultFakeSni != state.fake.fakeSni)
     }
 
     @Test
@@ -1321,15 +1321,15 @@ class SettingsUiStateTest {
                 .build()
                 .toUiState()
 
-        assertEquals(DnsModeEncrypted, state.dnsMode)
-        assertEquals(DnsProviderCustom, state.dnsProviderId)
-        assertEquals("9.9.9.9", state.dnsIp)
-        assertEquals(EncryptedDnsProtocolDot, state.encryptedDnsProtocol)
-        assertEquals("dot.example.test", state.encryptedDnsHost)
-        assertEquals(853, state.encryptedDnsPort)
-        assertEquals("dot.example.test", state.encryptedDnsTlsServerName)
-        assertEquals(listOf("9.9.9.9", "149.112.112.112"), state.encryptedDnsBootstrapIps)
-        assertEquals("Encrypted DNS · Custom resolver (DoT)", state.dnsSummary)
+        assertEquals(DnsModeEncrypted, state.dns.dnsMode)
+        assertEquals(DnsProviderCustom, state.dns.dnsProviderId)
+        assertEquals("9.9.9.9", state.dns.dnsIp)
+        assertEquals(EncryptedDnsProtocolDot, state.dns.encryptedDnsProtocol)
+        assertEquals("dot.example.test", state.dns.encryptedDnsHost)
+        assertEquals(853, state.dns.encryptedDnsPort)
+        assertEquals("dot.example.test", state.dns.encryptedDnsTlsServerName)
+        assertEquals(listOf("9.9.9.9", "149.112.112.112"), state.dns.encryptedDnsBootstrapIps)
+        assertEquals("Encrypted DNS · Custom resolver (DoT)", state.dns.dnsSummary)
     }
 
     @Test
@@ -1352,17 +1352,17 @@ class SettingsUiStateTest {
                 ).build()
                 .toUiState()
 
-        assertEquals(DnsModeEncrypted, state.dnsMode)
-        assertEquals(DnsProviderCustom, state.dnsProviderId)
-        assertEquals("8.8.8.8", state.dnsIp)
-        assertEquals(EncryptedDnsProtocolDnsCrypt, state.encryptedDnsProtocol)
-        assertEquals("dnscrypt.example.test", state.encryptedDnsHost)
-        assertEquals(5443, state.encryptedDnsPort)
-        assertEquals("2.dnscrypt-cert.example.test", state.encryptedDnsDnscryptProviderName)
+        assertEquals(DnsModeEncrypted, state.dns.dnsMode)
+        assertEquals(DnsProviderCustom, state.dns.dnsProviderId)
+        assertEquals("8.8.8.8", state.dns.dnsIp)
+        assertEquals(EncryptedDnsProtocolDnsCrypt, state.dns.encryptedDnsProtocol)
+        assertEquals("dnscrypt.example.test", state.dns.encryptedDnsHost)
+        assertEquals(5443, state.dns.encryptedDnsPort)
+        assertEquals("2.dnscrypt-cert.example.test", state.dns.encryptedDnsDnscryptProviderName)
         assertEquals(
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-            state.encryptedDnsDnscryptPublicKey,
+            state.dns.encryptedDnsDnscryptPublicKey,
         )
-        assertEquals("Encrypted DNS · Custom resolver (DNSCrypt)", state.dnsSummary)
+        assertEquals("Encrypted DNS · Custom resolver (DNSCrypt)", state.dns.dnsSummary)
     }
 }

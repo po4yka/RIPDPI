@@ -55,19 +55,19 @@ internal fun LazyListScope.httpsSection(
                         onOptionSelected(AdvancedOptionSetting.TlsPreludeMode, it)
                     },
                 )
-                if (uiState.hasStackedTlsPreludeSteps) {
+                if (uiState.tlsPrelude.hasStackedTlsPreludeSteps) {
                     Text(
                         text = stringResource(R.string.ripdpi_tls_prelude_multiple_note),
                         style = RipDpiThemeTokens.type.caption,
                         color = colors.warning,
                     )
                 }
-                if (uiState.tlsPreludeMode != TlsPreludeModeDisabled) {
+                if (uiState.tlsPrelude.tlsPreludeMode != TlsPreludeModeDisabled) {
                     HorizontalDivider(color = colors.divider)
                     AdvancedTextSetting(
                         title = stringResource(R.string.ripdpi_tlsrec_position_setting),
                         description = stringResource(R.string.config_tls_record_marker_helper),
-                        value = uiState.tlsrecMarker,
+                        value = uiState.tlsPrelude.tlsrecMarker,
                         placeholder = stringResource(R.string.config_placeholder_tls_record_marker),
                         enabled = visualEditorEnabled,
                         validator = ::isValidOffsetExpression,
@@ -80,14 +80,14 @@ internal fun LazyListScope.httpsSection(
                             ),
                         setting = AdvancedTextSetting.TlsrecMarker,
                         onConfirm = onTextConfirmed,
-                        showDivider = uiState.tlsPreludeUsesRandomRecords,
+                        showDivider = uiState.tlsPrelude.tlsPreludeUsesRandomRecords,
                     )
                 }
-                if (uiState.tlsPreludeUsesRandomRecords) {
+                if (uiState.tlsPrelude.tlsPreludeUsesRandomRecords) {
                     AdvancedTextSetting(
                         title = stringResource(R.string.ripdpi_tlsrandrec_count_title),
                         description = stringResource(R.string.ripdpi_tlsrandrec_count_body),
-                        value = uiState.tlsRandRecFragmentCount.toString(),
+                        value = uiState.tlsPrelude.tlsRandRecFragmentCount.toString(),
                         enabled = visualEditorEnabled,
                         validator = { validateIntRange(it, 2, 16) },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
@@ -104,7 +104,7 @@ internal fun LazyListScope.httpsSection(
                     AdvancedTextSetting(
                         title = stringResource(R.string.ripdpi_tlsrandrec_min_title),
                         description = stringResource(R.string.ripdpi_tlsrandrec_min_body),
-                        value = uiState.tlsRandRecMinFragmentSize.toString(),
+                        value = uiState.tlsPrelude.tlsRandRecMinFragmentSize.toString(),
                         enabled = visualEditorEnabled,
                         validator = { validateIntRange(it, 1, 4096) },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
@@ -121,11 +121,11 @@ internal fun LazyListScope.httpsSection(
                     AdvancedTextSetting(
                         title = stringResource(R.string.ripdpi_tlsrandrec_max_title),
                         description = stringResource(R.string.ripdpi_tlsrandrec_max_body),
-                        value = uiState.tlsRandRecMaxFragmentSize.toString(),
+                        value = uiState.tlsPrelude.tlsRandRecMaxFragmentSize.toString(),
                         enabled = visualEditorEnabled,
                         validator = { input ->
                             input.toIntOrNull()?.let { value ->
-                                value in uiState.tlsRandRecMinFragmentSize..4096
+                                value in uiState.tlsPrelude.tlsRandRecMinFragmentSize..4096
                             } == true
                         },
                         invalidMessage = stringResource(R.string.ripdpi_tlsrandrec_max_error),
@@ -173,26 +173,26 @@ private fun TlsPreludeProfileCard(
     val status = rememberTlsPreludeStatus(uiState)
     val modeSummary =
         stringResource(
-            when (uiState.tlsPreludeMode) {
+            when (uiState.tlsPrelude.tlsPreludeMode) {
                 TcpChainStepKind.TlsRec.wireName -> R.string.ripdpi_tls_prelude_summary_mode_single
                 TcpChainStepKind.TlsRandRec.wireName -> R.string.ripdpi_tls_prelude_summary_mode_random
                 else -> R.string.ripdpi_tls_prelude_summary_mode_off
             },
         )
     val markerSummary =
-        if (uiState.tlsPreludeMode == TlsPreludeModeDisabled) {
+        if (uiState.tlsPrelude.tlsPreludeMode == TlsPreludeModeDisabled) {
             stringResource(R.string.ripdpi_tls_prelude_marker_unused)
         } else {
-            uiState.tlsrecMarker
+            uiState.tlsPrelude.tlsrecMarker
         }
     val layoutSummary =
-        when (uiState.tlsPreludeMode) {
+        when (uiState.tlsPrelude.tlsPreludeMode) {
             TcpChainStepKind.TlsRandRec.wireName -> {
                 stringResource(
                     R.string.ripdpi_tls_prelude_summary_layout_random,
-                    uiState.tlsRandRecFragmentCount,
-                    uiState.tlsRandRecMinFragmentSize,
-                    uiState.tlsRandRecMaxFragmentSize,
+                    uiState.tlsPrelude.tlsRandRecFragmentCount,
+                    uiState.tlsPrelude.tlsRandRecMinFragmentSize,
+                    uiState.tlsPrelude.tlsRandRecMaxFragmentSize,
                 )
             }
 
@@ -208,13 +208,13 @@ private fun TlsPreludeProfileCard(
         when {
             uiState.enableCmdSettings -> stringResource(R.string.ripdpi_tls_prelude_scope_cli)
             !uiState.tlsPreludeControlsRelevant -> stringResource(R.string.ripdpi_tls_prelude_scope_https_disabled)
-            uiState.hasStackedTlsPreludeSteps -> stringResource(R.string.ripdpi_tls_prelude_scope_stacked)
+            uiState.tlsPrelude.hasStackedTlsPreludeSteps -> stringResource(R.string.ripdpi_tls_prelude_scope_stacked)
             else -> stringResource(R.string.ripdpi_tls_prelude_scope_active)
         }
     val badges =
         buildList {
             add(stringResource(R.string.ripdpi_tls_prelude_badge_https_only) to SummaryCapsuleTone.Info)
-            when (uiState.tlsPreludeMode) {
+            when (uiState.tlsPrelude.tlsPreludeMode) {
                 TcpChainStepKind.TlsRec.wireName -> {
                     add(stringResource(R.string.ripdpi_tls_prelude_badge_single) to SummaryCapsuleTone.Active)
                 }
@@ -223,7 +223,7 @@ private fun TlsPreludeProfileCard(
                     add(
                         stringResource(
                             R.string.ripdpi_tls_prelude_badge_random,
-                            uiState.tlsRandRecFragmentCount,
+                            uiState.tlsPrelude.tlsRandRecFragmentCount,
                         ) to SummaryCapsuleTone.Active,
                     )
                 }
@@ -232,11 +232,11 @@ private fun TlsPreludeProfileCard(
                     Unit
                 }
             }
-            if (uiState.hasStackedTlsPreludeSteps) {
+            if (uiState.tlsPrelude.hasStackedTlsPreludeSteps) {
                 add(
                     stringResource(
                         R.string.ripdpi_tls_prelude_badge_stacked,
-                        uiState.tlsPreludeStepCount,
+                        uiState.tlsPrelude.tlsPreludeStepCount,
                     ) to SummaryCapsuleTone.Warning,
                 )
             }
@@ -288,7 +288,7 @@ private fun rememberTlsPreludeStatus(uiState: SettingsUiState): TlsPreludeStatus
             )
         }
 
-        !uiState.tlsPreludeControlsRelevant && uiState.tlsPreludeStepCount > 0 -> {
+        !uiState.tlsPreludeControlsRelevant && uiState.tlsPrelude.tlsPreludeStepCount > 0 -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_https_disabled_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_https_disabled_body),
@@ -296,7 +296,7 @@ private fun rememberTlsPreludeStatus(uiState: SettingsUiState): TlsPreludeStatus
             )
         }
 
-        uiState.hasStackedTlsPreludeSteps -> {
+        uiState.tlsPrelude.hasStackedTlsPreludeSteps -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_stacked_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_stacked_body),
@@ -304,7 +304,7 @@ private fun rememberTlsPreludeStatus(uiState: SettingsUiState): TlsPreludeStatus
             )
         }
 
-        uiState.tlsPreludeMode == TlsPreludeModeDisabled -> {
+        uiState.tlsPrelude.tlsPreludeMode == TlsPreludeModeDisabled -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_off_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_off_body),
@@ -320,7 +320,7 @@ private fun rememberTlsPreludeStatus(uiState: SettingsUiState): TlsPreludeStatus
             )
         }
 
-        uiState.tlsPreludeUsesRandomRecords -> {
+        uiState.tlsPrelude.tlsPreludeUsesRandomRecords -> {
             TlsPreludeStatusContent(
                 label = stringResource(R.string.ripdpi_tls_prelude_random_title),
                 body = stringResource(R.string.ripdpi_tls_prelude_random_body),
@@ -381,7 +381,7 @@ private fun TlsPreludeModeSelector(
         presets.forEach { preset ->
             TlsPreludePresetCard(
                 preset = preset,
-                selected = uiState.tlsPreludeMode == preset.value,
+                selected = uiState.tlsPrelude.tlsPreludeMode == preset.value,
                 enabled = enabled,
                 onClick = { onModeSelected(preset.value) },
             )

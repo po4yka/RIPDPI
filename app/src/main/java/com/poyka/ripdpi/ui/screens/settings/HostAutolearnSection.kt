@@ -43,23 +43,23 @@ internal fun LazyListScope.hostAutolearnSection(
                 SettingsRow(
                     title = stringResource(R.string.host_autolearn_enabled_title),
                     subtitle = stringResource(R.string.host_autolearn_enabled_body),
-                    checked = uiState.hostAutolearnEnabled,
+                    checked = uiState.autolearn.hostAutolearnEnabled,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostAutolearnEnabled, it) },
                     enabled = visualEditorEnabled,
-                    showDivider = uiState.hostAutolearnEnabled,
+                    showDivider = uiState.autolearn.hostAutolearnEnabled,
                 )
                 HostAutolearnStatusCard(
                     uiState = uiState,
                     modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                 )
-                if (uiState.hostAutolearnEnabled) {
+                if (uiState.autolearn.hostAutolearnEnabled) {
                     HorizontalDivider(color = colors.divider)
                 }
-                if (uiState.hostAutolearnEnabled) {
+                if (uiState.autolearn.hostAutolearnEnabled) {
                     AdvancedTextSetting(
                         title = stringResource(R.string.host_autolearn_penalty_ttl_title),
                         description = stringResource(R.string.host_autolearn_penalty_ttl_body),
-                        value = uiState.hostAutolearnPenaltyTtlHours.toString(),
+                        value = uiState.autolearn.hostAutolearnPenaltyTtlHours.toString(),
                         enabled = visualEditorEnabled,
                         validator = { validateIntRange(it, 1, 24 * 30) },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
@@ -76,7 +76,7 @@ internal fun LazyListScope.hostAutolearnSection(
                     AdvancedTextSetting(
                         title = stringResource(R.string.host_autolearn_max_hosts_title),
                         description = stringResource(R.string.host_autolearn_max_hosts_body),
-                        value = uiState.hostAutolearnMaxHosts.toString(),
+                        value = uiState.autolearn.hostAutolearnMaxHosts.toString(),
                         enabled = visualEditorEnabled,
                         validator = { validateIntRange(it, 1, 50_000) },
                         invalidMessage = stringResource(R.string.config_error_out_of_range),
@@ -135,12 +135,12 @@ private fun HostAutolearnStatusCard(
     val status = rememberHostAutolearnStatus(uiState)
     val runtimeSummary =
         if (uiState.isServiceRunning &&
-            (uiState.hostAutolearnRuntimeEnabled || uiState.hostAutolearnLearnedHostCount > 0)
+            (uiState.autolearn.hostAutolearnRuntimeEnabled || uiState.autolearn.hostAutolearnLearnedHostCount > 0)
         ) {
             stringResource(
                 R.string.host_autolearn_runtime_summary,
-                uiState.hostAutolearnLearnedHostCount,
-                uiState.hostAutolearnPenalizedHostCount,
+                uiState.autolearn.hostAutolearnLearnedHostCount,
+                uiState.autolearn.hostAutolearnPenalizedHostCount,
             )
         } else {
             null
@@ -151,8 +151,8 @@ private fun HostAutolearnStatusCard(
         } else {
             stringResource(
                 R.string.host_autolearn_limits_summary,
-                uiState.hostAutolearnPenaltyTtlHours,
-                uiState.hostAutolearnMaxHosts,
+                uiState.autolearn.hostAutolearnPenaltyTtlHours,
+                uiState.autolearn.hostAutolearnMaxHosts,
             )
         }
     val lastUpdate = hostAutolearnLastUpdate(uiState)
@@ -183,7 +183,7 @@ private fun HostAutolearnStatusCard(
                 style = type.caption,
                 color = colors.foreground,
             )
-        } else if (uiState.hostAutolearnStorePresent && !uiState.enableCmdSettings) {
+        } else if (uiState.autolearn.hostAutolearnStorePresent && !uiState.enableCmdSettings) {
             Text(
                 text = stringResource(R.string.host_autolearn_store_present_summary),
                 style = type.caption,
@@ -210,7 +210,7 @@ private fun HostAutolearnStatusCard(
 @Composable
 private fun rememberHostAutolearnStatus(uiState: SettingsUiState): HostAutolearnStatusContent =
     when {
-        uiState.enableCmdSettings && uiState.isServiceRunning && uiState.hostAutolearnRuntimeEnabled -> {
+        uiState.enableCmdSettings && uiState.isServiceRunning && uiState.autolearn.hostAutolearnRuntimeEnabled -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_live_status_title),
                 body = stringResource(R.string.host_autolearn_cli_live_status_body),
@@ -226,7 +226,8 @@ private fun rememberHostAutolearnStatus(uiState: SettingsUiState): HostAutolearn
             )
         }
 
-        uiState.isServiceRunning && uiState.hostAutolearnEnabled && uiState.hostAutolearnRuntimeEnabled -> {
+        uiState.isServiceRunning && uiState.autolearn.hostAutolearnEnabled &&
+            uiState.autolearn.hostAutolearnRuntimeEnabled -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_live_status_title),
                 body = stringResource(R.string.host_autolearn_live_status_body),
@@ -234,7 +235,7 @@ private fun rememberHostAutolearnStatus(uiState: SettingsUiState): HostAutolearn
             )
         }
 
-        uiState.isServiceRunning && uiState.hostAutolearnEnabled -> {
+        uiState.isServiceRunning && uiState.autolearn.hostAutolearnEnabled -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_pending_enable_title),
                 body = stringResource(R.string.host_autolearn_pending_enable_body),
@@ -242,7 +243,7 @@ private fun rememberHostAutolearnStatus(uiState: SettingsUiState): HostAutolearn
             )
         }
 
-        uiState.isServiceRunning && uiState.hostAutolearnRuntimeEnabled -> {
+        uiState.isServiceRunning && uiState.autolearn.hostAutolearnRuntimeEnabled -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_pending_disable_title),
                 body = stringResource(R.string.host_autolearn_pending_disable_body),
@@ -250,7 +251,7 @@ private fun rememberHostAutolearnStatus(uiState: SettingsUiState): HostAutolearn
             )
         }
 
-        uiState.hostAutolearnEnabled -> {
+        uiState.autolearn.hostAutolearnEnabled -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_ready_title),
                 body = stringResource(R.string.host_autolearn_ready_body),
@@ -258,7 +259,7 @@ private fun rememberHostAutolearnStatus(uiState: SettingsUiState): HostAutolearn
             )
         }
 
-        uiState.hostAutolearnStorePresent -> {
+        uiState.autolearn.hostAutolearnStorePresent -> {
             HostAutolearnStatusContent(
                 label = stringResource(R.string.host_autolearn_store_title),
                 body = stringResource(R.string.host_autolearn_store_body),
@@ -282,11 +283,12 @@ private fun hostAutolearnResetHint(uiState: SettingsUiState): String =
             stringResource(R.string.host_autolearn_reset_hint_cli)
         }
 
-        !uiState.hostAutolearnStorePresent && (uiState.hostAutolearnEnabled || uiState.hostAutolearnRuntimeEnabled) -> {
+        !uiState.autolearn.hostAutolearnStorePresent &&
+            (uiState.autolearn.hostAutolearnEnabled || uiState.autolearn.hostAutolearnRuntimeEnabled) -> {
             stringResource(R.string.host_autolearn_reset_hint_waiting)
         }
 
-        !uiState.hostAutolearnStorePresent -> {
+        !uiState.autolearn.hostAutolearnStorePresent -> {
             stringResource(R.string.host_autolearn_reset_hint_empty)
         }
 
@@ -302,16 +304,16 @@ private fun hostAutolearnResetHint(uiState: SettingsUiState): String =
 @Composable
 private fun hostAutolearnLastUpdate(uiState: SettingsUiState): String? {
     val action =
-        when (uiState.hostAutolearnLastAction) {
+        when (uiState.autolearn.hostAutolearnLastAction) {
             "host_promoted" -> stringResource(R.string.host_autolearn_action_host_promoted)
             "group_penalized" -> stringResource(R.string.host_autolearn_action_group_penalized)
             "store_reset" -> stringResource(R.string.host_autolearn_action_store_reset)
             else -> null
         } ?: return null
 
-    val host = uiState.hostAutolearnLastHost?.takeIf { it.isNotBlank() }
+    val host = uiState.autolearn.hostAutolearnLastHost?.takeIf { it.isNotBlank() }
     val group =
-        uiState.hostAutolearnLastGroup?.let {
+        uiState.autolearn.hostAutolearnLastGroup?.let {
             stringResource(R.string.host_autolearn_route_group, it)
         }
     return listOfNotNull(action, host, group).joinToString(" · ")

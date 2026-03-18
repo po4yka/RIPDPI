@@ -12,8 +12,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.FakeTransportUiState
+import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
+import com.poyka.ripdpi.activities.HttpParserUiState
+import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.activities.TlsPreludeUiState
 import com.poyka.ripdpi.data.HostPackApplyModeMerge
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.HostPackPreset
@@ -167,7 +172,7 @@ internal fun AdvancedSettingsScreen(
     val showFakeTlsSection =
         uiState.desyncHttpsEnabled ||
             uiState.isFake ||
-            uiState.hasCustomFakeTlsProfile ||
+            uiState.fake.hasCustomFakeTlsProfile ||
             uiState.enableCmdSettings
     val fakeTlsBaseOptions =
         rememberSettingsOptions(
@@ -383,36 +388,42 @@ private fun AdvancedSettingsScreenPreview() {
                 SettingsUiState(
                     enableCmdSettings = false,
                     cmdArgs = "",
-                    proxyIp = "127.0.0.1",
-                    proxyPort = 1080,
-                    maxConnections = 512,
-                    bufferSize = 16_384,
-                    noDomain = false,
-                    tcpFastOpen = true,
+                    proxy = ProxyNetworkUiState(
+                        proxyIp = "127.0.0.1",
+                        proxyPort = 1080,
+                        maxConnections = 512,
+                        bufferSize = 16_384,
+                        noDomain = false,
+                        tcpFastOpen = true,
+                    ),
                     customTtl = true,
                     defaultTtl = 8,
                     desyncMethod = "disorder",
                     splitMarker = "host+2",
-                    dropSack = false,
+                    fake = FakeTransportUiState(dropSack = false),
                     desyncHttp = true,
                     desyncHttps = true,
                     desyncUdp = false,
-                    hostMixedCase = true,
-                    domainMixedCase = false,
-                    hostRemoveSpaces = false,
-                    tlsrecEnabled = false,
-                    tlsPreludeMode = TlsPreludeModeDisabled,
-                    tlsPreludeStepCount = 0,
+                    httpParser = HttpParserUiState(
+                        hostMixedCase = true,
+                    ),
+                    tlsPrelude = TlsPreludeUiState(
+                        tlsrecEnabled = false,
+                        tlsPreludeMode = TlsPreludeModeDisabled,
+                        tlsPreludeStepCount = 0,
+                    ),
                     udpFakeCount = 0,
                     hostsMode = "disable",
-                    hostAutolearnEnabled = true,
-                    hostAutolearnRuntimeEnabled = true,
-                    hostAutolearnStorePresent = true,
-                    hostAutolearnLearnedHostCount = 18,
-                    hostAutolearnPenalizedHostCount = 2,
-                    hostAutolearnLastHost = "video.example.org",
-                    hostAutolearnLastGroup = 2,
-                    hostAutolearnLastAction = "host_promoted",
+                    autolearn = HostAutolearnUiState(
+                        hostAutolearnEnabled = true,
+                        hostAutolearnRuntimeEnabled = true,
+                        hostAutolearnStorePresent = true,
+                        hostAutolearnLearnedHostCount = 18,
+                        hostAutolearnPenalizedHostCount = 2,
+                        hostAutolearnLastHost = "video.example.org",
+                        hostAutolearnLastGroup = 2,
+                        hostAutolearnLastAction = "host_promoted",
+                    ),
                     serviceStatus = com.poyka.ripdpi.data.AppStatus.Running,
                 ),
             hostPackCatalog = previewHostPackCatalog(source = "bundled"),
@@ -446,41 +457,50 @@ private fun AdvancedSettingsScreenDarkPreview() {
                 SettingsUiState(
                     enableCmdSettings = true,
                     cmdArgs = "--fake --split 2",
-                    proxyIp = "127.0.0.1",
-                    proxyPort = 1080,
-                    maxConnections = 256,
-                    bufferSize = 8192,
+                    proxy = ProxyNetworkUiState(
+                        proxyIp = "127.0.0.1",
+                        proxyPort = 1080,
+                        maxConnections = 256,
+                        bufferSize = 8192,
+                    ),
                     customTtl = true,
                     defaultTtl = 8,
                     desyncMethod = "fake",
                     splitMarker = "host+1",
-                    fakeTtl = 12,
-                    fakeSni = "alt.example.org",
-                    fakeOffsetMarker = "method+2",
-                    fakeTlsUseOriginal = true,
-                    fakeTlsRandomize = true,
-                    fakeTlsDupSessionId = true,
-                    fakeTlsPadEncap = true,
-                    fakeTlsSize = -24,
-                    fakeTlsSniMode = "randomized",
-                    dropSack = true,
+                    fake = FakeTransportUiState(
+                        fakeTtl = 12,
+                        fakeSni = "alt.example.org",
+                        fakeOffsetMarker = "method+2",
+                        fakeTlsUseOriginal = true,
+                        fakeTlsRandomize = true,
+                        fakeTlsDupSessionId = true,
+                        fakeTlsPadEncap = true,
+                        fakeTlsSize = -24,
+                        fakeTlsSniMode = "randomized",
+                        dropSack = true,
+                    ),
                     desyncHttp = true,
                     desyncHttps = true,
                     desyncUdp = true,
-                    tlsrecEnabled = true,
-                    tlsrecMarker = "sniext+4",
-                    tlsPreludeMode = TcpChainStepKind.TlsRandRec.wireName,
-                    tlsPreludeStepCount = 1,
-                    tlsRandRecFragmentCount = 5,
-                    tlsRandRecMinFragmentSize = 24,
-                    tlsRandRecMaxFragmentSize = 48,
+                    tlsPrelude = TlsPreludeUiState(
+                        tlsrecEnabled = true,
+                        tlsrecMarker = "sniext+4",
+                        tlsPreludeMode = TcpChainStepKind.TlsRandRec.wireName,
+                        tlsPreludeStepCount = 1,
+                        tlsRandRecFragmentCount = 5,
+                        tlsRandRecMinFragmentSize = 24,
+                        tlsRandRecMaxFragmentSize = 48,
+                    ),
                     udpFakeCount = 1,
                     hostsMode = "blacklist",
                     hostsBlacklist = "example.com\ncdn.example.net",
-                    hostAutolearnStorePresent = true,
-                    hostMixedCase = true,
-                    domainMixedCase = true,
-                    hostRemoveSpaces = false,
+                    autolearn = HostAutolearnUiState(
+                        hostAutolearnStorePresent = true,
+                    ),
+                    httpParser = HttpParserUiState(
+                        hostMixedCase = true,
+                        domainMixedCase = true,
+                    ),
                 ),
             hostPackCatalog =
                 previewHostPackCatalog(

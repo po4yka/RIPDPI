@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
+import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsProviderCloudflare
@@ -35,9 +36,11 @@ class DnsSettingsScreenTest {
                 DnsSettingsScreen(
                     uiState =
                         SettingsUiState(
-                            dnsMode = DnsModeEncrypted,
-                            dnsProviderId = DnsProviderCloudflare,
-                            encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                            dns = DnsUiState(
+                                dnsMode = DnsModeEncrypted,
+                                dnsProviderId = DnsProviderCloudflare,
+                                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                            ),
                         ),
                     onBack = {},
                     onModeSelected = {},
@@ -62,13 +65,15 @@ class DnsSettingsScreenTest {
                 DnsSettingsScreen(
                     uiState =
                         SettingsUiState(
-                            dnsMode = DnsModeEncrypted,
-                            dnsProviderId = DnsProviderCustom,
-                            encryptedDnsProtocol = EncryptedDnsProtocolDot,
-                            encryptedDnsHost = "",
-                            encryptedDnsPort = 0,
-                            encryptedDnsTlsServerName = "",
-                            encryptedDnsBootstrapIps = emptyList(),
+                            dns = DnsUiState(
+                                dnsMode = DnsModeEncrypted,
+                                dnsProviderId = DnsProviderCustom,
+                                encryptedDnsProtocol = EncryptedDnsProtocolDot,
+                                encryptedDnsHost = "",
+                                encryptedDnsPort = 0,
+                                encryptedDnsTlsServerName = "",
+                                encryptedDnsBootstrapIps = emptyList(),
+                            ),
                         ),
                     onBack = {},
                     onModeSelected = {},

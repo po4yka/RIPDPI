@@ -24,6 +24,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.activities.hashPin
@@ -142,7 +143,7 @@ internal fun SettingsScreen(
                                 R.string.settings_connectivity_dns_body_proxy
                             },
                         ),
-                    value = uiState.dnsSummary,
+                    value = uiState.dns.dnsSummary,
                     onClick = onOpenDnsSettings,
                     showDivider = true,
                 )
@@ -397,7 +398,7 @@ private fun SettingsScreenPreview() {
         SettingsScreen(
             uiState =
                 SettingsUiState(
-                    dnsIp = "1.1.1.1",
+                    dns = DnsUiState(dnsIp = "1.1.1.1"),
                     webrtcProtectionEnabled = true,
                     biometricEnabled = true,
                 ),
@@ -426,7 +427,7 @@ private fun SettingsScreenDarkPreview() {
             uiState =
                 SettingsUiState(
                     appTheme = "dark",
-                    dnsIp = "9.9.9.9",
+                    dns = DnsUiState(dnsIp = "9.9.9.9"),
                     webrtcProtectionEnabled = true,
                     biometricEnabled = true,
                     backupPinHash = hashPin("1234"),

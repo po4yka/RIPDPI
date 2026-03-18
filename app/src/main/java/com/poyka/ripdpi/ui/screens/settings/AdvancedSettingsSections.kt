@@ -150,7 +150,7 @@ internal fun LazyListScope.proxySection(
                 AdvancedTextSetting(
                     title = stringResource(R.string.bye_dpi_proxy_ip_setting),
                     description = stringResource(R.string.config_proxy_helper),
-                    value = uiState.proxyIp,
+                    value = uiState.proxy.proxyIp,
                     placeholder = stringResource(R.string.config_placeholder_proxy_ip),
                     enabled = visualEditorEnabled,
                     validator = ::checkIp,
@@ -163,7 +163,7 @@ internal fun LazyListScope.proxySection(
                 AdvancedTextSetting(
                     title = stringResource(R.string.ripdpi_proxy_port_setting),
                     description = stringResource(R.string.config_port_helper),
-                    value = uiState.proxyPort.toString(),
+                    value = uiState.proxy.proxyPort.toString(),
                     placeholder = stringResource(R.string.config_placeholder_proxy_port),
                     enabled = visualEditorEnabled,
                     validator = ::validatePort,
@@ -181,7 +181,7 @@ internal fun LazyListScope.proxySection(
                 AdvancedTextSetting(
                     title = stringResource(R.string.ripdpi_max_connections_setting),
                     description = stringResource(R.string.config_max_connections_helper),
-                    value = uiState.maxConnections.toString(),
+                    value = uiState.proxy.maxConnections.toString(),
                     enabled = visualEditorEnabled,
                     validator = { validateIntRange(it, 1, Short.MAX_VALUE.toInt()) },
                     invalidMessage = stringResource(R.string.config_error_out_of_range),
@@ -198,7 +198,7 @@ internal fun LazyListScope.proxySection(
                 AdvancedTextSetting(
                     title = stringResource(R.string.ripdpi_buffer_size_setting),
                     description = stringResource(R.string.config_buffer_helper),
-                    value = uiState.bufferSize.toString(),
+                    value = uiState.proxy.bufferSize.toString(),
                     enabled = visualEditorEnabled,
                     validator = { validateIntRange(it, 1, Int.MAX_VALUE / 4) },
                     invalidMessage = stringResource(R.string.config_error_out_of_range),
@@ -214,14 +214,14 @@ internal fun LazyListScope.proxySection(
                 )
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_no_domain_setting),
-                    checked = uiState.noDomain,
+                    checked = uiState.proxy.noDomain,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
                     enabled = visualEditorEnabled,
                     showDivider = true,
                 )
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
-                    checked = uiState.tcpFastOpen,
+                    checked = uiState.proxy.tcpFastOpen,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
                     enabled = visualEditorEnabled,
                 )
@@ -281,7 +281,7 @@ internal fun LazyListScope.networkStrategyMemorySection(
                 SettingsRow(
                     title = stringResource(R.string.network_strategy_memory_enabled_title),
                     subtitle = stringResource(R.string.network_strategy_memory_enabled_body),
-                    checked = uiState.networkStrategyMemoryEnabled,
+                    checked = uiState.autolearn.networkStrategyMemoryEnabled,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NetworkStrategyMemoryEnabled, it) },
                     enabled = visualEditorEnabled,
                     showDivider = true,
@@ -290,7 +290,7 @@ internal fun LazyListScope.networkStrategyMemorySection(
                     text =
                         stringResource(
                             R.string.network_strategy_memory_count_summary,
-                            uiState.rememberedNetworkCount,
+                            uiState.autolearn.rememberedNetworkCount,
                         ),
                     style = RipDpiThemeTokens.type.caption,
                     color = RipDpiThemeTokens.colors.mutedForeground,

@@ -243,7 +243,7 @@ internal class SettingsMaintenanceActions(
                 setAdaptiveFakeTtlMin(DefaultAdaptiveFakeTtlMin)
                 setAdaptiveFakeTtlMax(DefaultAdaptiveFakeTtlMax)
                 setAdaptiveFakeTtlFallback(
-                    currentState.fakeTtl.takeIf { it > 0 } ?: DefaultAdaptiveFakeTtlFallback,
+                    currentState.fake.fakeTtl.takeIf { it > 0 } ?: DefaultAdaptiveFakeTtlFallback,
                 )
             }
             emit(
