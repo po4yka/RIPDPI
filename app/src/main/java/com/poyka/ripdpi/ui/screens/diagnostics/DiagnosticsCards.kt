@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,6 +46,7 @@ import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
@@ -519,6 +522,72 @@ internal fun EventBadge(
 }
 
 @Composable
+internal fun DiagnosticsPreviewCard(
+    title: String,
+    body: String,
+    metrics: List<DiagnosticsMetricUiModel>,
+    archiveStateMessage: String?,
+    archiveStateTone: DiagnosticsTone,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val paragraphs = body.split("\n\n").filter { it.isNotBlank() }
+    val description = paragraphs.firstOrNull() ?: ""
+    val detailParagraphs = paragraphs.drop(1)
+    val descriptionLines = description.lines()
+    val headerLines = descriptionLines.takeWhile { line -> !isDataLine(line) }
+    val dataLines = descriptionLines.drop(headerLines.size)
+
+    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+        Text(
+            text = title,
+            style = RipDpiThemeTokens.type.screenTitle,
+            color = colors.foreground,
+        )
+        if (headerLines.isNotEmpty()) {
+            Text(
+                text = headerLines.joinToString("\n"),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+        if (dataLines.isNotEmpty()) {
+            HorizontalDivider(color = colors.divider)
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(colors.inputBackground, RipDpiThemeTokens.shapes.md)
+                        .padding(spacing.md),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                dataLines.forEach { line ->
+                    Text(
+                        text = line,
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
+                }
+            }
+        }
+        detailParagraphs.forEach { paragraph ->
+            Text(
+                text = paragraph,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+        MetricsRow(metrics = metrics)
+        archiveStateMessage?.let { message ->
+            StatusIndicator(
+                label = message,
+                tone = statusTone(archiveStateTone),
+            )
+        }
+    }
+}
+
+@Composable
 internal fun EmptyStateCard(
     title: String,
     body: String,
@@ -584,3 +653,17 @@ internal fun ShareActionCard(
         )
     }
 }
+
+private val dataLinePrefixes =
+    listOf(
+        "Session ",
+        "Network ",
+        "Context ",
+        "Permissions ",
+        "Live ",
+        "Top warning",
+        "Telegram",
+    )
+
+private fun isDataLine(line: String): Boolean =
+    dataLinePrefixes.any { line.startsWith(it) } || line.contains("probe results")
