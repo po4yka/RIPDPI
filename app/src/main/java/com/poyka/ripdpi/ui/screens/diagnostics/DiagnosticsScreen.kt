@@ -93,7 +93,7 @@ fun DiagnosticsRoute(
         }
     }
 
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 is DiagnosticsEffect.SaveArchiveRequested -> {
