@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.app.Notification
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.ServiceInfo
@@ -37,12 +38,15 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TemporaryResolverOverride
+import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.deriveRuntimeFieldTelemetry
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.utility.NotificationContentBuilder
 import com.poyka.ripdpi.utility.createConnectionNotification
+import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CompletableDeferred
@@ -729,6 +733,10 @@ class RipDpiVpnService : LifecycleVpnService() {
                                 ),
                         ),
                     )
+                    updateNotification(
+                        tunnelStats = enrichedTunnelTelemetry.tunnelStats,
+                        proxyTelemetry = proxyTelemetry,
+                    )
                     delay(1_000)
                 }
             }
@@ -789,6 +797,37 @@ class RipDpiVpnService : LifecycleVpnService() {
             R.string.vpn_notification_content,
             RipDpiVpnService::class.java,
         )
+
+    private fun updateNotification(
+        tunnelStats: TunnelStats,
+        proxyTelemetry: NativeRuntimeSnapshot,
+    ) {
+        val startedAt = serviceStateStore.telemetry.value.serviceStartedAt ?: return
+        val elapsedMs = System.currentTimeMillis() - startedAt
+        val content =
+            NotificationContentBuilder.buildContentText(
+                txBytes = tunnelStats.txBytes,
+                rxBytes = tunnelStats.rxBytes,
+                elapsedMs = elapsedMs,
+            )
+        val subText =
+            NotificationContentBuilder.buildSubText(
+                activeSessions = proxyTelemetry.activeSessions,
+                rttMs = proxyTelemetry.upstreamRttMs,
+            )
+        val notification =
+            createDynamicConnectionNotification(
+                context = this,
+                channelId = NOTIFICATION_CHANNEL_ID,
+                title = getString(R.string.notification_title),
+                content = content,
+                subText = subText,
+                service = RipDpiVpnService::class.java,
+                whenTimestamp = startedAt,
+            )
+        getSystemService(NotificationManager::class.java)
+            ?.notify(FOREGROUND_SERVICE_ID, notification)
+    }
 
     private fun currentWinningFamilies(fallback: RuntimeFieldTelemetry): Triple<String?, String?, String?> {
         val activePolicy = runtimeSession?.currentActiveConnectionPolicy?.policy

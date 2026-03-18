@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.app.Notification
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 import android.os.Build
@@ -29,7 +30,9 @@ import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.deriveRuntimeFieldTelemetry
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.utility.NotificationContentBuilder
 import com.poyka.ripdpi.utility.createConnectionNotification
+import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CompletableDeferred
@@ -480,6 +483,7 @@ class RipDpiProxyService : LifecycleService() {
                             updatedAt = maxOf(System.currentTimeMillis(), proxyTelemetry.capturedAt),
                         ),
                     )
+                    updateNotification(proxyTelemetry)
                     delay(1_000)
                 }
             }
@@ -625,4 +629,32 @@ class RipDpiProxyService : LifecycleService() {
             R.string.proxy_notification_content,
             RipDpiProxyService::class.java,
         )
+
+    private fun updateNotification(proxyTelemetry: NativeRuntimeSnapshot) {
+        val startedAt = serviceStateStore.telemetry.value.serviceStartedAt ?: return
+        val elapsedMs = System.currentTimeMillis() - startedAt
+        val content =
+            NotificationContentBuilder.buildContentText(
+                txBytes = proxyTelemetry.tunnelStats.txBytes,
+                rxBytes = proxyTelemetry.tunnelStats.rxBytes,
+                elapsedMs = elapsedMs,
+            )
+        val subText =
+            NotificationContentBuilder.buildSubText(
+                activeSessions = proxyTelemetry.activeSessions,
+                rttMs = proxyTelemetry.upstreamRttMs,
+            )
+        val notification =
+            createDynamicConnectionNotification(
+                context = this,
+                channelId = NOTIFICATION_CHANNEL_ID,
+                title = getString(R.string.notification_title),
+                content = content,
+                subText = subText,
+                service = RipDpiProxyService::class.java,
+                whenTimestamp = startedAt,
+            )
+        getSystemService(NotificationManager::class.java)
+            ?.notify(FOREGROUND_SERVICE_ID, notification)
+    }
 }
