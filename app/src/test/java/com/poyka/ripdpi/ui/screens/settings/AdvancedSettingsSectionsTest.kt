@@ -11,6 +11,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.activities.HostAutolearnUiState
+import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -96,13 +98,13 @@ class AdvancedSettingsSectionsTest {
 
     @Test
     fun `proxy no domain toggle reflects state`() {
-        setProxySection(uiState = SettingsUiState(noDomain = true))
+        setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(noDomain = true)))
         composeRule.onNodeWithText("No domain").assertIsOn()
     }
 
     @Test
     fun `proxy tcp fast open toggle reflects state`() {
-        setProxySection(uiState = SettingsUiState(tcpFastOpen = true))
+        setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(tcpFastOpen = true)))
         composeRule.onNodeWithText("TCP Fast Open").assertIsOn()
     }
 
@@ -169,7 +171,7 @@ class AdvancedSettingsSectionsTest {
     fun `network strategy memory toggle fires callback`() {
         val toggles = mutableListOf<Pair<AdvancedToggleSetting, Boolean>>()
         setNetworkStrategyMemorySection(
-            uiState = SettingsUiState(networkStrategyMemoryEnabled = false),
+            uiState = SettingsUiState(autolearn = HostAutolearnUiState(networkStrategyMemoryEnabled = false)),
             onToggleChanged = { s, v -> toggles.add(s to v) },
         )
 
@@ -181,7 +183,7 @@ class AdvancedSettingsSectionsTest {
     fun `network strategy memory clear button fires callback`() {
         var cleared = false
         setNetworkStrategyMemorySection(
-            uiState = SettingsUiState(rememberedNetworkCount = 1),
+            uiState = SettingsUiState(autolearn = HostAutolearnUiState(rememberedNetworkCount = 1)),
             onClearRememberedNetworks = { cleared = true },
         )
 
@@ -192,7 +194,7 @@ class AdvancedSettingsSectionsTest {
     @Test
     fun `network strategy memory clear button disabled when not clearable`() {
         setNetworkStrategyMemorySection(
-            uiState = SettingsUiState(rememberedNetworkCount = 0),
+            uiState = SettingsUiState(autolearn = HostAutolearnUiState(rememberedNetworkCount = 0)),
         )
 
         composeRule.onNodeWithText("Clear remembered networks").assertIsNotEnabled()

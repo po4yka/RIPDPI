@@ -107,7 +107,7 @@ internal fun HostFakeProfileCard(
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_hostfake_summary_label_transport),
-                value = stringResource(R.string.ripdpi_hostfake_summary_transport, uiState.fakeTtl),
+                value = stringResource(R.string.ripdpi_hostfake_summary_transport, uiState.fake.fakeTtl),
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.ripdpi_hostfake_summary_label_http_example),

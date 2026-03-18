@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.activities.TlsPreludeUiState
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
@@ -54,7 +55,7 @@ class TlsPreludeEditorTest {
         val state =
             SettingsUiState(
                 tcpChainSteps = listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
-                tlsrecMarker = "sniext+4",
+                tlsPrelude = TlsPreludeUiState(tlsrecMarker = "sniext+4"),
             )
 
         val updated =
@@ -77,7 +78,7 @@ class TlsPreludeEditorTest {
         val state =
             SettingsUiState(
                 tcpChainSteps = listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
-                tlsrecMarker = "extlen",
+                tlsPrelude = TlsPreludeUiState(tlsrecMarker = "extlen"),
             )
 
         val updated =
