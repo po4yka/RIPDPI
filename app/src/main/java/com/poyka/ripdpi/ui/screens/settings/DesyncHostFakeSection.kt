@@ -29,12 +29,12 @@ internal fun HostFakeProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberHostFakeStatus(uiState)
-    val primaryStep = uiState.primaryHostFakeStep
+    val primaryStep = uiState.desync.primaryHostFakeStep
     val profileSummary =
-        when (uiState.hostFakeStepCount) {
+        when (uiState.desync.hostFakeStepCount) {
             0 -> stringResource(R.string.ripdpi_hostfake_summary_profile_none)
             1 -> stringResource(R.string.ripdpi_hostfake_summary_profile_single)
-            else -> stringResource(R.string.ripdpi_hostfake_summary_profile_multiple, uiState.hostFakeStepCount)
+            else -> stringResource(R.string.ripdpi_hostfake_summary_profile_multiple, uiState.desync.hostFakeStepCount)
         }
     val scopeSummary =
         when {

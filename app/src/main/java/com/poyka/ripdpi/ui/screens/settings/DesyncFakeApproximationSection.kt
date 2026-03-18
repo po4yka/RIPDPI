@@ -30,9 +30,9 @@ internal fun FakeApproximationProfileCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val status = rememberFakeApproximationStatus(uiState)
-    val primaryStep = uiState.primaryFakeApproximationStep
+    val primaryStep = uiState.desync.primaryFakeApproximationStep
     val profileSummary =
-        when (uiState.fakeApproximationStepCount) {
+        when (uiState.desync.fakeApproximationStepCount) {
             0 -> {
                 stringResource(R.string.ripdpi_fake_approx_summary_profile_none)
             }
@@ -44,7 +44,7 @@ internal fun FakeApproximationProfileCard(
             else -> {
                 stringResource(
                     R.string.ripdpi_fake_approx_summary_profile_multiple,
-                    uiState.fakeApproximationStepCount,
+                    uiState.desync.fakeApproximationStepCount,
                 )
             }
         }
@@ -87,13 +87,13 @@ internal fun FakeApproximationProfileCard(
         buildList {
             add(
                 (
-                    if (uiState.hasFakeApproximation) {
+                    if (uiState.desync.hasFakeApproximation) {
                         stringResource(R.string.ripdpi_fake_approx_badge_configured)
                     } else {
                         stringResource(R.string.ripdpi_fake_approx_badge_available)
                     }
                 ) to
-                    if (uiState.hasFakeApproximation) {
+                    if (uiState.desync.hasFakeApproximation) {
                         SummaryCapsuleTone.Active
                     } else {
                         SummaryCapsuleTone.Neutral
@@ -106,10 +106,10 @@ internal fun FakeApproximationProfileCard(
             if (uiState.desyncHttpsEnabled) {
                 add(stringResource(R.string.ripdpi_fake_approx_badge_https) to SummaryCapsuleTone.Info)
             }
-            if (uiState.hasFakeSplitApproximation) {
+            if (uiState.desync.hasFakeSplitApproximation) {
                 add(stringResource(R.string.ripdpi_fake_approx_badge_fakedsplit) to SummaryCapsuleTone.Active)
             }
-            if (uiState.hasFakeDisorderApproximation) {
+            if (uiState.desync.hasFakeDisorderApproximation) {
                 add(stringResource(R.string.ripdpi_fake_approx_badge_fakeddisorder) to SummaryCapsuleTone.Warning)
             }
         }
@@ -189,7 +189,7 @@ private fun rememberFakeApproximationStatus(uiState: SettingsUiState): FakeAppro
             )
         }
 
-        uiState.hasFakeApproximation && uiState.isServiceRunning -> {
+        uiState.desync.hasFakeApproximation && uiState.isServiceRunning -> {
             FakeApproximationStatusContent(
                 label = stringResource(R.string.ripdpi_fake_approx_restart_title),
                 body = stringResource(R.string.ripdpi_fake_approx_restart_body),
@@ -197,7 +197,7 @@ private fun rememberFakeApproximationStatus(uiState: SettingsUiState): FakeAppro
             )
         }
 
-        uiState.hasFakeApproximation -> {
+        uiState.desync.hasFakeApproximation -> {
             FakeApproximationStatusContent(
                 label = stringResource(R.string.ripdpi_fake_approx_ready_title),
                 body = stringResource(R.string.ripdpi_fake_approx_ready_body),

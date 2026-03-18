@@ -50,7 +50,7 @@ internal fun SettingsUiState.rewriteTlsPreludeChainForEditor(
     maxFragmentSize: Int = tlsPrelude.tlsRandRecMaxFragmentSize,
 ): List<TcpChainStepModel> =
     replaceTlsPreludeTcpChainSteps(
-        tcpSteps = tcpChainSteps,
+        tcpSteps = desync.tcpChainSteps,
         newPreludeSteps =
             listOfNotNull(
                 toTlsPreludeEditorStep(

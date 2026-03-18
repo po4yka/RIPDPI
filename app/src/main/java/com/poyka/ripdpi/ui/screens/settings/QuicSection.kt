@@ -159,12 +159,12 @@ private fun QuicFakeProfileCard(
     val scopeSummary =
         when {
             !uiState.desyncUdpEnabled -> stringResource(R.string.quic_fake_profile_scope_udp_disabled)
-            !uiState.hasUdpFakeBurst -> stringResource(R.string.quic_fake_profile_scope_needs_burst)
+            !uiState.desync.hasUdpFakeBurst -> stringResource(R.string.quic_fake_profile_scope_needs_burst)
             else -> stringResource(R.string.quic_fake_profile_scope_active)
         }
     val burstSummary =
-        if (uiState.hasUdpFakeBurst) {
-            stringResource(R.string.quic_fake_profile_burst_configured, uiState.udpFakeCount)
+        if (uiState.desync.hasUdpFakeBurst) {
+            stringResource(R.string.quic_fake_profile_burst_configured, uiState.desync.udpFakeCount)
         } else {
             stringResource(R.string.quic_fake_profile_burst_missing)
         }
@@ -174,10 +174,10 @@ private fun QuicFakeProfileCard(
                 stringResource(R.string.quic_fake_profile_badge_initial_only) to SummaryCapsuleTone.Info,
             )
             add(
-                if (uiState.hasUdpFakeBurst) {
+                if (uiState.desync.hasUdpFakeBurst) {
                     stringResource(
                         R.string.quic_fake_profile_badge_burst_ready,
-                        uiState.udpFakeCount,
+                        uiState.desync.udpFakeCount,
                     ) to SummaryCapsuleTone.Active
                 } else {
                     stringResource(R.string.quic_fake_profile_badge_burst_missing) to SummaryCapsuleTone.Warning
@@ -437,7 +437,7 @@ private fun rememberQuicFakeStatus(uiState: SettingsUiState): QuicFakeStatusCont
             )
         }
 
-        !uiState.hasUdpFakeBurst -> {
+        !uiState.desync.hasUdpFakeBurst -> {
             QuicFakeStatusContent(
                 label = stringResource(R.string.quic_fake_profile_saved_title),
                 body = stringResource(R.string.quic_fake_profile_saved_body),

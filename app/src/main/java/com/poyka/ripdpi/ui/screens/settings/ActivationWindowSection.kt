@@ -36,7 +36,7 @@ internal fun LazyListScope.activationWindowSection(
                     ActivationRangeEditorCard(
                         title = stringResource(R.string.activation_window_round_card_title),
                         description = stringResource(R.string.activation_window_round_body),
-                        currentRange = uiState.groupActivationFilter.round,
+                        currentRange = uiState.desync.groupActivationFilter.round,
                         emptySummary = stringResource(R.string.activation_window_range_unbounded),
                         effectSummary = stringResource(R.string.activation_window_round_effect),
                         enabled = visualEditorEnabled,
@@ -46,7 +46,7 @@ internal fun LazyListScope.activationWindowSection(
                     ActivationRangeEditorCard(
                         title = stringResource(R.string.activation_window_payload_card_title),
                         description = stringResource(R.string.activation_window_payload_body),
-                        currentRange = uiState.groupActivationFilter.payloadSize,
+                        currentRange = uiState.desync.groupActivationFilter.payloadSize,
                         emptySummary = stringResource(R.string.activation_window_range_unbounded),
                         effectSummary = stringResource(R.string.activation_window_payload_effect),
                         enabled = visualEditorEnabled,
@@ -58,7 +58,7 @@ internal fun LazyListScope.activationWindowSection(
                     ActivationRangeEditorCard(
                         title = stringResource(R.string.activation_window_stream_card_title),
                         description = stringResource(R.string.activation_window_stream_body),
-                        currentRange = uiState.groupActivationFilter.streamBytes,
+                        currentRange = uiState.desync.groupActivationFilter.streamBytes,
                         emptySummary = stringResource(R.string.activation_window_range_unbounded),
                         effectSummary = stringResource(R.string.activation_window_stream_effect),
                         enabled = visualEditorEnabled,
@@ -99,7 +99,7 @@ private fun ActivationWindowProfileCard(
                 stringResource(R.string.activation_window_scope_inactive)
             }
 
-            uiState.hasCustomActivationWindow -> {
+            uiState.desync.hasCustomActivationWindow -> {
                 stringResource(R.string.activation_window_scope_filtered)
             }
 
@@ -108,10 +108,10 @@ private fun ActivationWindowProfileCard(
             }
         }
     val stepFilterSummary =
-        if (uiState.hasStepActivationFilters) {
+        if (uiState.desync.hasStepActivationFilters) {
             stringResource(
                 R.string.activation_window_step_filters_present,
-                uiState.stepActivationFilterCount,
+                uiState.desync.stepActivationFilterCount,
             )
         } else {
             stringResource(R.string.activation_window_step_filters_none)
@@ -120,32 +120,32 @@ private fun ActivationWindowProfileCard(
         buildList {
             add(
                 (
-                    if (uiState.hasCustomActivationWindow) {
+                    if (uiState.desync.hasCustomActivationWindow) {
                         stringResource(R.string.activation_window_badge_custom)
                     } else {
                         stringResource(R.string.activation_window_badge_default)
                     }
                 ) to
-                    if (uiState.hasCustomActivationWindow) {
+                    if (uiState.desync.hasCustomActivationWindow) {
                         SummaryCapsuleTone.Active
                     } else {
                         SummaryCapsuleTone.Neutral
                     },
             )
-            if (!uiState.groupActivationFilter.round.isEmpty) {
+            if (!uiState.desync.groupActivationFilter.round.isEmpty) {
                 add(stringResource(R.string.activation_window_badge_round) to SummaryCapsuleTone.Active)
             }
-            if (!uiState.groupActivationFilter.payloadSize.isEmpty) {
+            if (!uiState.desync.groupActivationFilter.payloadSize.isEmpty) {
                 add(stringResource(R.string.activation_window_badge_payload) to SummaryCapsuleTone.Active)
             }
-            if (!uiState.groupActivationFilter.streamBytes.isEmpty) {
+            if (!uiState.desync.groupActivationFilter.streamBytes.isEmpty) {
                 add(stringResource(R.string.activation_window_badge_stream) to SummaryCapsuleTone.Active)
             }
-            if (uiState.hasStepActivationFilters) {
+            if (uiState.desync.hasStepActivationFilters) {
                 add(
                     stringResource(
                         R.string.activation_window_badge_step_filters,
-                        uiState.stepActivationFilterCount,
+                        uiState.desync.stepActivationFilterCount,
                     ) to SummaryCapsuleTone.Info,
                 )
             }
@@ -168,7 +168,7 @@ private fun ActivationWindowProfileCard(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             ProfileSummaryLine(
                 label = stringResource(R.string.activation_window_summary_label),
-                value = uiState.activationWindowSummary,
+                value = uiState.desync.activationWindowSummary,
             )
             ProfileSummaryLine(
                 label = stringResource(R.string.activation_window_scope_label),
@@ -206,7 +206,7 @@ private fun rememberActivationWindowStatus(uiState: SettingsUiState): Activation
             )
         }
 
-        !uiState.activationWindowControlsRelevant && uiState.hasCustomActivationWindow -> {
+        !uiState.activationWindowControlsRelevant && uiState.desync.hasCustomActivationWindow -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_group_disabled_title),
                 body = stringResource(R.string.activation_window_group_disabled_body),
@@ -222,7 +222,7 @@ private fun rememberActivationWindowStatus(uiState: SettingsUiState): Activation
             )
         }
 
-        uiState.isServiceRunning && uiState.hasCustomActivationWindow -> {
+        uiState.isServiceRunning && uiState.desync.hasCustomActivationWindow -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_restart_title),
                 body = stringResource(R.string.activation_window_restart_body),
@@ -230,7 +230,7 @@ private fun rememberActivationWindowStatus(uiState: SettingsUiState): Activation
             )
         }
 
-        uiState.hasCustomActivationWindow -> {
+        uiState.desync.hasCustomActivationWindow -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_custom_title),
                 body = stringResource(R.string.activation_window_custom_body),
@@ -238,7 +238,7 @@ private fun rememberActivationWindowStatus(uiState: SettingsUiState): Activation
             )
         }
 
-        uiState.hasStepActivationFilters -> {
+        uiState.desync.hasStepActivationFilters -> {
             ActivationWindowStatusContent(
                 label = stringResource(R.string.activation_window_step_only_title),
                 body = stringResource(R.string.activation_window_step_only_body),
