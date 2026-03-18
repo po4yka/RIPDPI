@@ -89,8 +89,7 @@ pub(crate) fn domain_connect_target(target: &DomainTarget) -> TargetAddress {
         .connect_ip
         .as_ref()
         .and_then(|ip| ip.parse::<IpAddr>().ok())
-        .map(TargetAddress::Ip)
-        .unwrap_or_else(|| TargetAddress::Host(target.host.clone()))
+        .map_or_else(|| TargetAddress::Host(target.host.clone()), TargetAddress::Ip)
 }
 
 pub(crate) fn quic_connect_target(target: &QuicTarget) -> TargetAddress {
@@ -98,8 +97,7 @@ pub(crate) fn quic_connect_target(target: &QuicTarget) -> TargetAddress {
         .connect_ip
         .as_ref()
         .and_then(|ip| ip.parse::<IpAddr>().ok())
-        .map(TargetAddress::Ip)
-        .unwrap_or_else(|| TargetAddress::Host(target.host.clone()))
+        .map_or_else(|| TargetAddress::Host(target.host.clone()), TargetAddress::Ip)
 }
 
 pub(crate) fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<SocketAddr>, String> {
@@ -321,13 +319,18 @@ pub(crate) fn relay_udp_payload(
     let destination =
         resolve_addresses(target, port)?.into_iter().next().ok_or_else(|| "no_socket_addrs".to_string())?;
     match transport {
-        TransportConfig::Direct => relay_udp_direct(&destination.to_string(), payload),
+        TransportConfig::Direct => relay_udp_direct(destination, payload),
         TransportConfig::Socks5 { host, port } => relay_udp_via_socks5(host, *port, destination, payload),
     }
 }
 
-pub(crate) fn relay_udp_direct(server: &str, payload: &[u8]) -> Result<Vec<u8>, String> {
-    let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).map_err(|err| err.to_string())?;
+pub(crate) fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<Vec<u8>, String> {
+    let bind_addr: SocketAddr = if server.is_ipv4() {
+        (Ipv4Addr::UNSPECIFIED, 0).into()
+    } else {
+        (std::net::Ipv6Addr::UNSPECIFIED, 0).into()
+    };
+    let socket = UdpSocket::bind(bind_addr).map_err(|err| err.to_string())?;
     socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     socket.send_to(payload, server).map_err(|err| err.to_string())?;
