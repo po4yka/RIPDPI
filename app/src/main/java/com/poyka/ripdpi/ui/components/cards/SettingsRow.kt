@@ -6,6 +6,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -148,6 +150,7 @@ fun SettingsRow(
 
                 value != null -> {
                     Row(
+                        modifier = Modifier.weight(1f, fill = false),
                         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -155,6 +158,8 @@ fun SettingsRow(
                             text = value,
                             style = if (monospaceValue) type.monoValue else type.caption,
                             color = colors.mutedForeground,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         if (showChevron) {
                             Icon(
@@ -184,8 +189,7 @@ private fun SettingsRowPreview() {
     RipDpiComponentPreview {
         RipDpiCard(
             paddingValues =
-                androidx.compose.foundation.layout
-                    .PaddingValues(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = 0.dp),
+                PaddingValues(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = 0.dp),
         ) {
             SettingsRow(
                 title = "DNS provider",
