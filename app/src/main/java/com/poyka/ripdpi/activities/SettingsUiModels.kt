@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import androidx.compose.runtime.Stable
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AdaptiveMarkerEndHost
@@ -72,6 +73,7 @@ enum class SettingsNoticeTone {
     Error,
 }
 
+@Stable
 data class SettingsUiState(
     val settings: AppSettings = AppSettingsSerializer.defaultValue,
     val appTheme: String = "system",
@@ -437,6 +439,7 @@ data class SettingsUiState(
         get() = primaryTcpChainStep(tcpChainSteps)?.kind?.supportsAdaptiveMarker != false
 }
 
+@Stable
 data class HostPackCatalogUiState(
     val snapshot: HostPackCatalogSnapshot = HostPackCatalogSnapshot(),
     val isRefreshing: Boolean = false,

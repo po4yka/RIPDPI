@@ -72,7 +72,7 @@ fun SettingsRow(
             SettingsRowVariant.Tonal -> colors.border
             SettingsRowVariant.Selected -> colors.foreground
         }
-    val rowContent: @Composable () -> Unit = {
+    Column(modifier = modifier.fillMaxWidth()) {
         val rowInteractionSource = remember { MutableInteractionSource() }
         Row(
             modifier =
@@ -175,10 +175,6 @@ fun SettingsRow(
                 }
             }
         }
-    }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        rowContent()
         if (showDivider) {
             HorizontalDivider(color = colors.divider)
         }
