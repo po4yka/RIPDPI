@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import logcat.logcat
@@ -140,6 +141,10 @@ class RipDpiProxy(
                     throw error
                 }
             }
+
+        // Yield to allow the UNDISPATCHED caller to regain control before
+        // the blocking native event loop occupies this thread.
+        yield()
 
         try {
             val completionHandle =
