@@ -71,7 +71,7 @@ internal fun LazyListScope.desyncSection(
                     showDivider = true,
                 )
                 Text(
-                    text = stringResource(R.string.config_chain_summary_label, uiState.chainSummary),
+                    text = stringResource(R.string.config_chain_summary_label, uiState.desync.chainSummary),
                     style = RipDpiThemeTokens.type.caption,
                     color = colors.mutedForeground,
                 )
@@ -85,17 +85,17 @@ internal fun LazyListScope.desyncSection(
                 AdaptiveSplitPresetSelector(
                     uiState = uiState,
                     presets = adaptiveSplitPresetOptions,
-                    enabled = visualEditorEnabled && uiState.adaptiveSplitVisualEditorSupported,
+                    enabled = visualEditorEnabled && uiState.desync.adaptiveSplitVisualEditorSupported,
                     onPresetSelected = { onOptionSelected(AdvancedOptionSetting.AdaptiveSplitPreset, it) },
                 )
-                if (!uiState.hasAdaptiveSplitPreset) {
+                if (!uiState.desync.hasAdaptiveSplitPreset) {
                     HorizontalDivider(color = colors.divider)
                     AdvancedTextSetting(
                         title = stringResource(R.string.ripdpi_split_marker_setting),
                         description = stringResource(R.string.config_split_marker_helper),
-                        value = uiState.splitMarker,
+                        value = uiState.desync.splitMarker,
                         placeholder = stringResource(R.string.config_placeholder_split_marker),
-                        enabled = visualEditorEnabled && uiState.adaptiveSplitVisualEditorSupported,
+                        enabled = visualEditorEnabled && uiState.desync.adaptiveSplitVisualEditorSupported,
                         validator = {
                             it.isBlank() || (
                                 isValidOffsetExpression(
@@ -105,7 +105,7 @@ internal fun LazyListScope.desyncSection(
                         },
                         invalidMessage = stringResource(R.string.config_error_invalid_marker),
                         disabledMessage =
-                            if (uiState.adaptiveSplitVisualEditorSupported) {
+                            if (uiState.desync.adaptiveSplitVisualEditorSupported) {
                                 stringResource(R.string.advanced_settings_visual_controls_disabled)
                             } else {
                                 stringResource(R.string.adaptive_split_hostfake_disabled)
@@ -125,7 +125,7 @@ internal fun LazyListScope.desyncSection(
                 AdvancedTextSetting(
                     title = stringResource(R.string.config_chain_editor_label),
                     description = stringResource(R.string.config_chain_editor_helper),
-                    value = uiState.chainDsl,
+                    value = uiState.desync.chainDsl,
                     placeholder = stringResource(R.string.config_placeholder_chain_dsl),
                     enabled = visualEditorEnabled,
                     multiline = true,
@@ -511,7 +511,7 @@ internal fun LazyListScope.desyncSection(
                                         if (uiState.udpFakeProfileActiveInStrategy) {
                                             stringResource(
                                                 R.string.fake_payload_badge_burst_ready,
-                                                uiState.udpFakeCount,
+                                                uiState.desync.udpFakeCount,
                                             )
                                         } else {
                                             stringResource(R.string.fake_payload_badge_burst_needed)
@@ -539,7 +539,7 @@ internal fun LazyListScope.desyncSection(
                                 uiState.udpFakeProfileActiveInStrategy -> {
                                     stringResource(
                                         R.string.udp_fake_profile_scope_live,
-                                        uiState.udpFakeCount,
+                                        uiState.desync.udpFakeCount,
                                     )
                                 }
 
@@ -687,4 +687,4 @@ internal fun LazyListScope.desyncSection(
 }
 
 private val SettingsUiState.defaultTtlValue: String
-    get() = if (customTtl) defaultTtl.toString() else ""
+    get() = if (desync.customTtl) desync.defaultTtl.toString() else ""

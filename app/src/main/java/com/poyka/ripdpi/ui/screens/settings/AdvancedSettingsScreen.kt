@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.DesyncCoreUiState
 import com.poyka.ripdpi.activities.FakeTransportUiState
 import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
@@ -396,10 +397,13 @@ private fun AdvancedSettingsScreenPreview() {
                         noDomain = false,
                         tcpFastOpen = true,
                     ),
-                    customTtl = true,
-                    defaultTtl = 8,
-                    desyncMethod = "disorder",
-                    splitMarker = "host+2",
+                    desync = DesyncCoreUiState(
+                        desyncMethod = "disorder",
+                        splitMarker = "host+2",
+                        defaultTtl = 8,
+                        customTtl = true,
+                        udpFakeCount = 0,
+                    ),
                     fake = FakeTransportUiState(dropSack = false),
                     desyncHttp = true,
                     desyncHttps = true,
@@ -412,7 +416,6 @@ private fun AdvancedSettingsScreenPreview() {
                         tlsPreludeMode = TlsPreludeModeDisabled,
                         tlsPreludeStepCount = 0,
                     ),
-                    udpFakeCount = 0,
                     hostsMode = "disable",
                     autolearn = HostAutolearnUiState(
                         hostAutolearnEnabled = true,
@@ -463,10 +466,13 @@ private fun AdvancedSettingsScreenDarkPreview() {
                         maxConnections = 256,
                         bufferSize = 8192,
                     ),
-                    customTtl = true,
-                    defaultTtl = 8,
-                    desyncMethod = "fake",
-                    splitMarker = "host+1",
+                    desync = DesyncCoreUiState(
+                        desyncMethod = "fake",
+                        splitMarker = "host+1",
+                        defaultTtl = 8,
+                        customTtl = true,
+                        udpFakeCount = 1,
+                    ),
                     fake = FakeTransportUiState(
                         fakeTtl = 12,
                         fakeSni = "alt.example.org",
@@ -491,7 +497,6 @@ private fun AdvancedSettingsScreenDarkPreview() {
                         tlsRandRecMinFragmentSize = 24,
                         tlsRandRecMaxFragmentSize = 48,
                     ),
-                    udpFakeCount = 1,
                     hostsMode = "blacklist",
                     hostsBlacklist = "example.com\ncdn.example.net",
                     autolearn = HostAutolearnUiState(

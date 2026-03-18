@@ -55,7 +55,7 @@ internal fun mapNoticeEffect(effect: SettingsEffect.Notice): AdvancedNotice =
 internal fun parseOptionalRangeValue(value: String): Long? = value.trim().takeIf { it.isNotEmpty() }?.toLongOrNull()
 
 internal fun manualSplitMarkerFallback(uiState: SettingsUiState): String =
-    uiState.splitMarker.takeUnless(::isAdaptiveOffsetExpression) ?: DefaultSplitMarker
+    uiState.desync.splitMarker.takeUnless(::isAdaptiveOffsetExpression) ?: DefaultSplitMarker
 
 private fun updateTlsPreludeProfile(
     viewModel: SettingsViewModel,
@@ -81,7 +81,7 @@ private fun updateTlsPreludeProfile(
                     minFragmentSize = minFragmentSize,
                     maxFragmentSize = maxFragmentSize,
                 ),
-            udpSteps = uiState.udpChainSteps,
+            udpSteps = uiState.desync.udpChainSteps,
         )
     }
 }
@@ -109,7 +109,7 @@ private fun updatePrimarySplitMarker(
 ) {
     val normalized = normalizeOffsetExpression(marker, DefaultSplitMarker)
     val explicitChains = uiState.settings.tcpChainStepsCount > 0
-    val primaryStep = primaryTcpChainStep(uiState.tcpChainSteps)
+    val primaryStep = primaryTcpChainStep(uiState.desync.tcpChainSteps)
     if (explicitChains && primaryStep != null) {
         if (!primaryStep.kind.supportsAdaptiveMarker) {
             return
@@ -119,8 +119,8 @@ private fun updatePrimarySplitMarker(
             value = normalized,
         ) {
             setStrategyChains(
-                tcpSteps = rewritePrimaryTcpMarker(uiState.tcpChainSteps, normalized),
-                udpSteps = uiState.udpChainSteps,
+                tcpSteps = rewritePrimaryTcpMarker(uiState.desync.tcpChainSteps, normalized),
+                udpSteps = uiState.desync.udpChainSteps,
             )
         }
         return
@@ -140,7 +140,7 @@ private fun updateRoundRangeBoundary(
     value: String,
     updateStart: Boolean,
 ) {
-    val current = uiState.groupActivationFilter.round
+    val current = uiState.desync.groupActivationFilter.round
     val updated =
         normalizeRoundRange(
             if (updateStart) {
@@ -153,7 +153,7 @@ private fun updateRoundRangeBoundary(
         viewModel = viewModel,
         key = key,
         value = value,
-        filter = uiState.groupActivationFilter.copy(round = updated),
+        filter = uiState.desync.groupActivationFilter.copy(round = updated),
     )
 }
 
@@ -164,7 +164,7 @@ private fun updatePayloadSizeRangeBoundary(
     value: String,
     updateStart: Boolean,
 ) {
-    val current = uiState.groupActivationFilter.payloadSize
+    val current = uiState.desync.groupActivationFilter.payloadSize
     val updated =
         normalizePayloadSizeRange(
             if (updateStart) {
@@ -177,7 +177,7 @@ private fun updatePayloadSizeRangeBoundary(
         viewModel = viewModel,
         key = key,
         value = value,
-        filter = uiState.groupActivationFilter.copy(payloadSize = updated),
+        filter = uiState.desync.groupActivationFilter.copy(payloadSize = updated),
     )
 }
 
@@ -188,7 +188,7 @@ private fun updateStreamBytesRangeBoundary(
     value: String,
     updateStart: Boolean,
 ) {
-    val current = uiState.groupActivationFilter.streamBytes
+    val current = uiState.desync.groupActivationFilter.streamBytes
     val updated =
         normalizeStreamBytesRange(
             if (updateStart) {
@@ -201,7 +201,7 @@ private fun updateStreamBytesRangeBoundary(
         viewModel = viewModel,
         key = key,
         value = value,
-        filter = uiState.groupActivationFilter.copy(streamBytes = updated),
+        filter = uiState.desync.groupActivationFilter.copy(streamBytes = updated),
     )
 }
 
@@ -982,7 +982,7 @@ fun AdvancedSettingsRoute(
                         key = "groupActivationFilter.round",
                         value = listOfNotNull(start, end).joinToString("-"),
                         filter =
-                            uiState.groupActivationFilter.copy(
+                            uiState.desync.groupActivationFilter.copy(
                                 round = normalizeRoundRange(start, end),
                             ),
                     )
@@ -994,7 +994,7 @@ fun AdvancedSettingsRoute(
                         key = "groupActivationFilter.payloadSize",
                         value = listOfNotNull(start, end).joinToString("-"),
                         filter =
-                            uiState.groupActivationFilter.copy(
+                            uiState.desync.groupActivationFilter.copy(
                                 payloadSize = normalizePayloadSizeRange(start, end),
                             ),
                     )
@@ -1006,7 +1006,7 @@ fun AdvancedSettingsRoute(
                         key = "groupActivationFilter.streamBytes",
                         value = listOfNotNull(start, end).joinToString("-"),
                         filter =
-                            uiState.groupActivationFilter.copy(
+                            uiState.desync.groupActivationFilter.copy(
                                 streamBytes = normalizeStreamBytesRange(start, end),
                             ),
                     )
