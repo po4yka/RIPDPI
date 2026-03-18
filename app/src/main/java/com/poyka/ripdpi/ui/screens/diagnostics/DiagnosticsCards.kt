@@ -168,9 +168,11 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
 
 @Composable
 internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSparklineUiModel) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
     val palette = metricPalette(trend.tone)
-    val dividerColor = RipDpiThemeTokens.colors.divider
+    val dividerColor = colors.divider
     val animatedStrokeColor by animateColorAsState(
         targetValue = palette.content,
         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
@@ -189,53 +191,102 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
             animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
         )
     }
+
+    val latestValue = trend.values.lastOrNull() ?: 0f
+    val minValue = trend.values.minOrNull() ?: 0f
+    val maxValue = trend.values.maxOrNull() ?: 0f
+
     RipDpiCard {
-        Text(
-            text = trend.label,
-            style = RipDpiThemeTokens.type.bodyEmphasis,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        Canvas(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(84.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom,
         ) {
-            val values = interpolatedSeries(previousValues, currentValues, transitionProgress.value)
-            if (values.isEmpty()) {
-                return@Canvas
+            Text(
+                text = trend.label,
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            AnimatedContent(
+                targetState = formatSparklineValue(latestValue),
+                transitionSpec = {
+                    androidx.compose.animation.fadeIn(
+                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                    ) togetherWith
+                        androidx.compose.animation.fadeOut(
+                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        )
+                },
+                label = "sparklineCurrentValue",
+            ) { value ->
+                Text(
+                    text = value,
+                    style = RipDpiThemeTokens.type.monoValue,
+                    color = palette.content,
+                )
             }
-            val min = values.minOrNull() ?: 0f
-            val max = values.maxOrNull() ?: 0f
-            val range = (max - min).takeIf { it > 0f } ?: 1f
-            val path =
-                Path().apply {
-                    values.forEachIndexed { index, value ->
-                        val x =
-                            if (values.size == 1) {
-                                0f
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            Column(
+                modifier = Modifier.height(84.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = formatSparklineValue(maxValue),
+                    style = RipDpiThemeTokens.type.monoSmall,
+                    color = colors.mutedForeground,
+                )
+                Text(
+                    text = formatSparklineValue(minValue),
+                    style = RipDpiThemeTokens.type.monoSmall,
+                    color = colors.mutedForeground,
+                )
+            }
+            Canvas(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .height(84.dp),
+            ) {
+                val values = interpolatedSeries(previousValues, currentValues, transitionProgress.value)
+                if (values.isEmpty()) {
+                    return@Canvas
+                }
+                val min = values.minOrNull() ?: 0f
+                val max = values.maxOrNull() ?: 0f
+                val range = (max - min).takeIf { it > 0f } ?: 1f
+                val path =
+                    Path().apply {
+                        values.forEachIndexed { index, value ->
+                            val x =
+                                if (values.size == 1) {
+                                    0f
+                                } else {
+                                    size.width * index.toFloat() / (values.lastIndex.toFloat())
+                                }
+                            val y = size.height - ((value - min) / range) * size.height
+                            if (index == 0) {
+                                moveTo(x, y)
                             } else {
-                                size.width * index.toFloat() / (values.lastIndex.toFloat())
+                                lineTo(x, y)
                             }
-                        val y = size.height - ((value - min) / range) * size.height
-                        if (index == 0) {
-                            moveTo(x, y)
-                        } else {
-                            lineTo(x, y)
                         }
                     }
-                }
-            drawPath(
-                path = path,
-                color = animatedStrokeColor,
-                style = Stroke(width = 4f, cap = StrokeCap.Round),
-            )
-            drawLine(
-                color = dividerColor,
-                start = Offset(0f, size.height),
-                end = Offset(size.width, size.height),
-                strokeWidth = 1f,
-            )
+                drawPath(
+                    path = path,
+                    color = animatedStrokeColor,
+                    style = Stroke(width = 4f, cap = StrokeCap.Round),
+                )
+                drawLine(
+                    color = dividerColor,
+                    start = Offset(0f, size.height),
+                    end = Offset(size.width, size.height),
+                    strokeWidth = 1f,
+                )
+            }
         }
     }
 }
@@ -667,3 +718,29 @@ private val dataLinePrefixes =
 
 private fun isDataLine(line: String): Boolean =
     dataLinePrefixes.any { line.startsWith(it) } || line.contains("probe results")
+
+@Suppress("MagicNumber")
+private fun formatSparklineValue(value: Float): String {
+    val longValue = value.toLong()
+    return when {
+        longValue >= 1_000_000_000L -> {
+            String.format(java.util.Locale.US, "%.1f GB", longValue / 1_000_000_000.0)
+        }
+
+        longValue >= 1_000_000L -> {
+            String.format(java.util.Locale.US, "%.1f MB", longValue / 1_000_000.0)
+        }
+
+        longValue >= 1_000L -> {
+            String.format(java.util.Locale.US, "%.1f KB", longValue / 1_000.0)
+        }
+
+        longValue > 0L -> {
+            "$longValue B"
+        }
+
+        else -> {
+            "0"
+        }
+    }
+}
