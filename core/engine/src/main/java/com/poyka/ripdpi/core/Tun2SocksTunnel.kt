@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
@@ -80,10 +79,6 @@ class Tun2SocksNativeBindings
 class Tun2SocksTunnel(
     private val nativeBindings: Tun2SocksBindings,
 ) {
-    private companion object {
-        private const val TUNNEL_STOP_TIMEOUT_MS = 5_000L
-    }
-
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val mutex = Mutex()
     private var handle = 0L
@@ -129,14 +124,8 @@ class Tun2SocksTunnel(
             }
 
             try {
-                val stopped =
-                    withTimeoutOrNull(TUNNEL_STOP_TIMEOUT_MS) {
-                        withContext(Dispatchers.IO) {
-                            nativeBindings.stop(handle)
-                        }
-                    }
-                if (stopped == null) {
-                    logcat(LogPriority.WARN) { "Tunnel stop timed out after ${TUNNEL_STOP_TIMEOUT_MS}ms" }
+                withContext(Dispatchers.IO) {
+                    nativeBindings.stop(handle)
                 }
             } finally {
                 try {

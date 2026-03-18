@@ -1,10 +1,8 @@
 package com.poyka.ripdpi.core
 
-import android.content.Context
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -52,17 +50,11 @@ interface RipDpiProxyBindings {
 
 class RipDpiProxyNativeBindings
     @Inject
-    constructor(
-        @ApplicationContext context: Context,
-    ) : RipDpiProxyBindings {
+    constructor() : RipDpiProxyBindings {
         companion object {
             init {
                 RipDpiNativeLoader.ensureLoaded()
             }
-        }
-
-        init {
-            RipDpiNativeLoader.ensureLoaded(context)
         }
 
         override fun create(configJson: String): Long = jniCreate(configJson)
