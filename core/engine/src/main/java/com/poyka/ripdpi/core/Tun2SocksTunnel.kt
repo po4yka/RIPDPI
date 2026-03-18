@@ -84,7 +84,7 @@ class Tun2SocksTunnel(
         private const val TUNNEL_STOP_TIMEOUT_MS = 5_000L
     }
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val mutex = Mutex()
     private var handle = 0L
 
@@ -99,7 +99,7 @@ class Tun2SocksTunnel(
 
             val createdHandle =
                 withContext(Dispatchers.IO) {
-                    nativeBindings.create(Json.encodeToString(config))
+                    nativeBindings.create(json.encodeToString(config))
                 }
             if (createdHandle == 0L) {
                 logcat(LogPriority.ERROR) { "Tunnel native session creation returned null handle" }
