@@ -64,18 +64,18 @@ internal fun LazyListScope.quicSection(
                 AdvancedDropdownSetting(
                     title = stringResource(R.string.quic_initial_mode_title),
                     description = stringResource(R.string.quic_initial_mode_body),
-                    value = uiState.quicInitialMode,
+                    value = uiState.quic.quicInitialMode,
                     enabled = visualEditorEnabled,
                     options = quicModeOptions,
                     setting = AdvancedOptionSetting.QuicInitialMode,
                     onSelected = onOptionSelected,
-                    showDivider = uiState.quicInitialMode != QuicInitialModeDisabled,
+                    showDivider = uiState.quic.quicInitialMode != QuicInitialModeDisabled,
                 )
-                if (uiState.quicInitialMode != QuicInitialModeDisabled) {
+                if (uiState.quic.quicInitialMode != QuicInitialModeDisabled) {
                     SettingsRow(
                         title = stringResource(R.string.quic_initial_support_v1_title),
                         subtitle = stringResource(R.string.quic_initial_support_v1_body),
-                        checked = uiState.quicSupportV1,
+                        checked = uiState.quic.quicSupportV1,
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.QuicSupportV1, it) },
                         enabled = visualEditorEnabled,
                         showDivider = true,
@@ -83,7 +83,7 @@ internal fun LazyListScope.quicSection(
                     SettingsRow(
                         title = stringResource(R.string.quic_initial_support_v2_title),
                         subtitle = stringResource(R.string.quic_initial_support_v2_body),
-                        checked = uiState.quicSupportV2,
+                        checked = uiState.quic.quicSupportV2,
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.QuicSupportV2, it) },
                         enabled = visualEditorEnabled,
                     )
@@ -98,7 +98,7 @@ internal fun LazyListScope.quicSection(
                             onOptionSelected(AdvancedOptionSetting.QuicFakeProfile, it)
                         },
                     )
-                    if (uiState.showQuicFakeHostOverride) {
+                    if (uiState.quic.showQuicFakeHostOverride) {
                         QuicFakeHostOverrideCard(
                             uiState = uiState,
                             enabled = visualEditorEnabled,
@@ -140,16 +140,16 @@ private fun QuicFakeProfileCard(
     val status = rememberQuicFakeStatus(uiState)
     val presetSummary =
         stringResource(
-            when (uiState.quicFakeProfile) {
+            when (uiState.quic.quicFakeProfile) {
                 QuicFakeProfileCompatDefault -> R.string.quic_fake_profile_summary_compat
                 QuicFakeProfileRealisticInitial -> R.string.quic_fake_profile_summary_realistic
                 else -> R.string.quic_fake_profile_summary_off
             },
         )
     val hostSummary =
-        when (uiState.quicFakeProfile) {
+        when (uiState.quic.quicFakeProfile) {
             QuicFakeProfileRealisticInitial -> {
-                uiState.quicFakeHost.ifBlank { DefaultQuicFakeHost }
+                uiState.quic.quicFakeHost.ifBlank { DefaultQuicFakeHost }
             }
 
             else -> {
@@ -183,7 +183,7 @@ private fun QuicFakeProfileCard(
                     stringResource(R.string.quic_fake_profile_badge_burst_missing) to SummaryCapsuleTone.Warning
                 },
             )
-            when (uiState.quicFakeProfile) {
+            when (uiState.quic.quicFakeProfile) {
                 QuicFakeProfileCompatDefault -> {
                     add(
                         stringResource(R.string.quic_fake_profile_badge_compat_blob) to SummaryCapsuleTone.Neutral,
@@ -192,7 +192,7 @@ private fun QuicFakeProfileCard(
 
                 QuicFakeProfileRealisticInitial -> {
                     add(
-                        if (uiState.quicFakeUsesCustomHost) {
+                        if (uiState.quic.quicFakeUsesCustomHost) {
                             stringResource(R.string.quic_fake_profile_badge_host_custom)
                         } else {
                             stringResource(R.string.quic_fake_profile_badge_host_builtin)
@@ -286,7 +286,7 @@ private fun QuicFakePresetSelector(
         presets.forEach { preset ->
             QuicFakePresetCard(
                 preset = preset,
-                selected = uiState.quicFakeProfile == preset.value,
+                selected = uiState.quic.quicFakeProfile == preset.value,
                 enabled = enabled,
                 onClick = { onProfileSelected(preset.value) },
             )
@@ -364,13 +364,13 @@ private fun QuicFakeHostOverrideCard(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val statusLabel =
-        if (uiState.quicFakeUsesCustomHost) {
+        if (uiState.quic.quicFakeUsesCustomHost) {
             stringResource(R.string.quic_fake_host_custom_title)
         } else {
             stringResource(R.string.quic_fake_host_builtin_title)
         }
     val statusBody =
-        if (uiState.quicFakeUsesCustomHost) {
+        if (uiState.quic.quicFakeUsesCustomHost) {
             stringResource(R.string.quic_fake_host_custom_body)
         } else {
             stringResource(R.string.quic_fake_host_builtin_body)
@@ -382,7 +382,7 @@ private fun QuicFakeHostOverrideCard(
     ) {
         StatusIndicator(
             label = statusLabel,
-            tone = if (uiState.quicFakeUsesCustomHost) StatusIndicatorTone.Active else StatusIndicatorTone.Idle,
+            tone = if (uiState.quic.quicFakeUsesCustomHost) StatusIndicatorTone.Active else StatusIndicatorTone.Idle,
         )
         Text(
             text = statusBody,
@@ -392,7 +392,7 @@ private fun QuicFakeHostOverrideCard(
         AdvancedTextSetting(
             title = stringResource(R.string.quic_fake_host_title),
             description = stringResource(R.string.quic_fake_host_body),
-            value = uiState.quicFakeHost,
+            value = uiState.quic.quicFakeHost,
             enabled = enabled,
             validator = { input ->
                 input.isBlank() || normalizeQuicFakeHost(input).isNotEmpty()
@@ -405,7 +405,7 @@ private fun QuicFakeHostOverrideCard(
         )
         ProfileSummaryLine(
             label = stringResource(R.string.quic_fake_host_effective_label),
-            value = uiState.quicFakeEffectiveHost,
+            value = uiState.quic.quicFakeEffectiveHost,
         )
     }
 }
@@ -429,7 +429,7 @@ private fun rememberQuicFakeStatus(uiState: SettingsUiState): QuicFakeStatusCont
             )
         }
 
-        !uiState.quicFakeProfileActive -> {
+        !uiState.quic.quicFakeProfileActive -> {
             QuicFakeStatusContent(
                 label = stringResource(R.string.quic_fake_profile_off_title),
                 body = stringResource(R.string.quic_fake_profile_off_body),

@@ -74,12 +74,7 @@ enum class SettingsNoticeTone {
 }
 
 @Stable
-data class SettingsUiState(
-    val settings: AppSettings = AppSettingsSerializer.defaultValue,
-    val appTheme: String = "system",
-    val appIconVariant: String = LauncherIconManager.DefaultIconKey,
-    val themedAppIconEnabled: Boolean = true,
-    val ripdpiMode: String = "vpn",
+data class DnsUiState(
     val dnsIp: String = "1.1.1.1",
     val dnsMode: String = "encrypted",
     val dnsProviderId: String = "cloudflare",
@@ -94,24 +89,103 @@ data class SettingsUiState(
     val encryptedDnsDnscryptProviderName: String = "",
     val encryptedDnsDnscryptPublicKey: String = "",
     val dnsSummary: String = "Encrypted DNS · Cloudflare (DoH)",
-    val ipv6Enable: Boolean = false,
-    val enableCmdSettings: Boolean = false,
-    val cmdArgs: String = "",
+)
+
+@Stable
+data class QuicUiState(
+    val quicInitialMode: String = QuicInitialModeRouteAndCache,
+    val quicSupportV1: Boolean = true,
+    val quicSupportV2: Boolean = true,
+    val quicFakeProfile: String = QuicFakeProfileDisabled,
+    val quicFakeHost: String = "",
+) {
+    val quicFakeProfileActive: Boolean
+        get() = quicFakeProfile != QuicFakeProfileDisabled
+
+    val showQuicFakeHostOverride: Boolean
+        get() = quicFakeProfile == QuicFakeProfileRealisticInitial
+
+    val quicFakeUsesCustomHost: Boolean
+        get() = showQuicFakeHostOverride && quicFakeHost.isNotBlank()
+
+    val quicFakeEffectiveHost: String
+        get() =
+            if (showQuicFakeHostOverride) {
+                quicFakeHost.ifBlank { DefaultQuicFakeHost }
+            } else {
+                ""
+            }
+}
+
+@Stable
+data class HttpParserUiState(
+    val hostMixedCase: Boolean = false,
+    val domainMixedCase: Boolean = false,
+    val hostRemoveSpaces: Boolean = false,
+    val httpMethodEol: Boolean = false,
+    val httpUnixEol: Boolean = false,
+) {
+    val httpParserSafeCount: Int
+        get() = listOf(hostMixedCase, domainMixedCase, hostRemoveSpaces).count { it }
+
+    val httpParserAggressiveCount: Int
+        get() = listOf(httpMethodEol, httpUnixEol).count { it }
+
+    val hasSafeHttpParserTweaks: Boolean
+        get() = httpParserSafeCount > 0
+
+    val hasAggressiveHttpParserEvasions: Boolean
+        get() = httpParserAggressiveCount > 0
+
+    val hasCustomHttpParserEvasions: Boolean
+        get() = hasSafeHttpParserTweaks || hasAggressiveHttpParserEvasions
+}
+
+@Stable
+data class HostAutolearnUiState(
+    val hostAutolearnEnabled: Boolean = false,
+    val hostAutolearnPenaltyTtlHours: Int = DefaultHostAutolearnPenaltyTtlHours,
+    val hostAutolearnMaxHosts: Int = DefaultHostAutolearnMaxHosts,
+    val networkStrategyMemoryEnabled: Boolean = false,
+    val rememberedNetworkCount: Int = 0,
+    val hostAutolearnRuntimeEnabled: Boolean = false,
+    val hostAutolearnStorePresent: Boolean = false,
+    val hostAutolearnLearnedHostCount: Int = 0,
+    val hostAutolearnPenalizedHostCount: Int = 0,
+    val hostAutolearnLastHost: String? = null,
+    val hostAutolearnLastGroup: Int? = null,
+    val hostAutolearnLastAction: String? = null,
+)
+
+@Stable
+data class TlsPreludeUiState(
+    val tlsrecEnabled: Boolean = false,
+    val tlsrecMarker: String = DefaultTlsRecordMarker,
+    val tlsPreludeMode: String = "disabled",
+    val tlsPreludeStepCount: Int = 0,
+    val tlsRandRecFragmentCount: Int = DefaultTlsRandRecFragmentCount,
+    val tlsRandRecMinFragmentSize: Int = DefaultTlsRandRecMinFragmentSize,
+    val tlsRandRecMaxFragmentSize: Int = DefaultTlsRandRecMaxFragmentSize,
+) {
+    val tlsPreludeUsesRandomRecords: Boolean
+        get() = tlsPreludeMode == TcpChainStepKind.TlsRandRec.wireName
+
+    val hasStackedTlsPreludeSteps: Boolean
+        get() = tlsPreludeStepCount > 1
+}
+
+@Stable
+data class ProxyNetworkUiState(
     val proxyIp: String = "127.0.0.1",
     val proxyPort: Int = 1080,
     val maxConnections: Int = 512,
     val bufferSize: Int = 16_384,
     val noDomain: Boolean = false,
     val tcpFastOpen: Boolean = false,
-    val defaultTtl: Int = 0,
-    val customTtl: Boolean = false,
-    val desyncMethod: String = "disorder",
-    val tcpChainSteps: List<TcpChainStepModel> = emptyList(),
-    val udpChainSteps: List<UdpChainStepModel> = emptyList(),
-    val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
-    val chainSummary: String = "tcp: none",
-    val chainDsl: String = "",
-    val splitMarker: String = DefaultSplitMarker,
+)
+
+@Stable
+data class FakeTransportUiState(
     val fakeTtl: Int = 8,
     val adaptiveFakeTtlEnabled: Boolean = false,
     val adaptiveFakeTtlDelta: Int = DefaultAdaptiveFakeTtlDelta,
@@ -128,45 +202,74 @@ data class SettingsUiState(
     val fakeTlsSize: Int = 0,
     val fakeTlsSniMode: String = FakeTlsSniModeFixed,
     val tlsFakeProfile: String = FakePayloadProfileCompatDefault,
+    val udpFakeProfile: String = FakePayloadProfileCompatDefault,
     val oobData: String = "a",
     val dropSack: Boolean = false,
+) {
+    val adaptiveFakeTtlMode: String
+        get() =
+            when {
+                !adaptiveFakeTtlEnabled -> AdaptiveFakeTtlModeFixed
+                adaptiveFakeTtlDelta == DefaultAdaptiveFakeTtlDelta -> AdaptiveFakeTtlModeAdaptive
+                else -> AdaptiveFakeTtlModeCustom
+            }
+
+    val hasAdaptiveFakeTtl: Boolean
+        get() = adaptiveFakeTtlEnabled
+
+    val hasCustomAdaptiveFakeTtl: Boolean
+        get() = adaptiveFakeTtlMode == AdaptiveFakeTtlModeCustom
+
+    val hasCustomFakePayloadProfiles: Boolean
+        get() =
+            httpFakeProfile != FakePayloadProfileCompatDefault ||
+                tlsFakeProfile != FakePayloadProfileCompatDefault ||
+                udpFakeProfile != FakePayloadProfileCompatDefault
+
+    val hasCustomFakeTlsProfile: Boolean
+        get() =
+            fakeTlsUseOriginal ||
+                fakeTlsRandomize ||
+                fakeTlsDupSessionId ||
+                fakeTlsPadEncap ||
+                fakeTlsSize != 0 ||
+                fakeTlsSniMode != FakeTlsSniModeFixed ||
+                (fakeTlsSniMode == FakeTlsSniModeFixed && fakeSni != DefaultFakeSni)
+}
+
+@Stable
+data class SettingsUiState(
+    val settings: AppSettings = AppSettingsSerializer.defaultValue,
+    val appTheme: String = "system",
+    val appIconVariant: String = LauncherIconManager.DefaultIconKey,
+    val themedAppIconEnabled: Boolean = true,
+    val ripdpiMode: String = "vpn",
+    val dns: DnsUiState = DnsUiState(),
+    val ipv6Enable: Boolean = false,
+    val enableCmdSettings: Boolean = false,
+    val cmdArgs: String = "",
+    val proxy: ProxyNetworkUiState = ProxyNetworkUiState(),
+    val defaultTtl: Int = 0,
+    val customTtl: Boolean = false,
+    val desyncMethod: String = "disorder",
+    val tcpChainSteps: List<TcpChainStepModel> = emptyList(),
+    val udpChainSteps: List<UdpChainStepModel> = emptyList(),
+    val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
+    val chainSummary: String = "tcp: none",
+    val chainDsl: String = "",
+    val splitMarker: String = DefaultSplitMarker,
+    val fake: FakeTransportUiState = FakeTransportUiState(),
     val desyncHttp: Boolean = true,
     val desyncHttps: Boolean = true,
     val desyncUdp: Boolean = false,
     val hostsMode: String = "disable",
     val hostsBlacklist: String = "",
     val hostsWhitelist: String = "",
-    val tlsrecEnabled: Boolean = false,
-    val tlsrecMarker: String = DefaultTlsRecordMarker,
-    val tlsPreludeMode: String = "disabled",
-    val tlsPreludeStepCount: Int = 0,
-    val tlsRandRecFragmentCount: Int = DefaultTlsRandRecFragmentCount,
-    val tlsRandRecMinFragmentSize: Int = DefaultTlsRandRecMinFragmentSize,
-    val tlsRandRecMaxFragmentSize: Int = DefaultTlsRandRecMaxFragmentSize,
+    val tlsPrelude: TlsPreludeUiState = TlsPreludeUiState(),
     val udpFakeCount: Int = 0,
-    val quicInitialMode: String = QuicInitialModeRouteAndCache,
-    val quicSupportV1: Boolean = true,
-    val quicSupportV2: Boolean = true,
-    val udpFakeProfile: String = FakePayloadProfileCompatDefault,
-    val quicFakeProfile: String = QuicFakeProfileDisabled,
-    val quicFakeHost: String = "",
-    val hostAutolearnEnabled: Boolean = false,
-    val hostAutolearnPenaltyTtlHours: Int = DefaultHostAutolearnPenaltyTtlHours,
-    val hostAutolearnMaxHosts: Int = DefaultHostAutolearnMaxHosts,
-    val networkStrategyMemoryEnabled: Boolean = false,
-    val rememberedNetworkCount: Int = 0,
-    val hostAutolearnRuntimeEnabled: Boolean = false,
-    val hostAutolearnStorePresent: Boolean = false,
-    val hostAutolearnLearnedHostCount: Int = 0,
-    val hostAutolearnPenalizedHostCount: Int = 0,
-    val hostAutolearnLastHost: String? = null,
-    val hostAutolearnLastGroup: Int? = null,
-    val hostAutolearnLastAction: String? = null,
-    val hostMixedCase: Boolean = false,
-    val domainMixedCase: Boolean = false,
-    val hostRemoveSpaces: Boolean = false,
-    val httpMethodEol: Boolean = false,
-    val httpUnixEol: Boolean = false,
+    val quic: QuicUiState = QuicUiState(),
+    val autolearn: HostAutolearnUiState = HostAutolearnUiState(),
+    val httpParser: HttpParserUiState = HttpParserUiState(),
     val onboardingComplete: Boolean = false,
     val webrtcProtectionEnabled: Boolean = false,
     val biometricEnabled: Boolean = false,
@@ -198,31 +301,25 @@ data class SettingsUiState(
         get() = serviceStatus == AppStatus.Running
 
     val canForgetLearnedHosts: Boolean
-        get() = !enableCmdSettings && hostAutolearnStorePresent
+        get() = !enableCmdSettings && autolearn.hostAutolearnStorePresent
 
     val canClearRememberedNetworks: Boolean
-        get() = !enableCmdSettings && rememberedNetworkCount > 0
+        get() = !enableCmdSettings && autolearn.rememberedNetworkCount > 0
 
     val canResetFakeTlsProfile: Boolean
-        get() = !enableCmdSettings && hasCustomFakeTlsProfile
+        get() = !enableCmdSettings && fake.hasCustomFakeTlsProfile
 
     val canResetAdaptiveFakeTtlProfile: Boolean
-        get() = !enableCmdSettings && hasAdaptiveFakeTtl
+        get() = !enableCmdSettings && fake.hasAdaptiveFakeTtl
 
     val canResetFakePayloadLibrary: Boolean
-        get() = !enableCmdSettings && hasCustomFakePayloadProfiles
+        get() = !enableCmdSettings && fake.hasCustomFakePayloadProfiles
 
     val canResetHttpParserEvasions: Boolean
-        get() = !enableCmdSettings && hasCustomHttpParserEvasions
+        get() = !enableCmdSettings && httpParser.hasCustomHttpParserEvasions
 
     val canResetActivationWindow: Boolean
         get() = !enableCmdSettings && hasCustomActivationWindow
-
-    val hasCustomFakePayloadProfiles: Boolean
-        get() =
-            httpFakeProfile != FakePayloadProfileCompatDefault ||
-                tlsFakeProfile != FakePayloadProfileCompatDefault ||
-                udpFakeProfile != FakePayloadProfileCompatDefault
 
     val httpFakeProfileActiveInStrategy: Boolean
         get() = desyncHttpEnabled && isFake
@@ -237,7 +334,7 @@ data class SettingsUiState(
         get() = desyncHttpEnabled || desyncHttpsEnabled || desyncUdpEnabled
 
     val showFakePayloadLibrary: Boolean
-        get() = enableCmdSettings || fakePayloadLibraryControlsRelevant || hasCustomFakePayloadProfiles
+        get() = enableCmdSettings || fakePayloadLibraryControlsRelevant || fake.hasCustomFakePayloadProfiles
 
     val fakeTlsControlsRelevant: Boolean
         get() = desyncHttpsEnabled && isFake
@@ -245,48 +342,19 @@ data class SettingsUiState(
     val fakeTtlControlsRelevant: Boolean
         get() = usesFakeTransport || hasDisoob
 
-    val adaptiveFakeTtlMode: String
-        get() =
-            when {
-                !adaptiveFakeTtlEnabled -> AdaptiveFakeTtlModeFixed
-                adaptiveFakeTtlDelta == DefaultAdaptiveFakeTtlDelta -> AdaptiveFakeTtlModeAdaptive
-                else -> AdaptiveFakeTtlModeCustom
-            }
-
-    val hasAdaptiveFakeTtl: Boolean
-        get() = adaptiveFakeTtlEnabled
-
-    val hasCustomAdaptiveFakeTtl: Boolean
-        get() = adaptiveFakeTtlMode == AdaptiveFakeTtlModeCustom
-
     val showAdaptiveFakeTtlProfile: Boolean
-        get() = enableCmdSettings || fakeTtlControlsRelevant || hasAdaptiveFakeTtl
+        get() = enableCmdSettings || fakeTtlControlsRelevant || fake.hasAdaptiveFakeTtl
 
     val hasUdpFakeBurst: Boolean
         get() = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 }
 
-    val quicFakeProfileActive: Boolean
-        get() = quicFakeProfile != QuicFakeProfileDisabled
-
     val quicFakeControlsRelevant: Boolean
         get() = desyncUdpEnabled
 
-    val showQuicFakeHostOverride: Boolean
-        get() = quicFakeProfile == QuicFakeProfileRealisticInitial
-
-    val quicFakeUsesCustomHost: Boolean
-        get() = showQuicFakeHostOverride && quicFakeHost.isNotBlank()
-
-    val quicFakeEffectiveHost: String
-        get() =
-            if (showQuicFakeHostOverride) {
-                quicFakeHost.ifBlank { DefaultQuicFakeHost }
-            } else {
-                ""
-            }
-
     val showQuicFakeProfile: Boolean
-        get() = enableCmdSettings || quicFakeControlsRelevant || quicFakeProfileActive || quicFakeHost.isNotBlank()
+        get() =
+            enableCmdSettings || quicFakeControlsRelevant ||
+                quic.quicFakeProfileActive || quic.quicFakeHost.isNotBlank()
 
     val hostFakeSteps: List<TcpChainStepModel>
         get() = tcpChainSteps.filter { it.kind == TcpChainStepKind.HostFake }
@@ -330,48 +398,17 @@ data class SettingsUiState(
     val showFakeApproximationProfile: Boolean
         get() = enableCmdSettings || hasFakeApproximation || fakeApproximationControlsRelevant
 
-    val httpParserSafeCount: Int
-        get() = listOf(hostMixedCase, domainMixedCase, hostRemoveSpaces).count { it }
-
-    val httpParserAggressiveCount: Int
-        get() = listOf(httpMethodEol, httpUnixEol).count { it }
-
-    val hasSafeHttpParserTweaks: Boolean
-        get() = httpParserSafeCount > 0
-
-    val hasAggressiveHttpParserEvasions: Boolean
-        get() = httpParserAggressiveCount > 0
-
-    val hasCustomHttpParserEvasions: Boolean
-        get() = hasSafeHttpParserTweaks || hasAggressiveHttpParserEvasions
-
     val httpParserControlsRelevant: Boolean
         get() = desyncHttpEnabled
 
     val showHttpParserProfile: Boolean
-        get() = enableCmdSettings || httpParserControlsRelevant || hasCustomHttpParserEvasions
+        get() = enableCmdSettings || httpParserControlsRelevant || httpParser.hasCustomHttpParserEvasions
 
     val tlsPreludeControlsRelevant: Boolean
         get() = desyncHttpsEnabled
 
     val showTlsPreludeProfile: Boolean
-        get() = enableCmdSettings || tlsPreludeControlsRelevant || tlsPreludeStepCount > 0
-
-    val tlsPreludeUsesRandomRecords: Boolean
-        get() = tlsPreludeMode == TcpChainStepKind.TlsRandRec.wireName
-
-    val hasStackedTlsPreludeSteps: Boolean
-        get() = tlsPreludeStepCount > 1
-
-    val hasCustomFakeTlsProfile: Boolean
-        get() =
-            fakeTlsUseOriginal ||
-                fakeTlsRandomize ||
-                fakeTlsDupSessionId ||
-                fakeTlsPadEncap ||
-                fakeTlsSize != 0 ||
-                fakeTlsSniMode != FakeTlsSniModeFixed ||
-                (fakeTlsSniMode == FakeTlsSniModeFixed && fakeSni != DefaultFakeSni)
+        get() = enableCmdSettings || tlsPreludeControlsRelevant || tlsPrelude.tlsPreludeStepCount > 0
 
     val hasCustomActivationWindow: Boolean
         get() = formatActivationFilterSummary(groupActivationFilter).isNotBlank()

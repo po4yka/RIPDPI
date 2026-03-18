@@ -11,11 +11,11 @@ import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.replaceTlsPreludeTcpChainSteps
 
 internal fun SettingsUiState.toTlsPreludeEditorStep(
-    mode: String = tlsPreludeMode,
-    marker: String = tlsrecMarker,
-    fragmentCount: Int = tlsRandRecFragmentCount,
-    minFragmentSize: Int = tlsRandRecMinFragmentSize,
-    maxFragmentSize: Int = tlsRandRecMaxFragmentSize,
+    mode: String = tlsPrelude.tlsPreludeMode,
+    marker: String = tlsPrelude.tlsrecMarker,
+    fragmentCount: Int = tlsPrelude.tlsRandRecFragmentCount,
+    minFragmentSize: Int = tlsPrelude.tlsRandRecMinFragmentSize,
+    maxFragmentSize: Int = tlsPrelude.tlsRandRecMaxFragmentSize,
 ): TcpChainStepModel? {
     val normalizedMarker = normalizeOffsetExpression(marker, DefaultTlsRecordMarker)
     return when (mode) {
@@ -43,11 +43,11 @@ internal fun SettingsUiState.toTlsPreludeEditorStep(
 }
 
 internal fun SettingsUiState.rewriteTlsPreludeChainForEditor(
-    mode: String = tlsPreludeMode,
-    marker: String = tlsrecMarker,
-    fragmentCount: Int = tlsRandRecFragmentCount,
-    minFragmentSize: Int = tlsRandRecMinFragmentSize,
-    maxFragmentSize: Int = tlsRandRecMaxFragmentSize,
+    mode: String = tlsPrelude.tlsPreludeMode,
+    marker: String = tlsPrelude.tlsrecMarker,
+    fragmentCount: Int = tlsPrelude.tlsRandRecFragmentCount,
+    minFragmentSize: Int = tlsPrelude.tlsRandRecMinFragmentSize,
+    maxFragmentSize: Int = tlsPrelude.tlsRandRecMaxFragmentSize,
 ): List<TcpChainStepModel> =
     replaceTlsPreludeTcpChainSteps(
         tcpSteps = tcpChainSteps,

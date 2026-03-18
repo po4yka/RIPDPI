@@ -43,14 +43,14 @@ internal fun LazyListScope.httpParserSection(
                 summary = formatHttpParserSafeSummary(uiState),
                 statusLabel =
                     stringResource(
-                        if (uiState.hasSafeHttpParserTweaks) {
+                        if (uiState.httpParser.hasSafeHttpParserTweaks) {
                             R.string.ripdpi_http_parser_group_status_active
                         } else {
                             R.string.ripdpi_http_parser_group_status_off
                         },
                     ),
                 statusTone =
-                    if (uiState.hasSafeHttpParserTweaks) {
+                    if (uiState.httpParser.hasSafeHttpParserTweaks) {
                         StatusIndicatorTone.Active
                     } else {
                         StatusIndicatorTone.Idle
@@ -58,11 +58,11 @@ internal fun LazyListScope.httpParserSection(
                 badges =
                     buildList {
                         add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
-                        if (uiState.httpParserSafeCount > 0) {
+                        if (uiState.httpParser.httpParserSafeCount > 0) {
                             add(
                                 stringResource(
                                     R.string.ripdpi_http_parser_badge_safe_count,
-                                    uiState.httpParserSafeCount,
+                                    uiState.httpParser.httpParserSafeCount,
                                 ) to SummaryCapsuleTone.Active,
                             )
                         }
@@ -70,21 +70,21 @@ internal fun LazyListScope.httpParserSection(
             ) {
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_host_mixed_case_setting),
-                    checked = uiState.hostMixedCase,
+                    checked = uiState.httpParser.hostMixedCase,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostMixedCase, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
                     showDivider = true,
                 )
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_domain_mixed_case_setting),
-                    checked = uiState.domainMixedCase,
+                    checked = uiState.httpParser.domainMixedCase,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DomainMixedCase, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
                     showDivider = true,
                 )
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_host_remove_spaces_setting),
-                    checked = uiState.hostRemoveSpaces,
+                    checked = uiState.httpParser.hostRemoveSpaces,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostRemoveSpaces, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
                 )
@@ -96,14 +96,14 @@ internal fun LazyListScope.httpParserSection(
                 summary = formatHttpParserAggressiveSummary(uiState),
                 statusLabel =
                     stringResource(
-                        if (uiState.hasAggressiveHttpParserEvasions) {
+                        if (uiState.httpParser.hasAggressiveHttpParserEvasions) {
                             R.string.ripdpi_http_parser_group_status_warning
                         } else {
                             R.string.ripdpi_http_parser_group_status_off
                         },
                     ),
                 statusTone =
-                    if (uiState.hasAggressiveHttpParserEvasions) {
+                    if (uiState.httpParser.hasAggressiveHttpParserEvasions) {
                         StatusIndicatorTone.Warning
                     } else {
                         StatusIndicatorTone.Idle
@@ -116,11 +116,11 @@ internal fun LazyListScope.httpParserSection(
                                 R.string.ripdpi_http_parser_badge_nginx_biased,
                             ) to SummaryCapsuleTone.Warning,
                         )
-                        if (uiState.httpParserAggressiveCount > 0) {
+                        if (uiState.httpParser.httpParserAggressiveCount > 0) {
                             add(
                                 stringResource(
                                     R.string.ripdpi_http_parser_badge_aggressive_count,
-                                    uiState.httpParserAggressiveCount,
+                                    uiState.httpParser.httpParserAggressiveCount,
                                 ) to SummaryCapsuleTone.Warning,
                             )
                         }
@@ -128,14 +128,14 @@ internal fun LazyListScope.httpParserSection(
             ) {
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_http_method_eol_setting),
-                    checked = uiState.httpMethodEol,
+                    checked = uiState.httpParser.httpMethodEol,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpMethodEol, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
                     showDivider = true,
                 )
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_http_unix_eol_setting),
-                    checked = uiState.httpUnixEol,
+                    checked = uiState.httpParser.httpUnixEol,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpUnixEol, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
                 )
@@ -162,15 +162,15 @@ private fun HttpParserEvasionsProfileCard(
     val status = rememberHttpParserEvasionStatus(uiState)
     val profileSummary =
         when {
-            uiState.hasSafeHttpParserTweaks && uiState.hasAggressiveHttpParserEvasions -> {
+            uiState.httpParser.hasSafeHttpParserTweaks && uiState.httpParser.hasAggressiveHttpParserEvasions -> {
                 stringResource(R.string.ripdpi_http_parser_profile_safe_and_aggressive)
             }
 
-            uiState.hasAggressiveHttpParserEvasions -> {
+            uiState.httpParser.hasAggressiveHttpParserEvasions -> {
                 stringResource(R.string.ripdpi_http_parser_profile_aggressive_only)
             }
 
-            uiState.hasSafeHttpParserTweaks -> {
+            uiState.httpParser.hasSafeHttpParserTweaks -> {
                 stringResource(R.string.ripdpi_http_parser_profile_safe)
             }
 
@@ -188,7 +188,7 @@ private fun HttpParserEvasionsProfileCard(
                 stringResource(R.string.ripdpi_http_parser_scope_http_off)
             }
 
-            uiState.isServiceRunning && uiState.hasCustomHttpParserEvasions -> {
+            uiState.isServiceRunning && uiState.httpParser.hasCustomHttpParserEvasions -> {
                 stringResource(R.string.ripdpi_http_parser_scope_restart)
             }
 
@@ -200,32 +200,32 @@ private fun HttpParserEvasionsProfileCard(
         buildList {
             add(
                 (
-                    if (uiState.hasCustomHttpParserEvasions) {
+                    if (uiState.httpParser.hasCustomHttpParserEvasions) {
                         stringResource(R.string.ripdpi_http_parser_badge_custom)
                     } else {
                         stringResource(R.string.ripdpi_http_parser_badge_default)
                     }
                 ) to
-                    if (uiState.hasCustomHttpParserEvasions) {
+                    if (uiState.httpParser.hasCustomHttpParserEvasions) {
                         SummaryCapsuleTone.Active
                     } else {
                         SummaryCapsuleTone.Neutral
                     },
             )
             add(stringResource(R.string.ripdpi_http_parser_badge_http_only) to SummaryCapsuleTone.Info)
-            if (uiState.httpParserSafeCount > 0) {
+            if (uiState.httpParser.httpParserSafeCount > 0) {
                 add(
                     stringResource(
                         R.string.ripdpi_http_parser_badge_safe_count,
-                        uiState.httpParserSafeCount,
+                        uiState.httpParser.httpParserSafeCount,
                     ) to SummaryCapsuleTone.Active,
                 )
             }
-            if (uiState.httpParserAggressiveCount > 0) {
+            if (uiState.httpParser.httpParserAggressiveCount > 0) {
                 add(
                     stringResource(
                         R.string.ripdpi_http_parser_badge_aggressive_count,
-                        uiState.httpParserAggressiveCount,
+                        uiState.httpParser.httpParserAggressiveCount,
                     ) to SummaryCapsuleTone.Warning,
                 )
             }
@@ -294,7 +294,7 @@ private fun rememberHttpParserEvasionStatus(uiState: SettingsUiState): HttpParse
             )
         }
 
-        !uiState.httpParserControlsRelevant && uiState.hasCustomHttpParserEvasions -> {
+        !uiState.httpParserControlsRelevant && uiState.httpParser.hasCustomHttpParserEvasions -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_saved_title),
                 body = stringResource(R.string.ripdpi_http_parser_saved_body),
@@ -310,7 +310,7 @@ private fun rememberHttpParserEvasionStatus(uiState: SettingsUiState): HttpParse
             )
         }
 
-        uiState.isServiceRunning && uiState.hasCustomHttpParserEvasions -> {
+        uiState.isServiceRunning && uiState.httpParser.hasCustomHttpParserEvasions -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_restart_title),
                 body = stringResource(R.string.ripdpi_http_parser_restart_body),
@@ -318,7 +318,7 @@ private fun rememberHttpParserEvasionStatus(uiState: SettingsUiState): HttpParse
             )
         }
 
-        uiState.hasAggressiveHttpParserEvasions -> {
+        uiState.httpParser.hasAggressiveHttpParserEvasions -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_aggressive_title),
                 body = stringResource(R.string.ripdpi_http_parser_aggressive_body),
@@ -326,7 +326,7 @@ private fun rememberHttpParserEvasionStatus(uiState: SettingsUiState): HttpParse
             )
         }
 
-        uiState.hasSafeHttpParserTweaks -> {
+        uiState.httpParser.hasSafeHttpParserTweaks -> {
             HttpParserEvasionStatusContent(
                 label = stringResource(R.string.ripdpi_http_parser_safe_title),
                 body = stringResource(R.string.ripdpi_http_parser_safe_body),
@@ -388,13 +388,13 @@ private fun HttpParserToggleGroupCard(
 @Composable
 private fun formatHttpParserSafeSummary(uiState: SettingsUiState): String =
     buildList {
-        if (uiState.hostMixedCase) {
+        if (uiState.httpParser.hostMixedCase) {
             add(stringResource(R.string.ripdpi_host_mixed_case_setting))
         }
-        if (uiState.domainMixedCase) {
+        if (uiState.httpParser.domainMixedCase) {
             add(stringResource(R.string.ripdpi_domain_mixed_case_setting))
         }
-        if (uiState.hostRemoveSpaces) {
+        if (uiState.httpParser.hostRemoveSpaces) {
             add(stringResource(R.string.ripdpi_host_remove_spaces_setting))
         }
     }.joinToString(separator = " · ")
@@ -403,10 +403,10 @@ private fun formatHttpParserSafeSummary(uiState: SettingsUiState): String =
 @Composable
 private fun formatHttpParserAggressiveSummary(uiState: SettingsUiState): String =
     buildList {
-        if (uiState.httpMethodEol) {
+        if (uiState.httpParser.httpMethodEol) {
             add(stringResource(R.string.ripdpi_http_method_eol_setting))
         }
-        if (uiState.httpUnixEol) {
+        if (uiState.httpParser.httpUnixEol) {
             add(stringResource(R.string.ripdpi_http_unix_eol_setting))
         }
     }.joinToString(separator = " · ")

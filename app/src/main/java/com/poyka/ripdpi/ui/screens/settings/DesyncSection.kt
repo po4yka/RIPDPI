@@ -174,11 +174,11 @@ internal fun LazyListScope.desyncSection(
                         onModeSelected = { onOptionSelected(AdvancedOptionSetting.AdaptiveFakeTtlMode, it) },
                     )
                     HorizontalDivider(color = colors.divider)
-                    if (uiState.adaptiveFakeTtlMode == AdaptiveFakeTtlModeFixed) {
+                    if (uiState.fake.adaptiveFakeTtlMode == AdaptiveFakeTtlModeFixed) {
                         AdvancedTextSetting(
                             title = stringResource(R.string.ripdpi_fake_ttl_setting),
                             description = stringResource(R.string.adaptive_fake_ttl_fixed_body),
-                            value = uiState.fakeTtl.toString(),
+                            value = uiState.fake.fakeTtl.toString(),
                             enabled = visualEditorEnabled,
                             validator = { validateIntRange(it, 1, 255) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
@@ -196,7 +196,7 @@ internal fun LazyListScope.desyncSection(
                         AdvancedTextSetting(
                             title = stringResource(R.string.adaptive_fake_ttl_min_title),
                             description = stringResource(R.string.adaptive_fake_ttl_min_body),
-                            value = uiState.adaptiveFakeTtlMin.toString(),
+                            value = uiState.fake.adaptiveFakeTtlMin.toString(),
                             enabled = visualEditorEnabled,
                             validator = { validateIntRange(it, 1, 255) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
@@ -213,9 +213,9 @@ internal fun LazyListScope.desyncSection(
                         AdvancedTextSetting(
                             title = stringResource(R.string.adaptive_fake_ttl_max_title),
                             description = stringResource(R.string.adaptive_fake_ttl_max_body),
-                            value = uiState.adaptiveFakeTtlMax.toString(),
+                            value = uiState.fake.adaptiveFakeTtlMax.toString(),
                             enabled = visualEditorEnabled,
-                            validator = { validateIntRange(it, uiState.adaptiveFakeTtlMin.coerceIn(1, 255), 255) },
+                            validator = { validateIntRange(it, uiState.fake.adaptiveFakeTtlMin.coerceIn(1, 255), 255) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             keyboardOptions =
@@ -230,7 +230,7 @@ internal fun LazyListScope.desyncSection(
                         AdvancedTextSetting(
                             title = stringResource(R.string.adaptive_fake_ttl_fallback_title),
                             description = stringResource(R.string.adaptive_fake_ttl_fallback_body),
-                            value = uiState.adaptiveFakeTtlFallback.toString(),
+                            value = uiState.fake.adaptiveFakeTtlFallback.toString(),
                             enabled = visualEditorEnabled,
                             validator = { validateIntRange(it, 1, 255) },
                             invalidMessage = stringResource(R.string.config_error_out_of_range),
@@ -249,7 +249,7 @@ internal fun LazyListScope.desyncSection(
                         AdvancedTextSetting(
                             title = stringResource(R.string.ripdpi_fake_offset_setting),
                             description = stringResource(R.string.config_fake_offset_marker_helper),
-                            value = uiState.fakeOffsetMarker,
+                            value = uiState.fake.fakeOffsetMarker,
                             placeholder = stringResource(R.string.config_placeholder_fake_offset_marker),
                             enabled = visualEditorEnabled,
                             validator = {
@@ -289,7 +289,7 @@ internal fun LazyListScope.desyncSection(
                     FakePayloadProfileCard(
                         title = stringResource(R.string.http_fake_profile_title),
                         description = stringResource(R.string.http_fake_profile_body),
-                        profileLabel = formatHttpFakeProfileLabel(uiState.httpFakeProfile),
+                        profileLabel = formatHttpFakeProfileLabel(uiState.fake.httpFakeProfile),
                         statusLabel =
                             when {
                                 uiState.enableCmdSettings -> {
@@ -367,7 +367,7 @@ internal fun LazyListScope.desyncSection(
                                 }
                             },
                         interactionSummary = stringResource(R.string.http_fake_profile_interaction),
-                        value = uiState.httpFakeProfile,
+                        value = uiState.fake.httpFakeProfile,
                         options = httpFakeProfileOptions,
                         setting = AdvancedOptionSetting.HttpFakeProfile,
                         onSelected = onOptionSelected,
@@ -377,7 +377,7 @@ internal fun LazyListScope.desyncSection(
                     FakePayloadProfileCard(
                         title = stringResource(R.string.tls_fake_profile_title),
                         description = stringResource(R.string.tls_fake_profile_body),
-                        profileLabel = formatTlsFakeProfileLabel(uiState.tlsFakeProfile),
+                        profileLabel = formatTlsFakeProfileLabel(uiState.fake.tlsFakeProfile),
                         statusLabel =
                             when {
                                 uiState.enableCmdSettings -> {
@@ -459,7 +459,7 @@ internal fun LazyListScope.desyncSection(
                                 }
                             },
                         interactionSummary = stringResource(R.string.tls_fake_profile_interaction),
-                        value = uiState.tlsFakeProfile,
+                        value = uiState.fake.tlsFakeProfile,
                         options = tlsFakeProfileOptions,
                         setting = AdvancedOptionSetting.TlsFakeProfile,
                         onSelected = onOptionSelected,
@@ -469,7 +469,7 @@ internal fun LazyListScope.desyncSection(
                     FakePayloadProfileCard(
                         title = stringResource(R.string.udp_fake_profile_title),
                         description = stringResource(R.string.udp_fake_profile_body),
-                        profileLabel = formatUdpFakeProfileLabel(uiState.udpFakeProfile),
+                        profileLabel = formatUdpFakeProfileLabel(uiState.fake.udpFakeProfile),
                         statusLabel =
                             when {
                                 uiState.enableCmdSettings -> {
@@ -523,7 +523,7 @@ internal fun LazyListScope.desyncSection(
                                             SummaryCapsuleTone.Warning
                                         },
                                 )
-                                if (uiState.quicFakeProfileActive) {
+                                if (uiState.quic.quicFakeProfileActive) {
                                     add(
                                         stringResource(R.string.fake_payload_badge_quic_separate) to
                                             SummaryCapsuleTone.Info,
@@ -548,12 +548,12 @@ internal fun LazyListScope.desyncSection(
                                 }
                             },
                         interactionSummary =
-                            if (uiState.quicFakeProfileActive) {
+                            if (uiState.quic.quicFakeProfileActive) {
                                 stringResource(R.string.udp_fake_profile_interaction_quic_override)
                             } else {
                                 stringResource(R.string.udp_fake_profile_interaction)
                             },
-                        value = uiState.udpFakeProfile,
+                        value = uiState.fake.udpFakeProfile,
                         options = udpFakeProfileOptions,
                         setting = AdvancedOptionSetting.UdpFakeProfile,
                         onSelected = onOptionSelected,
@@ -586,7 +586,7 @@ internal fun LazyListScope.desyncSection(
                     AdvancedDropdownSetting(
                         title = stringResource(R.string.ripdpi_fake_tls_base_title),
                         description = stringResource(R.string.ripdpi_fake_tls_base_body),
-                        value = if (uiState.fakeTlsUseOriginal) "original" else "default",
+                        value = if (uiState.fake.fakeTlsUseOriginal) "original" else "default",
                         options = fakeTlsBaseOptions,
                         setting = AdvancedOptionSetting.FakeTlsBase,
                         onSelected = onOptionSelected,
@@ -596,17 +596,17 @@ internal fun LazyListScope.desyncSection(
                     AdvancedDropdownSetting(
                         title = stringResource(R.string.ripdpi_fake_tls_sni_mode_title),
                         description = stringResource(R.string.ripdpi_fake_tls_sni_mode_body),
-                        value = uiState.fakeTlsSniMode,
+                        value = uiState.fake.fakeTlsSniMode,
                         options = fakeTlsSniModeOptions,
                         setting = AdvancedOptionSetting.FakeTlsSniMode,
                         onSelected = onOptionSelected,
                         enabled = visualEditorEnabled,
-                        showDivider = uiState.fakeTlsSniMode == FakeTlsSniModeFixed,
+                        showDivider = uiState.fake.fakeTlsSniMode == FakeTlsSniModeFixed,
                     )
-                    if (uiState.fakeTlsSniMode == FakeTlsSniModeFixed) {
+                    if (uiState.fake.fakeTlsSniMode == FakeTlsSniModeFixed) {
                         AdvancedTextSetting(
                             title = stringResource(R.string.sni_of_fake_packet),
-                            value = uiState.fakeSni,
+                            value = uiState.fake.fakeSni,
                             enabled = visualEditorEnabled,
                             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
                             setting = AdvancedTextSetting.FakeSni,
@@ -617,7 +617,7 @@ internal fun LazyListScope.desyncSection(
                     SettingsRow(
                         title = stringResource(R.string.ripdpi_fake_tls_randomize_title),
                         subtitle = stringResource(R.string.ripdpi_fake_tls_randomize_body),
-                        checked = uiState.fakeTlsRandomize,
+                        checked = uiState.fake.fakeTlsRandomize,
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsRandomize, it) },
                         enabled = visualEditorEnabled,
                         showDivider = true,
@@ -625,7 +625,7 @@ internal fun LazyListScope.desyncSection(
                     SettingsRow(
                         title = stringResource(R.string.ripdpi_fake_tls_dup_sid_title),
                         subtitle = stringResource(R.string.ripdpi_fake_tls_dup_sid_body),
-                        checked = uiState.fakeTlsDupSessionId,
+                        checked = uiState.fake.fakeTlsDupSessionId,
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsDupSessionId, it) },
                         enabled = visualEditorEnabled,
                         showDivider = true,
@@ -633,7 +633,7 @@ internal fun LazyListScope.desyncSection(
                     SettingsRow(
                         title = stringResource(R.string.ripdpi_fake_tls_pad_encap_title),
                         subtitle = stringResource(R.string.ripdpi_fake_tls_pad_encap_body),
-                        checked = uiState.fakeTlsPadEncap,
+                        checked = uiState.fake.fakeTlsPadEncap,
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsPadEncap, it) },
                         enabled = visualEditorEnabled,
                         showDivider = true,
@@ -641,7 +641,7 @@ internal fun LazyListScope.desyncSection(
                     AdvancedTextSetting(
                         title = stringResource(R.string.ripdpi_fake_tls_size_title),
                         description = stringResource(R.string.config_fake_tls_size_helper),
-                        value = uiState.fakeTlsSize.toString(),
+                        value = uiState.fake.fakeTlsSize.toString(),
                         placeholder = stringResource(R.string.config_placeholder_fake_tls_size),
                         enabled = visualEditorEnabled,
                         validator = { it.isEmpty() || it.toIntOrNull() != null },
@@ -660,7 +660,7 @@ internal fun LazyListScope.desyncSection(
                 if (uiState.isOob) {
                     AdvancedTextSetting(
                         title = stringResource(R.string.oob_data),
-                        value = uiState.oobData,
+                        value = uiState.fake.oobData,
                         enabled = visualEditorEnabled,
                         validator = { it.length <= 1 },
                         invalidMessage = stringResource(R.string.advanced_settings_error_oob_data),
@@ -677,7 +677,7 @@ internal fun LazyListScope.desyncSection(
                 }
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_drop_sack_setting),
-                    checked = uiState.dropSack,
+                    checked = uiState.fake.dropSack,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DropSack, it) },
                     enabled = visualEditorEnabled,
                 )
