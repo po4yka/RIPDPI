@@ -37,6 +37,7 @@
     "resolverProtocol": null,
     "retryPacedCount": 0,
     "routeChanges": 0,
+    "slotExhaustions": 0,
     "source": "tunnel",
     "state": "idle",
     "totalErrors": 0,
