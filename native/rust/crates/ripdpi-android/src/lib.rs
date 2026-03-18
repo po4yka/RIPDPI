@@ -1,7 +1,6 @@
 mod config;
 mod diagnostics;
 mod errors;
-mod platform_tls;
 mod proxy;
 mod telemetry;
 
@@ -29,15 +28,6 @@ pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut std::ffi::c_void) 
     android_support::ignore_sigpipe();
     init_android_logging("ripdpi-native");
     JNI_VERSION
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiNativeLoader_jniInitPlatformTls(
-    mut env: JNIEnv,
-    _thiz: JObject,
-    context: JObject,
-) {
-    platform_tls::init_platform_tls(&mut env, context);
 }
 
 macro_rules! export_diagnostics_jni {

@@ -22,8 +22,6 @@ loom = { workspace = true, optional = true }
 nix = { workspace = true }
 log = { workspace = true }
 once_cell = { workspace = true }
-rustls = { workspace = true }
-rustls-platform-verifier = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
 ripdpi-monitor = { workspace = true }

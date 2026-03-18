@@ -79,7 +79,6 @@ tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }
 url = "2"
 webpki-roots = "0.26"
-rustls-platform-verifier = "0.5"
 
 [workspace.lints.clippy]
 # Correctness & suspicious (errors)
