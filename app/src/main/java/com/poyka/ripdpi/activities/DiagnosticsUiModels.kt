@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -43,28 +45,33 @@ enum class DiagnosticsTone {
     Info,
 }
 
+@Immutable
 data class DiagnosticsMetricUiModel(
     val label: String,
     val value: String,
     val tone: DiagnosticsTone = DiagnosticsTone.Neutral,
 )
 
+@Immutable
 data class DiagnosticsFieldUiModel(
     val label: String,
     val value: String,
 )
 
+@Stable
 data class DiagnosticsNetworkSnapshotUiModel(
     val title: String,
     val subtitle: String,
     val fields: List<DiagnosticsFieldUiModel>,
 )
 
+@Stable
 data class DiagnosticsContextGroupUiModel(
     val title: String,
     val fields: List<DiagnosticsFieldUiModel>,
 )
 
+@Immutable
 data class DiagnosticsProfileOptionUiModel(
     val id: String,
     val name: String,
@@ -75,18 +82,21 @@ data class DiagnosticsProfileOptionUiModel(
 
 enum class PhaseState { Completed, Active, Pending }
 
+@Immutable
 data class PhaseStepUiModel(
     val label: String,
     val state: PhaseState,
     val tone: DiagnosticsTone,
 )
 
+@Immutable
 data class CompletedProbeUiModel(
     val target: String,
     val outcome: String,
     val tone: DiagnosticsTone,
 )
 
+@Stable
 data class DiagnosticsProgressUiModel(
     val phase: String,
     val summary: String,
@@ -102,6 +112,7 @@ data class DiagnosticsProgressUiModel(
     val completedProbes: List<CompletedProbeUiModel> = emptyList(),
 )
 
+@Stable
 data class DiagnosticsProbeResultUiModel(
     val id: String,
     val probeType: String,
@@ -112,11 +123,13 @@ data class DiagnosticsProbeResultUiModel(
     val details: List<DiagnosticsFieldUiModel>,
 )
 
+@Stable
 data class DiagnosticsProbeGroupUiModel(
     val title: String,
     val items: List<DiagnosticsProbeResultUiModel>,
 )
 
+@Immutable
 data class DiagnosticsEventUiModel(
     val id: String,
     val source: String,
@@ -126,12 +139,14 @@ data class DiagnosticsEventUiModel(
     val tone: DiagnosticsTone,
 )
 
+@Immutable
 data class DiagnosticsSparklineUiModel(
     val label: String,
     val values: List<Float>,
     val tone: DiagnosticsTone = DiagnosticsTone.Info,
 )
 
+@Stable
 data class DiagnosticsSessionRowUiModel(
     val id: String,
     val profileId: String,
@@ -146,6 +161,7 @@ data class DiagnosticsSessionRowUiModel(
     val tone: DiagnosticsTone,
 )
 
+@Stable
 data class DiagnosticsSessionDetailUiModel(
     val session: DiagnosticsSessionRowUiModel,
     val probeGroups: List<DiagnosticsProbeGroupUiModel>,
@@ -157,6 +173,7 @@ data class DiagnosticsSessionDetailUiModel(
     val sensitiveDetailsVisible: Boolean,
 )
 
+@Stable
 data class DiagnosticsStrategyProbeCandidateUiModel(
     val id: String,
     val label: String,
@@ -168,6 +185,7 @@ data class DiagnosticsStrategyProbeCandidateUiModel(
     val recommended: Boolean,
 )
 
+@Stable
 data class DiagnosticsStrategyProbeCandidateDetailUiModel(
     val id: String,
     val label: String,
@@ -183,11 +201,13 @@ data class DiagnosticsStrategyProbeCandidateDetailUiModel(
     val resultGroups: List<DiagnosticsProbeGroupUiModel>,
 )
 
+@Stable
 data class DiagnosticsStrategyProbeFamilyUiModel(
     val title: String,
     val candidates: List<DiagnosticsStrategyProbeCandidateUiModel>,
 )
 
+@Stable
 data class DiagnosticsStrategyProbeRecommendationUiModel(
     val headline: String,
     val rationale: String,
@@ -195,6 +215,7 @@ data class DiagnosticsStrategyProbeRecommendationUiModel(
     val signature: List<DiagnosticsFieldUiModel>,
 )
 
+@Stable
 data class DiagnosticsStrategyProbeReportUiModel(
     val suiteId: String,
     val suiteLabel: String,
@@ -204,6 +225,7 @@ data class DiagnosticsStrategyProbeReportUiModel(
     val candidateDetails: Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel> = emptyMap(),
 )
 
+@Stable
 data class DiagnosticsResolverRecommendationUiModel(
     val headline: String,
     val rationale: String,
@@ -212,6 +234,7 @@ data class DiagnosticsResolverRecommendationUiModel(
     val persistable: Boolean,
 )
 
+@Stable
 data class DiagnosticsOverviewUiModel(
     val health: DiagnosticsHealth = DiagnosticsHealth.Idle,
     val headline: String = "Idle",
@@ -225,6 +248,7 @@ data class DiagnosticsOverviewUiModel(
     val rememberedNetworks: List<DiagnosticsRememberedNetworkUiModel> = emptyList(),
 )
 
+@Immutable
 data class DiagnosticsRememberedNetworkUiModel(
     val id: Long,
     val title: String,
@@ -240,6 +264,7 @@ data class DiagnosticsRememberedNetworkUiModel(
     val isCurrentMatch: Boolean = false,
 )
 
+@Stable
 data class DiagnosticsScanUiModel(
     val profiles: List<DiagnosticsProfileOptionUiModel> = emptyList(),
     val selectedProfileId: String? = null,
@@ -258,6 +283,7 @@ data class DiagnosticsScanUiModel(
     val isBusy: Boolean = false,
 )
 
+@Stable
 data class DiagnosticsLiveUiModel(
     val statusLabel: String = "Idle",
     val freshnessLabel: String = "No live telemetry",
@@ -275,12 +301,14 @@ data class DiagnosticsLiveUiModel(
     val passiveEvents: List<DiagnosticsEventUiModel> = emptyList(),
 )
 
+@Immutable
 data class DiagnosticsSessionFiltersUiModel(
     val pathMode: String? = null,
     val status: String? = null,
     val query: String = "",
 )
 
+@Stable
 data class DiagnosticsSessionsUiModel(
     val filters: DiagnosticsSessionFiltersUiModel = DiagnosticsSessionFiltersUiModel(),
     val sessions: List<DiagnosticsSessionRowUiModel> = emptyList(),
@@ -289,6 +317,7 @@ data class DiagnosticsSessionsUiModel(
     val focusedSessionId: String? = null,
 )
 
+@Stable
 data class DiagnosticsApproachRowUiModel(
     val id: String,
     val kind: DiagnosticsApproachMode,
@@ -301,6 +330,7 @@ data class DiagnosticsApproachRowUiModel(
     val tone: DiagnosticsTone,
 )
 
+@Stable
 data class DiagnosticsApproachDetailUiModel(
     val approach: DiagnosticsApproachRowUiModel,
     val signature: List<DiagnosticsFieldUiModel>,
@@ -311,12 +341,14 @@ data class DiagnosticsApproachDetailUiModel(
     val failureNotes: List<String>,
 )
 
+@Stable
 data class DiagnosticsApproachesUiModel(
     val selectedMode: DiagnosticsApproachMode = DiagnosticsApproachMode.Profiles,
     val rows: List<DiagnosticsApproachRowUiModel> = emptyList(),
     val focusedApproachId: String? = null,
 )
 
+@Immutable
 data class DiagnosticsEventFiltersUiModel(
     val source: String? = null,
     val severity: String? = null,
@@ -324,6 +356,7 @@ data class DiagnosticsEventFiltersUiModel(
     val autoScroll: Boolean = true,
 )
 
+@Stable
 data class DiagnosticsEventsUiModel(
     val filters: DiagnosticsEventFiltersUiModel = DiagnosticsEventFiltersUiModel(),
     val events: List<DiagnosticsEventUiModel> = emptyList(),
@@ -332,6 +365,7 @@ data class DiagnosticsEventsUiModel(
     val focusedEventId: String? = null,
 )
 
+@Stable
 data class DiagnosticsShareUiModel(
     val targetSessionId: String? = null,
     val previewTitle: String = "RIPDPI diagnostics",
@@ -343,6 +377,7 @@ data class DiagnosticsShareUiModel(
     val isArchiveBusy: Boolean = false,
 )
 
+@Stable
 data class DiagnosticsUiState(
     val selectedSection: DiagnosticsSection = DiagnosticsSection.Overview,
     val overview: DiagnosticsOverviewUiModel = DiagnosticsOverviewUiModel(),
