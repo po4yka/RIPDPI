@@ -3,23 +3,12 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
-import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
-import com.poyka.ripdpi.diagnostics.ScanProgress
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -51,67 +40,112 @@ class DiagnosticsViewModel
 
         val effects: Flow<DiagnosticsEffect> = _effects.receiveAsFlow()
 
-        val uiState: StateFlow<DiagnosticsUiState> =
+        // --- Tier 1: Group raw flows by emission frequency ---
+
+        private val liveData: StateFlow<LiveDataSnapshot> =
             combine(
-                diagnosticsManager.profiles,
-                appSettingsRepository.settings,
-                diagnosticsManager.activeScanProgress,
-                diagnosticsManager.sessions,
-                diagnosticsManager.approachStats,
-                diagnosticsManager.snapshots,
-                diagnosticsManager.contexts,
                 diagnosticsManager.telemetry,
                 diagnosticsManager.nativeEvents,
+                diagnosticsManager.activeScanProgress,
+                diagnosticsManager.snapshots,
+                diagnosticsManager.contexts,
+            ) { telemetry, nativeEvents, progress, snapshots, contexts ->
+                LiveDataSnapshot(telemetry, nativeEvents, progress, snapshots, contexts)
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveDataSnapshot.EMPTY)
+
+        private val scanData: StateFlow<ScanDataSnapshot> =
+            combine(
+                diagnosticsManager.profiles,
+                diagnosticsManager.sessions,
+                diagnosticsManager.approachStats,
                 diagnosticsManager.exports,
+            ) { profiles, sessions, approachStats, exports ->
+                ScanDataSnapshot(profiles, sessions, approachStats, exports)
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ScanDataSnapshot.EMPTY)
+
+        private val configData: StateFlow<ConfigSnapshot> =
+            combine(
+                appSettingsRepository.settings,
                 rememberedNetworkPolicyStore.observePolicies(limit = 64),
                 serviceStateStore.status,
                 activeConnectionPolicyStore.activePolicies,
+            ) { settings, rememberedPolicies, serviceStatus, activePolicies ->
+                val (_, activeMode) = serviceStatus
+                val connectionPolicy =
+                    activePolicies[activeMode]
+                        ?: activePolicies.values.maxByOrNull(ActiveConnectionPolicy::appliedAt)
+                ConfigSnapshot(settings, rememberedPolicies, connectionPolicy)
+            }.stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                ConfigSnapshot(
+                    settings = AppSettingsSerializer.defaultValue,
+                    rememberedPolicies = emptyList(),
+                    activeConnectionPolicy = null,
+                ),
+            )
+
+        // --- Tier 2: Merge tiers for final assembly ---
+
+        private val combinedData: StateFlow<Triple<LiveDataSnapshot, ScanDataSnapshot, ConfigSnapshot>> =
+            combine(liveData, scanData, configData) { live, scan, config ->
+                Triple(live, scan, config)
+            }.stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                Triple(LiveDataSnapshot.EMPTY, ScanDataSnapshot.EMPTY, configData.value),
+            )
+
+        private val combinedUi: StateFlow<UiControlState> =
+            combine(
                 selectionState,
                 filterState,
                 sessionDetailState,
                 scanLifecycleState,
-            ) { values ->
-                @Suppress("UNCHECKED_CAST")
-                val sel = values[13] as SelectionState
-                val flt = values[14] as FilterState
-                val det = values[15] as SessionDetailState
-                val scan = values[16] as ScanLifecycleState
+            ) { sel, flt, det, scanLc ->
+                UiControlState(sel, flt, det, scanLc)
+            }.stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                UiControlState(SelectionState(), FilterState(), SessionDetailState(), ScanLifecycleState()),
+            )
+
+        // --- Final assembly: type-safe 2-flow combine ---
+
+        val uiState: StateFlow<DiagnosticsUiState> =
+            combine(combinedData, combinedUi) { (live, scan, config), ui ->
                 uiStateFactory.buildUiState(
-                    profiles = values[0] as List<DiagnosticProfileEntity>,
-                    settings = values[1] as com.poyka.ripdpi.proto.AppSettings,
-                    progress = values[2] as ScanProgress?,
-                    sessions = values[3] as List<ScanSessionEntity>,
-                    approachStats = values[4] as List<BypassApproachSummary>,
-                    snapshots = values[5] as List<NetworkSnapshotEntity>,
-                    contexts = values[6] as List<DiagnosticContextEntity>,
-                    telemetry = values[7] as List<TelemetrySampleEntity>,
-                    nativeEvents = values[8] as List<NativeSessionEventEntity>,
-                    exports = values[9] as List<ExportRecordEntity>,
-                    rememberedPolicies = values[10] as List<RememberedNetworkPolicyEntity>,
-                    activeConnectionPolicy =
-                        selectActiveConnectionPolicy(
-                            serviceStatus = values[11] as Pair<AppStatus, Mode>,
-                            activePolicies = values[12] as Map<Mode, ActiveConnectionPolicy>,
-                        ),
-                    selectedSectionRequest = sel.selectedSectionRequest,
-                    selectedProfileId = sel.selectedProfileId,
-                    selectedApproachMode = sel.selectedApproachMode,
-                    selectedProbe = sel.selectedProbe,
-                    selectedEventId = sel.selectedEventId,
-                    sessionPathMode = flt.sessionPathModeFilter,
-                    sessionStatus = flt.sessionStatusFilter,
-                    sessionSearch = flt.sessionSearch,
-                    eventSource = flt.eventSourceFilter,
-                    eventSeverity = flt.eventSeverityFilter,
-                    eventSearch = flt.eventSearch,
-                    eventAutoScroll = flt.eventAutoScroll,
-                    selectedSessionDetail = det.selectedSessionDetail,
-                    selectedStrategyProbeCandidate = sel.selectedStrategyProbeCandidate,
-                    selectedApproachDetail = sel.selectedApproachDetail,
-                    sensitiveSessionDetailsVisible = det.sensitiveSessionDetailsVisible,
-                    archiveActionState = scan.archiveActionState,
-                    scanStartedAt = scan.scanStartedAt,
-                    completedProbes = scan.accumulatedProbes,
+                    profiles = scan.profiles,
+                    settings = config.settings,
+                    progress = live.progress,
+                    sessions = scan.sessions,
+                    approachStats = scan.approachStats,
+                    snapshots = live.snapshots,
+                    contexts = live.contexts,
+                    telemetry = live.telemetry,
+                    nativeEvents = live.nativeEvents,
+                    exports = scan.exports,
+                    rememberedPolicies = config.rememberedPolicies,
+                    activeConnectionPolicy = config.activeConnectionPolicy,
+                    selectedSectionRequest = ui.selection.selectedSectionRequest,
+                    selectedProfileId = ui.selection.selectedProfileId,
+                    selectedApproachMode = ui.selection.selectedApproachMode,
+                    selectedProbe = ui.selection.selectedProbe,
+                    selectedEventId = ui.selection.selectedEventId,
+                    sessionPathMode = ui.filter.sessionPathModeFilter,
+                    sessionStatus = ui.filter.sessionStatusFilter,
+                    sessionSearch = ui.filter.sessionSearch,
+                    eventSource = ui.filter.eventSourceFilter,
+                    eventSeverity = ui.filter.eventSeverityFilter,
+                    eventSearch = ui.filter.eventSearch,
+                    eventAutoScroll = ui.filter.eventAutoScroll,
+                    selectedSessionDetail = ui.sessionDetail.selectedSessionDetail,
+                    selectedStrategyProbeCandidate = ui.selection.selectedStrategyProbeCandidate,
+                    selectedApproachDetail = ui.selection.selectedApproachDetail,
+                    sensitiveSessionDetailsVisible = ui.sessionDetail.sensitiveSessionDetailsVisible,
+                    archiveActionState = ui.scanLifecycle.archiveActionState,
+                    scanStartedAt = ui.scanLifecycle.scanStartedAt,
+                    completedProbes = ui.scanLifecycle.accumulatedProbes,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -147,15 +181,6 @@ class DiagnosticsViewModel
                 diagnosticsManager.initialize()
             }
             scanActions.initialize()
-        }
-
-        private fun selectActiveConnectionPolicy(
-            serviceStatus: Pair<AppStatus, Mode>,
-            activePolicies: Map<Mode, ActiveConnectionPolicy>,
-        ): ActiveConnectionPolicy? {
-            val (_, activeMode) = serviceStatus
-            return activePolicies[activeMode]
-                ?: activePolicies.values.maxByOrNull(ActiveConnectionPolicy::appliedAt)
         }
 
         fun selectSection(section: DiagnosticsSection) =
