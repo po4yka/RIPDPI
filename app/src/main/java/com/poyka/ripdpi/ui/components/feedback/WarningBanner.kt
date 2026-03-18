@@ -46,10 +46,6 @@ fun WarningBanner(
     icon: ImageVector? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    val components = RipDpiThemeTokens.components
-    val layout = RipDpiThemeTokens.layout
-    val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
     val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Banner)
     val palette = warningBannerPalette(tone)
     val resolvedIcon = icon ?: defaultWarningBannerIcon(tone)
@@ -57,47 +53,6 @@ fun WarningBanner(
         modifier
             .fillMaxWidth()
             .semantics { liveRegion = LiveRegionMode.Polite }
-
-    val content: @Composable () -> Unit = {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = layout.cardPadding, vertical = spacing.lg),
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(components.decorativeBadgeSize)
-                        .background(palette.iconContainer, RipDpiThemeTokens.shapes.full),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = resolvedIcon,
-                    contentDescription = null,
-                    tint = palette.icon,
-                    modifier = Modifier.size(RipDpiIconSizes.Small),
-                )
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                Text(
-                    text = title,
-                    style = type.bodyEmphasis,
-                    color = palette.title,
-                )
-                Text(
-                    text = message,
-                    style = type.secondaryBody,
-                    color = palette.message,
-                )
-            }
-        }
-    }
 
     if (onClick != null) {
         Surface(
@@ -108,8 +63,14 @@ fun WarningBanner(
             border = BorderStroke(RipDpiStroke.Thin, palette.border),
             contentColor = palette.title,
             shadowElevation = surfaceStyle.shadowElevation,
-            content = content,
-        )
+        ) {
+            WarningBannerContent(
+                title = title,
+                message = message,
+                icon = resolvedIcon,
+                palette = palette,
+            )
+        }
     } else {
         Surface(
             modifier = surfaceModifier,
@@ -118,8 +79,66 @@ fun WarningBanner(
             border = BorderStroke(RipDpiStroke.Thin, palette.border),
             contentColor = palette.title,
             shadowElevation = surfaceStyle.shadowElevation,
-            content = content,
-        )
+        ) {
+            WarningBannerContent(
+                title = title,
+                message = message,
+                icon = resolvedIcon,
+                palette = palette,
+            )
+        }
+    }
+}
+
+@Composable
+private fun WarningBannerContent(
+    title: String,
+    message: String,
+    icon: ImageVector,
+    palette: WarningBannerPalette,
+) {
+    val components = RipDpiThemeTokens.components
+    val layout = RipDpiThemeTokens.layout
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = layout.cardPadding, vertical = spacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(spacing.md),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(components.decorativeBadgeSize)
+                    .background(palette.iconContainer, RipDpiThemeTokens.shapes.full),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = palette.icon,
+                modifier = Modifier.size(RipDpiIconSizes.Small),
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Text(
+                text = title,
+                style = type.bodyEmphasis,
+                color = palette.title,
+            )
+            Text(
+                text = message,
+                style = type.secondaryBody,
+                color = palette.message,
+            )
+        }
     }
 }
 

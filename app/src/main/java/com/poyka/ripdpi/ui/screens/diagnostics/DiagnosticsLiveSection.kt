@@ -35,6 +35,17 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
 internal fun LiveSection(uiState: DiagnosticsUiState) {
+    LiveSectionContent(
+        live = uiState.live,
+        health = uiState.overview.health,
+    )
+}
+
+@Composable
+private fun LiveSectionContent(
+    live: DiagnosticsLiveUiModel,
+    health: DiagnosticsHealth,
+) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     LazyColumn(
@@ -48,39 +59,39 @@ internal fun LiveSection(uiState: DiagnosticsUiState) {
     ) {
         item {
             LiveHeroCard(
-                live = uiState.live,
-                health = uiState.overview.health,
+                live = live,
+                health = health,
             )
         }
-        if (uiState.live.metrics.isNotEmpty()) {
+        if (live.metrics.isNotEmpty()) {
             item {
-                MetricsRow(metrics = uiState.live.metrics)
+                MetricsRow(metrics = live.metrics)
             }
         }
-        if (uiState.live.trends.isNotEmpty()) {
+        if (live.trends.isNotEmpty()) {
             item(key = "live_trends_header") {
                 SettingsCategoryHeader(title = stringResource(R.string.diagnostics_trends_section))
             }
-            items(uiState.live.trends, key = { it.label }) { trend ->
+            items(live.trends, key = { it.label }) { trend ->
                 TelemetrySparkline(trend = trend)
             }
         }
-        uiState.live.snapshot?.let { snapshot ->
+        live.snapshot?.let { snapshot ->
             item { SnapshotCard(snapshot = snapshot) }
         }
-        if (uiState.live.contextGroups.isNotEmpty()) {
+        if (live.contextGroups.isNotEmpty()) {
             item(key = "live_context_header") {
                 SettingsCategoryHeader(title = stringResource(R.string.diagnostics_context_section))
             }
-            items(uiState.live.contextGroups, key = { it.title }) { group ->
+            items(live.contextGroups, key = { it.title }) { group ->
                 ContextGroupCard(group = group)
             }
         }
-        if (uiState.live.passiveEvents.isNotEmpty()) {
+        if (live.passiveEvents.isNotEmpty()) {
             item(key = "live_passive_events_header") {
                 SettingsCategoryHeader(title = stringResource(R.string.diagnostics_passive_events_section))
             }
-            items(uiState.live.passiveEvents, key = { it.id }) { event ->
+            items(live.passiveEvents, key = { it.id }) { event ->
                 EventRow(event = event, onClick = {})
             }
         }
