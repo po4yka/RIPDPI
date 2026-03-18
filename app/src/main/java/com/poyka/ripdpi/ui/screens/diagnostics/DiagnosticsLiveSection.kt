@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,36 +58,30 @@ internal fun LiveSection(uiState: DiagnosticsUiState) {
             }
         }
         if (uiState.live.trends.isNotEmpty()) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    SettingsCategoryHeader(title = stringResource(R.string.diagnostics_trends_section))
-                    uiState.live.trends.forEach { trend ->
-                        TelemetrySparkline(trend = trend)
-                    }
-                }
+            item(key = "live_trends_header") {
+                SettingsCategoryHeader(title = stringResource(R.string.diagnostics_trends_section))
+            }
+            items(uiState.live.trends, key = { it.label }) { trend ->
+                TelemetrySparkline(trend = trend)
             }
         }
         uiState.live.snapshot?.let { snapshot ->
             item { SnapshotCard(snapshot = snapshot) }
         }
         if (uiState.live.contextGroups.isNotEmpty()) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    SettingsCategoryHeader(title = stringResource(R.string.diagnostics_context_section))
-                    uiState.live.contextGroups.forEach { group ->
-                        ContextGroupCard(group = group)
-                    }
-                }
+            item(key = "live_context_header") {
+                SettingsCategoryHeader(title = stringResource(R.string.diagnostics_context_section))
+            }
+            items(uiState.live.contextGroups, key = { it.title }) { group ->
+                ContextGroupCard(group = group)
             }
         }
         if (uiState.live.passiveEvents.isNotEmpty()) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    SettingsCategoryHeader(title = stringResource(R.string.diagnostics_passive_events_section))
-                    uiState.live.passiveEvents.forEach { event ->
-                        EventRow(event = event, onClick = {})
-                    }
-                }
+            item(key = "live_passive_events_header") {
+                SettingsCategoryHeader(title = stringResource(R.string.diagnostics_passive_events_section))
+            }
+            items(uiState.live.passiveEvents, key = { it.id }) { event ->
+                EventRow(event = event, onClick = {})
             }
         }
     }
