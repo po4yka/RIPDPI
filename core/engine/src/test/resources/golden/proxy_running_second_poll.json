@@ -37,6 +37,7 @@
     "resolverProtocol": null,
     "retryPacedCount": 0,
     "routeChanges": 0,
+    "slotExhaustions": 0,
     "source": "proxy",
     "state": "running",
     "totalErrors": 0,
