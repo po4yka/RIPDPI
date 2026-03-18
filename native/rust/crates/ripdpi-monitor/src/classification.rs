@@ -171,7 +171,7 @@ pub(crate) fn filter_quic_candidates_for_failure(
     let allowed = ["quic_disabled", "quic_compat_burst", "quic_realistic_burst"];
     candidates
         .into_iter()
-        .filter(|candidate| allowed.iter().any(|id| candidate.id == *id))
+        .filter(|candidate| allowed.contains(&candidate.id))
         .collect()
 }
 

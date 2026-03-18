@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.logcat)
+    implementation(libs.rustls.platform.verifier)
 
     testImplementation(libs.bundles.unit.test)
 }
