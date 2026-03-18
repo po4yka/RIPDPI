@@ -409,7 +409,7 @@ private fun HomeConnectionButton(
     val scheme = MaterialTheme.colorScheme
     val homeChrome = rememberHomeChromeMetrics()
     val density = LocalDensity.current
-    val interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+    val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val performHaptic = rememberRipDpiHapticPerformer()
     val pressScale by animateFloatAsState(
@@ -422,10 +422,10 @@ private fun HomeConnectionButton(
         animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
         label = "homeConnectionPressScale",
     )
-    val buttonScale = androidx.compose.runtime.remember { Animatable(1f) }
-    val haloScale = androidx.compose.runtime.remember { Animatable(1f) }
-    val shakeOffset = androidx.compose.runtime.remember { Animatable(0f) }
-    val previousState = androidx.compose.runtime.remember { mutableStateOf(state) }
+    val buttonScale = remember { Animatable(1f) }
+    val haloScale = remember { Animatable(1f) }
+    val shakeOffset = remember { Animatable(0f) }
+    val previousState = remember { mutableStateOf(state) }
     val shakeDistance =
         with(density) {
             12.dp.toPx()
