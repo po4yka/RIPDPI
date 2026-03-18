@@ -75,7 +75,7 @@ fun BottomNavBar(
                         .widthIn(
                             max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding,
                         ).height(layout.bottomBarHeight)
-                        .padding(horizontal = components.chipVerticalPadding + components.switchThumbPadding),
+                        .padding(horizontal = components.bottomNavHorizontalPadding),
             ) {
                 val density = LocalDensity.current
                 val slotWidth = maxWidth / destinations.size.coerceAtLeast(1)
@@ -106,7 +106,7 @@ fun BottomNavBar(
                 )
                 val indicatorTopOffsetPx =
                     with(density) {
-                        (components.chipVerticalPadding + components.switchThumbPadding).toPx()
+                        components.bottomNavIndicatorTopOffset.toPx()
                     }
 
                 Box(
@@ -189,7 +189,6 @@ private fun RowScope.BottomNavItem(
             Modifier
                 .fillMaxHeight()
                 .weight(1f)
-                .padding(vertical = 3.dp)
                 .graphicsLayer {
                     scaleX = selectionScale
                     scaleY = selectionScale
