@@ -90,6 +90,31 @@ data class HistoryUiState(
 
 sealed interface HistoryEffect
 
+internal data class HistoryConnectionFilterState(
+    val modeFilter: String? = null,
+    val statusFilter: String? = null,
+    val search: String = "",
+)
+
+internal data class HistoryDiagnosticsFilterState(
+    val pathModeFilter: String? = null,
+    val statusFilter: String? = null,
+    val search: String = "",
+)
+
+internal data class HistoryEventFilterState(
+    val sourceFilter: String? = null,
+    val severityFilter: String? = null,
+    val search: String = "",
+    val autoScroll: Boolean = true,
+)
+
+internal data class HistoryDetailState(
+    val selectedConnectionDetail: HistoryConnectionDetailUiModel? = null,
+    val selectedDiagnosticsDetail: DiagnosticsSessionDetailUiModel? = null,
+    val selectedEventId: String? = null,
+)
+
 private data class HistoryRepositorySnapshot(
     val connectionSessions: List<BypassUsageSessionEntity>,
     val scanSessions: List<ScanSessionEntity>,
@@ -107,22 +132,40 @@ class HistoryViewModel
         private val timestampFormatter = SimpleDateFormat("MMM d, HH:mm", Locale.US)
 
         private val selectedSectionRequest = MutableStateFlow(HistorySection.Connections)
-        private val connectionModeFilter = MutableStateFlow<String?>(null)
-        private val connectionStatusFilter = MutableStateFlow<String?>(null)
-        private val connectionSearch = MutableStateFlow("")
-        private val diagnosticsPathModeFilter = MutableStateFlow<String?>(null)
-        private val diagnosticsStatusFilter = MutableStateFlow<String?>(null)
-        private val diagnosticsSearch = MutableStateFlow("")
-        private val eventSourceFilter = MutableStateFlow<String?>(null)
-        private val eventSeverityFilter = MutableStateFlow<String?>(null)
-        private val eventSearch = MutableStateFlow("")
-        private val eventAutoScroll = MutableStateFlow(true)
-        private val selectedConnectionDetail = MutableStateFlow<HistoryConnectionDetailUiModel?>(null)
-        private val selectedDiagnosticsDetail = MutableStateFlow<DiagnosticsSessionDetailUiModel?>(null)
-        private val selectedEventId = MutableStateFlow<String?>(null)
+        private val connectionFilters = MutableStateFlow(HistoryConnectionFilterState())
+        private val diagnosticsFilters = MutableStateFlow(HistoryDiagnosticsFilterState())
+        private val eventFilters = MutableStateFlow(HistoryEventFilterState())
+        private val detailState = MutableStateFlow(HistoryDetailState())
 
         private val _effects = Channel<HistoryEffect>(Channel.BUFFERED)
         val effects: Flow<HistoryEffect> = _effects.receiveAsFlow()
+
+        private val mutations = HistoryMutationRunner(
+            scope = viewModelScope,
+            currentUiState = { uiState.value },
+        )
+
+        private val connectionActions = HistoryConnectionActions(
+            mutations = mutations,
+            historyRepository = historyRepository,
+            connectionFilters = connectionFilters,
+            detailState = detailState,
+            toConnectionDetail = { sessionId -> loadConnectionDetail(sessionId) },
+        )
+
+        private val diagnosticsActions = HistoryDiagnosticsActions(
+            mutations = mutations,
+            diagnosticsFilters = diagnosticsFilters,
+            detailState = detailState,
+            loadSessionDetail = { sessionId ->
+                diagnosticsManager.loadSessionDetail(sessionId).toUiModel()
+            },
+        )
+
+        private val eventActions = HistoryEventActions(
+            eventFilters = eventFilters,
+            detailState = detailState,
+        )
 
         val uiState: StateFlow<HistoryUiState> =
             combine(
@@ -138,54 +181,36 @@ class HistoryViewModel
                     )
                 },
                 selectedSectionRequest,
-                connectionModeFilter,
-                connectionStatusFilter,
-                connectionSearch,
-                diagnosticsPathModeFilter,
-                diagnosticsStatusFilter,
-                diagnosticsSearch,
-                eventSourceFilter,
-                eventSeverityFilter,
-                eventSearch,
-                eventAutoScroll,
-                selectedConnectionDetail,
-                selectedDiagnosticsDetail,
-                selectedEventId,
+                connectionFilters,
+                diagnosticsFilters,
+                eventFilters,
+                detailState,
             ) { values ->
                 val repositorySnapshot = values[0] as HistoryRepositorySnapshot
                 val selectedSection = values[1] as HistorySection
-                val connectionMode = values[2] as String?
-                val connectionStatus = values[3] as String?
-                val connectionQuery = values[4] as String
-                val diagnosticsPath = values[5] as String?
-                val diagnosticsStatus = values[6] as String?
-                val diagnosticsQuery = values[7] as String
-                val eventSource = values[8] as String?
-                val eventSeverity = values[9] as String?
-                val eventQuery = values[10] as String
-                val autoScroll = values[11] as Boolean
-                val connectionDetail = values[12] as HistoryConnectionDetailUiModel?
-                val diagnosticsDetail = values[13] as DiagnosticsSessionDetailUiModel?
-                val selectedEventId = values[14] as String?
+                val connFilters = values[2] as HistoryConnectionFilterState
+                val diagFilters = values[3] as HistoryDiagnosticsFilterState
+                val evtFilters = values[4] as HistoryEventFilterState
+                val details = values[5] as HistoryDetailState
 
                 buildUiState(
                     connectionSessions = repositorySnapshot.connectionSessions,
                     scanSessions = repositorySnapshot.scanSessions,
                     nativeEvents = repositorySnapshot.nativeEvents,
                     selectedSection = selectedSection,
-                    connectionMode = connectionMode,
-                    connectionStatus = connectionStatus,
-                    connectionQuery = connectionQuery,
-                    diagnosticsPath = diagnosticsPath,
-                    diagnosticsStatus = diagnosticsStatus,
-                    diagnosticsQuery = diagnosticsQuery,
-                    eventSource = eventSource,
-                    eventSeverity = eventSeverity,
-                    eventQuery = eventQuery,
-                    autoScroll = autoScroll,
-                    connectionDetail = connectionDetail,
-                    diagnosticsDetail = diagnosticsDetail,
-                    selectedEventId = selectedEventId,
+                    connectionMode = connFilters.modeFilter,
+                    connectionStatus = connFilters.statusFilter,
+                    connectionQuery = connFilters.search,
+                    diagnosticsPath = diagFilters.pathModeFilter,
+                    diagnosticsStatus = diagFilters.statusFilter,
+                    diagnosticsQuery = diagFilters.search,
+                    eventSource = evtFilters.sourceFilter,
+                    eventSeverity = evtFilters.severityFilter,
+                    eventQuery = evtFilters.search,
+                    autoScroll = evtFilters.autoScroll,
+                    connectionDetail = details.selectedConnectionDetail,
+                    diagnosticsDetail = details.selectedDiagnosticsDetail,
+                    selectedEventId = details.selectedEventId,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -203,87 +228,67 @@ class HistoryViewModel
             selectedSectionRequest.value = section
         }
 
-        fun setConnectionModeFilter(mode: String?) {
-            connectionModeFilter.value = toggleValue(connectionModeFilter.value, mode)
-        }
+        fun setConnectionModeFilter(mode: String?) =
+            connectionActions.setModeFilter(mode)
 
-        fun setConnectionStatusFilter(status: String?) {
-            connectionStatusFilter.value = toggleValue(connectionStatusFilter.value, status)
-        }
+        fun setConnectionStatusFilter(status: String?) =
+            connectionActions.setStatusFilter(status)
 
-        fun setConnectionSearch(query: String) {
-            connectionSearch.value = query
-        }
+        fun setConnectionSearch(query: String) =
+            connectionActions.setSearch(query)
 
-        fun setDiagnosticsPathModeFilter(pathMode: String?) {
-            diagnosticsPathModeFilter.value = toggleValue(diagnosticsPathModeFilter.value, pathMode)
-        }
+        fun setDiagnosticsPathModeFilter(pathMode: String?) =
+            diagnosticsActions.setPathModeFilter(pathMode)
 
-        fun setDiagnosticsStatusFilter(status: String?) {
-            diagnosticsStatusFilter.value = toggleValue(diagnosticsStatusFilter.value, status)
-        }
+        fun setDiagnosticsStatusFilter(status: String?) =
+            diagnosticsActions.setStatusFilter(status)
 
-        fun setDiagnosticsSearch(query: String) {
-            diagnosticsSearch.value = query
-        }
+        fun setDiagnosticsSearch(query: String) =
+            diagnosticsActions.setSearch(query)
 
         fun toggleEventFilter(
             source: String? = null,
             severity: String? = null,
-        ) {
-            if (source != null) {
-                eventSourceFilter.value = toggleValue(eventSourceFilter.value, source)
-            }
-            if (severity != null) {
-                eventSeverityFilter.value = toggleValue(eventSeverityFilter.value, severity)
-            }
-        }
+        ) = eventActions.toggleFilter(source, severity)
 
-        fun setEventSearch(query: String) {
-            eventSearch.value = query
-        }
+        fun setEventSearch(query: String) =
+            eventActions.setSearch(query)
 
-        fun setEventAutoScroll(enabled: Boolean) {
-            eventAutoScroll.value = enabled
-        }
+        fun setEventAutoScroll(enabled: Boolean) =
+            eventActions.setAutoScroll(enabled)
 
-        fun selectConnection(sessionId: String) {
-            viewModelScope.launch {
-                val session = historyRepository.getBypassUsageSession(sessionId) ?: return@launch
-                val snapshots = historyRepository.observeConnectionSnapshots(sessionId, limit = 40).first()
-                val contexts = historyRepository.observeConnectionContexts(sessionId, limit = 20).first()
-                val telemetry = historyRepository.observeConnectionTelemetry(sessionId, limit = 60).first()
-                val events = historyRepository.observeConnectionNativeEvents(sessionId, limit = 80).first()
-                selectedConnectionDetail.value =
-                    session.toConnectionDetail(
-                        snapshots = snapshots,
-                        contexts = contexts,
-                        telemetry = telemetry,
-                        events = events,
-                    )
-            }
-        }
+        fun selectConnection(sessionId: String) =
+            connectionActions.selectConnection(sessionId)
 
-        fun dismissConnectionDetail() {
-            selectedConnectionDetail.value = null
-        }
+        fun dismissConnectionDetail() =
+            connectionActions.dismissDetail()
 
-        fun selectDiagnosticsSession(sessionId: String) {
-            viewModelScope.launch {
-                selectedDiagnosticsDetail.value = diagnosticsManager.loadSessionDetail(sessionId).toUiModel()
-            }
-        }
+        fun selectDiagnosticsSession(sessionId: String) =
+            diagnosticsActions.selectSession(sessionId)
 
-        fun dismissDiagnosticsDetail() {
-            selectedDiagnosticsDetail.value = null
-        }
+        fun dismissDiagnosticsDetail() =
+            diagnosticsActions.dismissDetail()
 
-        fun selectEvent(eventId: String) {
-            selectedEventId.value = eventId
-        }
+        fun selectEvent(eventId: String) =
+            eventActions.selectEvent(eventId)
 
-        fun dismissEventDetail() {
-            selectedEventId.value = null
+        fun dismissEventDetail() =
+            eventActions.dismissDetail()
+
+        // --- UI state building (pure conversion logic) ---
+
+        private suspend fun loadConnectionDetail(sessionId: String): HistoryConnectionDetailUiModel? {
+            val session = historyRepository.getBypassUsageSession(sessionId) ?: return null
+            val snapshots = historyRepository.observeConnectionSnapshots(sessionId, limit = 40).first()
+            val contexts = historyRepository.observeConnectionContexts(sessionId, limit = 20).first()
+            val telemetry = historyRepository.observeConnectionTelemetry(sessionId, limit = 60).first()
+            val events = historyRepository.observeConnectionNativeEvents(sessionId, limit = 80).first()
+            return session.toConnectionDetail(
+                snapshots = snapshots,
+                contexts = contexts,
+                telemetry = telemetry,
+                events = events,
+            )
         }
 
         private fun buildUiState(
@@ -311,10 +316,7 @@ class HistoryViewModel
                     (connectionMode == null || session.serviceMode == connectionMode) &&
                         (
                             connectionStatus == null ||
-                                session.connectionState.equals(
-                                    connectionStatus,
-                                    ignoreCase = true,
-                                )
+                                session.connectionState.equals(connectionStatus, ignoreCase = true)
                         ) &&
                         session.matchesConnectionQuery(connectionQuery)
                 }
@@ -399,9 +401,7 @@ class HistoryViewModel
                         add(
                             DiagnosticsMetricUiModel(
                                 "Health",
-                                health.replaceFirstChar {
-                                    it.uppercase()
-                                },
+                                health.replaceFirstChar { it.uppercase() },
                                 toneForConnection(this@toConnectionDetail),
                             ),
                         )
@@ -432,9 +432,7 @@ class HistoryViewModel
                             DiagnosticsMetricUiModel(
                                 "Retries",
                                 (latestTelemetry?.retryCount() ?: retryCount()).toString(),
-                                if ((latestTelemetry?.retryCount() ?: retryCount()) >
-                                    0
-                                ) {
+                                if ((latestTelemetry?.retryCount() ?: retryCount()) > 0) {
                                     DiagnosticsTone.Warning
                                 } else {
                                     DiagnosticsTone.Neutral
@@ -470,10 +468,7 @@ class HistoryViewModel
                         .mapIndexed { index, result -> result.toProbeUiModel(index) }
                         .groupBy { it.probeType }
                         .map { (title, items) ->
-                            DiagnosticsProbeGroupUiModel(
-                                title = title,
-                                items = items,
-                            )
+                            DiagnosticsProbeGroupUiModel(title = title, items = items)
                         },
                 snapshots = snapshots.mapNotNull(::toSnapshotUiModel),
                 events = events.map(::toEventUiModel),
@@ -506,13 +501,7 @@ class HistoryViewModel
                         DiagnosticsMetricUiModel(
                             "Errors",
                             session.totalErrors.toString(),
-                            if (session.totalErrors >
-                                0
-                            ) {
-                                DiagnosticsTone.Warning
-                            } else {
-                                DiagnosticsTone.Neutral
-                            },
+                            if (session.totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
                         ),
                     ),
                 tone = toneForConnection(session),
@@ -661,19 +650,12 @@ class HistoryViewModel
                     add(DiagnosticsFieldUiModel("Total retries", retryCount.toString()))
                 }
             return fields.takeIf { it.isNotEmpty() }?.let {
-                DiagnosticsContextGroupUiModel(
-                    title = "Field telemetry",
-                    fields = it,
-                )
+                DiagnosticsContextGroupUiModel(title = "Field telemetry", fields = it)
             }
         }
 
         private fun formatTelemetryHash(value: String): String =
-            if (value.length <= 24) {
-                value
-            } else {
-                "${value.take(12)}...${value.takeLast(8)}"
-            }
+            if (value.length <= 24) value else "${value.take(12)}...${value.takeLast(8)}"
 
         private fun toneForConnection(session: BypassUsageSessionEntity): DiagnosticsTone =
             when {
@@ -686,19 +668,17 @@ class HistoryViewModel
         private fun toneForOutcome(value: String): DiagnosticsTone {
             val normalized = value.lowercase(Locale.US)
             return when {
-                normalized.contains(
-                    "ok",
-                ) || normalized.contains("success") || normalized.contains("completed") -> DiagnosticsTone.Positive
+                normalized.contains("ok") || normalized.contains("success") ||
+                    normalized.contains("completed") -> DiagnosticsTone.Positive
 
-                normalized.contains("warn") || normalized.contains("timeout") || normalized.contains("partial") ||
-                    normalized.contains("degraded") ||
+                normalized.contains("warn") || normalized.contains("timeout") ||
+                    normalized.contains("partial") || normalized.contains("degraded") ||
                     normalized.contains("running") -> DiagnosticsTone.Warning
 
-                normalized.contains("error") || normalized.contains("failed") || normalized.contains("blocked") ||
-                    normalized.contains("stopped") -> DiagnosticsTone.Negative
+                normalized.contains("error") || normalized.contains("failed") ||
+                    normalized.contains("blocked") || normalized.contains("stopped") -> DiagnosticsTone.Negative
 
                 normalized.contains("info") -> DiagnosticsTone.Info
-
                 else -> DiagnosticsTone.Neutral
             }
         }
@@ -706,11 +686,7 @@ class HistoryViewModel
         private fun decodeReport(reportJson: String?): com.poyka.ripdpi.diagnostics.ScanReport? =
             reportJson?.takeIf { it.isNotBlank() }?.let {
                 runCatching {
-                    json.decodeFromString(
-                        com.poyka.ripdpi.diagnostics.ScanReport
-                            .serializer(),
-                        it,
-                    )
+                    json.decodeFromString(com.poyka.ripdpi.diagnostics.ScanReport.serializer(), it)
                 }.getOrNull()
             }
 
@@ -720,9 +696,7 @@ class HistoryViewModel
             }.getOrElse { emptyList() }
 
         private fun HistoryConnectionRowUiModel.matchesConnectionQuery(query: String): Boolean {
-            if (query.isBlank()) {
-                return true
-            }
+            if (query.isBlank()) return true
             val normalized = query.lowercase(Locale.US)
             return listOf(title, subtitle, summary, serviceMode, connectionState, networkType).any {
                 it.lowercase(Locale.US).contains(normalized)
@@ -730,9 +704,7 @@ class HistoryViewModel
         }
 
         private fun DiagnosticsSessionRowUiModel.matchesDiagnosticsQuery(query: String): Boolean {
-            if (query.isBlank()) {
-                return true
-            }
+            if (query.isBlank()) return true
             val normalized = query.lowercase(Locale.US)
             return listOf(title, subtitle, summary, pathMode, serviceMode, status).any {
                 it.lowercase(Locale.US).contains(normalized)
@@ -740,17 +712,10 @@ class HistoryViewModel
         }
 
         private fun DiagnosticsEventUiModel.matchesEventQuery(query: String): Boolean {
-            if (query.isBlank()) {
-                return true
-            }
+            if (query.isBlank()) return true
             val normalized = query.lowercase(Locale.US)
             return listOf(source, severity, message).any { it.lowercase(Locale.US).contains(normalized) }
         }
-
-        private fun toggleValue(
-            current: String?,
-            next: String?,
-        ): String? = if (current == next) null else next
 
         private fun formatTimestamp(timestamp: Long): String = timestampFormatter.format(Date(timestamp))
 
