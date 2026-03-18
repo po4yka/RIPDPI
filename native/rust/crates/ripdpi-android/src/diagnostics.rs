@@ -7,7 +7,6 @@ use jni::JNIEnv;
 use ripdpi_monitor::{MonitorSession, ScanRequest};
 
 use crate::errors::extract_panic_message;
-use crate::platform_tls::platform_tls_verifier;
 use crate::to_handle;
 
 pub(crate) static DIAGNOSTIC_SESSIONS: once_cell::sync::Lazy<HandleRegistry<MonitorSession>> =
@@ -16,7 +15,7 @@ pub(crate) static DIAGNOSTIC_SESSIONS: once_cell::sync::Lazy<HandleRegistry<Moni
 pub(crate) fn diagnostics_create_entry(mut env: JNIEnv) -> jlong {
     init_android_logging("ripdpi-native");
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        DIAGNOSTIC_SESSIONS.insert(MonitorSession::with_tls_verifier(platform_tls_verifier())) as jlong
+        DIAGNOSTIC_SESSIONS.insert(MonitorSession::new()) as jlong
     }))
     .unwrap_or_else(|panic_payload| {
         let msg = extract_panic_message(panic_payload);
