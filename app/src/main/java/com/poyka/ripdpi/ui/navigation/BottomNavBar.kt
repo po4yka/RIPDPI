@@ -31,7 +31,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.mergeDescendants
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
@@ -189,6 +192,7 @@ private fun RowScope.BottomNavItem(
             Modifier
                 .fillMaxHeight()
                 .weight(1f)
+                .semantics(mergeDescendants = true) {}
                 .graphicsLayer {
                     scaleX = selectionScale
                     scaleY = selectionScale
@@ -214,15 +218,13 @@ private fun RowScope.BottomNavItem(
         ) {
             Icon(
                 imageVector = requireNotNull(destination.icon),
-                contentDescription = null,
+                contentDescription = stringResource(destination.titleRes),
                 tint = iconTint,
                 modifier = Modifier.size(RipDpiIconSizes.Default),
             )
         }
         Text(
-            text =
-                androidx.compose.ui.res
-                    .stringResource(destination.titleRes),
+            text = stringResource(destination.titleRes),
             style = type.navLabel,
             color = labelColor,
         )
