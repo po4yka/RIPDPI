@@ -426,3 +426,35 @@ internal data class ArchiveActionState(
     val isBusy: Boolean = false,
     val latestArchiveFileName: String? = null,
 )
+
+internal data class SelectionState(
+    val selectedSectionRequest: DiagnosticsSection = DiagnosticsSection.Overview,
+    val selectedProfileId: String? = null,
+    val selectedApproachMode: DiagnosticsApproachMode = DiagnosticsApproachMode.Profiles,
+    val selectedApproachDetail: DiagnosticsApproachDetailUiModel? = null,
+    val selectedProbe: DiagnosticsProbeResultUiModel? = null,
+    val selectedEventId: String? = null,
+    val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel? = null,
+)
+
+internal data class FilterState(
+    val sessionPathModeFilter: String? = null,
+    val sessionStatusFilter: String? = null,
+    val sessionSearch: String = "",
+    val eventSourceFilter: String? = null,
+    val eventSeverityFilter: String? = null,
+    val eventSearch: String = "",
+    val eventAutoScroll: Boolean = true,
+)
+
+internal data class SessionDetailState(
+    val selectedSessionDetail: DiagnosticsSessionDetailUiModel? = null,
+    val sensitiveSessionDetailsVisible: Boolean = false,
+)
+
+internal data class ScanLifecycleState(
+    val scanStartedAt: Long? = null,
+    val accumulatedProbes: List<CompletedProbeUiModel> = emptyList(),
+    val pendingAutoOpenAuditSessionId: String? = null,
+    val archiveActionState: ArchiveActionState = ArchiveActionState(),
+)
