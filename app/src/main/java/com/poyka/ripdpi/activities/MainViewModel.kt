@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
@@ -83,6 +85,7 @@ sealed interface MainEffect {
     ) : MainEffect
 }
 
+@Stable
 data class MainUiState(
     val appStatus: AppStatus = AppStatus.Halted,
     val activeMode: Mode = Mode.VPN,
@@ -104,6 +107,7 @@ data class MainUiState(
         get() = connectionState == ConnectionState.Connecting
 }
 
+@Immutable
 data class HomeApproachSummaryUiState(
     val title: String,
     val verification: String,
@@ -133,6 +137,7 @@ internal fun calculateTransferredBytes(
 internal fun shouldPollConnectionMetrics(connectionState: ConnectionState): Boolean =
     connectionState == ConnectionState.Connected
 
+@Immutable
 data class MainStartupState(
     val isReady: Boolean = false,
     val theme: String = "system",

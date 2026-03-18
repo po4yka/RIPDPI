@@ -33,6 +33,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -86,17 +88,21 @@ fun HomeRoute(
     viewModel: MainViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentUiState by rememberUpdatedState(uiState)
 
     HomeScreen(
         uiState = uiState,
         modifier = modifier,
-        onToggleConnection = {
-            if (shouldStartConnection(uiState)) {
-                onStartConfiguredMode()
-            } else {
-                viewModel.onPrimaryConnectionAction()
-            }
-        },
+        onToggleConnection =
+            remember(onStartConfiguredMode, viewModel) {
+                {
+                    if (shouldStartConnection(currentUiState)) {
+                        onStartConfiguredMode()
+                    } else {
+                        viewModel.onPrimaryConnectionAction()
+                    }
+                }
+            },
         onOpenDiagnostics = onOpenDiagnostics,
         onOpenHistory = onOpenHistory,
         onRepairPermission = viewModel::onRepairPermissionRequested,
@@ -753,6 +759,14 @@ private fun HomeStatsGrid(uiState: MainUiState) {
     val spacing = RipDpiThemeTokens.spacing
     val context = LocalContext.current
     val resolvedMode = currentMode(uiState)
+    val formattedDuration =
+        remember(uiState.connectionDuration) {
+            formatConnectionDuration(uiState.connectionDuration)
+        }
+    val formattedTraffic =
+        remember(uiState.dataTransferred) {
+            Formatter.formatShortFileSize(context, uiState.dataTransferred)
+        }
     val routeValue =
         when (resolvedMode) {
             Mode.VPN -> stringResource(R.string.home_route_local)
@@ -767,12 +781,12 @@ private fun HomeStatsGrid(uiState: MainUiState) {
             HomeStatCard(
                 modifier = Modifier.weight(1f),
                 label = stringResource(R.string.home_stat_duration),
-                value = formatConnectionDuration(uiState.connectionDuration),
+                value = formattedDuration,
             )
             HomeStatCard(
                 modifier = Modifier.weight(1f),
                 label = stringResource(R.string.home_stat_traffic),
-                value = Formatter.formatShortFileSize(context, uiState.dataTransferred),
+                value = formattedTraffic,
             )
         }
         Row(
