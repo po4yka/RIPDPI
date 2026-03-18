@@ -84,7 +84,7 @@ fun OnboardingRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             if (effect is OnboardingEffect.OnboardingComplete) {
                 onComplete()

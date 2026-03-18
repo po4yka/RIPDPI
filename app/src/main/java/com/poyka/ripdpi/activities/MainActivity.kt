@@ -190,7 +190,7 @@ class MainActivity : ComponentActivity() {
             val launchConfiguredStartRequested by startConfiguredModeRequests.collectAsStateWithLifecycle()
             val snackbarHostState = remember { SnackbarHostState() }
 
-            LaunchedEffect(viewModel, snackbarHostState) {
+            LaunchedEffect(Unit) {
                 viewModel.effects.collect { effect ->
                     when (effect) {
                         is MainEffect.RequestPermission -> {

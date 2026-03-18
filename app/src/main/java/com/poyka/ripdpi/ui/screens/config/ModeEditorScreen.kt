@@ -85,7 +85,7 @@ fun ModeEditorRoute(
         }
     }
 
-    LaunchedEffect(viewModel, snackbarHostState) {
+    LaunchedEffect(Unit) {
         viewModel.effects.collectLatest { effect ->
             when (effect) {
                 ConfigEffect.SaveSuccess -> {

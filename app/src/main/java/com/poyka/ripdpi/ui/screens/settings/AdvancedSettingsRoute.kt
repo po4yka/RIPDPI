@@ -215,7 +215,7 @@ fun AdvancedSettingsRoute(
     val hostPackCatalog by viewModel.hostPackCatalog.collectAsStateWithLifecycle()
     var notice by remember { mutableStateOf<AdvancedNotice?>(null) }
 
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             if (effect is SettingsEffect.Notice) {
                 notice = mapNoticeEffect(effect)
