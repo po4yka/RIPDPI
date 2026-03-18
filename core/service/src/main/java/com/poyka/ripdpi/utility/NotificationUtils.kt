@@ -61,3 +61,42 @@ fun createConnectionNotification(
                 PendingIntent.FLAG_IMMUTABLE,
             ),
         ).build()
+
+fun createDynamicConnectionNotification(
+    context: Context,
+    channelId: String,
+    title: String,
+    content: String,
+    subText: String?,
+    service: Class<*>,
+    whenTimestamp: Long,
+): Notification =
+    NotificationCompat
+        .Builder(context, channelId)
+        .setSmallIcon(R.drawable.ic_notification)
+        .setSilent(true)
+        .setOnlyAlertOnce(true)
+        .setOngoing(true)
+        .setContentTitle(title)
+        .setContentText(content)
+        .apply { if (subText != null) setSubText(subText) }
+        .setWhen(whenTimestamp)
+        .setShowWhen(true)
+        .setUsesChronometer(true)
+        .addAction(
+            0,
+            context.getString(R.string.notification_stop),
+            PendingIntent.getService(
+                context,
+                0,
+                Intent(context, service).setAction(STOP_ACTION),
+                PendingIntent.FLAG_IMMUTABLE,
+            ),
+        ).setContentIntent(
+            PendingIntent.getActivity(
+                context,
+                0,
+                context.packageManager.getLaunchIntentForPackage(context.packageName),
+                PendingIntent.FLAG_IMMUTABLE,
+            ),
+        ).build()
