@@ -249,21 +249,18 @@ data class DesyncCoreUiState(
     val udpFakeCount: Int = 0,
     val defaultTtl: Int = 0,
     val customTtl: Boolean = false,
+    val hostFakeSteps: List<TcpChainStepModel> = tcpChainSteps.filter { it.kind == TcpChainStepKind.HostFake },
+    val fakeApproximationSteps: List<TcpChainStepModel> =
+        tcpChainSteps.filter {
+            it.kind == TcpChainStepKind.FakeSplit || it.kind == TcpChainStepKind.FakeDisorder
+        },
+    val hasUdpFakeBurst: Boolean = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 },
 ) {
-    val hostFakeSteps: List<TcpChainStepModel>
-        get() = tcpChainSteps.filter { it.kind == TcpChainStepKind.HostFake }
-
     val hostFakeStepCount: Int
         get() = hostFakeSteps.size
 
     val primaryHostFakeStep: TcpChainStepModel?
         get() = hostFakeSteps.firstOrNull()
-
-    val fakeApproximationSteps: List<TcpChainStepModel>
-        get() =
-            tcpChainSteps.filter {
-                it.kind == TcpChainStepKind.FakeSplit || it.kind == TcpChainStepKind.FakeDisorder
-            }
 
     val fakeApproximationStepCount: Int
         get() = fakeApproximationSteps.size
@@ -279,9 +276,6 @@ data class DesyncCoreUiState(
 
     val hasFakeDisorderApproximation: Boolean
         get() = fakeApproximationSteps.any { it.kind == TcpChainStepKind.FakeDisorder }
-
-    val hasUdpFakeBurst: Boolean
-        get() = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 }
 
     val hasCustomActivationWindow: Boolean
         get() = formatActivationFilterSummary(groupActivationFilter).isNotBlank()
