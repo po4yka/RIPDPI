@@ -83,7 +83,10 @@ pub(crate) fn resolve_via_udp(domain: &str, server: &str, transport: &TransportC
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
     let packet = build_dns_query(domain, query_id)?;
     let response = match transport {
-        TransportConfig::Direct => relay_udp_direct(server, &packet)?,
+        TransportConfig::Direct => {
+            let server_addr = resolve_first_socket_addr(server)?;
+            relay_udp_direct(server_addr, &packet)?
+        }
         TransportConfig::Socks5 { host, port } => {
             let server_addr = resolve_first_socket_addr(server)?;
             relay_udp_via_socks5(host, *port, server_addr, &packet)?

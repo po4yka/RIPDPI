@@ -598,27 +598,24 @@ pub(crate) fn build_network_environment_probe(
 }
 
 pub(crate) fn set_progress(shared: &Arc<Mutex<SharedState>>, progress: ScanProgress) {
-    if let Ok(mut guard) = shared.lock() {
-        guard.progress = Some(progress);
-    }
+    let mut guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    guard.progress = Some(progress);
 }
 
 pub(crate) fn set_report(shared: &Arc<Mutex<SharedState>>, report: ScanReport) {
-    if let Ok(mut guard) = shared.lock() {
-        guard.report = Some(report);
-    }
+    let mut guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    guard.report = Some(report);
 }
 
 pub(crate) fn push_event(shared: &Arc<Mutex<SharedState>>, source: &str, level: &str, message: String) {
-    if let Ok(mut guard) = shared.lock() {
-        if guard.passive_events.len() >= MAX_PASSIVE_EVENTS {
-            guard.passive_events.pop_front();
-        }
-        guard.passive_events.push_back(NativeSessionEvent {
-            source: source.to_string(),
-            level: level.to_string(),
-            message,
-            created_at: now_ms(),
-        });
+    let mut guard = shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if guard.passive_events.len() >= MAX_PASSIVE_EVENTS {
+        guard.passive_events.pop_front();
     }
+    guard.passive_events.push_back(NativeSessionEvent {
+        source: source.to_string(),
+        level: level.to_string(),
+        message,
+        created_at: now_ms(),
+    });
 }
