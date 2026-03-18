@@ -123,7 +123,10 @@ class RipDpiProxy(
 
                 readinessSignal = startupSignal
                 try {
-                    val createdHandle = nativeBindings.create(preferences.toNativeConfigJson())
+                    val createdHandle =
+                        withContext(Dispatchers.IO) {
+                            nativeBindings.create(preferences.toNativeConfigJson())
+                        }
                     if (createdHandle == 0L) {
                         logcat(LogPriority.ERROR) { "Proxy native session creation returned null handle" }
                         throw NativeError.SessionCreationFailed("proxy")

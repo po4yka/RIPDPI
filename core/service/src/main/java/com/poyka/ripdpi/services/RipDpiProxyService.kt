@@ -114,18 +114,18 @@ class RipDpiProxyService : LifecycleService() {
         startForeground()
         return when (val action = intent?.action) {
             START_ACTION -> {
-                lifecycleScope.launch { start() }
+                lifecycleScope.launch(Dispatchers.IO) { start() }
                 START_STICKY
             }
 
             STOP_ACTION -> {
-                lifecycleScope.launch { stop(stopSelfStartId = startId) }
+                lifecycleScope.launch(Dispatchers.IO) { stop(stopSelfStartId = startId) }
                 START_NOT_STICKY
             }
 
             else -> {
                 logcat(LogPriority.WARN) { "Unknown action: $action" }
-                lifecycleScope.launch { stop(stopSelfStartId = startId) }
+                lifecycleScope.launch(Dispatchers.IO) { stop(stopSelfStartId = startId) }
                 START_NOT_STICKY
             }
         }
@@ -302,7 +302,7 @@ class RipDpiProxyService : LifecycleService() {
             if (stopping) {
                 return@invokeOnCompletion
             }
-            lifecycleScope.launch {
+            lifecycleScope.launch(Dispatchers.IO) {
                 handleProxyExit(exitResult.await())
             }
         }
@@ -431,7 +431,7 @@ class RipDpiProxyService : LifecycleService() {
     private fun startTelemetryUpdates() {
         telemetryJob?.cancel()
         telemetryJob =
-            lifecycleScope.launch {
+            lifecycleScope.launch(Dispatchers.IO) {
                 while (status == ServiceStatus.Connected) {
                     val proxyTelemetry =
                         runCatching { proxy?.pollTelemetry() }.getOrNull()
@@ -494,7 +494,7 @@ class RipDpiProxyService : LifecycleService() {
     private fun startNetworkHandoverMonitoring() {
         handoverMonitorJob?.cancel()
         handoverMonitorJob =
-            lifecycleScope.launch {
+            lifecycleScope.launch(Dispatchers.IO) {
                 networkHandoverMonitor.events.collect { event ->
                     runtimeSession?.pendingNetworkHandoverClass = event.classification
                     if (!event.isActionable) {
