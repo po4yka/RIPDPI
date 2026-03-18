@@ -36,7 +36,7 @@ private data class AdaptiveSplitStatusContent(
 @Composable
 internal fun rememberAdaptiveSplitPresetOptions(
     uiState: SettingsUiState,
-    includeCustom: Boolean = uiState.hasCustomAdaptiveSplitPreset,
+    includeCustom: Boolean = uiState.desync.hasCustomAdaptiveSplitPreset,
 ): List<AdaptiveSplitPresetUiModel> =
     buildList {
         add(
@@ -84,7 +84,7 @@ internal fun rememberAdaptiveSplitPresetOptions(
                     body =
                         stringResource(
                             R.string.adaptive_split_preset_custom_body,
-                            formatOffsetExpressionLabel(uiState.splitMarker),
+                            formatOffsetExpressionLabel(uiState.desync.splitMarker),
                         ),
                 ),
             )
@@ -102,7 +102,7 @@ internal fun AdaptiveSplitProfileCard(
     val type = RipDpiThemeTokens.type
     val status = rememberAdaptiveSplitStatus(uiState)
     val profileSummary =
-        when (uiState.adaptiveSplitPreset) {
+        when (uiState.desync.adaptiveSplitPreset) {
             AdaptiveSplitPresetManual -> {
                 stringResource(R.string.adaptive_split_profile_manual)
             }
@@ -110,22 +110,22 @@ internal fun AdaptiveSplitProfileCard(
             AdaptiveSplitPresetCustom -> {
                 stringResource(
                     R.string.adaptive_split_profile_custom,
-                    formatOffsetExpressionLabel(uiState.splitMarker),
+                    formatOffsetExpressionLabel(uiState.desync.splitMarker),
                 )
             }
 
             else -> {
-                formatOffsetExpressionLabel(uiState.splitMarker)
+                formatOffsetExpressionLabel(uiState.desync.splitMarker)
             }
         }
     val targetSummary =
-        if (uiState.settings.tcpChainStepsCount > 0 && primaryTcpChainStep(uiState.tcpChainSteps) != null) {
+        if (uiState.settings.tcpChainStepsCount > 0 && primaryTcpChainStep(uiState.desync.tcpChainSteps) != null) {
             stringResource(R.string.adaptive_split_target_chain_step)
         } else {
             stringResource(R.string.adaptive_split_target_legacy)
         }
     val focusSummary =
-        when (uiState.adaptiveSplitPreset) {
+        when (uiState.desync.adaptiveSplitPreset) {
             AdaptiveSplitPresetManual -> stringResource(R.string.adaptive_split_focus_manual)
             AdaptiveSplitPresetCustom -> stringResource(R.string.adaptive_split_focus_custom)
             AdaptiveMarkerBalanced -> stringResource(R.string.adaptive_split_focus_balanced)
@@ -138,8 +138,8 @@ internal fun AdaptiveSplitProfileCard(
         when {
             uiState.enableCmdSettings -> stringResource(R.string.adaptive_split_scope_cli)
             !uiState.desyncEnabled -> stringResource(R.string.adaptive_split_scope_disabled)
-            !uiState.adaptiveSplitVisualEditorSupported -> stringResource(R.string.adaptive_split_scope_hostfake)
-            uiState.hasAdaptiveSplitPreset -> stringResource(R.string.adaptive_split_scope_active)
+            !uiState.desync.adaptiveSplitVisualEditorSupported -> stringResource(R.string.adaptive_split_scope_hostfake)
+            uiState.desync.hasAdaptiveSplitPreset -> stringResource(R.string.adaptive_split_scope_active)
             else -> stringResource(R.string.adaptive_split_scope_manual)
         }
     val protocolSummary =
@@ -165,19 +165,19 @@ internal fun AdaptiveSplitProfileCard(
         buildList {
             add(
                 (
-                    if (uiState.hasAdaptiveSplitPreset) {
+                    if (uiState.desync.hasAdaptiveSplitPreset) {
                         stringResource(R.string.adaptive_split_badge_adaptive)
                     } else {
                         stringResource(R.string.adaptive_split_badge_manual)
                     }
                 ) to
-                    if (uiState.hasAdaptiveSplitPreset) {
+                    if (uiState.desync.hasAdaptiveSplitPreset) {
                         SummaryCapsuleTone.Active
                     } else {
                         SummaryCapsuleTone.Neutral
                     },
             )
-            if (uiState.hasCustomAdaptiveSplitPreset) {
+            if (uiState.desync.hasCustomAdaptiveSplitPreset) {
                 add(stringResource(R.string.adaptive_split_badge_custom) to SummaryCapsuleTone.Info)
             }
             if (uiState.desyncHttpsEnabled) {
@@ -255,7 +255,7 @@ private fun rememberAdaptiveSplitStatus(uiState: SettingsUiState): AdaptiveSplit
             )
         }
 
-        !uiState.adaptiveSplitVisualEditorSupported -> {
+        !uiState.desync.adaptiveSplitVisualEditorSupported -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_hostfake_title),
                 body = stringResource(R.string.adaptive_split_hostfake_body),
@@ -263,7 +263,7 @@ private fun rememberAdaptiveSplitStatus(uiState: SettingsUiState): AdaptiveSplit
             )
         }
 
-        !uiState.desyncEnabled && uiState.hasAdaptiveSplitPreset -> {
+        !uiState.desyncEnabled && uiState.desync.hasAdaptiveSplitPreset -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_saved_title),
                 body = stringResource(R.string.adaptive_split_saved_body),
@@ -279,7 +279,7 @@ private fun rememberAdaptiveSplitStatus(uiState: SettingsUiState): AdaptiveSplit
             )
         }
 
-        uiState.isServiceRunning && uiState.hasAdaptiveSplitPreset -> {
+        uiState.isServiceRunning && uiState.desync.hasAdaptiveSplitPreset -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_restart_title),
                 body = stringResource(R.string.adaptive_split_restart_body),
@@ -287,7 +287,7 @@ private fun rememberAdaptiveSplitStatus(uiState: SettingsUiState): AdaptiveSplit
             )
         }
 
-        uiState.hasAdaptiveSplitPreset -> {
+        uiState.desync.hasAdaptiveSplitPreset -> {
             AdaptiveSplitStatusContent(
                 label = stringResource(R.string.adaptive_split_ready_title),
                 body = stringResource(R.string.adaptive_split_ready_body),
@@ -332,7 +332,7 @@ internal fun AdaptiveSplitPresetSelector(
         presets.forEach { preset ->
             AdaptiveSplitPresetCard(
                 preset = preset,
-                selected = uiState.adaptiveSplitPreset == preset.value,
+                selected = uiState.desync.adaptiveSplitPreset == preset.value,
                 enabled = enabled && preset.value != AdaptiveSplitPresetCustom,
                 onClick = { onPresetSelected(preset.value) },
             )

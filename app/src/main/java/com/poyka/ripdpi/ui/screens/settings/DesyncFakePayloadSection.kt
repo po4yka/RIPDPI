@@ -77,9 +77,9 @@ internal fun FakePayloadLibraryCard(
             } else if (uiState.hasHostFake) {
                 add(stringResource(R.string.fake_payload_library_badge_hostfake_only) to SummaryCapsuleTone.Info)
             }
-            if (uiState.hasUdpFakeBurst) {
+            if (uiState.desync.hasUdpFakeBurst) {
                 add(
-                    stringResource(R.string.fake_payload_library_badge_udp_burst, uiState.udpFakeCount) to
+                    stringResource(R.string.fake_payload_library_badge_udp_burst, uiState.desync.udpFakeCount) to
                         SummaryCapsuleTone.Active,
                 )
             }

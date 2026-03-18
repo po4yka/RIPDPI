@@ -49,7 +49,7 @@ class SettingsUiStateTest {
         val state = defaults.toUiState()
         assertTrue(state.isVpn)
         assertFalse(state.useCmdSettings)
-        assertEquals("disorder", state.desyncMethod)
+        assertEquals("disorder", state.desync.desyncMethod)
         assertFalse(state.autolearn.hostAutolearnEnabled)
         assertEquals(DefaultHostAutolearnPenaltyTtlHours, state.autolearn.hostAutolearnPenaltyTtlHours)
         assertEquals(DefaultHostAutolearnMaxHosts, state.autolearn.hostAutolearnMaxHosts)
@@ -57,11 +57,11 @@ class SettingsUiStateTest {
         assertFalse(state.isFake)
         assertFalse(state.usesFakeTransport)
         assertFalse(state.hasHostFake)
-        assertEquals(0, state.hostFakeStepCount)
+        assertEquals(0, state.desync.hostFakeStepCount)
         assertTrue(state.hostFakeControlsRelevant)
         assertTrue(state.showHostFakeProfile)
-        assertFalse(state.hasFakeApproximation)
-        assertEquals(0, state.fakeApproximationStepCount)
+        assertFalse(state.desync.hasFakeApproximation)
+        assertEquals(0, state.desync.fakeApproximationStepCount)
         assertTrue(state.fakeApproximationControlsRelevant)
         assertTrue(state.showFakeApproximationProfile)
         assertFalse(state.isOob)
@@ -104,7 +104,7 @@ class SettingsUiStateTest {
         assertEquals(QuicFakeProfileDisabled, state.quic.quicFakeProfile)
         assertEquals("", state.quic.quicFakeHost)
         assertFalse(state.quic.quicFakeProfileActive)
-        assertFalse(state.hasUdpFakeBurst)
+        assertFalse(state.desync.hasUdpFakeBurst)
         assertFalse(state.quicFakeControlsRelevant)
         assertFalse(state.quic.showQuicFakeHostOverride)
         assertFalse(state.quic.quicFakeUsesCustomHost)
@@ -122,15 +122,15 @@ class SettingsUiStateTest {
         assertFalse(state.tlsPrelude.hasStackedTlsPreludeSteps)
         assertTrue(state.showActivationWindowProfile)
         assertFalse(state.canResetActivationWindow)
-        assertFalse(state.hasStepActivationFilters)
-        assertEquals(0, state.stepActivationFilterCount)
+        assertFalse(state.desync.hasStepActivationFilters)
+        assertEquals(0, state.desync.stepActivationFilterCount)
         assertFalse(state.webrtcProtectionEnabled)
         assertFalse(state.biometricEnabled)
         assertEquals("", state.backupPinHash)
         assertFalse(state.hasBackupPin)
         assertEquals(LauncherIconManager.DefaultIconKey, state.appIconVariant)
         assertTrue(state.themedAppIconEnabled)
-        assertEquals(DefaultSplitMarker, state.splitMarker)
+        assertEquals(DefaultSplitMarker, state.desync.splitMarker)
         assertTrue(state.diagnosticsMonitorEnabled)
         assertEquals(15, state.diagnosticsSampleIntervalSeconds)
         assertEquals(14, state.diagnosticsHistoryRetentionDays)
@@ -255,14 +255,14 @@ class SettingsUiStateTest {
         assertFalse(state.isFake)
         assertTrue(state.usesFakeTransport)
         assertTrue(state.hasHostFake)
-        assertEquals(1, state.hostFakeStepCount)
-        assertEquals("endhost+8", state.primaryHostFakeStep?.marker)
-        assertEquals("midsld", state.primaryHostFakeStep?.midhostMarker)
-        assertEquals("googlevideo.com", state.primaryHostFakeStep?.fakeHostTemplate)
+        assertEquals(1, state.desync.hostFakeStepCount)
+        assertEquals("endhost+8", state.desync.primaryHostFakeStep?.marker)
+        assertEquals("midsld", state.desync.primaryHostFakeStep?.midhostMarker)
+        assertEquals("googlevideo.com", state.desync.primaryHostFakeStep?.fakeHostTemplate)
         assertFalse(state.httpFakeProfileActiveInStrategy)
         assertFalse(state.tlsFakeProfileActiveInStrategy)
         assertFalse(state.fakeTlsControlsRelevant)
-        assertEquals("tcp: hostfake(endhost+8 midhost=midsld host=googlevideo.com)", state.chainSummary)
+        assertEquals("tcp: hostfake(endhost+8 midhost=midsld host=googlevideo.com)", state.desync.chainSummary)
     }
 
     @Test
@@ -303,12 +303,12 @@ class SettingsUiStateTest {
         assertTrue(state.tlsFakeProfileActiveInStrategy)
         assertTrue(state.fakeTlsControlsRelevant)
         assertTrue(state.showAdaptiveFakeTtlProfile)
-        assertTrue(state.hasFakeApproximation)
-        assertEquals(1, state.fakeApproximationStepCount)
-        assertTrue(state.hasFakeSplitApproximation)
-        assertFalse(state.hasFakeDisorderApproximation)
-        assertEquals(TcpChainStepKind.FakeSplit, state.primaryFakeApproximationStep?.kind)
-        assertEquals("host+1", state.primaryFakeApproximationStep?.marker)
+        assertTrue(state.desync.hasFakeApproximation)
+        assertEquals(1, state.desync.fakeApproximationStepCount)
+        assertTrue(state.desync.hasFakeSplitApproximation)
+        assertFalse(state.desync.hasFakeDisorderApproximation)
+        assertEquals(TcpChainStepKind.FakeSplit, state.desync.primaryFakeApproximationStep?.kind)
+        assertEquals("host+1", state.desync.primaryFakeApproximationStep?.marker)
         assertTrue(state.showFakeApproximationProfile)
     }
 
@@ -330,11 +330,11 @@ class SettingsUiStateTest {
         assertTrue(state.isFake)
         assertTrue(state.usesFakeTransport)
         assertTrue(state.showAdaptiveFakeTtlProfile)
-        assertTrue(state.hasFakeApproximation)
-        assertFalse(state.hasFakeSplitApproximation)
-        assertTrue(state.hasFakeDisorderApproximation)
-        assertEquals(TcpChainStepKind.FakeDisorder, state.primaryFakeApproximationStep?.kind)
-        assertEquals("tcp: fakeddisorder(endhost)", state.chainSummary)
+        assertTrue(state.desync.hasFakeApproximation)
+        assertFalse(state.desync.hasFakeSplitApproximation)
+        assertTrue(state.desync.hasFakeDisorderApproximation)
+        assertEquals(TcpChainStepKind.FakeDisorder, state.desync.primaryFakeApproximationStep?.kind)
+        assertEquals("tcp: fakeddisorder(endhost)", state.desync.chainSummary)
     }
 
     @Test
@@ -392,12 +392,12 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertTrue(state.hasFakeApproximation)
-        assertEquals(2, state.fakeApproximationStepCount)
-        assertTrue(state.hasFakeSplitApproximation)
-        assertTrue(state.hasFakeDisorderApproximation)
-        assertEquals(TcpChainStepKind.FakeSplit, state.primaryFakeApproximationStep?.kind)
-        assertEquals("host+1", state.primaryFakeApproximationStep?.marker)
+        assertTrue(state.desync.hasFakeApproximation)
+        assertEquals(2, state.desync.fakeApproximationStepCount)
+        assertTrue(state.desync.hasFakeSplitApproximation)
+        assertTrue(state.desync.hasFakeDisorderApproximation)
+        assertEquals(TcpChainStepKind.FakeSplit, state.desync.primaryFakeApproximationStep?.kind)
+        assertEquals("host+1", state.desync.primaryFakeApproximationStep?.marker)
     }
 
     @Test
@@ -418,7 +418,7 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertTrue(state.hasFakeApproximation)
+        assertTrue(state.desync.hasFakeApproximation)
         assertTrue(state.isFake)
         assertFalse(state.fakeApproximationControlsRelevant)
         assertTrue(state.showFakeApproximationProfile)
@@ -461,10 +461,10 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertTrue(state.hasHostFake)
-        assertTrue(state.hasFakeApproximation)
-        assertEquals(2, state.fakeApproximationStepCount)
-        assertEquals(TcpChainStepKind.FakeDisorder, state.primaryFakeApproximationStep?.kind)
-        assertEquals("host+1", state.primaryFakeApproximationStep?.marker)
+        assertTrue(state.desync.hasFakeApproximation)
+        assertEquals(2, state.desync.fakeApproximationStepCount)
+        assertEquals(TcpChainStepKind.FakeDisorder, state.desync.primaryFakeApproximationStep?.kind)
+        assertEquals("host+1", state.desync.primaryFakeApproximationStep?.marker)
     }
 
     @Test
@@ -517,15 +517,15 @@ class SettingsUiStateTest {
                 ).build()
                 .toUiState()
 
-        assertEquals(AdaptiveMarkerBalanced, balancedState.adaptiveSplitPreset)
-        assertTrue(balancedState.hasAdaptiveSplitPreset)
-        assertFalse(balancedState.hasCustomAdaptiveSplitPreset)
+        assertEquals(AdaptiveMarkerBalanced, balancedState.desync.adaptiveSplitPreset)
+        assertTrue(balancedState.desync.hasAdaptiveSplitPreset)
+        assertFalse(balancedState.desync.hasCustomAdaptiveSplitPreset)
         assertTrue(balancedState.canResetAdaptiveSplitPreset)
-        assertEquals(AdaptiveSplitPresetCustom, customState.adaptiveSplitPreset)
-        assertTrue(customState.hasAdaptiveSplitPreset)
-        assertTrue(customState.hasCustomAdaptiveSplitPreset)
+        assertEquals(AdaptiveSplitPresetCustom, customState.desync.adaptiveSplitPreset)
+        assertTrue(customState.desync.hasAdaptiveSplitPreset)
+        assertTrue(customState.desync.hasCustomAdaptiveSplitPreset)
         assertTrue(customState.canResetAdaptiveSplitPreset)
-        assertFalse(hostfakeState.adaptiveSplitVisualEditorSupported)
+        assertFalse(hostfakeState.desync.adaptiveSplitVisualEditorSupported)
         assertFalse(hostfakeState.canResetAdaptiveSplitPreset)
     }
 
@@ -551,11 +551,11 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertEquals(AdaptiveMarkerEndHost, state.splitMarker)
-        assertEquals(AdaptiveMarkerEndHost, state.adaptiveSplitPreset)
-        assertTrue(state.hasAdaptiveSplitPreset)
-        assertFalse(state.hasCustomAdaptiveSplitPreset)
-        assertTrue(state.adaptiveSplitVisualEditorSupported)
+        assertEquals(AdaptiveMarkerEndHost, state.desync.splitMarker)
+        assertEquals(AdaptiveMarkerEndHost, state.desync.adaptiveSplitPreset)
+        assertTrue(state.desync.hasAdaptiveSplitPreset)
+        assertFalse(state.desync.hasCustomAdaptiveSplitPreset)
+        assertTrue(state.desync.adaptiveSplitVisualEditorSupported)
     }
 
     @Test
@@ -573,12 +573,12 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertEquals("host+2", state.splitMarker)
-        assertEquals(AdaptiveSplitPresetManual, state.adaptiveSplitPreset)
-        assertFalse(state.hasAdaptiveSplitPreset)
-        assertFalse(state.hasCustomAdaptiveSplitPreset)
+        assertEquals("host+2", state.desync.splitMarker)
+        assertEquals(AdaptiveSplitPresetManual, state.desync.adaptiveSplitPreset)
+        assertFalse(state.desync.hasAdaptiveSplitPreset)
+        assertFalse(state.desync.hasCustomAdaptiveSplitPreset)
         assertFalse(state.canResetAdaptiveSplitPreset)
-        assertTrue(state.adaptiveSplitVisualEditorSupported)
+        assertTrue(state.desync.adaptiveSplitVisualEditorSupported)
     }
 
     @Test
@@ -594,11 +594,11 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertTrue(state.enableCmdSettings)
-        assertEquals(AdaptiveMarkerHost, state.adaptiveSplitPreset)
-        assertTrue(state.hasAdaptiveSplitPreset)
-        assertFalse(state.hasCustomAdaptiveSplitPreset)
+        assertEquals(AdaptiveMarkerHost, state.desync.adaptiveSplitPreset)
+        assertTrue(state.desync.hasAdaptiveSplitPreset)
+        assertFalse(state.desync.hasCustomAdaptiveSplitPreset)
         assertFalse(state.canResetAdaptiveSplitPreset)
-        assertTrue(state.adaptiveSplitVisualEditorSupported)
+        assertTrue(state.desync.adaptiveSplitVisualEditorSupported)
     }
 
     @Test
@@ -639,7 +639,7 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertTrue(state.hasUdpFakeBurst)
+        assertTrue(state.desync.hasUdpFakeBurst)
         assertTrue(state.udpFakeProfileActiveInStrategy)
     }
 
@@ -861,8 +861,8 @@ class SettingsUiStateTest {
 
         val state = settings.toUiState()
 
-        assertTrue(state.hasCustomActivationWindow)
-        assertEquals("round=2-4 size=64-512", state.activationWindowSummary)
+        assertTrue(state.desync.hasCustomActivationWindow)
+        assertEquals("round=2-4 size=64-512", state.desync.activationWindowSummary)
         assertTrue(state.canResetActivationWindow)
         assertTrue(state.showActivationWindowProfile)
     }
@@ -888,8 +888,8 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertTrue(state.showActivationWindowProfile)
-        assertTrue(state.hasStepActivationFilters)
-        assertEquals(1, state.stepActivationFilterCount)
+        assertTrue(state.desync.hasStepActivationFilters)
+        assertEquals(1, state.desync.stepActivationFilterCount)
         assertFalse(state.canResetActivationWindow)
     }
 
@@ -911,7 +911,7 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertTrue(state.enableCmdSettings)
-        assertTrue(state.hasCustomActivationWindow)
+        assertTrue(state.desync.hasCustomActivationWindow)
         assertTrue(state.showActivationWindowProfile)
         assertFalse(state.canResetActivationWindow)
         assertFalse(state.activationWindowControlsRelevant)
@@ -933,7 +933,7 @@ class SettingsUiStateTest {
         val state = settings.toUiState()
 
         assertFalse(state.desyncEnabled)
-        assertTrue(state.hasCustomActivationWindow)
+        assertTrue(state.desync.hasCustomActivationWindow)
         assertTrue(state.showActivationWindowProfile)
     }
 
@@ -1052,7 +1052,7 @@ class SettingsUiStateTest {
     @Test
     fun `empty desync method defaults to disorder`() {
         val settings = defaults.toBuilder().setDesyncMethod("").build()
-        assertEquals("disorder", settings.toUiState().desyncMethod)
+        assertEquals("disorder", settings.toUiState().desync.desyncMethod)
     }
 
     @Test
@@ -1065,7 +1065,7 @@ class SettingsUiStateTest {
                 .setSplitAtHost(true)
                 .build()
 
-        assertEquals("host+2", settings.toUiState().splitMarker)
+        assertEquals("host+2", settings.toUiState().desync.splitMarker)
     }
 
     @Test
@@ -1208,7 +1208,7 @@ class SettingsUiStateTest {
 
         assertTrue(state.desyncUdpEnabled)
         assertTrue(state.quicFakeControlsRelevant)
-        assertTrue(state.hasUdpFakeBurst)
+        assertTrue(state.desync.hasUdpFakeBurst)
         assertTrue(state.quic.quicFakeProfileActive)
         assertTrue(state.showQuicFakeProfile)
         assertTrue(state.quic.showQuicFakeHostOverride)

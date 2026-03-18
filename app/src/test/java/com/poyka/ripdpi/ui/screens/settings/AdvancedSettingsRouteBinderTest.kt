@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsNoticeTone
+import com.poyka.ripdpi.activities.DesyncCoreUiState
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.DefaultSplitMarker
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -83,14 +84,14 @@ class AdvancedSettingsRouteBinderTest {
 
     @Test
     fun `manualSplitMarkerFallback returns marker when not adaptive`() {
-        val uiState = SettingsUiState(splitMarker = "2")
+        val uiState = SettingsUiState(desync = DesyncCoreUiState(splitMarker = "2"))
 
         assertEquals("2", manualSplitMarkerFallback(uiState))
     }
 
     @Test
     fun `manualSplitMarkerFallback falls back to default for adaptive marker`() {
-        val uiState = SettingsUiState(splitMarker = "auto(balanced)")
+        val uiState = SettingsUiState(desync = DesyncCoreUiState(splitMarker = "auto(balanced)"))
 
         assertEquals(DefaultSplitMarker, manualSplitMarkerFallback(uiState))
     }

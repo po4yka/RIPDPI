@@ -238,6 +238,107 @@ data class FakeTransportUiState(
 }
 
 @Stable
+data class DesyncCoreUiState(
+    val desyncMethod: String = "disorder",
+    val tcpChainSteps: List<TcpChainStepModel> = emptyList(),
+    val udpChainSteps: List<UdpChainStepModel> = emptyList(),
+    val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
+    val chainSummary: String = "tcp: none",
+    val chainDsl: String = "",
+    val splitMarker: String = DefaultSplitMarker,
+    val udpFakeCount: Int = 0,
+    val defaultTtl: Int = 0,
+    val customTtl: Boolean = false,
+) {
+    val hostFakeSteps: List<TcpChainStepModel>
+        get() = tcpChainSteps.filter { it.kind == TcpChainStepKind.HostFake }
+
+    val hostFakeStepCount: Int
+        get() = hostFakeSteps.size
+
+    val primaryHostFakeStep: TcpChainStepModel?
+        get() = hostFakeSteps.firstOrNull()
+
+    val fakeApproximationSteps: List<TcpChainStepModel>
+        get() =
+            tcpChainSteps.filter {
+                it.kind == TcpChainStepKind.FakeSplit || it.kind == TcpChainStepKind.FakeDisorder
+            }
+
+    val fakeApproximationStepCount: Int
+        get() = fakeApproximationSteps.size
+
+    val hasFakeApproximation: Boolean
+        get() = fakeApproximationStepCount > 0
+
+    val primaryFakeApproximationStep: TcpChainStepModel?
+        get() = fakeApproximationSteps.firstOrNull()
+
+    val hasFakeSplitApproximation: Boolean
+        get() = fakeApproximationSteps.any { it.kind == TcpChainStepKind.FakeSplit }
+
+    val hasFakeDisorderApproximation: Boolean
+        get() = fakeApproximationSteps.any { it.kind == TcpChainStepKind.FakeDisorder }
+
+    val hasUdpFakeBurst: Boolean
+        get() = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 }
+
+    val hasCustomActivationWindow: Boolean
+        get() = formatActivationFilterSummary(groupActivationFilter).isNotBlank()
+
+    val stepActivationFilterCount: Int
+        get() =
+            tcpChainSteps.count { !it.activationFilter.isEmpty } +
+                udpChainSteps.count { !it.activationFilter.isEmpty }
+
+    val hasStepActivationFilters: Boolean
+        get() = stepActivationFilterCount > 0
+
+    val activationWindowSummary: String
+        get() = formatActivationFilterSummary(groupActivationFilter).ifBlank { "Always active" }
+
+    val adaptiveSplitPreset: String
+        get() =
+            when (splitMarker) {
+                AdaptiveMarkerBalanced -> {
+                    AdaptiveMarkerBalanced
+                }
+
+                AdaptiveMarkerHost -> {
+                    AdaptiveMarkerHost
+                }
+
+                AdaptiveMarkerEndHost -> {
+                    AdaptiveMarkerEndHost
+                }
+
+                AdaptiveMarkerSniExt -> {
+                    AdaptiveMarkerSniExt
+                }
+
+                else -> {
+                    if (isAdaptiveOffsetExpression(
+                            splitMarker,
+                        )
+                    ) {
+                        AdaptiveSplitPresetCustom
+                    } else {
+                        AdaptiveSplitPresetManual
+                    }
+                }
+            }
+
+    val hasAdaptiveSplitPreset: Boolean
+        get() = adaptiveSplitPreset != AdaptiveSplitPresetManual
+
+    val hasCustomAdaptiveSplitPreset: Boolean
+        get() = adaptiveSplitPreset == AdaptiveSplitPresetCustom
+
+    val adaptiveSplitVisualEditorSupported: Boolean
+        get() = primaryTcpChainStep(tcpChainSteps)?.kind?.supportsAdaptiveMarker != false
+}
+
+@Stable
 data class SettingsUiState(
     val settings: AppSettings = AppSettingsSerializer.defaultValue,
     val appTheme: String = "system",
@@ -249,15 +350,7 @@ data class SettingsUiState(
     val enableCmdSettings: Boolean = false,
     val cmdArgs: String = "",
     val proxy: ProxyNetworkUiState = ProxyNetworkUiState(),
-    val defaultTtl: Int = 0,
-    val customTtl: Boolean = false,
-    val desyncMethod: String = "disorder",
-    val tcpChainSteps: List<TcpChainStepModel> = emptyList(),
-    val udpChainSteps: List<UdpChainStepModel> = emptyList(),
-    val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
-    val chainSummary: String = "tcp: none",
-    val chainDsl: String = "",
-    val splitMarker: String = DefaultSplitMarker,
+    val desync: DesyncCoreUiState = DesyncCoreUiState(),
     val fake: FakeTransportUiState = FakeTransportUiState(),
     val desyncHttp: Boolean = true,
     val desyncHttps: Boolean = true,
@@ -266,7 +359,6 @@ data class SettingsUiState(
     val hostsBlacklist: String = "",
     val hostsWhitelist: String = "",
     val tlsPrelude: TlsPreludeUiState = TlsPreludeUiState(),
-    val udpFakeCount: Int = 0,
     val quic: QuicUiState = QuicUiState(),
     val autolearn: HostAutolearnUiState = HostAutolearnUiState(),
     val httpParser: HttpParserUiState = HttpParserUiState(),
@@ -319,7 +411,7 @@ data class SettingsUiState(
         get() = !enableCmdSettings && httpParser.hasCustomHttpParserEvasions
 
     val canResetActivationWindow: Boolean
-        get() = !enableCmdSettings && hasCustomActivationWindow
+        get() = !enableCmdSettings && desync.hasCustomActivationWindow
 
     val httpFakeProfileActiveInStrategy: Boolean
         get() = desyncHttpEnabled && isFake
@@ -328,7 +420,7 @@ data class SettingsUiState(
         get() = desyncHttpsEnabled && isFake
 
     val udpFakeProfileActiveInStrategy: Boolean
-        get() = desyncUdpEnabled && hasUdpFakeBurst
+        get() = desyncUdpEnabled && desync.hasUdpFakeBurst
 
     val fakePayloadLibraryControlsRelevant: Boolean
         get() = desyncHttpEnabled || desyncHttpsEnabled || desyncUdpEnabled
@@ -345,9 +437,6 @@ data class SettingsUiState(
     val showAdaptiveFakeTtlProfile: Boolean
         get() = enableCmdSettings || fakeTtlControlsRelevant || fake.hasAdaptiveFakeTtl
 
-    val hasUdpFakeBurst: Boolean
-        get() = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 }
-
     val quicFakeControlsRelevant: Boolean
         get() = desyncUdpEnabled
 
@@ -356,47 +445,17 @@ data class SettingsUiState(
             enableCmdSettings || quicFakeControlsRelevant ||
                 quic.quicFakeProfileActive || quic.quicFakeHost.isNotBlank()
 
-    val hostFakeSteps: List<TcpChainStepModel>
-        get() = tcpChainSteps.filter { it.kind == TcpChainStepKind.HostFake }
-
-    val hostFakeStepCount: Int
-        get() = hostFakeSteps.size
-
-    val primaryHostFakeStep: TcpChainStepModel?
-        get() = hostFakeSteps.firstOrNull()
-
     val hostFakeControlsRelevant: Boolean
         get() = desyncHttpEnabled || desyncHttpsEnabled
 
     val showHostFakeProfile: Boolean
         get() = enableCmdSettings || hasHostFake || hostFakeControlsRelevant
 
-    val fakeApproximationSteps: List<TcpChainStepModel>
-        get() =
-            tcpChainSteps.filter {
-                it.kind == TcpChainStepKind.FakeSplit || it.kind == TcpChainStepKind.FakeDisorder
-            }
-
-    val fakeApproximationStepCount: Int
-        get() = fakeApproximationSteps.size
-
-    val hasFakeApproximation: Boolean
-        get() = fakeApproximationStepCount > 0
-
-    val primaryFakeApproximationStep: TcpChainStepModel?
-        get() = fakeApproximationSteps.firstOrNull()
-
-    val hasFakeSplitApproximation: Boolean
-        get() = fakeApproximationSteps.any { it.kind == TcpChainStepKind.FakeSplit }
-
-    val hasFakeDisorderApproximation: Boolean
-        get() = fakeApproximationSteps.any { it.kind == TcpChainStepKind.FakeDisorder }
-
     val fakeApproximationControlsRelevant: Boolean
         get() = desyncHttpEnabled || desyncHttpsEnabled
 
     val showFakeApproximationProfile: Boolean
-        get() = enableCmdSettings || hasFakeApproximation || fakeApproximationControlsRelevant
+        get() = enableCmdSettings || desync.hasFakeApproximation || fakeApproximationControlsRelevant
 
     val httpParserControlsRelevant: Boolean
         get() = desyncHttpEnabled
@@ -410,70 +469,18 @@ data class SettingsUiState(
     val showTlsPreludeProfile: Boolean
         get() = enableCmdSettings || tlsPreludeControlsRelevant || tlsPrelude.tlsPreludeStepCount > 0
 
-    val hasCustomActivationWindow: Boolean
-        get() = formatActivationFilterSummary(groupActivationFilter).isNotBlank()
-
-    val stepActivationFilterCount: Int
-        get() =
-            tcpChainSteps.count { !it.activationFilter.isEmpty } +
-                udpChainSteps.count { !it.activationFilter.isEmpty }
-
-    val hasStepActivationFilters: Boolean
-        get() = stepActivationFilterCount > 0
-
     val activationWindowControlsRelevant: Boolean
         get() = desyncEnabled
 
     val showActivationWindowProfile: Boolean
         get() =
-            enableCmdSettings || activationWindowControlsRelevant || hasCustomActivationWindow ||
-                hasStepActivationFilters
-
-    val activationWindowSummary: String
-        get() = formatActivationFilterSummary(groupActivationFilter).ifBlank { "Always active" }
-
-    val adaptiveSplitPreset: String
-        get() =
-            when (splitMarker) {
-                AdaptiveMarkerBalanced -> {
-                    AdaptiveMarkerBalanced
-                }
-
-                AdaptiveMarkerHost -> {
-                    AdaptiveMarkerHost
-                }
-
-                AdaptiveMarkerEndHost -> {
-                    AdaptiveMarkerEndHost
-                }
-
-                AdaptiveMarkerSniExt -> {
-                    AdaptiveMarkerSniExt
-                }
-
-                else -> {
-                    if (isAdaptiveOffsetExpression(
-                            splitMarker,
-                        )
-                    ) {
-                        AdaptiveSplitPresetCustom
-                    } else {
-                        AdaptiveSplitPresetManual
-                    }
-                }
-            }
-
-    val hasAdaptiveSplitPreset: Boolean
-        get() = adaptiveSplitPreset != AdaptiveSplitPresetManual
-
-    val hasCustomAdaptiveSplitPreset: Boolean
-        get() = adaptiveSplitPreset == AdaptiveSplitPresetCustom
+            enableCmdSettings || activationWindowControlsRelevant ||
+                desync.hasCustomActivationWindow || desync.hasStepActivationFilters
 
     val canResetAdaptiveSplitPreset: Boolean
-        get() = !enableCmdSettings && hasAdaptiveSplitPreset && adaptiveSplitVisualEditorSupported
-
-    val adaptiveSplitVisualEditorSupported: Boolean
-        get() = primaryTcpChainStep(tcpChainSteps)?.kind?.supportsAdaptiveMarker != false
+        get() =
+            !enableCmdSettings && desync.hasAdaptiveSplitPreset &&
+                desync.adaptiveSplitVisualEditorSupported
 }
 
 @Stable
