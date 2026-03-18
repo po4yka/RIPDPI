@@ -813,25 +813,13 @@ private fun ShareSection(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
-            RipDpiCard(variant = RipDpiCardVariant.Elevated) {
-                Text(
-                    text = uiState.share.previewTitle,
-                    style = RipDpiThemeTokens.type.screenTitle,
-                    color = RipDpiThemeTokens.colors.foreground,
-                )
-                Text(
-                    text = uiState.share.previewBody,
-                    style = RipDpiThemeTokens.type.body,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-                MetricsRow(metrics = uiState.share.metrics)
-                uiState.share.archiveStateMessage?.let { message ->
-                    StatusIndicator(
-                        label = message,
-                        tone = statusTone(uiState.share.archiveStateTone),
-                    )
-                }
-            }
+            DiagnosticsPreviewCard(
+                title = uiState.share.previewTitle,
+                body = uiState.share.previewBody,
+                metrics = uiState.share.metrics,
+                archiveStateMessage = uiState.share.archiveStateMessage,
+                archiveStateTone = uiState.share.archiveStateTone,
+            )
         }
         item {
             ShareActionCard(
