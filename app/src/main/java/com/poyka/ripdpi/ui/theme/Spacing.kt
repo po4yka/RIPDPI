@@ -79,8 +79,10 @@ data class RipDpiComponentMetrics(
     val sheetHandleHeight: Dp = 4.dp,
     val settingsRowMinHeight: Dp = 52.dp,
     val settingsRowMinHeightWithSubtitle: Dp = 68.dp,
-    val bottomNavIndicatorWidth: Dp = 52.dp,
+    val bottomNavIndicatorWidth: Dp = 64.dp,
     val bottomNavIndicatorHeight: Dp = 28.dp,
+    val bottomNavHorizontalPadding: Dp = 0.dp,
+    val bottomNavIndicatorTopOffset: Dp = 10.dp,
 )
 
 object RipDpiStroke {
