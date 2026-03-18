@@ -147,9 +147,20 @@ class RipDpiProxy(
         yield()
 
         try {
+            val capturedHandle = handle
             val completionHandle =
                 coroutineContext[Job]!!.invokeOnCompletion {
-                    nativeBindings.stop(handle)
+                    if (mutex.tryLock()) {
+                        try {
+                            if (this@RipDpiProxy.handle == capturedHandle && capturedHandle != 0L) {
+                                nativeBindings.stop(capturedHandle)
+                            }
+                        } finally {
+                            mutex.unlock()
+                        }
+                    }
+                    // else: stopProxy() or the finally block already holds the mutex
+                    // and will handle stop/destroy
                 }
             return try {
                 withContext(Dispatchers.IO) { nativeBindings.start(handle) }

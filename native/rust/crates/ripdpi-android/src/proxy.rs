@@ -164,7 +164,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
     ));
 
     {
-        let mut state = session.state.lock().expect("proxy session poisoned");
+        let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
         if let Err(message) = try_mark_proxy_running(&mut state, listener_fd, control.clone()) {
             throw_illegal_state(env, message);
             return libc::EINVAL;
@@ -173,7 +173,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
 
     let result = runtime::run_proxy_with_embedded_control(config, listener, control);
 
-    let mut state = session.state.lock().expect("proxy session poisoned");
+    let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
     *state = ProxySessionState::Idle;
     if let Err(err) = &result {
         session.telemetry.on_client_error(err.to_string());
@@ -195,7 +195,7 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
     };
 
     let (listener_fd, control) = {
-        let state = session.state.lock().expect("proxy session poisoned");
+        let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
         match listener_fd_for_proxy_stop(&state) {
             Ok(parts) => parts,
             Err(message) => {
@@ -235,7 +235,7 @@ fn update_network_snapshot(env: &mut JNIEnv, handle: jlong, snapshot_json: JStri
             return;
         }
     };
-    let state = session.state.lock().expect("proxy session poisoned");
+    let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
     if let ProxySessionState::Running { control, .. } = &*state {
         control.update_network_snapshot(snapshot);
     }
@@ -250,7 +250,7 @@ fn destroy_session(env: &mut JNIEnv, handle: jlong) {
             return;
         }
     };
-    let state = session.state.lock().expect("proxy session poisoned");
+    let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
     if let Err(message) = ensure_proxy_destroyable(&state) {
         throw_illegal_state(env, message);
         return;

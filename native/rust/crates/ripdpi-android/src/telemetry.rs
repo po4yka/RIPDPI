@@ -162,7 +162,8 @@ impl ProxyTelemetryState {
         self.running.store(true, Ordering::Relaxed);
         let message = format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}");
         log::info!("{message}");
-        if let Ok(mut guard) = self.strings.lock() {
+        {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             guard.listener_address = Some(bind_addr);
             Self::push_event_to(&mut guard.events, "proxy", "info", message);
         }
@@ -173,7 +174,8 @@ impl ProxyTelemetryState {
         self.active_sessions.store(0, Ordering::Relaxed);
         let message = "listener stopped".to_string();
         log::info!("{message}");
-        if let Ok(mut guard) = self.strings.lock() {
+        {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             Self::push_event_to(&mut guard.events, "proxy", "info", message);
         }
     }
@@ -193,7 +195,8 @@ impl ProxyTelemetryState {
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         let message = format!("client error: {error}");
         log::warn!("{message}");
-        if let Ok(mut guard) = self.strings.lock() {
+        {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             guard.last_error = Some(error);
             Self::push_event_to(&mut guard.events, "proxy", "warn", message);
         }
@@ -207,7 +210,8 @@ impl ProxyTelemetryState {
         let error_str = error.to_string();
         let message = format!("client error: {error_str}");
         log::warn!("{message}");
-        if let Ok(mut guard) = self.strings.lock() {
+        {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             guard.last_error = Some(error_str);
             Self::push_event_to(&mut guard.events, "proxy", "warn", message);
         }
@@ -223,7 +227,8 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>")
         );
         log::info!("{message}");
-        if let Ok(mut guard) = self.strings.lock() {
+        {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             guard.last_target = Some(target);
             guard.last_host = host;
             Self::push_event_to(&mut guard.events, "proxy", "info", message);
@@ -249,7 +254,8 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>")
         );
         log::warn!("{message}");
-        if let Ok(mut guard) = self.strings.lock() {
+        {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             guard.last_target = Some(target);
             guard.last_host = host;
             Self::push_event_to(&mut guard.events, "proxy", "warn", message);
@@ -267,7 +273,8 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>"),
             failure.evidence.summary
         );
-        if let Ok(mut guard) = self.strings.lock() {
+        {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             guard.last_target = Some(target);
             guard.last_host = host;
             guard.last_error = Some(failure.evidence.summary.clone());
@@ -287,7 +294,8 @@ impl ProxyTelemetryState {
         }
         let message =
             format!("retry pacing target={} group={} reason={} backoffMs={}", target, group_index, reason, backoff_ms);
-        if let Ok(mut guard) = self.strings.lock() {
+        {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             guard.last_target = Some(target);
             guard.last_retry_reason = Some(reason.to_string());
             Self::push_event_to(&mut guard.events, "proxy", "info", message);
@@ -298,7 +306,8 @@ impl ProxyTelemetryState {
         if let Some(rtt_ms) = upstream_rtt_ms {
             self.tcp_connect_histogram.record(rtt_ms);
         }
-        if let Ok(mut guard) = self.strings.lock() {
+        {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             guard.upstream_address = Some(upstream_address);
             guard.upstream_rtt_ms = upstream_rtt_ms;
         }
@@ -328,7 +337,8 @@ impl ProxyTelemetryState {
             "warn" => log::warn!("{message}"),
             _ => log::info!("{message}"),
         }
-        if let Ok(mut guard) = self.strings.lock() {
+        {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             guard.last_autolearn_host = host;
             guard.last_autolearn_action = Some(action.to_string());
             Self::push_event_to(&mut guard.events, "autolearn", level, message);
@@ -349,7 +359,8 @@ impl ProxyTelemetryState {
             last_autolearn_host,
             last_autolearn_action,
             native_events,
-        ) = if let Ok(mut guard) = self.strings.lock() {
+        ) = {
+            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
             (
                 guard.listener_address.clone(),
                 guard.upstream_address.clone(),
@@ -364,8 +375,6 @@ impl ProxyTelemetryState {
                 guard.last_autolearn_action.clone(),
                 guard.events.drain(..).collect(),
             )
-        } else {
-            (None, None, None, None, None, None, None, None, None, None, None, Vec::new())
         };
 
         NativeRuntimeSnapshot {
@@ -427,9 +436,8 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn clear_last_error(&self) {
-        if let Ok(mut guard) = self.strings.lock() {
-            guard.last_error = None;
-        }
+        let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+        guard.last_error = None;
     }
 
     pub(crate) fn push_event(&self, source: &str, level: &str, message: String) {
@@ -438,9 +446,8 @@ impl ProxyTelemetryState {
             "error" => log::error!("{message}"),
             _ => log::info!("{message}"),
         }
-        if let Ok(mut guard) = self.strings.lock() {
-            Self::push_event_to(&mut guard.events, source, level, message);
-        }
+        let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+        Self::push_event_to(&mut guard.events, source, level, message);
     }
 
     fn push_event_to(events: &mut VecDeque<NativeRuntimeEvent>, source: &str, level: &str, message: String) {
