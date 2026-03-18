@@ -7,7 +7,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -32,8 +35,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
@@ -53,6 +59,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlin.math.roundToInt
 
 @Composable
 internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
@@ -182,7 +189,10 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
     var currentValues by remember(trend.label) { mutableStateOf(trend.values) }
     val transitionProgress = remember(trend.label) { Animatable(1f) }
 
+    var selectedIndex by remember(trend.label) { mutableIntStateOf(-1) }
+
     LaunchedEffect(trend.values) {
+        selectedIndex = -1
         previousValues = currentValues.ifEmpty { trend.values }
         currentValues = trend.values
         transitionProgress.snapTo(0f)
@@ -195,6 +205,14 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
     val latestValue = trend.values.lastOrNull() ?: 0f
     val minValue = trend.values.minOrNull() ?: 0f
     val maxValue = trend.values.maxOrNull() ?: 0f
+    val displayValue =
+        if (selectedIndex in trend.values.indices) {
+            trend.values[selectedIndex]
+        } else {
+            latestValue
+        }
+    val cardColor = colors.card
+    val mutedColor = colors.mutedForeground
 
     RipDpiCard {
         Row(
@@ -208,7 +226,7 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
                 color = colors.foreground,
             )
             AnimatedContent(
-                targetState = formatSparklineValue(latestValue),
+                targetState = formatSparklineValue(displayValue),
                 transitionSpec = {
                     androidx.compose.animation.fadeIn(
                         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
@@ -245,49 +263,127 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
                     color = colors.mutedForeground,
                 )
             }
-            Canvas(
+            androidx.compose.foundation.layout.BoxWithConstraints(
                 modifier =
                     Modifier
                         .weight(1f)
                         .height(84.dp),
             ) {
-                val values = interpolatedSeries(previousValues, currentValues, transitionProgress.value)
-                if (values.isEmpty()) {
-                    return@Canvas
-                }
-                val min = values.minOrNull() ?: 0f
-                val max = values.maxOrNull() ?: 0f
-                val range = (max - min).takeIf { it > 0f } ?: 1f
-                val path =
-                    Path().apply {
-                        values.forEachIndexed { index, value ->
-                            val x =
-                                if (values.size == 1) {
-                                    0f
-                                } else {
-                                    size.width * index.toFloat() / (values.lastIndex.toFloat())
+                Canvas(
+                    modifier =
+                        Modifier
+                            .matchParentSize()
+                            .pointerInput(trend.values.size) {
+                                detectTapGestures { offset ->
+                                    val pointCount = trend.values.size
+                                    if (pointCount <= 1) return@detectTapGestures
+                                    val index =
+                                        ((offset.x / size.width) * (pointCount - 1))
+                                            .roundToInt()
+                                            .coerceIn(0, pointCount - 1)
+                                    selectedIndex = if (selectedIndex == index) -1 else index
                                 }
-                            val y = size.height - ((value - min) / range) * size.height
-                            if (index == 0) {
-                                moveTo(x, y)
-                            } else {
-                                lineTo(x, y)
+                            },
+                ) {
+                    val values =
+                        interpolatedSeries(previousValues, currentValues, transitionProgress.value)
+                    if (values.isEmpty()) {
+                        return@Canvas
+                    }
+                    val min = values.minOrNull() ?: 0f
+                    val max = values.maxOrNull() ?: 0f
+                    val range = (max - min).takeIf { it > 0f } ?: 1f
+                    val path =
+                        Path().apply {
+                            values.forEachIndexed { index, value ->
+                                val x =
+                                    if (values.size == 1) {
+                                        0f
+                                    } else {
+                                        size.width * index.toFloat() / (values.lastIndex.toFloat())
+                                    }
+                                val y = size.height - ((value - min) / range) * size.height
+                                if (index == 0) {
+                                    moveTo(x, y)
+                                } else {
+                                    lineTo(x, y)
+                                }
                             }
                         }
+                    drawPath(
+                        path = path,
+                        color = animatedStrokeColor,
+                        style = Stroke(width = 4f, cap = StrokeCap.Round),
+                    )
+                    drawLine(
+                        color = dividerColor,
+                        start = Offset(0f, size.height),
+                        end = Offset(size.width, size.height),
+                        strokeWidth = 1f,
+                    )
+                    if (selectedIndex in values.indices && values.size > 1) {
+                        val sx =
+                            size.width * selectedIndex.toFloat() / values.lastIndex.toFloat()
+                        val sy =
+                            size.height - ((values[selectedIndex] - min) / range) * size.height
+                        drawLine(
+                            color = mutedColor,
+                            start = Offset(sx, 0f),
+                            end = Offset(sx, size.height),
+                            strokeWidth = 1f,
+                        )
+                        drawCircle(
+                            color = animatedStrokeColor,
+                            radius = 5f,
+                            center = Offset(sx, sy),
+                        )
+                        drawCircle(
+                            color = cardColor,
+                            radius = 3f,
+                            center = Offset(sx, sy),
+                        )
                     }
-                drawPath(
-                    path = path,
-                    color = animatedStrokeColor,
-                    style = Stroke(width = 4f, cap = StrokeCap.Round),
-                )
-                drawLine(
-                    color = dividerColor,
-                    start = Offset(0f, size.height),
-                    end = Offset(size.width, size.height),
-                    strokeWidth = 1f,
-                )
+                }
+                if (selectedIndex in trend.values.indices && trend.values.size > 1) {
+                    val chipWidth = 64.dp
+                    val rawOffset =
+                        maxWidth * selectedIndex.toFloat() / trend.values.lastIndex.toFloat()
+                    val clampedOffset =
+                        (rawOffset - chipWidth / 2)
+                            .coerceIn(0.dp, (maxWidth - chipWidth).coerceAtLeast(0.dp))
+                    SparklineValueChip(
+                        value = formatSparklineValue(trend.values[selectedIndex]),
+                        containerColor = palette.container,
+                        contentColor = palette.content,
+                        modifier =
+                            Modifier.padding(start = clampedOffset),
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun SparklineValueChip(
+    value: String,
+    containerColor: androidx.compose.ui.graphics.Color,
+    contentColor: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color = containerColor,
+        contentColor = contentColor,
+        shape = RipDpiThemeTokens.shapes.sm,
+        tonalElevation = 2.dp,
+    ) {
+        Text(
+            text = value,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = contentColor,
+        )
     }
 }
 
