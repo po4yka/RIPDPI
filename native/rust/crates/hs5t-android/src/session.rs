@@ -1,3 +1,4 @@
+use std::io;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
@@ -8,7 +9,7 @@ use hs5t_core::{DnsStatsSnapshot, Stats};
 use jni::objects::JString;
 use jni::sys::{jint, jlong, jlongArray};
 use jni::JNIEnv;
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use tokio::runtime::Runtime;
 use tokio_util::sync::CancellationToken;
 
@@ -17,6 +18,7 @@ use crate::telemetry::TunnelTelemetryState;
 use crate::to_handle;
 
 pub(crate) static SESSIONS: Lazy<HandleRegistry<TunnelSession>> = Lazy::new(HandleRegistry::new);
+static SHARED_TUNNEL_RUNTIME: OnceCell<Arc<Runtime>> = OnceCell::new();
 
 pub(crate) struct TunnelSession {
     pub(crate) runtime: Arc<Runtime>,
@@ -30,6 +32,20 @@ pub(crate) enum TunnelSessionState {
     Ready,
     Starting,
     Running { cancel: Arc<CancellationToken>, stats: Arc<Stats>, worker: JoinHandle<()> },
+}
+
+fn build_shared_tunnel_runtime() -> io::Result<Arc<Runtime>> {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .thread_stack_size(1024 * 1024)
+        .thread_name("hs5t-tokio")
+        .enable_all()
+        .build()
+        .map(Arc::new)
+}
+
+fn shared_tunnel_runtime() -> io::Result<Arc<Runtime>> {
+    SHARED_TUNNEL_RUNTIME.get_or_try_init(build_shared_tunnel_runtime).map(Arc::clone)
 }
 
 pub(crate) fn tunnel_create_entry(mut env: JNIEnv, config_json: JString) -> jlong {
@@ -100,14 +116,8 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
             return 0;
         }
     };
-    let runtime = match tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
-        .thread_stack_size(1024 * 1024)
-        .thread_name("hs5t-tokio")
-        .enable_all()
-        .build()
-    {
-        Ok(rt) => Arc::new(rt),
+    let runtime = match shared_tunnel_runtime() {
+        Ok(runtime) => runtime,
         Err(err) => {
             throw_io_exception(env, format!("Failed to initialize Tokio runtime: {err}"));
             return 0;
@@ -160,7 +170,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     stats.set_dns_latency_observer(Arc::new(move |ms| dns_histogram.record(ms)));
 
     {
-        let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+        let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Err(message) = ensure_tunnel_start_allowed(&state) {
             // Bug H4 fix: close the dup'd fd before returning.
             let _ = nix::unistd::close(owned_fd);
@@ -173,7 +183,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     }
 
     {
-        let mut guard = session.last_error.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = session.last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         *guard = None;
     }
     telemetry.mark_started(format!("{}:{}", session.config.socks5.address, session.config.socks5.port));
@@ -189,7 +199,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
             Ok(Ok(())) => {}
             Ok(Err(err)) => {
                 log::error!("tunnel worker exited with error: {err}");
-                let mut guard = last_error.lock().unwrap_or_else(|e| e.into_inner());
+                let mut guard = last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                 *guard = Some(err.to_string());
                 drop(guard);
                 telemetry.record_error(err.to_string());
@@ -203,7 +213,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
                     "unknown panic".to_string()
                 };
                 log::error!("tunnel worker panicked: {msg}");
-                let mut guard = last_error.lock().unwrap_or_else(|e| e.into_inner());
+                let mut guard = last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                 *guard = Some(format!("Tunnel worker panicked: {msg}"));
                 drop(guard);
                 telemetry.record_error(format!("Tunnel worker panicked: {msg}"));
@@ -219,7 +229,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         }
     };
 
-    let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+    let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     *state = TunnelSessionState::Running { cancel, stats, worker };
 }
 
@@ -233,7 +243,7 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
     };
 
     let running = {
-        let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+        let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         match take_running_tunnel(&mut state) {
             Ok(running) => running,
             Err(message) => {
@@ -260,7 +270,7 @@ fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
     };
 
     let snapshot = {
-        let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+        let state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         stats_snapshots_for_state(&state).0
     };
 
@@ -286,7 +296,7 @@ fn telemetry_session(env: &mut JNIEnv, handle: jlong) -> jni::sys::jstring {
         }
     };
     let (traffic_stats, dns_stats) = {
-        let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+        let state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         stats_snapshots_for_state(&state)
     };
     let resolver_id = session.config.mapdns.as_ref().and_then(|mapdns| mapdns.resolver_id.clone());
@@ -308,7 +318,7 @@ fn destroy_session(env: &mut JNIEnv, handle: jlong) {
             return;
         }
     };
-    let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+    let state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Err(message) = ensure_tunnel_destroyable(&state) {
         throw_illegal_state(env, message);
         return;
@@ -370,13 +380,13 @@ pub(crate) fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<()
 fn rollback_failed_tunnel_start(session: &TunnelSession, owned_fd: i32, message: String) {
     let _ = nix::unistd::close(owned_fd);
     {
-        let mut guard = session.last_error.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = session.last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         *guard = Some(message.clone());
     }
     session.telemetry.record_error(message);
     session.telemetry.mark_stopped();
     {
-        let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+        let mut state = session.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         *state = TunnelSessionState::Ready;
     }
 }
@@ -384,12 +394,12 @@ fn rollback_failed_tunnel_start(session: &TunnelSession, owned_fd: i32, message:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::Ordering;
     use crate::config::sample_payload;
     use crate::telemetry::NativeRuntimeSnapshot;
     use hs5t_core::Stats;
     use proptest::collection::vec;
     use proptest::prelude::*;
+    use std::sync::atomic::Ordering;
     use std::time::Duration;
 
     #[test]
@@ -436,6 +446,14 @@ mod tests {
         let err = take_running_tunnel(&mut state).expect_err("ready stop");
 
         assert_eq!(err, "Tunnel session is not running");
+    }
+
+    #[test]
+    fn shared_tunnel_runtime_is_reused() {
+        let first = shared_tunnel_runtime().expect("shared runtime");
+        let second = shared_tunnel_runtime().expect("shared runtime");
+
+        assert!(Arc::ptr_eq(&first, &second));
     }
 
     #[test]
