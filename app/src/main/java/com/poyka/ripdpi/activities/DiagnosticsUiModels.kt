@@ -458,3 +458,52 @@ internal data class ScanLifecycleState(
     val pendingAutoOpenAuditSessionId: String? = null,
     val archiveActionState: ArchiveActionState = ArchiveActionState(),
 )
+
+// -- Intermediate snapshot data classes for layered combine architecture --
+
+internal data class LiveDataSnapshot(
+    val telemetry: List<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>,
+    val nativeEvents: List<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>,
+    val progress: com.poyka.ripdpi.diagnostics.ScanProgress?,
+    val snapshots: List<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>,
+    val contexts: List<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>,
+) {
+    companion object {
+        val EMPTY = LiveDataSnapshot(
+            telemetry = emptyList(),
+            nativeEvents = emptyList(),
+            progress = null,
+            snapshots = emptyList(),
+            contexts = emptyList(),
+        )
+    }
+}
+
+internal data class ScanDataSnapshot(
+    val profiles: List<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>,
+    val sessions: List<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>,
+    val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
+    val exports: List<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>,
+) {
+    companion object {
+        val EMPTY = ScanDataSnapshot(
+            profiles = emptyList(),
+            sessions = emptyList(),
+            approachStats = emptyList(),
+            exports = emptyList(),
+        )
+    }
+}
+
+internal data class ConfigSnapshot(
+    val settings: com.poyka.ripdpi.proto.AppSettings,
+    val rememberedPolicies: List<com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity>,
+    val activeConnectionPolicy: com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy?,
+)
+
+internal data class UiControlState(
+    val selection: SelectionState,
+    val filter: FilterState,
+    val sessionDetail: SessionDetailState,
+    val scanLifecycle: ScanLifecycleState,
+)
