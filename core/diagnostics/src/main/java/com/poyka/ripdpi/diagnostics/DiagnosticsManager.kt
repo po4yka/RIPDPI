@@ -137,6 +137,7 @@ class DefaultDiagnosticsManager
             Json {
                 ignoreUnknownKeys = true
                 prettyPrint = true
+                encodeDefaults = true
             }
         private val _activeScanProgress = MutableStateFlow<ScanProgress?>(null)
         override val activeScanProgress: StateFlow<ScanProgress?> = _activeScanProgress.asStateFlow()
