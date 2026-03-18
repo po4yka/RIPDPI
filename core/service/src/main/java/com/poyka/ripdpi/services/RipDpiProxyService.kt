@@ -40,6 +40,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
@@ -103,6 +104,12 @@ class RipDpiProxyService : LifecycleService() {
             NOTIFICATION_CHANNEL_ID,
             R.string.proxy_channel_name,
         )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        telemetryJob?.cancel()
+        handoverMonitorJob?.cancel()
     }
 
     override fun onStartCommand(
@@ -283,14 +290,17 @@ class RipDpiProxyService : LifecycleService() {
             proxyInstance.awaitReady()
         } catch (e: Exception) {
             val proxyStartWasActive = job.isActive
-            runCatching {
-                if (proxyStartWasActive) {
-                    proxyInstance.stopProxy()
+            try {
+                runCatching {
+                    if (proxyStartWasActive) {
+                        proxyInstance.stopProxy()
+                    }
                 }
+                job.join()
+            } finally {
+                proxyJob = null
+                proxy = null
             }
-            job.join()
-            proxyJob = null
-            proxy = null
             throw resolveProxyStartupFailure(
                 readinessError = e,
                 proxyStartWasActive = proxyStartWasActive,
@@ -321,10 +331,15 @@ class RipDpiProxyService : LifecycleService() {
             return
         }
 
-        proxyInstance.stopProxy()
-        proxyJob?.join()
-        proxyJob = null
-        proxy = null
+        try {
+            proxyInstance.stopProxy()
+            withTimeoutOrNull(5_000L) {
+                proxyJob?.join()
+            } ?: logcat(LogPriority.WARN) { "Proxy job did not complete within timeout" }
+        } finally {
+            proxyJob = null
+            proxy = null
+        }
 
         logcat(LogPriority.INFO) { "Proxy stopped" }
     }

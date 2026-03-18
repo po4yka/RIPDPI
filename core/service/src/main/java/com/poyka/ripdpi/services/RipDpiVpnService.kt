@@ -53,6 +53,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
@@ -197,6 +198,12 @@ class RipDpiVpnService : LifecycleVpnService() {
             NOTIFICATION_CHANNEL_ID,
             R.string.vpn_channel_name,
         )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        telemetryJob?.cancel()
+        handoverMonitorJob?.cancel()
     }
 
     override fun onStartCommand(
@@ -404,14 +411,17 @@ class RipDpiVpnService : LifecycleVpnService() {
             proxyInstance.awaitReady()
         } catch (e: Exception) {
             val proxyStartWasActive = job.isActive
-            runCatching {
-                if (proxyStartWasActive) {
-                    proxyInstance.stopProxy()
+            try {
+                runCatching {
+                    if (proxyStartWasActive) {
+                        proxyInstance.stopProxy()
+                    }
                 }
+                job.join()
+            } finally {
+                proxyJob = null
+                ripDpiProxy = null
             }
-            job.join()
-            proxyJob = null
-            ripDpiProxy = null
             throw resolveProxyStartupFailure(
                 readinessError = e,
                 proxyStartWasActive = proxyStartWasActive,
@@ -442,10 +452,15 @@ class RipDpiVpnService : LifecycleVpnService() {
             return
         }
 
-        proxyInstance.stopProxy()
-        proxyJob?.join()
-        proxyJob = null
-        ripDpiProxy = null
+        try {
+            proxyInstance.stopProxy()
+            withTimeoutOrNull(5_000L) {
+                proxyJob?.join()
+            } ?: logcat(LogPriority.WARN) { "Proxy job did not complete within timeout" }
+        } finally {
+            proxyJob = null
+            ripDpiProxy = null
+        }
 
         logcat(LogPriority.INFO) { "Proxy stopped" }
     }

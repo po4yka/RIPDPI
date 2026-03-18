@@ -160,7 +160,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     stats.set_dns_latency_observer(Arc::new(move |ms| dns_histogram.record(ms)));
 
     {
-        let mut state = session.state.lock().expect("tunnel session poisoned");
+        let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
         if let Err(message) = ensure_tunnel_start_allowed(&state) {
             // Bug H4 fix: close the dup'd fd before returning.
             let _ = nix::unistd::close(owned_fd);
@@ -172,7 +172,8 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         *state = TunnelSessionState::Starting;
     }
 
-    if let Ok(mut guard) = session.last_error.lock() {
+    {
+        let mut guard = session.last_error.lock().unwrap_or_else(|e| e.into_inner());
         *guard = None;
     }
     telemetry.mark_started(format!("{}:{}", session.config.socks5.address, session.config.socks5.port));
@@ -188,17 +189,24 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
             Ok(Ok(())) => {}
             Ok(Err(err)) => {
                 log::error!("tunnel worker exited with error: {err}");
-                if let Ok(mut guard) = last_error.lock() {
-                    *guard = Some(err.to_string());
-                }
+                let mut guard = last_error.lock().unwrap_or_else(|e| e.into_inner());
+                *guard = Some(err.to_string());
+                drop(guard);
                 telemetry.record_error(err.to_string());
             }
-            Err(_) => {
-                log::error!("tunnel worker panicked");
-                if let Ok(mut guard) = last_error.lock() {
-                    *guard = Some("Tunnel worker panicked".to_string());
-                }
-                telemetry.record_error("Tunnel worker panicked".to_string());
+            Err(panic) => {
+                let msg = if let Some(s) = panic.downcast_ref::<&str>() {
+                    s.to_string()
+                } else if let Some(s) = panic.downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "unknown panic".to_string()
+                };
+                log::error!("tunnel worker panicked: {msg}");
+                let mut guard = last_error.lock().unwrap_or_else(|e| e.into_inner());
+                *guard = Some(format!("Tunnel worker panicked: {msg}"));
+                drop(guard);
+                telemetry.record_error(format!("Tunnel worker panicked: {msg}"));
             }
         }
         telemetry.mark_stopped();
@@ -211,7 +219,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         }
     };
 
-    let mut state = session.state.lock().expect("tunnel session poisoned");
+    let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
     *state = TunnelSessionState::Running { cancel, stats, worker };
 }
 
@@ -225,7 +233,7 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
     };
 
     let running = {
-        let mut state = session.state.lock().expect("tunnel session poisoned");
+        let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
         match take_running_tunnel(&mut state) {
             Ok(running) => running,
             Err(message) => {
@@ -252,7 +260,7 @@ fn stats_session(env: &mut JNIEnv, handle: jlong) -> jlongArray {
     };
 
     let snapshot = {
-        let state = session.state.lock().expect("tunnel session poisoned");
+        let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
         stats_snapshots_for_state(&state).0
     };
 
@@ -278,7 +286,7 @@ fn telemetry_session(env: &mut JNIEnv, handle: jlong) -> jni::sys::jstring {
         }
     };
     let (traffic_stats, dns_stats) = {
-        let state = session.state.lock().expect("tunnel session poisoned");
+        let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
         stats_snapshots_for_state(&state)
     };
     let resolver_id = session.config.mapdns.as_ref().and_then(|mapdns| mapdns.resolver_id.clone());
@@ -300,7 +308,7 @@ fn destroy_session(env: &mut JNIEnv, handle: jlong) {
             return;
         }
     };
-    let state = session.state.lock().expect("tunnel session poisoned");
+    let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
     if let Err(message) = ensure_tunnel_destroyable(&state) {
         throw_illegal_state(env, message);
         return;
@@ -361,12 +369,14 @@ pub(crate) fn ensure_tunnel_destroyable(state: &TunnelSessionState) -> Result<()
 
 fn rollback_failed_tunnel_start(session: &TunnelSession, owned_fd: i32, message: String) {
     let _ = nix::unistd::close(owned_fd);
-    if let Ok(mut guard) = session.last_error.lock() {
+    {
+        let mut guard = session.last_error.lock().unwrap_or_else(|e| e.into_inner());
         *guard = Some(message.clone());
     }
     session.telemetry.record_error(message);
     session.telemetry.mark_stopped();
-    if let Ok(mut state) = session.state.lock() {
+    {
+        let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
         *state = TunnelSessionState::Ready;
     }
 }
