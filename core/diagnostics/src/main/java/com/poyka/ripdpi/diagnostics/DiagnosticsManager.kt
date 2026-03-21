@@ -115,12 +115,15 @@ class DefaultDiagnosticsManager
         private val serviceStateStore: ServiceStateStore,
         private val resolverOverrideStore: ResolverOverrideStore,
         private val policyHandoverEventStore: PolicyHandoverEventStore,
+        private val archiveExporter: DiagnosticsArchiveExporter,
         @param:Named("automaticHandoverProbeDelayMs")
         private val automaticHandoverProbeDelayMs: Long,
         @param:Named("automaticHandoverProbeCooldownMs")
         private val automaticHandoverProbeCooldownMs: Long,
         @param:Named("importBundledProfilesOnInitialize")
         private val importBundledProfilesOnInitialize: Boolean,
+        @param:Named("diagnosticsJson")
+        private val json: Json,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
     ) : DiagnosticsManager {
@@ -133,12 +136,6 @@ class DefaultDiagnosticsManager
             private const val AutomaticHandoverProbeCooldownMs = 24L * 60L * 60L * 1_000L
         }
 
-        private val json =
-            Json {
-                ignoreUnknownKeys = true
-                prettyPrint = true
-                encodeDefaults = true
-            }
         private val _activeScanProgress = MutableStateFlow<ScanProgress?>(null)
         override val activeScanProgress: StateFlow<ScanProgress?> = _activeScanProgress.asStateFlow()
         override val profiles: Flow<List<DiagnosticProfileEntity>> = historyRepository.observeProfiles()
@@ -176,7 +173,7 @@ class DefaultDiagnosticsManager
                 return
             }
             initialized = true
-            DiagnosticsArchiveBuilder.cleanupCache(context)
+            archiveExporter.cleanupCache()
             if (importBundledProfilesOnInitialize) {
                 importBundledProfiles()
             }
@@ -478,19 +475,7 @@ class DefaultDiagnosticsManager
             }
 
         override suspend fun createArchive(sessionId: String?): DiagnosticsArchive =
-            withContext(Dispatchers.IO) {
-                DiagnosticsArchiveBuilder.build(
-                    sessionId = sessionId,
-                    context = context,
-                    historyRepository = historyRepository,
-                    logcatSnapshotCollector = logcatSnapshotCollector,
-                    json = json,
-                    approachSummariesProvider = { scanSessions, usageSessions ->
-                        DiagnosticsSessionQueries.buildApproachSummaries(scanSessions, usageSessions, json)
-                    },
-                    scanReportDecoder = { payload -> DiagnosticsSessionQueries.decodeScanReport(json, payload) },
-                )
-            }
+            withContext(Dispatchers.IO) { archiveExporter.createArchive(sessionId) }
 
         override suspend fun keepResolverRecommendationForSession(sessionId: String) {
             val recommendation = loadResolverRecommendation(sessionId) ?: return
@@ -899,7 +884,38 @@ abstract class DiagnosticsManagerModule {
     @Singleton
     abstract fun bindDiagnosticsManager(manager: DefaultDiagnosticsManager): DiagnosticsManager
 
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsArchiveExporter(exporter: DefaultDiagnosticsArchiveExporter): DiagnosticsArchiveExporter
+
     companion object {
+        @Provides
+        @Singleton
+        @Named("diagnosticsJson")
+        fun provideDiagnosticsJson(): Json =
+            Json {
+                ignoreUnknownKeys = true
+                prettyPrint = true
+                encodeDefaults = true
+                explicitNulls = false
+            }
+
+        @Provides
+        @Singleton
+        fun provideDiagnosticsArchiveClock(): DiagnosticsArchiveClock = DiagnosticsArchiveClock { System.currentTimeMillis() }
+
+        @Provides
+        @Singleton
+        fun provideDiagnosticsArchiveIdGenerator(): DiagnosticsArchiveIdGenerator =
+            DiagnosticsArchiveIdGenerator { UUID.randomUUID().toString() }
+
+        @Provides
+        @Singleton
+        fun provideDiagnosticsArchiveFileStore(
+            @ApplicationContext context: Context,
+            clock: DiagnosticsArchiveClock,
+        ): DiagnosticsArchiveFileStore = DiagnosticsArchiveFileStore(cacheDir = context.cacheDir, clock = clock)
+
         @Provides
         @Named("automaticHandoverProbeDelayMs")
         fun provideAutomaticHandoverProbeDelayMs(): Long = 15_000L
