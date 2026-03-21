@@ -1,16 +1,13 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 
 internal class HistoryConnectionActions(
     private val mutations: HistoryMutationRunner,
-    private val historyRepository: DiagnosticsHistoryRepository,
     private val connectionFilters: MutableStateFlow<HistoryConnectionFilterState>,
     private val detailState: MutableStateFlow<HistoryDetailState>,
-    private val toConnectionDetail: suspend (String) -> HistoryConnectionDetailUiModel?,
+    private val loadConnectionDetail: suspend (String) -> HistoryConnectionDetailUiModel?,
 ) {
     fun setModeFilter(mode: String?) {
         connectionFilters.update { it.copy(modeFilter = toggleValue(it.modeFilter, mode)) }
@@ -26,7 +23,7 @@ internal class HistoryConnectionActions(
 
     fun selectConnection(sessionId: String) {
         mutations.launch {
-            val detail = toConnectionDetail(sessionId)
+            val detail = loadConnectionDetail(sessionId)
             detailState.update { it.copy(selectedConnectionDetail = detail) }
         }
     }

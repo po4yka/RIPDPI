@@ -1,0 +1,492 @@
+package com.poyka.ripdpi.activities
+
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.BypassApproachDetail
+import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.DeviceContextModel
+import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
+import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
+import com.poyka.ripdpi.diagnostics.PermissionContextModel
+import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.diagnostics.ScanReport
+import com.poyka.ripdpi.diagnostics.ServiceContextModel
+import com.poyka.ripdpi.diagnostics.ShareSummary
+import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.json.Json
+
+private val historyJson = Json
+
+internal fun historyConnectionSession(
+    id: String = "connection-1",
+    state: String = "Running",
+    mode: String = "VPN",
+    health: String = "healthy",
+    networkType: String = "wifi",
+    startedAt: Long = 1_000L,
+    finishedAt: Long? = 61_000L,
+    updatedAt: Long = finishedAt ?: startedAt,
+    failureMessage: String? = null,
+): BypassUsageSessionEntity =
+    BypassUsageSessionEntity(
+        id = id,
+        startedAt = startedAt,
+        finishedAt = finishedAt,
+        updatedAt = updatedAt,
+        serviceMode = mode,
+        connectionState = state,
+        health = health,
+        approachProfileId = "default",
+        approachProfileName = "Default",
+        strategyId = "strategy-1",
+        strategyLabel = "Strategy 1",
+        strategyJson = "{}",
+        networkType = networkType,
+        publicIp = "198.51.100.8",
+        failureClass = "dns_tampering",
+        telemetryNetworkFingerprintHash = "abcdef0123456789fedcba9876543210",
+        winningTcpStrategyFamily = "hostfake",
+        winningQuicStrategyFamily = "quic_burst",
+        proxyRttBand = "low",
+        resolverRttBand = "medium",
+        proxyRouteRetryCount = 1,
+        tunnelRecoveryRetryCount = 2,
+        txBytes = 4_000L,
+        rxBytes = 8_000L,
+        totalErrors = 1L,
+        routeChanges = 2L,
+        restartCount = 0,
+        endedReason = "Completed",
+        failureMessage = failureMessage,
+    )
+
+internal fun historyScanSession(
+    id: String = "scan-1",
+    status: String = "completed",
+    pathMode: String = "RAW_PATH",
+    serviceMode: String? = "VPN",
+    summary: String = "Scan summary",
+    reportJson: String? =
+        historyJson.encodeToString(
+            ScanReport(
+                sessionId = id,
+                profileId = "default",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 1L,
+                finishedAt = 2L,
+                summary = summary,
+                results =
+                    listOf(
+                        com.poyka.ripdpi.diagnostics.ProbeResult(
+                            probeType = "dns",
+                            target = "example.org",
+                            outcome = "ok",
+                            details = listOf(ProbeDetail("resolver", "1.1.1.1")),
+                        ),
+                    ),
+            ),
+        ),
+): ScanSessionEntity =
+    ScanSessionEntity(
+        id = id,
+        profileId = "default",
+        pathMode = pathMode,
+        serviceMode = serviceMode,
+        status = status,
+        summary = summary,
+        reportJson = reportJson,
+        startedAt = 1L,
+        finishedAt = 2L,
+    )
+
+internal fun historyEvent(
+    id: String = "event-1",
+    source: String = "proxy",
+    level: String = "warn",
+    message: String = "Route changed",
+    createdAt: Long = 5L,
+    sessionId: String? = null,
+    connectionSessionId: String? = null,
+): NativeSessionEventEntity =
+    NativeSessionEventEntity(
+        id = id,
+        sessionId = sessionId,
+        connectionSessionId = connectionSessionId,
+        source = source,
+        level = level,
+        message = message,
+        createdAt = createdAt,
+    )
+
+internal fun historySnapshot(
+    id: String = "snapshot-1",
+    sessionId: String? = null,
+    connectionSessionId: String? = null,
+    transport: String = "wifi",
+): NetworkSnapshotEntity =
+    NetworkSnapshotEntity(
+        id = id,
+        sessionId = sessionId,
+        connectionSessionId = connectionSessionId,
+        snapshotKind = "passive",
+        payloadJson =
+            historyJson.encodeToString(
+                NetworkSnapshotModel(
+                    transport = transport,
+                    capabilities = listOf("validated"),
+                    dnsServers = listOf("1.1.1.1"),
+                    privateDnsMode = "strict",
+                    mtu = 1500,
+                    localAddresses = listOf("192.168.1.4"),
+                    publicIp = "198.51.100.8",
+                    publicAsn = "AS64500",
+                    captivePortalDetected = false,
+                    networkValidated = true,
+                    wifiDetails =
+                        WifiNetworkDetails(
+                            ssid = "RIPDPI Lab",
+                            bssid = "aa:bb:cc:dd:ee:ff",
+                            frequencyMhz = 5180,
+                            band = "5 GHz",
+                            channelWidth = "80 MHz",
+                            wifiStandard = "802.11ax",
+                            rssiDbm = -53,
+                            linkSpeedMbps = 866,
+                            rxLinkSpeedMbps = 780,
+                            txLinkSpeedMbps = 720,
+                            hiddenSsid = false,
+                            networkId = 7,
+                            isPasspoint = false,
+                            isOsuAp = false,
+                            gateway = "192.168.1.1",
+                            dhcpServer = "192.168.1.2",
+                            ipAddress = "192.168.1.4",
+                            subnetMask = "255.255.255.0",
+                            leaseDurationSeconds = 3600,
+                        ),
+                    cellularDetails = null,
+                    capturedAt = 10L,
+                ),
+            ),
+        capturedAt = 10L,
+    )
+
+internal fun historyContext(
+    id: String = "context-1",
+    sessionId: String? = null,
+    connectionSessionId: String? = null,
+): DiagnosticContextEntity =
+    DiagnosticContextEntity(
+        id = id,
+        sessionId = sessionId,
+        connectionSessionId = connectionSessionId,
+        contextKind = if (sessionId == null && connectionSessionId == null) "passive" else "post_scan",
+        payloadJson =
+            historyJson.encodeToString(
+                DiagnosticContextModel(
+                    service =
+                        ServiceContextModel(
+                            serviceStatus = "Running",
+                            configuredMode = "VPN",
+                            activeMode = "VPN",
+                            selectedProfileId = "default",
+                            selectedProfileName = "Default",
+                            configSource = "ui",
+                            proxyEndpoint = "127.0.0.1:1080",
+                            desyncMethod = "split",
+                            chainSummary = "tcp: split(1)",
+                            routeGroup = "3",
+                            sessionUptimeMs = 20_000L,
+                            lastNativeErrorHeadline = "none",
+                            restartCount = 2,
+                            hostAutolearnEnabled = "enabled",
+                            learnedHostCount = 3,
+                            penalizedHostCount = 1,
+                            lastAutolearnHost = "example.org",
+                            lastAutolearnGroup = "2",
+                            lastAutolearnAction = "host_promoted",
+                        ),
+                    permissions =
+                        PermissionContextModel(
+                            vpnPermissionState = "enabled",
+                            notificationPermissionState = "enabled",
+                            batteryOptimizationState = "disabled",
+                            dataSaverState = "disabled",
+                        ),
+                    device =
+                        DeviceContextModel(
+                            appVersionName = "0.0.1",
+                            appVersionCode = 1L,
+                            buildType = "debug",
+                            androidVersion = "16",
+                            apiLevel = 36,
+                            manufacturer = "Google",
+                            model = "Pixel",
+                            primaryAbi = "arm64-v8a",
+                            locale = "en-US",
+                            timezone = "UTC",
+                        ),
+                    environment =
+                        EnvironmentContextModel(
+                            batterySaverState = "disabled",
+                            powerSaveModeState = "disabled",
+                            networkMeteredState = "disabled",
+                            roamingState = "disabled",
+                        ),
+                ),
+            ),
+        capturedAt = 12L,
+    )
+
+internal fun historyTelemetry(
+    id: String = "telemetry-1",
+    connectionSessionId: String? = "connection-1",
+    createdAt: Long = 30L,
+    failureClass: String? = "dns_tampering",
+): TelemetrySampleEntity =
+    TelemetrySampleEntity(
+        id = id,
+        sessionId = null,
+        connectionSessionId = connectionSessionId,
+        activeMode = "VPN",
+        connectionState = "Running",
+        networkType = "wifi",
+        publicIp = "198.51.100.8",
+        failureClass = failureClass,
+        telemetryNetworkFingerprintHash = "abcdef0123456789fedcba9876543210",
+        winningTcpStrategyFamily = "hostfake",
+        winningQuicStrategyFamily = "quic_burst",
+        proxyRttBand = "low",
+        resolverRttBand = "medium",
+        proxyRouteRetryCount = 1,
+        tunnelRecoveryRetryCount = 2,
+        resolverId = "resolver-1",
+        resolverProtocol = "DoH",
+        resolverEndpoint = "https://example.org/dns-query",
+        resolverLatencyMs = 42L,
+        dnsFailuresTotal = 3L,
+        resolverFallbackActive = false,
+        resolverFallbackReason = null,
+        networkHandoverClass = null,
+        lastFailureClass = failureClass,
+        lastFallbackAction = "resolver_override",
+        txPackets = 3L,
+        txBytes = 4_000L,
+        rxPackets = 5L,
+        rxBytes = 6_000L,
+        createdAt = createdAt,
+    )
+
+internal fun historyProbeResult(
+    id: String = "probe-1",
+    sessionId: String = "scan-1",
+    outcome: String = "ok",
+): ProbeResultEntity =
+    ProbeResultEntity(
+        id = id,
+        sessionId = sessionId,
+        probeType = "dns",
+        target = "example.org",
+        outcome = outcome,
+        detailJson = historyJson.encodeToString(listOf(ProbeDetail("resolver", "1.1.1.1"))),
+        createdAt = 1L,
+    )
+
+internal fun historyDiagnosticsDetail(
+    sessionId: String = "scan-1",
+): DiagnosticSessionDetail =
+    DiagnosticSessionDetail(
+        session = historyScanSession(id = sessionId),
+        results = listOf(historyProbeResult(sessionId = sessionId)),
+        snapshots = listOf(historySnapshot(id = "snapshot-$sessionId", sessionId = sessionId)),
+        events = listOf(historyEvent(id = "event-$sessionId", sessionId = sessionId)),
+        context = historyContext(id = "context-$sessionId", sessionId = sessionId),
+    )
+
+internal fun historyConnectionDetailUi(
+    id: String = "connection-1",
+): HistoryConnectionDetailUiModel =
+    HistoryConnectionDetailUiModel(
+        session =
+            HistoryConnectionRowUiModel(
+                id = id,
+                title = "VPN running",
+                subtitle = "wifi · Jan 1",
+                serviceMode = "VPN",
+                connectionState = "Running",
+                networkType = "wifi",
+                startedAtLabel = "Jan 1",
+                summary = "VPN on wifi",
+                metrics = listOf(DiagnosticsMetricUiModel("Duration", "1m 0s")),
+                tone = DiagnosticsTone.Positive,
+            ),
+        highlights = listOf(DiagnosticsMetricUiModel("Health", "Healthy")),
+        contextGroups = emptyList(),
+        snapshots = emptyList(),
+        events = emptyList(),
+    )
+
+internal fun historyDiagnosticsDetailUi(
+    id: String = "scan-1",
+): DiagnosticsSessionDetailUiModel =
+    DiagnosticsSessionDetailUiModel(
+        session =
+            DiagnosticsSessionRowUiModel(
+                id = id,
+                profileId = "default",
+                title = "Scan summary",
+                subtitle = "RAW_PATH · VPN · Jan 1",
+                pathMode = "RAW_PATH",
+                serviceMode = "VPN",
+                status = "completed",
+                startedAtLabel = "Jan 1",
+                summary = "Scan summary",
+                metrics = emptyList(),
+                tone = DiagnosticsTone.Positive,
+            ),
+        probeGroups = emptyList(),
+        snapshots = emptyList(),
+        events = emptyList(),
+        contextGroups = emptyList(),
+        hasSensitiveDetails = false,
+        sensitiveDetailsVisible = false,
+    )
+
+internal class FakeHistoryTimelineDataSource : HistoryTimelineDataSource {
+    val connectionSessions = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
+    val diagnosticsSessions = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
+    val nativeEvents = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
+
+    override fun observeConnectionSessions(): Flow<List<BypassUsageSessionEntity>> = connectionSessions
+
+    override fun observeDiagnosticsSessions(): Flow<List<ScanSessionEntity>> = diagnosticsSessions
+
+    override fun observeNativeEvents(): Flow<List<NativeSessionEventEntity>> = nativeEvents
+}
+
+internal class FakeHistoryDetailLoader : HistoryDetailLoader {
+    val connectionDetails = mutableMapOf<String, HistoryConnectionDetailUiModel?>()
+    val diagnosticsDetails = mutableMapOf<String, DiagnosticsSessionDetailUiModel?>()
+
+    override suspend fun loadConnectionDetail(sessionId: String): HistoryConnectionDetailUiModel? =
+        connectionDetails[sessionId]
+
+    override suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticsSessionDetailUiModel? =
+        diagnosticsDetails[sessionId]
+}
+
+internal class RecordingHistoryInitializer : HistoryInitializer {
+    var calls: Int = 0
+        private set
+
+    override suspend fun initialize() {
+        calls += 1
+    }
+}
+
+internal class FakeHistoryConnectionDetailSource : HistoryConnectionDetailSource {
+    var session: BypassUsageSessionEntity? = null
+    var snapshots: List<NetworkSnapshotEntity> = emptyList()
+    var contexts: List<DiagnosticContextEntity> = emptyList()
+    var telemetry: List<TelemetrySampleEntity> = emptyList()
+    var events: List<NativeSessionEventEntity> = emptyList()
+
+    override suspend fun getConnectionSession(sessionId: String): BypassUsageSessionEntity? = session
+
+    override suspend fun getConnectionSnapshots(sessionId: String): List<NetworkSnapshotEntity> = snapshots
+
+    override suspend fun getConnectionContexts(sessionId: String): List<DiagnosticContextEntity> = contexts
+
+    override suspend fun getConnectionTelemetry(sessionId: String): List<TelemetrySampleEntity> = telemetry
+
+    override suspend fun getConnectionNativeEvents(sessionId: String): List<NativeSessionEventEntity> = events
+}
+
+internal class FakeDiagnosticsSessionDetailUiMapper : DiagnosticsSessionDetailUiMapper {
+    var nextResult: DiagnosticsSessionDetailUiModel? = null
+    var lastDetail: DiagnosticSessionDetail? = null
+    var lastSensitiveDetailsFlag: Boolean? = null
+
+    override fun toSessionDetailUiModel(
+        detail: DiagnosticSessionDetail,
+        showSensitiveDetails: Boolean,
+    ): DiagnosticsSessionDetailUiModel {
+        lastDetail = detail
+        lastSensitiveDetailsFlag = showSensitiveDetails
+        return requireNotNull(nextResult) { "Missing fake diagnostics detail UI model" }
+    }
+}
+
+internal class FakeHistoryDiagnosticsManager : DiagnosticsManager {
+    private val _progress = MutableStateFlow<ScanProgress?>(null)
+    private val emptyProfiles = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
+    private val emptySessions = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
+    private val emptyApproaches = MutableStateFlow<List<BypassApproachSummary>>(emptyList())
+    private val emptySnapshots = MutableStateFlow<List<NetworkSnapshotEntity>>(emptyList())
+    private val emptyContexts = MutableStateFlow<List<DiagnosticContextEntity>>(emptyList())
+    private val emptyTelemetry = MutableStateFlow<List<TelemetrySampleEntity>>(emptyList())
+    private val emptyEvents = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
+    private val emptyExports = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
+
+    var initializeCalls: Int = 0
+        private set
+    var nextDetail: DiagnosticSessionDetail? = null
+
+    override val activeScanProgress: StateFlow<ScanProgress?> = _progress.asStateFlow()
+    override val profiles: Flow<List<DiagnosticProfileEntity>> = emptyProfiles
+    override val sessions: Flow<List<ScanSessionEntity>> = emptySessions
+    override val approachStats: Flow<List<BypassApproachSummary>> = emptyApproaches
+    override val snapshots: Flow<List<NetworkSnapshotEntity>> = emptySnapshots
+    override val contexts: Flow<List<DiagnosticContextEntity>> = emptyContexts
+    override val telemetry: Flow<List<TelemetrySampleEntity>> = emptyTelemetry
+    override val nativeEvents: Flow<List<NativeSessionEventEntity>> = emptyEvents
+    override val exports: Flow<List<ExportRecordEntity>> = emptyExports
+
+    override suspend fun initialize() {
+        initializeCalls += 1
+    }
+
+    override suspend fun startScan(pathMode: ScanPathMode): String = "session-${pathMode.name}"
+
+    override suspend fun cancelActiveScan() {
+        _progress.value = null
+    }
+
+    override suspend fun setActiveProfile(profileId: String) = Unit
+
+    override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
+        requireNotNull(nextDetail) { "Missing fake detail for $sessionId" }
+
+    override suspend fun loadApproachDetail(
+        kind: BypassApproachKind,
+        id: String,
+    ): BypassApproachDetail = throw UnsupportedOperationException("Unused in history tests")
+
+    override suspend fun buildShareSummary(sessionId: String?): ShareSummary =
+        throw UnsupportedOperationException("Unused in history tests")
+
+    override suspend fun createArchive(sessionId: String?): DiagnosticsArchive =
+        throw UnsupportedOperationException("Unused in history tests")
+
+    override suspend fun keepResolverRecommendationForSession(sessionId: String) = Unit
+
+    override suspend fun saveResolverRecommendation(sessionId: String) = Unit
+}
