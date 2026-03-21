@@ -236,22 +236,15 @@ name = "ciadpi-config"
 version = "0.1.0"
 dependencies = [
  "ciadpi-packets",
- "serde_json",
- "tempfile",
 ]
 
 [[package]]
 name = "ciadpi-desync"
 version = "0.1.0"
 dependencies = [
- "aes",
- "aes-gcm",
  "ciadpi-config",
  "ciadpi-packets",
  "ciadpi-session",
- "hkdf",
- "serde_json",
- "sha2",
 ]
 
 [[package]]
@@ -261,8 +254,6 @@ dependencies = [
  "aes",
  "aes-gcm",
  "hkdf",
- "proptest",
- "serde_json",
  "sha2",
 ]
 
@@ -270,13 +261,8 @@ dependencies = [
 name = "ciadpi-session"
 version = "0.1.0"
 dependencies = [
- "aes",
- "aes-gcm",
  "ciadpi-config",
  "ciadpi-packets",
- "hkdf",
- "serde_json",
- "sha2",
 ]
 
 [[package]]
@@ -912,7 +898,6 @@ dependencies = [
 name = "hs5t-config"
 version = "0.1.0"
 dependencies = [
- "proptest",
  "serde",
  "serde_yaml",
  "thiserror 2.0.18",
@@ -942,16 +927,12 @@ version = "0.1.0"
 dependencies = [
  "hickory-proto",
  "lru",
- "proptest",
  "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "hs5t-ring-buffer"
 version = "0.1.0"
-dependencies = [
- "proptest",
-]
 
 [[package]]
 name = "hs5t-session"
@@ -959,10 +940,8 @@ version = "0.1.0"
 dependencies = [
  "fast-socks5",
  "hs5t-ring-buffer",
- "proptest",
  "thiserror 2.0.18",
  "tokio",
- "tokio-test",
  "tokio-util",
  "tracing",
 ]
@@ -1906,6 +1885,7 @@ dependencies = [
  "rustls",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-rustls",
  "url",
  "webpki-roots 0.26.11",
 ]
@@ -2470,17 +2450,6 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
-]
-
-[[package]]
-name = "tokio-test"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f6d24790a10a7af737693a3e8f1d03faef7e6ca0cc99aae5066f533766de545"
-dependencies = [
- "futures-core",
- "tokio",
- "tokio-stream",
 ]
 
 [[package]]

@@ -40,9 +40,13 @@ fast-socks5 = "0.9"
 
 # LRU cache for DNS
 lru = "0.12"
+hickory-proto = "0.24"
 
 # JNI (Android)
 jni = "0.21"
+
+# Shared resolver from the first-party native workspace
+ripdpi-dns-resolver = { path = "../../crates/ripdpi-dns-resolver" }
 
 # Property-based testing
 proptest = "1"
