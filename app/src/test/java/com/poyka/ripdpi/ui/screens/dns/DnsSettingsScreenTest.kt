@@ -3,9 +3,7 @@ package com.poyka.ripdpi.ui.screens.dns
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
 import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.SettingsUiState
@@ -14,6 +12,7 @@ import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Rule
 import org.junit.Test
@@ -55,7 +54,7 @@ class DnsSettingsScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Google Public DNS").fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.dnsResolver("google")).fetchSemanticsNode()
     }
 
     @Test
@@ -88,13 +87,13 @@ class DnsSettingsScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Save").assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsNotEnabled()
 
-        composeRule.onNodeWithContentDescription("Host").performTextInput("resolver.example")
-        composeRule.onNodeWithContentDescription("Port").performTextInput("853")
-        composeRule.onNodeWithContentDescription("Bootstrap IPs").performTextInput("1.1.1.1, 1.0.0.1")
-        composeRule.onNodeWithContentDescription("TLS server name").performTextInput("resolver.example")
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomHost).performTextInput("resolver.example")
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomPort).performTextInput("853")
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomBootstrap).performTextInput("1.1.1.1, 1.0.0.1")
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomTlsServerName).performTextInput("resolver.example")
 
-        composeRule.onNodeWithTag("dns-custom-save").assertIsEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.DnsCustomSave).assertIsEnabled()
     }
 }

@@ -1,13 +1,11 @@
 package com.poyka.ripdpi.integration
 
 import androidx.compose.ui.test.hasScrollToNodeAction
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.activities.MainActivityHost
 import com.poyka.ripdpi.activities.MainActivityHostCommand
@@ -41,6 +39,8 @@ import com.poyka.ripdpi.testing.MutablePermissionStatusProvider
 import com.poyka.ripdpi.testing.RecordingInstrumentedServiceController
 import com.poyka.ripdpi.testing.RecordingMainActivityHost
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsManager
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -174,15 +174,12 @@ class MainActivityShellInstrumentedTest {
                 notifications = PermissionStatus.Granted,
                 batteryOptimization = PermissionStatus.Granted,
             )
-        val continueLabel = composeRule.activity.getString(R.string.permissions_vpn_continue)
-        val dialogTitle = composeRule.activity.getString(R.string.permissions_vpn_title)
-
         sendConfiguredStartIntent()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText(dialogTitle).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(hasTestTag(RipDpiTestTags.VpnPermissionDialog)).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText(continueLabel).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialogContinue).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             recordingMainActivityHost.commands.any { command ->
                 command is MainActivityHostCommand.RequestVpnConsent
@@ -192,12 +189,9 @@ class MainActivityShellInstrumentedTest {
 
     @Test
     fun tappingShareSupportBundleRoutesToHost() {
-        val settingsLabel = composeRule.activity.getString(R.string.settings)
-        val shareSupportBundleLabel = composeRule.activity.getString(R.string.settings_share_debug_bundle_action)
-
-        composeRule.onNodeWithText(settingsLabel).performClick()
-        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(shareSupportBundleLabel))
-        composeRule.onNodeWithText(shareSupportBundleLabel).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Settings)).performClick()
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasTestTag(RipDpiTestTags.SettingsSupportBundle))
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsSupportBundle).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             recordingMainActivityHost.commands.contains(MainActivityHostCommand.ShareDebugBundle)
         }

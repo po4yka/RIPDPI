@@ -27,7 +27,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -509,6 +508,7 @@ internal fun DnsSettingsScreen(
                         RipDpiTextField(
                             value = plainDnsInput,
                             onValueChange = { plainDnsInput = it },
+                            testTag = RipDpiTestTags.DnsPlainAddress,
                             label = stringResource(R.string.dbs_ip_setting),
                             placeholder = stringResource(R.string.config_placeholder_dns),
                             helperText =
@@ -541,6 +541,7 @@ internal fun DnsSettingsScreen(
                             text = stringResource(R.string.config_save),
                             onClick = { onSavePlainDns(trimmedPlainDns) },
                             enabled = plainDnsValid && plainDnsDirty,
+                            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DnsPlainSave),
                             trailingIcon = RipDpiIcons.Check,
                         )
                     }
@@ -955,7 +956,7 @@ private fun CustomEncryptedDnsSection(
             RipDpiTextField(
                 value = tlsServerNameInput,
                 onValueChange = onTlsServerNameChange,
-                modifier = Modifier.testTag("dns-custom-tls-server-name"),
+                testTag = RipDpiTestTags.DnsCustomTlsServerName,
                 label = stringResource(R.string.dns_custom_tls_server_name_label),
                 placeholder = stringResource(R.string.dns_placeholder_resolver_example),
                 helperText = stringResource(R.string.dns_custom_dot_tls_helper),
@@ -977,7 +978,7 @@ private fun CustomEncryptedDnsSection(
                 text = stringResource(R.string.config_save),
                 onClick = onSaveCustomDot,
                 enabled = customDotValid && customDotDirty,
-                modifier = Modifier.testTag("dns-custom-save"),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
                 trailingIcon = RipDpiIcons.Check,
             )
         }
@@ -1014,6 +1015,7 @@ private fun CustomEncryptedDnsSection(
             RipDpiTextField(
                 value = dnscryptProviderInput,
                 onValueChange = onDnscryptProviderChange,
+                testTag = RipDpiTestTags.DnsCustomDnsCryptProvider,
                 label = stringResource(R.string.dns_custom_dnscrypt_provider_label),
                 placeholder = stringResource(R.string.dns_placeholder_dnscrypt_cert),
                 helperText = stringResource(R.string.dns_custom_dnscrypt_provider_helper),
@@ -1026,6 +1028,7 @@ private fun CustomEncryptedDnsSection(
             RipDpiTextField(
                 value = dnscryptPublicKeyInput,
                 onValueChange = onDnscryptPublicKeyChange,
+                testTag = RipDpiTestTags.DnsCustomDnsCryptPublicKey,
                 label = stringResource(R.string.dns_custom_dnscrypt_public_key_label),
                 placeholder = stringResource(R.string.dns_placeholder_public_key),
                 helperText = stringResource(R.string.dns_custom_dnscrypt_public_key_helper),
@@ -1053,7 +1056,7 @@ private fun CustomEncryptedDnsSection(
                 text = stringResource(R.string.config_save),
                 onClick = onSaveCustomDnsCrypt,
                 enabled = customDnsCryptValid && customDnsCryptDirty,
-                modifier = Modifier.testTag("dns-custom-save"),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
                 trailingIcon = RipDpiIcons.Check,
             )
         }
@@ -1072,6 +1075,7 @@ private fun CustomEncryptedDnsSection(
             RipDpiTextField(
                 value = dohUrl,
                 onValueChange = onDohUrlChange,
+                testTag = RipDpiTestTags.DnsCustomDohUrl,
                 label = stringResource(R.string.dns_custom_doh_url_label),
                 placeholder = stringResource(R.string.dns_placeholder_doh_url),
                 helperText = stringResource(R.string.dns_custom_doh_url_helper),
@@ -1090,6 +1094,7 @@ private fun CustomEncryptedDnsSection(
             RipDpiTextField(
                 value = bootstrapInput,
                 onValueChange = onBootstrapInputChange,
+                testTag = RipDpiTestTags.DnsCustomBootstrap,
                 label = stringResource(R.string.dns_custom_bootstrap_label),
                 placeholder = stringResource(R.string.dns_placeholder_bootstrap_ips),
                 helperText = stringResource(R.string.dns_custom_bootstrap_helper),
@@ -1117,7 +1122,7 @@ private fun CustomEncryptedDnsSection(
                 text = stringResource(R.string.config_save),
                 onClick = onSaveCustomDoh,
                 enabled = customDohValid && customDohDirty,
-                modifier = Modifier.testTag("dns-custom-save"),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
                 variant =
                     if (uiState.dns.dnsProviderId == DnsProviderCustom) {
                         RipDpiButtonVariant.Primary
@@ -1151,10 +1156,8 @@ private fun CommonEndpointFields(
         RipDpiTextField(
             value = host,
             onValueChange = onHostChange,
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .testTag("dns-custom-host"),
+            modifier = Modifier.weight(1f),
+            testTag = RipDpiTestTags.DnsCustomHost,
             label = hostLabel,
             placeholder = stringResource(R.string.dns_placeholder_resolver_example),
             helperText = hostHelper,
@@ -1167,10 +1170,8 @@ private fun CommonEndpointFields(
         RipDpiTextField(
             value = portInput,
             onValueChange = onPortInputChange,
-            modifier =
-                Modifier
-                    .weight(0.4f)
-                    .testTag("dns-custom-port"),
+            modifier = Modifier.weight(0.4f),
+            testTag = RipDpiTestTags.DnsCustomPort,
             label = stringResource(R.string.dns_custom_port_label),
             placeholder = stringResource(R.string.dns_placeholder_port),
             helperText = stringResource(R.string.dns_custom_port_helper),
@@ -1184,7 +1185,7 @@ private fun CommonEndpointFields(
     RipDpiTextField(
         value = bootstrapInput,
         onValueChange = onBootstrapInputChange,
-        modifier = Modifier.testTag("dns-custom-bootstrap"),
+        testTag = RipDpiTestTags.DnsCustomBootstrap,
         label = stringResource(R.string.dns_custom_bootstrap_label),
         placeholder = stringResource(R.string.dns_placeholder_bootstrap_ips),
         helperText = stringResource(R.string.dns_custom_bootstrap_helper),
@@ -1212,7 +1213,7 @@ private fun DnsResolverCard(
         modifier =
             Modifier
                 .animateContentSize()
-                .testTag("dns-resolver-${resolver.providerId}"),
+                .ripDpiTestTag(RipDpiTestTags.dnsResolver(resolver.providerId)),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

@@ -26,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,6 +54,8 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 
 @Composable
 internal fun ScanSection(
@@ -411,14 +412,20 @@ internal fun ResolverRecommendationCard(
                 text = "Keep for this session",
                 onClick = onKeepForSession,
                 variant = RipDpiButtonVariant.Secondary,
-                modifier = Modifier.weight(1f).testTag("resolver-keep-session"),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsResolverKeepSession),
             )
             if (recommendation.persistable) {
                 RipDpiButton(
                     text = "Save as DNS setting",
                     onClick = onSaveAsSetting,
                     variant = RipDpiButtonVariant.Primary,
-                    modifier = Modifier.weight(1f).testTag("resolver-save-setting"),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .ripDpiTestTag(RipDpiTestTags.DiagnosticsResolverSaveSetting),
                 )
             }
         }
