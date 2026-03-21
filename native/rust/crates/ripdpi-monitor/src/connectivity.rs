@@ -582,6 +582,9 @@ pub(crate) fn build_network_environment_probe(
         ProbeDetail { key: "dnsServerCount".to_string(), value: snap.dns_servers.len().to_string() },
         ProbeDetail { key: "capturedAtMs".to_string(), value: snap.captured_at_ms.to_string() },
     ];
+    if let Some(mtu) = snap.mtu {
+        details.push(ProbeDetail { key: "mtu".to_string(), value: mtu.to_string() });
+    }
     if let Some(ref cell) = snap.cellular {
         details.push(ProbeDetail { key: "cellularGeneration".to_string(), value: cell.generation.clone() });
         details.push(ProbeDetail { key: "cellularRoaming".to_string(), value: cell.roaming.to_string() });

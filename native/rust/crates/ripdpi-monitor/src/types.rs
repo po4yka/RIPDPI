@@ -337,6 +337,7 @@ mod tests {
                 "metered": false,
                 "privateDnsMode": "system",
                 "dnsServers": ["8.8.8.8"],
+                "mtu": 1500,
                 "capturedAtMs": 1700000000000
             }
         }"#;
@@ -346,6 +347,7 @@ mod tests {
         assert!(snap.validated);
         assert!(!snap.metered);
         assert_eq!(snap.dns_servers, vec!["8.8.8.8"]);
+        assert_eq!(snap.mtu, Some(1500));
     }
 
     #[test]
