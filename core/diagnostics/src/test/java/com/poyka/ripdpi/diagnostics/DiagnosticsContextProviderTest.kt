@@ -6,19 +6,7 @@ import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
-import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,125 +25,19 @@ class DiagnosticsContextProviderTest {
     @Test
     fun `provider captures app device and service context`() =
         runTest {
-            val history =
-                object : DiagnosticsHistoryRepository {
-                    override fun observeProfiles(): Flow<List<DiagnosticProfileEntity>> = MutableStateFlow(emptyList())
-
-                    override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> =
-                        MutableStateFlow(emptyList())
-
-                    override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> =
-                        MutableStateFlow(emptyList())
-
-                    override fun observeConnectionSnapshots(
-                        connectionSessionId: String,
-                        limit: Int,
-                    ): Flow<List<NetworkSnapshotEntity>> = MutableStateFlow(emptyList())
-
-                    override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> =
-                        MutableStateFlow(emptyList())
-
-                    override fun observeConnectionContexts(
-                        connectionSessionId: String,
-                        limit: Int,
-                    ): Flow<List<DiagnosticContextEntity>> = MutableStateFlow(emptyList())
-
-                    override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> =
-                        MutableStateFlow(emptyList())
-
-                    override fun observeConnectionTelemetry(
-                        connectionSessionId: String,
-                        limit: Int,
-                    ): Flow<List<TelemetrySampleEntity>> = MutableStateFlow(emptyList())
-
-                    override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> =
-                        MutableStateFlow(emptyList())
-
-                    override fun observeConnectionNativeEvents(
-                        connectionSessionId: String,
-                        limit: Int,
-                    ): Flow<List<NativeSessionEventEntity>> = MutableStateFlow(emptyList())
-
-                    override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> =
-                        MutableStateFlow(emptyList())
-
-                    override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> =
-                        MutableStateFlow(emptyList())
-
-                    override fun observeRememberedNetworkPolicies(
-                        limit: Int,
-                    ): Flow<List<RememberedNetworkPolicyEntity>> = MutableStateFlow(emptyList())
-
-                    override suspend fun getProfile(id: String): DiagnosticProfileEntity? =
-                        DiagnosticProfileEntity(
-                            id = "default",
-                            name = "Default",
-                            source = "bundled",
-                            version = 1,
-                            requestJson = "{}",
-                            updatedAt = 1L,
+            val profileCatalog =
+                FakeDiagnosticsHistoryStores().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = "default",
+                                name = "Default",
+                                source = "bundled",
+                                version = 1,
+                                requestJson = "{}",
+                                updatedAt = 1L,
+                            ),
                         )
-
-                    override suspend fun getPackVersion(packId: String): TargetPackVersionEntity? = null
-
-                    override suspend fun getScanSession(sessionId: String): ScanSessionEntity? = null
-
-                    override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? = null
-
-                    override suspend fun getRememberedNetworkPolicy(
-                        fingerprintHash: String,
-                        mode: String,
-                    ): RememberedNetworkPolicyEntity? = null
-
-                    override suspend fun getNetworkDnsPathPreference(
-                        fingerprintHash: String,
-                    ): NetworkDnsPathPreferenceEntity? = null
-
-                    override suspend fun findValidatedRememberedNetworkPolicy(
-                        fingerprintHash: String,
-                        mode: String,
-                        now: Long,
-                    ): RememberedNetworkPolicyEntity? = null
-
-                    override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> = emptyList()
-
-                    override suspend fun upsertProfile(profile: DiagnosticProfileEntity) = Unit
-
-                    override suspend fun upsertPackVersion(version: TargetPackVersionEntity) = Unit
-
-                    override suspend fun upsertScanSession(session: ScanSessionEntity) = Unit
-
-                    override suspend fun replaceProbeResults(
-                        sessionId: String,
-                        results: List<ProbeResultEntity>,
-                    ) = Unit
-
-                    override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) = Unit
-
-                    override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) = Unit
-
-                    override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) = Unit
-
-                    override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) = Unit
-
-                    override suspend fun insertExportRecord(record: ExportRecordEntity) = Unit
-
-                    override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) = Unit
-
-                    override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long =
-                        policy.id
-
-                    override suspend fun upsertNetworkDnsPathPreference(
-                        preference: NetworkDnsPathPreferenceEntity,
-                    ): Long = preference.id
-
-                    override suspend fun trimOldData(retentionDays: Int) = Unit
-
-                    override suspend fun clearRememberedNetworkPolicies() = Unit
-
-                    override suspend fun pruneRememberedNetworkPolicies() = Unit
-
-                    override suspend fun pruneNetworkDnsPathPreferences() = Unit
                 }
             val settingsRepository =
                 object : AppSettingsRepository {
@@ -196,7 +78,7 @@ class DiagnosticsContextProviderTest {
                 AndroidDiagnosticsContextProvider(
                     context = RuntimeEnvironment.getApplication(),
                     appSettingsRepository = settingsRepository,
-                    historyRepository = history,
+                    profileCatalog = profileCatalog,
                     serviceStateStore = serviceStateStore,
                 )
 

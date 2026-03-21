@@ -18,7 +18,7 @@ class DiagnosticsDetailAndShareServicesTest {
     @Test
     fun `detail loader loads session detail and approach detail from repository slices`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
+            val stores = FakeDiagnosticsHistoryStores()
             val session =
                 diagnosticsSession(
                     id = "session-1",
@@ -31,8 +31,8 @@ class DiagnosticsDetailAndShareServicesTest {
                     strategyId = "strategy-fast",
                     strategyLabel = "Strategy Fast",
                 )
-            historyRepository.sessionsState.value = listOf(session)
-            historyRepository.replaceProbeResults(
+            stores.sessionsState.value = listOf(session)
+            stores.replaceProbeResults(
                 sessionId = session.id,
                 results =
                     listOf(
@@ -47,7 +47,7 @@ class DiagnosticsDetailAndShareServicesTest {
                         ),
                     ),
             )
-            historyRepository.contextsState.value =
+            stores.contextsState.value =
                 listOf(
                     DiagnosticContextEntity(
                         id = "ctx-1",
@@ -57,7 +57,7 @@ class DiagnosticsDetailAndShareServicesTest {
                         capturedAt = 21L,
                     ),
                 )
-            historyRepository.nativeEventsState.value =
+            stores.nativeEventsState.value =
                 listOf(
                     NativeSessionEventEntity(
                         id = "ev-1",
@@ -68,7 +68,7 @@ class DiagnosticsDetailAndShareServicesTest {
                         createdAt = 22L,
                     ),
                 )
-            historyRepository.usageSessionsState.value =
+            stores.usageSessionsState.value =
                 listOf(
                     diagnosticsUsageSession(
                         id = "usage-1",
@@ -79,7 +79,7 @@ class DiagnosticsDetailAndShareServicesTest {
                     ),
                 )
 
-            val loader = DefaultDiagnosticsDetailLoader(historyRepository, json)
+            val loader = DefaultDiagnosticsDetailLoader(stores, stores, stores, json)
             val detail = loader.loadSessionDetail(session.id)
             val approach = loader.loadApproachDetail(BypassApproachKind.Strategy, "strategy-fast")
 
@@ -95,7 +95,7 @@ class DiagnosticsDetailAndShareServicesTest {
     @Test
     fun `share service builds summary and delegates archive creation`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
+            val stores = FakeDiagnosticsHistoryStores()
             val session =
                 diagnosticsSession(
                     id = "session-1",
@@ -103,8 +103,8 @@ class DiagnosticsDetailAndShareServicesTest {
                     pathMode = ScanPathMode.IN_PATH.name,
                     summary = "Blocked DNS",
                 )
-            historyRepository.sessionsState.value = listOf(session)
-            historyRepository.replaceProbeResults(
+            stores.sessionsState.value = listOf(session)
+            stores.replaceProbeResults(
                 sessionId = session.id,
                 results =
                     listOf(
@@ -119,7 +119,7 @@ class DiagnosticsDetailAndShareServicesTest {
                         ),
                     ),
             )
-            historyRepository.snapshotsState.value =
+            stores.snapshotsState.value =
                 listOf(
                     NetworkSnapshotEntity(
                         id = "snap-1",
@@ -129,7 +129,7 @@ class DiagnosticsDetailAndShareServicesTest {
                         capturedAt = 20L,
                     ),
                 )
-            historyRepository.contextsState.value =
+            stores.contextsState.value =
                 listOf(
                     DiagnosticContextEntity(
                         id = "ctx-1",
@@ -139,7 +139,7 @@ class DiagnosticsDetailAndShareServicesTest {
                         capturedAt = 21L,
                     ),
                 )
-            historyRepository.telemetryState.value =
+            stores.telemetryState.value =
                 listOf(
                     TelemetrySampleEntity(
                         id = "telemetry-1",
@@ -155,7 +155,7 @@ class DiagnosticsDetailAndShareServicesTest {
                         createdAt = 22L,
                     ),
                 )
-            historyRepository.nativeEventsState.value =
+            stores.nativeEventsState.value =
                 listOf(
                     NativeSessionEventEntity(
                         id = "warn-1",
@@ -177,7 +177,7 @@ class DiagnosticsDetailAndShareServicesTest {
                     privacyMode = "split_output",
                 )
             val archiveExporter = RecordingDiagnosticsArchiveExporter(expectedArchive)
-            val shareService = DefaultDiagnosticsShareService(historyRepository, archiveExporter, json)
+            val shareService = DefaultDiagnosticsShareService(stores, stores, archiveExporter, json)
 
             val summary = shareService.buildShareSummary(session.id)
             val archive = shareService.createArchive(session.id)

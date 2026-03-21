@@ -3,8 +3,8 @@ package com.poyka.ripdpi.integration
 import android.content.Intent
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
-import androidx.test.core.app.ActivityScenarioRule
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.automation.AutomationLaunchContract
@@ -15,13 +15,12 @@ internal fun createAutomationComposeRule(
     intent: Intent,
 ): AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity> =
     AndroidComposeTestRule(
-        activityRule = ActivityScenarioRule(intent),
-        activityProvider = { rule ->
-            var activity: MainActivity? = null
-            rule.scenario.onActivity { activity = it }
-            requireNotNull(activity) { "Activity was not available from ActivityScenarioRule" }
-        },
-    )
+        ActivityScenarioRule<MainActivity>(intent),
+    ) { rule ->
+        var activity: MainActivity? = null
+        rule.scenario.onActivity { activity = it }
+        requireNotNull(activity) { "Activity was not available from ActivityScenarioRule" }
+    }
 
 internal fun automationLaunchIntent(
     startRoute: String? = null,
@@ -41,7 +40,7 @@ internal fun automationLaunchIntent(
         startRoute?.let { putExtra(AutomationLaunchContract.StartRoute, it) }
     }
 
-internal fun AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>.waitForTag(
+internal fun AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>.waitForAutomationTag(
     tag: String,
     timeoutMillis: Long = 5_000,
 ) {

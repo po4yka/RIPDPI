@@ -47,7 +47,7 @@ class AutomationLaunchInstrumentedTest {
     @Test
     fun launchContractSeedsSettingsAndOpensRequestedRoute() =
         runBlocking {
-            composeRule.waitForTag(RipDpiTestTags.screen(Route.AdvancedSettings))
+            composeRule.waitForAutomationTag(RipDpiTestTags.screen(Route.AdvancedSettings))
             composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.AdvancedSettings)).assertIsDisplayed()
 
             val settings = appSettingsRepository.snapshot()

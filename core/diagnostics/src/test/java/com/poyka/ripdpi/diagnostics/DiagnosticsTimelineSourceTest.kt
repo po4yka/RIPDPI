@@ -13,9 +13,9 @@ class DiagnosticsTimelineSourceTest {
     @Test
     fun `approach stats aggregate scan and usage sessions`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
-            val timelineSource = DefaultDiagnosticsTimelineSource(historyRepository, json)
-            historyRepository.sessionsState.value =
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
+            stores.sessionsState.value =
                 listOf(
                     diagnosticsSession(
                         id = "scan-1",
@@ -50,7 +50,7 @@ class DiagnosticsTimelineSourceTest {
                         strategyJson = "",
                     ),
                 )
-            historyRepository.usageSessionsState.value =
+            stores.usageSessionsState.value =
                 listOf(
                     BypassUsageSessionEntity(
                         id = "usage-1",
@@ -89,7 +89,8 @@ class DiagnosticsTimelineSourceTest {
 
     @Test
     fun `active scan progress is managed independently from repository flows`() {
-        val timelineSource = DefaultDiagnosticsTimelineSource(FakeDiagnosticsHistoryRepository(), json)
+        val stores = FakeDiagnosticsHistoryStores()
+        val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
         val progress =
             ScanProgress(
                 sessionId = "scan-1",
