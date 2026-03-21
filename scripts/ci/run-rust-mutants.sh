@@ -11,16 +11,55 @@ JOBS="${MUTANTS_JOBS:-auto}"
 
 common_args=(--test-tool "$TEST_TOOL" --jobs "$JOBS" --output "$repo_root/target/mutants-output")
 
-if [ -n "$PACKAGES" ]; then
-    for pkg in $PACKAGES; do
-        common_args+=(--package "$pkg")
+workspace_packages() {
+    local manifest="$1"
+    cargo metadata --manifest-path "$manifest" --format-version 1 --no-deps | jq -r '.packages[].name'
+}
+
+package_belongs_to_workspace() {
+    local pkg="$1"
+    shift
+    local candidate
+    for candidate in "$@"; do
+        if [ "$candidate" = "$pkg" ]; then
+            return 0
+        fi
     done
-fi
+    return 1
+}
 
-echo "==> mutation testing (main workspace)"
-cargo mutants --manifest-path "$workspace_manifest" "${common_args[@]}" "$@"
+run_workspace_mutants() {
+    local label="$1"
+    local manifest="$2"
+    shift 2
+    local extra_args=("$@")
+    local args=("${common_args[@]}")
 
-echo "==> mutation testing (byedpi workspace)"
-cargo mutants --manifest-path "$byedpi_manifest" "${common_args[@]}" "$@"
+    if [ -n "$PACKAGES" ]; then
+        mapfile -t available_packages < <(workspace_packages "$manifest")
+        matching_packages=()
+        local pkg
+        for pkg in $PACKAGES; do
+            if package_belongs_to_workspace "$pkg" "${available_packages[@]}"; then
+                matching_packages+=("$pkg")
+            fi
+        done
+
+        if [ "${#matching_packages[@]}" -eq 0 ]; then
+            echo "==> mutation testing ($label) skipped: no matching packages"
+            return
+        fi
+
+        for pkg in "${matching_packages[@]}"; do
+            args+=(--package "$pkg")
+        done
+    fi
+
+    echo "==> mutation testing ($label)"
+    cargo mutants --manifest-path "$manifest" "${args[@]}" "${extra_args[@]}"
+}
+
+run_workspace_mutants "main workspace" "$workspace_manifest" "$@"
+run_workspace_mutants "byedpi workspace" "$byedpi_manifest" "$@"
 
 echo "==> Results: $repo_root/target/mutants-output/"

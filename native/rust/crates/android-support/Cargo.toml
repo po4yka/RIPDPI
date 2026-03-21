@@ -20,6 +20,7 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 golden-test-support = { workspace = true }
+jni = { workspace = true, features = ["invocation"] }
 
 [features]
 loom = ["dep:loom"]

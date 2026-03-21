@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       packages:
-        description: "Space-separated list of packages to test (empty = all enabled)"
+        description: "Space-separated package list; each workspace runs only matching packages (empty = all enabled)"
         required: false
         default: ""
       in_diff:
