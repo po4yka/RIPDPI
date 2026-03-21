@@ -47,6 +47,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -108,6 +110,7 @@ internal fun LogsScreen(
     RipDpiScreenScaffold(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.LogsScreen)
                 .fillMaxSize()
                 .background(colors.background),
         topBar = {
@@ -187,6 +190,7 @@ private fun LogsFiltersSection(
                 checked = uiState.isAutoScroll,
                 onCheckedChange = onAutoScrollChanged,
                 showDivider = true,
+                testTag = RipDpiTestTags.LogsAutoScroll,
             )
             Text(
                 text = stringResource(R.string.logs_filters_helper),
@@ -205,6 +209,7 @@ private fun LogsFiltersSection(
                         text = logBadgeLabel(type),
                         selected = type in uiState.activeFilters,
                         onClick = { onToggleFilter(type) },
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.logsFilter(type)),
                     )
                 }
             }
@@ -269,7 +274,10 @@ private fun LogsOverviewCard(
             RipDpiButton(
                 text = stringResource(R.string.save_logs),
                 onClick = onSaveLogs,
-                modifier = Modifier.weight(1f),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.LogsSave),
                 variant =
                     if (uiState.logs.isEmpty()) {
                         RipDpiButtonVariant.Outline
@@ -280,7 +288,10 @@ private fun LogsOverviewCard(
             RipDpiButton(
                 text = stringResource(R.string.logs_clear),
                 onClick = onClearLogs,
-                modifier = Modifier.weight(1f),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.LogsClear),
                 variant = RipDpiButtonVariant.Destructive,
                 enabled = uiState.logs.isNotEmpty(),
             )
@@ -318,7 +329,7 @@ private fun LogsStreamCard(
     val spacing = RipDpiThemeTokens.spacing
 
     RipDpiCard(
-        modifier = modifier,
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.LogsStream),
         paddingValues =
             PaddingValues(
                 horizontal = layout.cardPadding,

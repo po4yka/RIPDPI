@@ -28,6 +28,9 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -238,6 +241,7 @@ internal fun AdvancedSettingsScreen(
     RipDpiSettingsScaffold(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.AdvancedSettings))
                 .fillMaxSize()
                 .background(colors.background),
         title = stringResource(R.string.title_advanced_settings),

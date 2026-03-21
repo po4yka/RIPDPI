@@ -68,6 +68,9 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiDashboardScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -128,6 +131,7 @@ fun HomeScreen(
     RipDpiDashboardScaffold(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.Home))
                 .fillMaxSize()
                 .background(colors.background),
         topBar = { HomeTopBar(title = stringResource(R.string.app_name)) },
@@ -271,6 +275,7 @@ private fun HomeApproachCard(
     val spacing = RipDpiThemeTokens.spacing
 
     RipDpiCard(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeApproachCard),
         onClick = onOpenDiagnostics,
         variant = RipDpiCardVariant.Elevated,
     ) {
@@ -310,6 +315,7 @@ private fun HomeHistoryCard(onOpenHistory: () -> Unit) {
     val spacing = RipDpiThemeTokens.spacing
 
     RipDpiCard(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeHistoryCard),
         onClick = onOpenHistory,
         variant = RipDpiCardVariant.Outlined,
     ) {
@@ -657,6 +663,7 @@ private fun HomeConnectionButton(
         Column(
             modifier =
                 Modifier
+                    .ripDpiTestTag(RipDpiTestTags.HomeConnectionButton)
                     .semantics(mergeDescendants = true) {
                         contentDescription = label
                     }.size(homeChrome.connectionButtonSize)
@@ -773,7 +780,10 @@ private fun HomeStatsGrid(uiState: MainUiState) {
             Mode.Proxy -> stringResource(R.string.proxy_address, uiState.proxyIp, uiState.proxyPort)
         }
 
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+    Column(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeStatsGrid),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),

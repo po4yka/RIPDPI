@@ -30,6 +30,7 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.ripDpiToggleable
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -55,6 +56,7 @@ fun SettingsRow(
     showDivider: Boolean = false,
     monospaceValue: Boolean = false,
     variant: SettingsRowVariant = SettingsRowVariant.Default,
+    testTag: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
@@ -77,6 +79,7 @@ fun SettingsRow(
         Row(
             modifier =
                 Modifier
+                    .ripDpiTestTag(testTag)
                     .semantics(mergeDescendants = true) {}
                     .fillMaxWidth()
                     .background(containerColor, RipDpiThemeTokens.shapes.lg)
@@ -147,7 +150,11 @@ fun SettingsRow(
             }
             when {
                 checked != null && onCheckedChange != null -> {
-                    RipDpiSwitch(checked = checked, onCheckedChange = null, enabled = enabled)
+                    RipDpiSwitch(
+                        checked = checked,
+                        onCheckedChange = null,
+                        enabled = enabled,
+                    )
                 }
 
                 value != null -> {

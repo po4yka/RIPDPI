@@ -51,6 +51,9 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -115,6 +118,7 @@ internal fun HistoryScreen(
     RipDpiScreenScaffold(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.History))
                 .fillMaxSize()
                 .background(colors.background),
         topBar = {
@@ -290,6 +294,7 @@ private fun HistorySectionChips(
                     },
                 selected = selectedSection == section,
                 onClick = { onSelectSection(section) },
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historySection(section)),
             )
         }
     }
@@ -316,12 +321,15 @@ private fun ConnectionsSection(
                 searchValue = uiState.connections.filters.query,
                 searchPlaceholder = stringResource(R.string.history_connection_search_placeholder),
                 onSearch = onSearch,
+                searchTestTag = RipDpiTestTags.HistoryConnectionsSearch,
                 primaryOptions = uiState.connections.modes,
                 selectedPrimary = uiState.connections.filters.mode,
                 onPrimaryFilter = onModeFilter,
+                primaryTestTag = RipDpiTestTags::historyConnectionsModeFilter,
                 secondaryOptions = uiState.connections.statuses,
                 selectedSecondary = uiState.connections.filters.status,
                 onSecondaryFilter = onStatusFilter,
+                secondaryTestTag = RipDpiTestTags::historyConnectionsStatusFilter,
             )
         }
 
@@ -364,12 +372,15 @@ private fun DiagnosticsSection(
                 searchValue = uiState.diagnostics.filters.query,
                 searchPlaceholder = stringResource(R.string.diagnostics_search_placeholder),
                 onSearch = onSearch,
+                searchTestTag = RipDpiTestTags.HistoryDiagnosticsSearch,
                 primaryOptions = uiState.diagnostics.pathModes,
                 selectedPrimary = uiState.diagnostics.filters.pathMode,
                 onPrimaryFilter = onPathFilter,
+                primaryTestTag = RipDpiTestTags::historyDiagnosticsPathFilter,
                 secondaryOptions = uiState.diagnostics.statuses,
                 selectedSecondary = uiState.diagnostics.filters.status,
                 onSecondaryFilter = onStatusFilter,
+                secondaryTestTag = RipDpiTestTags::historyDiagnosticsStatusFilter,
             )
         }
 
@@ -430,14 +441,18 @@ private fun EventsSection(
                 searchValue = uiState.events.filters.search,
                 searchPlaceholder = stringResource(R.string.diagnostics_events_search_placeholder),
                 onSearch = onSearch,
+                searchTestTag = RipDpiTestTags.HistoryEventsSearch,
                 primaryOptions = uiState.events.availableSources,
                 selectedPrimary = uiState.events.filters.source,
                 onPrimaryFilter = { onToggleFilter(it, null) },
+                primaryTestTag = RipDpiTestTags::historyEventSourceFilter,
                 secondaryOptions = uiState.events.availableSeverities,
                 selectedSecondary = uiState.events.filters.severity,
                 onSecondaryFilter = { onToggleFilter(null, it) },
+                secondaryTestTag = RipDpiTestTags::historyEventSeverityFilter,
                 autoScroll = uiState.events.filters.autoScroll,
                 onAutoScroll = onAutoScroll,
+                autoScrollTestTag = RipDpiTestTags.HistoryEventsAutoScroll,
             )
         }
 
@@ -462,14 +477,18 @@ private fun FilterCard(
     searchValue: String,
     searchPlaceholder: String,
     onSearch: (String) -> Unit,
+    searchTestTag: String,
     primaryOptions: List<String>,
     selectedPrimary: String?,
     onPrimaryFilter: (String?) -> Unit,
+    primaryTestTag: (String) -> String,
     secondaryOptions: List<String>,
     selectedSecondary: String?,
     onSecondaryFilter: (String?) -> Unit,
+    secondaryTestTag: (String) -> String,
     autoScroll: Boolean? = null,
     onAutoScroll: ((Boolean) -> Unit)? = null,
+    autoScrollTestTag: String? = null,
 ) {
     val spacing = RipDpiThemeTokens.spacing
 
@@ -484,6 +503,7 @@ private fun FilterCard(
             onValueChange = onSearch,
             label = stringResource(R.string.diagnostics_search_label),
             placeholder = searchPlaceholder,
+            testTag = searchTestTag,
         )
         if (autoScroll != null && onAutoScroll != null) {
             SettingsRow(
@@ -492,18 +512,21 @@ private fun FilterCard(
                 checked = autoScroll,
                 onCheckedChange = onAutoScroll,
                 showDivider = true,
+                testTag = autoScrollTestTag,
             )
         }
         HistoryChips(
             options = primaryOptions,
             selected = selectedPrimary,
             onSelect = onPrimaryFilter,
+            tagForOption = primaryTestTag,
         )
         if (secondaryOptions.isNotEmpty()) {
             HistoryChips(
                 options = secondaryOptions,
                 selected = selectedSecondary,
                 onSelect = onSecondaryFilter,
+                tagForOption = secondaryTestTag,
             )
         }
     }
@@ -514,6 +537,7 @@ private fun HistoryChips(
     options: List<String>,
     selected: String?,
     onSelect: (String?) -> Unit,
+    tagForOption: (String) -> String,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     if (options.isEmpty()) {
@@ -531,6 +555,7 @@ private fun HistoryChips(
                 text = option.replaceFirstChar { it.uppercase() },
                 selected = selected == option,
                 onClick = { onSelect(option) },
+                modifier = Modifier.ripDpiTestTag(tagForOption(option)),
             )
         }
     }

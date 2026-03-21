@@ -4,11 +4,13 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -174,12 +176,15 @@ class AdvancedSettingsComponentsTest {
                     effectSummary = "All rounds",
                     enabled = true,
                     minValue = 0,
+                    dimension = ActivationWindowDimension.Round,
                     onSave = { _, _ -> },
                 )
             }
         }
 
-        composeRule.onNode(hasText("Save", substring = true)).assertIsNotEnabled()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.activationSave(ActivationWindowDimension.Round))
+            .assertIsNotEnabled()
     }
 
     @Test
@@ -196,14 +201,21 @@ class AdvancedSettingsComponentsTest {
                     effectSummary = "Rounds 10-100",
                     enabled = true,
                     minValue = 0,
+                    dimension = ActivationWindowDimension.Round,
                     onSave = { _, _ -> saved = true },
                 )
             }
         }
 
-        composeRule.onNodeWithText("10").performTextReplacement("20")
-        composeRule.onNode(hasText("Save", substring = true)).assertIsEnabled()
-        composeRule.onNode(hasText("Save", substring = true)).performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.activationStart(ActivationWindowDimension.Round))
+            .performTextReplacement("20")
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.activationSave(ActivationWindowDimension.Round))
+            .assertIsEnabled()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.activationSave(ActivationWindowDimension.Round))
+            .performClick()
         assertTrue(saved)
     }
 

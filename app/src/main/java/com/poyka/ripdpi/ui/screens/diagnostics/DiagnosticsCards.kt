@@ -762,6 +762,7 @@ internal fun ShareActionCard(
     iconTint: androidx.compose.ui.graphics.Color,
     variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     enabled: Boolean = true,
+    buttonModifier: Modifier = Modifier,
 ) {
     RipDpiCard {
         Row(
@@ -796,7 +797,7 @@ internal fun ShareActionCard(
             onClick = onClick,
             variant = variant,
             enabled = enabled,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = buttonModifier.fillMaxWidth(),
         )
     }
 }

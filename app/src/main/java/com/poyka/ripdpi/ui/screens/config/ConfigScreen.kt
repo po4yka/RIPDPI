@@ -33,6 +33,9 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -89,6 +92,7 @@ fun ConfigScreen(
     RipDpiContentScreenScaffold(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.Config))
                 .fillMaxSize()
                 .background(colors.background),
         title = stringResource(R.string.config),
@@ -127,6 +131,7 @@ fun ConfigScreen(
             RipDpiButton(
                 text = stringResource(R.string.config_edit_current),
                 onClick = onEditCurrent,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigEditCurrentButton),
                 variant =
                     if (selectedPreset.kind == ConfigPresetKind.Custom) {
                         RipDpiButtonVariant.Primary
@@ -142,6 +147,7 @@ fun ConfigScreen(
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 uiState.presets.forEach { preset ->
                     PresetCard(
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configPreset(preset.id)),
                         title = stringResource(titleResForPreset(preset.kind)),
                         description = stringResource(descriptionResForPreset(preset.kind)),
                         badgeText =
@@ -178,6 +184,7 @@ fun ConfigScreen(
                     value = uiState.draft.dnsSummary,
                     onClick = onOpenDnsSettings,
                     showDivider = true,
+                    testTag = RipDpiTestTags.ConfigDnsSettings,
                 )
                 SettingsRow(
                     title = stringResource(R.string.bye_dpi_proxy_ip_setting),
@@ -223,11 +230,13 @@ internal fun ConfigModeChips(
             text = stringResource(modeLabelRes(Mode.VPN)),
             selected = selectedMode == Mode.VPN,
             onClick = { onModeSelected(Mode.VPN) },
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.VPN.name)),
         )
         RipDpiChip(
             text = stringResource(modeLabelRes(Mode.Proxy)),
             selected = selectedMode == Mode.Proxy,
             onClick = { onModeSelected(Mode.Proxy) },
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.Proxy.name)),
         )
     }
 }

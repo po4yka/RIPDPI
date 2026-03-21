@@ -35,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiToggleable
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val PressedCheckedTrackBlend = 0.18f
@@ -52,6 +53,7 @@ fun RipDpiSwitch(
     enabled: Boolean = true,
     readOnly: Boolean = false,
     interactionSource: MutableInteractionSource? = null,
+    testTag: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -94,6 +96,7 @@ fun RipDpiSwitch(
                     enabled = enabled,
                     readOnly = readOnly,
                     interactionSource = interactionSource,
+                    testTag = testTag,
                     modifier =
                         Modifier.semantics {
                             label?.let { contentDescription = it }
@@ -174,6 +177,7 @@ fun RipDpiSwitch(
     Box(
         modifier =
             modifier
+                .ripDpiTestTag(testTag)
                 .size(width = components.switchWidth, height = components.switchHeight)
                 .then(
                     if (interactive) {
