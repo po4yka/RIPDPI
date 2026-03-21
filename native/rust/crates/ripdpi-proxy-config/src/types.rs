@@ -255,6 +255,9 @@ pub struct NetworkSnapshot {
     /// Present when transport is "wifi"
     #[serde(default)]
     pub wifi: Option<WifiSnapshot>,
+    /// LinkProperties.getMtu() when the platform reports a positive value
+    #[serde(default)]
+    pub mtu: Option<u32>,
     /// TrafficStats.getUidTxBytes(uid) at capture time
     #[serde(default)]
     pub traffic_tx_bytes: u64,

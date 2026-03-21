@@ -1,6 +1,6 @@
 use ciadpi_config::{
-    AutoTtlConfig, DesyncMode, QuicFakeProfile, TcpChainStepKind, FM_DUPSID, FM_ORIG,
-    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
+    AutoTtlConfig, DesyncMode, QuicFakeProfile, TcpChainStepKind, FM_DUPSID, FM_ORIG, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
 use ciadpi_packets::{
     HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL,
@@ -374,6 +374,7 @@ fn network_snapshot_deserializes_from_empty_json() {
     assert!(snapshot.dns_servers.is_empty());
     assert!(snapshot.cellular.is_none());
     assert!(snapshot.wifi.is_none());
+    assert!(snapshot.mtu.is_none());
     assert_eq!(snapshot.traffic_tx_bytes, 0);
     assert_eq!(snapshot.traffic_rx_bytes, 0);
     assert_eq!(snapshot.captured_at_ms, 0);
@@ -389,10 +390,8 @@ fn network_snapshot_round_trips_wifi_snapshot() {
         private_dns_mode: "system".to_string(),
         dns_servers: vec!["8.8.8.8".to_string(), "8.8.4.4".to_string()],
         cellular: None,
-        wifi: Some(WifiSnapshot {
-            frequency_band: "5ghz".to_string(),
-            ssid_hash: "abc123def456".to_string(),
-        }),
+        wifi: Some(WifiSnapshot { frequency_band: "5ghz".to_string(), ssid_hash: "abc123def456".to_string() }),
+        mtu: Some(1500),
         traffic_tx_bytes: 1_234_567,
         traffic_rx_bytes: 9_876_543,
         captured_at_ms: 1_700_000_000_000,
@@ -417,6 +416,7 @@ fn network_snapshot_round_trips_cellular_snapshot() {
             operator_code: "25001".to_string(),
         }),
         wifi: None,
+        mtu: Some(1420),
         traffic_tx_bytes: 0,
         traffic_rx_bytes: 0,
         captured_at_ms: 1_700_000_000_000,
@@ -431,12 +431,14 @@ fn network_snapshot_ignores_unknown_fields() {
     let json = r#"{
         "transport": "wifi",
         "validated": true,
+        "mtu": 1500,
         "futureField": "some_value",
         "anotherNewField": 42
     }"#;
     let snapshot: NetworkSnapshot = serde_json::from_str(json).expect("deserialize with unknown fields");
     assert_eq!(snapshot.transport, "wifi");
     assert!(snapshot.validated);
+    assert_eq!(snapshot.mtu, Some(1500));
 }
 
 #[test]
@@ -446,9 +448,11 @@ fn network_snapshot_uses_camel_case_keys() {
         metered: true,
         captive_portal: true,
         private_dns_mode: "dns.example.com".to_string(),
+        mtu: Some(1280),
         ..NetworkSnapshot::default()
     };
     let json = serde_json::to_string(&snapshot).expect("serialize");
     assert!(json.contains("\"captivePortal\""), "expected camelCase key in: {json}");
+    assert!(json.contains("\"mtu\""), "expected mtu key in: {json}");
     assert!(json.contains("\"privateDnsMode\""), "expected camelCase key in: {json}");
 }

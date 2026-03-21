@@ -25,6 +25,8 @@ data class NativeNetworkSnapshot(
     val cellular: NativeCellularSnapshot? = null,
     /** Present when transport is "wifi" */
     val wifi: NativeWifiSnapshot? = null,
+    /** LinkProperties.getMtu() when API >= 29 and the platform reports a positive value */
+    val mtu: Int? = null,
     /** TrafficStats.getUidTxBytes(uid) at capture time */
     val trafficTxBytes: Long = 0L,
     /** TrafficStats.getUidRxBytes(uid) at capture time */
