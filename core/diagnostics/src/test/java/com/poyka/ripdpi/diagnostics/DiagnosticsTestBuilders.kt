@@ -24,6 +24,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.json.Json
+import java.util.UUID
 
 private const val TestAutomaticHandoverProbeDelayMs = 15_000L
 private const val TestAutomaticHandoverProbeCooldownMs = 24L * 60L * 60L * 1_000L
@@ -55,6 +57,40 @@ internal fun createDiagnosticsManager(
     automaticHandoverProbeDelayMs: Long = TestAutomaticHandoverProbeDelayMs,
     automaticHandoverProbeCooldownMs: Long = TestAutomaticHandoverProbeCooldownMs,
     importBundledProfilesOnInitialize: Boolean = true,
+    json: Json =
+        Json {
+            ignoreUnknownKeys = true
+            prettyPrint = true
+            encodeDefaults = true
+            explicitNulls = false
+        },
+    archiveExporter: DiagnosticsArchiveExporter =
+        DefaultDiagnosticsArchiveExporter(
+            historyRepository = historyRepository,
+            sourceLoader =
+                DiagnosticsArchiveSourceLoader(
+                    historyRepository = historyRepository,
+                    logcatSnapshotCollector = logcatSnapshotCollector,
+                    json = json,
+                ),
+            sessionSelector =
+                DiagnosticsArchiveSessionSelector(
+                    redactor = DiagnosticsArchiveRedactor(json),
+                    json = json,
+                ),
+            renderer =
+                DiagnosticsArchiveRenderer(
+                    redactor = DiagnosticsArchiveRedactor(json),
+                    json = json,
+                ),
+            fileStore =
+                DiagnosticsArchiveFileStore(
+                    cacheDir = context.cacheDir,
+                    clock = DiagnosticsArchiveClock { System.currentTimeMillis() },
+                ),
+            zipWriter = DiagnosticsArchiveZipWriter(),
+            idGenerator = DiagnosticsArchiveIdGenerator { UUID.randomUUID().toString() },
+        ),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ): DefaultDiagnosticsManager =
     DefaultDiagnosticsManager(
@@ -73,9 +109,11 @@ internal fun createDiagnosticsManager(
         serviceStateStore = serviceStateStore,
         resolverOverrideStore = resolverOverrideStore,
         policyHandoverEventStore = policyHandoverEventStore,
+        archiveExporter = archiveExporter,
         automaticHandoverProbeDelayMs = automaticHandoverProbeDelayMs,
         automaticHandoverProbeCooldownMs = automaticHandoverProbeCooldownMs,
         importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
+        json = json,
         scope = scope,
     )
 
