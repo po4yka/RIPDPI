@@ -82,8 +82,20 @@ internal object RipDpiTestTags {
 
     const val DiagnosticsTopHistoryAction = "diagnostics-top-history-action"
     const val DiagnosticsOverviewHistoryAction = "diagnostics-overview-history-action"
+    const val DiagnosticsOverviewHero = "diagnostics-overview-hero"
     const val DiagnosticsResolverKeepSession = "diagnostics-resolver-keep-session"
     const val DiagnosticsResolverSaveSetting = "diagnostics-resolver-save-setting"
+    const val DiagnosticsResolverRecommendationCard = "diagnostics-resolver-recommendation-card"
+    const val DiagnosticsStrategyProbeReport = "diagnostics-strategy-probe-report"
+    const val DiagnosticsStrategyProbeSummary = "diagnostics-strategy-probe-summary"
+    const val DiagnosticsSharePreviewCard = "diagnostics-share-preview-card"
+    const val DiagnosticsArchiveStateIndicator = "diagnostics-archive-state-indicator"
+    const val DiagnosticsSessionDetailSheet = "diagnostics-session-detail-sheet"
+    const val DiagnosticsProbeDetailSheet = "diagnostics-probe-detail-sheet"
+    const val DiagnosticsStrategyCandidateDetailSheet = "diagnostics-strategy-candidate-detail-sheet"
+    const val DiagnosticsStrategyCandidateNotesSection = "diagnostics-strategy-candidate-notes-section"
+    const val DiagnosticsStrategyCandidateSignatureSection = "diagnostics-strategy-candidate-signature-section"
+    const val DiagnosticsStrategyCandidateResultsSection = "diagnostics-strategy-candidate-results-section"
     const val DiagnosticsSessionsSearch = "diagnostics-sessions-search"
     const val DiagnosticsEventsSearch = "diagnostics-events-search"
     const val DiagnosticsEventsAutoScroll = "diagnostics-events-auto-scroll"
@@ -127,6 +139,9 @@ internal object RipDpiTestTags {
     fun diagnosticsApproachMode(mode: DiagnosticsApproachMode): String =
         "diagnostics-approach-mode-${sanitize(mode.name)}"
 
+    fun diagnosticsStrategyCandidate(candidateId: String): String =
+        "diagnostics-strategy-candidate-${sanitize(candidateId)}"
+
     fun diagnosticsSessionPathFilter(pathMode: String): String = "diagnostics-session-path-${sanitize(pathMode)}"
 
     fun diagnosticsSessionStatusFilter(status: String): String = "diagnostics-session-status-${sanitize(status)}"
@@ -153,6 +168,10 @@ internal object RipDpiTestTags {
 
     fun advancedSection(sectionKey: String): String = "advanced-section-${sanitize(sectionKey)}"
 
+    fun advancedTitle(key: String): String = "advanced-title-${sanitize(key)}"
+
+    fun advancedDescription(key: String): String = "advanced-description-${sanitize(key)}"
+
     fun advancedToggle(setting: AdvancedToggleSetting): String = "advanced-toggle-${sanitize(setting.name)}"
 
     fun advancedInput(setting: AdvancedTextSetting): String = "advanced-input-${sanitize(setting.name)}"
@@ -166,6 +185,12 @@ internal object RipDpiTestTags {
     fun activationEnd(dimension: ActivationWindowDimension): String = "advanced-${sanitize(dimension.name)}-to"
 
     fun activationSave(dimension: ActivationWindowDimension): String = "advanced-${sanitize(dimension.name)}-save"
+
+    fun advancedSummaryLabel(key: String): String = "advanced-summary-label-${sanitize(key)}"
+
+    fun advancedSummaryValue(key: String): String = "advanced-summary-value-${sanitize(key)}"
+
+    fun advancedCapsule(key: String): String = "advanced-capsule-${sanitize(key)}"
 
     private fun sanitize(value: String): String =
         value

@@ -53,9 +53,9 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
 internal fun ScanSection(
@@ -381,7 +381,10 @@ internal fun ResolverRecommendationCard(
     onSaveAsSetting: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+    RipDpiCard(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsResolverRecommendationCard),
+        variant = RipDpiCardVariant.Elevated,
+    ) {
         StatusIndicator(
             label =
                 if (recommendation.appliedTemporarily) "Temporary DNS override active" else "Encrypted DNS recommended",
@@ -647,7 +650,9 @@ internal fun StrategyProbeReportCard(
     val colors = RipDpiThemeTokens.colors
     val manualApplyBadge = stringResource(R.string.diagnostics_profile_badge_manual_apply)
     val isFullAudit = report.suiteId == "full_matrix_v1"
-    RipDpiCard {
+    RipDpiCard(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyProbeReport),
+    ) {
         StatusIndicator(
             label =
                 if (isFullAudit) {
@@ -691,6 +696,7 @@ internal fun StrategyProbeReportCard(
             HorizontalDivider()
             Text(
                 text = stringResource(R.string.diagnostics_audit_summary_title),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyProbeSummary),
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = colors.foreground,
             )
@@ -766,6 +772,7 @@ internal fun StrategyProbeCandidateRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .ripDpiTestTag(RipDpiTestTags.diagnosticsStrategyCandidate(candidate.id))
                 .let { modifier ->
                     if (onClick != null) {
                         modifier.clickable(onClick = onClick)

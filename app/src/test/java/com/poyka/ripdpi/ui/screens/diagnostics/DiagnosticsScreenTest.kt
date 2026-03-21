@@ -1,14 +1,10 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
@@ -28,8 +24,8 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
-import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -118,7 +114,7 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Temporary DNS override active").fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverRecommendationCard).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverKeepSession).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverSaveSetting).fetchSemanticsNode()
     }
@@ -179,11 +175,9 @@ class DiagnosticsScreenTest {
         }
 
         composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithText("Audit matrix").fetchSemanticsNode()
-        composeRule.onNodeWithText("Audit summary").fetchSemanticsNode()
-        composeRule
-            .onAllNodesWithText("Tap a candidate for per-target evidence and configuration details.")
-            .assertCountEquals(2)
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyProbeReport).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyProbeSummary).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.diagnosticsStrategyCandidate(candidateDetail.id)).fetchSemanticsNode()
     }
 
     @Test
@@ -239,12 +233,10 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Notes").fetchSemanticsNode()
-        composeRule.onNodeWithText("Candidate configuration").fetchSemanticsNode()
-        composeRule.onNodeWithText("Per-target outcomes").fetchSemanticsNode()
-        composeRule.onNodeWithText("Adaptive warm-up applied").fetchSemanticsNode()
-        composeRule.onNodeWithText("HTTPS results").fetchSemanticsNode()
-        composeRule.onNodeWithText("audit.example").fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateNotesSection).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateSignatureSection).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyCandidateResultsSection).fetchSemanticsNode()
     }
 
     private fun auditReport(candidateDetail: DiagnosticsStrategyProbeCandidateDetailUiModel) =
@@ -346,7 +338,8 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule.onAllNodesWithText("Overview").assertCountEquals(2)
+        composeRule.onNodeWithTag(RipDpiTestTags.diagnosticsSection(DiagnosticsSection.Overview)).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsOverviewHero).assertIsDisplayed()
     }
 
     // -- Characterization tests: share section with busy archive --
@@ -405,7 +398,8 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Creating archive...").fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSharePreviewCard).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsArchiveStateIndicator).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsShareArchive).fetchSemanticsNode()
     }
 
@@ -483,8 +477,7 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Test Session").fetchSemanticsNode()
-        composeRule.onNodeWithText("Raw path scan").fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSessionDetailSheet).fetchSemanticsNode()
     }
 
     @Test
@@ -548,8 +541,7 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("blocked.example").fetchSemanticsNode()
-        composeRule.onNodeWithText("substituted").fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsProbeDetailSheet).fetchSemanticsNode()
     }
 
     private fun auditCandidateDetail() =

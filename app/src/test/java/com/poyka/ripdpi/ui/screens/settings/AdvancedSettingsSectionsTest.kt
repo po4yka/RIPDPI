@@ -9,7 +9,6 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.HostAutolearnUiState
@@ -39,8 +38,16 @@ class AdvancedSettingsSectionsTest {
     fun `diagnostics section renders monitor toggle and text fields`() {
         setDiagnosticsSection()
 
-        composeRule.onNodeWithText("HISTORY").assertExists()
-        composeRule.onNodeWithText("Record runtime diagnostics history").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("diagnostics_history")).assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsMonitorEnabled))
+            .assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.DiagnosticsSampleIntervalSeconds))
+            .assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.DiagnosticsHistoryRetentionDays))
+            .assertExists()
     }
 
     @Test
@@ -75,8 +82,9 @@ class AdvancedSettingsSectionsTest {
     fun `overrides section renders toggle and text field`() {
         setOverridesSection()
 
-        composeRule.onNodeWithText("OVERRIDES").assertExists()
-        composeRule.onNodeWithText("Use command line settings").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("overrides")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.UseCommandLine)).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.CommandLineArgs)).assertExists()
     }
 
     @Test
@@ -99,7 +107,8 @@ class AdvancedSettingsSectionsTest {
     fun `proxy section renders header`() {
         setProxySection()
 
-        composeRule.onNodeWithText("PROXY").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("proxy")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.ProxyIp)).assertExists()
     }
 
     @Test
@@ -127,10 +136,10 @@ class AdvancedSettingsSectionsTest {
     fun `protocols section renders all three toggles`() {
         setProtocolsSection()
 
-        composeRule.onNodeWithText("PROTOCOLS").assertExists()
-        composeRule.onNodeWithText("Desync HTTP").assertExists()
-        composeRule.onNodeWithText("Desync HTTPS").assertExists()
-        composeRule.onNodeWithText("Desync UDP").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("protocols")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttp)).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttps)).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncUdp)).assertExists()
     }
 
     @Test
@@ -169,8 +178,11 @@ class AdvancedSettingsSectionsTest {
     fun `network strategy memory section renders toggle and clear button`() {
         setNetworkStrategyMemorySection()
 
-        composeRule.onNodeWithText("NETWORK STRATEGY MEMORY").assertExists()
-        composeRule.onNodeWithText("Remember policy per network").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("network_strategy_memory")).assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NetworkStrategyMemoryEnabled))
+            .assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.AdvancedClearRememberedNetworks).assertExists()
     }
 
     @Test

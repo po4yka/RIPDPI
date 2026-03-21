@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -47,6 +48,7 @@ fun RipDpiBottomSheet(
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     message: String? = null,
     icon: ImageVector? = null,
+    testTag: String? = null,
     primaryActionLabel: String? = null,
     onPrimaryAction: (() -> Unit)? = null,
     primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
@@ -72,6 +74,7 @@ fun RipDpiBottomSheet(
     ) {
         RipDpiBottomSheetCard(
             title = title,
+            modifier = Modifier.ripDpiTestTag(testTag),
             message = message,
             icon = icon,
             primaryActionLabel = primaryActionLabel,

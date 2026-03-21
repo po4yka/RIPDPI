@@ -56,6 +56,8 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -685,7 +687,10 @@ internal fun DiagnosticsPreviewCard(
     val headerLines = descriptionLines.takeWhile { line -> !isDataLine(line) }
     val dataLines = descriptionLines.drop(headerLines.size)
 
-    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+    RipDpiCard(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSharePreviewCard),
+        variant = RipDpiCardVariant.Elevated,
+    ) {
         Text(
             text = title,
             style = RipDpiThemeTokens.type.screenTitle,
@@ -728,6 +733,7 @@ internal fun DiagnosticsPreviewCard(
         archiveStateMessage?.let { message ->
             StatusIndicator(
                 label = message,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsArchiveStateIndicator),
                 tone = statusTone(archiveStateTone),
             )
         }

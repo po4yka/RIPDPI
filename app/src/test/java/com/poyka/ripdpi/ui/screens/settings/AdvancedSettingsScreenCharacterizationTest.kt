@@ -7,7 +7,6 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToKey
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
@@ -201,7 +200,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         )
 
         scrollToKey("advanced_hosts")
-        composeRule.onNodeWithText("Hosts blacklist").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.HostsBlacklist)).assertExists()
     }
 
     @Test
@@ -211,7 +210,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         )
 
         scrollToKey("advanced_hosts")
-        composeRule.onNodeWithText("Hosts whitelist").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.HostsWhitelist)).assertExists()
     }
 
     // -- Notice banner --

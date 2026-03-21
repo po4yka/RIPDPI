@@ -88,12 +88,14 @@ internal fun AdvancedDropdownSetting(
     ) {
         Text(
             text = title,
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.advancedTitle(setting.name)),
             style = type.bodyEmphasis,
             color = colors.foreground,
         )
         description?.let {
             Text(
                 text = it,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.advancedDescription(setting.name)),
                 style = type.secondaryBody,
                 color = colors.mutedForeground,
             )
@@ -363,6 +365,7 @@ internal fun ProfileSummaryLine(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
+    summaryKey: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -374,11 +377,13 @@ internal fun ProfileSummaryLine(
     ) {
         Text(
             text = label,
+            modifier = Modifier.ripDpiTestTag(summaryKey?.let(RipDpiTestTags::advancedSummaryLabel)),
             style = type.caption,
             color = colors.mutedForeground,
         )
         Text(
             text = value,
+            modifier = Modifier.ripDpiTestTag(summaryKey?.let(RipDpiTestTags::advancedSummaryValue)),
             style = type.secondaryBody,
             color = colors.foreground,
         )
@@ -390,6 +395,7 @@ internal fun ProfileSummaryLine(
 internal fun SummaryCapsuleFlow(
     items: List<Pair<String, SummaryCapsuleTone>>,
     modifier: Modifier = Modifier,
+    testTagPrefix: String? = null,
 ) {
     val spacing = RipDpiThemeTokens.spacing
 
@@ -402,6 +408,12 @@ internal fun SummaryCapsuleFlow(
             SummaryCapsule(
                 text = text,
                 tone = tone,
+                modifier =
+                    Modifier.ripDpiTestTag(
+                        testTagPrefix?.let { prefix ->
+                            RipDpiTestTags.advancedCapsule("$prefix-$text")
+                        },
+                    ),
             )
         }
     }
