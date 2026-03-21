@@ -1,7 +1,7 @@
 mod sync;
 
+use crate::sync::{fetch_add_u64, Arc, AtomicU64, Mutex, Ordering};
 use std::collections::HashMap;
-use crate::sync::{Arc, AtomicU64, Mutex, Ordering, fetch_add_u64};
 
 use jni::objects::JThrowable;
 use jni::sys::jint;
@@ -198,6 +198,12 @@ impl tracing::field::Visit for MessageFieldFormatter {
 mod tests {
     use super::*;
     use golden_test_support::assert_text_golden;
+    use jni::{InitArgsBuilder, JNIVersion, JavaVM};
+    use once_cell::sync::{Lazy, OnceCell};
+    use std::sync::Mutex;
+
+    static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
+    static JNI_TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
     #[test]
     fn formatter_renders_plain_message_golden() {
@@ -246,5 +252,71 @@ mod tests {
             "tests/golden/debug_quotes.txt",
             &formatter.finish("fallback.target"),
         );
+    }
+
+    #[test]
+    fn throw_helpers_map_expected_java_exception_classes() {
+        let _serial = JNI_TEST_MUTEX.lock().expect("lock android-support JNI tests");
+
+        with_env(|env| {
+            throw_illegal_argument(env, "bad arg");
+            assert_eq!(take_exception(env), "java.lang.IllegalArgumentException: bad arg",);
+        });
+
+        with_env(|env| {
+            throw_illegal_state(env, "bad state");
+            assert_eq!(take_exception(env), "java.lang.IllegalStateException: bad state",);
+        });
+
+        with_env(|env| {
+            throw_io_exception(env, "disk boom");
+            assert_eq!(take_exception(env), "java.io.IOException: disk boom",);
+        });
+
+        with_env(|env| {
+            throw_runtime_exception(env, "runtime boom");
+            assert_eq!(take_exception(env), "java.lang.RuntimeException: runtime boom",);
+        });
+    }
+
+    #[test]
+    fn describe_exception_reads_and_clears_pending_exception() {
+        let _serial = JNI_TEST_MUTEX.lock().expect("lock android-support JNI tests");
+
+        with_env(|env| {
+            env.throw_new("java/lang/RuntimeException", "direct boom").expect("throw direct runtime exception");
+
+            assert_eq!(describe_exception(env), Some("java.lang.RuntimeException: direct boom".to_string()),);
+            assert!(describe_exception(env).is_none(), "describe_exception should clear the pending throwable");
+        });
+    }
+
+    #[test]
+    fn describe_exception_returns_none_when_no_exception_is_pending() {
+        let _serial = JNI_TEST_MUTEX.lock().expect("lock android-support JNI tests");
+
+        with_env(|env| {
+            assert!(describe_exception(env).is_none());
+        });
+    }
+
+    fn test_jvm() -> &'static JavaVM {
+        TEST_JVM.get_or_init(|| {
+            let args = InitArgsBuilder::new()
+                .version(JNIVersion::V8)
+                .option("-Xcheck:jni")
+                .build()
+                .expect("build test JVM init args");
+            JavaVM::new(args).expect("create in-process test JVM")
+        })
+    }
+
+    fn with_env<R>(f: impl FnOnce(&mut JNIEnv<'_>) -> R) -> R {
+        let mut env = test_jvm().attach_current_thread().expect("attach current thread to test JVM");
+        f(&mut env)
+    }
+
+    fn take_exception(env: &mut JNIEnv<'_>) -> String {
+        describe_exception(env).expect("expected Java exception")
     }
 }
