@@ -19,6 +19,7 @@ internal class DiagnosticsUiStateFactory
     @Inject
     constructor(
         private val support: DiagnosticsUiFactorySupport,
+        private val sessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
     ) {
         fun buildUiState(
             profiles: List<DiagnosticProfileEntity>,
@@ -205,46 +206,11 @@ internal class DiagnosticsUiStateFactory
         fun toSessionDetailUiModel(
             detail: DiagnosticSessionDetail,
             showSensitiveDetails: Boolean,
-        ): DiagnosticsSessionDetailUiModel {
-            val report = detail.session.reportJson?.let(support::decodeReport)
-            val probeGroups =
-                detail.results
-                    .mapIndexed(support::toProbeResultUiModel)
-                    .groupBy { it.probeType }
-                    .map { (title, items) ->
-                        DiagnosticsProbeGroupUiModel(
-                            title = title,
-                            items = items,
-                        )
-                    }
-            return DiagnosticsSessionDetailUiModel(
-                session = support.toSessionRowUiModel(detail.session),
-                probeGroups = probeGroups,
-                snapshots =
-                    detail.snapshots.mapNotNull { snapshot ->
-                        support.toNetworkSnapshotUiModel(
-                            snapshot,
-                            showSensitiveDetails,
-                        )
-                    },
-                events = detail.events.map(support::toEventUiModel),
-                contextGroups =
-                    detail.context
-                        ?.let(support::decodeContext)
-                        ?.let { context -> support.toContextUiGroups(context, showSensitiveDetails) }
-                        .orEmpty(),
-                strategyProbeReport =
-                    report?.strategyProbeReport?.let { strategyReport ->
-                        support.toStrategyProbeReportUiModel(
-                            report = strategyReport,
-                            reportResults = report.results,
-                            serviceMode = detail.session.serviceMode,
-                        )
-                    },
-                hasSensitiveDetails = true,
-                sensitiveDetailsVisible = showSensitiveDetails,
+        ): DiagnosticsSessionDetailUiModel =
+            sessionDetailUiMapper.toSessionDetailUiModel(
+                detail = detail,
+                showSensitiveDetails = showSensitiveDetails,
             )
-        }
 
         fun toApproachDetailUiModel(
             detail: com.poyka.ripdpi.diagnostics.BypassApproachDetail,

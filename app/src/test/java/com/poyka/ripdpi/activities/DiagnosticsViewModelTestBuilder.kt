@@ -24,14 +24,20 @@ internal fun createDiagnosticsViewModel(
     activeConnectionPolicyStore: ActiveConnectionPolicyStore = EmptyActiveConnectionPolicyStore(),
     serviceStateStore: ServiceStateStore = DefaultServiceStateStore(),
 ): DiagnosticsViewModel =
-    DiagnosticsViewModel(
-        diagnosticsManager = diagnosticsManager,
-        appSettingsRepository = appSettingsRepository,
-        rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-        activeConnectionPolicyStore = activeConnectionPolicyStore,
-        serviceStateStore = serviceStateStore,
-        uiStateFactory = DiagnosticsUiStateFactory(DiagnosticsUiFactorySupport(appContext)),
-    )
+    DiagnosticsUiFactorySupport(appContext).let { support ->
+        DiagnosticsViewModel(
+            diagnosticsManager = diagnosticsManager,
+            appSettingsRepository = appSettingsRepository,
+            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            activeConnectionPolicyStore = activeConnectionPolicyStore,
+            serviceStateStore = serviceStateStore,
+            uiStateFactory =
+                DiagnosticsUiStateFactory(
+                    support = support,
+                    sessionDetailUiMapper = DiagnosticsSessionDetailUiFactory(support),
+                ),
+        )
+    }
 
 private class EmptyRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
     private val policies = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
