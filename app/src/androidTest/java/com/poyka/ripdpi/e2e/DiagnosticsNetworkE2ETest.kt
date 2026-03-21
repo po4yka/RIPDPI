@@ -17,7 +17,10 @@ import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
-import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -55,7 +58,16 @@ class DiagnosticsNetworkE2ETest {
     lateinit var appSettingsRepository: AppSettingsRepository
 
     @Inject
-    lateinit var diagnosticsManager: DiagnosticsManager
+    lateinit var diagnosticsBootstrapper: DiagnosticsBootstrapper
+
+    @Inject
+    lateinit var diagnosticsScanController: DiagnosticsScanController
+
+    @Inject
+    lateinit var diagnosticsDetailLoader: DiagnosticsDetailLoader
+
+    @Inject
+    lateinit var diagnosticsResolverActions: DiagnosticsResolverActions
 
     @Inject
     lateinit var historyRepository: DiagnosticsHistoryRepository
@@ -83,7 +95,7 @@ class DiagnosticsNetworkE2ETest {
         runBlocking {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
-            diagnosticsManager.initialize()
+            diagnosticsBootstrapper.initialize()
             seedLocalProfile()
         }
     }
@@ -100,7 +112,7 @@ class DiagnosticsNetworkE2ETest {
 
     @Test
     fun rawPathScanPersistsLocalOnlyResults() {
-        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.RAW_PATH) }
+        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.RAW_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
         assertEquals("completed", detail.session.status)
@@ -125,7 +137,7 @@ class DiagnosticsNetworkE2ETest {
         startService(RipDpiProxyService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.Proxy)
 
-        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.RAW_PATH) }
+        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.RAW_PATH) }
         awaitCompletedSession(sessionId)
         awaitServiceStatus(AppStatus.Running, Mode.Proxy)
     }
@@ -143,7 +155,7 @@ class DiagnosticsNetworkE2ETest {
         startService(RipDpiProxyService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.Proxy)
 
-        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.IN_PATH) }
+        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
         assertTrue(detail.results.any { it.outcome == "dns_match" })
@@ -166,7 +178,7 @@ class DiagnosticsNetworkE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
-        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.IN_PATH) }
+        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
         assertTrue(detail.results.any { it.outcome == "dns_match" })
@@ -183,7 +195,7 @@ class DiagnosticsNetworkE2ETest {
             ),
         )
 
-        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.RAW_PATH) }
+        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.RAW_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
         assertTrue(detail.results.any { it.probeType == "dns_resolution" && it.outcome == "doh_blocked" })
@@ -209,7 +221,7 @@ class DiagnosticsNetworkE2ETest {
             ),
         )
 
-        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.IN_PATH) }
+        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
 
         assertTrue(detail.results.any { it.probeType == "dns_resolution" && it.outcome == "doh_blocked" })
@@ -240,7 +252,7 @@ class DiagnosticsNetworkE2ETest {
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(AppStatus.Running, Mode.VPN)
 
-        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.IN_PATH) }
+        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.IN_PATH) }
         val detail = awaitCompletedSession(sessionId)
         val persisted =
             json.decodeFromString(
@@ -278,10 +290,10 @@ class DiagnosticsNetworkE2ETest {
             ),
         )
 
-        val sessionId = runBlocking { diagnosticsManager.startScan(ScanPathMode.RAW_PATH) }
+        val sessionId = runBlocking { diagnosticsScanController.startScan(ScanPathMode.RAW_PATH) }
         awaitCompletedSession(sessionId)
         runBlocking {
-            diagnosticsManager.saveResolverRecommendation(sessionId)
+            diagnosticsResolverActions.saveResolverRecommendation(sessionId)
         }
 
         val persisted = runBlocking { appSettingsRepository.snapshot() }
@@ -427,7 +439,7 @@ class DiagnosticsNetworkE2ETest {
                 historyRepository.getScanSession(sessionId)?.status == "completed"
             }
         }
-        return runBlocking { diagnosticsManager.loadSessionDetail(sessionId) }
+        return runBlocking { diagnosticsDetailLoader.loadSessionDetail(sessionId) }
     }
 
     private fun startService(serviceClass: Class<*>) {

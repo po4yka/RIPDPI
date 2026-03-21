@@ -20,6 +20,13 @@ import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
+import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
+import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -159,52 +166,38 @@ internal class RecordingMainActivityHost : MainActivityHost {
     }
 }
 
-class StubInstrumentedDiagnosticsManager : com.poyka.ripdpi.diagnostics.DiagnosticsManager {
-    override val activeScanProgress =
-        MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(
-            null,
-        )
-    override val profiles =
-        MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>(),
-        )
-    override val sessions =
-        MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>(),
-        )
-    override val approachStats =
-        MutableStateFlow(
-            emptyList<com.poyka.ripdpi.diagnostics.BypassApproachSummary>(),
-        )
-    override val snapshots =
-        MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>(),
-        )
-    override val contexts =
-        MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>(),
-        )
-    override val telemetry =
-        MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>(),
-        )
-    override val nativeEvents =
-        MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>(),
-        )
-    override val exports =
-        MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>(),
-        )
-
+class StubInstrumentedDiagnosticsBootstrapper : DiagnosticsBootstrapper {
     override suspend fun initialize() = Unit
+}
 
+class StubInstrumentedDiagnosticsTimelineSource : DiagnosticsTimelineSource {
+    override val activeScanProgress = MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(null)
+    override val profiles =
+        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>())
+    override val sessions =
+        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>())
+    override val approachStats = MutableStateFlow(emptyList<BypassApproachSummary>())
+    override val snapshots =
+        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>())
+    override val contexts =
+        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>())
+    override val telemetry =
+        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>())
+    override val nativeEvents =
+        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>())
+    override val exports =
+        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>())
+}
+
+class StubInstrumentedDiagnosticsScanController : DiagnosticsScanController {
     override suspend fun startScan(pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode): String = "session"
 
     override suspend fun cancelActiveScan() = Unit
 
     override suspend fun setActiveProfile(profileId: String) = Unit
+}
 
+class StubInstrumentedDiagnosticsDetailLoader : DiagnosticsDetailLoader {
     override suspend fun loadSessionDetail(sessionId: String): com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail {
         error("unused")
     }
@@ -215,7 +208,9 @@ class StubInstrumentedDiagnosticsManager : com.poyka.ripdpi.diagnostics.Diagnost
     ): com.poyka.ripdpi.diagnostics.BypassApproachDetail {
         error("unused")
     }
+}
 
+class StubInstrumentedDiagnosticsShareService : DiagnosticsShareService {
     override suspend fun buildShareSummary(sessionId: String?): com.poyka.ripdpi.diagnostics.ShareSummary {
         error("unused")
     }
@@ -223,7 +218,9 @@ class StubInstrumentedDiagnosticsManager : com.poyka.ripdpi.diagnostics.Diagnost
     override suspend fun createArchive(sessionId: String?): com.poyka.ripdpi.diagnostics.DiagnosticsArchive {
         error("unused")
     }
+}
 
+class StubInstrumentedDiagnosticsResolverActions : DiagnosticsResolverActions {
     override suspend fun keepResolverRecommendationForSession(sessionId: String) = Unit
 
     override suspend fun saveResolverRecommendation(sessionId: String) = Unit
