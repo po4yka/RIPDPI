@@ -142,6 +142,7 @@ fun HomeScreen(
                 message = uiState.errorMessage,
                 tone = WarningBannerTone.Error,
                 modifier = Modifier.fillMaxWidth(),
+                testTag = RipDpiTestTags.HomePermissionIssueBanner,
             )
         }
 
@@ -159,6 +160,7 @@ fun HomeScreen(
                         -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
                     },
                 tone = WarningBannerTone.Restricted,
+                testTag = RipDpiTestTags.HomePermissionIssueBanner,
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -189,6 +191,7 @@ fun HomeScreen(
                 title = warning.title,
                 message = warning.message,
                 tone = WarningBannerTone.Warning,
+                testTag = RipDpiTestTags.HomePermissionRecommendationBanner,
                 modifier =
                     Modifier
                         .fillMaxWidth()

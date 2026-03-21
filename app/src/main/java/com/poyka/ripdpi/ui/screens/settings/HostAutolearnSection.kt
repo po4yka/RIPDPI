@@ -39,7 +39,10 @@ internal fun LazyListScope.hostAutolearnSection(
         val colors = RipDpiThemeTokens.colors
         val spacing = RipDpiThemeTokens.spacing
 
-        AdvancedSettingsSection(title = stringResource(R.string.host_autolearn_section_title)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.host_autolearn_section_title),
+            testTag = RipDpiTestTags.advancedSection("host_autolearn"),
+        ) {
             RipDpiCard {
                 SettingsRow(
                     title = stringResource(R.string.host_autolearn_enabled_title),

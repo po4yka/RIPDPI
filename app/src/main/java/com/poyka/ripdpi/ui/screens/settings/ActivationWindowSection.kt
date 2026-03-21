@@ -16,6 +16,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 internal fun LazyListScope.activationWindowSection(
@@ -27,7 +28,10 @@ internal fun LazyListScope.activationWindowSection(
     if (uiState.showActivationWindowProfile) {
         item(key = "advanced_activation_window") {
             val spacing = RipDpiThemeTokens.spacing
-            AdvancedSettingsSection(title = stringResource(R.string.activation_window_section_title)) {
+            AdvancedSettingsSection(
+                title = stringResource(R.string.activation_window_section_title),
+                testTag = RipDpiTestTags.advancedSection("activation_window"),
+            ) {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     ActivationWindowProfileCard(
                         uiState = uiState,

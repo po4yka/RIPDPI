@@ -30,7 +30,10 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 internal fun LazyListScope.udpSection() {
     item(key = "advanced_udp") {
-        AdvancedSettingsSection(title = stringResource(R.string.desync_udp_category)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.desync_udp_category),
+            testTag = RipDpiTestTags.advancedSection("udp"),
+        ) {
             RipDpiCard {
                 Text(
                     text = stringResource(R.string.config_udp_chain_hint),
@@ -54,7 +57,10 @@ internal fun LazyListScope.quicSection(
     item(key = "advanced_quic") {
         val colors = RipDpiThemeTokens.colors
 
-        AdvancedSettingsSection(title = stringResource(R.string.quic_initial_section_title)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.quic_initial_section_title),
+            testTag = RipDpiTestTags.advancedSection("quic"),
+        ) {
             RipDpiCard {
                 Text(
                     text = stringResource(R.string.quic_initial_section_body),

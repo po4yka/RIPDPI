@@ -30,6 +30,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 internal fun LazyListScope.hostsSection(
@@ -48,7 +49,10 @@ internal fun LazyListScope.hostsSection(
         val colors = RipDpiThemeTokens.colors
         val spacing = RipDpiThemeTokens.spacing
 
-        AdvancedSettingsSection(title = stringResource(R.string.ripdpi_hosts_mode_setting)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.ripdpi_hosts_mode_setting),
+            testTag = RipDpiTestTags.advancedSection("hosts"),
+        ) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 HostPackCatalogStatusCard(
                     hostPackCatalog = hostPackCatalog,

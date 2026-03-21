@@ -16,6 +16,11 @@ on:
         options:
           - smoke
           - full
+      run_maestro_smoke:
+        description: Run Maestro smoke flows after Android instrumentation
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "0 3 * * *"
 
@@ -400,6 +405,15 @@ jobs:
             }
             ./gradlew :app:createDebugAndroidTestCoverageReport \
               -Pripdpi.localNativeAbis=x86_64
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] && \
+               [ "${{ github.event.inputs.run_maestro_smoke }}" = "true" ]; then
+              mkdir -p "$RUNNER_TEMP/maestro"
+              curl -Ls https://get.maestro.mobile.dev | bash
+              export PATH="$PATH:$HOME/.maestro/bin"
+              maestro --version
+              bash scripts/ci/run-maestro-smoke.sh \
+                2>&1 | tee "$RUNNER_TEMP/maestro/maestro-smoke.log"
+            fi
 
       - name: Upload Android E2E artifacts
         if: always()
@@ -439,6 +453,7 @@ jobs:
             app/build/reports/coverage/
             app/build/outputs/code_coverage/
             app/build/outputs/androidTest-results/connected/
+            ${{ runner.temp }}/maestro/
             ${{ runner.temp }}/local-network-fixture/fixture.log
             ${{ runner.temp }}/local-network-fixture/fixture-manifest.json
             ${{ runner.temp }}/local-network-fixture/fixture-events.json
