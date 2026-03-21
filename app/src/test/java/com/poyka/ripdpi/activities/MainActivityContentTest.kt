@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -70,11 +70,12 @@ class MainActivityContentTest {
         val controller = MainActivityShellController().apply { showVpnPermissionDialog() }
         val commands = CopyOnWriteArrayList<MainActivityHostCommand>()
         val collectorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        val collectorJob = collectorScope.launch {
-            controller.hostCommands.collect { command ->
-                commands += command
+        val collectorJob =
+            collectorScope.launch {
+                controller.hostCommands.collect { command ->
+                    commands += command
+                }
             }
-        }
         composeRule.setContent {
             MainActivityContent(
                 viewModel =
@@ -114,16 +115,20 @@ class MainActivityContentTest {
         composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialog).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialogDismiss).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasTestTag(RipDpiTestTags.VpnPermissionDialog)).fetchSemanticsNodes().isEmpty()
+            composeRule
+                .onAllNodes(hasTestTag(RipDpiTestTags.VpnPermissionDialog))
+                .fetchSemanticsNodes()
+                .isEmpty()
         }
         composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialog).assertDoesNotExist()
     }
 
     @Test
     fun `snackbar renders from shell ui event`() {
-        val controller = MainActivityShellController().apply {
-            onEffect(MainEffect.ShowError("boom"))
-        }
+        val controller =
+            MainActivityShellController().apply {
+                onEffect(MainEffect.ShowError("boom"))
+            }
 
         composeRule.setContent {
             MainActivityContent(
@@ -133,7 +138,10 @@ class MainActivityContentTest {
         }
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasTestTag(RipDpiTestTags.MainErrorSnackbar)).fetchSemanticsNodes().isNotEmpty()
+            composeRule
+                .onAllNodes(hasTestTag(RipDpiTestTags.MainErrorSnackbar))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
         }
         composeRule.onNodeWithTag(RipDpiTestTags.MainErrorSnackbar).assertIsDisplayed()
         composeRule.onAllNodesWithText("boom").assertCountEquals(1)
