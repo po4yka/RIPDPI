@@ -308,7 +308,7 @@ class RecordingVpnTunnelSessionProvider(
         private set
 
     override fun establish(
-        service: com.poyka.ripdpi.services.RipDpiVpnService,
+        host: com.poyka.ripdpi.services.VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
     ): VpnTunnelSession {

@@ -14,7 +14,7 @@ interface VpnTunnelSession {
     fun close()
 }
 
-private class ParcelFileDescriptorVpnTunnelSession(
+internal class ParcelFileDescriptorVpnTunnelSession(
     private val descriptor: ParcelFileDescriptor,
 ) : VpnTunnelSession {
     override val tunFd: Int
@@ -27,7 +27,7 @@ private class ParcelFileDescriptorVpnTunnelSession(
 
 interface VpnTunnelSessionProvider {
     fun establish(
-        service: RipDpiVpnService,
+        host: VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
     ): VpnTunnelSession
@@ -38,14 +38,14 @@ class DefaultVpnTunnelSessionProvider
     @Inject
     constructor() : VpnTunnelSessionProvider {
         override fun establish(
-            service: RipDpiVpnService,
+            host: VpnTunnelBuilderHost,
             dns: String,
             ipv6: Boolean,
         ): VpnTunnelSession {
             val descriptor =
-                service.createBuilder(dns, ipv6).establish()
+                host.createTunnelBuilder(dns, ipv6).establish()
                     ?: throw IllegalStateException("VPN connection failed")
-            return ParcelFileDescriptorVpnTunnelSession(descriptor)
+            return descriptor
         }
     }
 

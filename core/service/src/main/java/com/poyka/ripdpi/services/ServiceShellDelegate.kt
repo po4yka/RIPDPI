@@ -1,0 +1,52 @@
+package com.poyka.ripdpi.services
+
+import com.poyka.ripdpi.data.START_ACTION
+import com.poyka.ripdpi.data.STOP_ACTION
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import logcat.LogPriority
+import logcat.logcat
+
+internal class ServiceShellDelegate(
+    private val serviceScope: CoroutineScope,
+    private val serviceLabel: String,
+    private val onStart: suspend () -> Unit,
+    private val onStop: suspend (Int?) -> Unit,
+    private val onRevoke: (suspend () -> Unit)? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+) {
+    fun onStartCommand(
+        action: String?,
+        startId: Int,
+    ): Int =
+        when (action) {
+            START_ACTION -> {
+                launchIo(onStart)
+                android.app.Service.START_STICKY
+            }
+
+            STOP_ACTION -> {
+                launchIo { onStop(startId) }
+                android.app.Service.START_NOT_STICKY
+            }
+
+            else -> {
+                logcat(LogPriority.WARN) { "Unknown action for $serviceLabel service: $action" }
+                launchIo { onStop(startId) }
+                android.app.Service.START_NOT_STICKY
+            }
+        }
+
+    fun onRevoke() {
+        val revokeHandler = onRevoke ?: return
+        launchIo(revokeHandler)
+    }
+
+    private fun launchIo(block: suspend () -> Unit) {
+        serviceScope.launch(ioDispatcher) {
+            block()
+        }
+    }
+}

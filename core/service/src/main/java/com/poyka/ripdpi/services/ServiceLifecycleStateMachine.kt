@@ -35,6 +35,11 @@ internal class ServiceLifecycleStateMachine {
         state = State.RUNNING
     }
 
+    fun markStartFailed() {
+        logcat(LogPriority.DEBUG) { "Lifecycle: $state -> STOPPED (start failed)" }
+        state = State.STOPPED
+    }
+
     fun beginStop() {
         logcat(LogPriority.DEBUG) { "Lifecycle: $state -> STOPPING" }
         state = State.STOPPING

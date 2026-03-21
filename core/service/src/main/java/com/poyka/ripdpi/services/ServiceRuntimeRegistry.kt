@@ -49,13 +49,14 @@ class VpnRuntimeSession(
 ) : ServiceRuntimeSession(
         mode = Mode.VPN,
         runtimeId = runtimeId,
-    ) {
+    ),
+    HandoverAwareSession {
     var currentDnsSignature: String? = null
     var tunnelStartCount: Int = 0
     var tunnelRecoveryRetryCount: Long = 0
-    var pendingNetworkHandoverClass: String? = null
-    var lastSuccessfulHandoverFingerprintHash: String? = null
-    var lastSuccessfulHandoverAt: Long = 0L
+    override var pendingNetworkHandoverClass: String? = null
+    override var lastSuccessfulHandoverFingerprintHash: String? = null
+    override var lastSuccessfulHandoverAt: Long = 0L
 }
 
 class ProxyRuntimeSession(
@@ -63,10 +64,11 @@ class ProxyRuntimeSession(
 ) : ServiceRuntimeSession(
         mode = Mode.Proxy,
         runtimeId = runtimeId,
-    ) {
-    var pendingNetworkHandoverClass: String? = null
-    var lastSuccessfulHandoverFingerprintHash: String? = null
-    var lastSuccessfulHandoverAt: Long = 0L
+    ),
+    HandoverAwareSession {
+    override var pendingNetworkHandoverClass: String? = null
+    override var lastSuccessfulHandoverFingerprintHash: String? = null
+    override var lastSuccessfulHandoverAt: Long = 0L
 }
 
 interface ServiceRuntimeRegistry {
