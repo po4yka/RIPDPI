@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
@@ -8,7 +9,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
@@ -42,6 +42,32 @@ class MainActivityContentTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
+    fun `composition initializes the view model once`() {
+        val permissionStatusProvider = FakePermissionStatusProvider()
+        val controller = MainActivityShellController()
+        val recomposeTrigger = mutableIntStateOf(0)
+        val viewModel = createViewModel(permissionStatusProvider = permissionStatusProvider)
+
+        composeRule.setContent {
+            recomposeTrigger.intValue
+            MainActivityContent(
+                viewModel = viewModel,
+                controller = controller,
+            )
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) { permissionStatusProvider.currentSnapshotCalls > 0 }
+        val snapshotCalls = permissionStatusProvider.currentSnapshotCalls
+
+        composeRule.runOnUiThread {
+            recomposeTrigger.intValue += 1
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(snapshotCalls, permissionStatusProvider.currentSnapshotCalls)
+    }
+
+    @Test
     fun `start configured mode request invokes primary action once and clears shell request`() {
         val serviceController = FakeServiceController()
         val controller =
@@ -51,10 +77,11 @@ class MainActivityContentTest {
                     requestStartConfiguredMode = true,
                 ),
             )
+        val viewModel = createViewModel(serviceController = serviceController)
 
         composeRule.setContent {
             MainActivityContent(
-                viewModel = createViewModel(serviceController = serviceController),
+                viewModel = viewModel,
                 controller = controller,
             )
         }
@@ -76,19 +103,20 @@ class MainActivityContentTest {
                     commands += command
                 }
             }
+        val viewModel =
+            createViewModel(
+                permissionStatusProvider =
+                    FakePermissionStatusProvider(
+                        PermissionSnapshot(
+                            vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                            notifications = PermissionStatus.Granted,
+                            batteryOptimization = PermissionStatus.Granted,
+                        ),
+                    ),
+            )
         composeRule.setContent {
             MainActivityContent(
-                viewModel =
-                    createViewModel(
-                        permissionStatusProvider =
-                            FakePermissionStatusProvider(
-                                PermissionSnapshot(
-                                    vpnConsent = PermissionStatus.RequiresSystemPrompt,
-                                    notifications = PermissionStatus.Granted,
-                                    batteryOptimization = PermissionStatus.Granted,
-                                ),
-                            ),
-                    ),
+                viewModel = viewModel,
                 controller = controller,
             )
         }
@@ -105,9 +133,10 @@ class MainActivityContentTest {
     @Test
     fun `vpn dialog dismiss hides dialog`() {
         val controller = MainActivityShellController().apply { showVpnPermissionDialog() }
+        val viewModel = createViewModel()
         composeRule.setContent {
             MainActivityContent(
-                viewModel = createViewModel(),
+                viewModel = viewModel,
                 controller = controller,
             )
         }
@@ -129,10 +158,11 @@ class MainActivityContentTest {
             MainActivityShellController().apply {
                 onEffect(MainEffect.ShowError("boom"))
             }
+        val viewModel = createViewModel()
 
         composeRule.setContent {
             MainActivityContent(
-                viewModel = createViewModel(),
+                viewModel = viewModel,
                 controller = controller,
             )
         }
@@ -163,7 +193,7 @@ class MainActivityContentTest {
             appSettingsRepository = appSettingsRepository,
             serviceStateStore = FakeServiceStateStore(),
             serviceController = serviceController,
-            diagnosticsManager = StubDiagnosticsManager(),
+            diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
             stringResolver = FakeStringResolver(),
             trafficStatsReader = FakeTrafficStatsReader(),
             permissionPlatformBridge =

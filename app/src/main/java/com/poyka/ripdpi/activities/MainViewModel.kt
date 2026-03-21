@@ -11,7 +11,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
-import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.permissions.PermissionAction
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
@@ -137,13 +137,14 @@ class MainViewModel
         appSettingsRepository: AppSettingsRepository,
         serviceStateStore: ServiceStateStore,
         serviceController: ServiceController,
-        diagnosticsManager: DiagnosticsManager,
+        diagnosticsTimelineSource: DiagnosticsTimelineSource,
         stringResolver: StringResolver,
         trafficStatsReader: TrafficStatsReader,
         permissionPlatformBridge: PermissionPlatformBridge,
         permissionStatusProvider: PermissionStatusProvider,
         permissionCoordinator: PermissionCoordinator,
     ) : ViewModel() {
+        private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
         private val permissionState = MutableStateFlow(PermissionRuntimeState())
         private val _effects = Channel<MainEffect>(Channel.BUFFERED)
@@ -213,7 +214,7 @@ class MainViewModel
                 serviceStateStore.status,
                 runtimeState,
                 permissionState,
-                diagnosticsManager.approachStats,
+                diagnosticsTimelineSource.approachStats,
             ) { settings, (status, activeMode), runtime, permissions, approachStats ->
                 val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
                 MainUiState(
@@ -246,7 +247,11 @@ class MainViewModel
                 initialValue = MainUiState(),
             )
 
-        init {
+        fun initialize() {
+            if (initialized) {
+                return
+            }
+            initialized = true
             permissionActions.refreshPermissionSnapshot()
             connectionActions.initialize()
         }

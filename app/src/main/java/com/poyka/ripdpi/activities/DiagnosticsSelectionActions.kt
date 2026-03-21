@@ -17,7 +17,7 @@ internal class DiagnosticsSelectionActions(
     fun selectProfile(profileId: String) {
         selection.update { it.copy(selectedProfileId = profileId) }
         mutations.launch {
-            diagnosticsManager.setActiveProfile(profileId)
+            diagnosticsScanController.setActiveProfile(profileId)
         }
     }
 
@@ -34,7 +34,7 @@ internal class DiagnosticsSelectionActions(
     fun selectApproach(approachId: String) {
         mutations.launch {
             val detail =
-                diagnosticsManager.loadApproachDetail(
+                diagnosticsDetailLoader.loadApproachDetail(
                     kind =
                         when (selection.value.selectedApproachMode) {
                             DiagnosticsApproachMode.Profiles -> BypassApproachKind.Profile
@@ -131,7 +131,7 @@ internal class DiagnosticsSelectionActions(
         sessionId: String,
         showSensitiveDetails: Boolean,
     ) {
-        val detail = diagnosticsManager.loadSessionDetail(sessionId)
+        val detail = diagnosticsDetailLoader.loadSessionDetail(sessionId)
         selection.update { it.copy(selectedStrategyProbeCandidate = null) }
         sessionDetail.value =
             SessionDetailState(
