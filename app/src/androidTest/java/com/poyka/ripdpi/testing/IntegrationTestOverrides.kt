@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -138,6 +139,8 @@ class RecordingRipDpiProxyRuntime(
         faults.next(ProxyRuntimeFaultTarget.TELEMETRY)?.throwOrIgnore()
         return telemetryValue
     }
+
+    override suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot) = Unit
 
     fun complete(exitCode: Int) {
         if (!this.exitCode.isCompleted) {

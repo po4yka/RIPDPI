@@ -2,8 +2,10 @@ package com.poyka.ripdpi.activities
 
 import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.R
@@ -11,6 +13,7 @@ import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -72,10 +75,6 @@ class MainActivityContentTest {
                 commands += command
             }
         }
-        val app = RuntimeEnvironment.getApplication()
-        val dialogTitle = app.getString(R.string.permissions_vpn_title)
-        val continueLabel = app.getString(R.string.permissions_vpn_continue)
-
         composeRule.setContent {
             MainActivityContent(
                 viewModel =
@@ -93,8 +92,8 @@ class MainActivityContentTest {
             )
         }
 
-        composeRule.onNodeWithText(dialogTitle).assertExists()
-        composeRule.onNodeWithText(continueLabel).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialog).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialogContinue).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             commands.any { command -> command is MainActivityHostCommand.RequestVpnConsent }
         }
@@ -105,10 +104,6 @@ class MainActivityContentTest {
     @Test
     fun `vpn dialog dismiss hides dialog`() {
         val controller = MainActivityShellController().apply { showVpnPermissionDialog() }
-        val app = RuntimeEnvironment.getApplication()
-        val dialogTitle = app.getString(R.string.permissions_vpn_title)
-        val dismissLabel = app.getString(R.string.permissions_vpn_not_now)
-
         composeRule.setContent {
             MainActivityContent(
                 viewModel = createViewModel(),
@@ -116,12 +111,12 @@ class MainActivityContentTest {
             )
         }
 
-        composeRule.onNodeWithText(dialogTitle).assertExists()
-        composeRule.onNodeWithText(dismissLabel).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialog).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialogDismiss).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText(dialogTitle).fetchSemanticsNodes().isEmpty()
+            composeRule.onAllNodes(hasTestTag(RipDpiTestTags.VpnPermissionDialog)).fetchSemanticsNodes().isEmpty()
         }
-        composeRule.onNodeWithText(dialogTitle).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialog).assertDoesNotExist()
     }
 
     @Test

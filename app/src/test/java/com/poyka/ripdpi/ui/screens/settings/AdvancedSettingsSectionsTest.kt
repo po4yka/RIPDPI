@@ -8,12 +8,14 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -49,7 +51,9 @@ class AdvancedSettingsSectionsTest {
             onToggleChanged = { s, v -> toggles.add(s to v) },
         )
 
-        composeRule.onNodeWithText("Record runtime diagnostics history").performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsMonitorEnabled))
+            .performClick()
         assertEquals(AdvancedToggleSetting.DiagnosticsMonitorEnabled, toggles.single().first)
         assertTrue(toggles.single().second)
     }
@@ -60,7 +64,9 @@ class AdvancedSettingsSectionsTest {
             uiState = SettingsUiState(diagnosticsExportIncludeHistory = true),
         )
 
-        composeRule.onNodeWithText("Include history in diagnostics archives").assertIsOn()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsExportIncludeHistory))
+            .assertIsOn()
     }
 
     // -- Command-Line Overrides --
@@ -77,14 +83,14 @@ class AdvancedSettingsSectionsTest {
     fun `overrides toggle on when enabled`() {
         setOverridesSection(uiState = SettingsUiState(enableCmdSettings = true))
 
-        composeRule.onNodeWithText("Use command line settings").assertIsOn()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.UseCommandLine)).assertIsOn()
     }
 
     @Test
     fun `overrides toggle off when disabled`() {
         setOverridesSection(uiState = SettingsUiState(enableCmdSettings = false))
 
-        composeRule.onNodeWithText("Use command line settings").assertIsOff()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.UseCommandLine)).assertIsOff()
     }
 
     // -- Proxy --
@@ -99,20 +105,20 @@ class AdvancedSettingsSectionsTest {
     @Test
     fun `proxy no domain toggle reflects state`() {
         setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(noDomain = true)))
-        composeRule.onNodeWithText("No domain").assertIsOn()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain)).assertIsOn()
     }
 
     @Test
     fun `proxy tcp fast open toggle reflects state`() {
         setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(tcpFastOpen = true)))
-        composeRule.onNodeWithText("TCP Fast Open").assertIsOn()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TcpFastOpen)).assertIsOn()
     }
 
     @Test
     fun `proxy controls disabled under command line mode`() {
         setProxySection(uiState = SettingsUiState(enableCmdSettings = true))
 
-        composeRule.onNodeWithText("No domain").assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain)).assertIsNotEnabled()
     }
 
     // -- Protocols --
@@ -133,16 +139,16 @@ class AdvancedSettingsSectionsTest {
             uiState = SettingsUiState(desyncHttp = true, desyncHttps = false, desyncUdp = true),
         )
 
-        composeRule.onNodeWithText("Desync HTTP").assertIsOn()
-        composeRule.onNodeWithText("Desync HTTPS").assertIsOff()
-        composeRule.onNodeWithText("Desync UDP").assertIsOn()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttp)).assertIsOn()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttps)).assertIsOff()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncUdp)).assertIsOn()
     }
 
     @Test
     fun `protocols toggles disabled under command line mode`() {
         setProtocolsSection(uiState = SettingsUiState(enableCmdSettings = true))
 
-        composeRule.onNodeWithText("Desync HTTP").assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttp)).assertIsNotEnabled()
     }
 
     @Test
@@ -153,7 +159,7 @@ class AdvancedSettingsSectionsTest {
             onToggleChanged = { s, v -> toggles.add(s to v) },
         )
 
-        composeRule.onNodeWithText("Desync HTTP").performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttp)).performClick()
         assertEquals(AdvancedToggleSetting.DesyncHttp, toggles.single().first)
     }
 
@@ -175,7 +181,9 @@ class AdvancedSettingsSectionsTest {
             onToggleChanged = { s, v -> toggles.add(s to v) },
         )
 
-        composeRule.onNodeWithText("Remember policy per network").performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NetworkStrategyMemoryEnabled))
+            .performClick()
         assertEquals(AdvancedToggleSetting.NetworkStrategyMemoryEnabled, toggles.single().first)
     }
 
@@ -187,7 +195,7 @@ class AdvancedSettingsSectionsTest {
             onClearRememberedNetworks = { cleared = true },
         )
 
-        composeRule.onNodeWithText("Clear remembered networks").performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.AdvancedClearRememberedNetworks).performClick()
         assertTrue(cleared)
     }
 
@@ -197,7 +205,7 @@ class AdvancedSettingsSectionsTest {
             uiState = SettingsUiState(autolearn = HostAutolearnUiState(rememberedNetworkCount = 0)),
         )
 
-        composeRule.onNodeWithText("Clear remembered networks").assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.AdvancedClearRememberedNetworks).assertIsNotEnabled()
     }
 
     @Test
@@ -206,7 +214,9 @@ class AdvancedSettingsSectionsTest {
             uiState = SettingsUiState(enableCmdSettings = false),
         )
 
-        composeRule.onNodeWithText("Remember policy per network").assertIsEnabled()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NetworkStrategyMemoryEnabled))
+            .assertIsEnabled()
     }
 
     // -- Helpers --

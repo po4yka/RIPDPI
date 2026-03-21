@@ -21,6 +21,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.checkIp
@@ -313,6 +314,7 @@ internal fun LazyListScope.networkStrategyMemorySection(
                         text = stringResource(R.string.network_strategy_memory_clear_action),
                         onClick = onClearRememberedNetworks,
                         enabled = uiState.canClearRememberedNetworks,
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.AdvancedClearRememberedNetworks),
                         variant = RipDpiButtonVariant.Outline,
                         trailingIcon = RipDpiIcons.Close,
                     )

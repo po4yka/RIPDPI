@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -28,6 +29,7 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -117,8 +119,8 @@ class DiagnosticsScreenTest {
         }
 
         composeRule.onNodeWithText("Temporary DNS override active").fetchSemanticsNode()
-        composeRule.onNodeWithText("Keep for this session").fetchSemanticsNode()
-        composeRule.onNodeWithText("Save as DNS setting").fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverKeepSession).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverSaveSetting).fetchSemanticsNode()
     }
 
     @Test
@@ -404,7 +406,7 @@ class DiagnosticsScreenTest {
         }
 
         composeRule.onNodeWithText("Creating archive...").fetchSemanticsNode()
-        composeRule.onNodeWithText("Share archive").fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsShareArchive).fetchSemanticsNode()
     }
 
     // -- Characterization tests: bottom-sheet visibility --
