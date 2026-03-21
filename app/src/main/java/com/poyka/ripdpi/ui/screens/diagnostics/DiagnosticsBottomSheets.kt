@@ -22,6 +22,8 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -48,6 +50,7 @@ internal fun DiagnosticsBottomSheetHost(
                 title = detail.session.title,
                 message = detail.session.subtitle,
                 icon = RipDpiIcons.Info,
+                testTag = RipDpiTestTags.DiagnosticsSessionDetailSheet,
             ) {
                 StatusIndicator(
                     label = detail.session.status,
@@ -170,6 +173,7 @@ internal fun DiagnosticsBottomSheetHost(
             title = probe.target,
             message = probe.probeType,
             icon = RipDpiIcons.Search,
+            testTag = RipDpiTestTags.DiagnosticsProbeDetailSheet,
         ) {
             StatusIndicator(label = probe.outcome, tone = statusTone(probe.tone))
             probe.details.forEach { detail ->
@@ -188,6 +192,7 @@ internal fun DiagnosticsBottomSheetHost(
             title = candidate.label,
             message = "${candidate.familyLabel} · ${candidate.suiteLabel}",
             icon = RipDpiIcons.Search,
+            testTag = RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet,
         ) {
             StatusIndicator(
                 label =
@@ -212,6 +217,10 @@ internal fun DiagnosticsBottomSheetHost(
             if (candidate.notes.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.diagnostics_audit_candidate_notes_title),
+                    modifier =
+                        Modifier.ripDpiTestTag(
+                            RipDpiTestTags.DiagnosticsStrategyCandidateNotesSection,
+                        ),
                     style = RipDpiThemeTokens.type.bodyEmphasis,
                     color = colors.foreground,
                 )
@@ -226,6 +235,10 @@ internal fun DiagnosticsBottomSheetHost(
             if (candidate.signature.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.diagnostics_audit_candidate_signature_title),
+                    modifier =
+                        Modifier.ripDpiTestTag(
+                            RipDpiTestTags.DiagnosticsStrategyCandidateSignatureSection,
+                        ),
                     style = RipDpiThemeTokens.type.bodyEmphasis,
                     color = colors.foreground,
                 )
@@ -240,6 +253,10 @@ internal fun DiagnosticsBottomSheetHost(
             if (candidate.resultGroups.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.diagnostics_audit_candidate_results_title),
+                    modifier =
+                        Modifier.ripDpiTestTag(
+                            RipDpiTestTags.DiagnosticsStrategyCandidateResultsSection,
+                        ),
                     style = RipDpiThemeTokens.type.bodyEmphasis,
                     color = colors.foreground,
                 )

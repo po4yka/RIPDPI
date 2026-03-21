@@ -536,7 +536,10 @@ private fun DiagnosticsHealthHero(
     val tone = warningBannerTone(overview.health)
     val isActiveScan = uiState.scan.activeProgress != null
 
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+    Column(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsOverviewHero),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
+    ) {
         WarningBanner(
             title = overview.headline,
             message = overview.body,

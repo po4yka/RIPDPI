@@ -4,7 +4,6 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.data.NumericRangeModel
@@ -58,7 +57,9 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl)).performTextReplacement("64")
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl))
+            .performTextReplacement("64")
         composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertIsEnabled()
     }
 
@@ -77,7 +78,9 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl)).performTextReplacement("999")
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl))
+            .performTextReplacement("999")
         composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertIsNotEnabled()
     }
 
@@ -113,7 +116,9 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl)).performTextReplacement("  64  ")
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl))
+            .performTextReplacement("  64  ")
         composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).performClick()
 
         assertEquals(AdvancedTextSetting.FakeTtl to "64", captured)
@@ -140,8 +145,11 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNodeWithText("Desync method").assertExists()
-        composeRule.onNodeWithText("Choose method").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedTitle(AdvancedOptionSetting.DesyncMethod.name)).assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedDescription(AdvancedOptionSetting.DesyncMethod.name))
+            .assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedOption(AdvancedOptionSetting.DesyncMethod)).assertExists()
     }
 
     // -- ProfileSummaryLine --
@@ -153,12 +161,13 @@ class AdvancedSettingsComponentsTest {
                 ProfileSummaryLine(
                     label = "Current range",
                     value = "100 - 500",
+                    summaryKey = "current-range",
                 )
             }
         }
 
-        composeRule.onNodeWithText("Current range").assertExists()
-        composeRule.onNodeWithText("100 - 500").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSummaryLabel("current-range")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSummaryValue("current-range")).assertExists()
     }
 
     // -- ActivationRangeEditorCard --
@@ -231,12 +240,13 @@ class AdvancedSettingsComponentsTest {
                             "HTTP" to SummaryCapsuleTone.Neutral,
                             "Warning" to SummaryCapsuleTone.Warning,
                         ),
+                    testTagPrefix = "capsule-flow",
                 )
             }
         }
 
-        composeRule.onNodeWithText("Desync").assertExists()
-        composeRule.onNodeWithText("HTTP").assertExists()
-        composeRule.onNodeWithText("Warning").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedCapsule("capsule-flow-Desync")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedCapsule("capsule-flow-HTTP")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedCapsule("capsule-flow-Warning")).assertExists()
     }
 }
