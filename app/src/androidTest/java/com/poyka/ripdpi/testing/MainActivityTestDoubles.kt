@@ -1,6 +1,9 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.testing
 
 import android.content.Intent
+import com.poyka.ripdpi.activities.MainActivityHost
+import com.poyka.ripdpi.activities.MainActivityHostCommand
+import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
@@ -9,13 +12,12 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
+import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
 import kotlinx.coroutines.flow.Flow
@@ -25,9 +27,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.CopyOnWriteArrayList
 
-class FakeAppSettingsRepository(
-    initialSettings: AppSettings = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+class FakeInstrumentedAppSettingsRepository(
+    initialSettings: AppSettings,
 ) : AppSettingsRepository {
     private val state = MutableStateFlow(initialSettings)
 
@@ -48,39 +51,10 @@ class FakeAppSettingsRepository(
     }
 }
 
-class FakeServiceStateStore(
-    initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,
-) : ServiceStateStore {
-    private val statusState = MutableStateFlow(initialStatus)
-    private val eventFlow = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
-    private val telemetryState = MutableStateFlow(ServiceTelemetrySnapshot())
-
-    override val status: StateFlow<Pair<AppStatus, Mode>> = statusState.asStateFlow()
-    override val events: SharedFlow<ServiceEvent> = eventFlow.asSharedFlow()
-    override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState.asStateFlow()
-
-    override fun setStatus(
-        status: AppStatus,
-        mode: Mode,
-    ) {
-        statusState.value = status to mode
-    }
-
-    override fun emitFailed(
-        sender: Sender,
-        reason: FailureReason,
-    ) {
-        eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
-    }
-
-    override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
-        telemetryState.value = snapshot
-    }
-}
-
-class FakeServiceController : ServiceController {
-    val startedModes = mutableListOf<Mode>()
-    var stopCount = 0
+class RecordingInstrumentedServiceController : ServiceController {
+    val startedModes = CopyOnWriteArrayList<Mode>()
+    var stopCount: Int = 0
+        private set
 
     override fun start(mode: Mode) {
         startedModes += mode
@@ -91,23 +65,25 @@ class FakeServiceController : ServiceController {
     }
 }
 
-class FakeLauncherIconController : LauncherIconController {
-    data class Selection(
-        val iconKey: String,
-        val iconStyle: String,
-    )
-
-    var lastSelection: Selection? = null
-
-    override fun applySelection(
-        iconKey: String,
-        iconStyle: String,
-    ) {
-        lastSelection = Selection(iconKey, iconStyle)
-    }
+class MutablePermissionStatusProvider(
+    var snapshot: PermissionSnapshot = PermissionSnapshot(),
+) : PermissionStatusProvider {
+    override fun currentSnapshot(): PermissionSnapshot = snapshot
 }
 
-class FakeStringResolver : StringResolver {
+class FakeInstrumentedPermissionPlatformBridge(
+    var vpnPermissionIntent: Intent? = Intent("fake.vpn.permission"),
+    var appSettingsIntent: Intent = Intent("fake.app.settings"),
+    var batteryOptimizationIntent: Intent = Intent("fake.battery.optimization"),
+) : PermissionPlatformBridge {
+    override fun prepareVpnPermissionIntent(): Intent? = vpnPermissionIntent
+
+    override fun createAppSettingsIntent(): Intent = appSettingsIntent
+
+    override fun createBatteryOptimizationIntent(): Intent = batteryOptimizationIntent
+}
+
+class FakeInstrumentedStringResolver : StringResolver {
     override fun getString(
         resId: Int,
         vararg formatArgs: Any,
@@ -121,31 +97,69 @@ class FakeStringResolver : StringResolver {
         }
 }
 
-class FakeTrafficStatsReader(
-    var transferredBytes: Long = 0L,
-) : TrafficStatsReader {
-    override fun currentTransferredBytes(): Long = transferredBytes
+class FakeInstrumentedLauncherIconController : LauncherIconController {
+    override fun applySelection(
+        iconKey: String,
+        iconStyle: String,
+    ) = Unit
 }
 
-class FakePermissionPlatformBridge(
-    var vpnPermissionIntent: Intent? = Intent("fake.vpn.permission"),
-    var appSettingsIntent: Intent = Intent("fake.app.settings"),
-    var batteryOptimizationIntent: Intent = Intent("fake.battery.optimization"),
-) : PermissionPlatformBridge {
-    override fun prepareVpnPermissionIntent(): Intent? = vpnPermissionIntent
+class FakeInstrumentedHostAutolearnStoreController : HostAutolearnStoreController {
+    override fun hasStore(): Boolean = false
 
-    override fun createAppSettingsIntent(): Intent = appSettingsIntent
-
-    override fun createBatteryOptimizationIntent(): Intent = batteryOptimizationIntent
+    override fun clearStore(): Boolean = false
 }
 
-class FakePermissionStatusProvider(
-    var snapshot: PermissionSnapshot = PermissionSnapshot(),
-) : PermissionStatusProvider {
-    override fun currentSnapshot(): PermissionSnapshot = snapshot
+internal class RecordingMainActivityHost : MainActivityHost {
+    internal val commands = CopyOnWriteArrayList<MainActivityHostCommand>()
+    private var viewModel: MainViewModel? = null
+
+    override fun register(
+        activity: androidx.activity.ComponentActivity,
+        viewModel: MainViewModel,
+    ) {
+        this.viewModel = viewModel
+    }
+
+    override fun handle(command: MainActivityHostCommand) {
+        commands += command
+    }
+
+    fun clear() {
+        commands.clear()
+    }
+
+    fun dispatchNotificationPermissionResult(
+        granted: Boolean,
+        shouldShowRationale: Boolean,
+    ) {
+        viewModel?.onPermissionResult(
+            kind = com.poyka.ripdpi.permissions.PermissionKind.Notifications,
+            result = com.poyka.ripdpi.activities.MainActivity.mapNotificationPermissionResult(granted, shouldShowRationale),
+        )
+    }
+
+    fun dispatchVpnConsentResult(granted: Boolean) {
+        viewModel?.onPermissionResult(
+            kind = com.poyka.ripdpi.permissions.PermissionKind.VpnConsent,
+            result =
+                if (granted) {
+                    com.poyka.ripdpi.permissions.PermissionResult.Granted
+                } else {
+                    com.poyka.ripdpi.permissions.PermissionResult.Denied
+                },
+        )
+    }
+
+    fun dispatchBatteryOptimizationResult() {
+        viewModel?.onPermissionResult(
+            kind = com.poyka.ripdpi.permissions.PermissionKind.BatteryOptimization,
+            result = com.poyka.ripdpi.permissions.PermissionResult.ReturnedFromSettings,
+        )
+    }
 }
 
-class StubDiagnosticsManager : com.poyka.ripdpi.diagnostics.DiagnosticsManager {
+class StubInstrumentedDiagnosticsManager : com.poyka.ripdpi.diagnostics.DiagnosticsManager {
     override val activeScanProgress =
         MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(
             null,
@@ -213,4 +227,34 @@ class StubDiagnosticsManager : com.poyka.ripdpi.diagnostics.DiagnosticsManager {
     override suspend fun keepResolverRecommendationForSession(sessionId: String) = Unit
 
     override suspend fun saveResolverRecommendation(sessionId: String) = Unit
+}
+
+class FakeInstrumentedServiceStateStore(
+    initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,
+) : ServiceStateStore {
+    private val statusState = MutableStateFlow(initialStatus)
+    private val eventFlow = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
+    private val telemetryState = MutableStateFlow(ServiceTelemetrySnapshot())
+
+    override val status: StateFlow<Pair<AppStatus, Mode>> = statusState.asStateFlow()
+    override val events: SharedFlow<ServiceEvent> = eventFlow.asSharedFlow()
+    override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState.asStateFlow()
+
+    override fun setStatus(
+        status: AppStatus,
+        mode: Mode,
+    ) {
+        statusState.value = status to mode
+    }
+
+    override fun emitFailed(
+        sender: Sender,
+        reason: FailureReason,
+    ) {
+        eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
+    }
+
+    override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
+        telemetryState.value = snapshot
+    }
 }
