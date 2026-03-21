@@ -1,7 +1,7 @@
 use super::*;
 
-use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use crypto_box::aead::Aead;
+use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use ed25519_dalek::Signer;
 use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, TXT};
@@ -279,7 +279,60 @@ fn dot_exchange_supports_socks_transport() {
     let response = resolver.exchange_blocking(&query).expect("DoT response");
     let answers = extract_ip_answers(&response).expect("answers parse");
     assert_eq!(answers, vec![answer_ip.to_string()]);
+    drop(resolver);
     proxy_handle.join().expect("proxy thread completes");
+    server.join().expect("server thread completes");
+}
+
+#[tokio::test]
+async fn dot_exchange_reuses_pooled_tls_connection() {
+    let query = build_query("fixture.test");
+    let answer_ip = Ipv4Addr::new(198, 18, 0, 21);
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+    let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.key_pair.serialize_der()));
+    let server_config = Arc::new(
+        ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der.clone()], key_der)
+            .expect("server config"),
+    );
+    let response = build_response(&query, answer_ip);
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept");
+        serve_dot_sequence(
+            stream,
+            server_config,
+            &[query.clone(), query.clone()],
+            &[response.clone(), response.clone()],
+        );
+    });
+
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Dot,
+            resolver_id: Some("fixture".to_string()),
+            host: "fixture.test".to_string(),
+            port,
+            tls_server_name: Some("fixture.test".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        },
+        EncryptedDnsTransport::Direct,
+        DEFAULT_TIMEOUT,
+        vec![certificate_der],
+    )
+    .expect("resolver builds");
+
+    let first = resolver.exchange(&build_query("fixture.test")).await.expect("first DoT response");
+    let second = resolver.exchange(&build_query("fixture.test")).await.expect("second DoT response");
+    let expected_answers = vec![answer_ip.to_string()];
+    assert_eq!(extract_ip_answers(&first).expect("first answers parse"), expected_answers);
+    assert_eq!(extract_ip_answers(&second).expect("second answers parse"), expected_answers);
     server.join().expect("server thread completes");
 }
 
@@ -339,7 +392,39 @@ fn dnscrypt_exchange_supports_socks_transport() {
     let response = resolver.exchange_blocking(&query).expect("DNSCrypt response");
     let answers = extract_ip_answers(&response).expect("answers parse");
     assert_eq!(answers, vec![answer_ip.to_string()]);
+    drop(resolver);
     proxy_handle.join().expect("proxy thread completes");
+    handle.join().expect("server thread completes");
+}
+
+#[tokio::test]
+async fn dnscrypt_exchange_reuses_pooled_tcp_connection() {
+    let query = build_query("fixture.test");
+    let answer_ip = Ipv4Addr::new(198, 18, 0, 22);
+    let server = DnsCryptTestServer::new("resolver.test");
+    let (port, handle) = start_reusable_dnscrypt_server(server.clone(), build_response(&query, answer_ip), 2);
+
+    let resolver = EncryptedDnsResolver::new(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::DnsCrypt,
+            resolver_id: Some("fixture".to_string()),
+            host: "resolver.test".to_string(),
+            port,
+            tls_server_name: None,
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: Some(server.provider_name.clone()),
+            dnscrypt_public_key: Some(server.provider_public_key_hex.clone()),
+        },
+        EncryptedDnsTransport::Direct,
+    )
+    .expect("resolver builds");
+
+    let first = resolver.exchange(&build_query("fixture.test")).await.expect("first DNSCrypt response");
+    let second = resolver.exchange(&build_query("fixture.test")).await.expect("second DNSCrypt response");
+    let expected_answers = vec![answer_ip.to_string()];
+    assert_eq!(extract_ip_answers(&first).expect("first answers parse"), expected_answers);
+    assert_eq!(extract_ip_answers(&second).expect("second answers parse"), expected_answers);
     handle.join().expect("server thread completes");
 }
 
@@ -424,12 +509,9 @@ impl DnsCryptTestServer {
         cert_bytes.extend_from_slice(&0u16.to_be_bytes());
         cert_bytes.extend_from_slice(&signature);
         cert_bytes.extend_from_slice(&inner);
-        let certificate = parse_dnscrypt_certificate(
-            &cert_bytes,
-            &provider_public,
-            &format!("2.dnscrypt-cert.{provider_suffix}"),
-        )
-        .expect("certificate parses");
+        let certificate =
+            parse_dnscrypt_certificate(&cert_bytes, &provider_public, &format!("2.dnscrypt-cert.{provider_suffix}"))
+                .expect("certificate parses");
 
         Self {
             provider_public_key_hex: hex::encode(provider_public.as_bytes()),
@@ -466,8 +548,7 @@ fn start_dnscrypt_server(server: DnsCryptTestServer, response_packet: Vec<u8>) -
             let (mut stream, _) = listener.accept().expect("dnscrypt accept");
             let packet = read_length_prefixed_frame(&mut stream).expect("dnscrypt tcp read");
             if let Ok(message) = Message::from_vec(&packet) {
-                let is_txt_cert_query =
-                    message.query().map(|query| query.query_type() == RecordType::TXT).unwrap_or(false);
+                let is_txt_cert_query = message.query().is_some_and(|query| query.query_type() == RecordType::TXT);
                 if is_txt_cert_query {
                     let response =
                         build_dnscrypt_cert_response(&packet, &server.provider_name, &server.certificate_bytes());
@@ -481,23 +562,62 @@ fn start_dnscrypt_server(server: DnsCryptTestServer, response_packet: Vec<u8>) -
             let mut nonce = [0u8; DNSCRYPT_NONCE_SIZE];
             nonce[..DNSCRYPT_QUERY_NONCE_HALF].copy_from_slice(&packet[40..52]);
             let crypto_box = ChaChaBox::new(&CryptoPublicKey::from(client_public), &server.resolver_secret);
-            let decrypted = crypto_box.decrypt((&nonce).into(), &packet[52..]).expect("dnscrypt request decrypt");
-            let query = dnscrypt_unpad(&decrypted).expect("dnscrypt request unpad");
-            assert_eq!(query, build_query("fixture.test"));
-
-            let mut response_nonce = nonce;
-            response_nonce[DNSCRYPT_QUERY_NONCE_HALF..].fill(0x11);
-            let ciphertext = crypto_box
-                .encrypt((&response_nonce).into(), dnscrypt_pad(&response_packet).as_slice())
-                .expect("dnscrypt response encrypt");
-            let mut wrapped = Vec::with_capacity(8 + DNSCRYPT_NONCE_SIZE + ciphertext.len());
-            wrapped.extend_from_slice(&DNSCRYPT_RESPONSE_MAGIC);
-            wrapped.extend_from_slice(&response_nonce);
-            wrapped.extend_from_slice(&ciphertext);
-            write_length_prefixed_frame(&mut stream, &wrapped).expect("dnscrypt response write");
+            serve_dnscrypt_query(&packet, &server, &response_packet, &crypto_box, &nonce, &mut stream);
         }
     });
     (port, handle)
+}
+
+fn start_reusable_dnscrypt_server(
+    server: DnsCryptTestServer,
+    response_packet: Vec<u8>,
+    expected_queries: usize,
+) -> (u16, thread::JoinHandle<()>) {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("dnscrypt listener");
+    let port = listener.local_addr().expect("dnscrypt local addr").port();
+    let handle = thread::spawn(move || {
+        let (mut cert_stream, _) = listener.accept().expect("dnscrypt cert accept");
+        let cert_packet = read_length_prefixed_frame(&mut cert_stream).expect("dnscrypt cert read");
+        let cert_response = build_dnscrypt_cert_response(&cert_packet, &server.provider_name, &server.certificate_bytes());
+        write_length_prefixed_frame(&mut cert_stream, &cert_response).expect("dnscrypt cert write");
+        drop(cert_stream);
+
+        let (mut query_stream, _) = listener.accept().expect("dnscrypt query accept");
+        for _ in 0..expected_queries {
+            let packet = read_length_prefixed_frame(&mut query_stream).expect("dnscrypt pooled tcp read");
+            let mut client_public = [0u8; 32];
+            client_public.copy_from_slice(&packet[8..40]);
+            let mut nonce = [0u8; DNSCRYPT_NONCE_SIZE];
+            nonce[..DNSCRYPT_QUERY_NONCE_HALF].copy_from_slice(&packet[40..52]);
+            let crypto_box = ChaChaBox::new(&CryptoPublicKey::from(client_public), &server.resolver_secret);
+            serve_dnscrypt_query(&packet, &server, &response_packet, &crypto_box, &nonce, &mut query_stream);
+        }
+    });
+    (port, handle)
+}
+
+fn serve_dnscrypt_query(
+    packet: &[u8],
+    _server: &DnsCryptTestServer,
+    response_packet: &[u8],
+    crypto_box: &ChaChaBox,
+    nonce: &[u8; DNSCRYPT_NONCE_SIZE],
+    stream: &mut TcpStream,
+) {
+    let decrypted = crypto_box.decrypt((&nonce[..]).into(), &packet[52..]).expect("dnscrypt request decrypt");
+    let query = dnscrypt_unpad(&decrypted).expect("dnscrypt request unpad");
+    assert_eq!(query, build_query("fixture.test"));
+
+    let mut response_nonce = *nonce;
+    response_nonce[DNSCRYPT_QUERY_NONCE_HALF..].fill(0x11);
+    let ciphertext = crypto_box
+        .encrypt((&response_nonce).into(), dnscrypt_pad(response_packet).as_slice())
+        .expect("dnscrypt response encrypt");
+    let mut wrapped = Vec::with_capacity(8 + DNSCRYPT_NONCE_SIZE + ciphertext.len());
+    wrapped.extend_from_slice(&DNSCRYPT_RESPONSE_MAGIC);
+    wrapped.extend_from_slice(&response_nonce);
+    wrapped.extend_from_slice(&ciphertext);
+    write_length_prefixed_frame(stream, &wrapped).expect("dnscrypt response write");
 }
 
 fn build_dnscrypt_cert_response(query: &[u8], provider_name: &str, cert_bytes: &[u8]) -> Vec<u8> {
@@ -528,6 +648,24 @@ fn serve_dot(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[u8]
     let query = read_length_prefixed_frame(&mut tls_stream).expect("read DoT query");
     assert_eq!(query, expected_query);
     write_length_prefixed_frame(&mut tls_stream, response_body).expect("write DoT response");
+}
+
+fn serve_dot_sequence(
+    stream: TcpStream,
+    config: Arc<ServerConfig>,
+    expected_queries: &[Vec<u8>],
+    response_bodies: &[Vec<u8>],
+) {
+    let connection = ServerConnection::new(config).expect("server connection");
+    let mut tls_stream = StreamOwned::new(connection, stream);
+    while tls_stream.conn.is_handshaking() {
+        tls_stream.conn.complete_io(&mut tls_stream.sock).expect("TLS handshake completes");
+    }
+    for (expected_query, response_body) in expected_queries.iter().zip(response_bodies) {
+        let query = read_length_prefixed_frame(&mut tls_stream).expect("read DoT query");
+        assert_eq!(&query, expected_query);
+        write_length_prefixed_frame(&mut tls_stream, response_body).expect("write DoT response");
+    }
 }
 
 fn serve_https_doh(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[u8], response_body: &[u8]) {

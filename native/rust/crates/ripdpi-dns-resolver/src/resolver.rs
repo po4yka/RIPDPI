@@ -1,22 +1,76 @@
-use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use rustls::client::danger::ServerCertVerifier;
-
-use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use crypto_box::aead::Aead;
+use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use hickory_proto::op::Message;
 use hickory_proto::rr::{RData, RecordType};
 use rand::RngCore;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
+use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::{CertificateDer, ServerName};
-use rustls::{ClientConnection, StreamOwned};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::runtime::Builder;
+use tokio::sync::Mutex as AsyncMutex;
+use tokio::time::timeout;
+use tokio_rustls::client::TlsStream as TokioTlsStream;
+use tokio_rustls::TlsConnector;
 
 use crate::dnscrypt::*;
+use crate::health::HealthRegistry;
 use crate::transport::*;
 use crate::types::*;
+
+type DotTlsStream = TokioTlsStream<TokioTcpStream>;
+
+enum PooledConnection {
+    Dot(Box<DotTlsStream>),
+    DnsCrypt(TokioTcpStream),
+}
+
+impl std::fmt::Debug for PooledConnection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Dot(_) => f.write_str("PooledConnection::Dot(..)"),
+            Self::DnsCrypt(_) => f.write_str("PooledConnection::DnsCrypt(..)"),
+        }
+    }
+}
+
+#[derive(Default)]
+struct ConnectionPool {
+    idle: AsyncMutex<Option<PooledConnection>>,
+}
+
+impl ConnectionPool {
+    async fn take(&self) -> Option<PooledConnection> {
+        self.idle.lock().await.take()
+    }
+
+    async fn put(&self, connection: PooledConnection) {
+        *self.idle.lock().await = Some(connection);
+    }
+}
+
+impl std::fmt::Debug for ConnectionPool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConnectionPool").finish_non_exhaustive()
+    }
+}
+
+#[derive(Debug)]
+struct ResolverInner {
+    endpoint: EncryptedDnsEndpoint,
+    transport: EncryptedDnsTransport,
+    timeout: Duration,
+    doh_client: Option<reqwest::Client>,
+    tls_roots: Vec<CertificateDer<'static>>,
+    tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    dnscrypt_state: Mutex<Option<DnsCryptCachedCertificate>>,
+    connection_pool: ConnectionPool,
+    health: Option<HealthRegistry>,
+}
 
 #[derive(Debug, Clone)]
 pub struct EncryptedDnsResolver {
@@ -63,7 +117,14 @@ impl EncryptedDnsResolver {
     ) -> Result<Self, EncryptedDnsError> {
         let normalized = normalize_endpoint(endpoint, &transport)?;
         let doh_client = if normalized.protocol == EncryptedDnsProtocol::Doh {
-            Some(build_doh_client(&normalized, &transport, timeout, &tls_roots, health.as_ref(), tls_verifier.as_ref())?)
+            Some(build_doh_client(
+                &normalized,
+                &transport,
+                timeout,
+                &tls_roots,
+                health.as_ref(),
+                tls_verifier.as_ref(),
+            )?)
         } else {
             None
         };
@@ -77,6 +138,7 @@ impl EncryptedDnsResolver {
                 tls_roots,
                 tls_verifier,
                 dnscrypt_state: Mutex::new(None),
+                connection_pool: ConnectionPool::default(),
                 health,
             }),
         })
@@ -93,20 +155,8 @@ impl EncryptedDnsResolver {
         let started = std::time::Instant::now();
         let response_bytes = match self.inner.endpoint.protocol {
             EncryptedDnsProtocol::Doh => self.exchange_doh(query_bytes).await,
-            EncryptedDnsProtocol::Dot => {
-                let resolver = self.clone();
-                let query = query_bytes.to_vec();
-                tokio::task::spawn_blocking(move || resolver.exchange_dot_blocking(&query))
-                    .await
-                    .map_err(|err| EncryptedDnsError::TaskJoin(err.to_string()))?
-            }
-            EncryptedDnsProtocol::DnsCrypt => {
-                let resolver = self.clone();
-                let query = query_bytes.to_vec();
-                tokio::task::spawn_blocking(move || resolver.exchange_dnscrypt_blocking(&query))
-                    .await
-                    .map_err(|err| EncryptedDnsError::TaskJoin(err.to_string()))?
-            }
+            EncryptedDnsProtocol::Dot => self.exchange_dot(query_bytes).await,
+            EncryptedDnsProtocol::DnsCrypt => self.exchange_dnscrypt(query_bytes).await,
         }?;
 
         Ok(EncryptedDnsExchangeSuccess {
@@ -124,18 +174,17 @@ impl EncryptedDnsResolver {
         &self,
         query_bytes: &[u8],
     ) -> Result<EncryptedDnsExchangeSuccess, EncryptedDnsError> {
-        let started = std::time::Instant::now();
-        let response_bytes = match self.inner.endpoint.protocol {
-            EncryptedDnsProtocol::Doh => BLOCKING_RUNTIME.block_on(self.exchange_doh(query_bytes)),
-            EncryptedDnsProtocol::Dot => self.exchange_dot_blocking(query_bytes),
-            EncryptedDnsProtocol::DnsCrypt => self.exchange_dnscrypt_blocking(query_bytes),
-        }?;
+        if tokio::runtime::Handle::try_current().is_ok() {
+            return Err(EncryptedDnsError::TaskJoin(
+                "blocking encrypted DNS exchange cannot run inside a Tokio runtime".to_string(),
+            ));
+        }
 
-        Ok(EncryptedDnsExchangeSuccess {
-            response_bytes,
-            endpoint_label: self.endpoint_label(),
-            latency_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
-        })
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|err| EncryptedDnsError::TaskJoin(err.to_string()))?;
+        runtime.block_on(self.exchange_with_metadata(query_bytes))
     }
 
     pub fn exchange_blocking(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
@@ -175,21 +224,92 @@ impl EncryptedDnsResolver {
         response.bytes().await.map(|value| value.to_vec()).map_err(|err| EncryptedDnsError::Request(err.to_string()))
     }
 
-    fn exchange_dot_blocking(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
-        let stream = self.connect_plain_tcp_blocking()?;
-        let tls_name = self.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| self.inner.endpoint.host.clone());
-        let config = build_client_config(self.inner.tls_verifier.as_ref(), &self.inner.tls_roots);
-        let server_name = ServerName::try_from(tls_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
-        let connection =
-            ClientConnection::new(config, server_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
-        let mut tls_stream = StreamOwned::new(connection, stream);
-        complete_tls_handshake(&mut tls_stream)?;
-        write_length_prefixed_frame(&mut tls_stream, query_bytes)?;
-        read_length_prefixed_frame(&mut tls_stream)
+    async fn exchange_dot(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+        let (mut stream, reused) = self.take_dot_session().await?;
+        match self.exchange_dot_with_session(&mut stream, query_bytes).await {
+            Ok(response) => {
+                self.inner.connection_pool.put(PooledConnection::Dot(Box::new(stream))).await;
+                Ok(response)
+            }
+            Err(_) if reused => {
+                let mut fresh = self.connect_dot_session().await?;
+                let response = self.exchange_dot_with_session(&mut fresh, query_bytes).await?;
+                self.inner.connection_pool.put(PooledConnection::Dot(Box::new(fresh))).await;
+                Ok(response)
+            }
+            Err(err) => Err(err),
+        }
     }
 
-    fn exchange_dnscrypt_blocking(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
-        let certificate = self.current_dnscrypt_certificate()?;
+    async fn exchange_dot_with_session(
+        &self,
+        stream: &mut DotTlsStream,
+        query_bytes: &[u8],
+    ) -> Result<Vec<u8>, EncryptedDnsError> {
+        match timeout(self.inner.timeout, async {
+            write_length_prefixed_frame_async(stream, query_bytes).await?;
+            read_length_prefixed_frame_async(stream).await
+        })
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => Err(EncryptedDnsError::Request("DNS-over-TLS exchange timed out".to_string())),
+        }
+    }
+
+    async fn take_dot_session(&self) -> Result<(DotTlsStream, bool), EncryptedDnsError> {
+        match self.inner.connection_pool.take().await {
+            Some(PooledConnection::Dot(stream)) => Ok((*stream, true)),
+            Some(PooledConnection::DnsCrypt(stream)) => {
+                self.inner.connection_pool.put(PooledConnection::DnsCrypt(stream)).await;
+                self.connect_dot_session().await.map(|stream| (stream, false))
+            }
+            None => self.connect_dot_session().await.map(|stream| (stream, false)),
+        }
+    }
+
+    async fn connect_dot_session(&self) -> Result<DotTlsStream, EncryptedDnsError> {
+        let tcp_stream = self.connect_plain_tcp().await?;
+        let tls_name = self
+            .inner
+            .endpoint
+            .tls_server_name
+            .clone()
+            .unwrap_or_else(|| self.inner.endpoint.host.clone());
+        let server_name = ServerName::try_from(tls_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
+        let config = build_client_config(self.inner.tls_verifier.as_ref(), &self.inner.tls_roots);
+        let connector = TlsConnector::from(config);
+        match timeout(self.inner.timeout, connector.connect(server_name, tcp_stream)).await {
+            Ok(Ok(stream)) => Ok(stream),
+            Ok(Err(err)) => Err(EncryptedDnsError::Tls(err.to_string())),
+            Err(_) => Err(EncryptedDnsError::Tls("TLS handshake timed out".to_string())),
+        }
+    }
+
+    async fn exchange_dnscrypt(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+        let certificate = self.current_dnscrypt_certificate().await?;
+        let (mut stream, reused) = self.take_dnscrypt_session().await?;
+        match self.exchange_dnscrypt_with_session(&mut stream, &certificate, query_bytes).await {
+            Ok(response) => {
+                self.inner.connection_pool.put(PooledConnection::DnsCrypt(stream)).await;
+                Ok(response)
+            }
+            Err(_) if reused => {
+                let mut fresh = self.connect_dnscrypt_session().await?;
+                let response = self.exchange_dnscrypt_with_session(&mut fresh, &certificate, query_bytes).await?;
+                self.inner.connection_pool.put(PooledConnection::DnsCrypt(fresh)).await;
+                Ok(response)
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    async fn exchange_dnscrypt_with_session(
+        &self,
+        stream: &mut TokioTcpStream,
+        certificate: &DnsCryptCachedCertificate,
+        query_bytes: &[u8],
+    ) -> Result<Vec<u8>, EncryptedDnsError> {
         let mut client_secret = [0u8; 32];
         rand::rngs::OsRng.fill_bytes(&mut client_secret);
         let client_secret = CryptoSecretKey::from(client_secret);
@@ -211,13 +331,36 @@ impl EncryptedDnsResolver {
         wrapped_query.extend_from_slice(&full_nonce[..DNSCRYPT_QUERY_NONCE_HALF]);
         wrapped_query.extend_from_slice(&ciphertext);
 
-        let mut stream = self.connect_plain_tcp_blocking()?;
-        write_length_prefixed_frame(&mut stream, &wrapped_query)?;
-        let response = read_length_prefixed_frame(&mut stream)?;
+        let response = match timeout(self.inner.timeout, async {
+            write_length_prefixed_frame_async(stream, &wrapped_query).await?;
+            read_length_prefixed_frame_async(stream).await
+        })
+        .await
+        {
+            Ok(result) => result?,
+            Err(_) => {
+                return Err(EncryptedDnsError::Request("DNSCrypt exchange timed out".to_string()));
+            }
+        };
         decrypt_dnscrypt_response(&crypto_box, &response, &full_nonce[..DNSCRYPT_QUERY_NONCE_HALF])
     }
 
-    fn current_dnscrypt_certificate(&self) -> Result<DnsCryptCachedCertificate, EncryptedDnsError> {
+    async fn take_dnscrypt_session(&self) -> Result<(TokioTcpStream, bool), EncryptedDnsError> {
+        match self.inner.connection_pool.take().await {
+            Some(PooledConnection::DnsCrypt(stream)) => Ok((stream, true)),
+            Some(PooledConnection::Dot(stream)) => {
+                self.inner.connection_pool.put(PooledConnection::Dot(stream)).await;
+                self.connect_dnscrypt_session().await.map(|stream| (stream, false))
+            }
+            None => self.connect_dnscrypt_session().await.map(|stream| (stream, false)),
+        }
+    }
+
+    async fn connect_dnscrypt_session(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
+        self.connect_plain_tcp().await
+    }
+
+    async fn current_dnscrypt_certificate(&self) -> Result<DnsCryptCachedCertificate, EncryptedDnsError> {
         let now = unix_time_secs();
         if let Ok(guard) = self.inner.dnscrypt_state.lock() {
             if let Some(cached) = guard.clone() {
@@ -227,14 +370,14 @@ impl EncryptedDnsResolver {
             }
         }
 
-        let fetched = self.fetch_dnscrypt_certificate()?;
+        let fetched = self.fetch_dnscrypt_certificate().await?;
         if let Ok(mut guard) = self.inner.dnscrypt_state.lock() {
             *guard = Some(fetched.clone());
         }
         Ok(fetched)
     }
 
-    fn fetch_dnscrypt_certificate(&self) -> Result<DnsCryptCachedCertificate, EncryptedDnsError> {
+    async fn fetch_dnscrypt_certificate(&self) -> Result<DnsCryptCachedCertificate, EncryptedDnsError> {
         let provider_name = dnscrypt_provider_name(&self.inner.endpoint)?;
         let query_name = if provider_name.starts_with("2.dnscrypt-cert.") {
             provider_name.clone()
@@ -242,9 +385,20 @@ impl EncryptedDnsResolver {
             format!("2.dnscrypt-cert.{provider_name}")
         };
         let request = build_dns_query(&query_name, RecordType::TXT)?;
-        let mut stream = self.connect_plain_tcp_blocking()?;
-        write_length_prefixed_frame(&mut stream, &request)?;
-        let response = read_length_prefixed_frame(&mut stream)?;
+        let mut stream = self.connect_plain_tcp().await?;
+        let response = match timeout(self.inner.timeout, async {
+            write_length_prefixed_frame_async(&mut stream, &request).await?;
+            read_length_prefixed_frame_async(&mut stream).await
+        })
+        .await
+        {
+            Ok(result) => result?,
+            Err(_) => {
+                return Err(EncryptedDnsError::DnsCryptCertificate(
+                    "DNSCrypt certificate fetch timed out".to_string(),
+                ));
+            }
+        };
         let message = Message::from_vec(&response).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?;
         let verifying_key = dnscrypt_verifying_key(&self.inner.endpoint)?;
         let now = unix_time_secs();
@@ -259,10 +413,11 @@ impl EncryptedDnsResolver {
                 bytes.extend_from_slice(chunk);
             }
             let certificate = parse_dnscrypt_certificate(&bytes, &verifying_key, &provider_name)?;
-            if certificate.valid_from <= now && now <= certificate.valid_until {
-                if best.as_ref().map(|value| value.valid_until < certificate.valid_until).unwrap_or(true) {
-                    best = Some(certificate);
-                }
+            if certificate.valid_from <= now
+                && now <= certificate.valid_until
+                && best.as_ref().is_none_or(|value| value.valid_until < certificate.valid_until)
+            {
+                best = Some(certificate);
             }
         }
 
@@ -271,19 +426,14 @@ impl EncryptedDnsResolver {
         })
     }
 
-    fn connect_plain_tcp_blocking(&self) -> Result<TcpStream, EncryptedDnsError> {
-        let stream = match &self.inner.transport {
-            EncryptedDnsTransport::Direct => self.connect_direct_tcp_blocking()?,
-            EncryptedDnsTransport::Socks5 { host, port } => self.connect_socks5_tcp_blocking(host, *port)?,
-        };
-        stream.set_read_timeout(Some(self.inner.timeout)).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
-        stream
-            .set_write_timeout(Some(self.inner.timeout))
-            .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
-        Ok(stream)
+    async fn connect_plain_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
+        match &self.inner.transport {
+            EncryptedDnsTransport::Direct => self.connect_direct_tcp().await,
+            EncryptedDnsTransport::Socks5 { host, port } => self.connect_socks5_tcp(host, *port).await,
+        }
     }
 
-    fn connect_direct_tcp_blocking(&self) -> Result<TcpStream, EncryptedDnsError> {
+    async fn connect_direct_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
         let endpoint = &self.inner.endpoint;
         let ips = if let Some(health) = &self.inner.health {
             health.rank_bootstrap_ips(&endpoint.bootstrap_ips)
@@ -292,64 +442,98 @@ impl EncryptedDnsResolver {
         };
         let mut last_error = None;
         for ip in ips {
-            let address = SocketAddr::new(ip, endpoint.port);
+            let address = std::net::SocketAddr::new(ip, endpoint.port);
             let started = std::time::Instant::now();
-            match TcpStream::connect_timeout(&address, self.inner.timeout) {
-                Ok(stream) => {
+            match timeout(self.inner.timeout, TokioTcpStream::connect(address)).await {
+                Ok(Ok(stream)) => {
+                    let _ = stream.set_nodelay(true);
                     if let Some(health) = &self.inner.health {
                         let latency_ms = started.elapsed().as_millis().try_into().unwrap_or(u64::MAX);
                         health.record_bootstrap_outcome(ip, true, latency_ms);
                     }
                     return Ok(stream);
                 }
-                Err(err) => {
+                Ok(Err(err)) => {
                     if let Some(health) = &self.inner.health {
-                        let latency_ms =
-                            self.inner.timeout.as_millis().try_into().unwrap_or(u64::MAX);
+                        let latency_ms = self.inner.timeout.as_millis().try_into().unwrap_or(u64::MAX);
                         health.record_bootstrap_outcome(ip, false, latency_ms);
                     }
                     last_error = Some(err.to_string());
+                }
+                Err(_) => {
+                    if let Some(health) = &self.inner.health {
+                        let latency_ms = self.inner.timeout.as_millis().try_into().unwrap_or(u64::MAX);
+                        health.record_bootstrap_outcome(ip, false, latency_ms);
+                    }
+                    last_error = Some(format!("connect to {address} timed out"));
                 }
             }
         }
         Err(EncryptedDnsError::Request(last_error.unwrap_or_else(|| "no bootstrap addresses".to_string())))
     }
 
-    fn connect_socks5_tcp_blocking(&self, proxy_host: &str, proxy_port: u16) -> Result<TcpStream, EncryptedDnsError> {
+    async fn connect_socks5_tcp(
+        &self,
+        proxy_host: &str,
+        proxy_port: u16,
+    ) -> Result<TokioTcpStream, EncryptedDnsError> {
         let proxy_target = resolve_socket_addr(proxy_host, proxy_port)?;
-        let mut proxy_stream = TcpStream::connect_timeout(&proxy_target, self.inner.timeout)
-            .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
-        proxy_stream
-            .set_read_timeout(Some(self.inner.timeout))
-            .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
-        proxy_stream
-            .set_write_timeout(Some(self.inner.timeout))
-            .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
-
-        proxy_stream.write_all(&[0x05, 0x01, 0x00]).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
-        let mut auth_reply = [0u8; 2];
-        proxy_stream.read_exact(&mut auth_reply).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
-        if auth_reply != [0x05, 0x00] {
-            return Err(EncryptedDnsError::Socks5(format!("unexpected auth reply: {auth_reply:?}")));
-        }
+        let mut proxy_stream = match timeout(self.inner.timeout, TokioTcpStream::connect(proxy_target)).await {
+            Ok(Ok(stream)) => stream,
+            Ok(Err(err)) => return Err(EncryptedDnsError::Socks5(err.to_string())),
+            Err(_) => {
+                return Err(EncryptedDnsError::Socks5("SOCKS5 connect timed out".to_string()));
+            }
+        };
+        let _ = proxy_stream.set_nodelay(true);
 
         let host_bytes = self.inner.endpoint.host.as_bytes();
         if host_bytes.len() > u8::MAX as usize {
             return Err(EncryptedDnsError::Socks5("resolver host is too long".to_string()));
         }
 
-        let mut request = Vec::with_capacity(host_bytes.len() + 7);
-        request.extend_from_slice(&[0x05, 0x01, 0x00, 0x03, host_bytes.len() as u8]);
-        request.extend_from_slice(host_bytes);
-        request.extend_from_slice(&self.inner.endpoint.port.to_be_bytes());
-        proxy_stream.write_all(&request).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+        match timeout(self.inner.timeout, async {
+            proxy_stream
+                .write_all(&[0x05, 0x01, 0x00])
+                .await
+                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            let mut auth_reply = [0u8; 2];
+            proxy_stream
+                .read_exact(&mut auth_reply)
+                .await
+                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            if auth_reply != [0x05, 0x00] {
+                return Err(EncryptedDnsError::Socks5(format!("unexpected auth reply: {auth_reply:?}")));
+            }
 
-        let mut header = [0u8; 4];
-        proxy_stream.read_exact(&mut header).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
-        if header[1] != 0x00 {
-            return Err(EncryptedDnsError::Socks5(format!("connect reply {:x}", header[1])));
+            let mut request = Vec::with_capacity(host_bytes.len() + 7);
+            request.extend_from_slice(&[0x05, 0x01, 0x00, 0x03, host_bytes.len() as u8]);
+            request.extend_from_slice(host_bytes);
+            request.extend_from_slice(&self.inner.endpoint.port.to_be_bytes());
+            proxy_stream
+                .write_all(&request)
+                .await
+                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+
+            let mut header = [0u8; 4];
+            proxy_stream
+                .read_exact(&mut header)
+                .await
+                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            if header[1] != 0x00 {
+                return Err(EncryptedDnsError::Socks5(format!("connect reply {:x}", header[1])));
+            }
+            consume_socks5_bind_address_async(&mut proxy_stream, header[3]).await?;
+            Ok::<(), EncryptedDnsError>(())
+        })
+        .await
+        {
+            Ok(result) => result?,
+            Err(_) => {
+                return Err(EncryptedDnsError::Socks5("SOCKS5 handshake timed out".to_string()));
+            }
         }
-        consume_socks5_bind_address(&mut proxy_stream, header[3])?;
+
         Ok(proxy_stream)
     }
 }

@@ -19,6 +19,7 @@ reqwest = { workspace = true }
 rustls = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-rustls = { workspace = true }
 url = { workspace = true }
 webpki-roots = { workspace = true }
 
