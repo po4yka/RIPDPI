@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,7 +19,7 @@ interface DiagnosticsArchiveExporter {
 class DefaultDiagnosticsArchiveExporter
     @Inject
     constructor(
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val artifactWriteStore: DiagnosticsArtifactWriteStore,
         private val sourceLoader: DiagnosticsArchiveSourceLoader,
         private val sessionSelector: DiagnosticsArchiveSessionSelector,
         private val renderer: DiagnosticsArchiveRenderer,
@@ -50,7 +50,7 @@ class DefaultDiagnosticsArchiveExporter
                 )
             val target = fileStore.createTarget()
             zipWriter.write(target.file, renderer.render(target, selection))
-            historyRepository.insertExportRecord(
+            artifactWriteStore.insertExportRecord(
                 ExportRecordEntity(
                     id = idGenerator.nextId(),
                     sessionId = primarySession?.id,

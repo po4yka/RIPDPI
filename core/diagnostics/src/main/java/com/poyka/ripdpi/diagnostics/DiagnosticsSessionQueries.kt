@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -12,24 +14,25 @@ import java.util.Locale
 internal object DiagnosticsSessionQueries {
     suspend fun loadSessionDetail(
         sessionId: String,
-        historyRepository: DiagnosticsHistoryRepository,
+        scanRecordStore: DiagnosticsScanRecordStore,
+        artifactReadStore: DiagnosticsArtifactReadStore,
     ): DiagnosticSessionDetail =
         withContext(Dispatchers.IO) {
             val session =
                 requireNotNull(
-                    historyRepository.getScanSession(sessionId),
+                    scanRecordStore.getScanSession(sessionId),
                 ) { "Unknown diagnostics session: $sessionId" }
-            val results = historyRepository.getProbeResults(sessionId)
+            val results = scanRecordStore.getProbeResults(sessionId)
             val snapshots =
-                historyRepository.observeSnapshots(limit = 200).first().filter { it.sessionId == sessionId }
+                artifactReadStore.observeSnapshots(limit = 200).first().filter { it.sessionId == sessionId }
             val latestContext =
-                historyRepository
+                artifactReadStore
                     .observeContexts(limit = 200)
                     .first()
                     .filter { it.sessionId == sessionId }
                     .maxByOrNull { it.capturedAt }
             val events =
-                historyRepository.observeNativeEvents(limit = 500).first().filter { it.sessionId == sessionId }
+                artifactReadStore.observeNativeEvents(limit = 500).first().filter { it.sessionId == sessionId }
             DiagnosticSessionDetail(
                 session = session,
                 results = results,
@@ -42,12 +45,13 @@ internal object DiagnosticsSessionQueries {
     suspend fun loadApproachDetail(
         kind: BypassApproachKind,
         id: String,
-        historyRepository: DiagnosticsHistoryRepository,
+        scanRecordStore: DiagnosticsScanRecordStore,
+        bypassUsageHistoryStore: BypassUsageHistoryStore,
         json: Json,
     ): BypassApproachDetail =
         withContext(Dispatchers.IO) {
-            val sessions = historyRepository.observeRecentScanSessions(limit = 200).first()
-            val usageSessions = historyRepository.observeBypassUsageSessions(limit = 200).first()
+            val sessions = scanRecordStore.observeRecentScanSessions(limit = 200).first()
+            val usageSessions = bypassUsageHistoryStore.observeBypassUsageSessions(limit = 200).first()
             val summary =
                 buildApproachSummaries(scanSessions = sessions, usageSessions = usageSessions, json = json)
                     .firstOrNull { it.approachId.kind == kind && it.approachId.value == id }

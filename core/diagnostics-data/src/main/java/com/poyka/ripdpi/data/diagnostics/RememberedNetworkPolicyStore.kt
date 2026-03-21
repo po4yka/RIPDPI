@@ -26,36 +26,35 @@ interface RememberedNetworkPolicyStore {
     suspend fun findValidatedMatch(
         fingerprintHash: String,
         mode: Mode,
-        now: Long = System.currentTimeMillis(),
     ): RememberedNetworkPolicyEntity?
 
     suspend fun upsertObservedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: String = RememberedNetworkPolicySourceManualSession,
-        now: Long = System.currentTimeMillis(),
+        now: Long? = null,
     ): RememberedNetworkPolicyEntity
 
     suspend fun rememberValidatedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: String,
-        now: Long = System.currentTimeMillis(),
+        now: Long? = null,
     ): RememberedNetworkPolicyEntity
 
     suspend fun recordApplied(
         policy: RememberedNetworkPolicyEntity,
-        appliedAt: Long = System.currentTimeMillis(),
+        appliedAt: Long? = null,
     ): RememberedNetworkPolicyEntity
 
     suspend fun recordSuccess(
         policy: RememberedNetworkPolicyEntity,
         validated: Boolean = false,
         strategySignatureJson: String? = null,
-        completedAt: Long = System.currentTimeMillis(),
+        completedAt: Long? = null,
     ): RememberedNetworkPolicyEntity
 
     suspend fun recordFailure(
         policy: RememberedNetworkPolicyEntity,
-        failedAt: Long = System.currentTimeMillis(),
+        failedAt: Long? = null,
         allowSuppression: Boolean = true,
     ): RememberedNetworkPolicyEntity
 
@@ -66,7 +65,8 @@ interface RememberedNetworkPolicyStore {
 class DefaultRememberedNetworkPolicyStore
     @Inject
     constructor(
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val recordStore: RememberedNetworkPolicyRecordStore,
+        private val clock: DiagnosticsHistoryClock,
     ) : RememberedNetworkPolicyStore {
         private val json =
             Json {
@@ -76,27 +76,25 @@ class DefaultRememberedNetworkPolicyStore
             }
 
         override fun observePolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
-            historyRepository.observeRememberedNetworkPolicies(limit)
+            recordStore.observeRememberedNetworkPolicies(limit)
 
         override suspend fun findValidatedMatch(
             fingerprintHash: String,
             mode: Mode,
-            now: Long,
         ): RememberedNetworkPolicyEntity? =
-            historyRepository.findValidatedRememberedNetworkPolicy(
+            recordStore.findValidatedRememberedNetworkPolicy(
                 fingerprintHash = fingerprintHash,
                 mode = mode.preferenceValue,
-                now = now,
             )
 
         override suspend fun upsertObservedPolicy(
             policy: RememberedNetworkPolicyJson,
             source: String,
-            now: Long,
+            now: Long?,
         ): RememberedNetworkPolicyEntity =
             upsertInternal(
                 existing =
-                    historyRepository.getRememberedNetworkPolicy(
+                    recordStore.getRememberedNetworkPolicy(
                         fingerprintHash = policy.fingerprintHash,
                         mode = policy.mode,
                     ),
@@ -104,39 +102,44 @@ class DefaultRememberedNetworkPolicyStore
                 source = source,
                 status = RememberedNetworkPolicyStatusObserved,
                 validatedAt = null,
-                now = now,
+                now = now ?: clock.now(),
             )
 
         override suspend fun rememberValidatedPolicy(
             policy: RememberedNetworkPolicyJson,
             source: String,
-            now: Long,
-        ): RememberedNetworkPolicyEntity =
-            upsertInternal(
+            now: Long?,
+        ): RememberedNetworkPolicyEntity {
+            val effectiveNow = now ?: clock.now()
+            return upsertInternal(
                 existing =
-                    historyRepository.getRememberedNetworkPolicy(
+                recordStore.getRememberedNetworkPolicy(
                         fingerprintHash = policy.fingerprintHash,
                         mode = policy.mode,
                     ),
                 policy = policy,
                 source = source,
                 status = RememberedNetworkPolicyStatusValidated,
-                validatedAt = now,
-                now = now,
+                validatedAt = effectiveNow,
+                now = effectiveNow,
             )
+        }
 
         override suspend fun recordApplied(
             policy: RememberedNetworkPolicyEntity,
-            appliedAt: Long,
+            appliedAt: Long?,
         ): RememberedNetworkPolicyEntity =
-            persist(policy.copy(lastAppliedAt = appliedAt, updatedAt = appliedAt))
+            (appliedAt ?: clock.now()).let { effectiveAppliedAt ->
+                persist(policy.copy(lastAppliedAt = effectiveAppliedAt, updatedAt = effectiveAppliedAt))
+            }
 
         override suspend fun recordSuccess(
             policy: RememberedNetworkPolicyEntity,
             validated: Boolean,
             strategySignatureJson: String?,
-            completedAt: Long,
+            completedAt: Long?,
         ): RememberedNetworkPolicyEntity {
+            val effectiveCompletedAt = completedAt ?: clock.now()
             val shouldValidate = validated || policy.status == RememberedNetworkPolicyStatusValidated
             return persist(
                 policy.copy(
@@ -145,17 +148,18 @@ class DefaultRememberedNetworkPolicyStore
                     successCount = policy.successCount + 1,
                     consecutiveFailureCount = 0,
                     suppressedUntil = null,
-                    lastValidatedAt = if (shouldValidate) completedAt else policy.lastValidatedAt,
-                    updatedAt = completedAt,
+                    lastValidatedAt = if (shouldValidate) effectiveCompletedAt else policy.lastValidatedAt,
+                    updatedAt = effectiveCompletedAt,
                 ),
             )
         }
 
         override suspend fun recordFailure(
             policy: RememberedNetworkPolicyEntity,
-            failedAt: Long,
+            failedAt: Long?,
             allowSuppression: Boolean,
         ): RememberedNetworkPolicyEntity {
+            val effectiveFailedAt = failedAt ?: clock.now()
             val nextConsecutiveFailures = policy.consecutiveFailureCount + 1
             val shouldSuppress =
                 allowSuppression &&
@@ -168,17 +172,17 @@ class DefaultRememberedNetworkPolicyStore
                     consecutiveFailureCount = nextConsecutiveFailures,
                     suppressedUntil =
                         if (shouldSuppress) {
-                            failedAt + RememberedNetworkPolicySuppressionDurationMs
+                            effectiveFailedAt + RememberedNetworkPolicySuppressionDurationMs
                         } else {
                             policy.suppressedUntil
                         },
-                    updatedAt = failedAt,
+                    updatedAt = effectiveFailedAt,
                 ),
             )
         }
 
         override suspend fun clearAll() {
-            historyRepository.clearRememberedNetworkPolicies()
+            recordStore.clearRememberedNetworkPolicies()
         }
 
         private suspend fun upsertInternal(
@@ -245,8 +249,8 @@ class DefaultRememberedNetworkPolicyStore
         }
 
         private suspend fun persist(policy: RememberedNetworkPolicyEntity): RememberedNetworkPolicyEntity {
-            val id = historyRepository.upsertRememberedNetworkPolicy(policy)
-            historyRepository.pruneRememberedNetworkPolicies()
+            val id = recordStore.upsertRememberedNetworkPolicy(policy)
+            recordStore.pruneRememberedNetworkPolicies()
             return policy.copy(id = if (policy.id > 0L) policy.id else id)
         }
 

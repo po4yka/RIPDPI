@@ -2,7 +2,10 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
@@ -22,19 +25,22 @@ import javax.inject.Singleton
 class DefaultDiagnosticsTimelineSource
     @Inject
     constructor(
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val profileCatalog: DiagnosticsProfileCatalog,
+        private val scanRecordStore: DiagnosticsScanRecordStore,
+        private val artifactReadStore: DiagnosticsArtifactReadStore,
+        private val bypassUsageHistoryStore: BypassUsageHistoryStore,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) : DiagnosticsTimelineSource {
         private val activeProgressState = MutableStateFlow<ScanProgress?>(null)
 
         override val activeScanProgress: StateFlow<ScanProgress?> = activeProgressState.asStateFlow()
-        override val profiles: Flow<List<DiagnosticProfileEntity>> = historyRepository.observeProfiles()
-        override val sessions: Flow<List<ScanSessionEntity>> = historyRepository.observeRecentScanSessions()
+        override val profiles: Flow<List<DiagnosticProfileEntity>> = profileCatalog.observeProfiles()
+        override val sessions: Flow<List<ScanSessionEntity>> = scanRecordStore.observeRecentScanSessions()
         override val approachStats: Flow<List<BypassApproachSummary>> =
             combine(
-                historyRepository.observeRecentScanSessions(limit = 200),
-                historyRepository.observeBypassUsageSessions(limit = 200),
+                scanRecordStore.observeRecentScanSessions(limit = 200),
+                bypassUsageHistoryStore.observeBypassUsageSessions(limit = 200),
             ) { scanSessions, usageSessions ->
                 DiagnosticsSessionQueries.buildApproachSummaries(
                     scanSessions = scanSessions,
@@ -42,11 +48,11 @@ class DefaultDiagnosticsTimelineSource
                     json = json,
                 )
             }
-        override val snapshots: Flow<List<NetworkSnapshotEntity>> = historyRepository.observeSnapshots()
-        override val contexts: Flow<List<DiagnosticContextEntity>> = historyRepository.observeContexts()
-        override val telemetry: Flow<List<TelemetrySampleEntity>> = historyRepository.observeTelemetry()
-        override val nativeEvents: Flow<List<NativeSessionEventEntity>> = historyRepository.observeNativeEvents()
-        override val exports: Flow<List<ExportRecordEntity>> = historyRepository.observeExportRecords()
+        override val snapshots: Flow<List<NetworkSnapshotEntity>> = artifactReadStore.observeSnapshots()
+        override val contexts: Flow<List<DiagnosticContextEntity>> = artifactReadStore.observeContexts()
+        override val telemetry: Flow<List<TelemetrySampleEntity>> = artifactReadStore.observeTelemetry()
+        override val nativeEvents: Flow<List<NativeSessionEventEntity>> = artifactReadStore.observeNativeEvents()
+        override val exports: Flow<List<ExportRecordEntity>> = artifactReadStore.observeExportRecords()
 
         internal fun updateActiveScanProgress(progress: ScanProgress?) {
             activeProgressState.value = progress

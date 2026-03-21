@@ -91,36 +91,35 @@ private class EmptyRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
     override suspend fun findValidatedMatch(
         fingerprintHash: String,
         mode: Mode,
-        now: Long,
     ): RememberedNetworkPolicyEntity? = null
 
     override suspend fun upsertObservedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: String,
-        now: Long,
+        now: Long?,
     ): RememberedNetworkPolicyEntity = error("EmptyRememberedNetworkPolicyStore does not support persistence")
 
     override suspend fun rememberValidatedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: String,
-        now: Long,
+        now: Long?,
     ): RememberedNetworkPolicyEntity = error("EmptyRememberedNetworkPolicyStore does not support persistence")
 
     override suspend fun recordApplied(
         policy: RememberedNetworkPolicyEntity,
-        appliedAt: Long,
+        appliedAt: Long?,
     ): RememberedNetworkPolicyEntity = policy
 
     override suspend fun recordSuccess(
         policy: RememberedNetworkPolicyEntity,
         validated: Boolean,
         strategySignatureJson: String?,
-        completedAt: Long,
+        completedAt: Long?,
     ): RememberedNetworkPolicyEntity = policy
 
     override suspend fun recordFailure(
         policy: RememberedNetworkPolicyEntity,
-        failedAt: Long,
+        failedAt: Long?,
         allowSuppression: Boolean,
     ): RememberedNetworkPolicyEntity = policy
 

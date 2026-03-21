@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -15,22 +16,23 @@ import kotlinx.serialization.json.Json
 internal object DiagnosticsShareSummaryBuilder {
     suspend fun build(
         sessionId: String?,
-        historyRepository: DiagnosticsHistoryRepository,
+        scanRecordStore: DiagnosticsScanRecordStore,
+        artifactReadStore: DiagnosticsArtifactReadStore,
         json: Json,
     ): ShareSummary {
         val selectedSession =
             sessionId
-                ?.let { id -> historyRepository.getScanSession(id) }
-                ?: historyRepository.observeRecentScanSessions(limit = 1).first().firstOrNull()
+                ?.let { id -> scanRecordStore.getScanSession(id) }
+                ?: scanRecordStore.observeRecentScanSessions(limit = 1).first().firstOrNull()
         val selectedResults =
-            selectedSession?.id?.let { id -> historyRepository.getProbeResults(id) }.orEmpty()
+            selectedSession?.id?.let { id -> scanRecordStore.getProbeResults(id) }.orEmpty()
         val latestSnapshot =
             selectedSession
                 ?.id
                 ?.let { id ->
-                    historyRepository.observeSnapshots(limit = 200).first().firstOrNull { it.sessionId == id }
+                    artifactReadStore.observeSnapshots(limit = 200).first().firstOrNull { it.sessionId == id }
                 }
-                ?: historyRepository.observeSnapshots(limit = 1).first().firstOrNull()
+                ?: artifactReadStore.observeSnapshots(limit = 1).first().firstOrNull()
         val latestSnapshotModel =
             latestSnapshot
                 ?.payloadJson
@@ -41,18 +43,18 @@ internal object DiagnosticsShareSummaryBuilder {
             selectedSession
                 ?.id
                 ?.let { id ->
-                    historyRepository.observeContexts(limit = 200).first().firstOrNull { it.sessionId == id }
+                    artifactReadStore.observeContexts(limit = 200).first().firstOrNull { it.sessionId == id }
                 }
-                ?: historyRepository.observeContexts(limit = 1).first().firstOrNull()
+                ?: artifactReadStore.observeContexts(limit = 1).first().firstOrNull()
         val latestContextModel =
             latestContext
                 ?.payloadJson
                 ?.let { payload ->
                     runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), payload) }.getOrNull()
                 }
-        val latestTelemetry = historyRepository.observeTelemetry(limit = 1).first().firstOrNull()
+        val latestTelemetry = artifactReadStore.observeTelemetry(limit = 1).first().firstOrNull()
         val latestWarnings =
-            historyRepository.observeNativeEvents(limit = 50).first().filter {
+            artifactReadStore.observeNativeEvents(limit = 50).first().filter {
                 it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
             }
         val title =

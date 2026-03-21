@@ -15,21 +15,18 @@ import androidx.core.service.quicksettings.TileServiceCompat
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.services.ServiceController
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class QuickTileService : TileService() {
+class QuickTileService :
+    TileService(),
+    QuickTileHost {
     @Inject
     lateinit var appSettingsRepository: AppSettingsRepository
 
@@ -40,39 +37,28 @@ class QuickTileService : TileService() {
     lateinit var serviceStateStore: ServiceStateStore
 
     private var scope: CoroutineScope? = null
+    private val controller by lazy {
+        QuickTileController(
+            appSettingsRepository = appSettingsRepository,
+            serviceController = serviceController,
+            serviceStateStore = serviceStateStore,
+        )
+    }
 
     override fun onStartListening() {
+        scope?.cancel()
         val newScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         scope = newScope
-        updateStatus()
-
-        newScope.launch {
-            serviceStateStore.status.collect { updateStatus() }
-        }
-
-        newScope.launch {
-            serviceStateStore.events.collect { event ->
-                when (event) {
-                    is ServiceEvent.Failed -> {
-                        Toast
-                            .makeText(
-                                this@QuickTileService,
-                                getString(R.string.failed_to_start, event.sender.senderName),
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        updateStatus()
-                    }
-                }
-            }
-        }
+        controller.onStartListening(host = this, scope = newScope)
     }
 
     override fun onStopListening() {
+        controller.onStopListening()
         scope?.cancel()
         scope = null
     }
 
-    private fun launchActivity() {
+    override fun launchStartResolution() {
         TileServiceCompat.startActivityAndCollapse(
             this,
             PendingIntentActivityWrapper(
@@ -90,59 +76,39 @@ class QuickTileService : TileService() {
     }
 
     override fun onClick() {
-        if (qsTile.state == Tile.STATE_UNAVAILABLE) {
-            return
+        unlockAndRun {
+            controller.onClick(this)
         }
-
-        unlockAndRun(this::handleClick)
     }
 
-    private fun setState(newState: Int) {
+    override fun renderTileState(state: QuickTileVisualState) {
+        val tileState =
+            when (state) {
+                QuickTileVisualState.Active -> Tile.STATE_ACTIVE
+                QuickTileVisualState.Inactive -> Tile.STATE_INACTIVE
+                QuickTileVisualState.Unavailable -> Tile.STATE_UNAVAILABLE
+            }
         qsTile.apply {
-            state = newState
+            this.state = tileState
             updateTile()
         }
     }
 
-    private fun updateStatus() {
-        val (status) = serviceStateStore.status.value
-        setState(if (status == AppStatus.Halted) Tile.STATE_INACTIVE else Tile.STATE_ACTIVE)
+    override fun showStartFailure(senderName: String) {
+        Toast
+            .makeText(
+                this,
+                getString(R.string.failed_to_start, senderName),
+                Toast.LENGTH_SHORT,
+            ).show()
     }
 
-    private fun handleClick() {
-        setState(Tile.STATE_ACTIVE)
-        setState(Tile.STATE_UNAVAILABLE)
-
-        val (status) = serviceStateStore.status.value
-        when (status) {
-            AppStatus.Halted -> {
-                scope?.launch {
-                    val settings = appSettingsRepository.snapshot()
-                    val mode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
-
-                    if (needsPermissionResolution(mode)) {
-                        updateStatus()
-                        launchActivity()
-                        return@launch
-                    }
-
-                    serviceController.start(mode)
-                }
-            }
-
-            AppStatus.Running -> {
-                serviceController.stop()
-            }
-        }
-    }
-
-    private fun needsPermissionResolution(mode: Mode): Boolean =
-        needsNotificationsPermission() || (mode == Mode.VPN && VpnService.prepare(this) != null)
-
-    private fun needsNotificationsPermission(): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+    override fun notificationsPermissionGranted(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.POST_NOTIFICATIONS,
-            ) != PackageManager.PERMISSION_GRANTED
+            ) == PackageManager.PERMISSION_GRANTED
+
+    override fun vpnPermissionRequired(): Boolean = VpnService.prepare(this) != null
 }

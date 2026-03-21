@@ -1,7 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -12,7 +13,8 @@ import java.util.UUID
 internal object DiagnosticsReportPersister {
     suspend fun persistScanReport(
         report: ScanReport,
-        historyRepository: DiagnosticsHistoryRepository,
+        scanRecordStore: DiagnosticsScanRecordStore,
+        artifactWriteStore: DiagnosticsArtifactWriteStore,
         serviceStateStore: ServiceStateStore,
         json: Json,
     ) {
@@ -20,8 +22,8 @@ internal object DiagnosticsReportPersister {
             report.copy(
                 results = report.results.map { result -> result.withDerivedProbeRetryCount() },
             )
-        val existing = historyRepository.getScanSession(report.sessionId)
-        historyRepository.upsertScanSession(
+        val existing = scanRecordStore.getScanSession(report.sessionId)
+        scanRecordStore.upsertScanSession(
             ScanSessionEntity(
                 id = normalizedReport.sessionId,
                 profileId = normalizedReport.profileId,
@@ -39,7 +41,7 @@ internal object DiagnosticsReportPersister {
                 finishedAt = normalizedReport.finishedAt,
             ),
         )
-        historyRepository.replaceProbeResults(
+        scanRecordStore.replaceProbeResults(
             normalizedReport.sessionId,
             normalizedReport.results.map { result ->
                 ProbeResultEntity(
@@ -53,16 +55,16 @@ internal object DiagnosticsReportPersister {
                 )
             },
         )
-        bridgeEventsToHistory(normalizedReport, historyRepository)
+        bridgeEventsToHistory(normalizedReport, artifactWriteStore)
     }
 
     suspend fun persistScanFailure(
         sessionId: String,
         summary: String,
-        historyRepository: DiagnosticsHistoryRepository,
+        scanRecordStore: DiagnosticsScanRecordStore,
     ) {
-        val existing = historyRepository.getScanSession(sessionId) ?: return
-        historyRepository.upsertScanSession(
+        val existing = scanRecordStore.getScanSession(sessionId) ?: return
+        scanRecordStore.upsertScanSession(
             existing.copy(
                 status = "failed",
                 summary = summary,
@@ -74,7 +76,7 @@ internal object DiagnosticsReportPersister {
     suspend fun persistNativeEvents(
         sessionId: String,
         payload: String?,
-        historyRepository: DiagnosticsHistoryRepository,
+        artifactWriteStore: DiagnosticsArtifactWriteStore,
         json: Json,
     ) {
         val events =
@@ -83,7 +85,7 @@ internal object DiagnosticsReportPersister {
                 ?.let { json.decodeFromString(ListSerializer(NativeSessionEvent.serializer()), it) }
                 .orEmpty()
         events.forEach { event ->
-            historyRepository.insertNativeSessionEvent(
+            artifactWriteStore.insertNativeSessionEvent(
                 NativeSessionEventEntity(
                     id = UUID.randomUUID().toString(),
                     sessionId = sessionId,
@@ -98,11 +100,11 @@ internal object DiagnosticsReportPersister {
 
     suspend fun persistServiceNativeEvents(
         serviceTelemetry: com.poyka.ripdpi.data.ServiceTelemetrySnapshot,
-        historyRepository: DiagnosticsHistoryRepository,
+        artifactWriteStore: DiagnosticsArtifactWriteStore,
     ) {
         (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
             .forEach { event ->
-                historyRepository.insertNativeSessionEvent(
+                artifactWriteStore.insertNativeSessionEvent(
                     NativeSessionEventEntity(
                         id = UUID.randomUUID().toString(),
                         sessionId = null,
@@ -117,10 +119,10 @@ internal object DiagnosticsReportPersister {
 
     private suspend fun bridgeEventsToHistory(
         report: ScanReport,
-        historyRepository: DiagnosticsHistoryRepository,
+        artifactWriteStore: DiagnosticsArtifactWriteStore,
     ) {
         report.results.forEach { result ->
-            historyRepository.insertNativeSessionEvent(
+            artifactWriteStore.insertNativeSessionEvent(
                 NativeSessionEventEntity(
                     id = UUID.randomUUID().toString(),
                     sessionId = report.sessionId,

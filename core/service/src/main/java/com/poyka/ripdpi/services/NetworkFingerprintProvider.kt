@@ -22,12 +22,48 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
+internal enum class CapturedTransport {
+    Wifi,
+    Cellular,
+    Ethernet,
+    Vpn,
+}
+
+internal data class CapturedWifiIdentity(
+    val ssid: String? = null,
+    val bssid: String? = null,
+    val gatewayIpv4: Int? = null,
+)
+
+internal data class CapturedCellularIdentity(
+    val networkOperator: String? = null,
+    val simOperator: String? = null,
+    val carrierId: Int? = null,
+    val dataNetworkType: Int = 0,
+    val roaming: Boolean? = null,
+)
+
+internal data class CapturedNetworkSnapshot(
+    val transports: Set<CapturedTransport>? = null,
+    val networkValidated: Boolean = false,
+    val captivePortalDetected: Boolean = false,
+    val privateDnsServerName: String? = null,
+    val dnsServers: List<String> = emptyList(),
+    val wifi: CapturedWifiIdentity? = null,
+    val cellular: CapturedCellularIdentity? = null,
+    val metered: Boolean = false,
+)
+
+internal interface AndroidNetworkSnapshotSource {
+    fun capture(): CapturedNetworkSnapshot?
+}
+
 @Singleton
-class AndroidNetworkFingerprintProvider
+internal class DefaultAndroidNetworkSnapshotSource
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
-    ) : NetworkFingerprintProvider {
+    ) : AndroidNetworkSnapshotSource {
         private val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         private val wifiManager =
@@ -35,75 +71,145 @@ class AndroidNetworkFingerprintProvider
         private val telephonyManager =
             context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
 
-        override fun capture(): NetworkFingerprint? {
+        override fun capture(): CapturedNetworkSnapshot? {
             val network = connectivityManager.activeNetwork ?: return null
             val capabilities = connectivityManager.getNetworkCapabilities(network)
             val linkProperties = connectivityManager.getLinkProperties(network)
-            return NetworkFingerprint(
-                transport = resolveTransport(capabilities),
+            val transports = capabilities?.let(::captureTransports)
+            return CapturedNetworkSnapshot(
+                transports = transports,
                 networkValidated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
                 captivePortalDetected =
                     capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true,
-                privateDnsMode = resolvePrivateDnsMode(linkProperties),
-                dnsServers =
-                    linkProperties
-                        ?.dnsServers
-                        .orEmpty()
-                        .mapNotNull { it.hostAddress?.trim() }
-                        .sorted(),
-                wifi = resolveWifiIdentity(capabilities),
-                cellular = resolveCellularIdentity(capabilities),
+                privateDnsServerName = linkProperties?.privateDnsServerName,
+                dnsServers = captureDnsServers(linkProperties),
+                wifi = captureWifiIdentity(transports, capabilities),
+                cellular = captureCellularIdentity(transports),
                 metered = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == false,
             )
         }
 
-        private fun resolveTransport(capabilities: NetworkCapabilities?): String =
-            when {
-                capabilities == null -> "unknown"
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
-                else -> "other"
+        private fun captureTransports(capabilities: NetworkCapabilities): Set<CapturedTransport> =
+            buildSet {
+                if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    add(CapturedTransport.Wifi)
+                }
+                if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                    add(CapturedTransport.Cellular)
+                }
+                if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                    add(CapturedTransport.Ethernet)
+                }
+                if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+                    add(CapturedTransport.Vpn)
+                }
             }
 
-        private fun resolvePrivateDnsMode(linkProperties: LinkProperties?): String =
-            linkProperties?.privateDnsServerName?.trim()?.takeIf { it.isNotEmpty() } ?: "system"
+        private fun captureDnsServers(linkProperties: LinkProperties?): List<String> =
+            linkProperties
+                ?.dnsServers
+                .orEmpty()
+                .mapNotNull { it.hostAddress?.trim()?.takeIf(String::isNotEmpty) }
+                .sorted()
 
-        private fun resolveWifiIdentity(capabilities: NetworkCapabilities?): WifiNetworkIdentityTuple? {
-            if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
+        private fun captureWifiIdentity(
+            transports: Set<CapturedTransport>?,
+            capabilities: NetworkCapabilities?,
+        ): CapturedWifiIdentity? {
+            if (transports?.contains(CapturedTransport.Wifi) != true) {
                 return null
             }
             val wifiInfo =
                 when {
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> capabilities.transportInfo as? WifiInfo
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> capabilities?.transportInfo as? WifiInfo
                     else -> null
                 } ?: wifiManager?.connectionInfo
-            val dhcpInfo = wifiManager?.dhcpInfo
+            val gateway = wifiManager?.dhcpInfo?.gateway?.takeIf { it != 0 }
+            return CapturedWifiIdentity(
+                ssid = wifiInfo?.ssid,
+                bssid = wifiInfo?.bssid,
+                gatewayIpv4 = gateway,
+            )
+        }
+
+        private fun captureCellularIdentity(transports: Set<CapturedTransport>?): CapturedCellularIdentity? {
+            if (transports?.contains(CapturedTransport.Cellular) != true) {
+                return null
+            }
+            val telephony = telephonyManager ?: return CapturedCellularIdentity()
+            return CapturedCellularIdentity(
+                networkOperator = telephony.networkOperator,
+                simOperator = telephony.simOperator,
+                carrierId = invokeInt(telephony, "getCarrierId")?.takeIf { it >= 0 },
+                dataNetworkType = telephony.dataNetworkType,
+                roaming = runCatching { telephony.isNetworkRoaming }.getOrNull(),
+            )
+        }
+
+        private fun invokeInt(
+            target: Any,
+            methodName: String,
+        ): Int? = runCatching { target.javaClass.getMethod(methodName).invoke(target) as Int }.getOrNull()
+    }
+
+internal class NetworkFingerprintMapper
+    @Inject
+    constructor() {
+        fun map(snapshot: CapturedNetworkSnapshot): NetworkFingerprint =
+            NetworkFingerprint(
+                transport = resolveTransport(snapshot.transports),
+                networkValidated = snapshot.networkValidated,
+                captivePortalDetected = snapshot.captivePortalDetected,
+                privateDnsMode = resolvePrivateDnsMode(snapshot.privateDnsServerName),
+                dnsServers =
+                    snapshot.dnsServers
+                        .mapNotNull { it.trim().takeIf(String::isNotEmpty) }
+                        .sorted(),
+                wifi = resolveWifiIdentity(snapshot),
+                cellular = resolveCellularIdentity(snapshot),
+                metered = snapshot.metered,
+            )
+
+        private fun resolveTransport(transports: Set<CapturedTransport>?): String =
+            when {
+                transports == null -> "unknown"
+                transports.contains(CapturedTransport.Wifi) -> "wifi"
+                transports.contains(CapturedTransport.Cellular) -> "cellular"
+                transports.contains(CapturedTransport.Ethernet) -> "ethernet"
+                transports.contains(CapturedTransport.Vpn) -> "vpn"
+                else -> "other"
+            }
+
+        private fun resolvePrivateDnsMode(privateDnsServerName: String?): String =
+            privateDnsServerName?.trim()?.takeIf { it.isNotEmpty() } ?: "system"
+
+        private fun resolveWifiIdentity(snapshot: CapturedNetworkSnapshot): WifiNetworkIdentityTuple? {
+            if (snapshot.transports?.contains(CapturedTransport.Wifi) != true) {
+                return null
+            }
             return WifiNetworkIdentityTuple(
-                ssid = sanitizeWifiValue(wifiInfo?.ssid),
-                bssid = sanitizeWifiValue(wifiInfo?.bssid),
+                ssid = sanitizeWifiValue(snapshot.wifi?.ssid),
+                bssid = sanitizeWifiValue(snapshot.wifi?.bssid),
                 gateway =
-                    dhcpInfo
-                        ?.gateway
-                        ?.takeIf { it != 0 }
+                    snapshot.wifi
+                        ?.gatewayIpv4
                         ?.let(::intToIpv4Address)
                         ?.lowercase(Locale.US)
                         ?: "unknown",
             )
         }
 
-        private fun resolveCellularIdentity(capabilities: NetworkCapabilities?): CellularNetworkIdentityTuple? {
-            if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) != true) {
+        private fun resolveCellularIdentity(snapshot: CapturedNetworkSnapshot): CellularNetworkIdentityTuple? {
+            if (snapshot.transports?.contains(CapturedTransport.Cellular) != true) {
                 return null
             }
-            val telephony = telephonyManager ?: return CellularNetworkIdentityTuple()
+            val cellular = snapshot.cellular ?: return CellularNetworkIdentityTuple()
             return CellularNetworkIdentityTuple(
-                operatorCode = sanitizeTelephonyValue(telephony.networkOperator),
-                simOperatorCode = sanitizeTelephonyValue(telephony.simOperator),
-                carrierId = invokeInt(telephony, "getCarrierId")?.takeIf { it >= 0 },
-                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),
-                roaming = runCatching { telephony.isNetworkRoaming }.getOrNull(),
+                operatorCode = sanitizeTelephonyValue(cellular.networkOperator),
+                simOperatorCode = sanitizeTelephonyValue(cellular.simOperator),
+                carrierId = cellular.carrierId?.takeIf { it >= 0 },
+                dataNetworkType = describeMobileNetworkType(cellular.dataNetworkType),
+                roaming = cellular.roaming,
             )
         }
 
@@ -119,11 +225,6 @@ class AndroidNetworkFingerprintProvider
 
         private fun sanitizeTelephonyValue(value: String?): String =
             value?.trim()?.takeIf { it.isNotBlank() }?.lowercase(Locale.US) ?: "unknown"
-
-        private fun invokeInt(
-            target: Any,
-            methodName: String,
-        ): Int? = runCatching { target.javaClass.getMethod(methodName).invoke(target) as Int }.getOrNull()
 
         private fun describeMobileNetworkType(type: Int): String =
             when (type) {
@@ -162,12 +263,28 @@ class AndroidNetworkFingerprintProvider
                 .orEmpty()
     }
 
+@Singleton
+internal class AndroidNetworkFingerprintProvider
+    @Inject
+    constructor(
+        private val snapshotSource: AndroidNetworkSnapshotSource,
+        private val mapper: NetworkFingerprintMapper,
+    ) : NetworkFingerprintProvider {
+        override fun capture(): NetworkFingerprint? = snapshotSource.capture()?.let(mapper::map)
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class NetworkFingerprintProviderModule {
+internal abstract class NetworkFingerprintBindingsModule {
     @Binds
     @Singleton
-    abstract fun bindNetworkFingerprintProvider(
+    internal abstract fun bindNetworkSnapshotSource(
+        source: DefaultAndroidNetworkSnapshotSource,
+    ): AndroidNetworkSnapshotSource
+
+    @Binds
+    @Singleton
+    internal abstract fun bindNetworkFingerprintProvider(
         provider: AndroidNetworkFingerprintProvider,
     ): NetworkFingerprintProvider
 }

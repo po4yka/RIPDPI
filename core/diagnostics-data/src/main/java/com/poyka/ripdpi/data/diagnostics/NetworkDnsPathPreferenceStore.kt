@@ -18,7 +18,7 @@ interface NetworkDnsPathPreferenceStore {
     suspend fun rememberPreferredPath(
         fingerprint: NetworkFingerprint,
         path: EncryptedDnsPathCandidate,
-        updatedAt: Long = System.currentTimeMillis(),
+        updatedAt: Long? = null,
     ): NetworkDnsPathPreferenceEntity
 }
 
@@ -26,7 +26,8 @@ interface NetworkDnsPathPreferenceStore {
 class DefaultNetworkDnsPathPreferenceStore
     @Inject
     constructor(
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val recordStore: NetworkDnsPathPreferenceRecordStore,
+        private val clock: DiagnosticsHistoryClock,
     ) : NetworkDnsPathPreferenceStore {
         private val json =
             Json {
@@ -36,27 +37,28 @@ class DefaultNetworkDnsPathPreferenceStore
             }
 
         override suspend fun getPreferredPath(fingerprintHash: String): EncryptedDnsPathCandidate? =
-            historyRepository
+            recordStore
                 .getNetworkDnsPathPreference(fingerprintHash)
                 ?.decodePath(json)
 
         override suspend fun rememberPreferredPath(
             fingerprint: NetworkFingerprint,
             path: EncryptedDnsPathCandidate,
-            updatedAt: Long,
+            updatedAt: Long?,
         ): NetworkDnsPathPreferenceEntity {
             val fingerprintHash = fingerprint.scopeKey()
-            val existing = historyRepository.getNetworkDnsPathPreference(fingerprintHash)
+            val existing = recordStore.getNetworkDnsPathPreference(fingerprintHash)
+            val effectiveUpdatedAt = updatedAt ?: clock.now()
             val persisted =
                 NetworkDnsPathPreferenceEntity(
                     id = existing?.id ?: 0L,
                     fingerprintHash = fingerprintHash,
                     summaryJson = json.encodeToString(NetworkFingerprintSummary.serializer(), fingerprint.summary()),
                     pathJson = json.encodeToString(EncryptedDnsPathCandidate.serializer(), path),
-                    updatedAt = updatedAt,
+                    updatedAt = effectiveUpdatedAt,
                 )
-            val id = historyRepository.upsertNetworkDnsPathPreference(persisted)
-            historyRepository.pruneNetworkDnsPathPreferences()
+            val id = recordStore.upsertNetworkDnsPathPreference(persisted)
+            recordStore.pruneNetworkDnsPathPreferences()
             return persisted.copy(id = if (persisted.id > 0L) persisted.id else id)
         }
     }

@@ -1,13 +1,20 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.activities.SettingsEffect
-import com.poyka.ripdpi.activities.SettingsNoticeTone
+import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeAdaptive
 import com.poyka.ripdpi.activities.DesyncCoreUiState
+import com.poyka.ripdpi.activities.FakeTransportUiState
+import com.poyka.ripdpi.activities.SettingsEffect
+import com.poyka.ripdpi.activities.SettingsMutation
+import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultSplitMarker
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AdvancedSettingsRouteBinderTest {
@@ -94,5 +101,142 @@ class AdvancedSettingsRouteBinderTest {
         val uiState = SettingsUiState(desync = DesyncCoreUiState(splitMarker = "auto(balanced)"))
 
         assertEquals(DefaultSplitMarker, manualSplitMarkerFallback(uiState))
+    }
+
+    @Test
+    fun `binder toggles diagnostics monitor`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+
+        binder.onToggleChanged(AdvancedToggleSetting.DiagnosticsMonitorEnabled, enabled = false)
+
+        val update = recorder.singleUpdate()
+        assertEquals("diagnosticsMonitorEnabled", update.key)
+        assertEquals("false", update.value)
+        assertFalse(update.settings.diagnosticsMonitorEnabled)
+    }
+
+    @Test
+    fun `binder ignores invalid numeric text input`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+
+        binder.onTextConfirmed(
+            setting = AdvancedTextSetting.ProxyPort,
+            value = "abc",
+            uiState = SettingsUiState(),
+        )
+
+        assertTrue(recorder.updates.isEmpty())
+    }
+
+    @Test
+    fun `binder clears custom ttl when default ttl input is blank`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+
+        binder.onTextConfirmed(
+            setting = AdvancedTextSetting.DefaultTtl,
+            value = "",
+            uiState = SettingsUiState(),
+        )
+
+        val update = recorder.singleUpdate()
+        assertEquals("defaultTtl", update.key)
+        assertFalse(update.settings.customTtl)
+        assertEquals(0, update.settings.defaultTtl)
+    }
+
+    @Test
+    fun `binder normalizes quic fake host input`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+
+        binder.onTextConfirmed(
+            setting = AdvancedTextSetting.QuicFakeHost,
+            value = " Video.Example.Test ",
+            uiState = SettingsUiState(),
+        )
+
+        val update = recorder.singleUpdate()
+        assertEquals("quicFakeHost", update.key)
+        assertEquals("video.example.test", update.value)
+        assertEquals("video.example.test", update.settings.quicFakeHost)
+    }
+
+    @Test
+    fun `binder switches adaptive fake ttl mode to adaptive using current bounds`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+        val uiState =
+            SettingsUiState(
+                fake =
+                    FakeTransportUiState(
+                        fakeTtl = 17,
+                        adaptiveFakeTtlMin = 4,
+                        adaptiveFakeTtlMax = 19,
+                    ),
+            )
+
+        binder.onOptionSelected(
+            setting = AdvancedOptionSetting.AdaptiveFakeTtlMode,
+            value = AdaptiveFakeTtlModeAdaptive,
+            uiState = uiState,
+        )
+
+        val update = recorder.singleUpdate()
+        assertEquals("adaptiveFakeTtlEnabled", update.key)
+        assertTrue(update.settings.adaptiveFakeTtlEnabled)
+        assertEquals(-1, update.settings.adaptiveFakeTtlDelta)
+        assertEquals(4, update.settings.adaptiveFakeTtlMin)
+        assertEquals(19, update.settings.adaptiveFakeTtlMax)
+        assertEquals(17, update.settings.adaptiveFakeTtlFallback)
+    }
+
+    @Test
+    fun `binder saves normalized activation window range`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+
+        binder.onSaveActivationRange(
+            dimension = ActivationWindowDimension.Round,
+            start = 10L,
+            end = 5L,
+            uiState = SettingsUiState(),
+        )
+
+        val update = recorder.singleUpdate()
+        assertEquals("groupActivationFilter.round", update.key)
+        assertTrue(update.settings.hasGroupActivationFilter())
+        assertEquals(5L, update.settings.groupActivationFilter.round.start)
+        assertEquals(10L, update.settings.groupActivationFilter.round.end)
+    }
+
+    private class RecordingSettingsMutations {
+        data class RecordedUpdate(
+            val key: String,
+            val value: String,
+            val settings: AppSettings,
+        )
+
+        val updates = mutableListOf<RecordedUpdate>()
+
+        fun updateSetting(
+            key: String,
+            value: String,
+            transform: SettingsMutation,
+        ) {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .apply(transform)
+                    .build()
+            updates += RecordedUpdate(key = key, value = value, settings = settings)
+        }
+
+        fun singleUpdate(): RecordedUpdate {
+            assertEquals(1, updates.size)
+            return updates.single()
+        }
     }
 }
