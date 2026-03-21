@@ -1399,6 +1399,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
+    use std::net::{SocketAddr, TcpListener, TcpStream, UdpSocket};
+    use std::sync::Mutex;
+
+    static FIXTURE_STACK_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn fixture_config_reads_env_override() {
@@ -1429,5 +1434,153 @@ mod tests {
         assert_eq!(manifest.control_url_for_host("10.0.2.2"), "http://10.0.2.2:7");
         let json = serde_json::to_string(&manifest).expect("serialize manifest");
         assert!(json.contains("fixture.test"));
+    }
+
+    #[test]
+    fn fault_controller_consumes_one_shot_and_keeps_persistent_faults() {
+        let controller = FaultController::new();
+        controller.set(FixtureFaultSpec {
+            target: FixtureFaultTarget::TcpEcho,
+            outcome: FixtureFaultOutcome::TcpReset,
+            scope: FixtureFaultScope::OneShot,
+            delay_ms: None,
+        });
+        controller.set(FixtureFaultSpec {
+            target: FixtureFaultTarget::TcpEcho,
+            outcome: FixtureFaultOutcome::TcpTruncate,
+            scope: FixtureFaultScope::Persistent,
+            delay_ms: Some(5),
+        });
+
+        let oneshot = controller
+            .take_matching(FixtureFaultTarget::TcpEcho, |outcome| matches!(outcome, FixtureFaultOutcome::TcpReset))
+            .expect("one-shot fault");
+        assert_eq!(oneshot.scope, FixtureFaultScope::OneShot);
+        assert!(controller
+            .take_matching(FixtureFaultTarget::TcpEcho, |outcome| matches!(outcome, FixtureFaultOutcome::TcpReset))
+            .is_none());
+
+        let persistent_first = controller
+            .take_matching(FixtureFaultTarget::TcpEcho, |outcome| matches!(outcome, FixtureFaultOutcome::TcpTruncate))
+            .expect("persistent fault");
+        let persistent_second = controller
+            .take_matching(FixtureFaultTarget::TcpEcho, |outcome| matches!(outcome, FixtureFaultOutcome::TcpTruncate))
+            .expect("persistent fault remains");
+
+        assert_eq!(persistent_first.scope, FixtureFaultScope::Persistent);
+        assert_eq!(persistent_second.delay_ms, Some(5));
+    }
+
+    #[test]
+    fn event_log_records_snapshots_and_clears() {
+        let log = EventLog::new();
+        log.record(FixtureEvent {
+            service: "control".to_string(),
+            protocol: "http".to_string(),
+            peer: "127.0.0.1:1".to_string(),
+            target: "127.0.0.1:2".to_string(),
+            detail: "manifest".to_string(),
+            bytes: 42,
+            sni: None,
+            created_at: 1,
+        });
+        log.record(FixtureEvent {
+            service: "tcp_echo".to_string(),
+            protocol: "tcp".to_string(),
+            peer: "127.0.0.1:3".to_string(),
+            target: "127.0.0.1:4".to_string(),
+            detail: "echo".to_string(),
+            bytes: 7,
+            sni: Some("fixture.test".to_string()),
+            created_at: 2,
+        });
+
+        let snapshot = log.snapshot();
+        assert_eq!(snapshot.len(), 2);
+        assert_eq!(snapshot[0].detail, "manifest");
+        assert_eq!(snapshot[1].sni.as_deref(), Some("fixture.test"));
+
+        log.clear();
+        assert!(log.snapshot().is_empty());
+    }
+
+    #[test]
+    fn map_target_rewrites_fixture_domain_to_loopback() {
+        let config = FixtureConfig::default();
+        let mapped = map_target(SocksTarget::Domain(config.fixture_domain.clone(), 443), &config).expect("map target");
+
+        match mapped {
+            SocksTarget::Socket(address) => {
+                assert_eq!(address, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
+            }
+            SocksTarget::Domain(_, _) => panic!("fixture domain should map to a loopback socket target"),
+        }
+    }
+
+    #[test]
+    fn map_socket_addr_rewrites_fixture_ipv4_to_loopback() {
+        let config = FixtureConfig::default();
+        let fixture_addr = SocketAddr::new(config.fixture_ipv4.parse().expect("fixture ip"), 8443);
+        let regular_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)), 8443);
+
+        assert_eq!(map_socket_addr(fixture_addr, &config), SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8443),);
+        assert_eq!(map_socket_addr(regular_addr, &config), regular_addr);
+    }
+
+    #[test]
+    fn fixture_stack_control_routes_expose_manifest_and_events_on_dynamic_ports() {
+        let _serial = FIXTURE_STACK_TEST_MUTEX.lock().expect("lock fixture stack tests");
+        let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture stack");
+
+        let manifest_body = http_body(
+            &stack.manifest().bind_host,
+            stack.manifest().control_port,
+            "GET /manifest HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n",
+        );
+        let manifest: FixtureManifest = serde_json::from_str(&manifest_body).expect("decode manifest");
+        assert_eq!(manifest.control_port, stack.manifest().control_port);
+        assert_eq!(manifest.tcp_echo_port, stack.manifest().tcp_echo_port);
+        assert_eq!(manifest.fixture_domain, stack.manifest().fixture_domain);
+
+        let events_body = http_body(
+            &stack.manifest().bind_host,
+            stack.manifest().control_port,
+            "GET /events HTTP/1.1\r\nHost: fixture.test\r\nConnection: close\r\n\r\n",
+        );
+        let events: Vec<FixtureEvent> = serde_json::from_str(&events_body).expect("decode events");
+        assert!(events.iter().any(|event| event.service == "control" && event.detail == "manifest"));
+        assert!(events.iter().any(|event| event.service == "control" && event.detail == "events"));
+    }
+
+    fn dynamic_fixture_config() -> FixtureConfig {
+        let tcp_echo = TcpListener::bind((DEFAULT_BIND_HOST, 0)).expect("reserve tcp echo port");
+        let tls_echo = TcpListener::bind((DEFAULT_BIND_HOST, 0)).expect("reserve tls echo port");
+        let dns_http = TcpListener::bind((DEFAULT_BIND_HOST, 0)).expect("reserve dns http port");
+        let socks5 = TcpListener::bind((DEFAULT_BIND_HOST, 0)).expect("reserve socks5 port");
+        let control = TcpListener::bind((DEFAULT_BIND_HOST, 0)).expect("reserve control port");
+        let udp_echo = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("reserve udp echo port");
+        let dns_udp = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("reserve dns udp port");
+
+        let mut config = FixtureConfig::default();
+        config.tcp_echo_port = tcp_echo.local_addr().expect("tcp echo addr").port();
+        config.udp_echo_port = udp_echo.local_addr().expect("udp echo addr").port();
+        config.tls_echo_port = tls_echo.local_addr().expect("tls echo addr").port();
+        config.dns_udp_port = dns_udp.local_addr().expect("dns udp addr").port();
+        config.dns_http_port = dns_http.local_addr().expect("dns http addr").port();
+        config.socks5_port = socks5.local_addr().expect("socks5 addr").port();
+        config.control_port = control.local_addr().expect("control addr").port();
+
+        drop((tcp_echo, tls_echo, dns_http, socks5, control, udp_echo, dns_udp));
+        config
+    }
+
+    fn http_body(host: &str, port: u16, request: &str) -> String {
+        let mut stream = TcpStream::connect((host, port)).expect("connect control endpoint");
+        stream.write_all(request.as_bytes()).expect("write http request");
+        stream.flush().expect("flush http request");
+
+        let mut response = String::new();
+        stream.read_to_string(&mut response).expect("read http response");
+        response.split_once("\r\n\r\n").map(|(_, body)| body.to_string()).expect("split response body")
     }
 }
