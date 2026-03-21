@@ -390,7 +390,17 @@ fn network_snapshot_round_trips_wifi_snapshot() {
         private_dns_mode: "system".to_string(),
         dns_servers: vec!["8.8.8.8".to_string(), "8.8.4.4".to_string()],
         cellular: None,
-        wifi: Some(WifiSnapshot { frequency_band: "5ghz".to_string(), ssid_hash: "abc123def456".to_string() }),
+        wifi: Some(WifiSnapshot {
+            frequency_band: "5ghz".to_string(),
+            ssid_hash: "abc123def456".to_string(),
+            frequency_mhz: Some(5180),
+            rssi_dbm: Some(-58),
+            link_speed_mbps: Some(866),
+            rx_link_speed_mbps: Some(780),
+            tx_link_speed_mbps: Some(720),
+            channel_width: "80 MHz".to_string(),
+            wifi_standard: "802.11ax".to_string(),
+        }),
         mtu: Some(1500),
         traffic_tx_bytes: 1_234_567,
         traffic_rx_bytes: 9_876_543,
@@ -414,6 +424,11 @@ fn network_snapshot_round_trips_cellular_snapshot() {
             generation: "4g".to_string(),
             roaming: false,
             operator_code: "25001".to_string(),
+            data_network_type: "LTE".to_string(),
+            service_state: "in_service".to_string(),
+            carrier_id: Some(42),
+            signal_level: Some(4),
+            signal_dbm: Some(-95),
         }),
         wifi: None,
         mtu: Some(1420),
@@ -448,6 +463,20 @@ fn network_snapshot_uses_camel_case_keys() {
         metered: true,
         captive_portal: true,
         private_dns_mode: "dns.example.com".to_string(),
+        cellular: Some(CellularSnapshot {
+            data_network_type: "NR".to_string(),
+            service_state: "in_service".to_string(),
+            carrier_id: Some(7),
+            signal_level: Some(4),
+            signal_dbm: Some(-93),
+            ..CellularSnapshot::default()
+        }),
+        wifi: Some(WifiSnapshot {
+            frequency_mhz: Some(5955),
+            channel_width: "80 MHz".to_string(),
+            wifi_standard: "802.11be".to_string(),
+            ..WifiSnapshot::default()
+        }),
         mtu: Some(1280),
         ..NetworkSnapshot::default()
     };
@@ -455,4 +484,8 @@ fn network_snapshot_uses_camel_case_keys() {
     assert!(json.contains("\"captivePortal\""), "expected camelCase key in: {json}");
     assert!(json.contains("\"mtu\""), "expected mtu key in: {json}");
     assert!(json.contains("\"privateDnsMode\""), "expected camelCase key in: {json}");
+    assert!(json.contains("\"dataNetworkType\""), "expected dataNetworkType key in: {json}");
+    assert!(json.contains("\"signalLevel\""), "expected signalLevel key in: {json}");
+    assert!(json.contains("\"frequencyMhz\""), "expected frequencyMhz key in: {json}");
+    assert!(json.contains("\"wifiStandard\""), "expected wifiStandard key in: {json}");
 }

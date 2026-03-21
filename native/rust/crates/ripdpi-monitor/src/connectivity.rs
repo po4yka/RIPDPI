@@ -24,8 +24,7 @@ pub(crate) fn run_connectivity_scan(
     let started_at = now_ms();
     let telegram_steps = if request.telegram_target.is_some() { 1 } else { 0 };
     let total_steps =
-        (request.dns_targets.len() + request.domain_targets.len() + request.tcp_targets.len() + telegram_steps)
-            .max(1);
+        (request.dns_targets.len() + request.domain_targets.len() + request.tcp_targets.len() + telegram_steps).max(1);
     let transport = transport_for_request(&request);
     let mut completed_steps = 0usize;
     let mut results = Vec::new();
@@ -208,12 +207,7 @@ pub(crate) fn run_connectivity_scan(
             },
         );
         let probe = run_telegram_probe(telegram_target, &transport);
-        push_event(
-            &shared,
-            "telegram",
-            event_level_for_outcome(&probe.outcome),
-            summarize_probe_event(&probe),
-        );
+        push_event(&shared, "telegram", event_level_for_outcome(&probe.outcome), summarize_probe_event(&probe));
         let probe_target = probe.target.clone();
         let probe_outcome = probe.outcome.clone();
         results.push(probe);
@@ -361,14 +355,8 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
                     .clone()
                     .unwrap_or_else(|| format!("{}:{}", encrypted_endpoint.host, encrypted_endpoint.port)),
             },
-            ProbeDetail {
-                key: "encryptedHost".to_string(),
-                value: encrypted_endpoint.host.clone(),
-            },
-            ProbeDetail {
-                key: "encryptedPort".to_string(),
-                value: encrypted_endpoint.port.to_string(),
-            },
+            ProbeDetail { key: "encryptedHost".to_string(), value: encrypted_endpoint.host.clone() },
+            ProbeDetail { key: "encryptedPort".to_string(), value: encrypted_endpoint.port.to_string() },
             ProbeDetail {
                 key: "encryptedTlsServerName".to_string(),
                 value: encrypted_endpoint.tls_server_name.clone().unwrap_or_default(),
@@ -413,10 +401,24 @@ pub(crate) fn run_domain_probe(
     let http_port = target.http_port.unwrap_or(80);
     let connect_target = domain_connect_target(target);
     let resolved = resolve_addresses(&connect_target, https_port);
-    let tls13 =
-        try_tls_handshake(&connect_target, https_port, transport, &target.host, true, TlsClientProfile::Tls13Only, tls_verifier);
-    let tls12 =
-        try_tls_handshake(&connect_target, https_port, transport, &target.host, true, TlsClientProfile::Tls12Only, tls_verifier);
+    let tls13 = try_tls_handshake(
+        &connect_target,
+        https_port,
+        transport,
+        &target.host,
+        true,
+        TlsClientProfile::Tls13Only,
+        tls_verifier,
+    );
+    let tls12 = try_tls_handshake(
+        &connect_target,
+        https_port,
+        transport,
+        &target.host,
+        true,
+        TlsClientProfile::Tls12Only,
+        tls_verifier,
+    );
     let http = try_http_request(&connect_target, http_port, transport, &target.host, &target.http_path, false);
     let tls_signal = classify_tls_signal(&tls13, &tls12);
     let preferred_tls = preferred_tls_observation(&tls13, &tls12);
@@ -588,9 +590,37 @@ pub(crate) fn build_network_environment_probe(
     if let Some(ref cell) = snap.cellular {
         details.push(ProbeDetail { key: "cellularGeneration".to_string(), value: cell.generation.clone() });
         details.push(ProbeDetail { key: "cellularRoaming".to_string(), value: cell.roaming.to_string() });
+        push_network_detail(&mut details, "cellularDataNetworkType", &cell.data_network_type);
+        push_network_detail(&mut details, "cellularServiceState", &cell.service_state);
+        if let Some(carrier_id) = cell.carrier_id {
+            details.push(ProbeDetail { key: "cellularCarrierId".to_string(), value: carrier_id.to_string() });
+        }
+        if let Some(signal_level) = cell.signal_level {
+            details.push(ProbeDetail { key: "cellularSignalLevel".to_string(), value: signal_level.to_string() });
+        }
+        if let Some(signal_dbm) = cell.signal_dbm {
+            details.push(ProbeDetail { key: "cellularSignalDbm".to_string(), value: signal_dbm.to_string() });
+        }
     }
     if let Some(ref wifi) = snap.wifi {
         details.push(ProbeDetail { key: "wifiFrequencyBand".to_string(), value: wifi.frequency_band.clone() });
+        if let Some(frequency_mhz) = wifi.frequency_mhz {
+            details.push(ProbeDetail { key: "wifiFrequencyMhz".to_string(), value: frequency_mhz.to_string() });
+        }
+        if let Some(rssi_dbm) = wifi.rssi_dbm {
+            details.push(ProbeDetail { key: "wifiRssiDbm".to_string(), value: rssi_dbm.to_string() });
+        }
+        if let Some(link_speed_mbps) = wifi.link_speed_mbps {
+            details.push(ProbeDetail { key: "wifiLinkSpeedMbps".to_string(), value: link_speed_mbps.to_string() });
+        }
+        if let Some(rx_link_speed_mbps) = wifi.rx_link_speed_mbps {
+            details.push(ProbeDetail { key: "wifiRxLinkSpeedMbps".to_string(), value: rx_link_speed_mbps.to_string() });
+        }
+        if let Some(tx_link_speed_mbps) = wifi.tx_link_speed_mbps {
+            details.push(ProbeDetail { key: "wifiTxLinkSpeedMbps".to_string(), value: tx_link_speed_mbps.to_string() });
+        }
+        push_network_detail(&mut details, "wifiChannelWidth", &wifi.channel_width);
+        push_network_detail(&mut details, "wifiStandard", &wifi.wifi_standard);
     }
     Some(ProbeResult {
         probe_type: "network_environment".to_string(),
@@ -598,6 +628,12 @@ pub(crate) fn build_network_environment_probe(
         outcome: outcome.to_string(),
         details,
     })
+}
+
+fn push_network_detail(details: &mut Vec<ProbeDetail>, key: &str, value: &str) {
+    if !value.is_empty() && value != "unknown" {
+        details.push(ProbeDetail { key: key.to_string(), value: value.to_string() });
+    }
 }
 
 pub(crate) fn set_progress(shared: &Arc<Mutex<SharedState>>, progress: ScanProgress) {
@@ -621,4 +657,77 @@ pub(crate) fn push_event(shared: &Arc<Mutex<SharedState>>, source: &str, level: 
         message,
         created_at: now_ms(),
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ripdpi_proxy_config::{CellularSnapshot, NetworkSnapshot, WifiSnapshot};
+
+    #[test]
+    fn network_environment_probe_includes_extended_wifi_and_cellular_fields() {
+        let snapshot = NetworkSnapshot {
+            transport: "wifi".to_string(),
+            validated: true,
+            captive_portal: false,
+            metered: false,
+            private_dns_mode: "system".to_string(),
+            dns_servers: vec!["1.1.1.1".to_string()],
+            cellular: Some(CellularSnapshot {
+                generation: "5g".to_string(),
+                roaming: true,
+                operator_code: "25001".to_string(),
+                data_network_type: "NR".to_string(),
+                service_state: "in_service".to_string(),
+                carrier_id: Some(42),
+                signal_level: Some(4),
+                signal_dbm: Some(-95),
+            }),
+            wifi: Some(WifiSnapshot {
+                frequency_band: "5ghz".to_string(),
+                ssid_hash: "cafebabe".to_string(),
+                frequency_mhz: Some(5180),
+                rssi_dbm: Some(-58),
+                link_speed_mbps: Some(866),
+                rx_link_speed_mbps: Some(780),
+                tx_link_speed_mbps: Some(720),
+                channel_width: "80 MHz".to_string(),
+                wifi_standard: "802.11ax".to_string(),
+            }),
+            mtu: Some(1500),
+            traffic_tx_bytes: 10,
+            traffic_rx_bytes: 20,
+            captured_at_ms: 1_700_000_000_000,
+        };
+
+        let probe = build_network_environment_probe(Some(&snapshot)).expect("probe");
+
+        assert_eq!(probe_detail_value(&probe, "wifiFrequencyMhz"), "5180");
+        assert_eq!(probe_detail_value(&probe, "wifiRssiDbm"), "-58");
+        assert_eq!(probe_detail_value(&probe, "wifiLinkSpeedMbps"), "866");
+        assert_eq!(probe_detail_value(&probe, "wifiRxLinkSpeedMbps"), "780");
+        assert_eq!(probe_detail_value(&probe, "wifiTxLinkSpeedMbps"), "720");
+        assert_eq!(probe_detail_value(&probe, "wifiChannelWidth"), "80 MHz");
+        assert_eq!(probe_detail_value(&probe, "wifiStandard"), "802.11ax");
+        assert_eq!(probe_detail_value(&probe, "cellularDataNetworkType"), "NR");
+        assert_eq!(probe_detail_value(&probe, "cellularServiceState"), "in_service");
+        assert_eq!(probe_detail_value(&probe, "cellularCarrierId"), "42");
+        assert_eq!(probe_detail_value(&probe, "cellularSignalLevel"), "4");
+        assert_eq!(probe_detail_value(&probe, "cellularSignalDbm"), "-95");
+    }
+
+    #[test]
+    fn network_environment_probe_keeps_old_snapshots_valid() {
+        let snapshot = NetworkSnapshot {
+            transport: "wifi".to_string(),
+            wifi: Some(WifiSnapshot { frequency_band: "5ghz".to_string(), ..WifiSnapshot::default() }),
+            ..NetworkSnapshot::default()
+        };
+
+        let probe = build_network_environment_probe(Some(&snapshot)).expect("probe");
+
+        assert_eq!(probe_detail_value(&probe, "wifiFrequencyBand"), "5ghz");
+        assert_eq!(probe_detail_value(&probe, "wifiChannelWidth"), "unknown");
+        assert_eq!(probe_detail_value(&probe, "cellularSignalDbm"), "unknown");
+    }
 }

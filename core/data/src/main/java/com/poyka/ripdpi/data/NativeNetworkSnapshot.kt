@@ -43,6 +43,16 @@ data class NativeCellularSnapshot(
     val roaming: Boolean = false,
     /** MCC+MNC of the serving network operator */
     val operatorCode: String = "",
+    /** Diagnostics-style mobile network type: "LTE", "NR", "IWLAN", "unknown", etc. */
+    val dataNetworkType: String = "unknown",
+    /** ServiceState.state normalized to "in_service", "out_of_service", etc. */
+    val serviceState: String = "unknown",
+    /** Carrier ID when the platform reports a non-negative value */
+    val carrierId: Int? = null,
+    /** SignalStrength.level */
+    val signalLevel: Int? = null,
+    /** First reported cell signal strength dBm */
+    val signalDbm: Int? = null,
 )
 
 /** Wi-Fi network details, populated when transport is "wifi". */
@@ -52,4 +62,18 @@ data class NativeWifiSnapshot(
     val frequencyBand: String = "unknown",
     /** SHA-256 hex of the sanitized SSID (privacy-preserving; never raw SSID) */
     val ssidHash: String = "",
+    /** Wi-Fi frequency in MHz when the platform reports a positive value */
+    val frequencyMhz: Int? = null,
+    /** RSSI in dBm when the platform reports a sane value */
+    val rssiDbm: Int? = null,
+    /** Wi-Fi link speed in Mbps when the platform reports a positive value */
+    val linkSpeedMbps: Int? = null,
+    /** Wi-Fi RX link speed in Mbps when available */
+    val rxLinkSpeedMbps: Int? = null,
+    /** Wi-Fi TX link speed in Mbps when available */
+    val txLinkSpeedMbps: Int? = null,
+    /** Diagnostics-style channel width label: "20 MHz", "80 MHz", "unknown", etc. */
+    val channelWidth: String = "unknown",
+    /** Diagnostics-style standard label: "802.11ax", "legacy", "unknown", etc. */
+    val wifiStandard: String = "unknown",
 )

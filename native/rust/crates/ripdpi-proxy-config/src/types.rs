@@ -1,4 +1,4 @@
-use ciadpi_config::{HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS, RuntimeConfig};
+use ciadpi_config::{RuntimeConfig, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS};
 use serde::{Deserialize, Serialize};
 
 pub(crate) const HOSTS_DISABLE: &str = "disable";
@@ -282,6 +282,21 @@ pub struct CellularSnapshot {
     /// MCC+MNC of the serving network operator
     #[serde(default)]
     pub operator_code: String,
+    /// Diagnostics-style mobile network type: "LTE", "NR", "IWLAN", "unknown", etc.
+    #[serde(default)]
+    pub data_network_type: String,
+    /// ServiceState.state normalized to "in_service", "out_of_service", etc.
+    #[serde(default)]
+    pub service_state: String,
+    /// Carrier ID when the platform reports a non-negative value
+    #[serde(default)]
+    pub carrier_id: Option<i32>,
+    /// SignalStrength.level
+    #[serde(default)]
+    pub signal_level: Option<i32>,
+    /// First reported cell signal strength dBm
+    #[serde(default)]
+    pub signal_dbm: Option<i32>,
 }
 
 /// Wi-Fi network details, populated when transport is "wifi".
@@ -294,6 +309,27 @@ pub struct WifiSnapshot {
     /// SHA-256 hex of the sanitized SSID (privacy-preserving; never raw SSID)
     #[serde(default)]
     pub ssid_hash: String,
+    /// Wi-Fi frequency in MHz when the platform reports a positive value
+    #[serde(default)]
+    pub frequency_mhz: Option<i32>,
+    /// RSSI in dBm when the platform reports a sane value
+    #[serde(default)]
+    pub rssi_dbm: Option<i32>,
+    /// Wi-Fi link speed in Mbps when the platform reports a positive value
+    #[serde(default)]
+    pub link_speed_mbps: Option<i32>,
+    /// Wi-Fi RX link speed in Mbps when available
+    #[serde(default)]
+    pub rx_link_speed_mbps: Option<i32>,
+    /// Wi-Fi TX link speed in Mbps when available
+    #[serde(default)]
+    pub tx_link_speed_mbps: Option<i32>,
+    /// Diagnostics-style channel width label: "20 MHz", "80 MHz", "unknown", etc.
+    #[serde(default)]
+    pub channel_width: String,
+    /// Diagnostics-style standard label: "802.11ax", "legacy", "unknown", etc.
+    #[serde(default)]
+    pub wifi_standard: String,
 }
 
 fn default_true() -> bool {
