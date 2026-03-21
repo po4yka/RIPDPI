@@ -88,10 +88,8 @@ pub(crate) fn decrypt_dnscrypt_response(
 }
 
 pub(crate) fn dnscrypt_pad(payload: &[u8]) -> Vec<u8> {
-    let mut padded = Vec::with_capacity(
-        ((payload.len() + 1 + DNSCRYPT_PADDING_BLOCK_SIZE - 1) / DNSCRYPT_PADDING_BLOCK_SIZE)
-            * DNSCRYPT_PADDING_BLOCK_SIZE,
-    );
+    let target_len = (payload.len() + 1).div_ceil(DNSCRYPT_PADDING_BLOCK_SIZE) * DNSCRYPT_PADDING_BLOCK_SIZE;
+    let mut padded = Vec::with_capacity(target_len);
     padded.extend_from_slice(payload);
     padded.push(0x80);
     while padded.len() % DNSCRYPT_PADDING_BLOCK_SIZE != 0 {

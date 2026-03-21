@@ -184,7 +184,7 @@ mod tests {
     // A fake clock that advances by one half-life (1 second) per call, keeping each
     // EWMA update in a fresh time window (alpha ≈ 0.632 per observation).
     thread_local! {
-        static FAKE_CLOCK_MILLIS: Cell<u64> = Cell::new(0);
+        static FAKE_CLOCK_MILLIS: Cell<u64> = const { Cell::new(0) };
     }
     fn advancing_fake_clock() -> Instant {
         FAKE_CLOCK_MILLIS.with(|c| {
@@ -203,11 +203,7 @@ mod tests {
             reg.record_endpoint_outcome("ep", true, 10);
         }
         let snap = reg.snapshot("ep").unwrap();
-        assert!(
-            snap.ewma_success_rate > 0.95,
-            "expected success_rate > 0.95, got {}",
-            snap.ewma_success_rate
-        );
+        assert!(snap.ewma_success_rate > 0.95, "expected success_rate > 0.95, got {}", snap.ewma_success_rate);
     }
 
     #[test]
@@ -218,11 +214,7 @@ mod tests {
             reg.record_endpoint_outcome("ep", false, 500);
         }
         let snap = reg.snapshot("ep").unwrap();
-        assert!(
-            snap.ewma_success_rate < 0.05,
-            "expected success_rate < 0.05, got {}",
-            snap.ewma_success_rate
-        );
+        assert!(snap.ewma_success_rate < 0.05, "expected success_rate < 0.05, got {}", snap.ewma_success_rate);
     }
 
     #[test]
