@@ -23,6 +23,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.validateIntRange
@@ -47,6 +48,7 @@ internal fun LazyListScope.hostAutolearnSection(
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostAutolearnEnabled, it) },
                     enabled = visualEditorEnabled,
                     showDivider = uiState.autolearn.hostAutolearnEnabled,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HostAutolearnEnabled),
                 )
                 HostAutolearnStatusCard(
                     uiState = uiState,

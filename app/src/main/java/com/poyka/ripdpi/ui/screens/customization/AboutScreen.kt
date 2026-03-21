@@ -21,6 +21,9 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -52,6 +55,7 @@ internal fun AboutScreen(
     RipDpiSettingsScaffold(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.About))
                 .fillMaxSize()
                 .background(colors.background),
         title = stringResource(R.string.about_category),
@@ -133,14 +137,20 @@ internal fun AboutScreen(
                         onClick = { uriHandler.openUri(sourceUrl) },
                         variant = RipDpiButtonVariant.Outline,
                         leadingIcon = RipDpiIcons.Share,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .ripDpiTestTag(RipDpiTestTags.AboutSourceCode),
                     )
                     RipDpiButton(
                         text = stringResource(R.string.ripdpi_readme_link),
                         onClick = { uriHandler.openUri(docsUrl) },
                         variant = RipDpiButtonVariant.Ghost,
                         leadingIcon = RipDpiIcons.Info,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .ripDpiTestTag(RipDpiTestTags.AboutReadme),
                     )
                 }
             }

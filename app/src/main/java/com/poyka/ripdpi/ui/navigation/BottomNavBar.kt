@@ -36,6 +36,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -190,6 +192,7 @@ private fun RowScope.BottomNavItem(
             Modifier
                 .fillMaxHeight()
                 .weight(1f)
+                .ripDpiTestTag(RipDpiTestTags.bottomNav(destination))
                 .graphicsLayer {
                     scaleX = selectionScale
                     scaleY = selectionScale

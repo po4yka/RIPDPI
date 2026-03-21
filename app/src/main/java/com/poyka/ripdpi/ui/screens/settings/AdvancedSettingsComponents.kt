@@ -39,6 +39,8 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -101,6 +103,7 @@ internal fun AdvancedDropdownSetting(
             selectedValue = value,
             onValueSelected = { selectedValue -> onSelected(setting, selectedValue) },
             enabled = enabled,
+            testTag = RipDpiTestTags.advancedOption(setting),
         )
         if (showDivider) {
             HorizontalDivider(color = colors.divider)
@@ -177,6 +180,7 @@ internal fun AdvancedTextSetting(
                         }
                     },
                 ),
+            testTag = RipDpiTestTags.advancedInput(setting),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -188,6 +192,7 @@ internal fun AdvancedTextSetting(
                 enabled = enabled && isDirty && isValid,
                 variant = RipDpiButtonVariant.Outline,
                 trailingIcon = RipDpiIcons.Check,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.advancedSave(setting)),
             )
         }
         if (showDivider) {
@@ -206,6 +211,7 @@ internal fun ActivationRangeEditorCard(
     enabled: Boolean,
     minValue: Long,
     onSave: (Long?, Long?) -> Unit,
+    dimension: ActivationWindowDimension,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -273,6 +279,7 @@ internal fun ActivationRangeEditorCard(
                 minValue = minValue,
                 onValueChange = { startInput = it },
                 modifier = Modifier.weight(1f),
+                testTag = RipDpiTestTags.activationStart(dimension),
             )
             ActivationBoundaryField(
                 title = stringResource(R.string.activation_window_field_to),
@@ -281,6 +288,7 @@ internal fun ActivationRangeEditorCard(
                 minValue = minValue,
                 onValueChange = { endInput = it },
                 modifier = Modifier.weight(1f),
+                testTag = RipDpiTestTags.activationEnd(dimension),
             )
         }
         Row(
@@ -298,6 +306,7 @@ internal fun ActivationRangeEditorCard(
                 enabled = enabled && isDirty && isValid,
                 variant = RipDpiButtonVariant.Outline,
                 trailingIcon = RipDpiIcons.Check,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.activationSave(dimension)),
             )
         }
     }
@@ -311,6 +320,7 @@ internal fun ActivationBoundaryField(
     minValue: Long,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    testTag: String? = null,
 ) {
     val isValid = isActivationBoundaryValid(value, minValue)
     val helperText =
@@ -343,6 +353,7 @@ internal fun ActivationBoundaryField(
             errorText = errorText,
             density = RipDpiControlDensity.Compact,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            testTag = testTag,
         )
     }
 }

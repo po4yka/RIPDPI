@@ -20,6 +20,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.validateIntRange
 
@@ -621,6 +622,7 @@ internal fun LazyListScope.desyncSection(
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsRandomize, it) },
                         enabled = visualEditorEnabled,
                         showDivider = true,
+                        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.FakeTlsRandomize),
                     )
                     SettingsRow(
                         title = stringResource(R.string.ripdpi_fake_tls_dup_sid_title),
@@ -629,6 +631,7 @@ internal fun LazyListScope.desyncSection(
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsDupSessionId, it) },
                         enabled = visualEditorEnabled,
                         showDivider = true,
+                        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.FakeTlsDupSessionId),
                     )
                     SettingsRow(
                         title = stringResource(R.string.ripdpi_fake_tls_pad_encap_title),
@@ -637,6 +640,7 @@ internal fun LazyListScope.desyncSection(
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.FakeTlsPadEncap, it) },
                         enabled = visualEditorEnabled,
                         showDivider = true,
+                        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.FakeTlsPadEncap),
                     )
                     AdvancedTextSetting(
                         title = stringResource(R.string.ripdpi_fake_tls_size_title),
@@ -680,6 +684,7 @@ internal fun LazyListScope.desyncSection(
                     checked = uiState.fake.dropSack,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DropSack, it) },
                     enabled = visualEditorEnabled,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DropSack),
                 )
             }
         }
