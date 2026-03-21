@@ -6,7 +6,10 @@ import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.activeDnsSettings
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
@@ -54,33 +57,28 @@ class DefaultDiagnosticsBootstrapper
 class DefaultDiagnosticsDetailLoader
     @Inject
     constructor(
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val scanRecordStore: DiagnosticsScanRecordStore,
+        private val artifactReadStore: DiagnosticsArtifactReadStore,
+        private val bypassUsageHistoryStore: BypassUsageHistoryStore,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) : DiagnosticsDetailLoader {
         override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
-            DiagnosticsSessionQueries.loadSessionDetail(
-                sessionId = sessionId,
-                historyRepository = historyRepository,
-            )
+            DiagnosticsSessionQueries.loadSessionDetail(sessionId, scanRecordStore, artifactReadStore)
 
         override suspend fun loadApproachDetail(
             kind: BypassApproachKind,
             id: String,
         ): BypassApproachDetail =
-            DiagnosticsSessionQueries.loadApproachDetail(
-                kind = kind,
-                id = id,
-                historyRepository = historyRepository,
-                json = json,
-            )
+            DiagnosticsSessionQueries.loadApproachDetail(kind, id, scanRecordStore, bypassUsageHistoryStore, json)
     }
 
 @Singleton
 class DefaultDiagnosticsShareService
     @Inject
     constructor(
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val scanRecordStore: DiagnosticsScanRecordStore,
+        private val artifactReadStore: DiagnosticsArtifactReadStore,
         private val archiveExporter: DiagnosticsArchiveExporter,
         @param:Named("diagnosticsJson")
         private val json: Json,
@@ -89,7 +87,8 @@ class DefaultDiagnosticsShareService
             withContext(Dispatchers.IO) {
                 DiagnosticsShareSummaryBuilder.build(
                     sessionId = sessionId,
-                    historyRepository = historyRepository,
+                    scanRecordStore = scanRecordStore,
+                    artifactReadStore = artifactReadStore,
                     json = json,
                 )
             }
@@ -102,12 +101,12 @@ class DefaultDiagnosticsShareService
 class DiagnosticsRecommendationStore
     @Inject
     constructor(
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val scanRecordStore: DiagnosticsScanRecordStore,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
         suspend fun loadResolverRecommendation(sessionId: String): ResolverRecommendation? =
-            historyRepository
+            scanRecordStore
                 .getScanSession(sessionId)
                 ?.reportJson
                 ?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }

@@ -25,14 +25,22 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
@@ -92,7 +100,15 @@ internal class TestContext(
     override fun getNoBackupFilesDir(): File = File(testCacheDir, "no-backup").apply { mkdirs() }
 }
 
-internal class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
+internal class FakeDiagnosticsHistoryStores :
+    DiagnosticsProfileCatalog,
+    DiagnosticsScanRecordStore,
+    DiagnosticsArtifactReadStore,
+    DiagnosticsArtifactWriteStore,
+    BypassUsageHistoryStore,
+    RememberedNetworkPolicyRecordStore,
+    NetworkDnsPathPreferenceRecordStore,
+    DiagnosticsHistoryRetentionStore {
     val profilesState = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
     val sessionsState = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
     val snapshotsState = MutableStateFlow<List<NetworkSnapshotEntity>>(emptyList())
@@ -103,6 +119,7 @@ internal class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
     val usageSessionsState = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
     val rememberedPoliciesState = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
     val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
+    var currentTime: Long = Long.MAX_VALUE
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
     private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
 
@@ -171,13 +188,12 @@ internal class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
     override suspend fun findValidatedRememberedNetworkPolicy(
         fingerprintHash: String,
         mode: String,
-        now: Long,
     ): RememberedNetworkPolicyEntity? =
         rememberedPoliciesState.value.find { policy ->
             policy.fingerprintHash == fingerprintHash &&
                 policy.mode == mode &&
                 policy.status == com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated &&
-                (policy.suppressedUntil?.let { it <= now } != false)
+                (policy.suppressedUntil?.let { it <= currentTime } != false)
         }
 
     override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> = probeResults[sessionId].orEmpty()
@@ -313,6 +329,12 @@ internal class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
                 ),
             )
     }
+}
+
+internal class TestDiagnosticsHistoryClock(
+    var currentTime: Long = 1_000L,
+) : DiagnosticsHistoryClock {
+    override fun now(): Long = currentTime
 }
 
 internal class FakeNetworkMetadataProvider : NetworkMetadataProvider {
