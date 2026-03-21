@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.integration
 
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.automation.AutomationPermissionPreset
@@ -42,8 +40,8 @@ class AutomationPermissionFlowInstrumentedTest {
 
     @Test
     fun tappingConnectAutoGrantsPermissionsAndStartsFakeService() {
-        composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePermissionIssueBanner).assertExists()
+        composeRule.waitForAutomationTag(RipDpiTestTags.screen(Route.Home))
+        composeRule.waitForAutomationTag(RipDpiTestTags.HomePermissionIssueBanner)
 
         composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).performClick()
 
@@ -56,7 +54,11 @@ class AutomationPermissionFlowInstrumentedTest {
                 .isEmpty()
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePermissionIssueBanner).assertDoesNotExist()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(RipDpiTestTags.HomePermissionIssueBanner))
+                .fetchSemanticsNodes()
+                .isEmpty()
+        }
         assertEquals(AppStatus.Running to Mode.VPN, serviceStateStore.status.value)
     }
 }

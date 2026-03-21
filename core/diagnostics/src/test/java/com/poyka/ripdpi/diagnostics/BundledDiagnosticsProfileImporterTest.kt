@@ -14,41 +14,45 @@ class BundledDiagnosticsProfileImporterTest {
     @Test
     fun `importer loads bundled profiles into an empty repository`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock(currentTime = 10L)
             val importer =
                 BundledDiagnosticsProfileImporter(
                     profileSource = StaticBundledDiagnosticsProfileSource(sampleBundledProfilesJson(json)),
-                    historyRepository = historyRepository,
+                    profileCatalog = stores,
+                    clock = clock,
                     json = json,
                 )
 
             importer.importProfiles()
 
-            assertFalse(historyRepository.profilesState.value.isEmpty())
-            val firstProfile = historyRepository.profilesState.value.first()
+            assertFalse(stores.profilesState.value.isEmpty())
+            val firstProfile = stores.profilesState.value.first()
             assertTrue(firstProfile.requestJson.isNotBlank())
-            assertEquals(firstProfile.version, historyRepository.getPackVersion(firstProfile.id)?.version)
+            assertEquals(firstProfile.version, stores.getPackVersion(firstProfile.id)?.version)
         }
 
     @Test
     fun `importer updates older bundled versions`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock(currentTime = 10L)
             val importer =
                 BundledDiagnosticsProfileImporter(
                     profileSource = StaticBundledDiagnosticsProfileSource(sampleBundledProfilesJson(json)),
-                    historyRepository = historyRepository,
+                    profileCatalog = stores,
+                    clock = clock,
                     json = json,
                 )
             importer.importProfiles()
-            val bundledProfile = historyRepository.profilesState.value.first()
-            historyRepository.upsertProfile(
+            val bundledProfile = stores.profilesState.value.first()
+            stores.upsertProfile(
                 bundledProfile.copy(
                     name = "Outdated profile",
                     version = bundledProfile.version - 1,
                 ),
             )
-            historyRepository.upsertPackVersion(
+            stores.upsertPackVersion(
                 TargetPackVersionEntity(
                     packId = bundledProfile.id,
                     version = bundledProfile.version - 1,
@@ -58,29 +62,31 @@ class BundledDiagnosticsProfileImporterTest {
 
             importer.importProfiles()
 
-            assertEquals(bundledProfile.name, historyRepository.getProfile(bundledProfile.id)?.name)
-            assertEquals(bundledProfile.version, historyRepository.getPackVersion(bundledProfile.id)?.version)
+            assertEquals(bundledProfile.name, stores.getProfile(bundledProfile.id)?.name)
+            assertEquals(bundledProfile.version, stores.getPackVersion(bundledProfile.id)?.version)
         }
 
     @Test
     fun `importer leaves newer local versions untouched`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock(currentTime = 10L)
             val importer =
                 BundledDiagnosticsProfileImporter(
                     profileSource = StaticBundledDiagnosticsProfileSource(sampleBundledProfilesJson(json)),
-                    historyRepository = historyRepository,
+                    profileCatalog = stores,
+                    clock = clock,
                     json = json,
                 )
             importer.importProfiles()
-            val bundledProfile = historyRepository.profilesState.value.first()
-            historyRepository.upsertProfile(
+            val bundledProfile = stores.profilesState.value.first()
+            stores.upsertProfile(
                 bundledProfile.copy(
                     name = "Custom newer profile",
                     version = bundledProfile.version + 1,
                 ),
             )
-            historyRepository.upsertPackVersion(
+            stores.upsertPackVersion(
                 TargetPackVersionEntity(
                     packId = bundledProfile.id,
                     version = bundledProfile.version + 1,
@@ -90,8 +96,8 @@ class BundledDiagnosticsProfileImporterTest {
 
             importer.importProfiles()
 
-            assertEquals("Custom newer profile", historyRepository.getProfile(bundledProfile.id)?.name)
-            assertEquals(bundledProfile.version + 1, historyRepository.getPackVersion(bundledProfile.id)?.version)
+            assertEquals("Custom newer profile", stores.getProfile(bundledProfile.id)?.name)
+            assertEquals(bundledProfile.version + 1, stores.getPackVersion(bundledProfile.id)?.version)
         }
 }
 

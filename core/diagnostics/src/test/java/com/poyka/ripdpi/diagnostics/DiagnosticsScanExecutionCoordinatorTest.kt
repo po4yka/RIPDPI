@@ -28,22 +28,24 @@ class DiagnosticsScanExecutionCoordinatorTest {
     @Test
     fun `completed execution applies temporary override and remembers preferred path`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
-            val timelineSource = DefaultDiagnosticsTimelineSource(historyRepository, json)
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
             val resolverOverrideStore = FakeResolverOverrideStore()
             val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
             val networkFingerprintProvider = FakeNetworkFingerprintProvider()
-            val preferredPathStore = DefaultNetworkDnsPathPreferenceStore(historyRepository)
+            val preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock)
             val coordinator =
                 DiagnosticsScanExecutionCoordinator(
                     context = TestContext(),
-                    historyRepository = historyRepository,
+                    scanRecordStore = stores,
+                    artifactWriteStore = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     networkFingerprintProvider = networkFingerprintProvider,
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     serviceStateStore = serviceStateStore,
                     resolverOverrideStore = resolverOverrideStore,
-                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(historyRepository),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
                     networkDnsPathPreferenceStore = preferredPathStore,
                     json = json,
                 )
@@ -59,7 +61,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     exposeProgress = true,
                     networkFingerprint = networkFingerprintProvider.capture(),
                 )
-            seedPreparedScan(historyRepository, prepared)
+            seedPreparedScan(stores, prepared)
             val runtimeState = DiagnosticsScanRuntimeState(timelineSource).apply { rememberPreparedScan(prepared) }
             val bridge =
                 FakeNetworkDiagnosticsBridge(json).apply {
@@ -101,9 +103,9 @@ class DiagnosticsScanExecutionCoordinatorTest {
 
             coordinator.execute(prepared, bridge, rawPathRunner = { block -> block() }, runtimeState = runtimeState)
 
-            val session = requireNotNull(historyRepository.getScanSession(prepared.sessionId))
+            val session = requireNotNull(stores.getScanSession(prepared.sessionId))
             val preferredPath =
-                historyRepository.getNetworkDnsPathPreference(networkFingerprintProvider.capture().scopeKey())
+                stores.getNetworkDnsPathPreference(networkFingerprintProvider.capture().scopeKey())
             val persistedReport =
                 diagnosticsTestJson().decodeFromString(
                     ScanReport.serializer(),
@@ -114,29 +116,31 @@ class DiagnosticsScanExecutionCoordinatorTest {
             assertTrue(requireNotNull(persistedReport.resolverRecommendation).appliedTemporarily)
             assertEquals("cloudflare", resolverOverrideStore.override.value?.resolverId)
             assertNotNull(preferredPath)
-            assertEquals(1, historyRepository.storedProbeResults(prepared.sessionId).size)
-            assertEquals(2, historyRepository.snapshotsState.value.count { it.sessionId == prepared.sessionId })
-            assertEquals(2, historyRepository.contextsState.value.count { it.sessionId == prepared.sessionId })
-            assertTrue(historyRepository.nativeEventsState.value.any { it.sessionId == prepared.sessionId })
+            assertEquals(1, stores.storedProbeResults(prepared.sessionId).size)
+            assertEquals(2, stores.snapshotsState.value.count { it.sessionId == prepared.sessionId })
+            assertEquals(2, stores.contextsState.value.count { it.sessionId == prepared.sessionId })
+            assertTrue(stores.nativeEventsState.value.any { it.sessionId == prepared.sessionId })
             assertNull(timelineSource.activeScanProgress.value)
         }
 
     @Test
     fun `hidden execution never surfaces active progress`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
-            val timelineSource = DefaultDiagnosticsTimelineSource(historyRepository, json)
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
             val coordinator =
                 DiagnosticsScanExecutionCoordinator(
                     context = TestContext(),
-                    historyRepository = historyRepository,
+                    scanRecordStore = stores,
+                    artifactWriteStore = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
                     resolverOverrideStore = FakeResolverOverrideStore(),
-                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(historyRepository),
-                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(historyRepository),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     json = json,
                 )
             val prepared =
@@ -146,7 +150,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     exposeProgress = false,
                     registerActiveBridge = false,
                 )
-            seedPreparedScan(historyRepository, prepared)
+            seedPreparedScan(stores, prepared)
             val runtimeState = DiagnosticsScanRuntimeState(timelineSource)
             val bridge =
                 FakeNetworkDiagnosticsBridge(json).apply {
@@ -176,23 +180,25 @@ class DiagnosticsScanExecutionCoordinatorTest {
     @Test
     fun `missing finished report marks session failed`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
-            val timelineSource = DefaultDiagnosticsTimelineSource(historyRepository, json)
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
             val coordinator =
                 DiagnosticsScanExecutionCoordinator(
                     context = TestContext(),
-                    historyRepository = historyRepository,
+                    scanRecordStore = stores,
+                    artifactWriteStore = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     networkFingerprintProvider = FakeNetworkFingerprintProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
                     resolverOverrideStore = FakeResolverOverrideStore(),
-                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(historyRepository),
-                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(historyRepository),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     json = json,
                 )
             val prepared = preparedDiagnosticsScan(sessionId = "session-failed", settings = defaultDiagnosticsAppSettings())
-            seedPreparedScan(historyRepository, prepared)
+            seedPreparedScan(stores, prepared)
             val runtimeState = DiagnosticsScanRuntimeState(timelineSource)
             val bridge =
                 FakeNetworkDiagnosticsBridge(json).apply {
@@ -211,7 +217,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
 
             coordinator.execute(prepared, bridge, rawPathRunner = { block -> block() }, runtimeState = runtimeState)
 
-            val failedSession = historyRepository.getScanSession(prepared.sessionId)
+            val failedSession = stores.getScanSession(prepared.sessionId)
             assertEquals("failed", failedSession?.status)
             assertTrue(requireNotNull(failedSession?.summary).contains("without a report"))
             assertEquals(1, bridge.destroyCount)
@@ -221,8 +227,9 @@ class DiagnosticsScanExecutionCoordinatorTest {
     @Test
     fun `strategy probe completion remembers validated network policy`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
-            val timelineSource = DefaultDiagnosticsTimelineSource(historyRepository, json)
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
             val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
             val settings =
                 defaultDiagnosticsAppSettings()
@@ -233,18 +240,19 @@ class DiagnosticsScanExecutionCoordinatorTest {
             val coordinator =
                 DiagnosticsScanExecutionCoordinator(
                     context = TestContext(),
-                    historyRepository = historyRepository,
+                    scanRecordStore = stores,
+                    artifactWriteStore = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     networkFingerprintProvider = networkFingerprintProvider,
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     serviceStateStore = serviceStateStore,
                     resolverOverrideStore = FakeResolverOverrideStore(),
-                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(historyRepository),
-                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(historyRepository),
+                    rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
+                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     json = json,
                 )
             val prepared = preparedDiagnosticsScan(sessionId = "session-strategy", settings = settings)
-            seedPreparedScan(historyRepository, prepared)
+            seedPreparedScan(stores, prepared)
             val runtimeState = DiagnosticsScanRuntimeState(timelineSource)
             val bridge =
                 FakeNetworkDiagnosticsBridge(json).apply {
@@ -264,8 +272,8 @@ class DiagnosticsScanExecutionCoordinatorTest {
 
             coordinator.execute(prepared, bridge, rawPathRunner = { block -> block() }, runtimeState = runtimeState)
 
-            assertFalse(historyRepository.rememberedPoliciesState.value.isEmpty())
-            assertEquals("validated", historyRepository.rememberedPoliciesState.value.single().status)
+            assertFalse(stores.rememberedPoliciesState.value.isEmpty())
+            assertEquals("validated", stores.rememberedPoliciesState.value.single().status)
         }
 }
 
@@ -312,12 +320,12 @@ private suspend fun preparedDiagnosticsScan(
 )
 
 private suspend fun seedPreparedScan(
-    historyRepository: FakeDiagnosticsHistoryRepository,
+    stores: FakeDiagnosticsHistoryStores,
     prepared: PreparedDiagnosticsScan,
 ) {
-    historyRepository.upsertScanSession(prepared.initialSession)
-    historyRepository.upsertSnapshot(prepared.preScanSnapshot)
-    historyRepository.upsertContextSnapshot(prepared.preScanContext)
+    stores.upsertScanSession(prepared.initialSession)
+    stores.upsertSnapshot(prepared.preScanSnapshot)
+    stores.upsertContextSnapshot(prepared.preScanContext)
 }
 
 private fun scanReportWithResolverRecommendation(sessionId: String) =
