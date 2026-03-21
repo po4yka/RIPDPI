@@ -208,6 +208,15 @@ class MainActivityNavigationInstrumentedTest {
     }
 
     @Test
+    fun advancedSettingsScreenRetainsStableSelectorContract() {
+        composeRule.tapBottomNav(Route.Settings)
+        composeRule.assertScreenVisible(Route.Settings)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAdvancedSettings).performClick()
+        composeRule.assertScreenVisible(Route.AdvancedSettings)
+    }
+
+    @Test
     fun openingHistoryFromDiagnosticsReturnsToDiagnosticsOnBack() {
         composeRule.tapBottomNav(Route.Diagnostics)
         composeRule.assertScreenVisible(Route.Diagnostics)

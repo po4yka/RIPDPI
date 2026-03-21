@@ -8,15 +8,20 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
+import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.permissions.PermissionResult
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.util.Optional
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject
     internal lateinit var mainActivityHost: MainActivityHost
+
+    @Inject
+    internal lateinit var automationController: Optional<AutomationController>
 
     private val viewModel: MainViewModel by viewModels()
     private val shellController by lazy(LazyThreadSafetyMode.NONE) { MainActivityShellController(intent) }
@@ -59,6 +64,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        val automationConfig =
+            automationController
+                .map { controller -> controller.prepareLaunch(intent) }
+                .orElse(null)
+        shellController.setLaunchRouteRequest(automationConfig?.startRoute)
         mainActivityHost.register(this, viewModel)
         lifecycleScope.launch {
             shellController.hostCommands.collect { command ->
@@ -80,6 +90,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        val automationConfig =
+            automationController
+                .map { controller -> controller.prepareLaunch(intent) }
+                .orElse(null)
         shellController.onNewIntent(intent)
+        shellController.setLaunchRouteRequest(automationConfig?.startRoute)
     }
 }

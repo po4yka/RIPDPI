@@ -23,6 +23,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.validateIntRange
 
@@ -35,7 +36,10 @@ internal fun LazyListScope.httpsSection(
     item(key = "advanced_https") {
         val colors = RipDpiThemeTokens.colors
         val spacing = RipDpiThemeTokens.spacing
-        AdvancedSettingsSection(title = stringResource(R.string.desync_https_category)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.desync_https_category),
+            testTag = RipDpiTestTags.advancedSection("https"),
+        ) {
             RipDpiCard {
                 Text(
                     text = stringResource(R.string.ripdpi_tls_prelude_section_body),

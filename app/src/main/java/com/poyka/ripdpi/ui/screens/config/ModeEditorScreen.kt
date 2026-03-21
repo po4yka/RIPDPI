@@ -100,6 +100,7 @@ fun ModeEditorRoute(
                         message = validationMessage,
                         tone = RipDpiSnackbarTone.Warning,
                         duration = SnackbarDuration.Short,
+                        testTag = RipDpiTestTags.ModeEditorValidationSnackbar,
                     )
                 }
             }

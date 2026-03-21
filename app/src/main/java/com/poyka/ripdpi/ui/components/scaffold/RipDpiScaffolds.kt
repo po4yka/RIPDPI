@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class RipDpiScaffoldWidth {
@@ -42,7 +43,7 @@ fun RipDpiScreenScaffold(
     val colors = RipDpiThemeTokens.colors
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.ripDpiAutomationTreeRoot(),
         containerColor = colors.background,
         topBar = topBar,
         snackbarHost = snackbarHost,
@@ -210,6 +211,7 @@ fun RipDpiIntroScaffold(
     Box(
         modifier =
             modifier
+                .ripDpiAutomationTreeRoot()
                 .fillMaxSize()
                 .background(colors.background)
                 .padding(horizontal = layout.horizontalPadding),

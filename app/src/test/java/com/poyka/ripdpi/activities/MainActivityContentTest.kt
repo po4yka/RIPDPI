@@ -4,9 +4,9 @@ import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.permissions.PermissionCoordinator
@@ -133,9 +133,10 @@ class MainActivityContentTest {
         }
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithText("boom").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(hasTestTag(RipDpiTestTags.MainErrorSnackbar)).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("boom").assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.MainErrorSnackbar).assertIsDisplayed()
+        composeRule.onAllNodesWithText("boom").assertCountEquals(1)
     }
 
     private fun createViewModel(

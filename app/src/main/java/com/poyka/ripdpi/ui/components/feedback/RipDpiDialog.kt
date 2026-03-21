@@ -27,13 +27,14 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 
 enum class RipDpiDialogTone {
     Default,
@@ -69,6 +70,7 @@ fun RipDpiDialog(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .ripDpiAutomationTreeRoot()
                     .padding(horizontal = layout.horizontalPadding),
             contentAlignment = Alignment.Center,
         ) {

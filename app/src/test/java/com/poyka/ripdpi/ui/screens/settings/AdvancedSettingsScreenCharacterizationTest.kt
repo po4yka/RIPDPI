@@ -37,7 +37,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen()
 
         scrollToKey("advanced_diagnostics_history")
-        composeRule.onNodeWithText("HISTORY").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("diagnostics_history")).assertExists()
     }
 
     @Test
@@ -45,7 +45,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen()
 
         scrollToKey("advanced_overrides")
-        composeRule.onNodeWithText("OVERRIDES").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("overrides")).assertExists()
     }
 
     @Test
@@ -53,7 +53,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen()
 
         scrollToKey("advanced_proxy")
-        composeRule.onNodeWithText("PROXY").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("proxy")).assertExists()
     }
 
     @Test
@@ -61,7 +61,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen()
 
         scrollToKey("advanced_desync")
-        composeRule.onNodeWithText("DESYNC").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("desync")).assertExists()
     }
 
     @Test
@@ -69,7 +69,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen()
 
         scrollToKey("advanced_protocols")
-        composeRule.onNodeWithText("PROTOCOLS").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("protocols")).assertExists()
     }
 
     @Test
@@ -77,7 +77,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen()
 
         scrollToKey("advanced_host_autolearn")
-        composeRule.onNodeWithText("HOST LEARNING").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("host_autolearn")).assertExists()
     }
 
     @Test
@@ -85,7 +85,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen()
 
         scrollToKey("advanced_network_strategy_memory")
-        composeRule.onNodeWithText("NETWORK STRATEGY MEMORY").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("network_strategy_memory")).assertExists()
     }
 
     // -- Command-line override banner --
@@ -95,14 +95,14 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen(uiState = SettingsUiState(enableCmdSettings = true))
 
         scrollToKey("advanced_settings_warning")
-        composeRule.onNodeWithText("Command line overrides enabled").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.AdvancedCommandLineWarning).assertExists()
     }
 
     @Test
     fun `command line disabled hides restricted banner`() {
         setScreen(uiState = SettingsUiState(enableCmdSettings = false))
 
-        composeRule.onNodeWithText("Command line overrides enabled").assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.AdvancedCommandLineWarning).assertDoesNotExist()
     }
 
     // -- Toggle callback --
@@ -228,14 +228,14 @@ class AdvancedSettingsScreenCharacterizationTest {
         )
 
         scrollToKey("advanced_settings_notice")
-        composeRule.onNodeWithText("Test notice title").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.AdvancedNoticeBanner).assertExists()
     }
 
     @Test
     fun `notice banner hidden when null`() {
         setScreen(notice = null)
 
-        composeRule.onNodeWithText("Test notice title").assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.AdvancedNoticeBanner).assertDoesNotExist()
     }
 
     // -- Helper --

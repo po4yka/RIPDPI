@@ -138,6 +138,26 @@ For local debug builds you can narrow native compilation to one ABI:
 
 CI and release still build the full ABI set from `ripdpi.nativeAbis`.
 
+## External UI automation
+
+Debug builds now expose a launch contract for deterministic Maestro and Appium sessions. The contract,
+selector policy, and Appium checklist live under `docs/automation/`.
+
+Run the committed Maestro smoke pack locally with:
+
+```bash
+bash scripts/ci/run-maestro-smoke.sh
+```
+
+The smoke flows avoid `pm clear` and instead rely on launch extras such as:
+
+- `com.poyka.ripdpi.automation.ENABLED`
+- `com.poyka.ripdpi.automation.RESET_STATE`
+- `com.poyka.ripdpi.automation.START_ROUTE`
+- `com.poyka.ripdpi.automation.PERMISSION_PRESET`
+- `com.poyka.ripdpi.automation.SERVICE_PRESET`
+- `com.poyka.ripdpi.automation.DATA_PRESET`
+
 ## Golden contracts
 
 Structured telemetry, diagnostics events, and selected exported files are treated as compatibility contracts.

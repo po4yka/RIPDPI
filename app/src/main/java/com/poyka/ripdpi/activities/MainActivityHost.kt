@@ -13,6 +13,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
 import dagger.Binds
@@ -28,6 +29,7 @@ import logcat.asLog
 import logcat.logcat
 import java.io.File
 import java.io.IOException
+import java.util.Optional
 import javax.inject.Inject
 
 internal sealed interface MainActivityHostCommand {
@@ -46,6 +48,7 @@ internal sealed interface MainActivityHostCommand {
     ) : MainActivityHostCommand
 
     data object SaveLogs : MainActivityHostCommand
+
     data object ShareDebugBundle : MainActivityHostCommand
 
     data class SaveDiagnosticsArchive(
@@ -79,6 +82,7 @@ internal class DefaultMainActivityHost
     constructor(
         private val diagnosticsManager: DiagnosticsManager,
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
+        private val automationController: Optional<AutomationController>,
     ) : MainActivityHost {
         private lateinit var activity: ComponentActivity
         private lateinit var viewModel: MainViewModel
@@ -145,6 +149,14 @@ internal class DefaultMainActivityHost
 
         override fun handle(command: MainActivityHostCommand) {
             check(registered) { "MainActivityHost must be registered before use." }
+            if (
+                automationController
+                    .map { controller ->
+                        controller.interceptHostCommand(command, viewModel)
+                    }.orElse(false)
+            ) {
+                return
+            }
             when (command) {
                 MainActivityHostCommand.RequestNotificationsPermission -> {
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -216,10 +228,11 @@ internal class DefaultMainActivityHost
                     return@launch
                 }
 
-                val destination = uri ?: run {
-                    logcat(LogPriority.ERROR) { "No data in result" }
-                    return@launch
-                }
+                val destination =
+                    uri ?: run {
+                        logcat(LogPriority.ERROR) { "No data in result" }
+                        return@launch
+                    }
                 activity.contentResolver.openOutputStream(destination)?.use { stream ->
                     try {
                         stream.write(logcatSnapshot.content.toByteArray())

@@ -7,12 +7,14 @@ import android.net.VpnService
 import android.os.Build
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
+import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.data.Mode
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -117,40 +119,79 @@ class AndroidPermissionStatusProvider
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        private val automationController: Optional<AutomationController>,
     ) : PermissionStatusProvider {
         override fun currentSnapshot(): PermissionSnapshot =
-            PermissionSnapshot(
-                vpnConsent =
-                    if (VpnService.prepare(context) == null) {
-                        PermissionStatus.Granted
-                    } else {
-                        PermissionStatus.RequiresSystemPrompt
-                    },
-                notifications =
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                        PermissionStatus.Granted
-                    } else if (
-                        ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.POST_NOTIFICATIONS,
-                        ) == PackageManager.PERMISSION_GRANTED
-                    ) {
-                        PermissionStatus.Granted
-                    } else {
-                        PermissionStatus.RequiresSystemPrompt
-                    },
-                batteryOptimization =
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                        PermissionStatus.NotApplicable
-                    } else {
-                        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-                        if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
-                            PermissionStatus.Granted
-                        } else {
-                            PermissionStatus.RequiresSettings
-                        }
-                    },
-            )
+            automationController
+                .map { controller ->
+                    controller.currentPermissionSnapshot(
+                        PermissionSnapshot(
+                            vpnConsent =
+                                if (VpnService.prepare(context) == null) {
+                                    PermissionStatus.Granted
+                                } else {
+                                    PermissionStatus.RequiresSystemPrompt
+                                },
+                            notifications =
+                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                    PermissionStatus.Granted
+                                } else if (
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS,
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    PermissionStatus.Granted
+                                } else {
+                                    PermissionStatus.RequiresSystemPrompt
+                                },
+                            batteryOptimization =
+                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                                    PermissionStatus.NotApplicable
+                                } else {
+                                    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                                    if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
+                                        PermissionStatus.Granted
+                                    } else {
+                                        PermissionStatus.RequiresSettings
+                                    }
+                                },
+                        ),
+                    )
+                }.orElseGet {
+                    PermissionSnapshot(
+                        vpnConsent =
+                            if (VpnService.prepare(context) == null) {
+                                PermissionStatus.Granted
+                            } else {
+                                PermissionStatus.RequiresSystemPrompt
+                            },
+                        notifications =
+                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                PermissionStatus.Granted
+                            } else if (
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.POST_NOTIFICATIONS,
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                PermissionStatus.Granted
+                            } else {
+                                PermissionStatus.RequiresSystemPrompt
+                            },
+                        batteryOptimization =
+                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                                PermissionStatus.NotApplicable
+                            } else {
+                                val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                                if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
+                                    PermissionStatus.Granted
+                                } else {
+                                    PermissionStatus.RequiresSettings
+                                }
+                            },
+                    )
+                }
     }
 
 @Singleton

@@ -1,0 +1,22 @@
+appId: com.poyka.ripdpi
+---
+- launchApp:
+    stopApp: true
+    arguments:
+      com.poyka.ripdpi.automation.ENABLED: "true"
+      com.poyka.ripdpi.automation.RESET_STATE: "true"
+      com.poyka.ripdpi.automation.START_ROUTE: "home"
+      com.poyka.ripdpi.automation.DISABLE_MOTION: "true"
+      com.poyka.ripdpi.automation.PERMISSION_PRESET: "granted"
+      com.poyka.ripdpi.automation.SERVICE_PRESET: "idle"
+      com.poyka.ripdpi.automation.DATA_PRESET: "clean_home"
+- assertVisible:
+    id: "home-connection-button"
+- tapOn:
+    id: "home-connection-button"
+- assertVisible:
+    id: "home-connection-button"
+- tapOn:
+    id: "home-connection-button"
+- assertVisible:
+    id: "home-connection-button"

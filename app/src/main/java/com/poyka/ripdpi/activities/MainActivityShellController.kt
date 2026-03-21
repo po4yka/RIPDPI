@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.update
 
 internal data class MainActivityShellState(
     val launchHomeRequested: Boolean = false,
+    val launchRouteRequested: String? = null,
     val startConfiguredModeRequested: Boolean = false,
     val vpnPermissionDialogVisible: Boolean = false,
 )
@@ -46,6 +47,10 @@ internal class MainActivityShellController(
                     current.startConfiguredModeRequested || MainActivity.requestsConfiguredStart(intent),
             )
         }
+    }
+
+    fun setLaunchRouteRequest(route: String?) {
+        _state.update { it.copy(launchRouteRequested = route) }
     }
 
     fun onEffect(effect: MainEffect) {
@@ -86,6 +91,10 @@ internal class MainActivityShellController(
 
     fun consumeLaunchHomeRequest() {
         _state.update { it.copy(launchHomeRequested = false) }
+    }
+
+    fun consumeLaunchRouteRequest() {
+        _state.update { it.copy(launchRouteRequested = null) }
     }
 
     fun consumeStartConfiguredModeRequest() {

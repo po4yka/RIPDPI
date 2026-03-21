@@ -32,7 +32,10 @@ internal fun LazyListScope.httpParserSection(
     item(key = "advanced_http") {
         val spacing = RipDpiThemeTokens.spacing
 
-        AdvancedSettingsSection(title = stringResource(R.string.desync_http_category)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.desync_http_category),
+            testTag = RipDpiTestTags.advancedSection("http_parser"),
+        ) {
             HttpParserEvasionsProfileCard(
                 uiState = uiState,
                 onResetHttpParserEvasions = onResetHttpParserEvasions,

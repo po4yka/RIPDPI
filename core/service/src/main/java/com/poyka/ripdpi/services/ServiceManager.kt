@@ -17,6 +17,7 @@ import logcat.LogPriority
 import logcat.logcat
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.Optional
 
 interface ServiceController {
     fun start(mode: Mode)
@@ -30,8 +31,12 @@ class DefaultServiceController
     constructor(
         @param:ApplicationContext private val context: Context,
         private val serviceStateStore: ServiceStateStore,
+        private val serviceAutomationController: Optional<ServiceAutomationController>,
     ) : ServiceController {
         override fun start(mode: Mode) {
+            if (serviceAutomationController.map { it.interceptStart(mode) }.orElse(false)) {
+                return
+            }
             when (mode) {
                 Mode.VPN -> {
                     logcat(LogPriority.INFO) { "Starting VPN" }
@@ -54,7 +59,11 @@ class DefaultServiceController
         }
 
         override fun stop() {
-            when (serviceStateStore.status.value.second) {
+            val currentMode = serviceStateStore.status.value.second
+            if (serviceAutomationController.map { it.interceptStop(currentMode) }.orElse(false)) {
+                return
+            }
+            when (currentMode) {
                 Mode.VPN -> {
                     logcat(LogPriority.INFO) { "Stopping VPN" }
                     val intent =

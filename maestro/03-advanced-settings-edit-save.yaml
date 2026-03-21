@@ -1,0 +1,27 @@
+appId: com.poyka.ripdpi
+---
+- launchApp:
+    stopApp: true
+    arguments:
+      com.poyka.ripdpi.automation.ENABLED: "true"
+      com.poyka.ripdpi.automation.RESET_STATE: "true"
+      com.poyka.ripdpi.automation.START_ROUTE: "advanced_settings"
+      com.poyka.ripdpi.automation.DISABLE_MOTION: "true"
+      com.poyka.ripdpi.automation.PERMISSION_PRESET: "granted"
+      com.poyka.ripdpi.automation.SERVICE_PRESET: "idle"
+      com.poyka.ripdpi.automation.DATA_PRESET: "settings_ready"
+- assertVisible:
+    id: "advanced_settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "advanced-input-diagnostics-history-retention-days"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "advanced-input-diagnostics-history-retention-days"
+- eraseText
+- inputText: "21"
+- tapOn:
+    id: "advanced-save-diagnostics-history-retention-days"
+- assertVisible:
+    id: "advanced-save-diagnostics-history-retention-days"
