@@ -17,20 +17,27 @@ import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
-import com.poyka.ripdpi.services.DefaultPolicyHandoverEventStore
-import com.poyka.ripdpi.services.DefaultResolverOverrideStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.Json
-import java.util.UUID
+import javax.inject.Provider
 
 private const val TestAutomaticHandoverProbeDelayMs = 15_000L
 private const val TestAutomaticHandoverProbeCooldownMs = 24L * 60L * 60L * 1_000L
 
-internal fun createDiagnosticsManager(
+internal data class DiagnosticsServicesBundle(
+    val bootstrapper: DiagnosticsBootstrapper,
+    val timelineSource: DefaultDiagnosticsTimelineSource,
+    val scanController: DefaultDiagnosticsScanController,
+    val detailLoader: DiagnosticsDetailLoader,
+    val shareService: DiagnosticsShareService,
+    val resolverActions: DiagnosticsResolverActions,
+)
+
+internal fun createDiagnosticsServices(
     context: Context,
     appSettingsRepository: AppSettingsRepository,
     historyRepository: DiagnosticsHistoryRepository,
@@ -52,11 +59,11 @@ internal fun createDiagnosticsManager(
         object : NativeNetworkSnapshotProvider {
             override fun capture() = NativeNetworkSnapshot()
         },
-    resolverOverrideStore: ResolverOverrideStore = DefaultResolverOverrideStore(),
-    policyHandoverEventStore: PolicyHandoverEventStore = DefaultPolicyHandoverEventStore(),
+    resolverOverrideStore: ResolverOverrideStore = FakeResolverOverrideStore(),
+    policyHandoverEventStore: PolicyHandoverEventStore = FakePolicyHandoverEventStore(),
     automaticHandoverProbeDelayMs: Long = TestAutomaticHandoverProbeDelayMs,
     automaticHandoverProbeCooldownMs: Long = TestAutomaticHandoverProbeCooldownMs,
-    importBundledProfilesOnInitialize: Boolean = true,
+    importBundledProfilesOnInitialize: Boolean = false,
     json: Json =
         Json {
             ignoreUnknownKeys = true
@@ -89,33 +96,88 @@ internal fun createDiagnosticsManager(
                     clock = DiagnosticsArchiveClock { System.currentTimeMillis() },
                 ),
             zipWriter = DiagnosticsArchiveZipWriter(),
-            idGenerator = DiagnosticsArchiveIdGenerator { UUID.randomUUID().toString() },
+            idGenerator = DiagnosticsArchiveIdGenerator { java.util.UUID.randomUUID().toString() },
         ),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-): DefaultDiagnosticsManager =
-    DefaultDiagnosticsManager(
-        context = context,
-        appSettingsRepository = appSettingsRepository,
-        historyRepository = historyRepository,
-        logcatSnapshotCollector = logcatSnapshotCollector,
-        rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-        networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
-        networkMetadataProvider = networkMetadataProvider,
-        networkFingerprintProvider = networkFingerprintProvider,
-        nativeNetworkSnapshotProvider = nativeNetworkSnapshotProvider,
-        diagnosticsContextProvider = diagnosticsContextProvider,
-        networkDiagnosticsBridgeFactory = networkDiagnosticsBridgeFactory,
-        runtimeCoordinator = runtimeCoordinator,
-        serviceStateStore = serviceStateStore,
-        resolverOverrideStore = resolverOverrideStore,
-        policyHandoverEventStore = policyHandoverEventStore,
-        archiveExporter = archiveExporter,
-        automaticHandoverProbeDelayMs = automaticHandoverProbeDelayMs,
-        automaticHandoverProbeCooldownMs = automaticHandoverProbeCooldownMs,
-        importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
-        json = json,
-        scope = scope,
+): DiagnosticsServicesBundle {
+    lateinit var scanController: DefaultDiagnosticsScanController
+    val timelineSource = DefaultDiagnosticsTimelineSource(historyRepository, json)
+    val requestFactory =
+        DiagnosticsScanRequestFactory(
+            context = context,
+            networkMetadataProvider = networkMetadataProvider,
+            networkFingerprintProvider = networkFingerprintProvider,
+            nativeNetworkSnapshotProvider = nativeNetworkSnapshotProvider,
+            diagnosticsContextProvider = diagnosticsContextProvider,
+            networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
+            serviceStateStore = serviceStateStore,
+            json = json,
+        )
+    val executionCoordinator =
+        DiagnosticsScanExecutionCoordinator(
+            context = context,
+            historyRepository = historyRepository,
+            networkMetadataProvider = networkMetadataProvider,
+            networkFingerprintProvider = networkFingerprintProvider,
+            diagnosticsContextProvider = diagnosticsContextProvider,
+            serviceStateStore = serviceStateStore,
+            resolverOverrideStore = resolverOverrideStore,
+            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
+            json = json,
+        )
+    val scheduler =
+        AutomaticProbeScheduler(
+            appSettingsRepository = appSettingsRepository,
+            launcherProvider =
+                object : Provider<AutomaticProbeLauncher> {
+                    override fun get(): AutomaticProbeLauncher = scanController
+                },
+            automaticHandoverProbeDelayMs = automaticHandoverProbeDelayMs,
+            automaticHandoverProbeCooldownMs = automaticHandoverProbeCooldownMs,
+            scope = scope,
+        )
+    val recommendationStore = DiagnosticsRecommendationStore(historyRepository, json)
+    scanController =
+        DefaultDiagnosticsScanController(
+            appSettingsRepository = appSettingsRepository,
+            historyRepository = historyRepository,
+            networkDiagnosticsBridgeFactory = networkDiagnosticsBridgeFactory,
+            runtimeCoordinator = runtimeCoordinator,
+            scanRequestFactory = requestFactory,
+            executionCoordinator = executionCoordinator,
+            timelineSource = timelineSource,
+            scope = scope,
+        )
+    return DiagnosticsServicesBundle(
+        bootstrapper =
+            DefaultDiagnosticsBootstrapper(
+                archiveExporter = archiveExporter,
+                profileImporter =
+                    BundledDiagnosticsProfileImporter(
+                        profileSource = AssetBundledDiagnosticsProfileSource(context),
+                        historyRepository = historyRepository,
+                        json = json,
+                    ),
+                policyHandoverEventStore = policyHandoverEventStore,
+                automaticProbeScheduler = scheduler,
+                importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
+                scope = scope,
+            ),
+        timelineSource = timelineSource,
+        scanController = scanController,
+        detailLoader = DefaultDiagnosticsDetailLoader(historyRepository, json),
+        shareService = DefaultDiagnosticsShareService(historyRepository, archiveExporter, json),
+        resolverActions =
+            DefaultDiagnosticsResolverActions(
+                appSettingsRepository = appSettingsRepository,
+                recommendationStore = recommendationStore,
+                networkFingerprintProvider = networkFingerprintProvider,
+                networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
+                resolverOverrideStore = resolverOverrideStore,
+            ),
     )
+}
 
 internal fun createRuntimeHistoryRecorder(
     appSettingsRepository: AppSettingsRepository,
@@ -126,7 +188,7 @@ internal fun createRuntimeHistoryRecorder(
     rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
         DefaultRememberedNetworkPolicyStore(historyRepository),
     activeConnectionPolicyStore: ActiveConnectionPolicyStore = EmptyActiveConnectionPolicyStore(),
-    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1)),
 ): DefaultRuntimeHistoryRecorder =
     DefaultRuntimeHistoryRecorder(
         appSettingsRepository = appSettingsRepository,

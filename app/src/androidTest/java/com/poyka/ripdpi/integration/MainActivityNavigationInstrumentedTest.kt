@@ -15,8 +15,13 @@ import com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.ServiceStateStoreModule
-import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsManagerModule
+import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
+import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
+import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
@@ -38,7 +43,12 @@ import com.poyka.ripdpi.testing.FakeInstrumentedStringResolver
 import com.poyka.ripdpi.testing.MutablePermissionStatusProvider
 import com.poyka.ripdpi.testing.RecordingInstrumentedServiceController
 import com.poyka.ripdpi.testing.RecordingMainActivityHost
-import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsManager
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsBootstrapper
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsDetailLoader
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsResolverActions
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsScanController
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsShareService
+import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsTimelineSource
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.BindValue
@@ -130,7 +140,27 @@ class MainActivityNavigationInstrumentedTest {
 
     @BindValue
     @JvmField
-    var diagnosticsManager: DiagnosticsManager = StubInstrumentedDiagnosticsManager()
+    var diagnosticsBootstrapper: DiagnosticsBootstrapper = StubInstrumentedDiagnosticsBootstrapper()
+
+    @BindValue
+    @JvmField
+    var diagnosticsTimelineSource: DiagnosticsTimelineSource = StubInstrumentedDiagnosticsTimelineSource()
+
+    @BindValue
+    @JvmField
+    var diagnosticsScanController: DiagnosticsScanController = StubInstrumentedDiagnosticsScanController()
+
+    @BindValue
+    @JvmField
+    var diagnosticsDetailLoader: DiagnosticsDetailLoader = StubInstrumentedDiagnosticsDetailLoader()
+
+    @BindValue
+    @JvmField
+    var diagnosticsShareService: DiagnosticsShareService = StubInstrumentedDiagnosticsShareService()
+
+    @BindValue
+    @JvmField
+    var diagnosticsResolverActions: DiagnosticsResolverActions = StubInstrumentedDiagnosticsResolverActions()
 
     @BindValue
     @JvmField
@@ -287,7 +317,27 @@ class MainActivityOnboardingStartupInstrumentedTest {
 
     @BindValue
     @JvmField
-    var diagnosticsManager: DiagnosticsManager = StubInstrumentedDiagnosticsManager()
+    var diagnosticsBootstrapper: DiagnosticsBootstrapper = StubInstrumentedDiagnosticsBootstrapper()
+
+    @BindValue
+    @JvmField
+    var diagnosticsTimelineSource: DiagnosticsTimelineSource = StubInstrumentedDiagnosticsTimelineSource()
+
+    @BindValue
+    @JvmField
+    var diagnosticsScanController: DiagnosticsScanController = StubInstrumentedDiagnosticsScanController()
+
+    @BindValue
+    @JvmField
+    var diagnosticsDetailLoader: DiagnosticsDetailLoader = StubInstrumentedDiagnosticsDetailLoader()
+
+    @BindValue
+    @JvmField
+    var diagnosticsShareService: DiagnosticsShareService = StubInstrumentedDiagnosticsShareService()
+
+    @BindValue
+    @JvmField
+    var diagnosticsResolverActions: DiagnosticsResolverActions = StubInstrumentedDiagnosticsResolverActions()
 
     @BindValue
     @JvmField
@@ -367,7 +417,27 @@ class MainActivityBiometricStartupInstrumentedTest {
 
     @BindValue
     @JvmField
-    var diagnosticsManager: DiagnosticsManager = StubInstrumentedDiagnosticsManager()
+    var diagnosticsBootstrapper: DiagnosticsBootstrapper = StubInstrumentedDiagnosticsBootstrapper()
+
+    @BindValue
+    @JvmField
+    var diagnosticsTimelineSource: DiagnosticsTimelineSource = StubInstrumentedDiagnosticsTimelineSource()
+
+    @BindValue
+    @JvmField
+    var diagnosticsScanController: DiagnosticsScanController = StubInstrumentedDiagnosticsScanController()
+
+    @BindValue
+    @JvmField
+    var diagnosticsDetailLoader: DiagnosticsDetailLoader = StubInstrumentedDiagnosticsDetailLoader()
+
+    @BindValue
+    @JvmField
+    var diagnosticsShareService: DiagnosticsShareService = StubInstrumentedDiagnosticsShareService()
+
+    @BindValue
+    @JvmField
+    var diagnosticsResolverActions: DiagnosticsResolverActions = StubInstrumentedDiagnosticsResolverActions()
 
     @BindValue
     @JvmField

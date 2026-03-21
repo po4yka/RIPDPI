@@ -1,0 +1,741 @@
+package com.poyka.ripdpi.diagnostics
+
+import android.content.ContextWrapper
+import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
+import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
+import com.poyka.ripdpi.core.testing.FaultOutcome
+import com.poyka.ripdpi.core.testing.FaultQueue
+import com.poyka.ripdpi.core.testing.FaultSpec
+import com.poyka.ripdpi.core.testing.faultThrowable
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
+import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.ResolverOverrideStore
+import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TemporaryResolverOverride
+import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
+import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
+import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+import java.io.File
+import java.nio.file.Files
+import java.util.concurrent.atomic.AtomicInteger
+
+internal class FakeAppSettingsRepository(
+    initialSettings: AppSettings = defaultDiagnosticsAppSettings(),
+) : AppSettingsRepository {
+    private val state = MutableStateFlow(initialSettings)
+
+    override val settings: Flow<AppSettings> = state
+
+    override suspend fun snapshot(): AppSettings = state.value
+
+    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
+    }
+
+    override suspend fun replace(settings: AppSettings) {
+        state.value = settings
+    }
+}
+
+internal class FakeLogcatSnapshotCollector(
+    private val snapshot: LogcatSnapshot? = null,
+    private val failure: Throwable? = null,
+) : LogcatSnapshotCollector() {
+    override suspend fun capture(): LogcatSnapshot? {
+        failure?.let { throw it }
+        return snapshot
+    }
+}
+
+internal class TestContext(
+    private val testCacheDir: File = Files.createTempDirectory("diagnostics-service-test").toFile(),
+) : ContextWrapper(null) {
+    override fun getCacheDir(): File = testCacheDir
+
+    override fun getNoBackupFilesDir(): File = File(testCacheDir, "no-backup").apply { mkdirs() }
+}
+
+internal class FakeDiagnosticsHistoryRepository : DiagnosticsHistoryRepository {
+    val profilesState = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
+    val sessionsState = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
+    val snapshotsState = MutableStateFlow<List<NetworkSnapshotEntity>>(emptyList())
+    val contextsState = MutableStateFlow<List<DiagnosticContextEntity>>(emptyList())
+    val telemetryState = MutableStateFlow<List<TelemetrySampleEntity>>(emptyList())
+    val nativeEventsState = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
+    val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
+    val usageSessionsState = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
+    val rememberedPoliciesState = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
+    val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
+    private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
+    private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
+
+    override fun observeProfiles(): Flow<List<DiagnosticProfileEntity>> = profilesState
+
+    override fun observeRecentScanSessions(limit: Int): Flow<List<ScanSessionEntity>> = sessionsState
+
+    override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = snapshotsState
+
+    override fun observeConnectionSnapshots(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<NetworkSnapshotEntity>> =
+        MutableStateFlow(snapshotsState.value.filter { it.connectionSessionId == connectionSessionId }.take(limit))
+
+    override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> = contextsState
+
+    override fun observeConnectionContexts(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<DiagnosticContextEntity>> =
+        MutableStateFlow(contextsState.value.filter { it.connectionSessionId == connectionSessionId }.take(limit))
+
+    override fun observeTelemetry(limit: Int): Flow<List<TelemetrySampleEntity>> = telemetryState
+
+    override fun observeConnectionTelemetry(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<TelemetrySampleEntity>> =
+        MutableStateFlow(telemetryState.value.filter { it.connectionSessionId == connectionSessionId }.take(limit))
+
+    override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = nativeEventsState
+
+    override fun observeConnectionNativeEvents(
+        connectionSessionId: String,
+        limit: Int,
+    ): Flow<List<NativeSessionEventEntity>> =
+        MutableStateFlow(nativeEventsState.value.filter { it.connectionSessionId == connectionSessionId }.take(limit))
+
+    override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = exportsState
+
+    override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> = usageSessionsState
+
+    override fun observeRememberedNetworkPolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
+        rememberedPoliciesState
+
+    override suspend fun getProfile(id: String): DiagnosticProfileEntity? = profilesState.value.find { it.id == id }
+
+    override suspend fun getPackVersion(packId: String): TargetPackVersionEntity? = packVersions[packId]
+
+    override suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
+        sessionsState.value.find { it.id == sessionId }
+
+    override suspend fun getBypassUsageSession(sessionId: String): BypassUsageSessionEntity? =
+        usageSessionsState.value.find { it.id == sessionId }
+
+    override suspend fun getRememberedNetworkPolicy(
+        fingerprintHash: String,
+        mode: String,
+    ): RememberedNetworkPolicyEntity? =
+        rememberedPoliciesState.value.find { it.fingerprintHash == fingerprintHash && it.mode == mode }
+
+    override suspend fun getNetworkDnsPathPreference(fingerprintHash: String): NetworkDnsPathPreferenceEntity? =
+        networkDnsPathPreferencesState.value.find { it.fingerprintHash == fingerprintHash }
+
+    override suspend fun findValidatedRememberedNetworkPolicy(
+        fingerprintHash: String,
+        mode: String,
+        now: Long,
+    ): RememberedNetworkPolicyEntity? =
+        rememberedPoliciesState.value.find { policy ->
+            policy.fingerprintHash == fingerprintHash &&
+                policy.mode == mode &&
+                policy.status == com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated &&
+                (policy.suppressedUntil?.let { it <= now } != false)
+        }
+
+    override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> = probeResults[sessionId].orEmpty()
+
+    override suspend fun upsertProfile(profile: DiagnosticProfileEntity) {
+        profilesState.value = profilesState.value.upsertById(profile) { it.id }
+    }
+
+    override suspend fun upsertPackVersion(version: TargetPackVersionEntity) {
+        packVersions[version.packId] = version
+    }
+
+    override suspend fun upsertScanSession(session: ScanSessionEntity) {
+        sessionsState.value = sessionsState.value.upsertById(session) { it.id }
+    }
+
+    override suspend fun replaceProbeResults(
+        sessionId: String,
+        results: List<ProbeResultEntity>,
+    ) {
+        probeResults[sessionId] = results
+    }
+
+    override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) {
+        snapshotsState.value = snapshotsState.value + snapshot
+    }
+
+    override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) {
+        contextsState.value = contextsState.value + snapshot
+    }
+
+    override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) {
+        telemetryState.value = telemetryState.value + sample
+    }
+
+    override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
+        nativeEventsState.value = nativeEventsState.value + event
+    }
+
+    override suspend fun insertExportRecord(record: ExportRecordEntity) {
+        exportsState.value = exportsState.value + record
+    }
+
+    override suspend fun upsertBypassUsageSession(session: BypassUsageSessionEntity) {
+        usageSessionsState.value = usageSessionsState.value.upsertById(session) { it.id }
+    }
+
+    override suspend fun upsertRememberedNetworkPolicy(policy: RememberedNetworkPolicyEntity): Long {
+        val persisted =
+            if (policy.id == 0L) {
+                policy.copy(id = (rememberedPoliciesState.value.maxOfOrNull { it.id } ?: 0L) + 1L)
+            } else {
+                policy
+            }
+        rememberedPoliciesState.value = rememberedPoliciesState.value.upsertById(persisted) { it.id }
+        return persisted.id
+    }
+
+    override suspend fun upsertNetworkDnsPathPreference(preference: NetworkDnsPathPreferenceEntity): Long {
+        val persisted =
+            if (preference.id == 0L) {
+                preference.copy(id = (networkDnsPathPreferencesState.value.maxOfOrNull { it.id } ?: 0L) + 1L)
+            } else {
+                preference
+            }
+        networkDnsPathPreferencesState.value = networkDnsPathPreferencesState.value.upsertById(persisted) { it.id }
+        return persisted.id
+    }
+
+    override suspend fun clearRememberedNetworkPolicies() {
+        rememberedPoliciesState.value = emptyList()
+    }
+
+    override suspend fun pruneRememberedNetworkPolicies() = Unit
+
+    override suspend fun pruneNetworkDnsPathPreferences() = Unit
+
+    override suspend fun trimOldData(retentionDays: Int) = Unit
+
+    fun storedProbeResults(sessionId: String): List<ProbeResultEntity> = probeResults[sessionId].orEmpty()
+
+    fun seedDefaultProfile(json: Json) {
+        profilesState.value =
+            listOf(
+                DiagnosticProfileEntity(
+                    id = "default",
+                    name = "Default",
+                    source = "bundled",
+                    version = 1,
+                    requestJson =
+                        json.encodeToString(
+                            ScanRequest.serializer(),
+                            ScanRequest(
+                                profileId = "default",
+                                displayName = "Default",
+                                pathMode = ScanPathMode.RAW_PATH,
+                                domainTargets = listOf(DomainTarget(host = "example.org")),
+                                dnsTargets = listOf(DnsTarget(domain = "blocked.example")),
+                            ),
+                        ),
+                    updatedAt = 1L,
+                ),
+            )
+    }
+
+    fun seedStrategyProbeProfile(
+        json: Json,
+        profileId: String = "automatic-probing",
+        name: String = "Automatic probing",
+        suiteId: String = "quick_v1",
+    ) {
+        profilesState.value =
+            listOf(
+                DiagnosticProfileEntity(
+                    id = profileId,
+                    name = name,
+                    source = "bundled",
+                    version = 1,
+                    requestJson =
+                        json.encodeToString(
+                            ScanRequest.serializer(),
+                            ScanRequest(
+                                profileId = profileId,
+                                displayName = name,
+                                pathMode = ScanPathMode.RAW_PATH,
+                                kind = ScanKind.STRATEGY_PROBE,
+                                domainTargets = listOf(DomainTarget(host = "example.org")),
+                                quicTargets = listOf(QuicTarget(host = "example.org")),
+                                strategyProbe = StrategyProbeRequest(suiteId = suiteId),
+                            ),
+                        ),
+                    updatedAt = 1L,
+                ),
+            )
+    }
+}
+
+internal class FakeNetworkMetadataProvider : NetworkMetadataProvider {
+    override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel =
+        networkSnapshotModelForTest()
+}
+
+internal class FakeNetworkFingerprintProvider : NetworkFingerprintProvider {
+    override fun capture(): NetworkFingerprint =
+        NetworkFingerprint(
+            transport = "wifi",
+            networkValidated = true,
+            captivePortalDetected = false,
+            privateDnsMode = "system",
+            dnsServers = listOf("1.1.1.1"),
+            wifi =
+                WifiNetworkIdentityTuple(
+                    ssid = "ripdpi-lab",
+                    bssid = "aa:bb:cc:dd:ee:ff",
+                    gateway = "192.0.2.1",
+                ),
+        )
+}
+
+internal class FakeDiagnosticsContextProvider : DiagnosticsContextProvider {
+    override suspend fun captureContext(): DiagnosticContextModel = captureContextForTest()
+
+    fun captureContextForTest(): DiagnosticContextModel =
+        DiagnosticContextModel(
+            service =
+                ServiceContextModel(
+                    serviceStatus = "Running",
+                    configuredMode = "VPN",
+                    activeMode = "VPN",
+                    selectedProfileId = "default",
+                    selectedProfileName = "Default",
+                    configSource = "ui",
+                    proxyEndpoint = "127.0.0.1:1080",
+                    desyncMethod = "split",
+                    chainSummary = "tcp: split(1)",
+                    routeGroup = "3",
+                    sessionUptimeMs = 15_000L,
+                    lastNativeErrorHeadline = "none",
+                    restartCount = 2,
+                    hostAutolearnEnabled = "enabled",
+                    learnedHostCount = 4,
+                    penalizedHostCount = 1,
+                    lastAutolearnHost = "example.org",
+                    lastAutolearnGroup = "3",
+                    lastAutolearnAction = "host_promoted",
+                ),
+            permissions =
+                PermissionContextModel(
+                    vpnPermissionState = "enabled",
+                    notificationPermissionState = "enabled",
+                    batteryOptimizationState = "disabled",
+                    dataSaverState = "disabled",
+                ),
+            device =
+                DeviceContextModel(
+                    appVersionName = "0.0.1",
+                    appVersionCode = 1L,
+                    buildType = "debug",
+                    androidVersion = "16",
+                    apiLevel = 36,
+                    manufacturer = "Google",
+                    model = "Pixel",
+                    primaryAbi = "arm64-v8a",
+                    locale = "en-US",
+                    timezone = "UTC",
+                ),
+            environment =
+                EnvironmentContextModel(
+                    batterySaverState = "disabled",
+                    powerSaveModeState = "disabled",
+                    networkMeteredState = "disabled",
+                    roamingState = "disabled",
+                ),
+        )
+}
+
+internal class FakeNetworkDiagnosticsBridgeFactory(
+    private val json: Json,
+) : NetworkDiagnosticsBridgeFactory {
+    val bridge = FakeNetworkDiagnosticsBridge(json)
+
+    override fun create(): NetworkDiagnosticsBridge = bridge
+}
+
+internal enum class DiagnosticsBridgeFaultTarget {
+    START_SCAN,
+    CANCEL,
+    POLL_PROGRESS,
+    TAKE_REPORT,
+    PASSIVE_EVENTS,
+    DESTROY,
+}
+
+private sealed interface DiagnosticsBridgeStep {
+    data class Payload(
+        val value: String?,
+    ) : DiagnosticsBridgeStep
+
+    data class Failure(
+        val error: Throwable,
+    ) : DiagnosticsBridgeStep
+}
+
+internal class FakeNetworkDiagnosticsBridge(
+    private val json: Json,
+) : NetworkDiagnosticsBridge {
+    var startedRequestJson: String? = null
+    var autoCompleteOnStart: Boolean = true
+    var cancelCount: Int = 0
+    var destroyCount: Int = 0
+    val faults = FaultQueue<DiagnosticsBridgeFaultTarget>()
+    private val passiveEventsPayloads = ArrayDeque<String>()
+    private val scriptedProgress = ArrayDeque<DiagnosticsBridgeStep>()
+    private val scriptedReports = ArrayDeque<DiagnosticsBridgeStep>()
+    private val scriptedPassiveEvents = ArrayDeque<DiagnosticsBridgeStep>()
+    private var reportJson: String? = null
+    private var progressJson: String? = null
+
+    override suspend fun startScan(
+        requestJson: String,
+        sessionId: String,
+    ) {
+        faults.next(DiagnosticsBridgeFaultTarget.START_SCAN)?.throwOrIgnore()
+        startedRequestJson = requestJson
+        if (autoCompleteOnStart) {
+            progressJson =
+                json.encodeToString(
+                    ScanProgress.serializer(),
+                    ScanProgress(
+                        sessionId = sessionId,
+                        phase = "complete",
+                        completedSteps = 1,
+                        totalSteps = 1,
+                        message = "done",
+                        isFinished = true,
+                    ),
+                )
+            reportJson =
+                json.encodeToString(
+                    ScanReport.serializer(),
+                    ScanReport(
+                        sessionId = sessionId,
+                        profileId = "default",
+                        pathMode = json.decodeFromString(ScanRequest.serializer(), requestJson).pathMode,
+                        startedAt = 10L,
+                        finishedAt = 20L,
+                        summary = "Finished",
+                        results =
+                            listOf(
+                                ProbeResult(
+                                    probeType = "dns",
+                                    target = "blocked.example",
+                                    outcome = "substituted",
+                                ),
+                            ),
+                    ),
+                )
+            passiveEventsPayloads.clear()
+            passiveEventsPayloads.addLast(
+                json.encodeToString(
+                    ListSerializer(NativeSessionEvent.serializer()),
+                    listOf(
+                        NativeSessionEvent(
+                            source = "native",
+                            level = "info",
+                            message = "scan started",
+                            createdAt = 15L,
+                        ),
+                    ),
+                ),
+            )
+            passiveEventsPayloads.addLast("[]")
+        }
+    }
+
+    override suspend fun cancelScan() {
+        faults.next(DiagnosticsBridgeFaultTarget.CANCEL)?.throwOrIgnore()
+        cancelCount += 1
+    }
+
+    override suspend fun pollProgressJson(): String? {
+        faults.next(DiagnosticsBridgeFaultTarget.POLL_PROGRESS)?.throwOrIgnore()
+        return scriptedProgress.removeFirstOrNull().resolve(progressJson)
+    }
+
+    override suspend fun takeReportJson(): String? {
+        faults.next(DiagnosticsBridgeFaultTarget.TAKE_REPORT)?.throwOrIgnore()
+        return scriptedReports.removeFirstOrNull().resolve(reportJson).also {
+            if (scriptedReports.isEmpty()) {
+                reportJson = null
+            }
+        }
+    }
+
+    override suspend fun pollPassiveEventsJson(): String? {
+        faults.next(DiagnosticsBridgeFaultTarget.PASSIVE_EVENTS)?.throwOrIgnore()
+        val scripted = scriptedPassiveEvents.removeFirstOrNull()
+        val defaultValue =
+            if (scripted == null) {
+                passiveEventsPayloads.removeFirstOrNull()
+            } else {
+                passiveEventsPayloads.firstOrNull()
+            }
+        return scripted.resolve(defaultValue)
+    }
+
+    override suspend fun destroy() {
+        faults.next(DiagnosticsBridgeFaultTarget.DESTROY)?.throwOrIgnore()
+        destroyCount += 1
+    }
+
+    fun enqueueProgress(progress: ScanProgress) {
+        scriptedProgress.addLast(DiagnosticsBridgeStep.Payload(json.encodeToString(ScanProgress.serializer(), progress)))
+    }
+
+    fun enqueueProgress(value: String?) {
+        scriptedProgress.addLast(DiagnosticsBridgeStep.Payload(value))
+    }
+
+    fun enqueueProgressFailure(error: Throwable) {
+        scriptedProgress.addLast(DiagnosticsBridgeStep.Failure(error))
+    }
+
+    fun enqueueReport(report: ScanReport) {
+        scriptedReports.addLast(DiagnosticsBridgeStep.Payload(json.encodeToString(ScanReport.serializer(), report)))
+    }
+
+    fun enqueueReport(value: String?) {
+        scriptedReports.addLast(DiagnosticsBridgeStep.Payload(value))
+    }
+
+    fun enqueuePassiveEvents(value: String?) {
+        scriptedPassiveEvents.addLast(DiagnosticsBridgeStep.Payload(value))
+    }
+}
+
+internal class FakeDiagnosticsRuntimeCoordinator : DiagnosticsRuntimeCoordinator {
+    val rawScanCount = AtomicInteger(0)
+    val automaticRawScanCount = AtomicInteger(0)
+
+    override suspend fun runRawPathScan(block: suspend () -> Unit) {
+        rawScanCount.incrementAndGet()
+        block()
+    }
+
+    override suspend fun runAutomaticRawPathScan(block: suspend () -> Unit) {
+        automaticRawScanCount.incrementAndGet()
+        block()
+    }
+}
+
+private fun DiagnosticsBridgeStep?.resolve(defaultValue: String?): String? =
+    when (this) {
+        null -> defaultValue
+        is DiagnosticsBridgeStep.Payload -> value
+        is DiagnosticsBridgeStep.Failure -> throw error
+    }
+
+private fun <T> FaultSpec<T>.throwOrIgnore() {
+    when (outcome) {
+        FaultOutcome.MALFORMED_PAYLOAD,
+        FaultOutcome.BLANK_PAYLOAD,
+        -> Unit
+
+        else -> throw faultThrowable(outcome, message)
+    }
+}
+
+internal class FakeResolverOverrideStore : ResolverOverrideStore {
+    private val state = MutableStateFlow<TemporaryResolverOverride?>(null)
+
+    override val override: StateFlow<TemporaryResolverOverride?> = state.asStateFlow()
+
+    override fun setTemporaryOverride(override: TemporaryResolverOverride) {
+        state.value = override
+    }
+
+    override fun clear() {
+        state.value = null
+    }
+}
+
+internal class FakePolicyHandoverEventStore : PolicyHandoverEventStore {
+    private val state = MutableSharedFlow<PolicyHandoverEvent>(extraBufferCapacity = 8)
+
+    override val events: SharedFlow<PolicyHandoverEvent> = state.asSharedFlow()
+
+    override fun publish(event: PolicyHandoverEvent) {
+        state.tryEmit(event)
+    }
+}
+
+internal class FakeServiceStateStore(
+    initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,
+) : ServiceStateStore {
+    private val statusState = MutableStateFlow(initialStatus)
+    private val eventFlow = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
+    private val telemetryState = MutableStateFlow(ServiceTelemetrySnapshot())
+
+    override val status: StateFlow<Pair<AppStatus, Mode>> = statusState.asStateFlow()
+    override val events: SharedFlow<ServiceEvent> = eventFlow.asSharedFlow()
+    override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState.asStateFlow()
+
+    override fun setStatus(
+        status: AppStatus,
+        mode: Mode,
+    ) {
+        statusState.value = status to mode
+    }
+
+    override fun emitFailed(
+        sender: Sender,
+        reason: FailureReason,
+    ) {
+        eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
+    }
+
+    override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
+        telemetryState.value = snapshot
+    }
+}
+
+internal fun defaultDiagnosticsAppSettings(): AppSettings =
+    AppSettings
+        .newBuilder()
+        .setProxyIp("127.0.0.1")
+        .setProxyPort(1080)
+        .setDiagnosticsMonitorEnabled(true)
+        .setDiagnosticsSampleIntervalSeconds(15)
+        .setDiagnosticsDefaultScanPathMode("raw_path")
+        .setDiagnosticsAutoResumeAfterRawScan(true)
+        .setDiagnosticsActiveProfileId("default")
+        .setDiagnosticsHistoryRetentionDays(14)
+        .setDiagnosticsExportIncludeHistory(true)
+        .build()
+
+internal fun diagnosticsTestJson(): Json =
+    Json {
+        ignoreUnknownKeys = true
+        prettyPrint = true
+        encodeDefaults = true
+        explicitNulls = false
+    }
+
+internal fun networkSnapshotModelForTest(): NetworkSnapshotModel =
+    NetworkSnapshotModel(
+        transport = "wifi",
+        capabilities = listOf("validated"),
+        dnsServers = listOf("1.1.1.1"),
+        privateDnsMode = "system",
+        mtu = 1500,
+        localAddresses = listOf("192.0.2.10"),
+        publicIp = "198.51.100.8",
+        publicAsn = "AS64500",
+        captivePortalDetected = false,
+        networkValidated = true,
+        wifiDetails =
+            WifiNetworkDetails(
+                ssid = "RIPDPI Lab",
+                bssid = "aa:bb:cc:dd:ee:ff",
+                frequencyMhz = 5180,
+                band = "5 GHz",
+                channelWidth = "80 MHz",
+                wifiStandard = "802.11ax",
+                rssiDbm = -53,
+                linkSpeedMbps = 866,
+                rxLinkSpeedMbps = 780,
+                txLinkSpeedMbps = 720,
+                hiddenSsid = false,
+                networkId = 7,
+                isPasspoint = false,
+                isOsuAp = false,
+                gateway = "192.0.2.1",
+                dhcpServer = "192.0.2.2",
+                ipAddress = "192.0.2.10",
+                subnetMask = "255.255.255.0",
+                leaseDurationSeconds = 3600,
+            ),
+        capturedAt = 123L,
+    )
+
+internal fun diagnosticsSession(
+    id: String,
+    profileId: String,
+    pathMode: String,
+    summary: String,
+    status: String = "completed",
+    reportJson: String? =
+        Json.encodeToString(
+            ScanReport.serializer(),
+            ScanReport(
+                sessionId = id,
+                profileId = profileId,
+                pathMode = ScanPathMode.valueOf(pathMode),
+                startedAt = 10L,
+                finishedAt = 20L,
+                summary = summary,
+                results = emptyList(),
+            ),
+        ),
+): ScanSessionEntity =
+    ScanSessionEntity(
+        id = id,
+        profileId = profileId,
+        pathMode = pathMode,
+        serviceMode = "VPN",
+        status = status,
+        summary = summary,
+        reportJson = reportJson,
+        startedAt = 10L,
+        finishedAt = if (status == "completed") 20L else null,
+    )
+
+private fun <T, K> List<T>.upsertById(
+    item: T,
+    keySelector: (T) -> K,
+): List<T> {
+    val key = keySelector(item)
+    val remaining = filterNot { keySelector(it) == key }
+    return remaining + item
+}
