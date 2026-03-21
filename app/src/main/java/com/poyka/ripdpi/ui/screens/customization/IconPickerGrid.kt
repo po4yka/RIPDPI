@@ -28,6 +28,8 @@ import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.activities.LauncherIconOption
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -81,6 +83,7 @@ private fun IconOptionCell(
     Column(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.customizationIcon(option.key))
                 .ripDpiSelectable(
                     selected = selected,
                     role = Role.RadioButton,

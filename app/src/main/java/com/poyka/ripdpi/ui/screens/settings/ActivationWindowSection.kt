@@ -41,6 +41,7 @@ internal fun LazyListScope.activationWindowSection(
                         effectSummary = stringResource(R.string.activation_window_round_effect),
                         enabled = visualEditorEnabled,
                         minValue = 1L,
+                        dimension = ActivationWindowDimension.Round,
                         onSave = { start, end -> onSaveActivationRange(ActivationWindowDimension.Round, start, end) },
                     )
                     ActivationRangeEditorCard(
@@ -51,6 +52,7 @@ internal fun LazyListScope.activationWindowSection(
                         effectSummary = stringResource(R.string.activation_window_payload_effect),
                         enabled = visualEditorEnabled,
                         minValue = 0L,
+                        dimension = ActivationWindowDimension.PayloadSize,
                         onSave = { start, end ->
                             onSaveActivationRange(ActivationWindowDimension.PayloadSize, start, end)
                         },
@@ -63,6 +65,7 @@ internal fun LazyListScope.activationWindowSection(
                         effectSummary = stringResource(R.string.activation_window_stream_effect),
                         enabled = visualEditorEnabled,
                         minValue = 0L,
+                        dimension = ActivationWindowDimension.StreamBytes,
                         onSave = { start, end ->
                             onSaveActivationRange(ActivationWindowDimension.StreamBytes, start, end)
                         },

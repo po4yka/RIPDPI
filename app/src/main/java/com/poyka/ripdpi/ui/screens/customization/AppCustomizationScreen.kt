@@ -32,6 +32,9 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -93,6 +96,7 @@ internal fun AppCustomizationScreen(
     RipDpiSettingsScaffold(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.AppCustomization))
                 .fillMaxSize()
                 .background(colors.background),
         title = stringResource(R.string.title_app_icon),
@@ -176,12 +180,14 @@ internal fun AppCustomizationScreen(
                         value = stringResource(R.string.customization_shape_system_default),
                         onClick = { showAdaptiveShapeSheet = true },
                         showDivider = true,
+                        testTag = RipDpiTestTags.CustomizationShapeInfo,
                     )
                     SettingsRow(
                         title = stringResource(R.string.customization_themed_icon_title),
                         subtitle = stringResource(R.string.customization_themed_icon_body),
                         checked = uiState.themedAppIconEnabled,
                         onCheckedChange = onThemedIconChanged,
+                        testTag = RipDpiTestTags.CustomizationThemedIcon,
                     )
                 }
             }

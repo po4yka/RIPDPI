@@ -25,6 +25,7 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 internal fun LazyListScope.udpSection() {
@@ -79,6 +80,7 @@ internal fun LazyListScope.quicSection(
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.QuicSupportV1, it) },
                         enabled = visualEditorEnabled,
                         showDivider = true,
+                        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.QuicSupportV1),
                     )
                     SettingsRow(
                         title = stringResource(R.string.quic_initial_support_v2_title),
@@ -86,6 +88,7 @@ internal fun LazyListScope.quicSection(
                         checked = uiState.quic.quicSupportV2,
                         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.QuicSupportV2, it) },
                         enabled = visualEditorEnabled,
+                        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.QuicSupportV2),
                     )
                 }
                 if (showQuicFakeSection) {

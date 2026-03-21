@@ -60,6 +60,9 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -219,6 +222,7 @@ fun DiagnosticsScreen(
     RipDpiScreenScaffold(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.Diagnostics))
                 .fillMaxSize()
                 .background(colors.background),
         snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
@@ -230,6 +234,7 @@ fun DiagnosticsScreen(
                         icon = RipDpiIcons.Logs,
                         contentDescription = stringResource(R.string.history_open_action),
                         onClick = onOpenHistory,
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsTopHistoryAction),
                     )
                 },
             )
@@ -346,6 +351,7 @@ private fun DiagnosticsSectionSwitcher(
                 text = section.label(),
                 selected = selectedSection == section,
                 onClick = { onSelectSection(section) },
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSection(section)),
             )
         }
     }
@@ -509,7 +515,10 @@ private fun HistoryCalloutCard(onOpenHistory: () -> Unit) {
             text = stringResource(R.string.diagnostics_open_history_action),
             onClick = onOpenHistory,
             variant = RipDpiButtonVariant.Outline,
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsOverviewHistoryAction),
         )
     }
 }
@@ -581,11 +590,19 @@ private fun ApproachesSection(
                         text = stringResource(R.string.diagnostics_approaches_profiles),
                         selected = uiState.approaches.selectedMode == DiagnosticsApproachMode.Profiles,
                         onClick = { onSelectMode(DiagnosticsApproachMode.Profiles) },
+                        modifier =
+                            Modifier.ripDpiTestTag(
+                                RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Profiles),
+                            ),
                     )
                     RipDpiChip(
                         text = stringResource(R.string.diagnostics_approaches_strategies),
                         selected = uiState.approaches.selectedMode == DiagnosticsApproachMode.Strategies,
                         onClick = { onSelectMode(DiagnosticsApproachMode.Strategies) },
+                        modifier =
+                            Modifier.ripDpiTestTag(
+                                RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Strategies),
+                            ),
                     )
                 }
             }
@@ -660,6 +677,7 @@ private fun SessionsSection(
                     onValueChange = onSearch,
                     label = stringResource(R.string.diagnostics_search_label),
                     placeholder = stringResource(R.string.diagnostics_search_placeholder),
+                    testTag = RipDpiTestTags.DiagnosticsSessionsSearch,
                 )
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     items(uiState.sessions.pathModes, key = { it }) { pathMode ->
@@ -667,6 +685,7 @@ private fun SessionsSection(
                             text = pathMode,
                             selected = uiState.sessions.filters.pathMode == pathMode,
                             onClick = { onPathModeFilter(pathMode) },
+                            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSessionPathFilter(pathMode)),
                         )
                     }
                 }
@@ -676,6 +695,10 @@ private fun SessionsSection(
                             text = status.replaceFirstChar { it.uppercase() },
                             selected = uiState.sessions.filters.status == status,
                             onClick = { onStatusFilter(status) },
+                            modifier =
+                                Modifier.ripDpiTestTag(
+                                    RipDpiTestTags.diagnosticsSessionStatusFilter(status),
+                                ),
                         )
                     }
                 }
@@ -750,6 +773,7 @@ private fun EventsSection(
                     onValueChange = onSearch,
                     label = stringResource(R.string.diagnostics_search_label),
                     placeholder = stringResource(R.string.diagnostics_events_search_placeholder),
+                    testTag = RipDpiTestTags.DiagnosticsEventsSearch,
                 )
                 SettingsRow(
                     title = stringResource(R.string.logs_auto_scroll_title),
@@ -757,6 +781,7 @@ private fun EventsSection(
                     checked = uiState.events.filters.autoScroll,
                     onCheckedChange = onAutoScroll,
                     showDivider = true,
+                    testTag = RipDpiTestTags.DiagnosticsEventsAutoScroll,
                 )
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     items(uiState.events.availableSources, key = { it }) { source ->
@@ -764,6 +789,10 @@ private fun EventsSection(
                             text = source,
                             selected = uiState.events.filters.source == source,
                             onClick = { onToggleFilter(source, null) },
+                            modifier =
+                                Modifier.ripDpiTestTag(
+                                    RipDpiTestTags.diagnosticsEventSourceFilter(source),
+                                ),
                         )
                     }
                 }
@@ -773,6 +802,10 @@ private fun EventsSection(
                             text = severity,
                             selected = uiState.events.filters.severity == severity,
                             onClick = { onToggleFilter(null, severity) },
+                            modifier =
+                                Modifier.ripDpiTestTag(
+                                    RipDpiTestTags.diagnosticsEventSeverityFilter(severity),
+                                ),
                         )
                     }
                 }
@@ -830,6 +863,7 @@ private fun ShareSection(
                 iconTint = RipDpiThemeTokens.colors.foreground,
                 variant = RipDpiButtonVariant.Primary,
                 enabled = !uiState.share.isArchiveBusy,
+                buttonModifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareArchive),
             )
         }
         item {
@@ -845,6 +879,7 @@ private fun ShareSection(
                 iconTint = RipDpiThemeTokens.colors.info,
                 variant = RipDpiButtonVariant.Outline,
                 enabled = !uiState.share.isArchiveBusy,
+                buttonModifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveArchive),
             )
         }
         item {
@@ -855,6 +890,7 @@ private fun ShareSection(
                 onClick = { onShareSummary(uiState.share.targetSessionId) },
                 iconTint = RipDpiThemeTokens.colors.info,
                 variant = RipDpiButtonVariant.Outline,
+                buttonModifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareSummary),
             )
         }
         item {
@@ -865,6 +901,7 @@ private fun ShareSection(
                 onClick = onSaveLogs,
                 iconTint = RipDpiThemeTokens.colors.warning,
                 variant = RipDpiButtonVariant.Outline,
+                buttonModifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveLogs),
             )
         }
     }

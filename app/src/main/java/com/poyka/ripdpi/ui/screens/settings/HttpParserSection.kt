@@ -20,6 +20,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 internal fun LazyListScope.httpParserSection(
@@ -74,6 +75,7 @@ internal fun LazyListScope.httpParserSection(
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostMixedCase, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
                     showDivider = true,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HostMixedCase),
                 )
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_domain_mixed_case_setting),
@@ -81,12 +83,14 @@ internal fun LazyListScope.httpParserSection(
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DomainMixedCase, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
                     showDivider = true,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DomainMixedCase),
                 )
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_host_remove_spaces_setting),
                     checked = uiState.httpParser.hostRemoveSpaces,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HostRemoveSpaces, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HostRemoveSpaces),
                 )
             }
             HttpParserToggleGroupCard(
@@ -132,12 +136,14 @@ internal fun LazyListScope.httpParserSection(
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpMethodEol, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
                     showDivider = true,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpMethodEol),
                 )
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_http_unix_eol_setting),
                     checked = uiState.httpParser.httpUnixEol,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.HttpUnixEol, it) },
                     enabled = visualEditorEnabled && uiState.desyncHttpEnabled,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.HttpUnixEol),
                 )
             }
         }

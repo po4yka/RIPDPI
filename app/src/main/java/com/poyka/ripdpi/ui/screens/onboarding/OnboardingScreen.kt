@@ -49,6 +49,9 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiIntroScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -142,6 +145,7 @@ fun OnboardingScreen(
     RipDpiIntroScaffold(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.Onboarding))
                 .fillMaxSize()
                 .background(colors.background),
         topAction = {
@@ -158,6 +162,7 @@ fun OnboardingScreen(
                     color = colors.mutedForeground,
                     modifier =
                         Modifier
+                            .ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
                             .padding(top = introLayout.topActionTopPadding)
                             .ripDpiClickable(role = Role.Button, onClick = onSkip),
                 )
@@ -183,7 +188,8 @@ fun OnboardingScreen(
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                            .heightIn(min = introLayout.footerButtonMinHeight),
+                            .heightIn(min = introLayout.footerButtonMinHeight)
+                            .ripDpiTestTag(RipDpiTestTags.OnboardingContinue),
                     trailingIcon = RipDpiIcons.ChevronRight,
                 )
             }

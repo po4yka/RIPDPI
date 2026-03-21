@@ -36,6 +36,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -58,6 +59,7 @@ fun RipDpiTextField(
     minHeight: androidx.compose.ui.unit.Dp? = null,
     trailingContent: (@Composable () -> Unit)? = null,
     interactionSource: MutableInteractionSource? = null,
+    testTag: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
@@ -117,6 +119,7 @@ fun RipDpiTextField(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .ripDpiTestTag(testTag)
                     .semantics {
                         label?.let { contentDescription = it }
                         errorText?.let { error(it) }
@@ -173,6 +176,7 @@ fun RipDpiConfigTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingContent: (@Composable () -> Unit)? = null,
     interactionSource: MutableInteractionSource? = null,
+    testTag: String? = null,
 ) {
     val components = RipDpiThemeTokens.components
 
@@ -195,6 +199,7 @@ fun RipDpiConfigTextField(
         minHeight = if (multiline) components.multilineFieldMinHeight else null,
         trailingContent = trailingContent,
         interactionSource = interactionSource,
+        testTag = testTag,
     )
 }
 

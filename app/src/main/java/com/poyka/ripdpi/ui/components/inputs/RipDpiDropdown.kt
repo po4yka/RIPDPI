@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -59,6 +60,7 @@ fun <T> RipDpiDropdown(
     readOnly: Boolean = false,
     density: RipDpiControlDensity = RipDpiControlDensity.Default,
     interactionSource: MutableInteractionSource? = null,
+    testTag: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
@@ -129,6 +131,7 @@ fun <T> RipDpiDropdown(
             Row(
                 modifier =
                     Modifier
+                        .ripDpiTestTag(testTag)
                         .fillMaxWidth()
                         .height(components.controlHeight)
                         .background(colors.inputBackground, RipDpiThemeTokens.shapes.xl)

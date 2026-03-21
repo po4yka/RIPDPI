@@ -41,6 +41,9 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -125,6 +128,7 @@ internal fun SettingsScreen(
     RipDpiSettingsScaffold(
         modifier =
             modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.Settings))
                 .fillMaxSize()
                 .background(colors.background),
         title = stringResource(R.string.settings),
@@ -146,12 +150,14 @@ internal fun SettingsScreen(
                     value = uiState.dns.dnsSummary,
                     onClick = onOpenDnsSettings,
                     showDivider = true,
+                    testTag = RipDpiTestTags.SettingsDnsSettings,
                 )
                 SettingsRow(
                     title = stringResource(R.string.title_advanced_settings),
                     subtitle = stringResource(R.string.settings_advanced_body),
                     value = stringResource(R.string.settings_manage_action),
                     onClick = onOpenAdvancedSettings,
+                    testTag = RipDpiTestTags.SettingsAdvancedSettings,
                 )
             }
         }
@@ -177,6 +183,7 @@ internal fun SettingsScreen(
                         checked = uiState.webrtcProtectionEnabled,
                         onCheckedChange = onWebRtcProtectionChanged,
                         showDivider = true,
+                        testTag = RipDpiTestTags.SettingsWebRtcProtection,
                     )
                     SettingsRow(
                         title = stringResource(R.string.settings_biometric_title),
@@ -199,6 +206,7 @@ internal fun SettingsScreen(
                         checked = uiState.biometricEnabled,
                         onCheckedChange = onBiometricChanged,
                         showDivider = showBackupPinEditor,
+                        testTag = RipDpiTestTags.SettingsBiometric,
                     )
 
                     if (showBackupPinEditor) {
@@ -240,6 +248,7 @@ internal fun SettingsScreen(
                     selectedValue = uiState.appTheme,
                     onValueSelected = onThemeSelected,
                     helperText = stringResource(R.string.settings_theme_helper),
+                    testTag = RipDpiTestTags.SettingsThemeDropdown,
                 )
                 HorizontalDivider(color = colors.divider)
                 SettingsRow(
@@ -247,6 +256,7 @@ internal fun SettingsScreen(
                     subtitle = stringResource(R.string.settings_customization_body),
                     value = stringResource(R.string.settings_manage_action),
                     onClick = onOpenCustomization,
+                    testTag = RipDpiTestTags.SettingsCustomization,
                 )
             }
         }
@@ -270,6 +280,7 @@ internal fun SettingsScreen(
                             },
                         enabled = item.enabled,
                         showDivider = index != permissionSummary.items.lastIndex,
+                        testTag = RipDpiTestTags.settingsPermission(item.kind),
                     )
                 }
             }
@@ -285,6 +296,7 @@ internal fun SettingsScreen(
                     value = stringResource(R.string.settings_share_debug_bundle_action),
                     onClick = onShareDebugBundle,
                     showDivider = true,
+                    testTag = RipDpiTestTags.SettingsSupportBundle,
                 )
                 SettingsRow(
                     title = stringResource(R.string.title_data_transparency),
@@ -292,12 +304,14 @@ internal fun SettingsScreen(
                     value = stringResource(R.string.settings_manage_action),
                     onClick = onOpenDataTransparency,
                     showDivider = true,
+                    testTag = RipDpiTestTags.SettingsDataTransparency,
                 )
                 SettingsRow(
                     title = stringResource(R.string.about_category),
                     subtitle = stringResource(R.string.settings_about_body),
                     value = BuildConfig.VERSION_NAME,
                     onClick = onOpenAbout,
+                    testTag = RipDpiTestTags.SettingsAbout,
                 )
             }
         }
@@ -368,6 +382,7 @@ private fun BackupPinEditor(
                     },
                 ),
             visualTransformation = PasswordVisualTransformation(),
+            testTag = RipDpiTestTags.SettingsBackupPinField,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -377,13 +392,19 @@ private fun BackupPinEditor(
                 text = stringResource(R.string.settings_backup_pin_save),
                 onClick = onSave,
                 enabled = canSave,
-                modifier = Modifier.weight(1f),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.SettingsBackupPinSave),
             )
             if (hasSavedPin) {
                 RipDpiButton(
                     text = stringResource(R.string.settings_backup_pin_clear),
                     onClick = onClear,
-                    modifier = Modifier.weight(1f),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .ripDpiTestTag(RipDpiTestTags.SettingsBackupPinClear),
                     variant = RipDpiButtonVariant.Outline,
                 )
             }

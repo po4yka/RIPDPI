@@ -30,6 +30,9 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -126,7 +129,7 @@ fun BiometricPromptScreen(
             } else {
                 AuthPromptIllustration.Biometric
             },
-        modifier = modifier,
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.BiometricPrompt)),
         banner = {
             if (!isPinStage && !hasBackupPin) {
                 WarningBanner(
@@ -154,6 +157,7 @@ fun BiometricPromptScreen(
                         errorText = pinError,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         visualTransformation = PasswordVisualTransformation(),
+                        testTag = RipDpiTestTags.BiometricPromptPinField,
                     )
                 }
             }
@@ -166,7 +170,8 @@ fun BiometricPromptScreen(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                        .heightIn(min = introLayout.footerButtonMinHeight),
+                        .heightIn(min = introLayout.footerButtonMinHeight)
+                        .ripDpiTestTag(RipDpiTestTags.BiometricPromptPrimaryAction),
                 trailingIcon = if (isPinStage) null else com.poyka.ripdpi.ui.theme.RipDpiIcons.ChevronRight,
             )
 
@@ -179,7 +184,8 @@ fun BiometricPromptScreen(
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                            .heightIn(min = introLayout.footerButtonMinHeight),
+                            .heightIn(min = introLayout.footerButtonMinHeight)
+                            .ripDpiTestTag(RipDpiTestTags.BiometricPromptSecondaryAction),
                 )
             } else if (hasBackupPin) {
                 RipDpiButton(
@@ -190,7 +196,8 @@ fun BiometricPromptScreen(
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                            .heightIn(min = introLayout.footerButtonMinHeight),
+                            .heightIn(min = introLayout.footerButtonMinHeight)
+                            .ripDpiTestTag(RipDpiTestTags.BiometricPromptSecondaryAction),
                 )
             }
         },

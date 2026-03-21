@@ -20,6 +20,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.checkIp
@@ -41,6 +42,7 @@ internal fun LazyListScope.diagnosticsHistorySection(
                     checked = uiState.diagnosticsMonitorEnabled,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DiagnosticsMonitorEnabled, it) },
                     showDivider = true,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsMonitorEnabled),
                 )
                 AdvancedTextSetting(
                     title = stringResource(R.string.settings_diagnostics_sample_title),
@@ -85,6 +87,7 @@ internal fun LazyListScope.diagnosticsHistorySection(
                         )
                     },
                     showDivider = true,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsExportIncludeHistory),
                 )
                 Text(
                     text = stringResource(R.string.settings_telemetry_salt_reset_body),
@@ -121,6 +124,7 @@ internal fun LazyListScope.commandLineOverridesSection(
                     checked = uiState.enableCmdSettings,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.UseCommandLine, it) },
                     showDivider = true,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.UseCommandLine),
                 )
                 AdvancedTextSetting(
                     title = stringResource(R.string.command_line_arguments),
@@ -218,12 +222,14 @@ internal fun LazyListScope.proxySection(
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NoDomain, it) },
                     enabled = visualEditorEnabled,
                     showDivider = true,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain),
                 )
                 SettingsRow(
                     title = stringResource(R.string.ripdpi_tcp_fast_open_setting),
                     checked = uiState.proxy.tcpFastOpen,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
                     enabled = visualEditorEnabled,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TcpFastOpen),
                 )
             }
         }
@@ -250,6 +256,7 @@ internal fun LazyListScope.protocolsSection(
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncHttp, it) },
                     enabled = visualEditorEnabled,
                     showDivider = true,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttp),
                 )
                 SettingsRow(
                     title = stringResource(R.string.desync_https),
@@ -257,12 +264,14 @@ internal fun LazyListScope.protocolsSection(
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncHttps, it) },
                     enabled = visualEditorEnabled,
                     showDivider = true,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttps),
                 )
                 SettingsRow(
                     title = stringResource(R.string.desync_udp),
                     checked = uiState.desyncUdp,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DesyncUdp, it) },
                     enabled = visualEditorEnabled,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncUdp),
                 )
             }
         }
@@ -285,6 +294,7 @@ internal fun LazyListScope.networkStrategyMemorySection(
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.NetworkStrategyMemoryEnabled, it) },
                     enabled = visualEditorEnabled,
                     showDivider = true,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NetworkStrategyMemoryEnabled),
                 )
                 Text(
                     text =
