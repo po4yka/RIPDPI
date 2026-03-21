@@ -34,6 +34,7 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 golden-test-support = { workspace = true }
+jni = { workspace = true, features = ["invocation"] }
 proptest = { workspace = true }
 
 [features]
