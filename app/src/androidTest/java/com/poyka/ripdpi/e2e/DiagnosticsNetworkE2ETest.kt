@@ -16,7 +16,8 @@ import com.poyka.ripdpi.data.START_ACTION
 import com.poyka.ripdpi.data.STOP_ACTION
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
@@ -70,7 +71,10 @@ class DiagnosticsNetworkE2ETest {
     lateinit var diagnosticsResolverActions: DiagnosticsResolverActions
 
     @Inject
-    lateinit var historyRepository: DiagnosticsHistoryRepository
+    lateinit var profileCatalog: DiagnosticsProfileCatalog
+
+    @Inject
+    lateinit var scanRecordStore: DiagnosticsScanRecordStore
 
     @Inject
     lateinit var serviceStateStore: ServiceStateStore
@@ -257,7 +261,7 @@ class DiagnosticsNetworkE2ETest {
         val persisted =
             json.decodeFromString(
                 ScanReport.serializer(),
-                runBlocking { historyRepository.getScanSession(sessionId)?.reportJson }.orEmpty(),
+                runBlocking { scanRecordStore.getScanSession(sessionId)?.reportJson }.orEmpty(),
             )
 
         assertTrue(detail.results.any { it.probeType == "dns_integrity" && it.outcome == "udp_blocked" })
@@ -357,7 +361,7 @@ class DiagnosticsNetworkE2ETest {
                 whitelistSni = listOf(fixture.fixtureDomain),
             )
 
-        historyRepository.upsertProfile(
+        profileCatalog.upsertProfile(
             DiagnosticProfileEntity(
                 id = "local-e2e",
                 name = "Local-only E2E profile",
@@ -421,7 +425,7 @@ class DiagnosticsNetworkE2ETest {
                 whitelistSni = listOf(fixture.fixtureDomain),
             )
 
-        historyRepository.upsertProfile(
+        profileCatalog.upsertProfile(
             DiagnosticProfileEntity(
                 id = "resolver-recommendation",
                 name = "Resolver recommendation profile",
@@ -436,7 +440,7 @@ class DiagnosticsNetworkE2ETest {
     private fun awaitCompletedSession(sessionId: String): com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail {
         awaitUntil(timeoutMs = 20_000, pollMs = 100) {
             runBlocking {
-                historyRepository.getScanSession(sessionId)?.status == "completed"
+                scanRecordStore.getScanSession(sessionId)?.status == "completed"
             }
         }
         return runBlocking { diagnosticsDetailLoader.loadSessionDetail(sessionId) }

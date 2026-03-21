@@ -17,14 +17,14 @@ class DiagnosticsScanControllerTest {
     @Test
     fun `in-path scan launch injects proxy settings into request`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
             val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
             val services =
                 createDiagnosticsServices(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
-                    historyRepository = historyRepository,
+                    stores = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
@@ -45,7 +45,7 @@ class DiagnosticsScanControllerTest {
             assertEquals(ScanPathMode.IN_PATH, request.pathMode)
             assertEquals("127.0.0.1", request.proxyHost)
             assertEquals(1080, request.proxyPort)
-            assertEquals("completed", historyRepository.getScanSession(sessionId)?.status)
+            assertEquals("completed", stores.getScanSession(sessionId)?.status)
             assertEquals(0, runtimeCoordinator.rawScanCount.get())
         }
 
@@ -53,12 +53,12 @@ class DiagnosticsScanControllerTest {
     fun `set active profile validates profile existence before updating settings`() =
         runTest {
             val appSettingsRepository = FakeAppSettingsRepository()
-            val historyRepository = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val services =
                 createDiagnosticsServices(
                     context = TestContext(),
                     appSettingsRepository = appSettingsRepository,
-                    historyRepository = historyRepository,
+                    stores = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
@@ -79,7 +79,7 @@ class DiagnosticsScanControllerTest {
     @Test
     fun `duplicate active scan requests are rejected`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridgeFactory =
                 FakeNetworkDiagnosticsBridgeFactory(json).apply {
                     bridge.autoCompleteOnStart = false
@@ -88,7 +88,7 @@ class DiagnosticsScanControllerTest {
                 createDiagnosticsServices(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
-                    historyRepository = historyRepository,
+                    stores = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
@@ -108,7 +108,7 @@ class DiagnosticsScanControllerTest {
     @Test
     fun `start failure marks session failed and clears active progress`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridgeFactory =
                 FakeNetworkDiagnosticsBridgeFactory(json).apply {
                     bridge.faults.enqueue(
@@ -123,7 +123,7 @@ class DiagnosticsScanControllerTest {
                 createDiagnosticsServices(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
-                    historyRepository = historyRepository,
+                    stores = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
@@ -137,7 +137,7 @@ class DiagnosticsScanControllerTest {
                 services.scanController.startScan(ScanPathMode.RAW_PATH)
             }
 
-            val failedSession = historyRepository.sessionsState.value.single()
+            val failedSession = stores.sessionsState.value.single()
             assertEquals("failed", failedSession.status)
             assertEquals("boom", failedSession.summary)
             assertNull(services.timelineSource.activeScanProgress.value)
@@ -147,7 +147,7 @@ class DiagnosticsScanControllerTest {
     @Test
     fun `cancel clears active progress and forwards cancel to the active bridge`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridgeFactory =
                 FakeNetworkDiagnosticsBridgeFactory(json).apply {
                     bridge.autoCompleteOnStart = false
@@ -156,7 +156,7 @@ class DiagnosticsScanControllerTest {
                 createDiagnosticsServices(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
-                    historyRepository = historyRepository,
+                    stores = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,

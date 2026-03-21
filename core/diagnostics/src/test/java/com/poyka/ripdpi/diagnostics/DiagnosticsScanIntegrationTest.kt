@@ -14,14 +14,14 @@ class DiagnosticsScanIntegrationTest {
     @Test
     fun `completed raw-path scan persists report results and passive artifacts end to end`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository().apply { seedDefaultProfile(json) }
+            val stores = FakeDiagnosticsHistoryStores().apply { seedDefaultProfile(json) }
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json)
             val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()
             val services =
                 createDiagnosticsServices(
                     context = TestContext(),
                     appSettingsRepository = FakeAppSettingsRepository(),
-                    historyRepository = historyRepository,
+                    stores = stores,
                     networkMetadataProvider = FakeNetworkMetadataProvider(),
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
                     networkDiagnosticsBridgeFactory = bridgeFactory,
@@ -34,13 +34,13 @@ class DiagnosticsScanIntegrationTest {
             val sessionId = services.scanController.startScan(ScanPathMode.RAW_PATH)
             advanceUntilIdle()
 
-            val session = historyRepository.getScanSession(sessionId)
+            val session = stores.getScanSession(sessionId)
             assertEquals(1, runtimeCoordinator.rawScanCount.get())
             assertEquals("completed", session?.status)
-            assertEquals(1, historyRepository.storedProbeResults(sessionId).size)
-            assertEquals(2, historyRepository.snapshotsState.value.count { it.sessionId == sessionId })
-            assertEquals(2, historyRepository.contextsState.value.count { it.sessionId == sessionId })
-            assertTrue(historyRepository.nativeEventsState.value.any { it.sessionId == sessionId })
+            assertEquals(1, stores.storedProbeResults(sessionId).size)
+            assertEquals(2, stores.snapshotsState.value.count { it.sessionId == sessionId })
+            assertEquals(2, stores.contextsState.value.count { it.sessionId == sessionId })
+            assertTrue(stores.nativeEventsState.value.any { it.sessionId == sessionId })
             assertEquals(1, bridgeFactory.bridge.destroyCount)
         }
 }

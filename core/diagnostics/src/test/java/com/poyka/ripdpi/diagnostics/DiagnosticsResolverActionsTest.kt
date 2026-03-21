@@ -16,16 +16,17 @@ class DiagnosticsResolverActionsTest {
     @Test
     fun `keep installs temporary resolver override for recommended session`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
             val session = diagnosticsSessionWithResolverRecommendation(sessionId = "session-1")
-            historyRepository.sessionsState.value = listOf(session)
+            stores.sessionsState.value = listOf(session)
             val resolverOverrideStore = FakeResolverOverrideStore()
             val actions =
                 DefaultDiagnosticsResolverActions(
                     appSettingsRepository = FakeAppSettingsRepository(),
-                    recommendationStore = DiagnosticsRecommendationStore(historyRepository, json),
+                    recommendationStore = DiagnosticsRecommendationStore(stores, json),
                     networkFingerprintProvider = FakeNetworkFingerprintProvider(),
-                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(historyRepository),
+                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     resolverOverrideStore = resolverOverrideStore,
                 )
 
@@ -42,9 +43,10 @@ class DiagnosticsResolverActionsTest {
     @Test
     fun `save applies recommendation to settings and persists preferred path`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
             val session = diagnosticsSessionWithResolverRecommendation(sessionId = "session-1")
-            historyRepository.sessionsState.value = listOf(session)
+            stores.sessionsState.value = listOf(session)
             val appSettingsRepository = FakeAppSettingsRepository()
             val resolverOverrideStore = FakeResolverOverrideStore().apply {
                 setTemporaryOverride(
@@ -66,9 +68,9 @@ class DiagnosticsResolverActionsTest {
             val actions =
                 DefaultDiagnosticsResolverActions(
                     appSettingsRepository = appSettingsRepository,
-                    recommendationStore = DiagnosticsRecommendationStore(historyRepository, json),
+                    recommendationStore = DiagnosticsRecommendationStore(stores, json),
                     networkFingerprintProvider = FakeNetworkFingerprintProvider(),
-                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(historyRepository),
+                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     resolverOverrideStore = resolverOverrideStore,
                 )
 
@@ -76,7 +78,7 @@ class DiagnosticsResolverActionsTest {
 
             val savedSettings = appSettingsRepository.snapshot()
             val preferredPath =
-                historyRepository.getNetworkDnsPathPreference(FakeNetworkFingerprintProvider().capture().scopeKey())
+                stores.getNetworkDnsPathPreference(FakeNetworkFingerprintProvider().capture().scopeKey())
 
             assertEquals(DnsModeEncrypted, savedSettings.dnsMode)
             assertEquals("cloudflare", savedSettings.dnsProviderId)
@@ -93,8 +95,9 @@ class DiagnosticsResolverActionsTest {
     @Test
     fun `keep and save are no-ops when session has no recommendation`() =
         runTest {
-            val historyRepository = FakeDiagnosticsHistoryRepository()
-            historyRepository.sessionsState.value =
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            stores.sessionsState.value =
                 listOf(
                     diagnosticsSession(
                         id = "session-1",
@@ -108,9 +111,9 @@ class DiagnosticsResolverActionsTest {
             val actions =
                 DefaultDiagnosticsResolverActions(
                     appSettingsRepository = appSettingsRepository,
-                    recommendationStore = DiagnosticsRecommendationStore(historyRepository, json),
+                    recommendationStore = DiagnosticsRecommendationStore(stores, json),
                     networkFingerprintProvider = FakeNetworkFingerprintProvider(),
-                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(historyRepository),
+                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     resolverOverrideStore = resolverOverrideStore,
                 )
 
@@ -119,7 +122,7 @@ class DiagnosticsResolverActionsTest {
 
             assertNull(resolverOverrideStore.override.value)
             assertNull(
-                historyRepository.getNetworkDnsPathPreference(FakeNetworkFingerprintProvider().capture().scopeKey()),
+                stores.getNetworkDnsPathPreference(FakeNetworkFingerprintProvider().capture().scopeKey()),
             )
             assertEquals("", appSettingsRepository.snapshot().dnsProviderId)
         }
