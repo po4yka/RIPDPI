@@ -15,7 +15,8 @@ import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
-import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DeviceContextModel
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
@@ -25,7 +26,6 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
-import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -435,42 +435,17 @@ internal class FakeDiagnosticsSessionDetailUiMapper : DiagnosticsSessionDetailUi
     }
 }
 
-internal class FakeHistoryDiagnosticsManager : DiagnosticsManager {
-    private val _progress = MutableStateFlow<ScanProgress?>(null)
-    private val emptyProfiles = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
-    private val emptySessions = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
-    private val emptyApproaches = MutableStateFlow<List<BypassApproachSummary>>(emptyList())
-    private val emptySnapshots = MutableStateFlow<List<NetworkSnapshotEntity>>(emptyList())
-    private val emptyContexts = MutableStateFlow<List<DiagnosticContextEntity>>(emptyList())
-    private val emptyTelemetry = MutableStateFlow<List<TelemetrySampleEntity>>(emptyList())
-    private val emptyEvents = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
-    private val emptyExports = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
-
+internal class FakeHistoryDiagnosticsBootstrapper : DiagnosticsBootstrapper {
     var initializeCalls: Int = 0
         private set
-    var nextDetail: DiagnosticSessionDetail? = null
-
-    override val activeScanProgress: StateFlow<ScanProgress?> = _progress.asStateFlow()
-    override val profiles: Flow<List<DiagnosticProfileEntity>> = emptyProfiles
-    override val sessions: Flow<List<ScanSessionEntity>> = emptySessions
-    override val approachStats: Flow<List<BypassApproachSummary>> = emptyApproaches
-    override val snapshots: Flow<List<NetworkSnapshotEntity>> = emptySnapshots
-    override val contexts: Flow<List<DiagnosticContextEntity>> = emptyContexts
-    override val telemetry: Flow<List<TelemetrySampleEntity>> = emptyTelemetry
-    override val nativeEvents: Flow<List<NativeSessionEventEntity>> = emptyEvents
-    override val exports: Flow<List<ExportRecordEntity>> = emptyExports
 
     override suspend fun initialize() {
         initializeCalls += 1
     }
+}
 
-    override suspend fun startScan(pathMode: ScanPathMode): String = "session-${pathMode.name}"
-
-    override suspend fun cancelActiveScan() {
-        _progress.value = null
-    }
-
-    override suspend fun setActiveProfile(profileId: String) = Unit
+internal class FakeHistoryDiagnosticsDetailLoader : DiagnosticsDetailLoader {
+    var nextDetail: DiagnosticSessionDetail? = null
 
     override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
         requireNotNull(nextDetail) { "Missing fake detail for $sessionId" }
@@ -479,14 +454,4 @@ internal class FakeHistoryDiagnosticsManager : DiagnosticsManager {
         kind: BypassApproachKind,
         id: String,
     ): BypassApproachDetail = throw UnsupportedOperationException("Unused in history tests")
-
-    override suspend fun buildShareSummary(sessionId: String?): ShareSummary =
-        throw UnsupportedOperationException("Unused in history tests")
-
-    override suspend fun createArchive(sessionId: String?): DiagnosticsArchive =
-        throw UnsupportedOperationException("Unused in history tests")
-
-    override suspend fun keepResolverRecommendationForSession(sessionId: String) = Unit
-
-    override suspend fun saveResolverRecommendation(sessionId: String) = Unit
 }

@@ -11,7 +11,7 @@ internal class DiagnosticsShareActions(
     fun shareSummary(sessionId: String?) {
         mutations.launch {
             val targetId = sessionId ?: currentUiState().share.targetSessionId
-            val summary = diagnosticsManager.buildShareSummary(targetId)
+            val summary = diagnosticsShareService.buildShareSummary(targetId)
             emit(
                 DiagnosticsEffect.ShareSummaryRequested(
                     title = summary.title,
@@ -28,7 +28,7 @@ internal class DiagnosticsShareActions(
                 successMessage = "Archive ready to share",
                 failureMessage = "Failed to generate archive",
             ) { targetSessionId ->
-                val archive = diagnosticsManager.createArchive(targetSessionId)
+                val archive = diagnosticsShareService.createArchive(targetSessionId)
                 emit(
                     DiagnosticsEffect.ShareArchiveRequested(
                         absolutePath = archive.absolutePath,
@@ -47,7 +47,7 @@ internal class DiagnosticsShareActions(
                 successMessage = "Archive saved to export flow",
                 failureMessage = "Failed to prepare archive",
             ) { targetSessionId ->
-                val archive = diagnosticsManager.createArchive(targetSessionId)
+                val archive = diagnosticsShareService.createArchive(targetSessionId)
                 emit(
                     DiagnosticsEffect.SaveArchiveRequested(
                         absolutePath = archive.absolutePath,

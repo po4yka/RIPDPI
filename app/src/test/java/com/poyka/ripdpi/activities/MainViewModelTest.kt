@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import app.cash.turbine.test
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.diagnostics.BypassApproachId
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
@@ -85,6 +86,39 @@ class MainViewModelTest {
 
         assertEquals(Route.Home.route, resolveStartupDestination(settings))
     }
+
+    @Test
+    fun `initialize is explicit and idempotent`() =
+        runTest {
+            val serviceStateStore = FakeServiceStateStore()
+            val permissionStatusProvider = FakePermissionStatusProvider()
+            val viewModel =
+                createViewModel(
+                    serviceStateStore = serviceStateStore,
+                    permissionStatusProvider = permissionStatusProvider,
+                    initialize = false,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            advanceUntilIdle()
+
+            assertEquals(0, permissionStatusProvider.currentSnapshotCalls)
+            assertEquals(ConnectionState.Disconnected, viewModel.uiState.value.connectionState)
+
+            viewModel.initialize()
+            advanceUntilIdle()
+
+            assertTrue(permissionStatusProvider.currentSnapshotCalls > 0)
+            assertEquals(ConnectionState.Connected, viewModel.uiState.value.connectionState)
+
+            val snapshotCallsAfterFirstInitialize = permissionStatusProvider.currentSnapshotCalls
+            viewModel.initialize()
+            advanceUntilIdle()
+
+            assertEquals(snapshotCallsAfterFirstInitialize, permissionStatusProvider.currentSnapshotCalls)
+            collector.cancel()
+        }
 
     @Test
     fun `start in vpn mode with granted permissions starts immediately`() =
@@ -416,8 +450,8 @@ class MainViewModelTest {
                     routeGroup = null,
                     modeOverride = Mode.VPN,
                 ).stableId()
-            val diagnosticsManager =
-                FakeMainDiagnosticsManager().apply {
+            val diagnosticsTimelineSource =
+                FakeMainDiagnosticsTimelineSource().apply {
                     approachStats.value =
                         listOf(
                             BypassApproachSummary(
@@ -439,7 +473,7 @@ class MainViewModelTest {
             val viewModel =
                 createViewModel(
                     appSettingsRepository = FakeAppSettingsRepository(settings),
-                    diagnosticsManager = diagnosticsManager,
+                    diagnosticsTimelineSource = diagnosticsTimelineSource,
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
@@ -465,35 +499,33 @@ class MainViewModelTest {
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         serviceController: FakeServiceController = FakeServiceController(),
         permissionStatusProvider: FakePermissionStatusProvider = FakePermissionStatusProvider(),
-        diagnosticsManager: FakeMainDiagnosticsManager = FakeMainDiagnosticsManager(),
+        diagnosticsTimelineSource: FakeMainDiagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource(),
+        initialize: Boolean = true,
     ): MainViewModel =
         MainViewModel(
             appSettingsRepository = appSettingsRepository,
             serviceStateStore = serviceStateStore,
             serviceController = serviceController,
-            diagnosticsManager = diagnosticsManager,
+            diagnosticsTimelineSource = diagnosticsTimelineSource,
             stringResolver = FakeStringResolver(),
             trafficStatsReader = FakeTrafficStatsReader(),
             permissionPlatformBridge = FakePermissionPlatformBridge(),
             permissionStatusProvider = permissionStatusProvider,
             permissionCoordinator = PermissionCoordinator(),
-        )
+        ).also { viewModel ->
+            if (initialize) {
+                viewModel.initialize()
+            }
+        }
 }
 
-private class FakeMainDiagnosticsManager : com.poyka.ripdpi.diagnostics.DiagnosticsManager {
+private class FakeMainDiagnosticsTimelineSource : com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource {
     override val activeScanProgress =
-        kotlinx.coroutines.flow
-            .MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(
-                null,
-            )
+        kotlinx.coroutines.flow.MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(null)
     override val profiles =
-        kotlinx.coroutines.flow.MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>(),
-        )
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>())
     override val sessions =
-        kotlinx.coroutines.flow.MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>(),
-        )
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>())
     override val approachStats =
         kotlinx.coroutines.flow.MutableStateFlow(
             listOf(
@@ -514,54 +546,13 @@ private class FakeMainDiagnosticsManager : com.poyka.ripdpi.diagnostics.Diagnost
             ),
         )
     override val snapshots =
-        kotlinx.coroutines.flow.MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>(),
-        )
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>())
     override val contexts =
-        kotlinx.coroutines.flow.MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>(),
-        )
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>())
     override val telemetry =
-        kotlinx.coroutines.flow.MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>(),
-        )
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>())
     override val nativeEvents =
-        kotlinx.coroutines.flow.MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>(),
-        )
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>())
     override val exports =
-        kotlinx.coroutines.flow.MutableStateFlow(
-            emptyList<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>(),
-        )
-
-    override suspend fun initialize() = Unit
-
-    override suspend fun startScan(pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode): String = "session"
-
-    override suspend fun cancelActiveScan() = Unit
-
-    override suspend fun setActiveProfile(profileId: String) = Unit
-
-    override suspend fun loadSessionDetail(sessionId: String): com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail {
-        error("unused")
-    }
-
-    override suspend fun loadApproachDetail(
-        kind: BypassApproachKind,
-        id: String,
-    ): com.poyka.ripdpi.diagnostics.BypassApproachDetail {
-        error("unused")
-    }
-
-    override suspend fun buildShareSummary(sessionId: String?): com.poyka.ripdpi.diagnostics.ShareSummary {
-        error("unused")
-    }
-
-    override suspend fun createArchive(sessionId: String?): com.poyka.ripdpi.diagnostics.DiagnosticsArchive {
-        error("unused")
-    }
-
-    override suspend fun keepResolverRecommendationForSession(sessionId: String) = Unit
-
-    override suspend fun saveResolverRecommendation(sessionId: String) = Unit
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>())
 }

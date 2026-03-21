@@ -13,12 +13,12 @@ class HistoryDetailLoaderTest {
     fun `missing connection session returns null`() =
         kotlinx.coroutines.test.runTest {
             val source = FakeHistoryConnectionDetailSource()
-            val manager = FakeHistoryDiagnosticsManager()
+            val detailLoader = FakeHistoryDiagnosticsDetailLoader()
             val mapper = FakeDiagnosticsSessionDetailUiMapper()
             val loader =
                 DefaultHistoryDetailLoader(
                     connectionDetailSource = source,
-                    diagnosticsManager = manager,
+                    diagnosticsDetailLoader = detailLoader,
                     connectionDetailUiFactory = connectionDetailUiFactory,
                     diagnosticsSessionDetailUiMapper = mapper,
                 )
@@ -40,7 +40,7 @@ class HistoryDetailLoaderTest {
             val loader =
                 DefaultHistoryDetailLoader(
                     connectionDetailSource = source,
-                    diagnosticsManager = FakeHistoryDiagnosticsManager(),
+                    diagnosticsDetailLoader = FakeHistoryDiagnosticsDetailLoader(),
                     connectionDetailUiFactory = connectionDetailUiFactory,
                     diagnosticsSessionDetailUiMapper = FakeDiagnosticsSessionDetailUiMapper(),
                 )
@@ -56,8 +56,8 @@ class HistoryDetailLoaderTest {
     @Test
     fun `diagnostics detail loader delegates to manager and mapper`() =
         kotlinx.coroutines.test.runTest {
-            val manager =
-                FakeHistoryDiagnosticsManager().apply {
+            val detailLoader =
+                FakeHistoryDiagnosticsDetailLoader().apply {
                     nextDetail = historyDiagnosticsDetail("scan-1")
                 }
             val mapper =
@@ -67,14 +67,14 @@ class HistoryDetailLoaderTest {
             val loader =
                 DefaultHistoryDetailLoader(
                     connectionDetailSource = FakeHistoryConnectionDetailSource(),
-                    diagnosticsManager = manager,
+                    diagnosticsDetailLoader = detailLoader,
                     connectionDetailUiFactory = connectionDetailUiFactory,
                     diagnosticsSessionDetailUiMapper = mapper,
                 )
 
             val detail = loader.loadDiagnosticsDetail("scan-1")
 
-            assertSame(manager.nextDetail, mapper.lastDetail)
+            assertSame(detailLoader.nextDetail, mapper.lastDetail)
             assertEquals(false, mapper.lastSensitiveDetailsFlag)
             assertSame(mapper.nextResult, detail)
         }

@@ -7,7 +7,8 @@ import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
-import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -80,7 +81,7 @@ internal class DefaultHistoryDetailLoader
     @Inject
     constructor(
         private val connectionDetailSource: HistoryConnectionDetailSource,
-        private val diagnosticsManager: DiagnosticsManager,
+        private val diagnosticsDetailLoader: DiagnosticsDetailLoader,
         private val connectionDetailUiFactory: HistoryConnectionDetailUiFactory,
         private val diagnosticsSessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
     ) : HistoryDetailLoader {
@@ -97,7 +98,7 @@ internal class DefaultHistoryDetailLoader
 
         override suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticsSessionDetailUiModel? =
             diagnosticsSessionDetailUiMapper.toSessionDetailUiModel(
-                detail = diagnosticsManager.loadSessionDetail(sessionId),
+                detail = diagnosticsDetailLoader.loadSessionDetail(sessionId),
                 showSensitiveDetails = false,
             )
     }
@@ -105,10 +106,10 @@ internal class DefaultHistoryDetailLoader
 internal class DefaultHistoryInitializer
     @Inject
     constructor(
-        private val diagnosticsManager: DiagnosticsManager,
+        private val diagnosticsBootstrapper: DiagnosticsBootstrapper,
     ) : HistoryInitializer {
         override suspend fun initialize() {
-            diagnosticsManager.initialize()
+            diagnosticsBootstrapper.initialize()
         }
     }
 
