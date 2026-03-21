@@ -337,6 +337,26 @@ mod tests {
                 "metered": false,
                 "privateDnsMode": "system",
                 "dnsServers": ["8.8.8.8"],
+                "wifi": {
+                    "frequencyBand": "5ghz",
+                    "frequencyMhz": 5180,
+                    "rssiDbm": -58,
+                    "linkSpeedMbps": 866,
+                    "rxLinkSpeedMbps": 780,
+                    "txLinkSpeedMbps": 720,
+                    "channelWidth": "80 MHz",
+                    "wifiStandard": "802.11ax"
+                },
+                "cellular": {
+                    "generation": "5g",
+                    "roaming": false,
+                    "operatorCode": "25001",
+                    "dataNetworkType": "NR",
+                    "serviceState": "in_service",
+                    "carrierId": 42,
+                    "signalLevel": 4,
+                    "signalDbm": -95
+                },
                 "mtu": 1500,
                 "capturedAtMs": 1700000000000
             }
@@ -347,6 +367,10 @@ mod tests {
         assert!(snap.validated);
         assert!(!snap.metered);
         assert_eq!(snap.dns_servers, vec!["8.8.8.8"]);
+        assert_eq!(snap.wifi.as_ref().and_then(|wifi| wifi.frequency_mhz), Some(5180));
+        assert_eq!(snap.wifi.as_ref().map(|wifi| wifi.channel_width.as_str()), Some("80 MHz"));
+        assert_eq!(snap.cellular.as_ref().map(|cell| cell.data_network_type.as_str()), Some("NR"));
+        assert_eq!(snap.cellular.as_ref().and_then(|cell| cell.signal_dbm), Some(-95));
         assert_eq!(snap.mtu, Some(1500));
     }
 
