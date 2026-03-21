@@ -35,7 +35,10 @@ internal fun LazyListScope.diagnosticsHistorySection(
     onRotateTelemetrySalt: () -> Unit = {},
 ) {
     item(key = "advanced_diagnostics_history") {
-        AdvancedSettingsSection(title = stringResource(R.string.diagnostics_history_section)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.diagnostics_history_section),
+            testTag = RipDpiTestTags.advancedSection("diagnostics_history"),
+        ) {
             RipDpiCard {
                 SettingsRow(
                     title = stringResource(R.string.settings_diagnostics_monitor_title),
@@ -117,7 +120,10 @@ internal fun LazyListScope.commandLineOverridesSection(
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
 ) {
     item(key = "advanced_overrides") {
-        AdvancedSettingsSection(title = stringResource(R.string.config_overrides_section)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.config_overrides_section),
+            testTag = RipDpiTestTags.advancedSection("overrides"),
+        ) {
             RipDpiCard {
                 SettingsRow(
                     title = stringResource(R.string.use_command_line_settings),
@@ -150,7 +156,10 @@ internal fun LazyListScope.proxySection(
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
 ) {
     item(key = "advanced_proxy") {
-        AdvancedSettingsSection(title = stringResource(R.string.ripdpi_proxy)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.ripdpi_proxy),
+            testTag = RipDpiTestTags.advancedSection("proxy"),
+        ) {
             RipDpiCard {
                 AdvancedTextSetting(
                     title = stringResource(R.string.bye_dpi_proxy_ip_setting),
@@ -243,7 +252,10 @@ internal fun LazyListScope.protocolsSection(
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
 ) {
     item(key = "advanced_protocols") {
-        AdvancedSettingsSection(title = stringResource(R.string.ripdpi_protocols_category)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.ripdpi_protocols_category),
+            testTag = RipDpiTestTags.advancedSection("protocols"),
+        ) {
             RipDpiCard {
                 Text(
                     text = stringResource(R.string.ripdpi_protocols_hint),
@@ -286,7 +298,10 @@ internal fun LazyListScope.networkStrategyMemorySection(
     onClearRememberedNetworks: () -> Unit,
 ) {
     item(key = "advanced_network_strategy_memory") {
-        AdvancedSettingsSection(title = stringResource(R.string.network_strategy_memory_section_title)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.network_strategy_memory_section_title),
+            testTag = RipDpiTestTags.advancedSection("network_strategy_memory"),
+        ) {
             RipDpiCard {
                 SettingsRow(
                     title = stringResource(R.string.network_strategy_memory_enabled_title),
@@ -332,11 +347,15 @@ internal fun LazyListScope.networkStrategyMemorySection(
 @Composable
 internal fun AdvancedSettingsSection(
     title: String,
+    testTag: String? = null,
     content: @Composable () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
 
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+    Column(
+        modifier = Modifier.ripDpiTestTag(testTag),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
+    ) {
         SettingsCategoryHeader(title = title)
         content()
     }

@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.testing
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.HistorySection
@@ -18,11 +20,14 @@ internal object RipDpiTestTags {
     const val VpnPermissionDialog = "vpn-permission-dialog"
     const val VpnPermissionDialogContinue = "vpn-permission-dialog-continue"
     const val VpnPermissionDialogDismiss = "vpn-permission-dialog-dismiss"
+    const val MainErrorSnackbar = "main-error-snackbar"
 
     const val HomeConnectionButton = "home-connection-button"
     const val HomeApproachCard = "home-approach-card"
     const val HomeHistoryCard = "home-history-card"
     const val HomeStatsGrid = "home-stats-grid"
+    const val HomePermissionIssueBanner = "home-permission-issue-banner"
+    const val HomePermissionRecommendationBanner = "home-permission-recommendation-banner"
 
     const val ConfigEditCurrentButton = "config-edit-current"
     const val ConfigDnsSettings = "config-dns-settings"
@@ -36,6 +41,7 @@ internal object RipDpiTestTags {
     const val ModeEditorDefaultTtl = "mode-editor-default-ttl"
     const val ModeEditorCommandLineToggle = "mode-editor-command-line-toggle"
     const val ModeEditorCommandLineArgs = "mode-editor-command-line-args"
+    const val ModeEditorValidationSnackbar = "mode-editor-validation-snackbar"
 
     const val SettingsDnsSettings = "settings-dns-settings"
     const val SettingsAdvancedSettings = "settings-advanced-settings"
@@ -44,6 +50,7 @@ internal object RipDpiTestTags {
     const val SettingsBackupPinField = "settings-backup-pin-field"
     const val SettingsBackupPinSave = "settings-backup-pin-save"
     const val SettingsBackupPinClear = "settings-backup-pin-clear"
+    const val SettingsBackupPinWarning = "settings-backup-pin-warning"
     const val SettingsThemeDropdown = "settings-theme-dropdown"
     const val SettingsCustomization = "settings-customization"
     const val SettingsSupportBundle = "settings-support-bundle"
@@ -84,6 +91,7 @@ internal object RipDpiTestTags {
     const val DiagnosticsSaveArchive = "diagnostics-save-archive"
     const val DiagnosticsSaveLogs = "diagnostics-save-logs"
     const val DiagnosticsShareSummary = "diagnostics-share-summary"
+    const val DiagnosticsStatusSnackbar = "diagnostics-status-snackbar"
 
     const val LogsScreen = "logs-screen"
     const val LogsAutoScroll = "logs-auto-scroll"
@@ -92,6 +100,8 @@ internal object RipDpiTestTags {
     const val LogsStream = "logs-stream"
 
     const val AdvancedClearRememberedNetworks = "advanced-clear-remembered-networks"
+    const val AdvancedCommandLineWarning = "advanced-command-line-warning"
+    const val AdvancedNoticeBanner = "advanced-notice-banner"
 
     const val HistoryConnectionsSearch = "history-connections-search"
     const val HistoryDiagnosticsSearch = "history-diagnostics-search"
@@ -117,17 +127,13 @@ internal object RipDpiTestTags {
     fun diagnosticsApproachMode(mode: DiagnosticsApproachMode): String =
         "diagnostics-approach-mode-${sanitize(mode.name)}"
 
-    fun diagnosticsSessionPathFilter(pathMode: String): String =
-        "diagnostics-session-path-${sanitize(pathMode)}"
+    fun diagnosticsSessionPathFilter(pathMode: String): String = "diagnostics-session-path-${sanitize(pathMode)}"
 
-    fun diagnosticsSessionStatusFilter(status: String): String =
-        "diagnostics-session-status-${sanitize(status)}"
+    fun diagnosticsSessionStatusFilter(status: String): String = "diagnostics-session-status-${sanitize(status)}"
 
-    fun diagnosticsEventSourceFilter(source: String): String =
-        "diagnostics-event-source-${sanitize(source)}"
+    fun diagnosticsEventSourceFilter(source: String): String = "diagnostics-event-source-${sanitize(source)}"
 
-    fun diagnosticsEventSeverityFilter(severity: String): String =
-        "diagnostics-event-severity-${sanitize(severity)}"
+    fun diagnosticsEventSeverityFilter(severity: String): String = "diagnostics-event-severity-${sanitize(severity)}"
 
     fun logsFilter(type: LogType): String = "logs-filter-${sanitize(type.name)}"
 
@@ -155,14 +161,11 @@ internal object RipDpiTestTags {
 
     fun advancedOption(setting: AdvancedOptionSetting): String = "advanced-option-${sanitize(setting.name)}"
 
-    fun activationStart(dimension: ActivationWindowDimension): String =
-        "advanced-${sanitize(dimension.name)}-from"
+    fun activationStart(dimension: ActivationWindowDimension): String = "advanced-${sanitize(dimension.name)}-from"
 
-    fun activationEnd(dimension: ActivationWindowDimension): String =
-        "advanced-${sanitize(dimension.name)}-to"
+    fun activationEnd(dimension: ActivationWindowDimension): String = "advanced-${sanitize(dimension.name)}-to"
 
-    fun activationSave(dimension: ActivationWindowDimension): String =
-        "advanced-${sanitize(dimension.name)}-save"
+    fun activationSave(dimension: ActivationWindowDimension): String = "advanced-${sanitize(dimension.name)}-save"
 
     private fun sanitize(value: String): String =
         value
@@ -177,4 +180,9 @@ internal fun Modifier.ripDpiTestTag(tag: String?): Modifier =
         this
     } else {
         this.testTag(tag)
+    }
+
+internal fun Modifier.ripDpiAutomationTreeRoot(): Modifier =
+    semantics {
+        testTagsAsResourceId = true
     }

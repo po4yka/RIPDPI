@@ -115,12 +115,14 @@ fun DiagnosticsRoute(
                     snackbarHostState.showRipDpiSnackbar(
                         message = effect.scanTypeLabel,
                         tone = RipDpiSnackbarTone.Info,
+                        testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
                     )
                 }
 
                 is DiagnosticsEffect.ScanCompleted -> {
                     snackbarHostState.showRipDpiSnackbar(
                         message = effect.summary,
+                        testTag = RipDpiTestTags.DiagnosticsStatusSnackbar,
                         tone =
                             when (effect.tone) {
                                 DiagnosticsTone.Positive -> RipDpiSnackbarTone.Default

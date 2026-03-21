@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -53,6 +54,8 @@ fun RipDpiSnackbar(
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
+    testTag: String? = null,
+    actionTestTag: String? = null,
     tone: RipDpiSnackbarTone = RipDpiSnackbarTone.Default,
 ) {
     val components = RipDpiThemeTokens.components
@@ -65,6 +68,7 @@ fun RipDpiSnackbar(
         modifier =
             modifier
                 .fillMaxWidth()
+                .ripDpiTestTag(testTag)
                 .semantics { liveRegion = LiveRegionMode.Assertive },
         shape = RipDpiThemeTokens.shapes.xl,
         color = palette.container,
@@ -103,11 +107,12 @@ fun RipDpiSnackbar(
                     style = type.smallLabel,
                     color = palette.action,
                     modifier =
-                        Modifier.ripDpiClickable(
-                            role = Role.Button,
-                            hapticFeedback = snackbarActionHapticFeedback(tone),
-                            onClick = onAction,
-                        ),
+                        Modifier
+                            .ripDpiClickable(
+                                role = Role.Button,
+                                hapticFeedback = snackbarActionHapticFeedback(tone),
+                                onClick = onAction,
+                            ).ripDpiTestTag(actionTestTag),
                 )
             }
         }
@@ -133,6 +138,8 @@ fun RipDpiSnackbarHost(
                     message = data.visuals.message,
                     actionLabel = data.visuals.actionLabel,
                     onAction = if (data.visuals.actionLabel != null) data::performAction else null,
+                    testTag = data.visuals.ripDpiTestTagOrNull(),
+                    actionTestTag = data.visuals.ripDpiActionTestTagOrNull(),
                     tone = data.visuals.ripDpiToneOrDefault(),
                     modifier = Modifier.widthIn(max = layout.snackbarMaxWidth),
                 )
@@ -145,6 +152,8 @@ suspend fun SnackbarHostState.showRipDpiSnackbar(
     message: String,
     tone: RipDpiSnackbarTone = RipDpiSnackbarTone.Default,
     actionLabel: String? = null,
+    testTag: String? = null,
+    actionTestTag: String? = null,
     duration: SnackbarDuration = SnackbarDuration.Short,
     withDismissAction: Boolean = false,
 ): SnackbarResult =
@@ -153,6 +162,8 @@ suspend fun SnackbarHostState.showRipDpiSnackbar(
             message = message,
             tone = tone,
             actionLabel = actionLabel,
+            testTag = testTag,
+            actionTestTag = actionTestTag,
             duration = duration,
             withDismissAction = withDismissAction,
         ),
@@ -163,12 +174,18 @@ internal data class RipDpiSnackbarVisuals(
     override val message: String,
     val tone: RipDpiSnackbarTone = RipDpiSnackbarTone.Default,
     override val actionLabel: String? = null,
+    val testTag: String? = null,
+    val actionTestTag: String? = null,
     override val withDismissAction: Boolean = false,
     override val duration: SnackbarDuration = SnackbarDuration.Short,
 ) : SnackbarVisuals
 
 internal fun SnackbarVisuals.ripDpiToneOrDefault(): RipDpiSnackbarTone =
     (this as? RipDpiSnackbarVisuals)?.tone ?: RipDpiSnackbarTone.Default
+
+internal fun SnackbarVisuals.ripDpiTestTagOrNull(): String? = (this as? RipDpiSnackbarVisuals)?.testTag
+
+internal fun SnackbarVisuals.ripDpiActionTestTagOrNull(): String? = (this as? RipDpiSnackbarVisuals)?.actionTestTag
 
 private fun snackbarActionHapticFeedback(tone: RipDpiSnackbarTone): RipDpiHapticFeedback =
     when (tone) {

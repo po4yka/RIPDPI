@@ -51,7 +51,10 @@ internal fun LazyListScope.desyncSection(
         val colors = RipDpiThemeTokens.colors
         val spacing = RipDpiThemeTokens.spacing
 
-        AdvancedSettingsSection(title = stringResource(R.string.ripdpi_desync)) {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.ripdpi_desync),
+            testTag = RipDpiTestTags.advancedSection("desync"),
+        ) {
             RipDpiCard {
                 AdvancedTextSetting(
                     title = stringResource(R.string.ripdpi_default_ttl_setting),

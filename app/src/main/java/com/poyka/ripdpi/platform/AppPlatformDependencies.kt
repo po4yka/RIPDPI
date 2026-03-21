@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.VpnService
 import androidx.annotation.StringRes
 import com.poyka.ripdpi.activities.LauncherIconManager
+import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.core.clearHostAutolearnStore
 import com.poyka.ripdpi.core.hasHostAutolearnStore
 import com.poyka.ripdpi.permissions.BatteryOptimizationIntents
@@ -13,6 +14,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -73,18 +75,40 @@ class AndroidPermissionPlatformBridge
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        private val automationController: Optional<AutomationController>,
     ) : PermissionPlatformBridge {
-        override fun prepareVpnPermissionIntent(): Intent? = VpnService.prepare(context)
+        override fun prepareVpnPermissionIntent(): Intent? =
+            automationController
+                .map { controller -> controller.prepareVpnPermissionIntent(VpnService.prepare(context)) }
+                .orElseGet { VpnService.prepare(context) }
 
         override fun createAppSettingsIntent(): Intent =
-            BatteryOptimizationIntents
-                .createAppDetailsIntent(context.packageName)
-                .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            automationController
+                .map { controller ->
+                    controller.createAppSettingsIntent(
+                        BatteryOptimizationIntents
+                            .createAppDetailsIntent(context.packageName)
+                            .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
+                    )
+                }.orElseGet {
+                    BatteryOptimizationIntents
+                        .createAppDetailsIntent(context.packageName)
+                        .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                }
 
         override fun createBatteryOptimizationIntent(): Intent =
-            BatteryOptimizationIntents.create(packageName = context.packageName) { intent ->
-                intent.resolveActivity(context.packageManager) != null
-            }
+            automationController
+                .map { controller ->
+                    controller.createBatteryOptimizationIntent(
+                        BatteryOptimizationIntents.create(packageName = context.packageName) { intent ->
+                            intent.resolveActivity(context.packageManager) != null
+                        },
+                    )
+                }.orElseGet {
+                    BatteryOptimizationIntents.create(packageName = context.packageName) { intent ->
+                        intent.resolveActivity(context.packageManager) != null
+                    }
+                }
     }
 
 interface HostAutolearnStoreController {

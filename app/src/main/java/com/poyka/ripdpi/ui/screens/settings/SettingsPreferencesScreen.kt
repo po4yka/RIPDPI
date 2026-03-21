@@ -173,6 +173,7 @@ internal fun SettingsScreen(
                         title = stringResource(R.string.settings_warning_backup_pin_title),
                         message = stringResource(R.string.settings_warning_backup_pin_body),
                         tone = WarningBannerTone.Restricted,
+                        testTag = RipDpiTestTags.SettingsBackupPinWarning,
                     )
                 }
 

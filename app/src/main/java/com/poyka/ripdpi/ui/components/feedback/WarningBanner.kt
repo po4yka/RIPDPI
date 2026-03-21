@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -42,6 +43,7 @@ fun WarningBanner(
     title: String,
     message: String,
     modifier: Modifier = Modifier,
+    testTag: String? = null,
     tone: WarningBannerTone = WarningBannerTone.Warning,
     icon: ImageVector? = null,
     onClick: (() -> Unit)? = null,
@@ -52,6 +54,7 @@ fun WarningBanner(
     val surfaceModifier =
         modifier
             .fillMaxWidth()
+            .ripDpiTestTag(testTag)
             .semantics { liveRegion = LiveRegionMode.Polite }
 
     if (onClick != null) {

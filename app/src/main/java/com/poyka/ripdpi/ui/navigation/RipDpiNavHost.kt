@@ -62,6 +62,8 @@ fun RipDpiNavHost(
     mainViewModel: MainViewModel,
     launchHomeRequested: Boolean = false,
     onLaunchHomeHandled: () -> Unit = {},
+    launchRouteRequested: String? = null,
+    onLaunchRouteHandled: () -> Unit = {},
     onStartConfiguredMode: () -> Unit = {},
     onRepairPermission: (PermissionKind) -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
@@ -99,6 +101,21 @@ fun RipDpiNavHost(
                 onLaunchHomeHandled()
             }
         }
+    }
+
+    LaunchedEffect(launchRouteRequested, currentDestination?.route) {
+        val requestedRoute = launchRouteRequested ?: return@LaunchedEffect
+        val currentRoute = currentDestination?.route ?: return@LaunchedEffect
+        if (requestedRoute == currentRoute) {
+            onLaunchRouteHandled()
+            return@LaunchedEffect
+        }
+
+        navController.navigate(requestedRoute) {
+            launchSingleTop = true
+            restoreState = true
+        }
+        onLaunchRouteHandled()
     }
 
     Scaffold(
