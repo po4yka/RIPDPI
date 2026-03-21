@@ -15,6 +15,10 @@ import com.poyka.ripdpi.ui.screens.settings.AdvancedToggleSetting
 import java.util.Locale
 
 internal object RipDpiTestTags {
+    const val VpnPermissionDialog = "vpn-permission-dialog"
+    const val VpnPermissionDialogContinue = "vpn-permission-dialog-continue"
+    const val VpnPermissionDialogDismiss = "vpn-permission-dialog-dismiss"
+
     const val HomeConnectionButton = "home-connection-button"
     const val HomeApproachCard = "home-approach-card"
     const val HomeHistoryCard = "home-history-card"
@@ -46,6 +50,17 @@ internal object RipDpiTestTags {
     const val SettingsDataTransparency = "settings-data-transparency"
     const val SettingsAbout = "settings-about"
 
+    const val DnsPlainAddress = "dns-plain-address"
+    const val DnsPlainSave = "dns-plain-save"
+    const val DnsCustomDohUrl = "dns-custom-doh-url"
+    const val DnsCustomHost = "dns-custom-host"
+    const val DnsCustomPort = "dns-custom-port"
+    const val DnsCustomTlsServerName = "dns-custom-tls-server-name"
+    const val DnsCustomBootstrap = "dns-custom-bootstrap"
+    const val DnsCustomDnsCryptProvider = "dns-custom-dnscrypt-provider"
+    const val DnsCustomDnsCryptPublicKey = "dns-custom-dnscrypt-public-key"
+    const val DnsCustomSave = "dns-custom-save"
+
     const val CustomizationShapeInfo = "customization-shape-info"
     const val CustomizationThemedIcon = "customization-themed-icon"
     const val AboutSourceCode = "about-source-code"
@@ -60,6 +75,8 @@ internal object RipDpiTestTags {
 
     const val DiagnosticsTopHistoryAction = "diagnostics-top-history-action"
     const val DiagnosticsOverviewHistoryAction = "diagnostics-overview-history-action"
+    const val DiagnosticsResolverKeepSession = "diagnostics-resolver-keep-session"
+    const val DiagnosticsResolverSaveSetting = "diagnostics-resolver-save-setting"
     const val DiagnosticsSessionsSearch = "diagnostics-sessions-search"
     const val DiagnosticsEventsSearch = "diagnostics-events-search"
     const val DiagnosticsEventsAutoScroll = "diagnostics-events-auto-scroll"
@@ -73,6 +90,8 @@ internal object RipDpiTestTags {
     const val LogsSave = "logs-save"
     const val LogsClear = "logs-clear"
     const val LogsStream = "logs-stream"
+
+    const val AdvancedClearRememberedNetworks = "advanced-clear-remembered-networks"
 
     const val HistoryConnectionsSearch = "history-connections-search"
     const val HistoryDiagnosticsSearch = "history-diagnostics-search"
@@ -88,6 +107,8 @@ internal object RipDpiTestTags {
     fun configMode(modeKey: String): String = "config-mode-${sanitize(modeKey)}"
 
     fun settingsPermission(kind: PermissionKind): String = "settings-permission-${sanitize(kind.name)}"
+
+    fun dnsResolver(providerId: String): String = "dns-resolver-${sanitize(providerId)}"
 
     fun customizationIcon(key: String): String = "customization-icon-${sanitize(key)}"
 

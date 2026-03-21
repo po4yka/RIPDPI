@@ -13,6 +13,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 
 @Composable
@@ -33,9 +34,12 @@ fun VpnPermissionDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.permissions_vpn_title),
         message = stringResource(R.string.permissions_vpn_body),
+        dialogTestTag = RipDpiTestTags.VpnPermissionDialog,
         confirmLabel = stringResource(R.string.permissions_vpn_continue),
+        confirmTestTag = RipDpiTestTags.VpnPermissionDialogContinue,
         onConfirm = onContinue,
         dismissLabel = stringResource(R.string.permissions_vpn_not_now),
+        dismissTestTag = RipDpiTestTags.VpnPermissionDialogDismiss,
         onDismiss = onDismiss,
         tone = RipDpiDialogTone.Info,
         icon = RipDpiIcons.Vpn,

@@ -33,6 +33,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 
 enum class RipDpiDialogTone {
     Default,
@@ -47,6 +48,9 @@ fun RipDpiDialog(
     dismissLabel: String,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    dialogTestTag: String? = null,
+    confirmTestTag: String? = null,
+    dismissTestTag: String? = null,
     message: String? = null,
     confirmLabel: String? = null,
     onConfirm: (() -> Unit)? = null,
@@ -74,8 +78,11 @@ fun RipDpiDialog(
                 onDismiss = onDismiss,
                 modifier =
                     modifier
+                        .ripDpiTestTag(dialogTestTag)
                         .fillMaxWidth()
                         .widthIn(max = layout.dialogMaxWidth),
+                confirmTestTag = confirmTestTag,
+                dismissTestTag = dismissTestTag,
                 message = message,
                 confirmLabel = confirmLabel,
                 onConfirm = onConfirm,
@@ -94,6 +101,8 @@ fun RipDpiDialogCard(
     dismissLabel: String,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    confirmTestTag: String? = null,
+    dismissTestTag: String? = null,
     message: String? = null,
     confirmLabel: String? = null,
     onConfirm: (() -> Unit)? = null,
@@ -154,6 +163,8 @@ fun RipDpiDialogCard(
                 onDismiss = onDismiss,
                 confirmLabel = confirmLabel,
                 onConfirm = onConfirm,
+                confirmTestTag = confirmTestTag,
+                dismissTestTag = dismissTestTag,
                 tone = tone,
                 actionLayout = actionLayout,
                 hasConfirmAction = hasConfirmAction,
@@ -209,6 +220,8 @@ private fun DialogActionRow(
     onDismiss: () -> Unit,
     confirmLabel: String?,
     onConfirm: (() -> Unit)?,
+    confirmTestTag: String?,
+    dismissTestTag: String?,
     tone: RipDpiDialogTone,
     actionLayout: RipDpiActionLayout,
     hasConfirmAction: Boolean,
@@ -233,14 +246,14 @@ private fun DialogActionRow(
                 RipDpiButton(
                     text = confirmLabel.orEmpty(),
                     onClick = { onConfirm?.invoke() },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(confirmTestTag),
                     variant = primaryVariant,
                     hapticFeedback = confirmActionHapticFeedback(tone),
                 )
                 RipDpiButton(
                     text = dismissLabel,
                     onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(dismissTestTag),
                     variant = RipDpiButtonVariant.Outline,
                     hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),
                 )
@@ -248,7 +261,7 @@ private fun DialogActionRow(
                 RipDpiButton(
                     text = dismissLabel,
                     onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(dismissTestTag),
                     variant = primaryVariant,
                     hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),
                 )
@@ -264,6 +277,7 @@ private fun DialogActionRow(
                 RipDpiButton(
                     text = dismissLabel,
                     onClick = onDismiss,
+                    modifier = Modifier.ripDpiTestTag(dismissTestTag),
                     variant = RipDpiButtonVariant.Outline,
                     density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
                     hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),
@@ -271,6 +285,7 @@ private fun DialogActionRow(
                 RipDpiButton(
                     text = confirmLabel.orEmpty(),
                     onClick = { onConfirm?.invoke() },
+                    modifier = Modifier.ripDpiTestTag(confirmTestTag),
                     variant = primaryVariant,
                     density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
                     hapticFeedback = confirmActionHapticFeedback(tone),
@@ -279,6 +294,7 @@ private fun DialogActionRow(
                 RipDpiButton(
                     text = dismissLabel,
                     onClick = onDismiss,
+                    modifier = Modifier.ripDpiTestTag(dismissTestTag),
                     variant = primaryVariant,
                     density = com.poyka.ripdpi.ui.components.RipDpiControlDensity.Compact,
                     hapticFeedback = dismissActionHapticFeedback(tone, hasConfirmAction),

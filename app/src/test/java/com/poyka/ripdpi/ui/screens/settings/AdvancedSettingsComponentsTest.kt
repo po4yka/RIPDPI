@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -43,7 +42,7 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNode(hasText("Save", substring = true)).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertIsNotEnabled()
     }
 
     @Test
@@ -59,8 +58,8 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNodeWithText("128").performTextReplacement("64")
-        composeRule.onNode(hasText("Save", substring = true)).assertIsEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl)).performTextReplacement("64")
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertIsEnabled()
     }
 
     @Test
@@ -78,8 +77,8 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNodeWithText("128").performTextReplacement("999")
-        composeRule.onNode(hasText("Save", substring = true)).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl)).performTextReplacement("999")
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertIsNotEnabled()
     }
 
     @Test
@@ -96,7 +95,7 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNode(hasText("Save", substring = true)).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).assertIsNotEnabled()
     }
 
     @Test
@@ -114,8 +113,8 @@ class AdvancedSettingsComponentsTest {
             }
         }
 
-        composeRule.onNodeWithText("128").performTextReplacement("  64  ")
-        composeRule.onNode(hasText("Save", substring = true)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedInput(AdvancedTextSetting.FakeTtl)).performTextReplacement("  64  ")
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSave(AdvancedTextSetting.FakeTtl)).performClick()
 
         assertEquals(AdvancedTextSetting.FakeTtl to "64", captured)
     }

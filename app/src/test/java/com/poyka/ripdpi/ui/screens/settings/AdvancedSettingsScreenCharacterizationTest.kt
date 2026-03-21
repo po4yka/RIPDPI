@@ -6,11 +6,13 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToKey
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -115,7 +117,9 @@ class AdvancedSettingsScreenCharacterizationTest {
         )
 
         scrollToKey("advanced_diagnostics_history")
-        composeRule.onNodeWithText("Record runtime diagnostics history").performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsMonitorEnabled))
+            .performClick()
 
         assertEquals(1, toggles.size)
         assertEquals(AdvancedToggleSetting.DiagnosticsMonitorEnabled, toggles[0].first)
@@ -129,7 +133,9 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen(uiState = SettingsUiState(diagnosticsMonitorEnabled = true))
 
         scrollToKey("advanced_diagnostics_history")
-        composeRule.onNodeWithText("Record runtime diagnostics history").assertIsOn()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsMonitorEnabled))
+            .assertIsOn()
     }
 
     @Test
@@ -137,7 +143,9 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen(uiState = SettingsUiState(diagnosticsMonitorEnabled = false))
 
         scrollToKey("advanced_diagnostics_history")
-        composeRule.onNodeWithText("Record runtime diagnostics history").assertIsOff()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsMonitorEnabled))
+            .assertIsOff()
     }
 
     // -- Command-line toggle state --
@@ -147,7 +155,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen(uiState = SettingsUiState(enableCmdSettings = true))
 
         scrollToKey("advanced_overrides")
-        composeRule.onNodeWithText("Use command line settings").assertIsOn()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.UseCommandLine)).assertIsOn()
     }
 
     // -- Protocol toggles --
@@ -159,9 +167,9 @@ class AdvancedSettingsScreenCharacterizationTest {
         )
 
         scrollToKey("advanced_protocols")
-        composeRule.onNodeWithText("Desync HTTP").assertIsOn()
-        composeRule.onNodeWithText("Desync HTTPS").assertIsOff()
-        composeRule.onNodeWithText("Desync UDP").assertIsOff()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttp)).assertIsOn()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttps)).assertIsOff()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncUdp)).assertIsOff()
     }
 
     @Test
@@ -171,7 +179,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         )
 
         scrollToKey("advanced_protocols")
-        composeRule.onNodeWithText("Desync HTTP").assertIsEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttp)).assertIsEnabled()
     }
 
     @Test
@@ -181,7 +189,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         )
 
         scrollToKey("advanced_protocols")
-        composeRule.onNodeWithText("Desync HTTP").assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DesyncHttp)).assertIsNotEnabled()
     }
 
     // -- Host editors show based on mode --
