@@ -2,7 +2,7 @@ package com.poyka.ripdpi
 
 import android.util.Log
 import com.poyka.ripdpi.data.ApplicationScope
-import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.RuntimeHistoryRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -14,7 +14,7 @@ import javax.inject.Singleton
 class AppStartupInitializer
     @Inject
     constructor(
-        private val diagnosticsManagerProvider: Provider<DiagnosticsManager>,
+        private val diagnosticsBootstrapperProvider: Provider<DiagnosticsBootstrapper>,
         private val runtimeHistoryRecorderProvider: Provider<RuntimeHistoryRecorder>,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
@@ -30,7 +30,7 @@ class AppStartupInitializer
             }
             applicationScope.launch {
                 runCatching {
-                    diagnosticsManagerProvider.get().initialize()
+                    diagnosticsBootstrapperProvider.get().initialize()
                 }.onFailure { error ->
                     Log.w(Tag, "Diagnostics bootstrap skipped", error)
                 }

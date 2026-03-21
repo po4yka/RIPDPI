@@ -26,7 +26,6 @@ import com.poyka.ripdpi.diagnostics.DeviceContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
-import com.poyka.ripdpi.diagnostics.DiagnosticsManager
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
@@ -76,6 +75,31 @@ class DiagnosticsViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val json = Json
+
+    @Test
+    fun `initialize is explicit and idempotent`() =
+        runTest {
+            val manager = FakeDiagnosticsManager()
+            val viewModel =
+                createDiagnosticsViewModel(
+                    appContext = RuntimeEnvironment.getApplication(),
+                    diagnosticsManager = manager,
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    initialize = false,
+                )
+
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            assertEquals(0, manager.initializeCalls)
+
+            viewModel.initialize()
+            viewModel.initialize()
+            advanceUntilIdle()
+
+            assertEquals(1, manager.initializeCalls)
+            collector.cancel()
+        }
 
     @Test
     fun `ui state groups overview live sessions and share models`() =
@@ -163,7 +187,6 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertEquals(1, manager.initializeCalls)
             assertEquals(DiagnosticsSection.Overview, state.selectedSection)
             assertEquals("Default", state.overview.activeProfile?.name)
             assertEquals("Running", state.live.statusLabel)
@@ -2305,135 +2328,3 @@ class DiagnosticsViewModelTest {
             capturedAt = 12L,
         )
 }
-
-private class FakeDiagnosticsManager(
-    var detail: DiagnosticSessionDetail? = null,
-    private val archiveFailure: Throwable? = null,
-) : DiagnosticsManager {
-    private val _progressState = MutableStateFlow<ScanProgress?>(null)
-    val progressState: MutableStateFlow<ScanProgress?> = _progressState
-    val profilesState = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
-    val sessionsState = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
-    val snapshotsState = MutableStateFlow<List<NetworkSnapshotEntity>>(emptyList())
-    val contextsState = MutableStateFlow<List<DiagnosticContextEntity>>(emptyList())
-    val telemetryState = MutableStateFlow<List<TelemetrySampleEntity>>(emptyList())
-    val nativeEventsState = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
-    val exportsState = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
-    val approachStatsState = MutableStateFlow<List<BypassApproachSummary>>(emptyList())
-    var initializeCalls = 0
-    var lastArchiveSessionId: String? = null
-    var lastActiveProfileId: String? = null
-    var keptResolverRecommendationSessionId: String? = null
-    var savedResolverRecommendationSessionId: String? = null
-    var strategySignatureOverride: BypassStrategySignature? = null
-
-    override val activeScanProgress: StateFlow<ScanProgress?> = _progressState.asStateFlow()
-    override val profiles: Flow<List<DiagnosticProfileEntity>> = profilesState
-    override val sessions: Flow<List<ScanSessionEntity>> = sessionsState
-    override val approachStats: Flow<List<BypassApproachSummary>> = approachStatsState
-    override val snapshots: Flow<List<NetworkSnapshotEntity>> = snapshotsState
-    override val contexts: Flow<List<DiagnosticContextEntity>> = contextsState
-    override val telemetry: Flow<List<TelemetrySampleEntity>> = telemetryState
-    override val nativeEvents: Flow<List<NativeSessionEventEntity>> = nativeEventsState
-    override val exports: Flow<List<ExportRecordEntity>> = exportsState
-
-    override suspend fun initialize() {
-        initializeCalls += 1
-    }
-
-    override suspend fun startScan(pathMode: ScanPathMode): String = "session-${pathMode.name}"
-
-    override suspend fun cancelActiveScan() {
-        progressState.value = null
-    }
-
-    override suspend fun setActiveProfile(profileId: String) {
-        lastActiveProfileId = profileId
-    }
-
-    override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
-        requireNotNull(detail) { "Missing fake detail for $sessionId" }
-
-    override suspend fun loadApproachDetail(
-        kind: BypassApproachKind,
-        id: String,
-    ): BypassApproachDetail =
-        BypassApproachDetail(
-            summary =
-                approachStatsState.value.firstOrNull { it.approachId.kind == kind && it.approachId.value == id }
-                    ?: sampleApproachSummary(kind = kind, id = id),
-            strategySignature =
-                strategySignatureOverride ?: BypassStrategySignature(
-                    mode = "VPN",
-                    configSource = "ui",
-                    hostAutolearn = "enabled",
-                    desyncMethod = "split",
-                    chainSummary = "tcp: split(1)",
-                    protocolToggles = listOf("HTTP", "HTTPS"),
-                    tlsRecordSplitEnabled = true,
-                    tlsRecordMarker = "extlen",
-                    splitMarker = "1",
-                    fakeSniMode = null,
-                    fakeSniValue = null,
-                    fakeTlsBaseMode = null,
-                    fakeTlsMods = emptyList(),
-                    fakeTlsSize = null,
-                    fakeOffsetMarker = null,
-                    routeGroup = "3",
-                ),
-            recentValidatedSessions = sessionsState.value.take(2),
-            recentUsageSessions = emptyList(),
-            commonProbeFailures = listOf("dns_blocked (2)"),
-            recentFailureNotes = listOf("dns:example.org=blocked"),
-        )
-
-    override suspend fun buildShareSummary(sessionId: String?): ShareSummary =
-        ShareSummary(
-            title = "RIPDPI summary",
-            body = "Summary for ${sessionId ?: "latest"}",
-            compactMetrics = listOf(SummaryMetric("Path", "RAW_PATH")),
-        )
-
-    override suspend fun createArchive(sessionId: String?): DiagnosticsArchive {
-        archiveFailure?.let { throw it }
-        lastArchiveSessionId = sessionId
-        return DiagnosticsArchive(
-            fileName = "archive.zip",
-            absolutePath = "/tmp/archive-${sessionId ?: "all"}.zip",
-            sessionId = sessionId,
-            createdAt = 42L,
-            scope = "hybrid",
-            schemaVersion = 2,
-            privacyMode = "split_output",
-        )
-    }
-
-    override suspend fun keepResolverRecommendationForSession(sessionId: String) {
-        keptResolverRecommendationSessionId = sessionId
-    }
-
-    override suspend fun saveResolverRecommendation(sessionId: String) {
-        savedResolverRecommendationSessionId = sessionId
-    }
-}
-
-private fun sampleApproachSummary(
-    kind: BypassApproachKind,
-    id: String,
-): BypassApproachSummary =
-    BypassApproachSummary(
-        approachId = BypassApproachId(kind = kind, value = id),
-        displayName = "VPN Split",
-        secondaryLabel = "Strategy",
-        verificationState = "validated",
-        validatedScanCount = 3,
-        validatedSuccessCount = 2,
-        validatedSuccessRate = 0.66f,
-        lastValidatedResult = "Latest report",
-        usageCount = 4,
-        totalRuntimeDurationMs = 30_000L,
-        recentRuntimeHealth = BypassRuntimeHealthSummary(totalErrors = 1, routeChanges = 2, restartCount = 1),
-        lastUsedAt = 42L,
-        topFailureOutcomes = listOf("dns_blocked (1)"),
-        outcomeBreakdown = listOf(BypassOutcomeBreakdown("dns", 2, 0, 1, "dns_blocked")),
-    )

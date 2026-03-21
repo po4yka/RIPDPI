@@ -43,6 +43,11 @@ class HistoryViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
+            assertEquals(0, initializer.calls)
+            viewModel.initialize()
+            viewModel.initialize()
+            advanceUntilIdle()
+
             assertEquals(1, initializer.calls)
             assertEquals(listOf("connection-1"), viewModel.uiState.value.connections.sessions.map { it.id })
             assertEquals(listOf("scan-1"), viewModel.uiState.value.diagnostics.sessions.map { it.id })
@@ -75,6 +80,7 @@ class HistoryViewModelTest {
                 )
 
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            viewModel.initialize()
             advanceUntilIdle()
 
             viewModel.selectConnection("connection-1")

@@ -63,6 +63,9 @@ fun HistoryRoute(
     modifier: Modifier = Modifier,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
+    LaunchedEffect(viewModel) {
+        viewModel.initialize()
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     HistoryScreen(

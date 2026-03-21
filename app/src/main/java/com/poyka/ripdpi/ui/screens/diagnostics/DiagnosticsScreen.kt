@@ -79,6 +79,9 @@ fun DiagnosticsRoute(
     modifier: Modifier = Modifier,
     viewModel: DiagnosticsViewModel = hiltViewModel(),
 ) {
+    LaunchedEffect(viewModel) {
+        viewModel.initialize()
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }

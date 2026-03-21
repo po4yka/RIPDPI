@@ -14,7 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
-import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.LogcatSnapshotCollector
 import dagger.Binds
 import dagger.Module
@@ -80,7 +80,7 @@ internal interface MainActivityHost {
 internal class DefaultMainActivityHost
     @Inject
     constructor(
-        private val diagnosticsManager: DiagnosticsManager,
+        private val diagnosticsShareService: DiagnosticsShareService,
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
         private val automationController: Optional<AutomationController>,
     ) : MainActivityHost {
@@ -261,7 +261,7 @@ internal class DefaultMainActivityHost
             activity.lifecycleScope.launch {
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        diagnosticsManager.createArchive(null)
+                        diagnosticsShareService.createArchive(null)
                     }
                 }.onSuccess { archive ->
                     shareDiagnosticsArchive(archive.absolutePath, archive.fileName)

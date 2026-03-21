@@ -13,7 +13,7 @@ internal class DiagnosticsScanActions(
     fun initialize() {
         mutations.launch {
             var prevProgress: com.poyka.ripdpi.diagnostics.ScanProgress? = null
-            diagnosticsManager.activeScanProgress.collect { progress ->
+            diagnosticsTimelineSource.activeScanProgress.collect { progress ->
                 if (progress == null && prevProgress != null && scanLifecycle.value.scanStartedAt != null) {
                     val latestSession = currentUiState().scan.latestSession
                     emit(
@@ -30,7 +30,7 @@ internal class DiagnosticsScanActions(
             }
         }
         mutations.launch {
-            diagnosticsManager.activeScanProgress.collect { progress ->
+            diagnosticsTimelineSource.activeScanProgress.collect { progress ->
                 val target = progress?.latestProbeTarget ?: return@collect
                 val outcome = progress.latestProbeOutcome ?: return@collect
                 val existing = scanLifecycle.value.accumulatedProbes
@@ -50,8 +50,8 @@ internal class DiagnosticsScanActions(
         }
         mutations.launch {
             combine(
-                diagnosticsManager.sessions,
-                diagnosticsManager.activeScanProgress,
+                diagnosticsTimelineSource.sessions,
+                diagnosticsTimelineSource.activeScanProgress,
             ) { sessions, progress ->
                 Pair(sessions, progress)
             }.collect { (sessions, progress) ->
@@ -73,7 +73,7 @@ internal class DiagnosticsScanActions(
         mutations.launch {
             val profileName = currentUiState().scan.selectedProfile?.name ?: "Scan"
             emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = profileName))
-            val sessionId = diagnosticsManager.startScan(ScanPathMode.RAW_PATH)
+            val sessionId = diagnosticsScanController.startScan(ScanPathMode.RAW_PATH)
             if (currentUiState().scan.selectedProfile?.isFullAudit == true) {
                 scanLifecycle.update { it.copy(pendingAutoOpenAuditSessionId = sessionId) }
             }
@@ -85,7 +85,7 @@ internal class DiagnosticsScanActions(
         mutations.launch {
             val profileName = currentUiState().scan.selectedProfile?.name ?: "Scan"
             emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = profileName))
-            diagnosticsManager.startScan(ScanPathMode.IN_PATH)
+            diagnosticsScanController.startScan(ScanPathMode.IN_PATH)
         }
     }
 
@@ -93,7 +93,7 @@ internal class DiagnosticsScanActions(
         scanLifecycle.update { it.copy(scanStartedAt = null) }
         mutations.launch {
             scanLifecycle.update { it.copy(pendingAutoOpenAuditSessionId = null) }
-            diagnosticsManager.cancelActiveScan()
+            diagnosticsScanController.cancelActiveScan()
         }
     }
 
@@ -104,7 +104,7 @@ internal class DiagnosticsScanActions(
                 .scan.latestSession
                 ?.id ?: return
         mutations.launch {
-            diagnosticsManager.keepResolverRecommendationForSession(targetSessionId)
+            diagnosticsResolverActions.keepResolverRecommendationForSession(targetSessionId)
         }
     }
 
@@ -115,7 +115,7 @@ internal class DiagnosticsScanActions(
                 .scan.latestSession
                 ?.id ?: return
         mutations.launch {
-            diagnosticsManager.saveResolverRecommendation(targetSessionId)
+            diagnosticsResolverActions.saveResolverRecommendation(targetSessionId)
         }
     }
 }

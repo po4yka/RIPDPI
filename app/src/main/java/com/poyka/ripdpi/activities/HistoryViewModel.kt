@@ -17,9 +17,10 @@ class HistoryViewModel
     internal constructor(
         historyTimelineDataSource: HistoryTimelineDataSource,
         historyDetailLoader: HistoryDetailLoader,
-        historyInitializer: HistoryInitializer,
+        private val historyInitializer: HistoryInitializer,
         historyUiStateFactory: HistoryUiStateFactory,
     ) : ViewModel() {
+        private var initialized = false
         private val selectedSectionRequest = MutableStateFlow(HistorySection.Connections)
         private val connectionFilters = MutableStateFlow(HistoryConnectionFilterState())
         private val diagnosticsFilters = MutableStateFlow(HistoryDiagnosticsFilterState())
@@ -83,7 +84,11 @@ class HistoryViewModel
                 initialValue = HistoryUiState(),
             )
 
-        init {
+        fun initialize() {
+            if (initialized) {
+                return
+            }
+            initialized = true
             viewModelScope.launch {
                 historyInitializer.initialize()
             }

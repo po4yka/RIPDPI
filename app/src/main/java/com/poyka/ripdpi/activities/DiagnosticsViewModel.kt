@@ -8,7 +8,12 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
-import com.poyka.ripdpi.diagnostics.DiagnosticsManager
+import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
+import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
+import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -25,13 +30,19 @@ import javax.inject.Inject
 class DiagnosticsViewModel
     @Inject
     internal constructor(
-        private val diagnosticsManager: DiagnosticsManager,
+        private val diagnosticsBootstrapper: DiagnosticsBootstrapper,
+        diagnosticsTimelineSource: DiagnosticsTimelineSource,
+        diagnosticsScanController: DiagnosticsScanController,
+        diagnosticsDetailLoader: DiagnosticsDetailLoader,
+        diagnosticsShareService: DiagnosticsShareService,
+        diagnosticsResolverActions: DiagnosticsResolverActions,
         appSettingsRepository: AppSettingsRepository,
         rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         activeConnectionPolicyStore: ActiveConnectionPolicyStore,
         serviceStateStore: ServiceStateStore,
         uiStateFactory: DiagnosticsUiStateFactory,
     ) : ViewModel() {
+        private var initialized = false
         private val selectionState = MutableStateFlow(SelectionState())
         private val filterState = MutableStateFlow(FilterState())
         private val sessionDetailState = MutableStateFlow(SessionDetailState())
@@ -44,21 +55,21 @@ class DiagnosticsViewModel
 
         private val liveData: StateFlow<LiveDataSnapshot> =
             combine(
-                diagnosticsManager.telemetry,
-                diagnosticsManager.nativeEvents,
-                diagnosticsManager.activeScanProgress,
-                diagnosticsManager.snapshots,
-                diagnosticsManager.contexts,
+                diagnosticsTimelineSource.telemetry,
+                diagnosticsTimelineSource.nativeEvents,
+                diagnosticsTimelineSource.activeScanProgress,
+                diagnosticsTimelineSource.snapshots,
+                diagnosticsTimelineSource.contexts,
             ) { telemetry, nativeEvents, progress, snapshots, contexts ->
                 LiveDataSnapshot(telemetry, nativeEvents, progress, snapshots, contexts)
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LiveDataSnapshot.EMPTY)
 
         private val scanData: StateFlow<ScanDataSnapshot> =
             combine(
-                diagnosticsManager.profiles,
-                diagnosticsManager.sessions,
-                diagnosticsManager.approachStats,
-                diagnosticsManager.exports,
+                diagnosticsTimelineSource.profiles,
+                diagnosticsTimelineSource.sessions,
+                diagnosticsTimelineSource.approachStats,
+                diagnosticsTimelineSource.exports,
             ) { profiles, sessions, approachStats, exports ->
                 ScanDataSnapshot(profiles, sessions, approachStats, exports)
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ScanDataSnapshot.EMPTY)
@@ -155,7 +166,11 @@ class DiagnosticsViewModel
 
         private val mutations = DiagnosticsMutationRunner(
             scope = viewModelScope,
-            diagnosticsManager = diagnosticsManager,
+            diagnosticsTimelineSource = diagnosticsTimelineSource,
+            diagnosticsScanController = diagnosticsScanController,
+            diagnosticsDetailLoader = diagnosticsDetailLoader,
+            diagnosticsShareService = diagnosticsShareService,
+            diagnosticsResolverActions = diagnosticsResolverActions,
             uiStateFactory = uiStateFactory,
             effects = _effects,
             currentUiState = { uiState.value },
@@ -176,9 +191,13 @@ class DiagnosticsViewModel
 
         private val shareActions = DiagnosticsShareActions(mutations, scanLifecycleState)
 
-        init {
+        fun initialize() {
+            if (initialized) {
+                return
+            }
+            initialized = true
             viewModelScope.launch {
-                diagnosticsManager.initialize()
+                diagnosticsBootstrapper.initialize()
             }
             scanActions.initialize()
         }

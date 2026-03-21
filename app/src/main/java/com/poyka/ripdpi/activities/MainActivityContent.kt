@@ -28,6 +28,10 @@ internal fun MainActivityContent(
     val shellState by controller.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    LaunchedEffect(viewModel) {
+        viewModel.initialize()
+    }
+
     LaunchedEffect(viewModel, controller) {
         viewModel.effects.collect { effect ->
             controller.onEffect(effect)
