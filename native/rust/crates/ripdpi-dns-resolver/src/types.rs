@@ -1,14 +1,6 @@
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-
-use reqwest::Client;
-use rustls::client::danger::ServerCertVerifier;
-use rustls::pki_types::CertificateDer;
 use thiserror::Error;
 
 use std::net::IpAddr;
-
-use crate::health::HealthRegistry;
 
 pub const DOT_DEFAULT_PORT: u16 = 853;
 
@@ -73,18 +65,6 @@ pub enum EncryptedDnsErrorKind {
     DnsCrypt,
     Decode,
     NoAnswer,
-}
-
-#[derive(Debug)]
-pub(crate) struct ResolverInner {
-    pub(crate) endpoint: EncryptedDnsEndpoint,
-    pub(crate) transport: EncryptedDnsTransport,
-    pub(crate) timeout: Duration,
-    pub(crate) doh_client: Option<Client>,
-    pub(crate) tls_roots: Vec<CertificateDer<'static>>,
-    pub(crate) tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
-    pub(crate) dnscrypt_state: Mutex<Option<DnsCryptCachedCertificate>>,
-    pub(crate) health: Option<HealthRegistry>,
 }
 
 #[derive(Debug, Clone)]

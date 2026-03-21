@@ -1,32 +1,23 @@
 use std::collections::BTreeSet;
-use std::io::{Read, Write};
-use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+#[cfg(test)]
+use std::io::{Read, Write};
 
 use hickory_proto::op::{Message, MessageType, OpCode, Query};
 use hickory_proto::rr::{Name, RData, RecordType};
-use once_cell::sync::Lazy;
 use reqwest::{Client, Proxy};
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::CertificateDer;
-use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
+use rustls::{ClientConfig, RootCertStore};
 use std::sync::Arc;
-use tokio::runtime::{Builder, Runtime};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use url::Url;
 
 use crate::dnscrypt::dnscrypt_verifying_key;
 use crate::health::HealthRegistry;
-use crate::types::{
-    EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol, EncryptedDnsTransport,
-};
-
-pub(crate) static BLOCKING_RUNTIME: Lazy<Runtime> = Lazy::new(|| {
-    Builder::new_current_thread()
-        .enable_all()
-        .thread_name("ripdpi-encrypted-dns-blocking")
-        .build()
-        .expect("blocking encrypted DNS runtime must initialize")
-});
+use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol, EncryptedDnsTransport};
 
 pub(crate) const DNS_MESSAGE_MEDIA_TYPE: &str = "application/dns-message";
 pub(crate) const DEFAULT_TIMEOUT: Duration = Duration::from_secs(4);
@@ -93,11 +84,7 @@ pub(crate) fn build_client_config(
                 .with_no_client_auth(),
         )
     } else {
-        Arc::new(
-            ClientConfig::builder()
-                .with_root_certificates(default_root_store(extra_roots))
-                .with_no_client_auth(),
-        )
+        Arc::new(ClientConfig::builder().with_root_certificates(default_root_store(extra_roots)).with_no_client_auth())
     }
 }
 
@@ -156,13 +143,6 @@ pub(crate) fn default_root_store(extra_roots: &[CertificateDer<'static>]) -> Roo
     roots
 }
 
-pub(crate) fn complete_tls_handshake(stream: &mut StreamOwned<ClientConnection, TcpStream>) -> Result<(), EncryptedDnsError> {
-    while stream.conn.is_handshaking() {
-        stream.conn.complete_io(&mut stream.sock).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
-    }
-    Ok(())
-}
-
 pub(crate) fn resolve_socket_addr(host: &str, port: u16) -> Result<SocketAddr, EncryptedDnsError> {
     std::net::ToSocketAddrs::to_socket_addrs(&(host, port))
         .map_err(|err| EncryptedDnsError::Request(err.to_string()))?
@@ -170,6 +150,7 @@ pub(crate) fn resolve_socket_addr(host: &str, port: u16) -> Result<SocketAddr, E
         .ok_or_else(|| EncryptedDnsError::Request("no socket addresses resolved".to_string()))
 }
 
+#[cfg(test)]
 pub(crate) fn write_length_prefixed_frame(stream: &mut impl Write, payload: &[u8]) -> Result<(), EncryptedDnsError> {
     let length = u16::try_from(payload.len())
         .map_err(|_| EncryptedDnsError::Request("DNS payload is too large for TCP framing".to_string()))?;
@@ -178,6 +159,18 @@ pub(crate) fn write_length_prefixed_frame(stream: &mut impl Write, payload: &[u8
     stream.flush().map_err(|err| EncryptedDnsError::Request(err.to_string()))
 }
 
+pub(crate) async fn write_length_prefixed_frame_async(
+    stream: &mut (impl AsyncWrite + Unpin),
+    payload: &[u8],
+) -> Result<(), EncryptedDnsError> {
+    let length = u16::try_from(payload.len())
+        .map_err(|_| EncryptedDnsError::Request("DNS payload is too large for TCP framing".to_string()))?;
+    stream.write_all(&length.to_be_bytes()).await.map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+    stream.write_all(payload).await.map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+    stream.flush().await.map_err(|err| EncryptedDnsError::Request(err.to_string()))
+}
+
+#[cfg(test)]
 pub(crate) fn read_length_prefixed_frame(stream: &mut impl Read) -> Result<Vec<u8>, EncryptedDnsError> {
     let mut length = [0u8; 2];
     stream.read_exact(&mut length).map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
@@ -187,21 +180,38 @@ pub(crate) fn read_length_prefixed_frame(stream: &mut impl Read) -> Result<Vec<u
     Ok(payload)
 }
 
-pub(crate) fn consume_socks5_bind_address(stream: &mut TcpStream, atyp: u8) -> Result<(), EncryptedDnsError> {
+pub(crate) async fn read_length_prefixed_frame_async(
+    stream: &mut (impl AsyncRead + Unpin),
+) -> Result<Vec<u8>, EncryptedDnsError> {
+    let mut length = [0u8; 2];
+    stream.read_exact(&mut length).await.map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+    let frame_len = usize::from(u16::from_be_bytes(length));
+    let mut payload = vec![0u8; frame_len];
+    stream.read_exact(&mut payload).await.map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+    Ok(payload)
+}
+
+pub(crate) async fn consume_socks5_bind_address_async(
+    stream: &mut (impl AsyncRead + Unpin),
+    atyp: u8,
+) -> Result<(), EncryptedDnsError> {
     match atyp {
         0x01 => {
             let mut address = [0u8; 6];
-            stream.read_exact(&mut address).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))
+            stream.read_exact(&mut address).await.map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            Ok(())
         }
         0x04 => {
             let mut address = [0u8; 18];
-            stream.read_exact(&mut address).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))
+            stream.read_exact(&mut address).await.map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            Ok(())
         }
         0x03 => {
             let mut len = [0u8; 1];
-            stream.read_exact(&mut len).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            stream.read_exact(&mut len).await.map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
             let mut address = vec![0u8; len[0] as usize + 2];
-            stream.read_exact(&mut address).map_err(|err| EncryptedDnsError::Socks5(err.to_string()))
+            stream.read_exact(&mut address).await.map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            Ok(())
         }
         value => Err(EncryptedDnsError::Socks5(format!("unsupported bind atyp: {value}"))),
     }
