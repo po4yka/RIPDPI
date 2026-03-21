@@ -15,8 +15,11 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -51,7 +54,10 @@ class DefaultRuntimeHistoryRecorder
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val profileCatalog: DiagnosticsProfileCatalog,
+        private val bypassUsageHistoryStore: BypassUsageHistoryStore,
+        private val artifactWriteStore: DiagnosticsArtifactWriteStore,
+        private val historyRetentionStore: DiagnosticsHistoryRetentionStore,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val networkMetadataProvider: NetworkMetadataProvider,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
@@ -183,7 +189,7 @@ class DefaultRuntimeHistoryRecorder
                                 telemetry.runtimeFieldTelemetry,
                             )
                         activeUsageSession = updated
-                        historyRepository.upsertBypassUsageSession(updated)
+                        bypassUsageHistoryStore.upsertBypassUsageSession(updated)
                         updated.id
                     }
                 }
@@ -237,7 +243,7 @@ class DefaultRuntimeHistoryRecorder
                             serviceStateStore.status.value.first == AppStatus.Running
                         ) {
                             persistSample(currentSessionId)
-                            historyRepository.trimOldData(settings.diagnosticsHistoryRetentionDays)
+                            historyRetentionStore.trimOldData(settings.diagnosticsHistoryRetentionDays)
                         }
 
                         delay(settings.diagnosticsSampleIntervalSeconds.coerceIn(5, 300) * 1_000L)
@@ -264,7 +270,7 @@ class DefaultRuntimeHistoryRecorder
             val profile =
                 settings.diagnosticsActiveProfileId
                     .takeIf { it.isNotBlank() }
-                    ?.let { historyRepository.getProfile(it) }
+                    ?.let { profileCatalog.getProfile(it) }
             val context = diagnosticsContextProvider.captureContext()
             val approach = createStoredApproachSnapshot(json, settings, profile, context)
             val snapshot = runCatching { networkMetadataProvider.captureSnapshot() }.getOrNull()
@@ -298,7 +304,7 @@ class DefaultRuntimeHistoryRecorder
                     telemetry.runtimeFieldTelemetry,
                 )
             activeUsageSession = session
-            historyRepository.upsertBypassUsageSession(session)
+            bypassUsageHistoryStore.upsertBypassUsageSession(session)
             syncRememberedPolicySession(
                 session = session,
                 activePolicy = activeConnectionPolicyStore.current(serviceStateStore.status.value.second),
@@ -316,7 +322,7 @@ class DefaultRuntimeHistoryRecorder
             val profile =
                 settings.diagnosticsActiveProfileId
                     .takeIf { it.isNotBlank() }
-                    ?.let { historyRepository.getProfile(it) }
+                    ?.let { profileCatalog.getProfile(it) }
             val context = diagnosticsContextProvider.captureContext()
             val approach = createStoredApproachSnapshot(json, settings, profile, context)
             val session =
@@ -349,7 +355,7 @@ class DefaultRuntimeHistoryRecorder
                     ),
                     serviceTelemetry.runtimeFieldTelemetry,
                 )
-            historyRepository.upsertBypassUsageSession(session)
+            bypassUsageHistoryStore.upsertBypassUsageSession(session)
             return session.id
         }
 
@@ -381,7 +387,7 @@ class DefaultRuntimeHistoryRecorder
                     serviceTelemetry.runtimeFieldTelemetry,
                 )
             activeUsageSession = updated
-            historyRepository.upsertBypassUsageSession(updated)
+            bypassUsageHistoryStore.upsertBypassUsageSession(updated)
         }
 
         private suspend fun finalizeActiveUsageSession(serviceTelemetry: ServiceTelemetrySnapshot) {
@@ -423,7 +429,7 @@ class DefaultRuntimeHistoryRecorder
                     serviceTelemetry.runtimeFieldTelemetry,
                 )
             maybeFinalizeRememberedPolicySession(finishedSession, finalizedAt)
-            historyRepository.upsertBypassUsageSession(
+            bypassUsageHistoryStore.upsertBypassUsageSession(
                 finishedSession,
             )
             activeUsageSession = null
@@ -435,7 +441,7 @@ class DefaultRuntimeHistoryRecorder
             val context = diagnosticsContextProvider.captureContext()
             val telemetry = serviceStateStore.telemetry.value
 
-            historyRepository.upsertSnapshot(
+            artifactWriteStore.upsertSnapshot(
                 NetworkSnapshotEntity(
                     id = UUID.randomUUID().toString(),
                     sessionId = null,
@@ -445,7 +451,7 @@ class DefaultRuntimeHistoryRecorder
                     capturedAt = snapshot.capturedAt,
                 ),
             )
-            historyRepository.upsertContextSnapshot(
+            artifactWriteStore.upsertContextSnapshot(
                 DiagnosticContextEntity(
                     id = UUID.randomUUID().toString(),
                     sessionId = null,
@@ -455,7 +461,7 @@ class DefaultRuntimeHistoryRecorder
                     capturedAt = snapshot.capturedAt,
                 ),
             )
-            historyRepository.insertTelemetrySample(
+            artifactWriteStore.insertTelemetrySample(
                 buildTelemetrySampleEntity(
                     connectionSessionId = connectionSessionId,
                     networkType = snapshot.transport,
@@ -502,7 +508,7 @@ class DefaultRuntimeHistoryRecorder
                 return
             }
             trimPersistedEventKeys()
-            historyRepository.insertNativeSessionEvent(event)
+            artifactWriteStore.insertNativeSessionEvent(event)
         }
 
         private suspend fun persistTerminalTelemetrySample(
@@ -513,7 +519,7 @@ class DefaultRuntimeHistoryRecorder
         ) {
             val networkType = snapshot?.transport ?: activeUsageSession?.networkType ?: "unknown"
             val publicIp = snapshot?.publicIp ?: activeUsageSession?.publicIp
-            historyRepository.insertTelemetrySample(
+            artifactWriteStore.insertTelemetrySample(
                 buildTelemetrySampleEntity(
                     connectionSessionId = connectionSessionId,
                     networkType = networkType,

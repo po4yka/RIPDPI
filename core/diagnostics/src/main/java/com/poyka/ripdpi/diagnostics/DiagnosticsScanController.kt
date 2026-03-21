@@ -15,7 +15,9 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicySourceStrategyProbe
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.activeDnsSettings
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,7 +39,9 @@ class DefaultDiagnosticsScanController
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val profileCatalog: DiagnosticsProfileCatalog,
+        private val scanRecordStore: DiagnosticsScanRecordStore,
+        private val artifactWriteStore: DiagnosticsArtifactWriteStore,
         private val networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
         private val runtimeCoordinator: DiagnosticsRuntimeCoordinator,
         private val scanRequestFactory: DiagnosticsScanRequestFactory,
@@ -59,7 +63,7 @@ class DefaultDiagnosticsScanController
                 val settings = appSettingsRepository.snapshot()
                 val profileId = settings.diagnosticsActiveProfileId.ifEmpty { "default" }
                 val profile =
-                    requireNotNull(historyRepository.getProfile(profileId)) { "Unknown diagnostics profile: $profileId" }
+                    requireNotNull(profileCatalog.getProfile(profileId)) { "Unknown diagnostics profile: $profileId" }
                 startPreparedScan(
                     prepared =
                         scanRequestFactory.prepareScan(
@@ -78,7 +82,7 @@ class DefaultDiagnosticsScanController
         }
 
         override suspend fun setActiveProfile(profileId: String) {
-            requireNotNull(historyRepository.getProfile(profileId)) { "Unknown diagnostics profile: $profileId" }
+            requireNotNull(profileCatalog.getProfile(profileId)) { "Unknown diagnostics profile: $profileId" }
             appSettingsRepository.update {
                 diagnosticsActiveProfileId = profileId
             }
@@ -94,7 +98,7 @@ class DefaultDiagnosticsScanController
                 if (runtimeState.hasActiveScan()) {
                     return@withLock false
                 }
-                val profile = historyRepository.getProfile(AutomaticProbeProfileId) ?: return@withLock false
+                val profile = profileCatalog.getProfile(AutomaticProbeProfileId) ?: return@withLock false
                 startPreparedScan(
                     prepared =
                         scanRequestFactory.prepareScan(
@@ -114,9 +118,9 @@ class DefaultDiagnosticsScanController
             rawPathRunner: suspend (suspend () -> Unit) -> Unit,
         ): String {
             runtimeState.rememberPreparedScan(prepared)
-            historyRepository.upsertScanSession(prepared.initialSession)
-            historyRepository.upsertSnapshot(prepared.preScanSnapshot)
-            historyRepository.upsertContextSnapshot(prepared.preScanContext)
+            scanRecordStore.upsertScanSession(prepared.initialSession)
+            artifactWriteStore.upsertSnapshot(prepared.preScanSnapshot)
+            artifactWriteStore.upsertContextSnapshot(prepared.preScanContext)
 
             val bridge = networkDiagnosticsBridgeFactory.create()
             runtimeState.registerBridge(bridge, prepared.registerActiveBridge)
@@ -135,7 +139,7 @@ class DefaultDiagnosticsScanController
                 DiagnosticsReportPersister.persistScanFailure(
                     prepared.sessionId,
                     error.message ?: "Diagnostics scan failed to start",
-                    historyRepository,
+                    scanRecordStore,
                 )
                 throw error
             }
@@ -239,7 +243,8 @@ class DiagnosticsScanExecutionCoordinator
     constructor(
         @param:ApplicationContext
         private val context: Context,
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val scanRecordStore: DiagnosticsScanRecordStore,
+        private val artifactWriteStore: DiagnosticsArtifactWriteStore,
         private val networkMetadataProvider: NetworkMetadataProvider,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
@@ -279,7 +284,7 @@ class DiagnosticsScanExecutionCoordinator
                 DiagnosticsReportPersister.persistScanFailure(
                     prepared.sessionId,
                     error.message ?: "Diagnostics scan failed",
-                    historyRepository,
+                    scanRecordStore,
                 )
             } finally {
                 runtimeState.removePreparedScan(prepared.sessionId)
@@ -301,7 +306,7 @@ class DiagnosticsScanExecutionCoordinator
                     DiagnosticsReportPersister.persistNativeEvents(
                         sessionId = prepared.sessionId,
                         payload = bridge.pollPassiveEventsJson(),
-                        historyRepository = historyRepository,
+                        artifactWriteStore = artifactWriteStore,
                         json = json,
                     )
                     val progress =
@@ -324,14 +329,15 @@ class DiagnosticsScanExecutionCoordinator
                         val finalReport = maybeApplyTemporaryResolverOverride(enrichedReport, prepared.settings)
                         DiagnosticsReportPersister.persistScanReport(
                             finalReport,
-                            historyRepository,
+                            scanRecordStore,
+                            artifactWriteStore,
                             serviceStateStore,
                             json,
                         )
                         rememberNetworkDnsPathPreference(runtimeState.fingerprint(prepared.sessionId), finalReport.resolverRecommendation)
                         rememberStrategyProbeRecommendation(finalReport, prepared.settings)
                         val now = System.currentTimeMillis()
-                        historyRepository.upsertSnapshot(
+                        artifactWriteStore.upsertSnapshot(
                             com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity(
                                 id = java.util.UUID.randomUUID().toString(),
                                 sessionId = prepared.sessionId,
@@ -344,7 +350,7 @@ class DiagnosticsScanExecutionCoordinator
                                 capturedAt = now,
                             ),
                         )
-                        historyRepository.upsertContextSnapshot(
+                        artifactWriteStore.upsertContextSnapshot(
                             com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity(
                                 id = java.util.UUID.randomUUID().toString(),
                                 sessionId = prepared.sessionId,
@@ -360,7 +366,7 @@ class DiagnosticsScanExecutionCoordinator
                         DiagnosticsReportPersister.persistNativeEvents(
                             sessionId = prepared.sessionId,
                             payload = bridge.pollPassiveEventsJson(),
-                            historyRepository = historyRepository,
+                            artifactWriteStore = artifactWriteStore,
                             json = json,
                         )
                         if (prepared.exposeProgress) {

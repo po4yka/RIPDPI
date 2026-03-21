@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
@@ -50,31 +52,33 @@ internal interface HistoryInitializer {
 internal class DefaultHistoryRepositoryDataSource
     @Inject
     constructor(
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val bypassUsageHistoryStore: BypassUsageHistoryStore,
+        private val scanRecordStore: DiagnosticsScanRecordStore,
+        private val artifactReadStore: DiagnosticsArtifactReadStore,
     ) : HistoryTimelineDataSource, HistoryConnectionDetailSource {
         override fun observeConnectionSessions(): Flow<List<BypassUsageSessionEntity>> =
-            historyRepository.observeBypassUsageSessions(limit = 120)
+            bypassUsageHistoryStore.observeBypassUsageSessions(limit = 120)
 
         override fun observeDiagnosticsSessions(): Flow<List<ScanSessionEntity>> =
-            historyRepository.observeRecentScanSessions(limit = 120)
+            scanRecordStore.observeRecentScanSessions(limit = 120)
 
         override fun observeNativeEvents(): Flow<List<NativeSessionEventEntity>> =
-            historyRepository.observeNativeEvents(limit = 250)
+            artifactReadStore.observeNativeEvents(limit = 250)
 
         override suspend fun getConnectionSession(sessionId: String): BypassUsageSessionEntity? =
-            historyRepository.getBypassUsageSession(sessionId)
+            bypassUsageHistoryStore.getBypassUsageSession(sessionId)
 
         override suspend fun getConnectionSnapshots(sessionId: String): List<NetworkSnapshotEntity> =
-            historyRepository.observeConnectionSnapshots(sessionId, limit = 40).first()
+            artifactReadStore.observeConnectionSnapshots(sessionId, limit = 40).first()
 
         override suspend fun getConnectionContexts(sessionId: String): List<DiagnosticContextEntity> =
-            historyRepository.observeConnectionContexts(sessionId, limit = 20).first()
+            artifactReadStore.observeConnectionContexts(sessionId, limit = 20).first()
 
         override suspend fun getConnectionTelemetry(sessionId: String): List<TelemetrySampleEntity> =
-            historyRepository.observeConnectionTelemetry(sessionId, limit = 60).first()
+            artifactReadStore.observeConnectionTelemetry(sessionId, limit = 60).first()
 
         override suspend fun getConnectionNativeEvents(sessionId: String): List<NativeSessionEventEntity> =
-            historyRepository.observeConnectionNativeEvents(sessionId, limit = 80).first()
+            artifactReadStore.observeConnectionNativeEvents(sessionId, limit = 80).first()
     }
 
 internal class DefaultHistoryDetailLoader

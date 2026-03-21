@@ -13,7 +13,7 @@ import androidx.core.content.pm.PackageInfoCompat
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.effectiveChainSummary
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.legacyDesyncMethod
@@ -37,7 +37,7 @@ class AndroidDiagnosticsContextProvider
     constructor(
         @param:ApplicationContext private val context: Context,
         private val appSettingsRepository: AppSettingsRepository,
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val profileCatalog: DiagnosticsProfileCatalog,
         private val serviceStateStore: ServiceStateStore,
     ) : DiagnosticsContextProvider {
         private val connectivityManager =
@@ -50,7 +50,7 @@ class AndroidDiagnosticsContextProvider
             val profile =
                 settings.diagnosticsActiveProfileId
                     .takeIf { it.isNotBlank() }
-                    ?.let { historyRepository.getProfile(it) }
+                    ?.let { profileCatalog.getProfile(it) }
             val serviceStatus = serviceStateStore.status.value.first
             val activeMode = serviceStateStore.status.value.second
             val telemetry = serviceStateStore.telemetry.value

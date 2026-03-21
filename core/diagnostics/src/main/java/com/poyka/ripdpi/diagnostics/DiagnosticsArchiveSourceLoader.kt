@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import kotlinx.coroutines.flow.first
@@ -11,23 +13,25 @@ import javax.inject.Named
 class DiagnosticsArchiveSourceLoader
     @Inject
     constructor(
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val scanRecordStore: DiagnosticsScanRecordStore,
+        private val artifactReadStore: DiagnosticsArtifactReadStore,
+        private val bypassUsageHistoryStore: BypassUsageHistoryStore,
         private val logcatSnapshotCollector: LogcatSnapshotCollector,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
         internal suspend fun load(): DiagnosticsArchiveSourceData {
-            val sessions = historyRepository.observeRecentScanSessions(limit = 50).first()
+            val sessions = scanRecordStore.observeRecentScanSessions(limit = 50).first()
             val usageSessions =
-                historyRepository.observeBypassUsageSessions(limit = DiagnosticsArchiveFormat.telemetryLimit).first()
+                bypassUsageHistoryStore.observeBypassUsageSessions(limit = DiagnosticsArchiveFormat.telemetryLimit).first()
             val snapshots =
-                historyRepository.observeSnapshots(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
+                artifactReadStore.observeSnapshots(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
             val telemetry =
-                historyRepository.observeTelemetry(limit = DiagnosticsArchiveFormat.telemetryLimit).first()
+                artifactReadStore.observeTelemetry(limit = DiagnosticsArchiveFormat.telemetryLimit).first()
             val events =
-                historyRepository.observeNativeEvents(limit = DiagnosticsArchiveFormat.globalEventLimit).first()
+                artifactReadStore.observeNativeEvents(limit = DiagnosticsArchiveFormat.globalEventLimit).first()
             val contexts =
-                historyRepository.observeContexts(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
+                artifactReadStore.observeContexts(limit = DiagnosticsArchiveFormat.snapshotLimit).first()
             val logcatSnapshot = runCatching { logcatSnapshotCollector.capture() }.getOrNull()
             val approachSummaries =
                 DiagnosticsSessionQueries.buildApproachSummaries(
@@ -48,8 +52,8 @@ class DiagnosticsArchiveSourceLoader
         }
 
         internal suspend fun getScanSession(sessionId: String): ScanSessionEntity? =
-            historyRepository.getScanSession(sessionId)
+            scanRecordStore.getScanSession(sessionId)
 
         internal suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> =
-            historyRepository.getProbeResults(sessionId)
+            scanRecordStore.getProbeResults(sessionId)
     }

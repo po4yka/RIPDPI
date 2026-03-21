@@ -2,7 +2,8 @@ package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRepository
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import dagger.Binds
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,7 +38,8 @@ class BundledDiagnosticsProfileImporter
     @Inject
     constructor(
         private val profileSource: BundledDiagnosticsProfileSource,
-        private val historyRepository: DiagnosticsHistoryRepository,
+        private val profileCatalog: DiagnosticsProfileCatalog,
+        private val clock: DiagnosticsHistoryClock,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
@@ -48,10 +50,10 @@ class BundledDiagnosticsProfileImporter
                     profileSource.readProfilesJson(),
                 )
             bundledProfiles.forEach { profile ->
-                val packVersion = historyRepository.getPackVersion(profile.id)
+                val packVersion = profileCatalog.getPackVersion(profile.id)
                 if (packVersion == null || packVersion.version < profile.version) {
-                    val now = System.currentTimeMillis()
-                    historyRepository.upsertProfile(
+                    val now = clock.now()
+                    profileCatalog.upsertProfile(
                         DiagnosticProfileEntity(
                             id = profile.id,
                             name = profile.name,
@@ -61,7 +63,7 @@ class BundledDiagnosticsProfileImporter
                             updatedAt = now,
                         ),
                     )
-                    historyRepository.upsertPackVersion(
+                    profileCatalog.upsertPackVersion(
                         TargetPackVersionEntity(
                             packId = profile.id,
                             version = profile.version,
