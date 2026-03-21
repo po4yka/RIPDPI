@@ -11,9 +11,7 @@ internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(
     entity: NetworkSnapshotEntity,
     showSensitiveDetails: Boolean,
 ): DiagnosticsNetworkSnapshotUiModel? {
-    val snapshot =
-        runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), entity.payloadJson) }.getOrNull()
-            ?: return null
+    val snapshot = core.decodeNetworkSnapshot(entity) ?: return null
     return DiagnosticsNetworkSnapshotUiModel(
         title = entity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
         subtitle = "${snapshot.transport} · ${formatTimestamp(snapshot.capturedAt)}",
