@@ -1856,8 +1856,10 @@ dependencies = [
 name = "ripdpi-monitor"
 version = "0.1.0"
 dependencies = [
+ "android-support",
  "golden-test-support",
  "local-network-fixture",
+ "log",
  "loom",
  "native-soak-support",
  "rcgen",

@@ -125,14 +125,17 @@ pub fn runtime_config_envelope_from_payload(
         ProxyConfigPayload::CommandLine { args, runtime_context } => Ok(RuntimeConfigEnvelope {
             config: runtime_config_from_command_line(args)?,
             runtime_context: sanitize_runtime_context(runtime_context),
+            native_log_level: None,
         }),
         ProxyConfigPayload::Ui { strategy_preset, mut config, runtime_context } => {
             if let Some(preset_id) = strategy_preset.as_deref().map(str::to_owned) {
                 presets::apply_preset(&preset_id, &mut config)?;
             }
+            let native_log_level = config.native_log_level.clone();
             Ok(RuntimeConfigEnvelope {
                 config: runtime_config_from_ui(config)?,
                 runtime_context: sanitize_runtime_context(runtime_context),
+                native_log_level,
             })
         }
     }
@@ -260,6 +263,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         hosts,
         host_autolearn,
         ws_tunnel,
+        native_log_level: _,
     } = payload;
 
     let listen_ip =

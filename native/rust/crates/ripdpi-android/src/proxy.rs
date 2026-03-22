@@ -2,8 +2,9 @@ use std::os::fd::AsRawFd;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use android_support::{
-    init_android_logging, throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception,
-    HandleRegistry,
+    android_log_level_from_debug_verbosity, android_log_level_from_str, clear_android_log_scope_level,
+    init_android_logging, set_android_log_scope_level, throw_illegal_argument, throw_illegal_state, throw_io_exception,
+    throw_runtime_exception, HandleRegistry,
 };
 use jni::objects::JString;
 use jni::sys::{jint, jlong, jstring};
@@ -120,6 +121,16 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
             return 0;
         }
     };
+    let native_log_level = match envelope.native_log_level.as_deref() {
+        Some(value) => match android_log_level_from_str(value) {
+            Some(level) => level,
+            None => {
+                throw_illegal_argument(env, format!("Unsupported proxy nativeLogLevel: {value}"));
+                return 0;
+            }
+        },
+        None => android_log_level_from_debug_verbosity(envelope.config.debug),
+    };
     let config = envelope.config;
 
     if let Err(err) = runtime::create_listener(&config) {
@@ -129,6 +140,7 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
 
     let autolearn_enabled = config.host_autolearn_enabled;
     let telemetry = Arc::new(ProxyTelemetryState::new());
+    set_android_log_scope_level(telemetry.log_scope().to_string(), native_log_level);
     telemetry.set_autolearn_state(autolearn_enabled, 0, 0);
 
     SESSIONS.insert(ProxySession {
@@ -283,7 +295,10 @@ fn poll_proxy_telemetry(env: &mut JNIEnv, handle: jlong) -> jstring {
 
 pub(crate) fn remove_proxy_session(handle: jlong) -> Result<Arc<ProxySession>, JniProxyError> {
     let handle = to_handle(handle).ok_or_else(|| JniProxyError::InvalidArgument("Invalid proxy handle".to_string()))?;
-    SESSIONS.remove(handle).ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))
+    let session =
+        SESSIONS.remove(handle).ok_or_else(|| JniProxyError::InvalidArgument("Unknown proxy handle".to_string()))?;
+    clear_android_log_scope_level(session.telemetry.log_scope());
+    Ok(session)
 }
 
 pub(crate) fn try_mark_proxy_running(
