@@ -1007,6 +1007,7 @@ fakeddisorder endhost</string>
     <string name="source_code_link">Source code</string>
     <string name="ripdpi_readme_link">What does all of this mean?</string>
     <string name="failed_to_start">Failed to start %1$s</string>
+    <string name="connection_timed_out">Connection timed out. Please try again.</string>
     <string name="general_category">General</string>
     <string name="ripdpi_category">RIPDPI</string>
     <string name="about_category">About</string>
