@@ -1,5 +1,6 @@
 use ciadpi_config::{
-    AutoTtlConfig, DesyncMode, QuicFakeProfile, TcpChainStepKind, FM_DUPSID, FM_ORIG, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    AutoTtlConfig, DesyncMode, QuicFakeProfile, TcpChainStepKind, WsTunnelMode, FM_DUPSID, FM_ORIG,
+    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
 };
 use ciadpi_packets::{
     HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL,
@@ -423,4 +424,150 @@ fn network_snapshot_uses_camel_case_keys() {
     assert!(json.contains("\"signalLevel\""), "expected signalLevel key in: {json}");
     assert!(json.contains("\"frequencyMhz\""), "expected frequencyMhz key in: {json}");
     assert!(json.contains("\"wifiStandard\""), "expected wifiStandard key in: {json}");
+}
+
+// --- WsTunnelMode conversion tests ---
+
+#[test]
+fn ws_tunnel_mode_fallback() {
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.mode = Some("fallback".to_string());
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Fallback);
+}
+
+#[test]
+fn ws_tunnel_mode_always() {
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.mode = Some("always".to_string());
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Always);
+}
+
+#[test]
+fn ws_tunnel_mode_off() {
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.mode = Some("off".to_string());
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Off);
+}
+
+#[test]
+fn ws_tunnel_mode_unknown_string_maps_to_off() {
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.mode = Some("unknown_string".to_string());
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Off);
+}
+
+#[test]
+fn ws_tunnel_mode_none_enabled_true_maps_to_always() {
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.mode = None;
+    ui.ws_tunnel.enabled = true;
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Always);
+}
+
+#[test]
+fn ws_tunnel_mode_none_enabled_false_maps_to_off() {
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.mode = None;
+    ui.ws_tunnel.enabled = false;
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Off);
+}
+
+// --- Validation edge-case tests ---
+
+#[test]
+fn port_overflow_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.listen.port = 100_000;
+    let err = runtime_config_from_ui(ui).expect_err("port overflow");
+    assert!(err.to_string().contains("port"), "expected port error, got: {err}");
+}
+
+#[test]
+fn zero_port_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.listen.port = 0;
+    let err = runtime_config_from_ui(ui).expect_err("zero port");
+    assert!(err.to_string().contains("port"), "expected port error, got: {err}");
+}
+
+#[test]
+fn zero_max_connections_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.listen.max_connections = 0;
+    let err = runtime_config_from_ui(ui).expect_err("zero max connections");
+    assert!(err.to_string().contains("maxConnections"), "expected maxConnections error, got: {err}");
+}
+
+#[test]
+fn negative_buffer_size_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.listen.buffer_size = -1;
+    let err = runtime_config_from_ui(ui).expect_err("negative buffer size");
+    assert!(err.to_string().contains("bufferSize"), "expected bufferSize error, got: {err}");
+}
+
+#[test]
+fn default_ttl_overflow_when_custom_ttl_enabled() {
+    let mut ui = minimal_ui();
+    ui.listen.custom_ttl = true;
+    ui.listen.default_ttl = 300;
+    let err = runtime_config_from_ui(ui).expect_err("ttl overflow");
+    assert!(err.to_string().contains("defaultTtl"), "expected defaultTtl error, got: {err}");
+}
+
+#[test]
+fn zero_default_ttl_when_custom_ttl_enabled() {
+    let mut ui = minimal_ui();
+    ui.listen.custom_ttl = true;
+    ui.listen.default_ttl = 0;
+    let err = runtime_config_from_ui(ui).expect_err("zero ttl");
+    assert!(err.to_string().contains("defaultTtl"), "expected defaultTtl error, got: {err}");
+}
+
+#[test]
+fn host_autolearn_enabled_without_store_path_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.host_autolearn.enabled = true;
+    ui.host_autolearn.store_path = None;
+    let err = runtime_config_from_ui(ui).expect_err("missing store path");
+    assert!(err.to_string().contains("storePath"), "expected storePath error, got: {err}");
+}
+
+// --- TCP chain validation tests ---
+
+#[test]
+fn tlsrec_after_send_step_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("split", "host+1"), tcp_step("tlsrec", "host+1")];
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("tlsrec after send");
+    assert!(err.to_string().contains("tlsrec"), "expected tlsrec error, got: {err}");
+}
+
+#[test]
+fn empty_tcp_chain_is_accepted() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![];
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("empty chain should be valid");
+    assert!(config.groups[0].tcp_chain.is_empty());
+}
+
+#[test]
+fn tlsrec_before_send_step_is_accepted() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "host+1"), tcp_step("disorder", "host+1")];
+    runtime_config_from_payload(ui_payload(ui)).expect("tlsrec before send should be valid");
+}
+
+#[test]
+fn fakeddisorder_not_last_is_rejected() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("fakeddisorder", "host+1"), tcp_step("split", "endhost")];
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("non-terminal fakeddisorder");
+    assert!(err.to_string().contains("fakeddisorder"), "expected fakeddisorder error, got: {err}");
 }
