@@ -25,8 +25,8 @@ class HistoryRouteTest {
 
     @Test
     fun `route initializes the view model once`() {
-        val initializer = RecordingHistoryInitializer()
-        val viewModel = createHistoryViewModel(initializer = initializer)
+        val diagnosticsBootstrapper = FakeHistoryDiagnosticsBootstrapper()
+        val viewModel = createHistoryViewModel(diagnosticsBootstrapper = diagnosticsBootstrapper)
         val recomposeTrigger = mutableIntStateOf(0)
 
         composeRule.setContent {
@@ -39,24 +39,24 @@ class HistoryRouteTest {
             }
         }
 
-        composeRule.waitUntil(timeoutMillis = 5_000) { initializer.calls == 1 }
+        composeRule.waitUntil(timeoutMillis = 5_000) { diagnosticsBootstrapper.initializeCalls == 1 }
 
         composeRule.runOnUiThread {
             recomposeTrigger.intValue += 1
         }
         composeRule.waitForIdle()
 
-        assertEquals(1, initializer.calls)
+        assertEquals(1, diagnosticsBootstrapper.initializeCalls)
     }
 
     private fun createHistoryViewModel(
-        initializer: HistoryInitializer = RecordingHistoryInitializer(),
+        diagnosticsBootstrapper: FakeHistoryDiagnosticsBootstrapper = FakeHistoryDiagnosticsBootstrapper(),
     ): HistoryViewModel {
         val coreSupport = DiagnosticsUiCoreSupport()
         return HistoryViewModel(
-            historyTimelineDataSource = FakeHistoryTimelineDataSource(),
+            diagnosticsHistorySource = FakeDiagnosticsHistorySource(),
             historyDetailLoader = FakeHistoryDetailLoader(),
-            historyInitializer = initializer,
+            diagnosticsBootstrapper = diagnosticsBootstrapper,
             historyUiStateFactory =
                 HistoryUiStateFactory(
                     coreSupport = coreSupport,

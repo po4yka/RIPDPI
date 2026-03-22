@@ -2,6 +2,8 @@ package com.poyka.ripdpi.activities
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,9 +17,9 @@ import javax.inject.Inject
 class HistoryViewModel
     @Inject
     internal constructor(
-        historyTimelineDataSource: HistoryTimelineDataSource,
+        diagnosticsHistorySource: DiagnosticsHistorySource,
         historyDetailLoader: HistoryDetailLoader,
-        private val historyInitializer: HistoryInitializer,
+        private val diagnosticsBootstrapper: DiagnosticsBootstrapper,
         historyUiStateFactory: HistoryUiStateFactory,
     ) : ViewModel() {
         private var initialized = false
@@ -50,9 +52,9 @@ class HistoryViewModel
 
         private val repositorySnapshot =
             combine(
-                historyTimelineDataSource.observeConnectionSessions(),
-                historyTimelineDataSource.observeDiagnosticsSessions(),
-                historyTimelineDataSource.observeNativeEvents(),
+                diagnosticsHistorySource.observeConnectionSessions(),
+                diagnosticsHistorySource.observeDiagnosticsSessions(),
+                diagnosticsHistorySource.observeNativeEvents(),
             ) { connectionSessions, scanSessions, nativeEvents ->
                 HistoryRepositorySnapshot(
                     connectionSessions = connectionSessions,
@@ -90,7 +92,7 @@ class HistoryViewModel
             }
             initialized = true
             viewModelScope.launch {
-                historyInitializer.initialize()
+                diagnosticsBootstrapper.initialize()
             }
         }
 

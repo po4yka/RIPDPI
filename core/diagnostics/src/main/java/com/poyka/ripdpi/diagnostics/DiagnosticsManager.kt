@@ -1,13 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.Mode
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -27,14 +21,36 @@ interface DiagnosticsBootstrapper {
 
 interface DiagnosticsTimelineSource {
     val activeScanProgress: StateFlow<ScanProgress?>
-    val profiles: Flow<List<DiagnosticProfileEntity>>
-    val sessions: Flow<List<ScanSessionEntity>>
+    val profiles: Flow<List<DiagnosticProfile>>
+    val sessions: Flow<List<DiagnosticScanSession>>
     val approachStats: Flow<List<BypassApproachSummary>>
-    val snapshots: Flow<List<NetworkSnapshotEntity>>
-    val contexts: Flow<List<DiagnosticContextEntity>>
-    val telemetry: Flow<List<TelemetrySampleEntity>>
-    val nativeEvents: Flow<List<NativeSessionEventEntity>>
-    val exports: Flow<List<ExportRecordEntity>>
+    val snapshots: Flow<List<DiagnosticNetworkSnapshot>>
+    val contexts: Flow<List<DiagnosticContextSnapshot>>
+    val telemetry: Flow<List<DiagnosticTelemetrySample>>
+    val nativeEvents: Flow<List<DiagnosticEvent>>
+    val exports: Flow<List<DiagnosticExportRecord>>
+}
+
+interface DiagnosticsHistorySource {
+    fun observeConnectionSessions(limit: Int = 120): Flow<List<DiagnosticConnectionSession>>
+
+    fun observeDiagnosticsSessions(limit: Int = 120): Flow<List<DiagnosticScanSession>>
+
+    fun observeNativeEvents(limit: Int = 250): Flow<List<DiagnosticEvent>>
+
+    suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail?
+}
+
+interface DiagnosticsRememberedPolicySource {
+    fun observePolicies(limit: Int = 64): Flow<List<DiagnosticsRememberedPolicy>>
+
+    suspend fun clearAll()
+}
+
+interface DiagnosticsActiveConnectionPolicySource {
+    val activePolicies: StateFlow<Map<Mode, DiagnosticActiveConnectionPolicy>>
+
+    fun current(mode: Mode): DiagnosticActiveConnectionPolicy? = activePolicies.value[mode]
 }
 
 interface DiagnosticsScanController {
@@ -86,6 +102,24 @@ abstract class DiagnosticsManagerModule {
     abstract fun bindDiagnosticsScanController(
         controller: DefaultDiagnosticsScanController,
     ): DiagnosticsScanController
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsHistorySource(
+        source: DefaultDiagnosticsHistorySource,
+    ): DiagnosticsHistorySource
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsRememberedPolicySource(
+        source: DefaultDiagnosticsRememberedPolicySource,
+    ): DiagnosticsRememberedPolicySource
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsActiveConnectionPolicySource(
+        source: DefaultDiagnosticsActiveConnectionPolicySource,
+    ): DiagnosticsActiveConnectionPolicySource
 
     @Binds
     @Singleton

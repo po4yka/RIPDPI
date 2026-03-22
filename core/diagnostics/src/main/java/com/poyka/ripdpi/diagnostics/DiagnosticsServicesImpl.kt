@@ -1,5 +1,4 @@
 package com.poyka.ripdpi.diagnostics
-
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -11,7 +10,6 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
-import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -59,7 +57,7 @@ class DefaultDiagnosticsBootstrapper
         }
 
         private fun logRuntimeHistoryBootstrapFailure(error: Throwable) {
-            System.err.println("Runtime history bootstrap skipped")
+            System.err.println("Runtime history bootstrap skipped: ${error.message}")
         }
     }
 
@@ -70,17 +68,38 @@ class DefaultDiagnosticsDetailLoader
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactReadStore: DiagnosticsArtifactReadStore,
         private val bypassUsageHistoryStore: BypassUsageHistoryStore,
+        private val mapper: DiagnosticsBoundaryMapper,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) : DiagnosticsDetailLoader {
+        constructor(
+            scanRecordStore: DiagnosticsScanRecordStore,
+            artifactReadStore: DiagnosticsArtifactReadStore,
+            bypassUsageHistoryStore: BypassUsageHistoryStore,
+            json: Json,
+        ) : this(
+            scanRecordStore = scanRecordStore,
+            artifactReadStore = artifactReadStore,
+            bypassUsageHistoryStore = bypassUsageHistoryStore,
+            mapper = DiagnosticsBoundaryMapper(json),
+            json = json,
+        )
+
         override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
-            DiagnosticsSessionQueries.loadSessionDetail(sessionId, scanRecordStore, artifactReadStore)
+            DiagnosticsSessionQueries.loadSessionDetail(sessionId, scanRecordStore, artifactReadStore, mapper)
 
         override suspend fun loadApproachDetail(
             kind: BypassApproachKind,
             id: String,
         ): BypassApproachDetail =
-            DiagnosticsSessionQueries.loadApproachDetail(kind, id, scanRecordStore, bypassUsageHistoryStore, json)
+            DiagnosticsSessionQueries.loadApproachDetail(
+                kind = kind,
+                id = id,
+                scanRecordStore = scanRecordStore,
+                bypassUsageHistoryStore = bypassUsageHistoryStore,
+                mapper = mapper,
+                json = json,
+            )
     }
 
 @Singleton
