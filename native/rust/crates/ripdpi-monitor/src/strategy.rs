@@ -71,37 +71,38 @@ pub(crate) fn run_strategy_probe_scan(
         return;
     };
 
-    let (base_payload, runtime_context) = match parse_proxy_config_json(base_proxy_config_json).map_err(|err| err.to_string()) {
-        Ok(ProxyConfigPayload::Ui { config, runtime_context }) => (config, runtime_context),
-        Ok(ProxyConfigPayload::CommandLine { .. }) => {
-            let report = ScanReport {
-                session_id,
-                profile_id: request.profile_id,
-                path_mode: request.path_mode,
-                started_at,
-                finished_at: now_ms(),
-                summary: "Automatic probing requires UI-configured RIPDPI settings".to_string(),
-                results,
-                strategy_probe_report: None,
-            };
-            set_report(&shared, report);
-            return;
-        }
-        Err(message) => {
-            let report = ScanReport {
-                session_id,
-                profile_id: request.profile_id,
-                path_mode: request.path_mode,
-                started_at,
-                finished_at: now_ms(),
-                summary: message,
-                results,
-                strategy_probe_report: None,
-            };
-            set_report(&shared, report);
-            return;
-        }
-    };
+    let (base_payload, runtime_context) =
+        match parse_proxy_config_json(base_proxy_config_json).map_err(|err| err.to_string()) {
+            Ok(ProxyConfigPayload::Ui { config, runtime_context, .. }) => (config, runtime_context),
+            Ok(ProxyConfigPayload::CommandLine { .. }) => {
+                let report = ScanReport {
+                    session_id,
+                    profile_id: request.profile_id,
+                    path_mode: request.path_mode,
+                    started_at,
+                    finished_at: now_ms(),
+                    summary: "Automatic probing requires UI-configured RIPDPI settings".to_string(),
+                    results,
+                    strategy_probe_report: None,
+                };
+                set_report(&shared, report);
+                return;
+            }
+            Err(message) => {
+                let report = ScanReport {
+                    session_id,
+                    profile_id: request.profile_id,
+                    path_mode: request.path_mode,
+                    started_at,
+                    finished_at: now_ms(),
+                    summary: message,
+                    results,
+                    strategy_probe_report: None,
+                };
+                set_report(&shared, report);
+                return;
+            }
+        };
 
     let suite = match build_strategy_probe_suite(&strategy_probe.suite_id, &base_payload) {
         Ok(suite) => suite,
@@ -150,7 +151,7 @@ pub(crate) fn run_strategy_probe_scan(
         short_circuit_hostfake,
         short_circuit_quic_burst,
     } = suite;
-    let probe_seed = probe_session_seed(base_payload.network_scope_key.as_deref(), &session_id);
+    let probe_seed = probe_session_seed(base_payload.host_autolearn.network_scope_key.as_deref(), &session_id);
 
     if let Some(baseline) = detect_strategy_probe_dns_tampering(&request.domain_targets, runtime_context.as_ref()) {
         push_event(
@@ -251,12 +252,7 @@ pub(crate) fn run_strategy_probe_scan(
             latest_probe_outcome: None,
         },
     );
-    push_event(
-        &shared,
-        "strategy_probe",
-        "info",
-        format!("Testing TCP candidate {}", baseline_spec.label),
-    );
+    push_event(&shared, "strategy_probe", "info", format!("Testing TCP candidate {}", baseline_spec.label));
     let baseline_execution = execute_tcp_candidate(
         baseline_spec,
         &request.domain_targets,
@@ -271,11 +267,7 @@ pub(crate) fn run_strategy_probe_scan(
             &shared,
             "strategy_probe",
             "warn",
-            format!(
-                "Baseline classified as {} with {}",
-                failure.class.as_str(),
-                failure.action.as_str(),
-            ),
+            format!("Baseline classified as {} with {}", failure.class.as_str(), failure.action.as_str(),),
         );
         results.push(classified_failure_probe_result(baseline_spec.label, failure));
     }
@@ -301,11 +293,7 @@ pub(crate) fn run_strategy_probe_scan(
         },
     );
     if !tcp_specs.is_empty() && tcp_specs.len() > 1 {
-        thread::sleep(Duration::from_millis(candidate_pause_ms(
-            probe_seed,
-            baseline_spec,
-            baseline_failure.is_some(),
-        )));
+        thread::sleep(Duration::from_millis(candidate_pause_ms(probe_seed, baseline_spec, baseline_failure.is_some())));
     }
 
     let ordered_tcp_specs = interleave_candidate_families(
@@ -364,7 +352,13 @@ pub(crate) fn run_strategy_probe_scan(
             },
         );
         push_event(&shared, "strategy_probe", "info", format!("Testing TCP candidate {}", spec.label));
-        let execution = execute_tcp_candidate(&spec, &request.domain_targets, runtime_context.as_ref(), probe_seed, tls_verifier.as_ref());
+        let execution = execute_tcp_candidate(
+            &spec,
+            &request.domain_targets,
+            runtime_context.as_ref(),
+            probe_seed,
+            tls_verifier.as_ref(),
+        );
         results.extend(execution.results);
         if execution.summary.family == "hostfake"
             && execution.summary.succeeded_targets == execution.summary.total_targets
@@ -421,10 +415,12 @@ pub(crate) fn run_strategy_probe_scan(
     let mut quic_candidates = Vec::new();
     let mut quic_family_succeeded = false;
     let quic_specs = filter_quic_candidates_for_failure(
-        build_quic_candidates_for_suite(suite_id, &tcp_winner_spec.config).unwrap_or_else(|_| preview_quic_specs.clone()),
+        build_quic_candidates_for_suite(suite_id, &tcp_winner_spec.config)
+            .unwrap_or_else(|_| preview_quic_specs.clone()),
         baseline_failure.as_ref().map(|value| value.class),
     );
-    let mut pending_quic_specs = interleave_candidate_families(quic_specs.clone(), stable_probe_hash(probe_seed, "quic"));
+    let mut pending_quic_specs =
+        interleave_candidate_families(quic_specs.clone(), stable_probe_hash(probe_seed, "quic"));
     let mut blocked_quic_family = None::<&'static str>;
     let mut last_failed_quic_family = None::<&'static str>;
     let mut consecutive_quic_family_failures = 0usize;
@@ -523,11 +519,7 @@ pub(crate) fn run_strategy_probe_scan(
     }
 
     if let Some(quic_failure) = classify_strategy_probe_baseline_results(
-        &results
-            .iter()
-            .filter(|result| result.probe_type == "strategy_quic")
-            .cloned()
-            .collect::<Vec<_>>(),
+        &results.iter().filter(|result| result.probe_type == "strategy_quic").cloned().collect::<Vec<_>>(),
     )
     .filter(|failure| failure.class == FailureClass::QuicBreakage)
     {
@@ -535,11 +527,7 @@ pub(crate) fn run_strategy_probe_scan(
             &shared,
             "strategy_probe",
             "warn",
-            format!(
-                "QUIC classified as {} with {}",
-                quic_failure.class.as_str(),
-                quic_failure.action.as_str(),
-            ),
+            format!("QUIC classified as {} with {}", quic_failure.class.as_str(), quic_failure.action.as_str(),),
         );
         results.push(classified_failure_probe_result("QUIC strategy family", &quic_failure));
     }
@@ -629,19 +617,13 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
         }
 
         let encrypted_started = std::time::Instant::now();
-        let encrypted_result = resolve_via_encrypted_dns(&target.host, resolver_endpoint.clone(), &TransportConfig::Direct);
+        let encrypted_result =
+            resolve_via_encrypted_dns(&target.host, resolver_endpoint.clone(), &TransportConfig::Direct);
         let encrypted_latency_ms = encrypted_started.elapsed().as_millis().to_string();
-        let encrypted_addresses = encrypted_result
-            .as_ref()
-            .ok()
-            .into_iter()
-            .flat_map(|value| value.iter())
-            .cloned()
-            .collect::<Vec<_>>();
-        let encrypted_ips = encrypted_addresses
-            .iter()
-            .filter_map(|value| value.parse::<IpAddr>().ok())
-            .collect::<Vec<_>>();
+        let encrypted_addresses =
+            encrypted_result.as_ref().ok().into_iter().flat_map(|value| value.iter()).cloned().collect::<Vec<_>>();
+        let encrypted_ips =
+            encrypted_addresses.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect::<Vec<_>>();
         let system_ips = system_targets.iter().map(SocketAddr::ip).collect::<Vec<_>>();
         let substitution = system_ips.iter().all(|ip| !encrypted_ips.iter().any(|answer| answer == ip));
         let outcome = if substitution { "dns_substitution" } else { "dns_match" };
@@ -659,22 +641,10 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
                     key: "encryptedResolverId".to_string(),
                     value: resolver_context.resolver_id.clone().unwrap_or_default(),
                 },
-                ProbeDetail {
-                    key: "encryptedProtocol".to_string(),
-                    value: resolver_context.protocol.clone(),
-                },
-                ProbeDetail {
-                    key: "encryptedEndpoint".to_string(),
-                    value: resolver_label.clone(),
-                },
-                ProbeDetail {
-                    key: "encryptedHost".to_string(),
-                    value: resolver_context.host.clone(),
-                },
-                ProbeDetail {
-                    key: "encryptedPort".to_string(),
-                    value: resolver_context.port.to_string(),
-                },
+                ProbeDetail { key: "encryptedProtocol".to_string(), value: resolver_context.protocol.clone() },
+                ProbeDetail { key: "encryptedEndpoint".to_string(), value: resolver_label.clone() },
+                ProbeDetail { key: "encryptedHost".to_string(), value: resolver_context.host.clone() },
+                ProbeDetail { key: "encryptedPort".to_string(), value: resolver_context.port.to_string() },
                 ProbeDetail {
                     key: "encryptedTlsServerName".to_string(),
                     value: resolver_context.tls_server_name.clone().unwrap_or_default(),
@@ -712,7 +682,8 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
         });
         if substitution && classified.is_none() {
             for system_ip in &system_ips {
-                if let Some(failure) = confirm_dns_tampering(&target.host, *system_ip, &encrypted_ips, &resolver_label) {
+                if let Some(failure) = confirm_dns_tampering(&target.host, *system_ip, &encrypted_ips, &resolver_label)
+                {
                     classified = Some(failure);
                     break;
                 }

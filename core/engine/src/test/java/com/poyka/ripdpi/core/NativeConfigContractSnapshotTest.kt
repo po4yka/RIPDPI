@@ -1,18 +1,26 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.NumericRangeModel
+import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
+import com.poyka.ripdpi.data.UdpChainStepKind
+import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonElement.Companion.serializer
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -37,22 +45,24 @@ class NativeConfigContractSnapshotTest {
         assertJsonSnapshot(
             actualJson = payload,
             expectedJson =
-                """
-                {
-                  "kind": "command_line",
-                  "args": [
-                    "ciadpi",
-                    "--ip",
-                    "127.0.0.1",
-                    "--port",
-                    "2080",
-                    "--split",
-                    "1+s",
-                    "--fake",
-                    "-1"
-                  ]
-                }
-                """,
+                buildJsonObject {
+                    put("kind", JsonPrimitive("command_line"))
+                    put(
+                        "args",
+                        buildJsonArray {
+                            add(JsonPrimitive("ciadpi"))
+                            add(JsonPrimitive("--ip"))
+                            add(JsonPrimitive("127.0.0.1"))
+                            add(JsonPrimitive("--port"))
+                            add(JsonPrimitive("2080"))
+                            add(JsonPrimitive("--split"))
+                            add(JsonPrimitive("1+s"))
+                            add(JsonPrimitive("--fake"))
+                            add(JsonPrimitive("-1"))
+                        },
+                    )
+                    put("runtimeContext", JsonNull)
+                },
         )
     }
 
@@ -62,68 +72,7 @@ class NativeConfigContractSnapshotTest {
 
         assertJsonSnapshot(
             actualJson = payload,
-            expectedJson =
-                """
-                {
-                  "kind": "ui",
-                  "ip": "127.0.0.1",
-                  "port": 1080,
-                  "maxConnections": 512,
-                  "bufferSize": 16384,
-                  "defaultTtl": 0,
-                  "customTtl": false,
-                  "networkScopeKey": null,
-                  "noDomain": false,
-                  "desyncHttp": true,
-                  "desyncHttps": true,
-                  "desyncUdp": false,
-                  "desyncMethod": "disorder",
-                  "splitMarker": "1",
-                  "tcpChainSteps": [
-                    {
-                      "kind": "disorder",
-                      "marker": "1",
-                      "midhostMarker": "",
-                      "fakeHostTemplate": "",
-                      "fragmentCount": 0,
-                      "minFragmentSize": 0,
-                      "maxFragmentSize": 0
-                    }
-                  ],
-                  "fakeTtl": 8,
-                  "fakeSni": "www.iana.org",
-                  "fakeTlsUseOriginal": false,
-                  "fakeTlsRandomize": false,
-                  "fakeTlsDupSessionId": false,
-                  "fakeTlsPadEncap": false,
-                  "fakeTlsSize": 0,
-                  "fakeTlsSniMode": "fixed",
-                  "oobChar": 97,
-                  "hostMixedCase": false,
-                  "domainMixedCase": false,
-                  "hostRemoveSpaces": false,
-                  "httpMethodEol": false,
-                  "httpUnixEol": false,
-                  "tlsRecordSplit": false,
-                  "tlsRecordSplitMarker": "0",
-                  "hostsMode": "disable",
-                  "hosts": null,
-                  "tcpFastOpen": false,
-                  "udpFakeCount": 0,
-                  "udpChainSteps": [],
-                  "dropSack": false,
-                  "fakeOffsetMarker": "0",
-                  "quicInitialMode": "route_and_cache",
-                  "quicSupportV1": true,
-                  "quicSupportV2": true,
-                  "quicFakeProfile": "disabled",
-                  "quicFakeHost": "",
-                  "hostAutolearnEnabled": false,
-                  "hostAutolearnPenaltyTtlSecs": 21600,
-                  "hostAutolearnMaxHosts": 512,
-                  "hostAutolearnStorePath": null
-                }
-                """,
+            expectedJson = defaultUiExpected(),
         )
     }
 
@@ -131,135 +80,170 @@ class NativeConfigContractSnapshotTest {
     fun proxyCustomUiPayloadMatchesSnapshot() {
         val payload =
             RipDpiProxyUIPreferences(
-                ip = "0.0.0.0",
-                port = 2080,
-                maxConnections = 1024,
-                bufferSize = 32768,
-                defaultTtl = 64,
-                noDomain = true,
-                desyncHttp = false,
-                desyncHttps = true,
-                desyncUdp = true,
-                desyncMethod = RipDpiProxyUIPreferences.DesyncMethod.Fake,
-                splitMarker = "host+2",
-                fakeTtl = 9,
-                fakeSni = "alt.example.org",
-                httpFakeProfile = HttpFakeProfileCloudflareGet,
-                fakeTlsUseOriginal = true,
-                fakeTlsRandomize = true,
-                fakeTlsDupSessionId = true,
-                fakeTlsPadEncap = true,
-                fakeTlsSize = -24,
-                fakeTlsSniMode = "randomized",
-                tlsFakeProfile = TlsFakeProfileGoogleChrome,
-                oobChar = "Z",
-                hostMixedCase = true,
-                domainMixedCase = true,
-                hostRemoveSpaces = true,
-                httpMethodEol = true,
-                httpUnixEol = true,
-                tlsRecordSplit = true,
-                tlsRecordSplitMarker = "sniext+3",
-                hostsMode = RipDpiProxyUIPreferences.HostsMode.Whitelist,
-                hosts = "example.org",
-                tcpFastOpen = true,
-                udpFakeCount = 4,
-                udpFakeProfile = UdpFakeProfileDnsQuery,
-                dropSack = true,
-                fakeOffsetMarker = "endhost-1",
-                quicInitialMode = "route",
-                quicSupportV1 = false,
-                quicSupportV2 = true,
-                quicFakeProfile = "realistic_initial",
-                quicFakeHost = "video.example.test",
-                hostAutolearnEnabled = true,
-                hostAutolearnPenaltyTtlHours = 12,
-                hostAutolearnMaxHosts = 2048,
-                hostAutolearnStorePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json",
+                listen =
+                    RipDpiListenConfig(
+                        ip = "0.0.0.0",
+                        port = 2080,
+                        maxConnections = 1024,
+                        bufferSize = 32768,
+                        defaultTtl = 64,
+                        customTtl = true,
+                        tcpFastOpen = true,
+                    ),
+                protocols =
+                    RipDpiProtocolConfig(
+                        resolveDomains = false,
+                        desyncHttp = false,
+                        desyncHttps = true,
+                        desyncUdp = true,
+                    ),
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.TlsRec,
+                                    marker = "sniext+3",
+                                ),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.Fake,
+                                    marker = "host+2",
+                                ),
+                            ),
+                        udpSteps =
+                            listOf(
+                                UdpChainStepModel(
+                                    kind = UdpChainStepKind.FakeBurst,
+                                    count = 4,
+                                ),
+                            ),
+                    ),
+                fakePackets =
+                    RipDpiFakePacketConfig(
+                        fakeTtl = 9,
+                        fakeSni = "alt.example.org",
+                        httpFakeProfile = HttpFakeProfileCloudflareGet,
+                        fakeTlsUseOriginal = true,
+                        fakeTlsRandomize = true,
+                        fakeTlsDupSessionId = true,
+                        fakeTlsPadEncap = true,
+                        fakeTlsSize = -24,
+                        fakeTlsSniMode = FakeTlsSniModeRandomized,
+                        tlsFakeProfile = TlsFakeProfileGoogleChrome,
+                        udpFakeProfile = UdpFakeProfileDnsQuery,
+                        fakeOffsetMarker = "endhost-1",
+                        oobChar = 'Z',
+                        dropSack = true,
+                    ),
+                parserEvasions =
+                    RipDpiParserEvasionConfig(
+                        hostMixedCase = true,
+                        domainMixedCase = true,
+                        hostRemoveSpaces = true,
+                        httpMethodEol = true,
+                        httpUnixEol = true,
+                    ),
+                quic =
+                    RipDpiQuicConfig(
+                        initialMode = "route",
+                        supportV1 = false,
+                        supportV2 = true,
+                        fakeProfile = QuicFakeProfileRealisticInitial,
+                        fakeHost = "video.example.test",
+                    ),
+                hosts =
+                    RipDpiHostsConfig(
+                        mode = RipDpiHostsConfig.Mode.Whitelist,
+                        entries = "example.org",
+                    ),
+                hostAutolearn =
+                    RipDpiHostAutolearnConfig(
+                        enabled = true,
+                        penaltyTtlHours = 12,
+                        maxHosts = 2048,
+                        storePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json",
+                    ),
             ).toNativeConfigJson()
 
         assertJsonSnapshot(
             actualJson = payload,
             expectedJson =
-                """
-                {
-                  "kind": "ui",
-                  "ip": "0.0.0.0",
-                  "port": 2080,
-                  "maxConnections": 1024,
-                  "bufferSize": 32768,
-                  "defaultTtl": 64,
-                  "customTtl": true,
-                  "networkScopeKey": null,
-                  "noDomain": true,
-                  "desyncHttp": false,
-                  "desyncHttps": true,
-                  "desyncUdp": true,
-                  "desyncMethod": "fake",
-                  "splitMarker": "host+2",
-                  "tcpChainSteps": [
-                    {
-                      "kind": "tlsrec",
-                      "marker": "sniext+3",
-                      "midhostMarker": "",
-                      "fakeHostTemplate": "",
-                      "fragmentCount": 0,
-                      "minFragmentSize": 0,
-                      "maxFragmentSize": 0
-                    },
-                    {
-                      "kind": "fake",
-                      "marker": "host+2",
-                      "midhostMarker": "",
-                      "fakeHostTemplate": "",
-                      "fragmentCount": 0,
-                      "minFragmentSize": 0,
-                      "maxFragmentSize": 0
-                    }
-                  ],
-                  "fakeTtl": 9,
-                  "adaptiveFakeTtlFallback": 9,
-                  "fakeSni": "alt.example.org",
-                  "httpFakeProfile": "cloudflare_get",
-                  "fakeTlsUseOriginal": true,
-                  "fakeTlsRandomize": true,
-                  "fakeTlsDupSessionId": true,
-                  "fakeTlsPadEncap": true,
-                  "fakeTlsSize": -24,
-                  "fakeTlsSniMode": "randomized",
-                  "tlsFakeProfile": "google_chrome",
-                  "oobChar": 90,
-                  "hostMixedCase": true,
-                  "domainMixedCase": true,
-                  "hostRemoveSpaces": true,
-                  "httpMethodEol": true,
-                  "httpUnixEol": true,
-                  "tlsRecordSplit": true,
-                  "tlsRecordSplitMarker": "sniext+3",
-                  "hostsMode": "whitelist",
-                  "hosts": "example.org",
-                  "tcpFastOpen": true,
-                  "udpFakeCount": 4,
-                  "udpChainSteps": [
-                    {
-                      "kind": "fake_burst",
-                      "count": 4
-                    }
-                  ],
-                  "udpFakeProfile": "dns_query",
-                  "dropSack": true,
-                  "fakeOffsetMarker": "endhost-1",
-                  "quicInitialMode": "route",
-                  "quicSupportV1": false,
-                  "quicSupportV2": true,
-                  "quicFakeProfile": "realistic_initial",
-                  "quicFakeHost": "video.example.test",
-                  "hostAutolearnEnabled": true,
-                  "hostAutolearnPenaltyTtlSecs": 43200,
-                  "hostAutolearnMaxHosts": 2048,
-                  "hostAutolearnStorePath": "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json"
-                }
-                """,
+                defaultUiExpected(
+                    listen =
+                        listenExpected(
+                            ip = "0.0.0.0",
+                            port = 2080,
+                            maxConnections = 1024,
+                            bufferSize = 32768,
+                            tcpFastOpen = true,
+                            defaultTtl = 64,
+                            customTtl = true,
+                        ),
+                    protocols =
+                        protocolsExpected(
+                            resolveDomains = false,
+                            desyncHttp = false,
+                            desyncHttps = true,
+                            desyncUdp = true,
+                        ),
+                    chains =
+                        chainsExpected(
+                            tcpSteps =
+                                listOf(
+                                    tcpStepExpected(kind = "tlsrec", marker = "sniext+3"),
+                                    tcpStepExpected(kind = "fake", marker = "host+2"),
+                                ),
+                            udpSteps =
+                                listOf(
+                                    udpStepExpected(kind = "fake_burst", count = 4),
+                                ),
+                        ),
+                    fakePackets =
+                        fakePacketsExpected(
+                            fakeTtl = 9,
+                            fakeSni = "alt.example.org",
+                            httpFakeProfile = HttpFakeProfileCloudflareGet,
+                            fakeTlsUseOriginal = true,
+                            fakeTlsRandomize = true,
+                            fakeTlsDupSessionId = true,
+                            fakeTlsPadEncap = true,
+                            fakeTlsSize = -24,
+                            fakeTlsSniMode = FakeTlsSniModeRandomized,
+                            tlsFakeProfile = TlsFakeProfileGoogleChrome,
+                            udpFakeProfile = UdpFakeProfileDnsQuery,
+                            fakeOffsetMarker = "endhost-1",
+                            oobChar = 'Z'.code,
+                            dropSack = true,
+                        ),
+                    parserEvasions =
+                        parserEvasionsExpected(
+                            hostMixedCase = true,
+                            domainMixedCase = true,
+                            hostRemoveSpaces = true,
+                            httpMethodEol = true,
+                            httpUnixEol = true,
+                        ),
+                    quic =
+                        quicExpected(
+                            initialMode = "route",
+                            supportV1 = false,
+                            supportV2 = true,
+                            fakeProfile = QuicFakeProfileRealisticInitial,
+                            fakeHost = "video.example.test",
+                        ),
+                    hosts =
+                        hostsExpected(
+                            mode = RipDpiHostsConfig.Mode.Whitelist.wireName,
+                            entries = "example.org",
+                        ),
+                    hostAutolearn =
+                        hostAutolearnExpected(
+                            enabled = true,
+                            penaltyTtlHours = 12,
+                            maxHosts = 2048,
+                            storePath = "/data/user/0/com.poyka.ripdpi/no_backup/ripdpi/host-autolearn-v1.json",
+                        ),
+                ),
         )
     }
 
@@ -267,81 +251,37 @@ class NativeConfigContractSnapshotTest {
     fun proxyHostfakeUiPayloadMatchesSnapshot() {
         val payload =
             RipDpiProxyUIPreferences(
-                tcpChainSteps =
-                    listOf(
-                        TcpChainStepModel(
-                            kind = TcpChainStepKind.HostFake,
-                            marker = "endhost+8",
-                            midhostMarker = "midsld",
-                            fakeHostTemplate = "googlevideo.com",
-                        ),
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.HostFake,
+                                    marker = "endhost+8",
+                                    midhostMarker = "midsld",
+                                    fakeHostTemplate = "googlevideo.com",
+                                ),
+                            ),
                     ),
             ).toNativeConfigJson()
 
         assertJsonSnapshot(
             actualJson = payload,
             expectedJson =
-                """
-                {
-                  "kind": "ui",
-                  "ip": "127.0.0.1",
-                  "port": 1080,
-                  "maxConnections": 512,
-                  "bufferSize": 16384,
-                  "defaultTtl": 0,
-                  "customTtl": false,
-                  "networkScopeKey": null,
-                  "noDomain": false,
-                  "desyncHttp": true,
-                  "desyncHttps": true,
-                  "desyncUdp": false,
-                  "desyncMethod": "disorder",
-                  "splitMarker": "1",
-                  "tcpChainSteps": [
-                    {
-                      "kind": "hostfake",
-                      "marker": "endhost+8",
-                      "midhostMarker": "midsld",
-                      "fakeHostTemplate": "googlevideo.com",
-                      "fragmentCount": 0,
-                      "minFragmentSize": 0,
-                      "maxFragmentSize": 0
-                    }
-                  ],
-                  "fakeTtl": 8,
-                  "fakeSni": "www.iana.org",
-                  "fakeTlsUseOriginal": false,
-                  "fakeTlsRandomize": false,
-                  "fakeTlsDupSessionId": false,
-                  "fakeTlsPadEncap": false,
-                  "fakeTlsSize": 0,
-                  "fakeTlsSniMode": "fixed",
-                  "oobChar": 97,
-                  "hostMixedCase": false,
-                  "domainMixedCase": false,
-                  "hostRemoveSpaces": false,
-                  "httpMethodEol": false,
-                  "httpUnixEol": false,
-                  "tlsRecordSplit": false,
-                  "tlsRecordSplitMarker": "0",
-                  "hostsMode": "disable",
-                  "hosts": null,
-                  "tcpFastOpen": false,
-                  "udpFakeCount": 0,
-                  "udpChainSteps": [],
-                  "dropSack": false,
-                  "fakeOffsetMarker": "0",
-                  "quicInitialMode": "route_and_cache",
-                  "quicSupportV1": true,
-                  "quicSupportV2": true,
-                  "quicFakeProfile": "disabled",
-                  "quicFakeHost": "",
-                  "hostAutolearnEnabled": false,
-                  "hostAutolearnPenaltyTtlSecs": 21600,
-                  "hostAutolearnMaxHosts": 512,
-                  "hostAutolearnStorePath": null
-                }
-                """,
+                defaultUiExpected(
+                    chains =
+                        chainsExpected(
+                            tcpSteps =
+                                listOf(
+                                    tcpStepExpected(
+                                        kind = "hostfake",
+                                        marker = "endhost+8",
+                                        midhostMarker = "midsld",
+                                        fakeHostTemplate = "googlevideo.com",
+                                    ),
+                                ),
+                        ),
+                ),
         )
     }
 
@@ -349,114 +289,55 @@ class NativeConfigContractSnapshotTest {
     fun proxyActivationFilterUiPayloadMatchesSnapshot() {
         val payload =
             RipDpiProxyUIPreferences(
-                groupActivationFilter =
-                    ActivationFilterModel(
-                        round = NumericRangeModel(start = 2, end = 4),
-                        payloadSize = NumericRangeModel(start = 64, end = 512),
-                        streamBytes = NumericRangeModel(start = 0, end = 2047),
-                    ),
-                tcpChainSteps =
-                    listOf(
-                        TcpChainStepModel(
-                            kind = TcpChainStepKind.Fake,
-                            marker = "host",
-                            activationFilter =
-                                ActivationFilterModel(
-                                    round = NumericRangeModel(start = 1, end = 2),
-                                    payloadSize = NumericRangeModel(start = 32, end = 256),
+                chains =
+                    RipDpiChainConfig(
+                        groupActivationFilter =
+                            ActivationFilterModel(
+                                round = NumericRangeModel(start = 2, end = 4),
+                                payloadSize = NumericRangeModel(start = 64, end = 512),
+                                streamBytes = NumericRangeModel(start = 0, end = 2047),
+                            ),
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.Fake,
+                                    marker = "host",
+                                    activationFilter =
+                                        ActivationFilterModel(
+                                            round = NumericRangeModel(start = 1, end = 2),
+                                            payloadSize = NumericRangeModel(start = 32, end = 256),
+                                        ),
                                 ),
-                        ),
+                            ),
                     ),
             ).toNativeConfigJson()
 
         assertJsonSnapshot(
             actualJson = payload,
             expectedJson =
-                """
-                {
-                  "kind": "ui",
-                  "ip": "127.0.0.1",
-                  "port": 1080,
-                  "maxConnections": 512,
-                  "bufferSize": 16384,
-                  "defaultTtl": 0,
-                  "customTtl": false,
-                  "networkScopeKey": null,
-                  "noDomain": false,
-                  "desyncHttp": true,
-                  "desyncHttps": true,
-                  "desyncUdp": false,
-                  "desyncMethod": "disorder",
-                  "splitMarker": "1",
-                  "groupActivationFilter": {
-                    "round": {
-                      "start": 2,
-                      "end": 4
-                    },
-                    "payloadSize": {
-                      "start": 64,
-                      "end": 512
-                    },
-                    "streamBytes": {
-                      "start": 0,
-                      "end": 2047
-                    }
-                  },
-                  "tcpChainSteps": [
-                    {
-                      "kind": "fake",
-                      "marker": "host",
-                      "midhostMarker": "",
-                      "fakeHostTemplate": "",
-                      "fragmentCount": 0,
-                      "minFragmentSize": 0,
-                      "maxFragmentSize": 0,
-                      "activationFilter": {
-                        "round": {
-                          "start": 1,
-                          "end": 2
-                        },
-                        "payloadSize": {
-                          "start": 32,
-                          "end": 256
-                        }
-                      }
-                    }
-                  ],
-                  "fakeTtl": 8,
-                  "fakeSni": "www.iana.org",
-                  "fakeTlsUseOriginal": false,
-                  "fakeTlsRandomize": false,
-                  "fakeTlsDupSessionId": false,
-                  "fakeTlsPadEncap": false,
-                  "fakeTlsSize": 0,
-                  "fakeTlsSniMode": "fixed",
-                  "oobChar": 97,
-                  "hostMixedCase": false,
-                  "domainMixedCase": false,
-                  "hostRemoveSpaces": false,
-                  "httpMethodEol": false,
-                  "httpUnixEol": false,
-                  "tlsRecordSplit": false,
-                  "tlsRecordSplitMarker": "0",
-                  "hostsMode": "disable",
-                  "hosts": null,
-                  "tcpFastOpen": false,
-                  "udpFakeCount": 0,
-                  "udpChainSteps": [],
-                  "dropSack": false,
-                  "fakeOffsetMarker": "0",
-                  "quicInitialMode": "route_and_cache",
-                  "quicSupportV1": true,
-                  "quicSupportV2": true,
-                  "quicFakeProfile": "disabled",
-                  "quicFakeHost": "",
-                  "hostAutolearnEnabled": false,
-                  "hostAutolearnPenaltyTtlSecs": 21600,
-                  "hostAutolearnMaxHosts": 512,
-                  "hostAutolearnStorePath": null
-                }
-                """,
+                defaultUiExpected(
+                    chains =
+                        chainsExpected(
+                            groupActivationFilter =
+                                activationFilterExpected(
+                                    round = numericRangeExpected(start = 2, end = 4),
+                                    payloadSize = numericRangeExpected(start = 64, end = 512),
+                                    streamBytes = numericRangeExpected(start = 0, end = 2047),
+                                ),
+                            tcpSteps =
+                                listOf(
+                                    tcpStepExpected(
+                                        kind = "fake",
+                                        marker = "host",
+                                        activationFilter =
+                                            activationFilterExpected(
+                                                round = numericRangeExpected(start = 1, end = 2),
+                                                payloadSize = numericRangeExpected(start = 32, end = 256),
+                                            ),
+                                    ),
+                                ),
+                        ),
+                ),
         )
     }
 
@@ -464,82 +345,39 @@ class NativeConfigContractSnapshotTest {
     fun proxyTlsRandRecUiPayloadMatchesSnapshot() {
         val payload =
             RipDpiProxyUIPreferences(
-                tcpChainSteps =
-                    listOf(
-                        TcpChainStepModel(
-                            kind = TcpChainStepKind.TlsRandRec,
-                            marker = "sniext+4",
-                            fragmentCount = 5,
-                            minFragmentSize = 24,
-                            maxFragmentSize = 48,
-                        ),
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.TlsRandRec,
+                                    marker = "sniext+4",
+                                    fragmentCount = 5,
+                                    minFragmentSize = 24,
+                                    maxFragmentSize = 48,
+                                ),
+                            ),
                     ),
             ).toNativeConfigJson()
 
         assertJsonSnapshot(
             actualJson = payload,
             expectedJson =
-                """
-                {
-                  "kind": "ui",
-                  "ip": "127.0.0.1",
-                  "port": 1080,
-                  "maxConnections": 512,
-                  "bufferSize": 16384,
-                  "defaultTtl": 0,
-                  "customTtl": false,
-                  "networkScopeKey": null,
-                  "noDomain": false,
-                  "desyncHttp": true,
-                  "desyncHttps": true,
-                  "desyncUdp": false,
-                  "desyncMethod": "disorder",
-                  "splitMarker": "1",
-                  "tcpChainSteps": [
-                    {
-                      "kind": "tlsrandrec",
-                      "marker": "sniext+4",
-                      "midhostMarker": "",
-                      "fakeHostTemplate": "",
-                      "fragmentCount": 5,
-                      "minFragmentSize": 24,
-                      "maxFragmentSize": 48
-                    }
-                  ],
-                  "fakeTtl": 8,
-                  "fakeSni": "www.iana.org",
-                  "fakeTlsUseOriginal": false,
-                  "fakeTlsRandomize": false,
-                  "fakeTlsDupSessionId": false,
-                  "fakeTlsPadEncap": false,
-                  "fakeTlsSize": 0,
-                  "fakeTlsSniMode": "fixed",
-                  "oobChar": 97,
-                  "hostMixedCase": false,
-                  "domainMixedCase": false,
-                  "hostRemoveSpaces": false,
-                  "httpMethodEol": false,
-                  "httpUnixEol": false,
-                  "tlsRecordSplit": false,
-                  "tlsRecordSplitMarker": "0",
-                  "hostsMode": "disable",
-                  "hosts": null,
-                  "tcpFastOpen": false,
-                  "udpFakeCount": 0,
-                  "udpChainSteps": [],
-                  "dropSack": false,
-                  "fakeOffsetMarker": "0",
-                  "quicInitialMode": "route_and_cache",
-                  "quicSupportV1": true,
-                  "quicSupportV2": true,
-                  "quicFakeProfile": "disabled",
-                  "quicFakeHost": "",
-                  "hostAutolearnEnabled": false,
-                  "hostAutolearnPenaltyTtlSecs": 21600,
-                  "hostAutolearnMaxHosts": 512,
-                  "hostAutolearnStorePath": null
-                }
-                """,
+                defaultUiExpected(
+                    chains =
+                        chainsExpected(
+                            tcpSteps =
+                                listOf(
+                                    tcpStepExpected(
+                                        kind = "tlsrandrec",
+                                        marker = "sniext+4",
+                                        fragmentCount = 5,
+                                        minFragmentSize = 24,
+                                        maxFragmentSize = 48,
+                                    ),
+                                ),
+                        ),
+                ),
         )
     }
 
@@ -634,6 +472,232 @@ class NativeConfigContractSnapshotTest {
         )
     }
 
+    private fun defaultUiExpected(
+        listen: JsonObject = listenExpected(),
+        protocols: JsonObject = protocolsExpected(),
+        chains: JsonObject = chainsExpected(),
+        fakePackets: JsonObject = fakePacketsExpected(),
+        parserEvasions: JsonObject = parserEvasionsExpected(),
+        quic: JsonObject = quicExpected(),
+        hosts: JsonObject = hostsExpected(),
+        hostAutolearn: JsonObject = hostAutolearnExpected(),
+    ): JsonObject =
+        buildJsonObject {
+            put("kind", JsonPrimitive("ui"))
+            put("strategyPreset", JsonNull)
+            put("listen", listen)
+            put("protocols", protocols)
+            put("chains", chains)
+            put("fakePackets", fakePackets)
+            put("parserEvasions", parserEvasions)
+            put("quic", quic)
+            put("hosts", hosts)
+            put("hostAutolearn", hostAutolearn)
+            put("runtimeContext", JsonNull)
+        }
+
+    private fun listenExpected(
+        ip: String = "127.0.0.1",
+        port: Int = 1080,
+        maxConnections: Int = 512,
+        bufferSize: Int = 16384,
+        tcpFastOpen: Boolean = false,
+        defaultTtl: Int = 0,
+        customTtl: Boolean = false,
+    ): JsonObject =
+        buildJsonObject {
+            put("ip", JsonPrimitive(ip))
+            put("port", JsonPrimitive(port))
+            put("maxConnections", JsonPrimitive(maxConnections))
+            put("bufferSize", JsonPrimitive(bufferSize))
+            put("tcpFastOpen", JsonPrimitive(tcpFastOpen))
+            put("defaultTtl", JsonPrimitive(defaultTtl))
+            put("customTtl", JsonPrimitive(customTtl))
+        }
+
+    private fun protocolsExpected(
+        resolveDomains: Boolean = true,
+        desyncHttp: Boolean = true,
+        desyncHttps: Boolean = true,
+        desyncUdp: Boolean = false,
+    ): JsonObject =
+        buildJsonObject {
+            put("resolveDomains", JsonPrimitive(resolveDomains))
+            put("desyncHttp", JsonPrimitive(desyncHttp))
+            put("desyncHttps", JsonPrimitive(desyncHttps))
+            put("desyncUdp", JsonPrimitive(desyncUdp))
+        }
+
+    private fun chainsExpected(
+        groupActivationFilter: JsonObject? = null,
+        tcpSteps: List<JsonObject> = listOf(tcpStepExpected(kind = "disorder", marker = "1")),
+        udpSteps: List<JsonObject> = emptyList(),
+    ): JsonObject =
+        buildJsonObject {
+            put("groupActivationFilter", groupActivationFilter ?: JsonNull)
+            put("tcpSteps", JsonArray(tcpSteps))
+            put("udpSteps", JsonArray(udpSteps))
+        }
+
+    private fun tcpStepExpected(
+        kind: String,
+        marker: String,
+        midhostMarker: String = "",
+        fakeHostTemplate: String = "",
+        fragmentCount: Int = 0,
+        minFragmentSize: Int = 0,
+        maxFragmentSize: Int = 0,
+        activationFilter: JsonObject? = null,
+    ): JsonObject =
+        buildJsonObject {
+            put("kind", JsonPrimitive(kind))
+            put("marker", JsonPrimitive(marker))
+            put("midhostMarker", JsonPrimitive(midhostMarker))
+            put("fakeHostTemplate", JsonPrimitive(fakeHostTemplate))
+            put("fragmentCount", JsonPrimitive(fragmentCount))
+            put("minFragmentSize", JsonPrimitive(minFragmentSize))
+            put("maxFragmentSize", JsonPrimitive(maxFragmentSize))
+            put("activationFilter", activationFilter ?: JsonNull)
+        }
+
+    private fun udpStepExpected(
+        kind: String,
+        count: Int,
+        activationFilter: JsonObject? = null,
+    ): JsonObject =
+        buildJsonObject {
+            put("kind", JsonPrimitive(kind))
+            put("count", JsonPrimitive(count))
+            put("activationFilter", activationFilter ?: JsonNull)
+        }
+
+    private fun fakePacketsExpected(
+        fakeTtl: Int = 8,
+        adaptiveFakeTtlEnabled: Boolean = false,
+        adaptiveFakeTtlDelta: Int = -1,
+        adaptiveFakeTtlMin: Int = 3,
+        adaptiveFakeTtlMax: Int = 12,
+        adaptiveFakeTtlFallback: Int = 8,
+        fakeSni: String = "www.iana.org",
+        httpFakeProfile: String = "compat_default",
+        fakeTlsUseOriginal: Boolean = false,
+        fakeTlsRandomize: Boolean = false,
+        fakeTlsDupSessionId: Boolean = false,
+        fakeTlsPadEncap: Boolean = false,
+        fakeTlsSize: Int = 0,
+        fakeTlsSniMode: String = "fixed",
+        tlsFakeProfile: String = "compat_default",
+        udpFakeProfile: String = "compat_default",
+        fakeOffsetMarker: String = "0",
+        oobChar: Int = 'a'.code,
+        dropSack: Boolean = false,
+    ): JsonObject =
+        buildJsonObject {
+            put("fakeTtl", JsonPrimitive(fakeTtl))
+            put("adaptiveFakeTtlEnabled", JsonPrimitive(adaptiveFakeTtlEnabled))
+            put("adaptiveFakeTtlDelta", JsonPrimitive(adaptiveFakeTtlDelta))
+            put("adaptiveFakeTtlMin", JsonPrimitive(adaptiveFakeTtlMin))
+            put("adaptiveFakeTtlMax", JsonPrimitive(adaptiveFakeTtlMax))
+            put("adaptiveFakeTtlFallback", JsonPrimitive(adaptiveFakeTtlFallback))
+            put("fakeSni", JsonPrimitive(fakeSni))
+            put("httpFakeProfile", JsonPrimitive(httpFakeProfile))
+            put("fakeTlsUseOriginal", JsonPrimitive(fakeTlsUseOriginal))
+            put("fakeTlsRandomize", JsonPrimitive(fakeTlsRandomize))
+            put("fakeTlsDupSessionId", JsonPrimitive(fakeTlsDupSessionId))
+            put("fakeTlsPadEncap", JsonPrimitive(fakeTlsPadEncap))
+            put("fakeTlsSize", JsonPrimitive(fakeTlsSize))
+            put("fakeTlsSniMode", JsonPrimitive(fakeTlsSniMode))
+            put("tlsFakeProfile", JsonPrimitive(tlsFakeProfile))
+            put("udpFakeProfile", JsonPrimitive(udpFakeProfile))
+            put("fakeOffsetMarker", JsonPrimitive(fakeOffsetMarker))
+            put("oobChar", JsonPrimitive(oobChar))
+            put("dropSack", JsonPrimitive(dropSack))
+        }
+
+    private fun parserEvasionsExpected(
+        hostMixedCase: Boolean = false,
+        domainMixedCase: Boolean = false,
+        hostRemoveSpaces: Boolean = false,
+        httpMethodEol: Boolean = false,
+        httpUnixEol: Boolean = false,
+    ): JsonObject =
+        buildJsonObject {
+            put("hostMixedCase", JsonPrimitive(hostMixedCase))
+            put("domainMixedCase", JsonPrimitive(domainMixedCase))
+            put("hostRemoveSpaces", JsonPrimitive(hostRemoveSpaces))
+            put("httpMethodEol", JsonPrimitive(httpMethodEol))
+            put("httpUnixEol", JsonPrimitive(httpUnixEol))
+        }
+
+    private fun quicExpected(
+        initialMode: String = "route_and_cache",
+        supportV1: Boolean = true,
+        supportV2: Boolean = true,
+        fakeProfile: String = "disabled",
+        fakeHost: String = "",
+    ): JsonObject =
+        buildJsonObject {
+            put("initialMode", JsonPrimitive(initialMode))
+            put("supportV1", JsonPrimitive(supportV1))
+            put("supportV2", JsonPrimitive(supportV2))
+            put("fakeProfile", JsonPrimitive(fakeProfile))
+            put("fakeHost", JsonPrimitive(fakeHost))
+        }
+
+    private fun hostsExpected(
+        mode: String = RipDpiHostsConfig.Mode.Disable.wireName,
+        entries: String? = null,
+    ): JsonObject =
+        buildJsonObject {
+            put("mode", JsonPrimitive(mode))
+            put("entries", entries?.let(::JsonPrimitive) ?: JsonNull)
+        }
+
+    private fun hostAutolearnExpected(
+        enabled: Boolean = false,
+        penaltyTtlHours: Int = 6,
+        maxHosts: Int = 512,
+        storePath: String? = null,
+        networkScopeKey: String? = null,
+    ): JsonObject =
+        buildJsonObject {
+            put("enabled", JsonPrimitive(enabled))
+            put("penaltyTtlHours", JsonPrimitive(penaltyTtlHours))
+            put("maxHosts", JsonPrimitive(maxHosts))
+            put("storePath", storePath?.let(::JsonPrimitive) ?: JsonNull)
+            put("networkScopeKey", networkScopeKey?.let(::JsonPrimitive) ?: JsonNull)
+        }
+
+    private fun activationFilterExpected(
+        round: JsonObject? = null,
+        payloadSize: JsonObject? = null,
+        streamBytes: JsonObject? = null,
+    ): JsonObject =
+        buildJsonObject {
+            put("round", round ?: JsonNull)
+            put("payloadSize", payloadSize ?: JsonNull)
+            put("streamBytes", streamBytes ?: JsonNull)
+        }
+
+    private fun numericRangeExpected(
+        start: Long? = null,
+        end: Long? = null,
+    ): JsonObject =
+        buildJsonObject {
+            put("start", start?.let(::JsonPrimitive) ?: JsonNull)
+            put("end", end?.let(::JsonPrimitive) ?: JsonNull)
+        }
+
+    private fun assertJsonSnapshot(
+        actualJson: String,
+        expectedJson: JsonElement,
+    ) {
+        assertEquals(
+            canonicalJson(expectedJson),
+            canonicalJson(actualJson),
+        )
+    }
+
     private fun assertJsonSnapshot(
         actualJson: String,
         expectedJson: String,
@@ -644,10 +708,12 @@ class NativeConfigContractSnapshotTest {
         )
     }
 
-    private fun canonicalJson(value: String): String =
+    private fun canonicalJson(value: String): String = canonicalJson(Json.parseToJsonElement(value))
+
+    private fun canonicalJson(value: JsonElement): String =
         snapshotJson.encodeToString(
             serializer(),
-            Json.parseToJsonElement(value).sortedKeys(),
+            value.sortedKeys(),
         )
 
     private fun JsonElement.sortedKeys(): JsonElement =
@@ -660,7 +726,7 @@ class NativeConfigContractSnapshotTest {
                 JsonObject(
                     entries
                         .sortedBy { it.key }
-                        .associate { (key, value) -> key to value.sortedKeys() },
+                        .associate { (key, currentValue) -> key to currentValue.sortedKeys() },
                 )
             }
 

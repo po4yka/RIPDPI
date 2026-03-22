@@ -105,7 +105,16 @@ internal fun createDiagnosticsServices(
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ): DiagnosticsServicesBundle {
     lateinit var scanController: DefaultDiagnosticsScanController
-    val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
+    val mapper = DiagnosticsBoundaryMapper(json)
+    val timelineSource =
+        DefaultDiagnosticsTimelineSource(
+            profileCatalog = stores,
+            scanRecordStore = stores,
+            artifactReadStore = stores,
+            bypassUsageHistoryStore = stores,
+            mapper = mapper,
+            json = json,
+        )
     val requestFactory =
         DiagnosticsScanRequestFactory(
             context = context,
@@ -187,7 +196,14 @@ internal fun createDiagnosticsServices(
         ),
         timelineSource = timelineSource,
         scanController = scanController,
-        detailLoader = DefaultDiagnosticsDetailLoader(stores, stores, stores, json),
+        detailLoader =
+            DefaultDiagnosticsDetailLoader(
+                scanRecordStore = stores,
+                artifactReadStore = stores,
+                bypassUsageHistoryStore = stores,
+                mapper = mapper,
+                json = json,
+            ),
         shareService = DefaultDiagnosticsShareService(stores, stores, archiveExporter, json),
         resolverActions =
             DefaultDiagnosticsResolverActions(

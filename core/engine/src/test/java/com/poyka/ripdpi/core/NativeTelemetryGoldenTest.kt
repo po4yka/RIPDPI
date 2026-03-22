@@ -33,7 +33,7 @@ class NativeTelemetryGoldenTest {
 
             val start =
                 async {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1080))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1080)))
                 }
 
             startedSignal.await()
