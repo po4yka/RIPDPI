@@ -61,7 +61,6 @@ data class RipDpiNavHostActions(
     val onSaveDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
     val onShareDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
     val onShareDiagnosticsSummary: (String, String) -> Unit = { _, _ -> },
-    val onStartConfiguredMode: () -> Unit = {},
     val onRepairPermission: (PermissionKind) -> Unit = {},
 )
 
@@ -247,7 +246,6 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     }
     composable(Route.Home.route) {
         HomeRoute(
-            onStartConfiguredMode = actions.onStartConfiguredMode,
             onOpenDiagnostics = {
                 onDiagnosticsInitialSectionChanged(DiagnosticsSection.Approaches)
                 navController.navigate(Route.Diagnostics.route) {
