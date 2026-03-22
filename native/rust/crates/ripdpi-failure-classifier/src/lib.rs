@@ -240,7 +240,7 @@ pub fn confirm_dns_tampering(
     encrypted_answers: &[IpAddr],
     source_label: &str,
 ) -> Option<ClassifiedFailure> {
-    if encrypted_answers.is_empty() || encrypted_answers.iter().any(|answer| *answer == target_ip) {
+    if encrypted_answers.is_empty() || encrypted_answers.contains(&target_ip) {
         return None;
     }
     let expected = encrypted_answers.iter().map(ToString::to_string).collect::<Vec<_>>().join("|");
