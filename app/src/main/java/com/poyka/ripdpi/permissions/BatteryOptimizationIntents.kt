@@ -6,7 +6,6 @@ import android.os.Build
 import android.provider.Settings
 
 internal enum class BatteryOptimizationRoute {
-    DirectRequest,
     SettingsList,
     AppDetails,
 }
@@ -22,13 +21,6 @@ internal object BatteryOptimizationIntents {
                 canHandleIntent(createIntentForAction(action = action, packageName = packageName))
             }
         ) {
-            BatteryOptimizationRoute.DirectRequest -> {
-                createIntentForAction(
-                    action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                    packageName = packageName,
-                )
-            }
-
             BatteryOptimizationRoute.SettingsList -> {
                 Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             }
@@ -50,9 +42,6 @@ internal object BatteryOptimizationIntents {
         if (sdkInt < Build.VERSION_CODES.M) {
             return BatteryOptimizationRoute.AppDetails
         }
-        if (canHandleAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)) {
-            return BatteryOptimizationRoute.DirectRequest
-        }
         if (canHandleAction(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) {
             return BatteryOptimizationRoute.SettingsList
         }
@@ -62,12 +51,7 @@ internal object BatteryOptimizationIntents {
     private fun createIntentForAction(
         action: String,
         packageName: String,
-    ): Intent =
-        Intent(action).apply {
-            if (action == Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS) {
-                data = packageUri(packageName)
-            }
-        }
+    ): Intent = Intent(action).apply { data = packageUri(packageName) }
 
     private fun packageUri(packageName: String): Uri = Uri.parse("package:$packageName")
 }

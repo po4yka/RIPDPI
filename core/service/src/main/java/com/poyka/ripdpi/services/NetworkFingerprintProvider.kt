@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.services
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
@@ -8,6 +10,7 @@ import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.telephony.TelephonyManager
+import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.CellularNetworkIdentityTuple
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -72,7 +75,7 @@ internal class DefaultAndroidNetworkSnapshotSource
             context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
 
         override fun capture(): CapturedNetworkSnapshot? {
-            val network = connectivityManager.activeNetwork ?: return null
+            val network = activeNetworkOrNull() ?: return null
             val capabilities = connectivityManager.getNetworkCapabilities(network)
             val linkProperties = connectivityManager.getLinkProperties(network)
             val transports = capabilities?.let(::captureTransports)
@@ -81,13 +84,27 @@ internal class DefaultAndroidNetworkSnapshotSource
                 networkValidated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
                 captivePortalDetected =
                     capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true,
-                privateDnsServerName = linkProperties?.privateDnsServerName,
+                privateDnsServerName = resolvePrivateDnsServerName(linkProperties),
                 dnsServers = captureDnsServers(linkProperties),
                 wifi = captureWifiIdentity(transports, capabilities),
                 cellular = captureCellularIdentity(transports),
                 metered = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == false,
             )
         }
+
+        private fun activeNetworkOrNull() =
+            if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
+                connectivityManager.activeNetwork
+            } else {
+                null
+            }
+
+        private fun resolvePrivateDnsServerName(linkProperties: LinkProperties?): String? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                linkProperties?.privateDnsServerName
+            } else {
+                null
+            }
 
         private fun captureTransports(capabilities: NetworkCapabilities): Set<CapturedTransport> =
             buildSet {
@@ -137,12 +154,23 @@ internal class DefaultAndroidNetworkSnapshotSource
                 return null
             }
             val telephony = telephonyManager ?: return CapturedCellularIdentity()
+            val canReadPhoneState = hasPhoneStatePermission()
             return CapturedCellularIdentity(
                 networkOperator = telephony.networkOperator,
                 simOperator = telephony.simOperator,
                 carrierId = invokeInt(telephony, "getCarrierId")?.takeIf { it >= 0 },
-                dataNetworkType = telephony.dataNetworkType,
-                roaming = runCatching { telephony.isNetworkRoaming }.getOrNull(),
+                dataNetworkType =
+                    if (canReadPhoneState) {
+                        runCatching { telephony.dataNetworkType }.getOrDefault(TelephonyManager.NETWORK_TYPE_UNKNOWN)
+                    } else {
+                        TelephonyManager.NETWORK_TYPE_UNKNOWN
+                    },
+                roaming =
+                    if (canReadPhoneState) {
+                        runCatching { telephony.isNetworkRoaming }.getOrNull()
+                    } else {
+                        null
+                    },
             )
         }
 
@@ -150,6 +178,13 @@ internal class DefaultAndroidNetworkSnapshotSource
             target: Any,
             methodName: String,
         ): Int? = runCatching { target.javaClass.getMethod(methodName).invoke(target) as Int }.getOrNull()
+
+        private fun hasPhoneStatePermission(): Boolean =
+            hasPermission(Manifest.permission.READ_PHONE_STATE) ||
+                hasPermission("android.permission.READ_BASIC_PHONE_STATE")
+
+        private fun hasPermission(permission: String): Boolean =
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
 
 internal class NetworkFingerprintMapper

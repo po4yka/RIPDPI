@@ -143,11 +143,7 @@ class AndroidDiagnosticsContextProvider
             }
 
         private fun batteryOptimizationState(): String =
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                "not_applicable"
-            } else {
-                booleanState(powerManager.isIgnoringBatteryOptimizations(context.packageName))
-            }
+            booleanState(powerManager.isIgnoringBatteryOptimizations(context.packageName))
 
         private fun dataSaverState(): String =
             when (connectivityManager.restrictBackgroundStatus) {
@@ -158,6 +154,9 @@ class AndroidDiagnosticsContextProvider
             }
 
         private fun roamingState(): String {
+            if (!hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
+                return "unknown"
+            }
             val capabilities =
                 connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork) ?: return "unknown"
             return when {
@@ -165,6 +164,9 @@ class AndroidDiagnosticsContextProvider
                 else -> "enabled"
             }
         }
+
+        private fun hasPermission(permission: String): Boolean =
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
 
 internal fun booleanState(value: Boolean?): String =
