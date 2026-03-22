@@ -164,30 +164,32 @@ class DiagnosticsViewModel
                 initialValue = DiagnosticsUiState(),
             )
 
-        private val mutations = DiagnosticsMutationRunner(
-            scope = viewModelScope,
-            diagnosticsTimelineSource = diagnosticsTimelineSource,
-            diagnosticsScanController = diagnosticsScanController,
-            diagnosticsDetailLoader = diagnosticsDetailLoader,
-            diagnosticsShareService = diagnosticsShareService,
-            diagnosticsResolverActions = diagnosticsResolverActions,
-            uiStateFactory = uiStateFactory,
-            effects = _effects,
-            currentUiState = { uiState.value },
-        )
+        private val mutations =
+            DiagnosticsMutationRunner(
+                scope = viewModelScope,
+                diagnosticsTimelineSource = diagnosticsTimelineSource,
+                diagnosticsScanController = diagnosticsScanController,
+                diagnosticsDetailLoader = diagnosticsDetailLoader,
+                diagnosticsShareService = diagnosticsShareService,
+                diagnosticsResolverActions = diagnosticsResolverActions,
+                uiStateFactory = uiStateFactory,
+                effects = _effects,
+                currentUiState = { uiState.value },
+            )
 
         private val selectionActions =
             DiagnosticsSelectionActions(mutations, selectionState, sessionDetailState, filterState)
 
-        private val scanActions = DiagnosticsScanActions(
-            mutations = mutations,
-            scanLifecycle = scanLifecycleState,
-            loadSessionDetail = { sessionId, showSensitive ->
-                with(selectionActions) {
-                    mutations.loadSessionDetail(sessionId, showSensitive)
-                }
-            },
-        )
+        private val scanActions =
+            DiagnosticsScanActions(
+                mutations = mutations,
+                scanLifecycle = scanLifecycleState,
+                loadSessionDetail = { sessionId, showSensitive ->
+                    with(selectionActions) {
+                        mutations.loadSessionDetail(sessionId, showSensitive)
+                    }
+                },
+            )
 
         private val shareActions = DiagnosticsShareActions(mutations, scanLifecycleState)
 
@@ -202,67 +204,49 @@ class DiagnosticsViewModel
             scanActions.initialize()
         }
 
-        fun selectSection(section: DiagnosticsSection) =
-            selectionActions.selectSection(section)
+        fun selectSection(section: DiagnosticsSection) = selectionActions.selectSection(section)
 
-        fun selectProfile(profileId: String) =
-            selectionActions.selectProfile(profileId)
+        fun selectProfile(profileId: String) = selectionActions.selectProfile(profileId)
 
-        fun selectSession(sessionId: String) =
-            selectionActions.selectSession(sessionId)
+        fun selectSession(sessionId: String) = selectionActions.selectSession(sessionId)
 
-        fun selectApproachMode(mode: DiagnosticsApproachMode) =
-            selectionActions.selectApproachMode(mode)
+        fun selectApproachMode(mode: DiagnosticsApproachMode) = selectionActions.selectApproachMode(mode)
 
-        fun selectApproach(approachId: String) =
-            selectionActions.selectApproach(approachId)
+        fun selectApproach(approachId: String) = selectionActions.selectApproach(approachId)
 
-        fun dismissSessionDetail() =
-            selectionActions.dismissSessionDetail()
+        fun dismissSessionDetail() = selectionActions.dismissSessionDetail()
 
-        fun dismissApproachDetail() =
-            selectionActions.dismissApproachDetail()
+        fun dismissApproachDetail() = selectionActions.dismissApproachDetail()
 
-        fun selectEvent(eventId: String) =
-            selectionActions.selectEvent(eventId)
+        fun selectEvent(eventId: String) = selectionActions.selectEvent(eventId)
 
-        fun dismissEventDetail() =
-            selectionActions.dismissEventDetail()
+        fun dismissEventDetail() = selectionActions.dismissEventDetail()
 
-        fun selectProbe(probe: DiagnosticsProbeResultUiModel) =
-            selectionActions.selectProbe(probe)
+        fun selectProbe(probe: DiagnosticsProbeResultUiModel) = selectionActions.selectProbe(probe)
 
-        fun dismissProbeDetail() =
-            selectionActions.dismissProbeDetail()
+        fun dismissProbeDetail() = selectionActions.dismissProbeDetail()
 
         fun selectStrategyProbeCandidate(detail: DiagnosticsStrategyProbeCandidateDetailUiModel) =
             selectionActions.selectStrategyProbeCandidate(detail)
 
-        fun dismissStrategyProbeCandidate() =
-            selectionActions.dismissStrategyProbeCandidate()
+        fun dismissStrategyProbeCandidate() = selectionActions.dismissStrategyProbeCandidate()
 
-        fun toggleSensitiveSessionDetails() =
-            selectionActions.toggleSensitiveSessionDetails()
+        fun toggleSensitiveSessionDetails() = selectionActions.toggleSensitiveSessionDetails()
 
-        fun setSessionPathModeFilter(pathMode: String?) =
-            selectionActions.setSessionPathModeFilter(pathMode)
+        fun setSessionPathModeFilter(pathMode: String?) = selectionActions.setSessionPathModeFilter(pathMode)
 
-        fun setSessionStatusFilter(status: String?) =
-            selectionActions.setSessionStatusFilter(status)
+        fun setSessionStatusFilter(status: String?) = selectionActions.setSessionStatusFilter(status)
 
-        fun setSessionSearch(query: String) =
-            selectionActions.setSessionSearch(query)
+        fun setSessionSearch(query: String) = selectionActions.setSessionSearch(query)
 
         fun toggleEventFilter(
             source: String? = null,
             severity: String? = null,
         ) = selectionActions.toggleEventFilter(source, severity)
 
-        fun setEventSearch(query: String) =
-            selectionActions.setEventSearch(query)
+        fun setEventSearch(query: String) = selectionActions.setEventSearch(query)
 
-        fun setEventAutoScroll(enabled: Boolean) =
-            selectionActions.setEventAutoScroll(enabled)
+        fun setEventAutoScroll(enabled: Boolean) = selectionActions.setEventAutoScroll(enabled)
 
         fun startRawScan() = scanActions.startRawScan()
 
@@ -282,12 +266,9 @@ class DiagnosticsViewModel
                     ?.id,
         ) = scanActions.saveResolverRecommendation(sessionId)
 
-        fun shareSummary(sessionId: String? = null) =
-            shareActions.shareSummary(sessionId)
+        fun shareSummary(sessionId: String? = null) = shareActions.shareSummary(sessionId)
 
-        fun shareArchive(sessionId: String? = null) =
-            shareActions.shareArchive(sessionId)
+        fun shareArchive(sessionId: String? = null) = shareActions.shareArchive(sessionId)
 
-        fun saveArchive(sessionId: String? = null) =
-            shareActions.saveArchive(sessionId)
+        fun saveArchive(sessionId: String? = null) = shareActions.saveArchive(sessionId)
     }

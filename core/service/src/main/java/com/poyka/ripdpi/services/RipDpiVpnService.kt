@@ -196,8 +196,7 @@ class RipDpiVpnService :
     private class AndroidVpnTunnelBuilder(
         private val builder: Builder,
     ) : VpnTunnelBuilder {
-        override fun establish(): VpnTunnelSession? =
-            builder.establish()?.let(::ParcelFileDescriptorVpnTunnelSession)
+        override fun establish(): VpnTunnelSession? = builder.establish()?.let(::ParcelFileDescriptorVpnTunnelSession)
     }
 
     companion object {

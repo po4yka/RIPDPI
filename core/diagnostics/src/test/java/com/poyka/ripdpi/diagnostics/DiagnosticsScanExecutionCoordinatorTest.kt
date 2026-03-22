@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "MaxLineLength")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
@@ -9,10 +11,10 @@ import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -168,7 +170,13 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     enqueueReport(scanReportWithResolverRecommendation(prepared.sessionId))
                 }
             val progressHistory = mutableListOf<ScanProgress?>()
-            val collectionJob = backgroundScope.launch { timelineSource.activeScanProgress.collect { progressHistory += it } }
+            val collectionJob =
+                backgroundScope.launch {
+                    timelineSource.activeScanProgress.collect {
+                        progressHistory +=
+                            it
+                    }
+                }
 
             coordinator.execute(prepared, bridge, rawPathRunner = { block -> block() }, runtimeState = runtimeState)
             advanceUntilIdle()
@@ -197,7 +205,8 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     json = json,
                 )
-            val prepared = preparedDiagnosticsScan(sessionId = "session-failed", settings = defaultDiagnosticsAppSettings())
+            val prepared =
+                preparedDiagnosticsScan(sessionId = "session-failed", settings = defaultDiagnosticsAppSettings())
             seedPreparedScan(stores, prepared)
             val runtimeState = DiagnosticsScanRuntimeState(timelineSource)
             val bridge =
@@ -273,7 +282,12 @@ class DiagnosticsScanExecutionCoordinatorTest {
             coordinator.execute(prepared, bridge, rawPathRunner = { block -> block() }, runtimeState = runtimeState)
 
             assertFalse(stores.rememberedPoliciesState.value.isEmpty())
-            assertEquals("validated", stores.rememberedPoliciesState.value.single().status)
+            assertEquals(
+                "validated",
+                stores.rememberedPoliciesState.value
+                    .single()
+                    .status,
+            )
         }
 }
 
@@ -306,7 +320,11 @@ private suspend fun preparedDiagnosticsScan(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
             snapshotKind = "pre_scan",
-            payloadJson = diagnosticsTestJson().encodeToString(NetworkSnapshotModel.serializer(), networkSnapshotModelForTest()),
+            payloadJson =
+                diagnosticsTestJson().encodeToString(
+                    NetworkSnapshotModel.serializer(),
+                    networkSnapshotModelForTest(),
+                ),
             capturedAt = 10L,
         ),
     preScanContext =
@@ -314,7 +332,11 @@ private suspend fun preparedDiagnosticsScan(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
             contextKind = "pre_scan",
-            payloadJson = diagnosticsTestJson().encodeToString(DiagnosticContextModel.serializer(), FakeDiagnosticsContextProvider().captureContextForTest()),
+            payloadJson =
+                diagnosticsTestJson().encodeToString(
+                    DiagnosticContextModel.serializer(),
+                    FakeDiagnosticsContextProvider().captureContextForTest(),
+                ),
             capturedAt = 10L,
         ),
 )
@@ -359,12 +381,13 @@ private fun scanReportWithStrategyProbe(
     settings: com.poyka.ripdpi.proto.AppSettings,
 ): ScanReport {
     val proxyConfigJson =
-        RipDpiProxyUIPreferences.fromSettings(
-            settings,
-            null,
-            null,
-            settings.activeDnsSettings().toRipDpiRuntimeContext(),
-        ).toNativeConfigJson()
+        RipDpiProxyUIPreferences
+            .fromSettings(
+                settings,
+                null,
+                null,
+                settings.activeDnsSettings().toRipDpiRuntimeContext(),
+            ).toNativeConfigJson()
     return ScanReport(
         sessionId = sessionId,
         profileId = "automatic-probing",

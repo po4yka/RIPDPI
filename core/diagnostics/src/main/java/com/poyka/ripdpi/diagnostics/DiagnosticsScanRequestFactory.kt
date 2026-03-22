@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod")
+
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
@@ -100,12 +102,13 @@ class DiagnosticsScanRequestFactory
                             "Automatic probing only supports UI-configured RIPDPI settings"
                         }
                         val baseProxyConfigJson =
-                            RipDpiProxyUIPreferences.fromSettings(
-                                settings,
-                                resolveHostAutolearnStorePath(context),
-                                null,
-                                settings.activeDnsSettings().toRipDpiRuntimeContext(),
-                            ).toNativeConfigJson()
+                            RipDpiProxyUIPreferences
+                                .fromSettings(
+                                    settings,
+                                    resolveHostAutolearnStorePath(context),
+                                    null,
+                                    settings.activeDnsSettings().toRipDpiRuntimeContext(),
+                                ).toNativeConfigJson()
                         request.copy(
                             pathMode = ScanPathMode.RAW_PATH,
                             proxyHost = null,

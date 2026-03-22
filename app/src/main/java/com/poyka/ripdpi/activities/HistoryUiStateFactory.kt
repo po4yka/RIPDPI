@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod")
+
 package com.poyka.ripdpi.activities
 
 import javax.inject.Inject
@@ -16,7 +18,10 @@ internal class HistoryUiStateFactory
             eventFilters: HistoryEventFilterState,
             detailState: HistoryDetailState,
         ): HistoryUiState {
-            val connectionRows = repositorySnapshot.connectionSessions.map(connectionDetailUiFactory::toConnectionRowUiModel)
+            val connectionRows =
+                repositorySnapshot.connectionSessions.map(
+                    connectionDetailUiFactory::toConnectionRowUiModel,
+                )
             val filteredConnections =
                 connectionRows.filter { session ->
                     (connectionFilters.modeFilter == null || session.serviceMode == connectionFilters.modeFilter) &&
@@ -30,7 +35,10 @@ internal class HistoryUiStateFactory
             val diagnosticsRows = repositorySnapshot.scanSessions.map(coreSupport::toSessionRowUiModel)
             val filteredDiagnostics =
                 diagnosticsRows.filter { session ->
-                    (diagnosticsFilters.pathModeFilter == null || session.pathMode == diagnosticsFilters.pathModeFilter) &&
+                    (
+                        diagnosticsFilters.pathModeFilter == null ||
+                            session.pathMode == diagnosticsFilters.pathModeFilter
+                    ) &&
                         (
                             diagnosticsFilters.statusFilter == null ||
                                 session.status.equals(diagnosticsFilters.statusFilter, ignoreCase = true)
@@ -41,7 +49,10 @@ internal class HistoryUiStateFactory
             val eventModels = repositorySnapshot.nativeEvents.map(coreSupport::toEventUiModel)
             val filteredEvents =
                 eventModels.filter { event ->
-                    (eventFilters.sourceFilter == null || event.source.equals(eventFilters.sourceFilter, ignoreCase = true)) &&
+                    (
+                        eventFilters.sourceFilter == null ||
+                            event.source.equals(eventFilters.sourceFilter, ignoreCase = true)
+                    ) &&
                         (
                             eventFilters.severityFilter == null ||
                                 event.severity.equals(eventFilters.severityFilter, ignoreCase = true)

@@ -35,6 +35,10 @@ internal class MainConnectionActions(
     val runtimeState: MutableStateFlow<ConnectionRuntimeState>,
     private val refreshPermissionSnapshot: () -> Unit,
 ) {
+    private companion object {
+        private const val PercentScale = 100
+    }
+
     private var connectionMetricsJob: Job? = null
 
     fun initialize() {
@@ -108,7 +112,8 @@ internal class MainConnectionActions(
         return HomeApproachSummaryUiState(
             title = summary.displayName,
             verification = summary.verificationState.replaceFirstChar { it.uppercase() },
-            successRate = summary.validatedSuccessRate?.let { "${(it * 100).toInt()}%" } ?: "Unverified",
+            successRate =
+                summary.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Unverified",
             supportingText =
                 buildString {
                     append(summary.lastValidatedResult ?: "No validated diagnostics run yet")
@@ -241,7 +246,7 @@ internal class MainConnectionActions(
 
     private fun refreshConnectionMetrics() {
         val state = runtimeState.value
-        val startedAtMs = state.connectionStartedAtMs ?: return
+        state.connectionStartedAtMs ?: return
         if (!shouldPollConnectionMetrics(state.connectionState)) {
             return
         }

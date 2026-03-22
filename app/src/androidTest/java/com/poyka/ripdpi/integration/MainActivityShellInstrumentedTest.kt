@@ -220,7 +220,10 @@ class MainActivityShellInstrumentedTest {
     @Test
     fun tappingShareSupportBundleRoutesToHost() {
         composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Settings)).performClick()
-        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasTestTag(RipDpiTestTags.SettingsSupportBundle))
+        composeRule
+            .onNode(
+                hasScrollToNodeAction(),
+            ).performScrollToNode(hasTestTag(RipDpiTestTags.SettingsSupportBundle))
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsSupportBundle).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             recordingMainActivityHost.commands.contains(MainActivityHostCommand.ShareDebugBundle)

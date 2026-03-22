@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod")
+
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.foundation.background

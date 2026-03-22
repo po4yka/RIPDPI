@@ -1,3 +1,5 @@
+@file:Suppress("CyclomaticComplexMethod", "LongMethod")
+
 package com.poyka.ripdpi.ui.components.cards
 
 import androidx.compose.foundation.background

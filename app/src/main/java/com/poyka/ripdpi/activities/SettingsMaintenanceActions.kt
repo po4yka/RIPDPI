@@ -13,8 +13,8 @@ import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.applyCuratedHostPack
-import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.hosts.HostPackCatalogBuildException
 import com.poyka.ripdpi.hosts.HostPackCatalogParseException
 import com.poyka.ripdpi.hosts.HostPackCatalogRepository

@@ -1,3 +1,5 @@
+@file:Suppress("LongParameterList")
+
 package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.foundation.background

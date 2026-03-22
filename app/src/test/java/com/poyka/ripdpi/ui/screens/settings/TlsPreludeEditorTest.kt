@@ -17,25 +17,26 @@ class TlsPreludeEditorTest {
     fun `disabled mode removes tls preludes and preserves send steps`() {
         val state =
             SettingsUiState(
-                desync = DesyncCoreUiState(
-                    tcpChainSteps =
-                        listOf(
-                            TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
-                            TcpChainStepModel(
-                                kind = TcpChainStepKind.TlsRandRec,
-                                marker = "sniext+4",
-                                fragmentCount = 5,
-                                minFragmentSize = 24,
-                                maxFragmentSize = 48,
+                desync =
+                    DesyncCoreUiState(
+                        tcpChainSteps =
+                            listOf(
+                                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.TlsRandRec,
+                                    marker = "sniext+4",
+                                    fragmentCount = 5,
+                                    minFragmentSize = 24,
+                                    maxFragmentSize = 48,
+                                ),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.HostFake,
+                                    marker = "endhost+8",
+                                    fakeHostTemplate = "googlevideo.com",
+                                ),
+                                TcpChainStepModel(TcpChainStepKind.Split, "midsld"),
                             ),
-                            TcpChainStepModel(
-                                kind = TcpChainStepKind.HostFake,
-                                marker = "endhost+8",
-                                fakeHostTemplate = "googlevideo.com",
-                            ),
-                            TcpChainStepModel(TcpChainStepKind.Split, "midsld"),
-                        ),
-                ),
+                    ),
             )
 
         val updated = state.rewriteTlsPreludeChainForEditor(mode = TlsPreludeModeDisabled)
@@ -57,9 +58,10 @@ class TlsPreludeEditorTest {
     fun `single split mode creates tlsrec step with normalized marker`() {
         val state =
             SettingsUiState(
-                desync = DesyncCoreUiState(
-                    tcpChainSteps = listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
-                ),
+                desync =
+                    DesyncCoreUiState(
+                        tcpChainSteps = listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
+                    ),
                 tlsPrelude = TlsPreludeUiState(tlsrecMarker = "sniext+4"),
             )
 
@@ -82,9 +84,10 @@ class TlsPreludeEditorTest {
     fun `randomized split mode creates tlsrandrec step with default fragment knobs`() {
         val state =
             SettingsUiState(
-                desync = DesyncCoreUiState(
-                    tcpChainSteps = listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
-                ),
+                desync =
+                    DesyncCoreUiState(
+                        tcpChainSteps = listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
+                    ),
                 tlsPrelude = TlsPreludeUiState(tlsrecMarker = "extlen"),
             )
 

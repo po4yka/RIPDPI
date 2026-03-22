@@ -145,9 +145,10 @@ class MainActivityShellControllerTest {
 
     @Test
     fun `connected and connecting states dismiss vpn dialog`() {
-        val controller = MainActivityShellController().apply {
-            showVpnPermissionDialog()
-        }
+        val controller =
+            MainActivityShellController().apply {
+                showVpnPermissionDialog()
+            }
 
         controller.onConnectionStateChanged(ConnectionState.Connecting)
         assertFalse(controller.state.value.vpnPermissionDialogVisible)

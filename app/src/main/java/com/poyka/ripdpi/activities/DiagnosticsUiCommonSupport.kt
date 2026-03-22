@@ -61,9 +61,8 @@ internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
     )
 }
 
-internal fun DiagnosticsUiFactorySupport.toEventUiModel(
-    event: DiagnosticEvent,
-): DiagnosticsEventUiModel = core.toEventUiModel(event)
+internal fun DiagnosticsUiFactorySupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =
+    core.toEventUiModel(event)
 
 private val connectivityPhaseOrder = listOf("dns", "reachability", "tcp", "telegram")
 private val strategyProbePhaseOrder = listOf("tcp", "quic")

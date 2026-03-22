@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.activities
 
-import java.time.ZoneId
-import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.ZoneId
+import java.util.Locale
 
 class DiagnosticsUiCoreSupportTest {
     @Test

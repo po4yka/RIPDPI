@@ -21,27 +21,28 @@ class DebugAutomationControllerTest {
     }
 
     @Test
-    fun `prepareLaunch seeds settings preset and static motion`() = runTest {
-        val repository = FakeAppSettingsRepository()
-        val serviceStateStore = FakeServiceStateStore()
-        val controller = DebugAutomationController(repository, serviceStateStore)
+    fun `prepareLaunch seeds settings preset and static motion`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val serviceStateStore = FakeServiceStateStore()
+            val controller = DebugAutomationController(repository, serviceStateStore)
 
-        controller.prepareLaunch(
-            automationIntent(
-                disableMotion = true,
-                dataPreset = AutomationDataPreset.SettingsReady,
-                servicePreset = AutomationServicePreset.ConnectedProxy,
-            ),
-        )
+            controller.prepareLaunch(
+                automationIntent(
+                    disableMotion = true,
+                    dataPreset = AutomationDataPreset.SettingsReady,
+                    servicePreset = AutomationServicePreset.ConnectedProxy,
+                ),
+            )
 
-        val settings = repository.snapshot()
-        assertTrue(settings.onboardingComplete)
-        assertFalse(settings.biometricEnabled)
-        assertEquals("cloudflare", settings.dnsProviderId)
-        assertTrue(settings.webrtcProtectionEnabled)
-        assertEquals(AppStatus.Running to Mode.Proxy, serviceStateStore.status.value)
-        assertEquals("true", System.getProperty("ripdpi.staticMotion"))
-    }
+            val settings = repository.snapshot()
+            assertTrue(settings.onboardingComplete)
+            assertFalse(settings.biometricEnabled)
+            assertEquals("cloudflare", settings.dnsProviderId)
+            assertTrue(settings.webrtcProtectionEnabled)
+            assertEquals(AppStatus.Running to Mode.Proxy, serviceStateStore.status.value)
+            assertEquals("true", System.getProperty("ripdpi.staticMotion"))
+        }
 
     @Test
     fun `permission preset overrides provider snapshot`() {

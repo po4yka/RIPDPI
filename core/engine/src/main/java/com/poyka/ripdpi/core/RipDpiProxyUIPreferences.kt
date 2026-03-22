@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "MaxLineLength")
+
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
@@ -350,7 +352,17 @@ private fun normalizeQuicConfig(config: RipDpiQuicConfig): RipDpiQuicConfig =
 private fun normalizeHostsConfig(config: RipDpiHostsConfig): RipDpiHostsConfig {
     val normalizedEntries = config.entries?.trim()?.takeIf { it.isNotEmpty() }
     val normalizedMode = if (normalizedEntries == null) RipDpiHostsConfig.Mode.Disable else config.mode
-    return RipDpiHostsConfig(mode = normalizedMode, entries = if (normalizedMode == RipDpiHostsConfig.Mode.Disable) null else normalizedEntries)
+    return RipDpiHostsConfig(
+        mode = normalizedMode,
+        entries =
+            if (normalizedMode ==
+                RipDpiHostsConfig.Mode.Disable
+            ) {
+                null
+            } else {
+                normalizedEntries
+            },
+    )
 }
 
 private fun normalizeHostAutolearnConfig(config: RipDpiHostAutolearnConfig): RipDpiHostAutolearnConfig =
