@@ -51,9 +51,6 @@ class VpnRuntimeSession(
         runtimeId = runtimeId,
     ),
     HandoverAwareSession {
-    var currentDnsSignature: String? = null
-    var tunnelStartCount: Int = 0
-    var tunnelRecoveryRetryCount: Long = 0
     override var pendingNetworkHandoverClass: String? = null
     override var lastSuccessfulHandoverFingerprintHash: String? = null
     override var lastSuccessfulHandoverAt: Long = 0L

@@ -16,6 +16,7 @@ internal data class ResolverRefreshPlan(
     val resolution: EffectiveDnsResolution,
     val signature: String,
     val requiresTunnelRebuild: Boolean,
+    val connectionPolicy: ConnectionPolicyResolution? = null,
 )
 
 internal fun resolveEffectiveDns(

@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -198,7 +198,6 @@ internal class ProxyServiceRuntimeCoordinatorFactory
     @Inject
     constructor(
         private val connectionPolicyResolver: ConnectionPolicyResolver,
-        private val ripDpiProxyFactory: RipDpiProxyFactory,
         private val serviceStateStore: ServiceStateStore,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val telemetryFingerprintHasher: TelemetryFingerprintHasher,
@@ -206,7 +205,9 @@ internal class ProxyServiceRuntimeCoordinatorFactory
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val networkHandoverMonitor: NetworkHandoverMonitor,
         private val policyHandoverEventStore: PolicyHandoverEventStore,
-        private val networkSnapshotFactory: NetworkSnapshotFactory,
+        private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        private val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
+        private val serviceStatusReporterFactory: ServiceStatusReporterFactory,
     ) {
         fun create(host: ServiceCoordinatorHost): ProxyServiceRuntimeCoordinator =
             ProxyServiceRuntimeCoordinator(
@@ -217,14 +218,13 @@ internal class ProxyServiceRuntimeCoordinatorFactory
                 networkHandoverMonitor = networkHandoverMonitor,
                 policyHandoverEventStore = policyHandoverEventStore,
                 proxyRuntimeSupervisor =
-                    ProxyRuntimeSupervisor(
+                    proxyRuntimeSupervisorFactory.create(
                         scope = host.serviceScope,
                         dispatcher = Dispatchers.IO,
-                        ripDpiProxyFactory = ripDpiProxyFactory,
-                        networkSnapshotProvider = networkSnapshotFactory,
+                        networkSnapshotProvider = networkSnapshotProvider,
                     ),
                 statusReporter =
-                    ServiceStatusReporter(
+                    serviceStatusReporterFactory.create(
                         mode = Mode.Proxy,
                         sender = Sender.Proxy,
                         serviceStateStore = serviceStateStore,

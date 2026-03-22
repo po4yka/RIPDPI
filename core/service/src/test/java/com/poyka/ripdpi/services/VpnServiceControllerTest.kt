@@ -175,7 +175,8 @@ class VpnServiceRuntimeCoordinatorTest {
 
     private fun TestScope.newEnv(
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
-        resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> = listOf(sampleResolution(mode = Mode.VPN)),
+        resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =
+            listOf(sampleResolution(mode = Mode.VPN)),
         runtimeFactory: (MutableList<String>) -> TestProxyRuntime = { events -> TestProxyRuntime(events) },
     ): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -187,24 +188,38 @@ class VpnServiceRuntimeCoordinatorTest {
         val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
         val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
         val bridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events))
-        val tunnelProvider = TestVpnTunnelSessionProvider(events = events, session = TestVpnTunnelSession(events = events))
+        val tunnelProvider =
+            TestVpnTunnelSessionProvider(
+                events = events,
+                session = TestVpnTunnelSession(events = events),
+            )
         val runtimeRegistry = DefaultServiceRuntimeRegistry()
         val handoverMonitor = TestNetworkHandoverMonitor()
         val handoverEvents = TestPolicyHandoverEventStore()
         val overrides = TestResolverOverrideStore()
         val clock = TestServiceClock(now = 1_000L)
+        val tunnelRuntime =
+            VpnTunnelRuntime(
+                vpnHost = host,
+                appSettingsRepository = TestAppSettingsRepository(),
+                tun2SocksBridgeFactory = bridgeFactory,
+                vpnTunnelSessionProvider = tunnelProvider,
+            )
         val coordinator =
             VpnServiceRuntimeCoordinator(
                 vpnHost = host,
-                appSettingsRepository = TestAppSettingsRepository(),
                 connectionPolicyResolver = resolver,
-                tun2SocksBridgeFactory = bridgeFactory,
-                vpnTunnelSessionProvider = tunnelProvider,
                 resolverOverrideStore = overrides,
                 serviceRuntimeRegistry = runtimeRegistry,
                 rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                 networkHandoverMonitor = handoverMonitor,
                 policyHandoverEventStore = handoverEvents,
+                vpnTunnelRuntime = tunnelRuntime,
+                resolverRefreshPlanner =
+                    VpnResolverRefreshPlanner(
+                        connectionPolicyResolver = resolver,
+                        resolverOverrideStore = overrides,
+                    ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(
                         scope = backgroundScope,
