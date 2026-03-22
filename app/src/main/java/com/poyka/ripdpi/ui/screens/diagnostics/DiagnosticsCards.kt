@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -62,6 +63,13 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.math.roundToInt
+
+private val SparklineChartHeight = 84.dp
+private val SparklineChipWidth = 64.dp
+private const val SparklineSelectedMarkerRadius = 5f
+private const val SparklineSelectedMarkerInnerRadius = 3f
+private const val SparklineStrokeWidth = 4f
+private const val SparklineDividerStrokeWidth = 1f
 
 @Composable
 internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
@@ -204,166 +212,332 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
         )
     }
 
-    val latestValue = trend.values.lastOrNull() ?: 0f
-    val minValue = trend.values.minOrNull() ?: 0f
-    val maxValue = trend.values.maxOrNull() ?: 0f
-    val displayValue =
-        if (selectedIndex in trend.values.indices) {
-            trend.values[selectedIndex]
-        } else {
-            latestValue
-        }
-    val cardColor = colors.card
-    val mutedColor = colors.mutedForeground
+    val sparklineState = rememberSparklineState(trend = trend, selectedIndex = selectedIndex)
 
     RipDpiCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom,
-        ) {
+        SparklineHeader(
+            label = trend.label,
+            displayValue = sparklineState.displayValue,
+            valueColor = palette.content,
+            stateDurationMillis = motion.duration(motion.stateDurationMillis),
+            quickDurationMillis = motion.duration(motion.quickDurationMillis),
+            labelColor = colors.foreground,
+        )
+        SparklineChartRow(
+            minValue = sparklineState.minValue,
+            maxValue = sparklineState.maxValue,
+            spacing = spacing.sm,
+            labelColor = colors.mutedForeground,
+            values = interpolatedSeries(previousValues, currentValues, transitionProgress.value),
+            selectedIndex = selectedIndex,
+            onSelectedIndexChange = { index -> selectedIndex = index },
+            strokeColor = animatedStrokeColor,
+            dividerColor = colors.divider,
+            selectionColor = colors.mutedForeground,
+            cardColor = colors.card,
+            selectedValue = sparklineState.selectedValue,
+            chipContainerColor = palette.container,
+            chipContentColor = palette.content,
+        )
+    }
+}
+
+@Composable
+private fun SparklineHeader(
+    label: String,
+    displayValue: Float,
+    valueColor: androidx.compose.ui.graphics.Color,
+    stateDurationMillis: Int,
+    quickDurationMillis: Int,
+    labelColor: androidx.compose.ui.graphics.Color,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        Text(
+            text = label,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = labelColor,
+        )
+        AnimatedContent(
+            targetState = formatSparklineValue(displayValue),
+            transitionSpec = {
+                androidx.compose.animation.fadeIn(
+                    animationSpec = tween(durationMillis = stateDurationMillis),
+                ) togetherWith
+                    androidx.compose.animation.fadeOut(
+                        animationSpec = tween(durationMillis = quickDurationMillis),
+                    )
+            },
+            label = "sparklineCurrentValue",
+        ) { value ->
             Text(
-                text = trend.label,
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = colors.foreground,
+                text = value,
+                style = RipDpiThemeTokens.type.monoValue,
+                color = valueColor,
             )
-            AnimatedContent(
-                targetState = formatSparklineValue(displayValue),
-                transitionSpec = {
-                    androidx.compose.animation.fadeIn(
-                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                    ) togetherWith
-                        androidx.compose.animation.fadeOut(
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                        )
-                },
-                label = "sparklineCurrentValue",
-            ) { value ->
-                Text(
-                    text = value,
-                    style = RipDpiThemeTokens.type.monoValue,
-                    color = palette.content,
-                )
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            Column(
-                modifier = Modifier.height(84.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = formatSparklineValue(maxValue),
-                    style = RipDpiThemeTokens.type.monoSmall,
-                    color = colors.mutedForeground,
-                )
-                Text(
-                    text = formatSparklineValue(minValue),
-                    style = RipDpiThemeTokens.type.monoSmall,
-                    color = colors.mutedForeground,
-                )
-            }
-            androidx.compose.foundation.layout.BoxWithConstraints(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .height(84.dp),
-            ) {
-                Canvas(
-                    modifier =
-                        Modifier
-                            .matchParentSize()
-                            .pointerInput(trend.values.size) {
-                                detectTapGestures { offset ->
-                                    val pointCount = trend.values.size
-                                    if (pointCount <= 1) return@detectTapGestures
-                                    val index =
-                                        ((offset.x / size.width) * (pointCount - 1))
-                                            .roundToInt()
-                                            .coerceIn(0, pointCount - 1)
-                                    selectedIndex = if (selectedIndex == index) -1 else index
-                                }
-                            },
-                ) {
-                    val values =
-                        interpolatedSeries(previousValues, currentValues, transitionProgress.value)
-                    if (values.isEmpty()) {
-                        return@Canvas
-                    }
-                    val min = values.minOrNull() ?: 0f
-                    val max = values.maxOrNull() ?: 0f
-                    val range = (max - min).takeIf { it > 0f } ?: 1f
-                    val path =
-                        Path().apply {
-                            values.forEachIndexed { index, value ->
-                                val x =
-                                    if (values.size == 1) {
-                                        0f
-                                    } else {
-                                        size.width * index.toFloat() / (values.lastIndex.toFloat())
-                                    }
-                                val y = size.height - ((value - min) / range) * size.height
-                                if (index == 0) {
-                                    moveTo(x, y)
-                                } else {
-                                    lineTo(x, y)
-                                }
-                            }
-                        }
-                    drawPath(
-                        path = path,
-                        color = animatedStrokeColor,
-                        style = Stroke(width = 4f, cap = StrokeCap.Round),
-                    )
-                    drawLine(
-                        color = dividerColor,
-                        start = Offset(0f, size.height),
-                        end = Offset(size.width, size.height),
-                        strokeWidth = 1f,
-                    )
-                    if (selectedIndex in values.indices && values.size > 1) {
-                        val sx =
-                            size.width * selectedIndex.toFloat() / values.lastIndex.toFloat()
-                        val sy =
-                            size.height - ((values[selectedIndex] - min) / range) * size.height
-                        drawLine(
-                            color = mutedColor,
-                            start = Offset(sx, 0f),
-                            end = Offset(sx, size.height),
-                            strokeWidth = 1f,
-                        )
-                        drawCircle(
-                            color = animatedStrokeColor,
-                            radius = 5f,
-                            center = Offset(sx, sy),
-                        )
-                        drawCircle(
-                            color = cardColor,
-                            radius = 3f,
-                            center = Offset(sx, sy),
-                        )
-                    }
-                }
-                if (selectedIndex in trend.values.indices && trend.values.size > 1) {
-                    val chipWidth = 64.dp
-                    val rawOffset =
-                        maxWidth * selectedIndex.toFloat() / trend.values.lastIndex.toFloat()
-                    val clampedOffset =
-                        (rawOffset - chipWidth / 2)
-                            .coerceIn(0.dp, (maxWidth - chipWidth).coerceAtLeast(0.dp))
-                    SparklineValueChip(
-                        value = formatSparklineValue(trend.values[selectedIndex]),
-                        containerColor = palette.container,
-                        contentColor = palette.content,
-                        modifier =
-                            Modifier.padding(start = clampedOffset),
-                    )
-                }
-            }
         }
     }
+}
+
+@Composable
+private fun SparklineChartRow(
+    minValue: Float,
+    maxValue: Float,
+    spacing: androidx.compose.ui.unit.Dp,
+    labelColor: androidx.compose.ui.graphics.Color,
+    values: List<Float>,
+    selectedIndex: Int,
+    onSelectedIndexChange: (Int) -> Unit,
+    strokeColor: androidx.compose.ui.graphics.Color,
+    dividerColor: androidx.compose.ui.graphics.Color,
+    selectionColor: androidx.compose.ui.graphics.Color,
+    cardColor: androidx.compose.ui.graphics.Color,
+    selectedValue: Float?,
+    chipContainerColor: androidx.compose.ui.graphics.Color,
+    chipContentColor: androidx.compose.ui.graphics.Color,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing),
+    ) {
+        SparklineAxisLabels(
+            maxValue = maxValue,
+            minValue = minValue,
+            labelColor = labelColor,
+        )
+        androidx.compose.foundation.layout.BoxWithConstraints(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .height(SparklineChartHeight),
+        ) {
+            SparklineCanvas(
+                values = values,
+                selectedIndex = selectedIndex,
+                onSelectedIndexChange = onSelectedIndexChange,
+                strokeColor = strokeColor,
+                dividerColor = dividerColor,
+                selectionColor = selectionColor,
+                cardColor = cardColor,
+            )
+            SparklineSelectionChip(
+                selectedIndex = selectedIndex,
+                selectedValue = selectedValue,
+                pointCount = values.size,
+                maxWidth = maxWidth,
+                containerColor = chipContainerColor,
+                contentColor = chipContentColor,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SparklineAxisLabels(
+    maxValue: Float,
+    minValue: Float,
+    labelColor: androidx.compose.ui.graphics.Color,
+) {
+    Column(
+        modifier = Modifier.height(SparklineChartHeight),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = formatSparklineValue(maxValue),
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = labelColor,
+        )
+        Text(
+            text = formatSparklineValue(minValue),
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = labelColor,
+        )
+    }
+}
+
+@Composable
+private fun SparklineCanvas(
+    values: List<Float>,
+    selectedIndex: Int,
+    onSelectedIndexChange: (Int) -> Unit,
+    strokeColor: androidx.compose.ui.graphics.Color,
+    dividerColor: androidx.compose.ui.graphics.Color,
+    selectionColor: androidx.compose.ui.graphics.Color,
+    cardColor: androidx.compose.ui.graphics.Color,
+) {
+    Canvas(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .pointerInput(values.size, selectedIndex) {
+                    detectTapGestures { offset ->
+                        val pointCount = values.size
+                        if (pointCount <= 1) return@detectTapGestures
+                        val index =
+                            ((offset.x / size.width) * (pointCount - 1))
+                                .roundToInt()
+                                .coerceIn(0, pointCount - 1)
+                        onSelectedIndexChange(if (selectedIndex == index) -1 else index)
+                    }
+                },
+    ) {
+        if (values.isEmpty()) {
+            return@Canvas
+        }
+        val geometry = SparklineGeometry.from(values, size.width, size.height)
+        drawPath(
+            path = geometry.path,
+            color = strokeColor,
+            style = Stroke(width = SparklineStrokeWidth, cap = StrokeCap.Round),
+        )
+        drawLine(
+            color = dividerColor,
+            start = Offset(0f, size.height),
+            end = Offset(size.width, size.height),
+            strokeWidth = SparklineDividerStrokeWidth,
+        )
+        drawSparklineSelection(
+            geometry = geometry,
+            selectedIndex = selectedIndex,
+            selectionColor = selectionColor,
+            strokeColor = strokeColor,
+            cardColor = cardColor,
+        )
+    }
+}
+
+@Composable
+private fun SparklineSelectionChip(
+    selectedIndex: Int,
+    selectedValue: Float?,
+    pointCount: Int,
+    maxWidth: androidx.compose.ui.unit.Dp,
+    containerColor: androidx.compose.ui.graphics.Color,
+    contentColor: androidx.compose.ui.graphics.Color,
+) {
+    if (selectedValue == null || selectedIndex !in 0 until pointCount || pointCount <= 1) {
+        return
+    }
+    val rawOffset = maxWidth * selectedIndex.toFloat() / (pointCount - 1).toFloat()
+    val clampedOffset =
+        (rawOffset - SparklineChipWidth / 2)
+            .coerceIn(0.dp, (maxWidth - SparklineChipWidth).coerceAtLeast(0.dp))
+    SparklineValueChip(
+        value = formatSparklineValue(selectedValue),
+        containerColor = containerColor,
+        contentColor = contentColor,
+        modifier = Modifier.padding(start = clampedOffset),
+    )
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSparklineSelection(
+    geometry: SparklineGeometry,
+    selectedIndex: Int,
+    selectionColor: androidx.compose.ui.graphics.Color,
+    strokeColor: androidx.compose.ui.graphics.Color,
+    cardColor: androidx.compose.ui.graphics.Color,
+) {
+    if (selectedIndex !in geometry.values.indices || geometry.values.size <= 1) {
+        return
+    }
+    val x = geometry.xFor(selectedIndex)
+    val y = geometry.yFor(selectedIndex)
+    drawLine(
+        color = selectionColor,
+        start = Offset(x, 0f),
+        end = Offset(x, size.height),
+        strokeWidth = SparklineDividerStrokeWidth,
+    )
+    drawCircle(
+        color = strokeColor,
+        radius = SparklineSelectedMarkerRadius,
+        center = Offset(x, y),
+    )
+    drawCircle(
+        color = cardColor,
+        radius = SparklineSelectedMarkerInnerRadius,
+        center = Offset(x, y),
+    )
+}
+
+private data class SparklineState(
+    val minValue: Float,
+    val maxValue: Float,
+    val displayValue: Float,
+    val selectedValue: Float?,
+)
+
+private data class SparklineGeometry(
+    val values: List<Float>,
+    val min: Float,
+    val range: Float,
+    val width: Float,
+    val height: Float,
+    val path: Path,
+) {
+    fun xFor(index: Int): Float =
+        if (values.size == 1) {
+            0f
+        } else {
+            width * index.toFloat() / values.lastIndex.toFloat()
+        }
+
+    fun yFor(index: Int): Float =
+        height - ((values[index] - min) / range) * height
+
+    companion object {
+        fun from(
+            values: List<Float>,
+            width: Float,
+            height: Float,
+        ): SparklineGeometry {
+            val min = values.minOrNull() ?: 0f
+            val max = values.maxOrNull() ?: 0f
+            val range = (max - min).takeIf { it > 0f } ?: 1f
+            val path =
+                Path().apply {
+                    values.forEachIndexed { index, _ ->
+                        val x =
+                            if (values.size == 1) {
+                                0f
+                            } else {
+                                width * index.toFloat() / values.lastIndex.toFloat()
+                            }
+                        val y = height - ((values[index] - min) / range) * height
+                        if (index == 0) {
+                            moveTo(x, y)
+                        } else {
+                            lineTo(x, y)
+                        }
+                    }
+                }
+            return SparklineGeometry(
+                values = values,
+                min = min,
+                range = range,
+                width = width,
+                height = height,
+                path = path,
+            )
+        }
+    }
+}
+
+private fun rememberSparklineState(
+    trend: com.poyka.ripdpi.activities.DiagnosticsSparklineUiModel,
+    selectedIndex: Int,
+): SparklineState {
+    val latestValue = trend.values.lastOrNull() ?: 0f
+    val selectedValue = trend.values.getOrNull(selectedIndex)
+    return SparklineState(
+        minValue = trend.values.minOrNull() ?: 0f,
+        maxValue = trend.values.maxOrNull() ?: 0f,
+        displayValue = selectedValue ?: latestValue,
+        selectedValue = selectedValue,
+    )
 }
 
 @Composable
