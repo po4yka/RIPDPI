@@ -1,8 +1,8 @@
-# P0 DPI Bypass Improvements Implementation Plan
+# P0 Network Optimization Improvements Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Implement two P0 improvements to RIPDPI's path optimization: (1) server hop-count TTL auto-detection to set correct fake-packet TTL, and (2) switch default DNS from Cloudflare to Google to survive Russian mobile whitelist mode.
+**Goal:** Implement two P0 improvements to RIPDPI's network optimization: (1) server hop-count TTL auto-detection to set correct fake-packet TTL, and (2) switch default DNS from Cloudflare to Google to survive Russian mobile whitelist mode.
 
 **Architecture:**
 - Task 1 adds `note_server_ttl()` to `AdaptiveFakeTtlResolver`, a new `detected_from_observed_ttl()` helper, and wires TTL capture from the first upstream response via `recvmsg`+`IP_RECVTTL` through the platform layer into `read_first_response`.

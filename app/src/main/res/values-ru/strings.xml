@@ -31,7 +31,7 @@
     <string name="diagnostics_share_section">Поделиться</string>
     <string name="diagnostics_status_idle">Готов</string>
     <string name="diagnostics_status_running">Выполняется</string>
-    <string name="diagnostics_action_raw">Запустить сканирование в обход пути</string>
+    <string name="diagnostics_action_raw">Запустить сканирование напрямую</string>
     <string name="diagnostics_action_in_path">Запустить сканирование по маршруту</string>
     <string name="diagnostics_action_cancel">Отменить активное сканирование</string>
     <string name="diagnostics_action_export">Экспортировать последний пакет</string>
@@ -47,7 +47,7 @@
     <string name="diagnostics_probe_unavailable_title">Автоматическое зондирование недоступно</string>
     <string name="diagnostics_audit_profile_title">Автоматический аудит</string>
     <string name="diagnostics_audit_ready_title">Аудит готов</string>
-    <string name="diagnostics_audit_progress_title">Выполняется DPI-аудит</string>
+    <string name="diagnostics_audit_progress_title">Выполняется сетевой аудит</string>
     <string name="diagnostics_audit_unavailable_title">Автоматический аудит недоступен</string>
     <string name="diagnostics_probe_manual_apply_title">Как использовать этот результат</string>
     <string name="diagnostics_probe_manual_apply_body">Автоматическое зондирование не изменяет настройки RIPDPI. Ознакомьтесь с рекомендуемой стратегией ниже, затем вручную скопируйте нужные части в свой обычный профиль.</string>
@@ -62,24 +62,65 @@
     <string name="diagnostics_latest_scan_section">Последнее сканирование</string>
     <string name="diagnostics_profile_connectivity_title">Проверки подключения</string>
     <string name="diagnostics_profile_connectivity_badge">Проверить</string>
-    <string name="diagnostics_profile_connectivity_body">Проверьте доступность DNS, HTTP, HTTPS и TCP с помощью сканирования в обход пути или работающего сервиса по маршруту.</string>
+    <string name="diagnostics_profile_connectivity_body">Проверьте доступность DNS, HTTP, HTTPS и TCP с помощью прямого сканирования или работающего сервиса по маршруту.</string>
     <string name="diagnostics_profile_connectivity_running_body">Диагностика прямо сейчас проверяет выбранный маршрут. Последние результаты зондирования и сводка сессии обновятся по завершении.</string>
     <string name="diagnostics_profile_probe_badge">Рекомендовать</string>
     <string name="diagnostics_profile_probe_body">Запустить изолированные испытания стратегий HTTP, HTTPS и QUIC для текущей сети. RIPDPI возвращает рекомендацию, но не применяет её автоматически.</string>
-    <string name="diagnostics_profile_probe_running_body">RIPDPI запускает временные стратегии-кандидаты только по обходному пути. Сохранённые настройки остаются неизменными во время зондирования.</string>
+    <string name="diagnostics_profile_probe_running_body">RIPDPI запускает временные стратегии-кандидаты только по прямому пути. Сохранённые настройки остаются неизменными во время зондирования.</string>
     <string name="diagnostics_profile_probe_ready_body">Последний запуск автоматического зондирования завершён и выдал ручную рекомендацию с лучшими стратегиями TCP и QUIC.</string>
     <string name="diagnostics_profile_probe_unavailable_body">Автоматическое зондирование работает только с визуальными настройками RIPDPI. Отключите режим командной строки перед запуском этого процесса.</string>
     <string name="diagnostics_profile_audit_badge">Аудит</string>
     <string name="diagnostics_profile_audit_body">Запустить полную встроенную матрицу стратегий HTTP, HTTPS и QUIC для текущей сети. RIPDPI фиксирует, что сработало, что сработало частично, что не сработало и что неприменимо — без изменения сохранённых настроек.</string>
-    <string name="diagnostics_profile_audit_running_body">RIPDPI выполняет полную встроенную матрицу стратегий только по обходному пути. Текущая сессия VPN или прокси приостанавливается на время аудита и восстанавливается после.</string>
+    <string name="diagnostics_profile_audit_running_body">RIPDPI выполняет полную встроенную матрицу стратегий только по прямому пути. Текущая сессия VPN или прокси приостанавливается на время аудита и восстанавливается после.</string>
     <string name="diagnostics_profile_audit_ready_body">Последний автоматический аудит завершён: сформированы полная матрица, доказательства по каждому кандидату и ручная рекомендация.</string>
     <string name="diagnostics_profile_audit_unavailable_body">Автоматический аудит работает только с визуальными настройками RIPDPI. Отключите режим командной строки перед запуском этого процесса.</string>
     <string name="diagnostics_profile_badge_dns_http_https_tcp">DNS + HTTP + HTTPS + TCP</string>
     <string name="diagnostics_profile_badge_http_https_quic">HTTP + HTTPS + QUIC</string>
     <string name="diagnostics_profile_badge_all_builtin">Все встроенные методы</string>
-    <string name="diagnostics_profile_badge_raw_only">Только обходной путь</string>
-    <string name="diagnostics_profile_badge_raw_and_in_path">Обходной + по маршруту</string>
+    <string name="diagnostics_profile_badge_raw_only">Только прямой путь</string>
+    <string name="diagnostics_profile_badge_raw_and_in_path">Прямой + по маршруту</string>
     <string name="diagnostics_profile_badge_manual_apply">Применить вручную</string>
+    <string name="diagnostics_profile_badge_manual_only">Только вручную</string>
+    <string name="diagnostics_profile_badge_region_net">Россия Сеть</string>
+    <string name="diagnostics_profile_badge_ru_web">RU WEB</string>
+    <string name="diagnostics_profile_badge_ru_msg">RU MSG</string>
+    <string name="diagnostics_profile_badge_ru_adapt">RU ADAPT</string>
+    <string name="diagnostics_profile_badge_ru_rate">RU RATE</string>
+    <string name="diagnostics_profile_badge_ru_full">RU FULL</string>
+    <string name="diagnostics_profile_desc_web_connectivity">Региональная проверка веб-доступности, DNS, TLS и HTTP-свидетельств.</string>
+    <string name="diagnostics_profile_desc_messaging">Загрузка мессенджеров, медиа и проверка доступности протоколов.</string>
+    <string name="diagnostics_profile_desc_adaptation">Загрузка Tor и VPN плюс доступность рукопожатия.</string>
+    <string name="diagnostics_profile_desc_throttling">Ручные окна пропускной способности относительно нейтральных контрольных точек.</string>
+    <string name="diagnostics_profile_desc_network_full">Комбинированные региональные сетевые эвристики по нескольким сервисам.</string>
+    <string name="diagnostics_family_general">Общие</string>
+    <string name="diagnostics_family_web_connectivity">Веб-доступность</string>
+    <string name="diagnostics_family_messaging">Мессенджеры</string>
+    <string name="diagnostics_family_adaptation">Адаптация</string>
+    <string name="diagnostics_family_throttling">Троттлинг</string>
+    <string name="diagnostics_family_network_full">Сетевой полный</string>
+    <string name="diagnostics_family_automatic_probing">Автозондирование</string>
+    <string name="diagnostics_family_automatic_audit">Автоаудит</string>
+    <string name="diagnostics_diagnosis_summary_title">Сводка диагноза</string>
+    <string name="diagnostics_region_suite_title">Региональный набор</string>
+    <string name="diagnostics_region_suite_message">Локальные проверки, настроенные для региональных сетевых паттернов. Результаты — свидетельства, а не обвинения.</string>
+    <string name="diagnostics_live_results_title">Результаты в реальном времени</string>
+    <string name="diagnostics_phase_dns">DNS</string>
+    <string name="diagnostics_phase_reach">Доступ</string>
+    <string name="diagnostics_phase_quic">QUIC</string>
+    <string name="diagnostics_phase_tcp">TCP</string>
+    <string name="diagnostics_phase_svc">Сервис</string>
+    <string name="diagnostics_phase_adaptation">Адаптация</string>
+    <string name="diagnostics_phase_tg">TG</string>
+    <string name="diagnostics_phase_rate">Скорость</string>
+    <string name="diagnostics_status_validated">Подтверждено</string>
+    <string name="diagnostics_status_suppressed">Подавлено</string>
+    <string name="diagnostics_status_observed">Наблюдается</string>
+    <string name="diagnostics_source_strategy_probe">Стратегическое зондирование</string>
+    <string name="diagnostics_source_manual_session">Ручная сессия</string>
+    <string name="diagnostics_network_fallback_title">Сеть %1$s</string>
+    <string name="diagnostics_current_match">Текущее совпадение</string>
+    <string name="diagnostics_no_strategy_signature">Сигнатура стратегии не обнаружена</string>
+    <string name="diagnostics_eta_remaining">~%1$s осталось</string>
     <string name="diagnostics_audit_matrix_title">Матрица аудита</string>
     <string name="diagnostics_audit_summary_title">Сводка аудита</string>
     <string name="diagnostics_audit_candidate_notes_title">Примечания</string>
@@ -112,7 +153,7 @@
     <string name="history_connections_empty_title">История подключений пока пуста</string>
     <string name="history_connections_empty_body">Запустите RIPDPI хотя бы раз, чтобы зафиксировать долговременные сессии, образцы и сбои.</string>
     <string name="history_diagnostics_empty_title">История диагностики пока пуста</string>
-    <string name="history_diagnostics_empty_body">Запустите сканирование в обход пути или по маршруту, чтобы сохранить здесь отчёты и данные зондирования.</string>
+    <string name="history_diagnostics_empty_body">Запустите прямое сканирование или сканирование по маршруту, чтобы сохранить здесь отчёты и данные зондирования.</string>
     <string name="history_events_empty_title">Событий в истории пока нет</string>
     <string name="history_events_empty_body">Сбои среды выполнения и нативные события появятся здесь после их записи в RIPDPI.</string>
     <string name="history_open_action">Открыть историю</string>
@@ -149,7 +190,7 @@
     <string name="home_permission_issue_with_settings">%1$s Откройте Настройки или воспользуйтесь кнопкой ниже для восстановления доступа.</string>
     <string name="home_connection_button_connecting">Подключение...</string>
     <string name="home_overview_title">Обзор</string>
-    <string name="home_approach_title">Метод обхода</string>
+    <string name="home_approach_title">Метод оптимизации</string>
     <string name="home_approach_cta">Открыть Диагностику и просмотреть аналитику подходов</string>
     <string name="home_history_title">Просмотреть сохранённые сессии и сбои</string>
     <string name="home_history_body">История хранит долговременные сессии подключения, выборки диагностики среды выполнения и нативные сбои за пределами инструментов Диагностики в реальном времени.</string>
@@ -266,7 +307,7 @@
     <string name="host_autolearn_forget_action">Забыть запомненные хосты</string>
     <string name="network_strategy_memory_section_title">Память стратегий сети</string>
     <string name="network_strategy_memory_enabled_title">Запоминать политику для каждой сети</string>
-    <string name="network_strategy_memory_enabled_body">Сохранять проверенную политику обхода для текущего отпечатка сети и повторно использовать её при последующих запусках.</string>
+    <string name="network_strategy_memory_enabled_body">Сохранять проверенную политику маршрутизации для текущего отпечатка сети и повторно использовать её при последующих запусках.</string>
     <string name="network_strategy_memory_count_summary">%1$d запомненных сетей хранятся локально.</string>
     <string name="network_strategy_memory_clear_action">Очистить запомненные сети</string>
     <string name="network_strategy_memory_helper">Только проверенные совпадения сетей применяются автоматически. Сырые SSID, BSSID и идентификаторы оператора не попадают в хранилище.</string>
@@ -412,7 +453,7 @@
     <string name="adaptive_split_preset_balanced">Адаптивный (сбалансированный)</string>
     <string name="adaptive_split_preset_balanced_body">Рекомендуемый вариант по умолчанию. Тяготеет к ближайшей семантической границе вокруг живой цели размером MSS для каждой полезной нагрузки.</string>
     <string name="adaptive_split_preset_host">Адаптивный (начало Host/SNI)</string>
-    <string name="adaptive_split_preset_host_body">Предпочитает начало HTTP Host или TLS SNI. Полезно, когда DPI реагирует на первые байты имени хоста.</string>
+    <string name="adaptive_split_preset_host_body">Предпочитает начало HTTP Host или TLS SNI. Полезно, когда сеть реагирует на первые байты имени хоста.</string>
     <string name="adaptive_split_preset_endhost">Адаптивный (конец Host/SNI)</string>
     <string name="adaptive_split_preset_endhost_body">Предпочитает конец HTTP Host или TLS SNI. Полезно, когда нужно перенести хвост имени хоста в следующий сегмент.</string>
     <string name="adaptive_split_preset_sniext">Адаптивный (расширение TLS SNI)</string>
@@ -996,7 +1037,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_hosts_blacklist_setting">Чёрный список хостов</string>
     <string name="ripdpi_hosts_whitelist_setting">Белый список хостов</string>
     <string name="host_pack_presets_title">Готовые наборы хостов</string>
-    <string name="host_pack_presets_body">Выберите готовый список сервисов для распространённых заблокированных приложений. Обновление позволяет загрузить более новый снимок geosite, а «Применить» записывает выбранный набор в чёрный или белый список ниже.</string>
+    <string name="host_pack_presets_body">Выберите готовый список сервисов для распространённых приложений с проблемами соединения. Обновление позволяет загрузить более новый снимок geosite, а «Применить» записывает выбранный набор в чёрный или белый список ниже.</string>
     <string name="host_pack_preset_body">%1$s
 Источник: %2$s</string>
     <string name="host_pack_hosts_badge">%1$d хостов</string>
@@ -1023,11 +1064,11 @@ fakeddisorder endhost</string>
     <string name="host_pack_downloaded_status_title">Используется проверенная загрузка</string>
     <string name="host_pack_downloaded_status_body">Текущие кураторские наборы хостов получены из верифицированной по контрольной сумме загрузки geosite.dat, сохранённой на этом устройстве.</string>
     <string name="host_pack_refresh_status_title">Обновление кураторских наборов хостов</string>
-    <string name="host_pack_refresh_status_body">RIPDPI загружает geosite.dat с runetfreedom и заменит локальный кэш только после успешной проверки SHA-256.</string>
+    <string name="host_pack_refresh_status_body">RIPDPI загружает geosite.dat из репозитория geosite и заменит локальный кэш только после успешной проверки SHA-256.</string>
     <string name="host_pack_snapshot_built_label">Снимок создан</string>
     <string name="host_pack_last_fetch_label">Последняя проверенная загрузка</string>
     <string name="host_pack_last_fetch_never">Ещё не загружалось</string>
-    <string name="host_pack_refresh_source_hint">Источник: raw.githubusercontent.com/runetfreedom/russia-blocked-geosite/release/geosite.dat и его опубликованный SHA-256 файл.</string>
+    <string name="host_pack_refresh_source_hint">Источник: raw.githubusercontent.com репозиторий geosite release/geosite.dat и его опубликованный SHA-256 файл.</string>
     <string name="host_pack_refresh_action">Загрузить актуальный список</string>
     <string name="host_pack_refresh_in_progress">Загрузка актуального списка</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
@@ -1192,7 +1233,7 @@ fakeddisorder endhost</string>
     <string name="notice_learned_hosts_cleared_title">Изученные хосты очищены</string>
     <string name="notice_learned_hosts_cleared_message">Изученные хосты удалены, и при следующем запуске RIPDPI восстановит их с нуля.</string>
     <string name="notice_remembered_networks_cleared_title">Запомненные сети очищены</string>
-    <string name="notice_remembered_networks_cleared_message">RIPDPI удалил все сохранённые политики обхода по сетям. Текущие настройки не изменены.</string>
+    <string name="notice_remembered_networks_cleared_message">RIPDPI удалил все сохранённые политики маршрутизации по сетям. Текущие настройки не изменены.</string>
     <string name="notice_fake_tls_reset_next_start_title">Профиль fake TLS сброшен для следующего запуска</string>
     <string name="notice_fake_tls_reset_next_start_message">Профиль возвращён к стандартному fake ClientHello. Перезапустите RIPDPI для применения к активной сессии.</string>
     <string name="notice_fake_tls_reset_title">Профиль fake TLS сброшен</string>
@@ -1205,10 +1246,10 @@ fakeddisorder endhost</string>
     <string name="notice_fake_payload_reset_next_start_message">Fake-пакеты HTTP, TLS и UDP возвращены к значениям совместимости по умолчанию. Перезапустите RIPDPI для применения к активной сессии.</string>
     <string name="notice_fake_payload_reset_title">Пресеты fake-пакетов сброшены</string>
     <string name="notice_fake_payload_reset_message">RIPDPI будет использовать стандартные fake-пакеты совместимости для HTTP, TLS и UDP при следующем запуске.</string>
-    <string name="notice_http_parser_reset_next_start_title">Обход HTTP-парсера сброшен для следующего запуска</string>
-    <string name="notice_http_parser_reset_next_start_message">Настройки HTTP-парсера возвращены к значениям по умолчанию. Перезапустите RIPDPI для удаления сохранённых обходов из активной сессии.</string>
-    <string name="notice_http_parser_reset_title">Обход HTTP-парсера сброшен</string>
-    <string name="notice_http_parser_reset_message">RIPDPI прекратит применять сохранённые настройки HTTP-парсера и EOL-обход при следующем запуске.</string>
+    <string name="notice_http_parser_reset_next_start_title">Настройки HTTP-парсера сброшены для следующего запуска</string>
+    <string name="notice_http_parser_reset_next_start_message">Настройки HTTP-парсера возвращены к значениям по умолчанию. Перезапустите RIPDPI для удаления сохранённых настроек из активной сессии.</string>
+    <string name="notice_http_parser_reset_title">Настройки HTTP-парсера сброшены</string>
+    <string name="notice_http_parser_reset_message">RIPDPI прекратит применять сохранённые настройки HTTP-парсера и EOL-настройки при следующем запуске.</string>
     <string name="notice_activation_window_reset_next_start_title">Окно активации сброшено для следующего запуска</string>
     <string name="notice_activation_window_reset_next_start_message">Активная группа desync возвращена к постоянному режиму. Перезапустите RIPDPI для удаления сохранённого окна активации из работающей сессии.</string>
     <string name="notice_activation_window_reset_title">Окно активации сброшено</string>
@@ -1371,7 +1412,7 @@ fakeddisorder endhost</string>
     <!-- Diagnostics overview body -->
     <string name="diagnostics_body_healthy">Пассивная телеметрия и последний отчёт не показывают критических сбоев. Проверяйте счётчики реального времени на предмет отклонений.</string>
     <string name="diagnostics_body_attention">Обнаружены предупреждения или частичные сбои. Сравните результат последнего сканирования с текущим мониторингом в реальном времени.</string>
-    <string name="diagnostics_body_degraded">Недавние события или результаты сканирования указывают на блокировку, сбои или нестабильность транспорта.</string>
+    <string name="diagnostics_body_degraded">Недавние события или результаты сканирования указывают на деградацию, сбои или нестабильность транспорта.</string>
     <string name="diagnostics_body_idle">Запустите RIPDPI или выполните сканирование для заполнения аналитики диагностики.</string>
 
     <!-- Diagnostics live headlines -->
@@ -1401,8 +1442,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_scan_automatic_audit">Автоматический аудит</string>
     <string name="diagnostics_scan_automatic_probing">Автоматическое зондирование</string>
     <string name="diagnostics_scan_cli_active_format">%1$s работает только с визуальными настройками RIPDPI. Активен режим командной строки.</string>
-    <string name="diagnostics_scan_raw_path_format">%1$s запускает временную среду выполнения RIPDPI в обход пути и возвращает ручную рекомендацию.</string>
-    <string name="diagnostics_scan_raw_only_format">%1$s работает только в обход пути, так как запускает изолированные временные испытания стратегий.</string>
+    <string name="diagnostics_scan_raw_path_format">%1$s запускает временную среду выполнения RIPDPI по прямому пути и возвращает ручную рекомендацию.</string>
+    <string name="diagnostics_scan_raw_only_format">%1$s работает только по прямому пути, так как запускает изолированные временные испытания стратегий.</string>
 
     <!-- Diagnostics share preview -->
     <string name="diagnostics_share_title">Диагностика RIPDPI</string>
