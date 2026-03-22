@@ -402,7 +402,7 @@ fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> i
     let worker = thread::Builder::new()
         .name("ripdpi-udp".into())
         .spawn(move || super::udp::udp_associate_loop(worker_socket, worker_state, worker_running))
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, format!("failed to spawn UDP relay thread: {err}")))?;
+        .map_err(|err| io::Error::other(format!("failed to spawn UDP relay thread: {err}")))?;
 
     client.set_read_timeout(Some(Duration::from_millis(250)))?;
     let mut buffer = [0u8; 64];
