@@ -2,7 +2,7 @@
 
 [English](README.md) | **Русский**
 
-Приложение для Android для обхода DPI (Deep Packet Inspection) и цензуры с:
+Приложение для Android для оптимизации сетевого соединения с:
 
 - local proxy mode
 - local VPN redirection mode
@@ -16,7 +16,7 @@ RIPDPI локально запускает SOCKS5-прокси на основе
 
 ## Диагностика
 
-В RIPDPI есть встроенный экран диагностики для активных DPI-проверок и пассивного runtime-мониторинга.
+В RIPDPI есть встроенный экран диагностики для активных сетевых проверок и пассивного runtime-мониторинга.
 
 Реализованные механизмы диагностики:
 
@@ -24,8 +24,8 @@ RIPDPI локально запускает SOCKS5-прокси на основе
 - `Automatic probing` в режиме `RAW_PATH`, плюс скрытые `quick_v1` перепроверки после first-seen network handover
 - Проверка целостности DNS через UDP DNS и шифрованные резолверы (DoH/DoT/DNSCrypt)
 - Проверка доступности доменов с классификацией TLS и HTTP
-- Детект блокировки на пороге 16-20 КБ через fat-header requests
-- Поиск обхода через whitelist SNI для заблокированных TLS-path
+- Детект ограничений на пороге 16-20 КБ через fat-header requests
+- Поиск альтернативного маршрута через whitelist SNI для ограниченных TLS-path
 - Рекомендации по резолверу с diversified DoH/DoT/DNSCrypt path candidates, bootstrap validation, временным session override и сохранением в настройки DNS
 - Пассивная native-телеметрия во время работы proxy или VPN service
 - Экспорт bundle с `summary.txt`, `report.json`, `telemetry.csv` и `manifest.json`

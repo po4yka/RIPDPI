@@ -147,7 +147,7 @@ private fun PresetCardPreview() {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PresetCard(
                 title = "Auto",
-                description = "Detect and apply best DPI strategy",
+                description = "Detect and apply best optimization strategy",
                 badgeText = "Active",
                 selected = true,
                 onClick = {},

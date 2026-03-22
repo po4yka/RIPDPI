@@ -46,7 +46,7 @@
     <string name="diagnostics_probe_unavailable_title">Automatic probing unavailable</string>
     <string name="diagnostics_audit_profile_title">Automatic audit</string>
     <string name="diagnostics_audit_ready_title">Audit ready</string>
-    <string name="diagnostics_audit_progress_title">Running DPI audit</string>
+    <string name="diagnostics_audit_progress_title">Running network audit</string>
     <string name="diagnostics_audit_unavailable_title">Automatic audit unavailable</string>
     <string name="diagnostics_probe_manual_apply_title">How to use this result</string>
     <string name="diagnostics_probe_manual_apply_body">Automatic probing does not change your RIPDPI settings. Review the recommended strategy below, then copy the parts you want into your normal profile manually.</string>
@@ -79,6 +79,47 @@
     <string name="diagnostics_profile_badge_raw_only">Raw path only</string>
     <string name="diagnostics_profile_badge_raw_and_in_path">Raw + in-path</string>
     <string name="diagnostics_profile_badge_manual_apply">Manual apply</string>
+    <string name="diagnostics_profile_badge_manual_only">Manual only</string>
+    <string name="diagnostics_profile_badge_region_net">Russia Net</string>
+    <string name="diagnostics_profile_badge_ru_web">RU WEB</string>
+    <string name="diagnostics_profile_badge_ru_msg">RU MSG</string>
+    <string name="diagnostics_profile_badge_ru_adapt">RU ADAPT</string>
+    <string name="diagnostics_profile_badge_ru_rate">RU RATE</string>
+    <string name="diagnostics_profile_badge_ru_full">RU FULL</string>
+    <string name="diagnostics_profile_desc_web_connectivity">Region-focused web connectivity, DNS, TLS, and HTTP evidence.</string>
+    <string name="diagnostics_profile_desc_messaging">Messaging bootstrap, media, and protocol reachability checks.</string>
+    <string name="diagnostics_profile_desc_adaptation">Tor and VPN bootstrap plus handshake reachability.</string>
+    <string name="diagnostics_profile_desc_throttling">Manual throughput windows against neutral control endpoints.</string>
+    <string name="diagnostics_profile_desc_network_full">Combined region-specific network heuristics across multiple services.</string>
+    <string name="diagnostics_family_general">General</string>
+    <string name="diagnostics_family_web_connectivity">Web Connectivity</string>
+    <string name="diagnostics_family_messaging">Messaging</string>
+    <string name="diagnostics_family_adaptation">Adaptation</string>
+    <string name="diagnostics_family_throttling">Throttling</string>
+    <string name="diagnostics_family_network_full">Network Full</string>
+    <string name="diagnostics_family_automatic_probing">Automatic Probing</string>
+    <string name="diagnostics_family_automatic_audit">Automatic Audit</string>
+    <string name="diagnostics_diagnosis_summary_title">Diagnosis summary</string>
+    <string name="diagnostics_region_suite_title">Region-focused suite</string>
+    <string name="diagnostics_region_suite_message">Manual local checks tuned for regional network patterns. Results are evidence, not attribution.</string>
+    <string name="diagnostics_live_results_title">Live results</string>
+    <string name="diagnostics_phase_dns">DNS</string>
+    <string name="diagnostics_phase_reach">Reach</string>
+    <string name="diagnostics_phase_quic">QUIC</string>
+    <string name="diagnostics_phase_tcp">TCP</string>
+    <string name="diagnostics_phase_svc">Svc</string>
+    <string name="diagnostics_phase_adaptation">Adaptation</string>
+    <string name="diagnostics_phase_tg">TG</string>
+    <string name="diagnostics_phase_rate">Rate</string>
+    <string name="diagnostics_status_validated">Validated</string>
+    <string name="diagnostics_status_suppressed">Suppressed</string>
+    <string name="diagnostics_status_observed">Observed</string>
+    <string name="diagnostics_source_strategy_probe">Strategy probe</string>
+    <string name="diagnostics_source_manual_session">Manual session</string>
+    <string name="diagnostics_network_fallback_title">Network %1$s</string>
+    <string name="diagnostics_current_match">Current match</string>
+    <string name="diagnostics_no_strategy_signature">No strategy signature captured</string>
+    <string name="diagnostics_eta_remaining">~%1$s remaining</string>
     <string name="diagnostics_audit_matrix_title">Audit matrix</string>
     <string name="diagnostics_audit_summary_title">Audit summary</string>
     <string name="diagnostics_audit_candidate_notes_title">Notes</string>
@@ -148,7 +189,7 @@
     <string name="home_permission_issue_with_settings">%1$s Open Settings or use the button below to repair access.</string>
     <string name="home_connection_button_connecting">Connecting...</string>
     <string name="home_overview_title">Overview</string>
-    <string name="home_approach_title">Bypass approach</string>
+    <string name="home_approach_title">Optimization approach</string>
     <string name="home_approach_cta">Open Diagnostics and review approach analytics</string>
     <string name="home_history_title">Review saved sessions and failures</string>
     <string name="home_history_body">History keeps durable connection sessions, sampled runtime diagnostics, and native failures outside the live Diagnostics tools.</string>
@@ -265,7 +306,7 @@
     <string name="host_autolearn_forget_action">Forget learned hosts</string>
     <string name="network_strategy_memory_section_title">Network strategy memory</string>
     <string name="network_strategy_memory_enabled_title">Remember policy per network</string>
-    <string name="network_strategy_memory_enabled_body">Store a validated bypass policy for the current network fingerprint and reuse it on future starts.</string>
+    <string name="network_strategy_memory_enabled_body">Store a validated routing policy for the current network fingerprint and reuse it on future starts.</string>
     <string name="network_strategy_memory_count_summary">%1$d remembered networks stored locally.</string>
     <string name="network_strategy_memory_clear_action">Clear remembered networks</string>
     <string name="network_strategy_memory_helper">Only validated network matches auto-apply. Raw SSID, BSSID, and carrier identifiers stay out of storage.</string>
@@ -411,7 +452,7 @@
     <string name="adaptive_split_preset_balanced">Adaptive (Balanced)</string>
     <string name="adaptive_split_preset_balanced_body">Recommended default. Biases toward the nearest semantic boundary around the live MSS-sized target for each payload.</string>
     <string name="adaptive_split_preset_host">Adaptive (Host/SNI start)</string>
-    <string name="adaptive_split_preset_host_body">Prefers the start of HTTP Host or TLS SNI. Useful when DPI reacts to the first hostname bytes.</string>
+    <string name="adaptive_split_preset_host_body">Prefers the start of HTTP Host or TLS SNI. Useful when the network reacts to the first hostname bytes.</string>
     <string name="adaptive_split_preset_endhost">Adaptive (Host/SNI end)</string>
     <string name="adaptive_split_preset_endhost_body">Prefers the end of HTTP Host or TLS SNI. Useful when you want the hostname tail moved into the next segment.</string>
     <string name="adaptive_split_preset_sniext">Adaptive (TLS SNI extension)</string>
@@ -995,7 +1036,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_hosts_blacklist_setting">Hosts blacklist</string>
     <string name="ripdpi_hosts_whitelist_setting">Hosts whitelist</string>
     <string name="host_pack_presets_title">Curated host packs</string>
-    <string name="host_pack_presets_body">Pick a ready-made service list for common blocked apps. Refresh can download a newer geosite snapshot, while Apply writes the selected pack into the blacklist or whitelist below.</string>
+    <string name="host_pack_presets_body">Pick a ready-made service list for common apps with connectivity issues. Refresh can download a newer geosite snapshot, while Apply writes the selected pack into the blacklist or whitelist below.</string>
     <string name="host_pack_preset_body">%1$s
 Source: %2$s</string>
     <string name="host_pack_hosts_badge">%1$d hosts</string>
@@ -1022,11 +1063,11 @@ Source: %2$s</string>
     <string name="host_pack_downloaded_status_title">Using verified download</string>
     <string name="host_pack_downloaded_status_body">The current curated host packs came from a checksum-verified geosite.dat download stored on this device.</string>
     <string name="host_pack_refresh_status_title">Refreshing curated host packs</string>
-    <string name="host_pack_refresh_status_body">RIPDPI is downloading geosite.dat from runetfreedom and will only replace the local cache after SHA-256 verification succeeds.</string>
+    <string name="host_pack_refresh_status_body">RIPDPI is downloading geosite.dat from the geosite repository and will only replace the local cache after SHA-256 verification succeeds.</string>
     <string name="host_pack_snapshot_built_label">Snapshot built</string>
     <string name="host_pack_last_fetch_label">Last verified fetch</string>
     <string name="host_pack_last_fetch_never">Not fetched yet</string>
-    <string name="host_pack_refresh_source_hint">Source: raw.githubusercontent.com/runetfreedom/russia-blocked-geosite/release/geosite.dat plus its published SHA-256 file.</string>
+    <string name="host_pack_refresh_source_hint">Source: raw.githubusercontent.com geosite repository release/geosite.dat plus its published SHA-256 file.</string>
     <string name="host_pack_refresh_action">Fetch latest list</string>
     <string name="host_pack_refresh_in_progress">Fetching latest list</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
@@ -1190,7 +1231,7 @@ Source: %2$s</string>
     <string name="notice_learned_hosts_cleared_title">Learned hosts cleared</string>
     <string name="notice_learned_hosts_cleared_message">Stored host learning was removed and the next RIPDPI start will rebuild it from scratch.</string>
     <string name="notice_remembered_networks_cleared_title">Remembered networks cleared</string>
-    <string name="notice_remembered_networks_cleared_message">RIPDPI removed all stored per-network bypass policies. Current settings remain unchanged.</string>
+    <string name="notice_remembered_networks_cleared_message">RIPDPI removed all stored per-network routing policies. Current settings remain unchanged.</string>
     <string name="notice_fake_tls_reset_next_start_title">Fake TLS profile reset for next start</string>
     <string name="notice_fake_tls_reset_next_start_message">The profile is back to the default fake ClientHello. Restart RIPDPI to apply it to the active session.</string>
     <string name="notice_fake_tls_reset_title">Fake TLS profile reset</string>
@@ -1370,7 +1411,7 @@ Source: %2$s</string>
     <!-- Diagnostics overview body -->
     <string name="diagnostics_body_healthy">Passive telemetry and the latest report do not show critical failures. Review live counters for drift.</string>
     <string name="diagnostics_body_attention">Warnings or partial failures were detected. Compare the latest scan outcome with the current live monitor.</string>
-    <string name="diagnostics_body_degraded">Recent events or scan outcomes indicate blocking, failures, or transport instability.</string>
+    <string name="diagnostics_body_degraded">Recent events or scan outcomes indicate degradation, failures, or transport instability.</string>
     <string name="diagnostics_body_idle">Start RIPDPI or run a scan to populate diagnostics analytics.</string>
 
     <!-- Diagnostics live headlines -->

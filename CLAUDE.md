@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Android VPN/proxy app for path optimization using in-repository Rust native modules for the local SOCKS5 proxy and VPN tunnel.
+Android VPN/proxy app for network optimization using in-repository Rust native modules for the local SOCKS5 proxy and VPN tunnel.
 
 ## Module Structure
 

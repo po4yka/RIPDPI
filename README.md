@@ -2,7 +2,7 @@
 
 **English** | [Русский](README-ru.md)
 
-Android application for bypassing DPI (Deep Packet Inspection) and censorship with:
+Android application for optimizing network connectivity with:
 
 - local proxy mode
 - local VPN redirection mode
@@ -16,7 +16,7 @@ RIPDPI runs a local SOCKS5 proxy derived from [ByeDPI](https://github.com/hufrea
 
 ## Diagnostics
 
-RIPDPI includes an integrated diagnostics screen for active DPI checks and passive runtime monitoring.
+RIPDPI includes an integrated diagnostics screen for active network checks and passive runtime monitoring.
 
 Implemented diagnostic mechanisms:
 
@@ -25,7 +25,7 @@ Implemented diagnostic mechanisms:
 - DNS integrity checks across UDP DNS and encrypted resolvers (DoH/DoT/DNSCrypt)
 - Domain reachability checks with TLS and HTTP classification
 - TCP 16-20 KB cutoff detection with repeated fat-header requests
-- Whitelist SNI retry detection for blocked TLS paths
+- Whitelist SNI retry detection for restricted TLS paths
 - Resolver recommendations with diversified DoH/DoT/DNSCrypt path candidates, bootstrap validation, temporary session overrides, and save-to-settings actions
 - Passive native telemetry while proxy or VPN service is running
 - Export bundles with `summary.txt`, `report.json`, `telemetry.csv`, and `manifest.json`

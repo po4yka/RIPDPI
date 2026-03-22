@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import android.content.Context
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
@@ -62,20 +64,23 @@ internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
 ): DiagnosticsRememberedNetworkUiModel {
     val summary = policy.summary
     val signature = policy.strategySignature
+    val ctx = context
     val isCurrentMatch = activeConnectionPolicy?.matchedPolicy?.id == policy.id
     return DiagnosticsRememberedNetworkUiModel(
         id = policy.id,
-        title = summary?.displayNetworkLabel() ?: "Network ${policy.fingerprintHash.take(12)}",
+        title = summary?.displayNetworkLabel()
+            ?: ctx.getString(R.string.diagnostics_network_fallback_title, policy.fingerprintHash.take(12)),
         subtitle =
             listOf(
                 policy.mode.uppercase(Locale.US),
-                policy.source.displaySourceLabel(),
-                if (isCurrentMatch) "Current match" else null,
+                policy.source.displaySourceLabel(ctx),
+                if (isCurrentMatch) ctx.getString(R.string.diagnostics_current_match) else null,
             ).filterNotNull().joinToString(" · "),
-        status = policy.status.displayStatusLabel(),
+        status = policy.status.displayStatusLabel(ctx),
         statusTone = policy.status.statusTone(),
-        source = policy.source.displaySourceLabel(),
-        strategyLabel = signature?.displayStrategyLabel() ?: "No strategy signature captured",
+        source = policy.source.displaySourceLabel(ctx),
+        strategyLabel = signature?.displayStrategyLabel()
+            ?: ctx.getString(R.string.diagnostics_no_strategy_signature),
         lastValidatedLabel = policy.lastValidatedAt?.let(::formatTimestamp),
         lastAppliedLabel = policy.lastAppliedAt?.let(::formatTimestamp),
         successCount = policy.successCount,
@@ -90,16 +95,16 @@ internal fun DiagnosticsUiFactorySupport.toEventUiModel(event: DiagnosticEvent):
 private val connectivityPhaseOrder = listOf("dns", "reachability", "quic", "tcp", "service", "circumvention", "telegram", "throughput")
 private val strategyProbePhaseOrder = listOf("tcp", "quic")
 
-private fun String.toPhaseLabel(): String =
+private fun String.toPhaseLabel(ctx: Context): String =
     when (this) {
-        "dns" -> "DNS"
-        "reachability" -> "Reach"
-        "quic" -> "QUIC"
-        "tcp" -> "TCP"
-        "service" -> "Svc"
-        "circumvention" -> "Bypass"
-        "telegram" -> "TG"
-        "throughput" -> "Rate"
+        "dns" -> ctx.getString(R.string.diagnostics_phase_dns)
+        "reachability" -> ctx.getString(R.string.diagnostics_phase_reach)
+        "quic" -> ctx.getString(R.string.diagnostics_phase_quic)
+        "tcp" -> ctx.getString(R.string.diagnostics_phase_tcp)
+        "service" -> ctx.getString(R.string.diagnostics_phase_svc)
+        "circumvention" -> ctx.getString(R.string.diagnostics_phase_adaptation)
+        "telegram" -> ctx.getString(R.string.diagnostics_phase_tg)
+        "throughput" -> ctx.getString(R.string.diagnostics_phase_rate)
         else -> replaceFirstChar { it.uppercase() }
     }
 
@@ -129,7 +134,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
     val etaLabel =
         if (fraction >= 0.1f && elapsedMs > 0L) {
             val etaMs = (elapsedMs / fraction * (1f - fraction)).toLong()
-            "~${formatDurationMs(etaMs)} remaining"
+            context.getString(R.string.diagnostics_eta_remaining, formatDurationMs(etaMs))
         } else {
             null
         }
@@ -148,7 +153,7 @@ internal fun DiagnosticsUiFactorySupport.toProgressUiModel(
                     else -> PhaseState.Pending
                 }
             PhaseStepUiModel(
-                label = phase.toPhaseLabel(),
+                label = phase.toPhaseLabel(context),
                 state = state,
                 tone = state.tone(),
             )
@@ -174,11 +179,11 @@ internal fun DiagnosticsUiFactorySupport.toneForOutcome(value: String): Diagnost
 internal fun scanCompletedTone(latestSession: DiagnosticsSessionRowUiModel?): DiagnosticsTone =
     latestSession?.tone ?: DiagnosticsTone.Neutral
 
-internal fun String.displayStatusLabel(): String =
+internal fun String.displayStatusLabel(ctx: Context): String =
     when (lowercase(Locale.US)) {
-        "validated" -> "Validated"
-        "suppressed" -> "Suppressed"
-        else -> "Observed"
+        "validated" -> ctx.getString(R.string.diagnostics_status_validated)
+        "suppressed" -> ctx.getString(R.string.diagnostics_status_suppressed)
+        else -> ctx.getString(R.string.diagnostics_status_observed)
     }
 
 internal fun String.statusTone(): DiagnosticsTone =
@@ -188,10 +193,10 @@ internal fun String.statusTone(): DiagnosticsTone =
         else -> DiagnosticsTone.Info
     }
 
-internal fun String.displaySourceLabel(): String =
+internal fun String.displaySourceLabel(ctx: Context): String =
     when (lowercase(Locale.US)) {
-        "strategy_probe" -> "Strategy probe"
-        else -> "Manual session"
+        "strategy_probe" -> ctx.getString(R.string.diagnostics_source_strategy_probe)
+        else -> ctx.getString(R.string.diagnostics_source_manual_session)
     }
 
 internal fun BypassApproachSummary.toDiagnosticsTone(): DiagnosticsTone =

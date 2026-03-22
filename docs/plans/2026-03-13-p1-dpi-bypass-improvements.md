@@ -1,8 +1,8 @@
-# P1 DPI Bypass Improvements Implementation Plan
+# P1 Network Optimization Improvements Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Implement three P1 improvements to RIPDPI's path optimization: (1) QUIC fake packet size cap ≤1000 bytes to avoid Russian middlebox 1001-byte threshold, (2) QUIC→TCP fallback cache so repeated QUIC failures cause the proxy to bypass QUIC desync, and (3) `ThrottlingFreeze` failure detection for the 2025 Russian ISP TCP freeze pattern.
+**Goal:** Implement three P1 improvements to RIPDPI's network optimization: (1) QUIC fake packet size cap ≤1000 bytes to avoid Russian middlebox 1001-byte threshold, (2) QUIC→TCP fallback cache so repeated QUIC failures cause the proxy to bypass QUIC desync, and (3) `ThrottlingFreeze` failure detection for the 2025 Russian ISP TCP freeze pattern.
 
 **Architecture:**
 - Task 1 adds `quic_max_initial_bytes: Option<u16>` to `DesyncGroup` in `ciadpi-config` and enforces it in `udp_fake_payload()` in `ciadpi-desync`.
