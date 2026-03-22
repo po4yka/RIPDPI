@@ -11,12 +11,13 @@ use ripdpi_config::{
     DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
 use ripdpi_failure_classifier::{
-    classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
+    classify_strategy_execution_failure, classify_transport_error, ClassifiedFailure, FailureAction, FailureClass,
+    FailureStage,
 };
 use ripdpi_session::SessionState;
 
 use super::adaptive::{note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_server_ttl_for_route};
-use super::desync::send_with_group;
+use super::desync::{desync_action_context, send_with_group};
 use super::retry::note_retry_success;
 use super::routing::{
     advance_route_for_failure, classify_response_failure, emit_failure_classified, note_route_success,
@@ -66,7 +67,7 @@ pub(super) fn relay(
                     host.as_deref(),
                     target,
                 ) {
-                    let failure = classify_transport_error(FailureStage::FirstWrite, &err);
+                    let failure = classify_first_write_failure(&err);
                     emit_failure_classified(state, target, &failure, host.as_deref());
                     let next = advance_route_for_failure(
                         state,
@@ -546,6 +547,21 @@ fn copy_outbound_half(
     Ok(())
 }
 
+fn classify_first_write_failure(error: &io::Error) -> ClassifiedFailure {
+    if let Some(context) = desync_action_context(error) {
+        if let Some(failure) = classify_strategy_execution_failure(
+            FailureStage::FirstWrite,
+            context.action,
+            context.kind,
+            context.errno,
+            error.to_string(),
+        ) {
+            return failure;
+        }
+    }
+    classify_transport_error(FailureStage::FirstWrite, error)
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(test)]
@@ -554,6 +570,32 @@ mod tests {
     use ripdpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_session::TriggerEvent;
+
+    #[test]
+    fn first_write_desync_capability_errors_classify_as_strategy_execution_failures() {
+        let failure = classify_first_write_failure(&super::super::desync::wrap_desync_action_error(
+            "set_ttl",
+            io::Error::from_raw_os_error(libc::EINVAL),
+        ));
+
+        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.stage, FailureStage::FirstWrite);
+        assert_eq!(failure.action, FailureAction::RetryWithMatchingGroup);
+        assert!(failure.evidence.summary.contains("desync action=set_ttl"));
+    }
+
+    #[test]
+    fn first_write_desync_unsupported_actions_classify_as_strategy_execution_failures() {
+        let failure = classify_first_write_failure(&super::super::desync::wrap_desync_action_error(
+            "await_writable",
+            io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"),
+        ));
+
+        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.stage, FailureStage::FirstWrite);
+        assert_eq!(failure.action, FailureAction::RetryWithMatchingGroup);
+        assert!(failure.evidence.summary.contains("desync action=await_writable"));
+    }
 
     #[test]
     fn timeout_and_trigger_helpers_follow_runtime_configuration() {

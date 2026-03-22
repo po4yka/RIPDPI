@@ -98,6 +98,7 @@ pub(super) fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
         FailureClass::Redirect => DETECT_HTTP_LOCAT,
         FailureClass::TlsHandshakeFailure => DETECT_TLS_HANDSHAKE_FAILURE,
         FailureClass::ConnectFailure => DETECT_CONNECT,
+        FailureClass::StrategyExecutionFailure => DETECT_CONNECT,
         FailureClass::Unknown => 0,
     }
 }
