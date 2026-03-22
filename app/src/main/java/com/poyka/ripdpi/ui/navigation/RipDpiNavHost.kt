@@ -22,6 +22,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -29,6 +31,7 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
+import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
@@ -178,13 +181,13 @@ private fun TopLevelBottomBar(
 private fun RipDpiNavGraph(
     startDestination: String,
     innerPadding: androidx.compose.foundation.layout.PaddingValues,
-    navController: androidx.navigation.NavHostController,
+    navController: NavHostController,
     animationsEnabled: Boolean,
     routeDurationMillis: Int,
     quickDurationMillis: Int,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
-    mainUiState: com.poyka.ripdpi.activities.MainUiState,
+    mainUiState: MainUiState,
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
@@ -198,106 +201,138 @@ private fun RipDpiNavGraph(
         popEnterTransition = { routePopEnterTransition(animationsEnabled, routeDurationMillis) },
         popExitTransition = { routePopExitTransition(animationsEnabled, quickDurationMillis) },
     ) {
-        composable(Route.Onboarding.route) {
-            OnboardingRoute(
-                onComplete = {
-                    navController.navigate(Route.Home.route) {
-                        popUpTo(Route.Onboarding.route) { inclusive = true }
-                    }
-                },
-            )
-        }
-        composable(Route.Home.route) {
-            HomeRoute(
-                onStartConfiguredMode = actions.onStartConfiguredMode,
-                onOpenDiagnostics = {
-                    onDiagnosticsInitialSectionChanged(DiagnosticsSection.Approaches)
-                    navController.navigate(Route.Diagnostics.route) {
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                onOpenHistory = { navController.navigate(Route.History.route) { launchSingleTop = true } },
-                onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
-                viewModel = mainViewModel,
-            )
-        }
-        composable(Route.Config.route) {
-            ConfigRoute(
-                onOpenModeEditor = { navController.navigate(Route.ModeEditor.route) },
-                onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
-            )
-        }
-        composable(Route.Diagnostics.route) {
-            val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
-            DiagnosticsRoute(
-                onShareArchive = actions.onShareDiagnosticsArchive,
-                onSaveArchive = actions.onSaveDiagnosticsArchive,
-                onShareSummary = actions.onShareDiagnosticsSummary,
-                onSaveLogs = actions.onSaveLogs,
-                onOpenHistory = { navController.navigate(Route.History.route) { launchSingleTop = true } },
-                initialSection = diagnosticsInitialSection,
-                onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
-                viewModel = diagnosticsViewModel,
-            )
-        }
-        composable(Route.History.route) {
-            HistoryRoute(onBack = { navController.popBackStack() })
-        }
-        composable(Route.ModeEditor.route) {
-            val configBackStackEntry = remember(navController) { navController.getBackStackEntry(Route.Config.route) }
-            ModeEditorRoute(
-                onBack = { navController.popBackStack() },
-                viewModel = hiltViewModel(configBackStackEntry),
-            )
-        }
-        composable(Route.BiometricPrompt.route) {
-            BiometricPromptRoute(
-                onAuthenticated = {
-                    navController.navigate(Route.Home.route) {
-                        popUpTo(Route.BiometricPrompt.route) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
-            )
-        }
-        navigation(
-            startDestination = Route.Settings.route,
-            route = SettingsGraphRoute,
-        ) {
-            composable(Route.Settings.route) {
-                val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-                SettingsRoute(
-                    onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
-                    onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings.route) },
-                    onOpenCustomization = { navController.navigate(Route.AppCustomization.route) },
-                    onOpenAbout = { navController.navigate(Route.About.route) },
-                    onOpenDataTransparency = { navController.navigate(Route.DataTransparency.route) },
-                    onShareDebugBundle = actions.onShareDebugBundle,
-                    permissionSummary = mainUiState.permissionSummary,
-                    onRepairPermission = actions.onRepairPermission,
-                    onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
-                    viewModel = settingsViewModel,
-                )
-            }
-            composable(Route.DnsSettings.route) {
-                val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-                DnsSettingsRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
-            }
-            composable(Route.AdvancedSettings.route) {
-                val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-                AdvancedSettingsRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
-            }
-            composable(Route.AppCustomization.route) {
-                val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-                AppCustomizationRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
-            }
-            composable(Route.DataTransparency.route) {
-                DataTransparencyRoute(onBack = { navController.popBackStack() })
-            }
-        }
+        addPrimaryRoutes(
+            navController = navController,
+            actions = actions,
+            mainViewModel = mainViewModel,
+            diagnosticsInitialSection = diagnosticsInitialSection,
+            onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
+        )
+        addSettingsRoutes(
+            navController = navController,
+            settingsGraphEntry = settingsGraphEntry,
+            actions = actions,
+            mainViewModel = mainViewModel,
+            mainUiState = mainUiState,
+        )
         composable(Route.About.route) {
             AboutRoute(onBack = { navController.popBackStack() })
+        }
+    }
+}
+
+private fun NavGraphBuilder.addPrimaryRoutes(
+    navController: NavHostController,
+    actions: RipDpiNavHostActions,
+    mainViewModel: MainViewModel,
+    diagnosticsInitialSection: DiagnosticsSection?,
+    onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
+) {
+    composable(Route.Onboarding.route) {
+        OnboardingRoute(
+            onComplete = {
+                navController.navigate(Route.Home.route) {
+                    popUpTo(Route.Onboarding.route) { inclusive = true }
+                }
+            },
+        )
+    }
+    composable(Route.Home.route) {
+        HomeRoute(
+            onStartConfiguredMode = actions.onStartConfiguredMode,
+            onOpenDiagnostics = {
+                onDiagnosticsInitialSectionChanged(DiagnosticsSection.Approaches)
+                navController.navigate(Route.Diagnostics.route) {
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            },
+            onOpenHistory = { navController.navigate(Route.History.route) { launchSingleTop = true } },
+            onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
+            viewModel = mainViewModel,
+        )
+    }
+    composable(Route.Config.route) {
+        ConfigRoute(
+            onOpenModeEditor = { navController.navigate(Route.ModeEditor.route) },
+            onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
+        )
+    }
+    composable(Route.Diagnostics.route) {
+        val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
+        DiagnosticsRoute(
+            onShareArchive = actions.onShareDiagnosticsArchive,
+            onSaveArchive = actions.onSaveDiagnosticsArchive,
+            onShareSummary = actions.onShareDiagnosticsSummary,
+            onSaveLogs = actions.onSaveLogs,
+            onOpenHistory = { navController.navigate(Route.History.route) { launchSingleTop = true } },
+            initialSection = diagnosticsInitialSection,
+            onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
+            viewModel = diagnosticsViewModel,
+        )
+    }
+    composable(Route.History.route) {
+        HistoryRoute(onBack = { navController.popBackStack() })
+    }
+    composable(Route.ModeEditor.route) {
+        val configBackStackEntry = remember(navController) { navController.getBackStackEntry(Route.Config.route) }
+        ModeEditorRoute(
+            onBack = { navController.popBackStack() },
+            viewModel = hiltViewModel(configBackStackEntry),
+        )
+    }
+    composable(Route.BiometricPrompt.route) {
+        BiometricPromptRoute(
+            onAuthenticated = {
+                navController.navigate(Route.Home.route) {
+                    popUpTo(Route.BiometricPrompt.route) { inclusive = true }
+                    launchSingleTop = true
+                }
+            },
+        )
+    }
+}
+
+private fun NavGraphBuilder.addSettingsRoutes(
+    navController: NavHostController,
+    settingsGraphEntry: androidx.navigation.NavBackStackEntry,
+    actions: RipDpiNavHostActions,
+    mainViewModel: MainViewModel,
+    mainUiState: MainUiState,
+) {
+    navigation(
+        startDestination = Route.Settings.route,
+        route = SettingsGraphRoute,
+    ) {
+        composable(Route.Settings.route) {
+            val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+            SettingsRoute(
+                onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
+                onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings.route) },
+                onOpenCustomization = { navController.navigate(Route.AppCustomization.route) },
+                onOpenAbout = { navController.navigate(Route.About.route) },
+                onOpenDataTransparency = { navController.navigate(Route.DataTransparency.route) },
+                onShareDebugBundle = actions.onShareDebugBundle,
+                permissionSummary = mainUiState.permissionSummary,
+                onRepairPermission = actions.onRepairPermission,
+                onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
+                viewModel = settingsViewModel,
+            )
+        }
+        composable(Route.DnsSettings.route) {
+            val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+            DnsSettingsRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
+        }
+        composable(Route.AdvancedSettings.route) {
+            val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+            AdvancedSettingsRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
+        }
+        composable(Route.AppCustomization.route) {
+            val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
+            AppCustomizationRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
+        }
+        composable(Route.DataTransparency.route) {
+            DataTransparencyRoute(onBack = { navController.popBackStack() })
         }
     }
 }
