@@ -495,17 +495,18 @@ fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u
 }
 
 fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
-    let relay = super::udp::build_udp_relay_socket(client.local_addr()?.ip(), state.config.protect_path.as_deref())?;
-    let reply_addr = relay.local_addr()?;
+    let local_ip = client.local_addr()?.ip();
+    let relay = super::udp::build_udp_relay_sockets(local_ip, state.config.protect_path.as_deref())?;
+    let reply_addr = relay.client.local_addr()?;
     client.write_all(encode_socks5_reply(0, reply_addr).as_bytes())?;
 
     let running = Arc::new(AtomicBool::new(true));
-    let worker_socket = relay.try_clone()?;
     let worker_running = running.clone();
     let worker_state = state.clone();
+    let worker_protect_path = state.config.protect_path.clone();
     let worker = thread::Builder::new()
         .name("ripdpi-udp".into())
-        .spawn(move || super::udp::udp_associate_loop(worker_socket, worker_state, worker_running))
+        .spawn(move || super::udp::udp_associate_loop(relay.client, worker_protect_path, worker_state, worker_running))
         .map_err(|err| io::Error::other(format!("failed to spawn UDP relay thread: {err}")))?;
 
     client.set_read_timeout(Some(Duration::from_millis(250)))?;
