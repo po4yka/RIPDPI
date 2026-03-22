@@ -157,13 +157,8 @@ pub fn classify_transport_error(stage: FailureStage, error: &io::Error) -> Class
             error.to_string(),
         )
         .with_tag("kind", format!("{kind:?}")),
-        _ => ClassifiedFailure::new(
-            FailureClass::Unknown,
-            stage,
-            FailureAction::SurfaceOnly,
-            error.to_string(),
-        )
-        .with_tag("kind", format!("{kind:?}")),
+        _ => ClassifiedFailure::new(FailureClass::Unknown, stage, FailureAction::SurfaceOnly, error.to_string())
+            .with_tag("kind", format!("{kind:?}")),
     }
 }
 
@@ -300,10 +295,7 @@ fn parse_http_response(response: &[u8]) -> Option<ParsedHttpResponse> {
     let mut parts = status_line.splitn(3, ' ');
     let _ = parts.next()?;
     let status_code = parts.next()?.parse::<u16>().ok()?;
-    Some(ParsedHttpResponse {
-        status_code,
-        body: response[headers_end + 4..].to_vec(),
-    })
+    Some(ParsedHttpResponse { status_code, body: response[headers_end + 4..].to_vec() })
 }
 
 fn find_headers_end(response: &[u8]) -> Option<usize> {
@@ -311,9 +303,7 @@ fn find_headers_end(response: &[u8]) -> Option<usize> {
 }
 
 fn body_has_blockpage_keywords(body: &str) -> bool {
-    ["blocked", "access denied", "forbidden", "restriction", "censorship"]
-        .iter()
-        .any(|needle| body.contains(needle))
+    ["blocked", "access denied", "forbidden", "restriction", "censorship"].iter().any(|needle| body.contains(needle))
 }
 
 #[cfg(test)]
@@ -355,10 +345,7 @@ mod tests {
         let classified = confirm_dns_tampering(
             "example.org",
             "203.0.113.9".parse().expect("target"),
-            &[
-                "198.51.100.10".parse().expect("answer"),
-                "198.51.100.11".parse().expect("answer"),
-            ],
+            &["198.51.100.10".parse().expect("answer"), "198.51.100.11".parse().expect("answer")],
             "cloudflare",
         )
         .expect("dns tampering");

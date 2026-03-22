@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod", "LongParameterList")
-
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
@@ -23,58 +21,32 @@ internal class DiagnosticsUiStateFactory
         private val support: DiagnosticsUiFactorySupport,
         private val sessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
     ) {
-        fun buildUiState(
-            profiles: List<DiagnosticProfile>,
-            settings: AppSettings,
-            progress: ScanProgress?,
-            sessions: List<DiagnosticScanSession>,
-            approachStats: List<BypassApproachSummary>,
-            snapshots: List<DiagnosticNetworkSnapshot>,
-            contexts: List<DiagnosticContextSnapshot>,
-            telemetry: List<DiagnosticTelemetrySample>,
-            nativeEvents: List<DiagnosticEvent>,
-            exports: List<DiagnosticExportRecord>,
-            rememberedPolicies: List<DiagnosticsRememberedPolicy>,
-            activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
-            selectedSectionRequest: DiagnosticsSection,
-            selectedProfileId: String?,
-            selectedApproachMode: DiagnosticsApproachMode,
-            selectedProbe: DiagnosticsProbeResultUiModel?,
-            selectedEventId: String?,
-            sessionPathMode: String?,
-            sessionStatus: String?,
-            sessionSearch: String,
-            eventSource: String?,
-            eventSeverity: String?,
-            eventSearch: String,
-            eventAutoScroll: Boolean,
-            selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
-            selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,
-            selectedApproachDetail: DiagnosticsApproachDetailUiModel?,
-            sensitiveSessionDetailsVisible: Boolean,
-            archiveActionState: ArchiveActionState,
-            scanStartedAt: Long?,
-            completedProbes: List<CompletedProbeUiModel> = emptyList(),
-        ): DiagnosticsUiState {
-            val activeProfile = profiles.firstOrNull { it.id == selectedProfileId } ?: profiles.firstOrNull()
+        fun buildUiState(input: DiagnosticsUiStateInput): DiagnosticsUiState {
+            val activeProfile =
+                input.profiles.firstOrNull { it.id == input.selectedProfileId }
+                    ?: input.profiles.firstOrNull()
             val activeProfileRequest = activeProfile?.request
             val selectedProfileUi = activeProfile?.let(support::toProfileOptionUiModel)
 
             val latestSnapshot =
-                snapshots.firstOrNull()?.let { support.toNetworkSnapshotUiModel(it, showSensitiveDetails = false) }
+                input.snapshots
+                    .firstOrNull()
+                    ?.let { support.toNetworkSnapshotUiModel(it, showSensitiveDetails = false) }
             val latestContext =
-                (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.context
-            val eventModels = nativeEvents.map(support::toEventUiModel)
-            val sessionRows = sessions.map(support::toSessionRowUiModel)
+                (input.contexts.firstOrNull { it.sessionId == null } ?: input.contexts.firstOrNull())?.context
+            val eventModels = input.nativeEvents.map(support::toEventUiModel)
+            val sessionRows = input.sessions.map(support::toSessionRowUiModel)
 
-            val latestCompletedSession = sessions.firstOrNull { it.report != null } ?: sessions.firstOrNull()
+            val latestCompletedSession =
+                input.sessions.firstOrNull { it.report != null } ?: input.sessions.firstOrNull()
             val latestProfileSession =
-                sessions.firstOrNull { it.profileId == activeProfile?.id && it.report != null }
-                    ?: sessions.firstOrNull { it.profileId == activeProfile?.id }
+                input.sessions.firstOrNull { it.profileId == activeProfile?.id && it.report != null }
+                    ?: input.sessions.firstOrNull { it.profileId == activeProfile?.id }
                     ?: latestCompletedSession
             val latestProfileReport = latestProfileSession?.report
             val latestReport = latestCompletedSession?.report
-            val latestReportResults = latestProfileReport?.results?.mapIndexed(support::toProbeResultUiModel).orEmpty()
+            val latestReportResults =
+                latestProfileReport?.results?.mapIndexed(support::toProbeResultUiModel).orEmpty()
             val latestResolverRecommendation =
                 latestProfileReport?.resolverRecommendation?.let(support::toResolverRecommendationUiModel)
             val latestStrategyProbeReport =
@@ -86,30 +58,36 @@ internal class DiagnosticsUiStateFactory
                     )
                 }
 
-            val currentTelemetry = telemetry.firstOrNull()
-            val health = support.deriveHealth(progress, latestCompletedSession, currentTelemetry, nativeEvents)
+            val currentTelemetry = input.telemetry.firstOrNull()
+            val health =
+                support.deriveHealth(
+                    input.progress,
+                    latestCompletedSession,
+                    currentTelemetry,
+                    input.nativeEvents,
+                )
             val warnings =
                 (
                     support.buildContextWarnings(latestContext) +
                         eventModels.filter { it.tone == DiagnosticsTone.Negative || it.tone == DiagnosticsTone.Warning }
                 ).take(3)
             val rememberedNetworkRows =
-                rememberedPolicies.map { policy ->
-                    support.toRememberedNetworkUiModel(policy, activeConnectionPolicy)
+                input.rememberedPolicies.map { policy ->
+                    support.toRememberedNetworkUiModel(policy, input.activeConnectionPolicy)
                 }
 
             val selectedSection =
-                if (progress != null) {
+                if (input.progress != null) {
                     DiagnosticsSection.Scan
                 } else {
-                    selectedSectionRequest
+                    input.selectedSectionRequest
                 }
             val sessionDetailWithVisibility =
-                selectedSessionDetail?.copy(
-                    sensitiveDetailsVisible = sensitiveSessionDetailsVisible,
+                input.selectedSessionDetail?.copy(
+                    sensitiveDetailsVisible = input.sensitiveSessionDetailsVisible,
                 )
             val resolvedSelectedStrategyProbeCandidate =
-                selectedStrategyProbeCandidate?.let { candidate ->
+                input.selectedStrategyProbeCandidate?.let { candidate ->
                     sessionDetailWithVisibility
                         ?.strategyProbeReport
                         ?.candidateDetails
@@ -120,11 +98,11 @@ internal class DiagnosticsUiStateFactory
             val (eventsUi, selectedEvent) =
                 support.buildEventsUiModel(
                     eventModels = eventModels,
-                    selectedEventId = selectedEventId,
-                    eventSource = eventSource,
-                    eventSeverity = eventSeverity,
-                    eventSearch = eventSearch,
-                    eventAutoScroll = eventAutoScroll,
+                    selectedEventId = input.selectedEventId,
+                    eventSource = input.eventSource,
+                    eventSeverity = input.eventSeverity,
+                    eventSearch = input.eventSearch,
+                    eventAutoScroll = input.eventAutoScroll,
                 )
 
             return DiagnosticsUiState(
@@ -132,13 +110,13 @@ internal class DiagnosticsUiStateFactory
                 overview =
                     support.buildOverviewUiModel(
                         health = health,
-                        progress = progress,
+                        progress = input.progress,
                         latestSession = latestCompletedSession,
                         latestSnapshot = latestSnapshot,
                         latestContext = latestContext,
                         currentTelemetry = currentTelemetry,
-                        sessions = sessions,
-                        nativeEvents = nativeEvents,
+                        sessions = input.sessions,
+                        nativeEvents = input.nativeEvents,
                         selectedProfile = selectedProfileUi,
                         sessionRows = sessionRows,
                         rememberedNetworkRows = rememberedNetworkRows,
@@ -146,42 +124,42 @@ internal class DiagnosticsUiStateFactory
                     ),
                 scan =
                     support.buildScanUiModel(
-                        profiles = profiles,
+                        profiles = input.profiles,
                         activeProfile = activeProfile,
                         activeProfileRequest = activeProfileRequest,
                         latestProfileSession = latestProfileSession,
                         latestReportResults = latestReportResults,
                         latestResolverRecommendation = latestResolverRecommendation,
                         latestStrategyProbeReport = latestStrategyProbeReport,
-                        progress = progress,
-                        rawArgsEnabled = settings.enableCmdSettings,
-                        scanStartedAt = scanStartedAt,
-                        completedProbes = completedProbes,
+                        progress = input.progress,
+                        rawArgsEnabled = input.settings.enableCmdSettings,
+                        scanStartedAt = input.scanStartedAt,
+                        completedProbes = input.completedProbes,
                     ),
                 live =
                     support.buildLiveUiModel(
                         health = health,
-                        telemetry = telemetry,
+                        telemetry = input.telemetry,
                         currentTelemetry = currentTelemetry,
-                        nativeEvents = nativeEvents,
+                        nativeEvents = input.nativeEvents,
                         latestSnapshot = latestSnapshot,
                         latestContext = latestContext,
                         eventModels = eventModels,
                     ),
                 sessions =
                     support.buildSessionsUiModel(
-                        sessions = sessions,
+                        sessions = input.sessions,
                         sessionRows = sessionRows,
-                        sessionPathMode = sessionPathMode,
-                        sessionStatus = sessionStatus,
-                        sessionSearch = sessionSearch,
-                        selectedSessionDetail = selectedSessionDetail,
+                        sessionPathMode = input.sessionPathMode,
+                        sessionStatus = input.sessionStatus,
+                        sessionSearch = input.sessionSearch,
+                        selectedSessionDetail = input.selectedSessionDetail,
                     ),
                 approaches =
                     support.buildApproachesUiModel(
-                        approachStats = approachStats,
-                        selectedApproachMode = selectedApproachMode,
-                        selectedApproachDetail = selectedApproachDetail,
+                        approachStats = input.approachStats,
+                        selectedApproachMode = input.selectedApproachMode,
+                        selectedApproachDetail = input.selectedApproachDetail,
                     ),
                 events = eventsUi,
                 share =
@@ -190,17 +168,17 @@ internal class DiagnosticsUiStateFactory
                         latestSnapshot = latestSnapshot,
                         latestContext = latestContext,
                         currentTelemetry = currentTelemetry,
-                        nativeEvents = nativeEvents,
+                        nativeEvents = input.nativeEvents,
                         latestReport = latestReport,
-                        approachStats = approachStats,
-                        selectedSessionDetail = selectedSessionDetail,
-                        archiveActionState = archiveActionState,
-                        exports = exports,
+                        approachStats = input.approachStats,
+                        selectedSessionDetail = input.selectedSessionDetail,
+                        archiveActionState = input.archiveActionState,
+                        exports = input.exports,
                     ),
                 selectedSessionDetail = sessionDetailWithVisibility,
-                selectedApproachDetail = selectedApproachDetail,
+                selectedApproachDetail = input.selectedApproachDetail,
                 selectedEvent = selectedEvent,
-                selectedProbe = selectedProbe,
+                selectedProbe = input.selectedProbe,
                 selectedStrategyProbeCandidate = resolvedSelectedStrategyProbeCandidate,
             )
         }
@@ -224,3 +202,37 @@ internal class DiagnosticsUiStateFactory
         ): CompletedProbeUiModel =
             CompletedProbeUiModel(target = target, outcome = outcome, tone = support.toneForOutcome(outcome))
     }
+
+internal data class DiagnosticsUiStateInput(
+    val profiles: List<DiagnosticProfile>,
+    val settings: AppSettings,
+    val progress: ScanProgress?,
+    val sessions: List<DiagnosticScanSession>,
+    val approachStats: List<BypassApproachSummary>,
+    val snapshots: List<DiagnosticNetworkSnapshot>,
+    val contexts: List<DiagnosticContextSnapshot>,
+    val telemetry: List<DiagnosticTelemetrySample>,
+    val nativeEvents: List<DiagnosticEvent>,
+    val exports: List<DiagnosticExportRecord>,
+    val rememberedPolicies: List<DiagnosticsRememberedPolicy>,
+    val activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
+    val selectedSectionRequest: DiagnosticsSection,
+    val selectedProfileId: String?,
+    val selectedApproachMode: DiagnosticsApproachMode,
+    val selectedProbe: DiagnosticsProbeResultUiModel?,
+    val selectedEventId: String?,
+    val sessionPathMode: String?,
+    val sessionStatus: String?,
+    val sessionSearch: String,
+    val eventSource: String?,
+    val eventSeverity: String?,
+    val eventSearch: String,
+    val eventAutoScroll: Boolean,
+    val selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
+    val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,
+    val selectedApproachDetail: DiagnosticsApproachDetailUiModel?,
+    val sensitiveSessionDetailsVisible: Boolean,
+    val archiveActionState: ArchiveActionState,
+    val scanStartedAt: Long?,
+    val completedProbes: List<CompletedProbeUiModel> = emptyList(),
+)

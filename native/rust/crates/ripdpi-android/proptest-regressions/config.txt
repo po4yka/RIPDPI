@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 8057632f72f8b91ced9970971feeba4e1c5c5c381b50b858d62b568b0d2865f9 # shrinks to ip = "127.0.0.1", port = 1, max_connections = 1, buffer_size = 1, tcp_fast_open = false, drop_sack = false, udp_fake_count = 1, hosts_mode = "disable"

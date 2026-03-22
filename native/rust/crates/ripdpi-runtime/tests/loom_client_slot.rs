@@ -8,8 +8,8 @@
 
 #[cfg(feature = "loom")]
 mod tests {
-    use loom::sync::Arc;
     use loom::sync::atomic::{AtomicUsize, Ordering};
+    use loom::sync::Arc;
 
     /// Mimics `ClientSlotGuard::acquire`: CAS-loop incrementing `active` up to `limit`.
     fn acquire(active: &Arc<AtomicUsize>, limit: usize) -> bool {

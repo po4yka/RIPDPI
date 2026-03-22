@@ -172,8 +172,7 @@ impl SessionState {
         self.recv_count += payload.len();
         self.sent_this_round = 0;
         if self.saw_tls_client_hello
-            && (!is_tls_server_hello(payload)
-                || tls_session_id_mismatch(&self.client_hello_prefix, payload))
+            && (!is_tls_server_hello(payload) || tls_session_id_mismatch(&self.client_hello_prefix, payload))
         {
             self.saw_tls_client_hello = false;
         }

@@ -1,6 +1,6 @@
+use crate::sync::{Arc, AtomicBool, Ordering};
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream, ToSocketAddrs};
-use crate::sync::{Arc, AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 

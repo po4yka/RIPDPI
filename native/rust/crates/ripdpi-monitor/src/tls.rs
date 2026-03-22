@@ -133,7 +133,9 @@ pub(crate) fn open_probe_stream(
             };
             let config = if verify_certificates {
                 if let Some(verifier) = tls_verifier {
-                    Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
+                    Arc::new(
+                        builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth(),
+                    )
                 } else {
                     Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
                 }
@@ -226,12 +228,7 @@ mod tests {
     use std::net::IpAddr;
 
     fn obs(status: &str, cert_anomaly: bool) -> TlsObservation {
-        TlsObservation {
-            status: status.to_string(),
-            version: None,
-            error: None,
-            certificate_anomaly: cert_anomaly,
-        }
+        TlsObservation { status: status.to_string(), version: None, error: None, certificate_anomaly: cert_anomaly }
     }
 
     #[test]

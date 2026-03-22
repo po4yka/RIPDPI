@@ -8,8 +8,10 @@ import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
@@ -33,16 +35,25 @@ fun VpnPermissionDialog(
     RipDpiDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.permissions_vpn_title),
-        message = stringResource(R.string.permissions_vpn_body),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.permissions_vpn_not_now),
+                onClick = onDismiss,
+                testTag = RipDpiTestTags.VpnPermissionDialogDismiss,
+            ),
         dialogTestTag = RipDpiTestTags.VpnPermissionDialog,
-        confirmLabel = stringResource(R.string.permissions_vpn_continue),
-        confirmTestTag = RipDpiTestTags.VpnPermissionDialogContinue,
-        onConfirm = onContinue,
-        dismissLabel = stringResource(R.string.permissions_vpn_not_now),
-        dismissTestTag = RipDpiTestTags.VpnPermissionDialogDismiss,
-        onDismiss = onDismiss,
-        tone = RipDpiDialogTone.Info,
-        icon = RipDpiIcons.Vpn,
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.permissions_vpn_continue),
+                onClick = onContinue,
+                testTag = RipDpiTestTags.VpnPermissionDialogContinue,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.permissions_vpn_body),
+                tone = RipDpiDialogTone.Info,
+                icon = RipDpiIcons.Vpn,
+            ),
         content = {
             val permissionIssue = uiState.permissionSummary.issue
             if (permissionIssue?.kind == PermissionKind.VpnConsent) {

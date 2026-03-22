@@ -1,5 +1,3 @@
-@file:Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList")
-
 package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.foundation.background
@@ -14,11 +12,9 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -90,9 +86,10 @@ fun RipDpiTextField(
             else -> colors.mutedForeground
         }
     val helperColor =
-        when {
-            errorText != null -> colors.destructive
-            else -> colors.mutedForeground
+        if (errorText != null) {
+            colors.destructive
+        } else {
+            colors.mutedForeground
         }
     val labelColor = if (errorText != null) colors.destructive else colors.mutedForeground
 
