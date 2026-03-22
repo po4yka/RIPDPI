@@ -38,9 +38,9 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -252,6 +252,9 @@ internal fun SettingsScreen(
                     onValueSelected = onThemeSelected,
                     helperText = stringResource(R.string.settings_theme_helper),
                     testTag = RipDpiTestTags.SettingsThemeDropdown,
+                    optionTagForValue = { value ->
+                        RipDpiTestTags.dropdownOption(RipDpiTestTags.SettingsThemeDropdown, value)
+                    },
                 )
                 HorizontalDivider(color = colors.divider)
                 SettingsRow(

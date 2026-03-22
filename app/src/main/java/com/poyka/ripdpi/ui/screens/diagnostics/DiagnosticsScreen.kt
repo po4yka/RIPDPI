@@ -655,97 +655,6 @@ private fun ApproachesSection(
     }
 }
 
-@Suppress("LongMethod")
-@Composable
-private fun SessionsSection(
-    uiState: DiagnosticsUiState,
-    onSelectSession: (String) -> Unit,
-    onPathModeFilter: (String?) -> Unit,
-    onStatusFilter: (String?) -> Unit,
-    onSearch: (String) -> Unit,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-    val layout = RipDpiThemeTokens.layout
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding =
-            androidx.compose.foundation.layout.PaddingValues(
-                horizontal = layout.horizontalPadding,
-                vertical = spacing.sm,
-            ),
-        verticalArrangement = Arrangement.spacedBy(spacing.md),
-    ) {
-        item {
-            RipDpiCard(
-                modifier =
-                    Modifier.ripDpiTestTag(
-                        if (uiState.sessions.sessions.isEmpty()) {
-                            RipDpiTestTags.DiagnosticsSessionsStateEmpty
-                        } else {
-                            RipDpiTestTags.DiagnosticsSessionsStateContent
-                        },
-                    ),
-            ) {
-                Text(
-                    text = stringResource(R.string.diagnostics_history_section),
-                    style = RipDpiThemeTokens.type.sectionTitle,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-                RipDpiTextField(
-                    value = uiState.sessions.filters.query,
-                    onValueChange = onSearch,
-                    decoration =
-                        RipDpiTextFieldDecoration(
-                            label = stringResource(R.string.diagnostics_search_label),
-                            placeholder = stringResource(R.string.diagnostics_search_placeholder),
-                            testTag = RipDpiTestTags.DiagnosticsSessionsSearch,
-                        ),
-                )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    items(uiState.sessions.pathModes, key = { it }) { pathMode ->
-                        RipDpiChip(
-                            text = pathMode,
-                            selected = uiState.sessions.filters.pathMode == pathMode,
-                            onClick = { onPathModeFilter(pathMode) },
-                            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSessionPathFilter(pathMode)),
-                        )
-                    }
-                }
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    items(uiState.sessions.statuses, key = { it }) { status ->
-                        RipDpiChip(
-                            text = status.replaceFirstChar { it.uppercase() },
-                            selected = uiState.sessions.filters.status == status,
-                            onClick = { onStatusFilter(status) },
-                            modifier =
-                                Modifier.ripDpiTestTag(
-                                    RipDpiTestTags.diagnosticsSessionStatusFilter(status),
-                                ),
-                        )
-                    }
-                }
-            }
-        }
-        if (uiState.sessions.sessions.isEmpty()) {
-            item {
-                EmptyStateCard(
-                    title = stringResource(R.string.diagnostics_history_empty_title),
-                    body = stringResource(R.string.diagnostics_history_empty),
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSessionsStateEmpty),
-                )
-            }
-        } else {
-            items(uiState.sessions.sessions, key = { it.id }) { session ->
-                SessionRow(
-                    session = session,
-                    onClick = { onSelectSession(session.id) },
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
-                )
-            }
-        }
-    }
-}
-
 @Composable
 private fun EventsSection(
     uiState: DiagnosticsUiState,
@@ -756,6 +665,7 @@ private fun EventsSection(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
+    val motion = RipDpiThemeTokens.motion
     val listState = rememberLazyListState()
     val isAtLiveEdge by remember(listState) {
         derivedStateOf {
@@ -774,7 +684,11 @@ private fun EventsSection(
             uiState.events.events.isNotEmpty() &&
             isAtLiveEdge
         ) {
-            listState.animateScrollToItem(0)
+            if (motion.animationsEnabled) {
+                listState.animateScrollToItem(0)
+            } else {
+                listState.scrollToItem(0)
+            }
         }
     }
 
