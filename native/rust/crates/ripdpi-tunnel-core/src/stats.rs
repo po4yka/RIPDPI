@@ -42,7 +42,7 @@ pub struct Stats {
     /// Optional callback invoked with the latency (ms) on each successful DNS
     /// resolution. Kept in an `Arc<dyn Fn>` so callers can cheaply clone a
     /// handle and share it with external histogram state without requiring
-    /// hs5t-core to depend on any telemetry crate.
+    /// ripdpi-tunnel-core to depend on any telemetry crate.
     pub dns_latency_observer: Mutex<Option<Arc<dyn Fn(u64) + Send + Sync>>>,
 }
 

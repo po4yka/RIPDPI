@@ -846,8 +846,6 @@ version = "0.1.0"
 dependencies = [
  "android-support",
  "golden-test-support",
- "hs5t-config",
- "hs5t-core",
  "jni",
  "libc",
  "local-network-fixture",
@@ -860,72 +858,12 @@ dependencies = [
  "ripdpi-telemetry",
  "ripdpi-tun-driver",
  "ripdpi-tunnel-config",
+ "ripdpi-tunnel-core",
  "serde",
  "serde_json",
  "tokio",
  "tokio-util",
  "tracing",
-]
-
-[[package]]
-name = "hs5t-config"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_yaml",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "hs5t-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "hs5t-config",
- "hs5t-dns-cache",
- "hs5t-session",
- "hs5t-tunnel",
- "nix",
- "ripdpi-dns-resolver",
- "smoltcp",
- "thiserror 2.0.18",
- "tokio",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
-name = "hs5t-dns-cache"
-version = "0.1.0"
-dependencies = [
- "hickory-proto",
- "lru",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "hs5t-ring-buffer"
-version = "0.1.0"
-
-[[package]]
-name = "hs5t-session"
-version = "0.1.0"
-dependencies = [
- "fast-socks5",
- "hs5t-ring-buffer",
- "thiserror 2.0.18",
- "tokio",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
-name = "hs5t-tunnel"
-version = "0.1.0"
-dependencies = [
- "libc",
- "nix",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -2024,6 +1962,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-tunnel-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fast-socks5",
+ "hickory-proto",
+ "lru",
+ "nix",
+ "proptest",
+ "ripdpi-dns-resolver",
+ "ripdpi-tun-driver",
+ "ripdpi-tunnel-config",
+ "smoltcp",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-test",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "ripdpi-ws-tunnel"
 version = "0.1.0"
 dependencies = [
@@ -2530,6 +2489,17 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+]
+
+[[package]]
+name = "tokio-test"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f6d24790a10a7af737693a3e8f1d03faef7e6ca0cc99aae5066f533766de545"
+dependencies = [
+ "futures-core",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]

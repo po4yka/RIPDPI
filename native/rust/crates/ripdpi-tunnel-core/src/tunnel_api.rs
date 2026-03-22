@@ -16,7 +16,7 @@ use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
 use tokio_util::sync::CancellationToken;
 
-use hs5t_config::Config;
+use ripdpi_tunnel_config::Config;
 
 use crate::{io_loop_task, ActiveSessions, Stats, TunDevice};
 

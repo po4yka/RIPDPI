@@ -5,15 +5,15 @@ use std::thread::JoinHandle;
 use android_support::{
     throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception, HandleRegistry,
 };
-use hs5t_core::{DnsStatsSnapshot, Stats};
 use jni::objects::JString;
 use jni::sys::{jint, jlong, jlongArray};
 use jni::JNIEnv;
 use once_cell::sync::{Lazy, OnceCell};
+use ripdpi_tunnel_core::{DnsStatsSnapshot, Stats};
 use tokio::runtime::Runtime;
 use tokio_util::sync::CancellationToken;
 
-use crate::config::{config_from_payload, mapdns_resolver_protocol, parse_tunnel_config_json, to_hs5t_config};
+use crate::config::{config_from_payload, mapdns_resolver_protocol, parse_tunnel_config_json};
 use crate::telemetry::TunnelTelemetryState;
 use crate::to_handle;
 
@@ -165,7 +165,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
 
     // Wire the DNS latency histogram: clone shares the Arc<Mutex<Histogram>>
     // inside LatencyHistogram so the closure and telemetry state observe the
-    // same underlying data without requiring hs5t-core to import ripdpi-telemetry.
+    // same underlying data without requiring ripdpi-tunnel-core to import ripdpi-telemetry.
     let dns_histogram = telemetry.dns_histogram.clone();
     stats.set_dns_latency_observer(Arc::new(move |ms| dns_histogram.record(ms)));
 
@@ -192,8 +192,12 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     let worker_stats = stats.clone();
     let worker = match std::thread::Builder::new().name("hs5t-worker".into()).spawn(move || {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let hs5t_cfg = Arc::new(to_hs5t_config(&config));
-            runtime.block_on(hs5t_core::run_tunnel(hs5t_cfg, owned_fd, (*worker_cancel).clone(), worker_stats.clone()))
+            runtime.block_on(ripdpi_tunnel_core::run_tunnel(
+                config,
+                owned_fd,
+                (*worker_cancel).clone(),
+                worker_stats.clone(),
+            ))
         }));
 
         match result {
@@ -398,12 +402,12 @@ mod tests {
     use crate::config::sample_payload;
     use crate::telemetry::NativeRuntimeSnapshot;
     use android_support::describe_exception;
-    use hs5t_core::Stats;
     use jni::objects::{JLongArray, JObject, JString};
     use jni::{InitArgsBuilder, JNIEnv, JNIVersion, JavaVM};
     use once_cell::sync::{Lazy, OnceCell};
     use proptest::collection::vec;
     use proptest::prelude::*;
+    use ripdpi_tunnel_core::Stats;
     use serde_json::Value;
     use std::sync::atomic::Ordering;
     use std::time::Duration;
