@@ -2,8 +2,13 @@ package com.poyka.ripdpi.utility
 
 import java.util.Locale
 
-@Suppress("MagicNumber")
 internal object NotificationContentBuilder {
+    private const val BytesPerKilobyte = 1_000L
+    private const val BytesPerMegabyte = 1_000_000L
+    private const val BytesPerGigabyte = 1_000_000_000L
+    private const val SecondsPerMinute = 60L
+    private const val SecondsPerHour = 3_600L
+
     fun buildContentText(
         txBytes: Long,
         rxBytes: Long,
@@ -32,17 +37,17 @@ internal object NotificationContentBuilder {
 
     private fun formatBytes(bytes: Long): String =
         when {
-            bytes >= 1_000_000_000L -> String.format(Locale.US, "%.1f GB", bytes / 1_000_000_000f)
-            bytes >= 1_000_000L -> String.format(Locale.US, "%.1f MB", bytes / 1_000_000f)
-            bytes >= 1_000L -> String.format(Locale.US, "%.1f KB", bytes / 1_000f)
+            bytes >= BytesPerGigabyte -> String.format(Locale.US, "%.1f GB", bytes / BytesPerGigabyte.toFloat())
+            bytes >= BytesPerMegabyte -> String.format(Locale.US, "%.1f MB", bytes / BytesPerMegabyte.toFloat())
+            bytes >= BytesPerKilobyte -> String.format(Locale.US, "%.1f KB", bytes / BytesPerKilobyte.toFloat())
             else -> "$bytes B"
         }
 
     private fun formatDuration(ms: Long): String {
-        val totalSeconds = (ms / 1_000L).coerceAtLeast(0L)
-        val hours = totalSeconds / 3_600L
-        val minutes = (totalSeconds % 3_600L) / 60L
-        val seconds = totalSeconds % 60L
+        val totalSeconds = (ms / BytesPerKilobyte).coerceAtLeast(0L)
+        val hours = totalSeconds / SecondsPerHour
+        val minutes = (totalSeconds % SecondsPerHour) / SecondsPerMinute
+        val seconds = totalSeconds % SecondsPerMinute
         return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
     }
 }

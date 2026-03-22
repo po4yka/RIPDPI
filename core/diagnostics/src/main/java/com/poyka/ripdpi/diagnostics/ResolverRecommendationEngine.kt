@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.DnsProviderCloudflare
+import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
@@ -11,179 +12,81 @@ import com.poyka.ripdpi.data.toEncryptedDnsPathCandidate
 import java.net.URI
 import java.util.Locale
 
-@Suppress("LongMethod", "CyclomaticComplexMethod", "ReturnCount", "MagicNumber", "ComplexCondition")
+private const val ProbeTypeDnsIntegrity = "dns_integrity"
+private const val OutcomeDnsMatch = "dns_match"
+private const val OutcomeDnsSubstitution = "dns_substitution"
+private const val OutcomeUdpBlocked = "udp_blocked"
+private const val SchemeHttp = "http://"
+private const val SchemeHttps = "https://"
+private const val DefaultPortHttp = 80
+private const val DefaultPortDoh = 443
+private const val DefaultPortDot = 853
+
+private data class Candidate(
+    val path: EncryptedDnsPathCandidate,
+    val healthyCount: Int,
+    val matchCount: Int,
+    val bootstrapValidatedCount: Int,
+    val averageLatencyMs: Long?,
+)
+
+private data class CandidateObservation(
+    val result: ProbeResult,
+    val details: Map<String, String>,
+    val path: EncryptedDnsPathCandidate,
+)
+
 internal object ResolverRecommendationEngine {
     fun compute(
         report: ScanReport,
         settings: com.poyka.ripdpi.proto.AppSettings,
         preferredPath: EncryptedDnsPathCandidate?,
     ): ResolverRecommendation? {
-        val dnsResults = report.results.filter { it.probeType == "dns_integrity" }
-        if (dnsResults.isEmpty()) {
-            return null
-        }
-        val triggerOutcome =
-            dnsResults
-                .firstOrNull { it.outcome == "dns_substitution" || it.outcome == "udp_blocked" }
-                ?.outcome
-                ?: return null
-
-        data class Candidate(
-            val path: EncryptedDnsPathCandidate,
-            val healthyCount: Int,
-            val matchCount: Int,
-            val bootstrapValidatedCount: Int,
-            val averageLatencyMs: Long?,
-        )
-
-        data class CandidateObservation(
-            val result: ProbeResult,
-            val details: Map<String, String>,
-            val path: EncryptedDnsPathCandidate,
-        )
-
-        val candidates =
-            dnsResults
-                .mapNotNull { result ->
-                    val details = result.details.associate { it.key to it.value }
-                    parseResolverPathCandidate(details)?.let { path ->
-                        CandidateObservation(result = result, details = details, path = path)
-                    }
-                }.groupBy { it.path.pathKey() }
-                .mapNotNull { (_, entries) ->
-                    val selectedPath = entries.firstOrNull()?.path ?: return@mapNotNull null
-                    val healthyEntries =
-                        entries.filter { observation ->
-                            observation.result.outcome == "dns_match" ||
-                                observation.result.outcome == "dns_substitution" ||
-                                hasValidEncryptedAddresses(observation.details)
-                        }
-                    if (healthyEntries.isEmpty()) {
-                        return@mapNotNull null
-                    }
-                    val matchEntries = healthyEntries.filter { it.result.outcome == "dns_match" }
-                    Candidate(
-                        path = selectedPath,
-                        healthyCount = healthyEntries.size,
-                        matchCount = matchEntries.size,
-                        bootstrapValidatedCount =
-                            healthyEntries.count { observation ->
-                                observation.details["encryptedBootstrapValidated"]
-                                    .orEmpty()
-                                    .equals("true", ignoreCase = true)
-                            },
-                        averageLatencyMs =
-                            (matchEntries.ifEmpty { healthyEntries })
-                                .mapNotNull { observation -> observation.details["encryptedLatencyMs"]?.toLongOrNull() }
-                                .takeIf { it.isNotEmpty() }
-                                ?.average()
-                                ?.toLong(),
-                    )
-                }
-        if (candidates.isEmpty()) {
-            return null
-        }
-
-        val currentPath = settings.activeDnsSettings().toEncryptedDnsPathCandidate()
-        val preferredPathKey = preferredPath?.pathKey()
-        val currentPathKey = currentPath?.pathKey()
-        val selected =
-            candidates.minWithOrNull(
-                compareBy<Candidate>(
-                    { if (it.matchCount > 0) 0 else 1 },
-                    { if (it.bootstrapValidatedCount > 0) 0 else 1 },
-                    { -it.matchCount },
-                    { -it.bootstrapValidatedCount },
-                    { if (preferredPathKey != null && it.path.pathKey() == preferredPathKey) 0 else 1 },
-                    { if (preferredPath != null && it.path.protocol == preferredPath.protocol) 0 else 1 },
-                    { if (currentPathKey != null && it.path.pathKey() == currentPathKey) 0 else 1 },
-                    { if (currentPath != null && it.path.protocol == currentPath.protocol) 0 else 1 },
-                    { -it.healthyCount },
-                    { it.averageLatencyMs ?: Long.MAX_VALUE },
-                    { if (it.path.resolverId == DnsProviderCloudflare) 0 else 1 },
-                ),
-            ) ?: return null
-
-        val protocolPreferenceHint =
-            when {
-                preferredPathKey != null && selected.path.pathKey() == preferredPathKey -> {
-                    " This network already preferred this encrypted DNS path."
-                }
-
-                preferredPath != null && selected.path.protocol == preferredPath.protocol -> {
-                    " This network already leaned toward ${selected.path.protocol.uppercase(Locale.US)}."
-                }
-
-                else -> {
-                    ""
-                }
+        val dnsResults = report.results.filter { it.probeType == ProbeTypeDnsIntegrity }
+        return dnsResults.firstTriggerOutcome()?.let { triggerOutcome ->
+            val currentPath = settings.activeDnsSettings().toEncryptedDnsPathCandidate()
+            selectCandidate(collectCandidates(dnsResults), preferredPath, currentPath)?.let { selected ->
+                ResolverRecommendation(
+                    triggerOutcome = triggerOutcome,
+                    selectedResolverId = selected.path.resolverId,
+                    selectedProtocol = selected.path.protocol,
+                    selectedEndpoint = selected.path.endpointLabel(),
+                    selectedBootstrapIps = selected.path.bootstrapIps,
+                    selectedHost = selected.path.host,
+                    selectedPort = selected.path.port,
+                    selectedTlsServerName = selected.path.tlsServerName,
+                    selectedDohUrl = selected.path.dohUrl,
+                    selectedDnscryptProviderName = selected.path.dnscryptProviderName,
+                    selectedDnscryptPublicKey = selected.path.dnscryptPublicKey,
+                    rationale = selected.rationale(triggerOutcome, preferredPath, currentPath),
+                    appliedTemporarily = false,
+                    persistable = true,
+                )
             }
-        val bootstrapHint =
-            if (selected.bootstrapValidatedCount > 0) {
-                " Bootstrap reachability validated on ${selected.bootstrapValidatedCount} probe(s)."
-            } else {
-                ""
-            }
-        val latencyHint = "with ${selected.averageLatencyMs ?: 0} ms average latency."
-        return ResolverRecommendation(
-            triggerOutcome = triggerOutcome,
-            selectedResolverId = selected.path.resolverId,
-            selectedProtocol = selected.path.protocol,
-            selectedEndpoint = selected.path.endpointLabel(),
-            selectedBootstrapIps = selected.path.bootstrapIps,
-            selectedHost = selected.path.host,
-            selectedPort = selected.path.port,
-            selectedTlsServerName = selected.path.tlsServerName,
-            selectedDohUrl = selected.path.dohUrl,
-            selectedDnscryptProviderName = selected.path.dnscryptProviderName,
-            selectedDnscryptPublicKey = selected.path.dnscryptPublicKey,
-            rationale =
-                if (selected.matchCount > 0) {
-                    "UDP DNS showed $triggerOutcome while " +
-                        "${selected.path.resolverLabel} returned matching encrypted answers " +
-                        "over ${selected.path.protocol.uppercase(Locale.US)} " +
-                        "on ${selected.matchCount} probe(s) " +
-                        "$latencyHint$bootstrapHint$protocolPreferenceHint"
-                } else {
-                    "System DNS showed $triggerOutcome while " +
-                        "${selected.path.resolverLabel} returned usable encrypted answers " +
-                        "over ${selected.path.protocol.uppercase(Locale.US)} " +
-                        "on ${selected.healthyCount} probe(s) " +
-                        "$latencyHint$bootstrapHint$protocolPreferenceHint"
-                },
-            appliedTemporarily = false,
-            persistable = true,
-        )
+        }
     }
 
     fun parseResolverPathCandidate(details: Map<String, String>): EncryptedDnsPathCandidate? {
-        val resolverId = details["encryptedResolverId"].orEmpty().ifBlank { com.poyka.ripdpi.data.DnsProviderCustom }
+        val resolverId = details["encryptedResolverId"].orEmpty().ifBlank { DnsProviderCustom }
         val protocol = details["encryptedProtocol"].orEmpty().ifBlank { EncryptedDnsProtocolDoh }
         val builtIn = dnsProviderById(resolverId)
+        val endpoint = details["encryptedEndpoint"].orEmpty()
         val dohUrl =
             details["encryptedDohUrl"].orEmpty().ifBlank {
                 if (protocol == EncryptedDnsProtocolDoh) {
-                    details["encryptedEndpoint"]
-                        .orEmpty()
-                        .takeIf { it.startsWith("http://") || it.startsWith("https://") }
-                        ?: builtIn?.dohUrl.orEmpty()
+                    endpoint.takeIf(::hasHttpScheme) ?: builtIn?.dohUrl.orEmpty()
                 } else {
                     ""
                 }
             }
         val host =
             details["encryptedHost"].orEmpty().ifBlank {
-                parseHostFromEncryptedEndpoint(details["encryptedEndpoint"].orEmpty())
-                    ?: builtIn?.host.orEmpty()
+                parseHostFromEncryptedEndpoint(endpoint) ?: builtIn?.host.orEmpty()
             }
         val port =
             details["encryptedPort"]?.toIntOrNull()?.takeIf { it > 0 }
-                ?: parsePortFromEncryptedEndpoint(details["encryptedEndpoint"].orEmpty())
-                ?: when {
-                    protocol == EncryptedDnsProtocolDot -> 853
-                    protocol == EncryptedDnsProtocolDoh -> 443
-                    else -> builtIn?.port ?: 443
-                }
+                ?: parsePortFromEncryptedEndpoint(endpoint)
+                ?: defaultPort(protocol, builtIn?.port)
         val bootstrapIps =
             details["encryptedBootstrapIps"]
                 ?.split('|')
@@ -191,12 +94,12 @@ internal object ResolverRecommendationEngine {
                 ?.filter(String::isNotEmpty)
                 ?.takeIf { it.isNotEmpty() }
                 ?: builtIn?.bootstrapIps.orEmpty()
-        if (host.isBlank() && protocol != EncryptedDnsProtocolDoh && dohUrl.isBlank()) {
+        if (host.isBlank() && protocol.requiresHost(dohUrl)) {
             return null
         }
         return EncryptedDnsPathCandidate(
             resolverId = resolverId,
-            resolverLabel = builtIn?.displayName ?: resolverId.replace('_', ' ').replaceFirstChar { it.uppercase() },
+            resolverLabel = builtIn?.displayName ?: resolverId.displayLabel(),
             protocol = protocol,
             host = host,
             port = port,
@@ -223,38 +126,22 @@ internal object ResolverRecommendationEngine {
 
     fun parseHostFromEncryptedEndpoint(endpoint: String): String? {
         val trimmed = endpoint.trim()
-        if (trimmed.isEmpty()) {
-            return null
-        }
+        if (trimmed.isEmpty()) return null
         return runCatching {
-            if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-                URI(trimmed)
-                    .host
-                    ?.takeIf { it.isNotBlank() }
+            if (hasHttpScheme(trimmed)) {
+                URI(trimmed).host?.takeIf(String::isNotBlank)
             } else {
-                trimmed
-                    .substringBefore(':')
-                    .takeIf { it.isNotBlank() }
+                trimmed.substringBefore(':').takeIf(String::isNotBlank)
             }
         }.getOrNull()
     }
 
     fun parsePortFromEncryptedEndpoint(endpoint: String): Int? {
         val trimmed = endpoint.trim()
-        if (trimmed.isEmpty()) {
-            return null
-        }
+        if (trimmed.isEmpty()) return null
         return runCatching {
-            if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-                val uri = URI(trimmed)
-                if (uri.port > 0) {
-                    uri.port
-                } else {
-                    when (uri.scheme?.lowercase(Locale.US)) {
-                        "http" -> 80
-                        else -> 443
-                    }
-                }
+            if (hasHttpScheme(trimmed)) {
+                URI(trimmed).resolvedPort()
             } else {
                 trimmed.substringAfterLast(':').toIntOrNull()
             }
@@ -264,15 +151,13 @@ internal object ResolverRecommendationEngine {
     fun ResolverRecommendation.toEncryptedDnsPathCandidate(): EncryptedDnsPathCandidate =
         EncryptedDnsPathCandidate(
             resolverId = selectedResolverId,
-            resolverLabel =
-                dnsProviderById(selectedResolverId)?.displayName
-                    ?: selectedResolverId.replace('_', ' ').replaceFirstChar { it.uppercase() },
+            resolverLabel = dnsProviderById(selectedResolverId)?.displayName ?: selectedResolverId.displayLabel(),
             protocol = selectedProtocol,
             host = selectedHost.ifBlank { parseHostFromEncryptedEndpoint(selectedEndpoint).orEmpty() },
             port =
                 selectedPort.takeIf { it > 0 }
                     ?: parsePortFromEncryptedEndpoint(selectedEndpoint)
-                    ?: if (selectedProtocol == EncryptedDnsProtocolDot) 853 else 443,
+                    ?: defaultPort(selectedProtocol, null),
             tlsServerName =
                 selectedTlsServerName.ifBlank {
                     if (selectedProtocol == EncryptedDnsProtocolDnsCrypt) {
@@ -291,9 +176,147 @@ internal object ResolverRecommendationEngine {
             dnscryptProviderName = selectedDnscryptProviderName,
             dnscryptPublicKey = selectedDnscryptPublicKey,
         )
+}
 
-    private fun hasValidEncryptedAddresses(details: Map<String, String>): Boolean {
-        val addresses = details["encryptedAddresses"].orEmpty()
-        return addresses.isNotBlank() && !addresses.startsWith("error:")
+private fun collectCandidates(dnsResults: List<ProbeResult>): List<Candidate> =
+    dnsResults
+        .mapNotNull { result ->
+            val details = result.details.associate { it.key to it.value }
+            ResolverRecommendationEngine.parseResolverPathCandidate(details)?.let { path ->
+                CandidateObservation(result = result, details = details, path = path)
+            }
+        }.groupBy { it.path.pathKey() }
+        .mapNotNull { (_, entries) -> entries.toCandidate() }
+
+private fun List<ProbeResult>.firstTriggerOutcome(): String? =
+    firstOrNull { it.outcome == OutcomeDnsSubstitution || it.outcome == OutcomeUdpBlocked }?.outcome
+
+private fun List<CandidateObservation>.toCandidate(): Candidate? {
+    val healthyEntries = filter(CandidateObservation::isHealthy)
+    return firstOrNull()?.path?.takeIf { healthyEntries.isNotEmpty() }?.let { selectedPath ->
+        val matchEntries = healthyEntries.filter { it.result.outcome == OutcomeDnsMatch }
+        Candidate(
+            path = selectedPath,
+            healthyCount = healthyEntries.size,
+            matchCount = matchEntries.size,
+            bootstrapValidatedCount = healthyEntries.count(CandidateObservation::hasValidatedBootstrap),
+            averageLatencyMs = averageLatency(matchEntries.ifEmpty { healthyEntries }),
+        )
     }
+}
+
+private fun selectCandidate(
+    candidates: List<Candidate>,
+    preferredPath: EncryptedDnsPathCandidate?,
+    currentPath: EncryptedDnsPathCandidate?,
+): Candidate? {
+    val preferredPathKey = preferredPath?.pathKey()
+    val currentPathKey = currentPath?.pathKey()
+    return candidates.minWithOrNull(
+        compareBy<Candidate>(
+            { if (it.matchCount > 0) 0 else 1 },
+            { if (it.bootstrapValidatedCount > 0) 0 else 1 },
+            { -it.matchCount },
+            { -it.bootstrapValidatedCount },
+            { if (preferredPathKey != null && it.path.pathKey() == preferredPathKey) 0 else 1 },
+            { if (preferredPath != null && it.path.protocol == preferredPath.protocol) 0 else 1 },
+            { if (currentPathKey != null && it.path.pathKey() == currentPathKey) 0 else 1 },
+            { if (currentPath != null && it.path.protocol == currentPath.protocol) 0 else 1 },
+            { -it.healthyCount },
+            { it.averageLatencyMs ?: Long.MAX_VALUE },
+            { if (it.path.resolverId == DnsProviderCloudflare) 0 else 1 },
+        ),
+    )
+}
+
+private fun Candidate.rationale(
+    triggerOutcome: String,
+    preferredPath: EncryptedDnsPathCandidate?,
+    currentPath: EncryptedDnsPathCandidate?,
+): String {
+    val latencyHint = "with ${averageLatencyMs ?: 0} ms average latency."
+    val bootstrapHint =
+        if (bootstrapValidatedCount > 0) {
+            " Bootstrap reachability validated on $bootstrapValidatedCount probe(s)."
+        } else {
+            ""
+        }
+    val protocolHint = path.protocolPreferenceHint(preferredPath, currentPath)
+    val statusDescription =
+        if (matchCount > 0) {
+            "${path.resolverLabel} returned matching encrypted answers over " +
+                "${path.protocol.uppercase(Locale.US)} on $matchCount probe(s) "
+        } else {
+            "${path.resolverLabel} returned usable encrypted answers over " +
+                "${path.protocol.uppercase(Locale.US)} on $healthyCount probe(s) "
+        }
+    val prefix =
+        if (matchCount > 0) {
+            "UDP DNS showed $triggerOutcome while "
+        } else {
+            "System DNS showed $triggerOutcome while "
+        }
+    return prefix + statusDescription + latencyHint + bootstrapHint + protocolHint
+}
+
+private fun EncryptedDnsPathCandidate.protocolPreferenceHint(
+    preferredPath: EncryptedDnsPathCandidate?,
+    currentPath: EncryptedDnsPathCandidate?,
+): String =
+    when {
+        preferredPath != null && pathKey() == preferredPath.pathKey() ->
+            " This network already preferred this encrypted DNS path."
+        preferredPath != null && protocol == preferredPath.protocol ->
+            " This network already leaned toward ${protocol.uppercase(Locale.US)}."
+        currentPath != null && pathKey() == currentPath.pathKey() ->
+            " This matches the currently active encrypted DNS path."
+        currentPath != null && protocol == currentPath.protocol ->
+            " This keeps the current encrypted DNS protocol family."
+        else -> ""
+    }
+
+private fun CandidateObservation.isHealthy(): Boolean =
+    result.outcome == OutcomeDnsMatch ||
+        result.outcome == OutcomeDnsSubstitution ||
+        hasValidEncryptedAddresses(details)
+
+private fun CandidateObservation.hasValidatedBootstrap(): Boolean =
+    details["encryptedBootstrapValidated"].orEmpty().equals("true", ignoreCase = true)
+
+private fun averageLatency(entries: List<CandidateObservation>): Long? =
+    entries
+        .mapNotNull { it.details["encryptedLatencyMs"]?.toLongOrNull() }
+        .takeIf(List<Long>::isNotEmpty)
+        ?.average()
+        ?.toLong()
+
+private fun defaultPort(protocol: String, builtInPort: Int?): Int =
+    when (protocol) {
+        EncryptedDnsProtocolDot -> DefaultPortDot
+        EncryptedDnsProtocolDoh -> DefaultPortDoh
+        else -> builtInPort ?: DefaultPortDoh
+    }
+
+private fun String.requiresHost(dohUrl: String): Boolean =
+    this != EncryptedDnsProtocolDoh && dohUrl.isBlank()
+
+private fun String.displayLabel(): String =
+    replace('_', ' ').replaceFirstChar { it.uppercase() }
+
+private fun hasHttpScheme(value: String): Boolean =
+    value.startsWith(SchemeHttp) || value.startsWith(SchemeHttps)
+
+private fun URI.resolvedPort(): Int =
+    if (port > 0) {
+        port
+    } else {
+        when (scheme?.lowercase(Locale.US)) {
+            "http" -> DefaultPortHttp
+            else -> DefaultPortDoh
+        }
+    }
+
+private fun hasValidEncryptedAddresses(details: Map<String, String>): Boolean {
+    val addresses = details["encryptedAddresses"].orEmpty()
+    return addresses.isNotBlank() && !addresses.startsWith("error:")
 }
