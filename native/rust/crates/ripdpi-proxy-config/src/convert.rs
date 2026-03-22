@@ -48,6 +48,10 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
     Some(runtime_context)
 }
 
+fn group_needs_delayed_connect(group: &DesyncGroup) -> bool {
+    !group.filters.hosts.is_empty() || (group.proto & (IS_HTTP | IS_HTTPS)) != 0
+}
+
 fn parse_proxy_numeric_range(
     range: &ProxyUiNumericRange,
     field_name: &str,
@@ -508,6 +512,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     }
 
     config.groups = groups;
+    config.delay_conn = config.groups.iter().any(group_needs_delayed_connect);
     if !matches!(config.listen.bind_ip, IpAddr::V6(_)) {
         config.ipv6 = false;
     }
