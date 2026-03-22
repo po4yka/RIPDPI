@@ -4,6 +4,7 @@ import com.google.devtools.ksp.gradle.KspExtension
 plugins {
     id("ripdpi.android.library")
     id("ripdpi.android.hilt")
+    id("ripdpi.android.quality")
     id("ripdpi.android.serialization")
     alias(libs.plugins.ksp)
 }
