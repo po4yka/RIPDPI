@@ -2,7 +2,6 @@ mod candidates;
 mod classification;
 mod connectivity;
 mod dns;
-mod domain;
 mod engine;
 mod execution;
 mod fat_header;
@@ -25,7 +24,6 @@ use rustls::client::danger::ServerCertVerifier;
 use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
 
 use engine::*;
-use strategy::*;
 use types::SharedState;
 
 #[cfg(test)]
@@ -38,6 +36,8 @@ use execution::*;
 use ripdpi_failure_classifier::FailureClass;
 #[cfg(test)]
 use ripdpi_proxy_config::ProxyRuntimeContext;
+#[cfg(test)]
+use strategy::*;
 #[cfg(test)]
 use std::net::IpAddr;
 #[cfg(test)]

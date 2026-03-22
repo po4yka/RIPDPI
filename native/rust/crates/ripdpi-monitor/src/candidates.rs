@@ -34,17 +34,10 @@ pub(crate) enum CandidateWarmup {
 
 #[derive(Debug)]
 pub(crate) struct StrategyProbeSuite {
-    pub(crate) suite_id: &'static str,
     pub(crate) tcp_candidates: Vec<StrategyCandidateSpec>,
     pub(crate) quic_candidates: Vec<StrategyCandidateSpec>,
     pub(crate) short_circuit_hostfake: bool,
     pub(crate) short_circuit_quic_burst: bool,
-}
-
-impl StrategyProbeSuite {
-    pub(crate) fn total_steps(&self) -> usize {
-        self.tcp_candidates.len() + self.quic_candidates.len()
-    }
 }
 
 pub(crate) struct StrategyProbeBaseline {
@@ -120,14 +113,12 @@ pub(crate) fn target_probe_pause_ms(seed: u64, candidate: &StrategyCandidateSpec
 pub(crate) fn build_strategy_probe_suite(suite_id: &str, base: &ProxyUiConfig) -> Result<StrategyProbeSuite, String> {
     match suite_id {
         STRATEGY_PROBE_SUITE_QUICK_V1 => Ok(StrategyProbeSuite {
-            suite_id: STRATEGY_PROBE_SUITE_QUICK_V1,
             tcp_candidates: build_tcp_candidates(base),
             quic_candidates: build_quic_candidates(base),
             short_circuit_hostfake: true,
             short_circuit_quic_burst: true,
         }),
         STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 => Ok(StrategyProbeSuite {
-            suite_id: STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
             tcp_candidates: build_full_matrix_tcp_candidates(base),
             quic_candidates: build_quic_candidates(base),
             short_circuit_hostfake: false,
@@ -507,7 +498,6 @@ mod tests {
     fn build_strategy_probe_suite_quick_v1_returns_candidates() {
         let base = minimal_ui_config();
         let suite = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1 suite");
-        assert_eq!(suite.suite_id, "quick_v1");
         assert!(!suite.tcp_candidates.is_empty());
         assert!(!suite.quic_candidates.is_empty());
         assert!(suite.short_circuit_hostfake);
@@ -593,10 +583,4 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn total_steps_sums_tcp_and_quic() {
-        let base = minimal_ui_config();
-        let suite = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1");
-        assert_eq!(suite.total_steps(), suite.tcp_candidates.len() + suite.quic_candidates.len());
-    }
 }

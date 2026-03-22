@@ -1,9 +1,9 @@
 use crate::types::{
     CircumventionObservationFact, DnsObservationFact, DnsObservationStatus, DomainObservationFact,
-    EndpointProbeStatus, HttpProbeStatus, ObservationKind, ProbeDetail, ProbeObservation, ProbeResult,
-    QuicObservationFact, QuicProbeStatus, ServiceObservationFact, StrategyObservationFact, StrategyProbeProtocol,
-    StrategyProbeStatus, TcpObservationFact, TcpProbeStatus, TelegramObservationFact, TelegramTransferStatus,
-    TelegramVerdict, ThroughputObservationFact, ThroughputProbeStatus, TlsProbeStatus, TransportFailureKind,
+    EndpointProbeStatus, HttpProbeStatus, ObservationKind, ProbeObservation, ProbeResult, QuicObservationFact,
+    QuicProbeStatus, ServiceObservationFact, StrategyObservationFact, StrategyProbeProtocol, StrategyProbeStatus,
+    TcpObservationFact, TcpProbeStatus, TelegramObservationFact, TelegramTransferStatus, TelegramVerdict,
+    ThroughputObservationFact, ThroughputProbeStatus, TlsProbeStatus, TransportFailureKind,
 };
 
 pub(crate) const ENGINE_ANALYSIS_VERSION: &str = "observations_v1";
@@ -373,6 +373,7 @@ fn strategy_status(value: &str) -> StrategyProbeStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::ProbeDetail;
 
     #[test]
     fn throughput_probe_builds_typed_observation() {
