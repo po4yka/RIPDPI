@@ -22,9 +22,7 @@ use crate::types::{
 };
 
 fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Option<ProxyRuntimeContext> {
-    let Some(mut runtime_context) = runtime_context else {
-        return None;
-    };
+    let mut runtime_context = runtime_context?;
     runtime_context.encrypted_dns = runtime_context.encrypted_dns.and_then(|mut value| {
         value.protocol = value.protocol.trim().to_ascii_lowercase();
         value.host = value.host.trim().to_string();
@@ -146,8 +144,17 @@ fn validate_ui_payload_shape(value: &Value) -> Result<(), ProxyConfigError> {
         return Ok(());
     }
 
-    const GROUPED_UI_KEYS: &[&str] =
-        &["listen", "protocols", "chains", "fakePackets", "parserEvasions", "quic", "hosts", "hostAutolearn"];
+    const GROUPED_UI_KEYS: &[&str] = &[
+        "listen",
+        "protocols",
+        "chains",
+        "fakePackets",
+        "parserEvasions",
+        "quic",
+        "hosts",
+        "hostAutolearn",
+        "wsTunnel",
+    ];
     const LEGACY_FLAT_UI_KEYS: &[&str] = &[
         "ip",
         "port",
@@ -241,8 +248,9 @@ pub fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<Runtime
 }
 
 pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, ProxyConfigError> {
-    let ProxyUiConfig { listen, protocols, chains, fake_packets, parser_evasions, quic, hosts, host_autolearn } =
-        payload;
+    let ProxyUiConfig {
+        listen, protocols, chains, fake_packets, parser_evasions, quic, hosts, host_autolearn, ws_tunnel,
+    } = payload;
 
     let listen_ip =
         IpAddr::from_str(&listen.ip).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy IP".to_string()))?;
@@ -278,6 +286,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned);
+    config.ws_tunnel_enabled = ws_tunnel.enabled;
     if listen.custom_ttl {
         let ttl = u8::try_from(listen.default_ttl)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid defaultTtl".to_string()))?;
@@ -369,8 +378,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 "Adaptive markers are not supported for tcpChainSteps kind=hostfake".to_string(),
             ));
         }
-        let midhost_offset = Some(step.midhost_marker.as_str())
-            .map(str::trim)
+        let midhost_offset = Some(str::trim(step.midhost_marker.as_str()))
             .filter(|value| !value.is_empty())
             .map(ciadpi_config::parse_offset_expr)
             .transpose()
@@ -380,8 +388,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 "Adaptive markers are not supported for tcpChainSteps midhostMarker".to_string(),
             ));
         }
-        let fake_host_template = Some(step.fake_host_template.as_str())
-            .map(str::trim)
+        let fake_host_template = Some(str::trim(step.fake_host_template.as_str()))
             .filter(|value| !value.is_empty())
             .map(ciadpi_config::normalize_fake_host_template)
             .transpose()
@@ -615,7 +622,7 @@ fn parse_offset_expr_field<F>(marker: Option<&str>, legacy: F, field_name: &str)
 where
     F: FnOnce() -> String,
 {
-    let spec = marker.map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned).unwrap_or_else(legacy);
+    let spec = marker.map(str::trim).filter(|value| !value.is_empty()).map_or_else(legacy, ToOwned::to_owned);
     ciadpi_config::parse_offset_expr(&spec)
         .map_err(|_| ProxyConfigError::InvalidConfig(format!("Invalid {field_name}")))
 }

@@ -288,7 +288,7 @@ fn adaptive_key(
             .to_string(),
         group_index,
         flow_kind,
-        target: normalized_host(host).map(AdaptivePlannerTarget::Host).unwrap_or(AdaptivePlannerTarget::Address(dest)),
+        target: normalized_host(host).map_or(AdaptivePlannerTarget::Address(dest), AdaptivePlannerTarget::Host),
     }
 }
 

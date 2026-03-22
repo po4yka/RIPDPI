@@ -155,9 +155,7 @@ pub(super) fn load_learned_host_store(
                 .hosts
                 .into_iter()
                 .filter_map(|(host, mut record)| {
-                    let Some(normalized_host) = normalize_learned_host(&host) else {
-                        return None;
-                    };
+                    let normalized_host = normalize_learned_host(&host)?;
                     record.preferred_groups.retain(|group_index| *group_index < config.groups.len());
                     record.group_stats.retain(|group_index, _| *group_index < config.groups.len());
                     (!record.preferred_groups.is_empty() || !record.group_stats.is_empty())

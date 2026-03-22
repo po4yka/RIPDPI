@@ -41,8 +41,7 @@ impl AdaptiveFakeTtlResolver {
         let key = AdaptiveFakeTtlKey {
             group_index,
             target: normalized_host(host)
-                .map(AdaptiveFakeTtlTarget::Host)
-                .unwrap_or(AdaptiveFakeTtlTarget::Address(dest)),
+                .map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
         };
         let state = self.states.entry(key).or_insert_with(|| AdaptiveFakeTtlState::new(config, fallback_ttl, None));
         let effective = state.detected_fallback.or(fallback_ttl);
@@ -57,8 +56,7 @@ impl AdaptiveFakeTtlResolver {
         if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
             group_index,
             target: normalized_host(host)
-                .map(AdaptiveFakeTtlTarget::Host)
-                .unwrap_or(AdaptiveFakeTtlTarget::Address(dest)),
+                .map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
         }) {
             state.pinned_ttl = Some(state.current_ttl());
         }
@@ -68,8 +66,7 @@ impl AdaptiveFakeTtlResolver {
         if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
             group_index,
             target: normalized_host(host)
-                .map(AdaptiveFakeTtlTarget::Host)
-                .unwrap_or(AdaptiveFakeTtlTarget::Address(dest)),
+                .map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
         }) {
             state.pinned_ttl = None;
             state.advance();
@@ -81,8 +78,7 @@ impl AdaptiveFakeTtlResolver {
         if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
             group_index,
             target: normalized_host(host)
-                .map(AdaptiveFakeTtlTarget::Host)
-                .unwrap_or(AdaptiveFakeTtlTarget::Address(dest)),
+                .map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
         }) {
             state.detected_fallback = Some(detected);
         }
