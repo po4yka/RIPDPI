@@ -1,5 +1,3 @@
-@file:Suppress("TooManyFunctions")
-
 package com.poyka.ripdpi.ui.testing
 
 import androidx.compose.ui.Modifier
@@ -122,77 +120,97 @@ internal object RipDpiTestTags {
     const val HistoryEventsSearch = "history-events-search"
     const val HistoryEventsAutoScroll = "history-events-auto-scroll"
 
-    fun screen(route: Route): String = "${route.route}-screen"
+    val screen: (Route) -> String = { route -> "${route.route}-screen" }
 
-    fun bottomNav(route: Route): String = "bottom-nav-${route.route}"
+    val bottomNav: (Route) -> String = { route -> "bottom-nav-${route.route}" }
 
-    fun configPreset(presetId: String): String = "config-preset-${sanitize(presetId)}"
+    val configPreset: (String) -> String = { presetId -> "config-preset-${sanitize(presetId)}" }
 
-    fun configMode(modeKey: String): String = "config-mode-${sanitize(modeKey)}"
+    val configMode: (String) -> String = { modeKey -> "config-mode-${sanitize(modeKey)}" }
 
-    fun settingsPermission(kind: PermissionKind): String = "settings-permission-${sanitize(kind.name)}"
+    val settingsPermission: (PermissionKind) -> String = { kind -> "settings-permission-${sanitize(kind.name)}" }
 
-    fun dnsResolver(providerId: String): String = "dns-resolver-${sanitize(providerId)}"
+    val dnsResolver: (String) -> String = { providerId -> "dns-resolver-${sanitize(providerId)}" }
 
-    fun customizationIcon(key: String): String = "customization-icon-${sanitize(key)}"
+    val customizationIcon: (String) -> String = { key -> "customization-icon-${sanitize(key)}" }
 
-    fun diagnosticsSection(section: DiagnosticsSection): String = "diagnostics-section-${sanitize(section.name)}"
+    val diagnosticsSection: (DiagnosticsSection) -> String =
+        { section -> "diagnostics-section-${sanitize(section.name)}" }
 
-    fun diagnosticsApproachMode(mode: DiagnosticsApproachMode): String =
-        "diagnostics-approach-mode-${sanitize(mode.name)}"
+    val diagnosticsApproachMode: (DiagnosticsApproachMode) -> String =
+        { mode -> "diagnostics-approach-mode-${sanitize(mode.name)}" }
 
-    fun diagnosticsStrategyCandidate(candidateId: String): String =
-        "diagnostics-strategy-candidate-${sanitize(candidateId)}"
+    val diagnosticsStrategyCandidate: (String) -> String =
+        { candidateId -> "diagnostics-strategy-candidate-${sanitize(candidateId)}" }
 
-    fun diagnosticsSessionPathFilter(pathMode: String): String = "diagnostics-session-path-${sanitize(pathMode)}"
+    val diagnosticsSessionPathFilter: (String) -> String =
+        { pathMode -> "diagnostics-session-path-${sanitize(pathMode)}" }
 
-    fun diagnosticsSessionStatusFilter(status: String): String = "diagnostics-session-status-${sanitize(status)}"
+    val diagnosticsSessionStatusFilter: (String) -> String =
+        { status -> "diagnostics-session-status-${sanitize(status)}" }
 
-    fun diagnosticsEventSourceFilter(source: String): String = "diagnostics-event-source-${sanitize(source)}"
+    val diagnosticsEventSourceFilter: (String) -> String =
+        { source -> "diagnostics-event-source-${sanitize(source)}" }
 
-    fun diagnosticsEventSeverityFilter(severity: String): String = "diagnostics-event-severity-${sanitize(severity)}"
+    val diagnosticsEventSeverityFilter: (String) -> String =
+        { severity -> "diagnostics-event-severity-${sanitize(severity)}" }
 
-    fun logsFilter(type: LogType): String = "logs-filter-${sanitize(type.name)}"
+    val logsFilter: (LogType) -> String = { type -> "logs-filter-${sanitize(type.name)}" }
 
-    fun historySection(section: HistorySection): String = "history-section-${sanitize(section.name)}"
+    val historySection: (HistorySection) -> String = { section -> "history-section-${sanitize(section.name)}" }
 
-    fun historyConnectionsModeFilter(mode: String): String = "history-connections-mode-${sanitize(mode)}"
+    val historyConnectionsModeFilter: (String) -> String =
+        { mode -> "history-connections-mode-${sanitize(mode)}" }
 
-    fun historyConnectionsStatusFilter(status: String): String = "history-connections-status-${sanitize(status)}"
+    val historyConnectionsStatusFilter: (String) -> String =
+        { status -> "history-connections-status-${sanitize(status)}" }
 
-    fun historyDiagnosticsPathFilter(pathMode: String): String = "history-diagnostics-path-${sanitize(pathMode)}"
+    val historyDiagnosticsPathFilter: (String) -> String =
+        { pathMode -> "history-diagnostics-path-${sanitize(pathMode)}" }
 
-    fun historyDiagnosticsStatusFilter(status: String): String = "history-diagnostics-status-${sanitize(status)}"
+    val historyDiagnosticsStatusFilter: (String) -> String =
+        { status -> "history-diagnostics-status-${sanitize(status)}" }
 
-    fun historyEventSourceFilter(source: String): String = "history-event-source-${sanitize(source)}"
+    val historyEventSourceFilter: (String) -> String =
+        { source -> "history-event-source-${sanitize(source)}" }
 
-    fun historyEventSeverityFilter(severity: String): String = "history-event-severity-${sanitize(severity)}"
+    val historyEventSeverityFilter: (String) -> String =
+        { severity -> "history-event-severity-${sanitize(severity)}" }
 
-    fun advancedSection(sectionKey: String): String = "advanced-section-${sanitize(sectionKey)}"
+    val advancedSection: (String) -> String = { sectionKey -> "advanced-section-${sanitize(sectionKey)}" }
 
-    fun advancedTitle(key: String): String = "advanced-title-${sanitize(key)}"
+    val advancedTitle: (String) -> String = { key -> "advanced-title-${sanitize(key)}" }
 
-    fun advancedDescription(key: String): String = "advanced-description-${sanitize(key)}"
+    val advancedDescription: (String) -> String = { key -> "advanced-description-${sanitize(key)}" }
 
-    fun advancedToggle(setting: AdvancedToggleSetting): String = "advanced-toggle-${sanitize(setting.name)}"
+    val advancedToggle: (AdvancedToggleSetting) -> String =
+        { setting -> "advanced-toggle-${sanitize(setting.name)}" }
 
-    fun advancedInput(setting: AdvancedTextSetting): String = "advanced-input-${sanitize(setting.name)}"
+    val advancedInput: (AdvancedTextSetting) -> String =
+        { setting -> "advanced-input-${sanitize(setting.name)}" }
 
-    fun advancedSave(setting: AdvancedTextSetting): String = "advanced-save-${sanitize(setting.name)}"
+    val advancedSave: (AdvancedTextSetting) -> String =
+        { setting -> "advanced-save-${sanitize(setting.name)}" }
 
-    fun advancedOption(setting: AdvancedOptionSetting): String = "advanced-option-${sanitize(setting.name)}"
+    val advancedOption: (AdvancedOptionSetting) -> String =
+        { setting -> "advanced-option-${sanitize(setting.name)}" }
 
-    fun activationStart(dimension: ActivationWindowDimension): String = "advanced-${sanitize(dimension.name)}-from"
+    val activationStart: (ActivationWindowDimension) -> String =
+        { dimension -> "advanced-${sanitize(dimension.name)}-from" }
 
-    fun activationEnd(dimension: ActivationWindowDimension): String = "advanced-${sanitize(dimension.name)}-to"
+    val activationEnd: (ActivationWindowDimension) -> String =
+        { dimension -> "advanced-${sanitize(dimension.name)}-to" }
 
-    fun activationSave(dimension: ActivationWindowDimension): String = "advanced-${sanitize(dimension.name)}-save"
+    val activationSave: (ActivationWindowDimension) -> String =
+        { dimension -> "advanced-${sanitize(dimension.name)}-save" }
 
-    fun advancedSummaryLabel(key: String): String = "advanced-summary-label-${sanitize(key)}"
+    val advancedSummaryLabel: (String) -> String =
+        { key -> "advanced-summary-label-${sanitize(key)}" }
 
-    fun advancedSummaryValue(key: String): String = "advanced-summary-value-${sanitize(key)}"
+    val advancedSummaryValue: (String) -> String =
+        { key -> "advanced-summary-value-${sanitize(key)}" }
 
-    fun advancedCapsule(key: String): String = "advanced-capsule-${sanitize(key)}"
+    val advancedCapsule: (String) -> String = { key -> "advanced-capsule-${sanitize(key)}" }
 
     private fun sanitize(value: String): String =
         value

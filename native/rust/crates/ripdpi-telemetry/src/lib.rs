@@ -19,9 +19,7 @@ pub struct LatencyHistogram {
 impl LatencyHistogram {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(
-                Histogram::<u64>::new_with_max(60_000, 2).expect("valid histogram parameters"),
-            )),
+            inner: Arc::new(Mutex::new(Histogram::<u64>::new_with_max(60_000, 2).expect("valid histogram parameters"))),
         }
     }
 
@@ -176,7 +174,10 @@ mod tests {
 
     #[test]
     fn distributions_into_option_is_some_with_any_field() {
-        let d = LatencyDistributions { dns_resolution: Some(LatencyPercentiles { p50: 1, p95: 2, p99: 3, min: 0, max: 5, count: 10 }), ..Default::default() };
+        let d = LatencyDistributions {
+            dns_resolution: Some(LatencyPercentiles { p50: 1, p95: 2, p99: 3, min: 0, max: 5, count: 10 }),
+            ..Default::default()
+        };
         assert!(d.into_option().is_some());
     }
 }

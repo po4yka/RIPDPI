@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod")
-
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.foundation.layout.Arrangement
@@ -42,77 +40,122 @@ internal fun LazyListScope.diagnosticsHistorySection(
             testTag = RipDpiTestTags.advancedSection("diagnostics_history"),
         ) {
             RipDpiCard {
-                SettingsRow(
-                    title = stringResource(R.string.settings_diagnostics_monitor_title),
-                    subtitle = stringResource(R.string.settings_diagnostics_monitor_body),
-                    checked = uiState.diagnosticsMonitorEnabled,
-                    onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DiagnosticsMonitorEnabled, it) },
-                    showDivider = true,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsMonitorEnabled),
+                DiagnosticsHistorySettingsContent(
+                    uiState = uiState,
+                    onToggleChanged = onToggleChanged,
+                    onTextConfirmed = onTextConfirmed,
+                    onRotateTelemetrySalt = onRotateTelemetrySalt,
                 )
-                AdvancedTextSetting(
-                    title = stringResource(R.string.settings_diagnostics_sample_title),
-                    description = stringResource(R.string.settings_diagnostics_sample_body),
-                    value = uiState.diagnosticsSampleIntervalSeconds.toString(),
-                    enabled = uiState.diagnosticsMonitorEnabled,
-                    validator = { validateIntRange(it, 5, 300) },
-                    invalidMessage = stringResource(R.string.config_error_out_of_range),
-                    disabledMessage = stringResource(R.string.settings_diagnostics_monitor_disabled),
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done,
-                        ),
-                    setting = AdvancedTextSetting.DiagnosticsSampleIntervalSeconds,
-                    onConfirm = onTextConfirmed,
-                    showDivider = true,
-                )
-                AdvancedTextSetting(
-                    title = stringResource(R.string.settings_diagnostics_retention_title),
-                    description = stringResource(R.string.settings_diagnostics_retention_body),
-                    value = uiState.diagnosticsHistoryRetentionDays.toString(),
-                    validator = { validateIntRange(it, 1, 365) },
-                    invalidMessage = stringResource(R.string.config_error_out_of_range),
-                    keyboardOptions =
-                        KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done,
-                        ),
-                    setting = AdvancedTextSetting.DiagnosticsHistoryRetentionDays,
-                    onConfirm = onTextConfirmed,
-                    showDivider = true,
-                )
-                SettingsRow(
-                    title = stringResource(R.string.settings_diagnostics_export_history_title),
-                    subtitle = stringResource(R.string.settings_diagnostics_export_history_body),
-                    checked = uiState.diagnosticsExportIncludeHistory,
-                    onCheckedChange = {
-                        onToggleChanged(
-                            AdvancedToggleSetting.DiagnosticsExportIncludeHistory,
-                            it,
-                        )
-                    },
-                    showDivider = true,
-                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsExportIncludeHistory),
-                )
-                Text(
-                    text = stringResource(R.string.settings_telemetry_salt_reset_body),
-                    style = RipDpiThemeTokens.type.caption,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    RipDpiButton(
-                        text = stringResource(R.string.settings_telemetry_salt_reset_action),
-                        onClick = onRotateTelemetrySalt,
-                        variant = RipDpiButtonVariant.Outline,
-                        trailingIcon = RipDpiIcons.Close,
-                    )
-                }
             }
         }
+    }
+}
+
+@Composable
+private fun DiagnosticsHistorySettingsContent(
+    uiState: SettingsUiState,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+    onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+    onRotateTelemetrySalt: () -> Unit,
+) {
+    DiagnosticsMonitorToggle(
+        enabled = uiState.diagnosticsMonitorEnabled,
+        onToggleChanged = onToggleChanged,
+    )
+    DiagnosticsRetentionFields(
+        uiState = uiState,
+        onTextConfirmed = onTextConfirmed,
+    )
+    DiagnosticsExportHistoryToggle(
+        enabled = uiState.diagnosticsExportIncludeHistory,
+        onToggleChanged = onToggleChanged,
+    )
+    TelemetrySaltResetAction(onRotateTelemetrySalt = onRotateTelemetrySalt)
+}
+
+@Composable
+private fun DiagnosticsMonitorToggle(
+    enabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    SettingsRow(
+        title = stringResource(R.string.settings_diagnostics_monitor_title),
+        subtitle = stringResource(R.string.settings_diagnostics_monitor_body),
+        checked = enabled,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DiagnosticsMonitorEnabled, it) },
+        showDivider = true,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsMonitorEnabled),
+    )
+}
+
+@Composable
+private fun DiagnosticsRetentionFields(
+    uiState: SettingsUiState,
+    onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+) {
+    val numericKeyboardOptions =
+        KeyboardOptions(
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Done,
+        )
+    AdvancedTextSetting(
+        title = stringResource(R.string.settings_diagnostics_sample_title),
+        description = stringResource(R.string.settings_diagnostics_sample_body),
+        value = uiState.diagnosticsSampleIntervalSeconds.toString(),
+        enabled = uiState.diagnosticsMonitorEnabled,
+        validator = { validateIntRange(it, 5, 300) },
+        invalidMessage = stringResource(R.string.config_error_out_of_range),
+        disabledMessage = stringResource(R.string.settings_diagnostics_monitor_disabled),
+        keyboardOptions = numericKeyboardOptions,
+        setting = AdvancedTextSetting.DiagnosticsSampleIntervalSeconds,
+        onConfirm = onTextConfirmed,
+        showDivider = true,
+    )
+    AdvancedTextSetting(
+        title = stringResource(R.string.settings_diagnostics_retention_title),
+        description = stringResource(R.string.settings_diagnostics_retention_body),
+        value = uiState.diagnosticsHistoryRetentionDays.toString(),
+        validator = { validateIntRange(it, 1, 365) },
+        invalidMessage = stringResource(R.string.config_error_out_of_range),
+        keyboardOptions = numericKeyboardOptions,
+        setting = AdvancedTextSetting.DiagnosticsHistoryRetentionDays,
+        onConfirm = onTextConfirmed,
+        showDivider = true,
+    )
+}
+
+@Composable
+private fun DiagnosticsExportHistoryToggle(
+    enabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    SettingsRow(
+        title = stringResource(R.string.settings_diagnostics_export_history_title),
+        subtitle = stringResource(R.string.settings_diagnostics_export_history_body),
+        checked = enabled,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DiagnosticsExportIncludeHistory, it) },
+        showDivider = true,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsExportIncludeHistory),
+    )
+}
+
+@Composable
+private fun TelemetrySaltResetAction(onRotateTelemetrySalt: () -> Unit) {
+    Text(
+        text = stringResource(R.string.settings_telemetry_salt_reset_body),
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        RipDpiButton(
+            text = stringResource(R.string.settings_telemetry_salt_reset_action),
+            onClick = onRotateTelemetrySalt,
+            variant = RipDpiButtonVariant.Outline,
+            trailingIcon = RipDpiIcons.Close,
+        )
     }
 }
 

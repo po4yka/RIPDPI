@@ -1,5 +1,3 @@
-@file:Suppress("CyclomaticComplexMethod", "LongMethod")
-
 package com.poyka.ripdpi.ui.components.cards
 
 import androidx.compose.foundation.background
@@ -10,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -43,6 +42,11 @@ enum class SettingsRowVariant {
     Selected,
 }
 
+private data class SettingsRowColors(
+    val container: Color,
+    val border: Color,
+)
+
 @Composable
 fun SettingsRow(
     title: String,
@@ -64,128 +68,198 @@ fun SettingsRow(
     val components = RipDpiThemeTokens.components
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
-    val containerColor =
-        when (variant) {
-            SettingsRowVariant.Default -> Color.Transparent
-            SettingsRowVariant.Tonal -> colors.inputBackground
-            SettingsRowVariant.Selected -> colors.accent
-        }
-    val borderColor =
-        when (variant) {
-            SettingsRowVariant.Default -> Color.Transparent
-            SettingsRowVariant.Tonal -> colors.border
-            SettingsRowVariant.Selected -> colors.foreground
-        }
+    val rowColors = settingsRowColors(variant)
     Column(modifier = modifier.fillMaxWidth()) {
         val rowInteractionSource = remember { MutableInteractionSource() }
         Row(
             modifier =
-                Modifier
-                    .ripDpiTestTag(testTag)
-                    .semantics(mergeDescendants = true) {}
-                    .fillMaxWidth()
-                    .background(containerColor, RipDpiThemeTokens.shapes.lg)
-                    .border(
-                        width = if (variant == SettingsRowVariant.Default) 0.dp else 1.dp,
-                        color = borderColor,
-                        shape = RipDpiThemeTokens.shapes.lg,
-                    ).then(
-                        if (variant == SettingsRowVariant.Default) {
-                            Modifier
-                        } else {
-                            Modifier.padding(horizontal = components.compactPillHorizontalPadding)
-                        },
-                    ).heightIn(
-                        min =
-                            if (subtitle == null) {
-                                components.settingsRowMinHeight
-                            } else {
-                                components.settingsRowMinHeightWithSubtitle
-                            },
-                    ).then(
-                        if (checked != null && onCheckedChange != null) {
-                            Modifier.ripDpiToggleable(
-                                enabled = enabled,
-                                value = checked,
-                                role = Role.Switch,
-                                interactionSource = rowInteractionSource,
-                                onValueChange = onCheckedChange,
-                            )
-                        } else if (onClick != null) {
-                            Modifier.ripDpiClickable(
-                                enabled = enabled,
-                                role = Role.Button,
-                                interactionSource = rowInteractionSource,
-                                onClick = onClick,
-                            )
-                        } else {
-                            Modifier
-                        },
-                    ).padding(vertical = components.settingsRowVerticalPadding),
+                settingsRowModifier(
+                    testTag = testTag,
+                    variant = variant,
+                    subtitle = subtitle,
+                    enabled = enabled,
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                    onClick = onClick,
+                    rowColors = rowColors,
+                    interactionSource = rowInteractionSource,
+                ),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            leadingIcon?.let {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(components.decorativeBadgeSize)
-                            .background(colors.accent, RipDpiThemeTokens.shapes.full),
-                    contentAlignment = Alignment.Center,
-                ) {
+            SettingsRowLeadingIcon(leadingIcon = leadingIcon)
+            SettingsRowText(title = title, subtitle = subtitle)
+            SettingsRowTrailing(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                enabled = enabled,
+                value = value,
+                monospaceValue = monospaceValue,
+                showChevron = showChevron,
+            )
+        }
+        if (showDivider) {
+            HorizontalDivider(color = colors.divider)
+        }
+    }
+}
+
+@Composable
+private fun settingsRowColors(
+    variant: SettingsRowVariant,
+): SettingsRowColors =
+    with(RipDpiThemeTokens.colors) {
+        when (variant) {
+            SettingsRowVariant.Default -> SettingsRowColors(Color.Transparent, Color.Transparent)
+            SettingsRowVariant.Tonal -> SettingsRowColors(inputBackground, border)
+            SettingsRowVariant.Selected -> SettingsRowColors(accent, foreground)
+        }
+    }
+
+@Composable
+private fun settingsRowModifier(
+    testTag: String?,
+    variant: SettingsRowVariant,
+    subtitle: String?,
+    enabled: Boolean,
+    checked: Boolean?,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    onClick: (() -> Unit)?,
+    rowColors: SettingsRowColors,
+    interactionSource: MutableInteractionSource,
+): Modifier {
+    val components = RipDpiThemeTokens.components
+    val minHeight =
+        if (subtitle == null) {
+            components.settingsRowMinHeight
+        } else {
+            components.settingsRowMinHeightWithSubtitle
+        }
+    val baseModifier =
+        Modifier
+            .ripDpiTestTag(testTag)
+            .semantics(mergeDescendants = true) {}
+            .fillMaxWidth()
+            .background(rowColors.container, RipDpiThemeTokens.shapes.lg)
+            .border(
+                width = if (variant == SettingsRowVariant.Default) 0.dp else 1.dp,
+                color = rowColors.border,
+                shape = RipDpiThemeTokens.shapes.lg,
+            ).then(
+                if (variant == SettingsRowVariant.Default) {
+                    Modifier
+                } else {
+                    Modifier.padding(horizontal = components.compactPillHorizontalPadding)
+                },
+            ).heightIn(min = minHeight)
+            .padding(vertical = components.settingsRowVerticalPadding)
+    return when {
+        checked != null && onCheckedChange != null -> {
+            baseModifier.ripDpiToggleable(
+                enabled = enabled,
+                value = checked,
+                role = Role.Switch,
+                interactionSource = interactionSource,
+                onValueChange = onCheckedChange,
+            )
+        }
+
+        onClick != null -> {
+            baseModifier.ripDpiClickable(
+                enabled = enabled,
+                role = Role.Button,
+                interactionSource = interactionSource,
+                onClick = onClick,
+            )
+        }
+
+        else -> baseModifier
+    }
+}
+
+@Composable
+private fun SettingsRowLeadingIcon(leadingIcon: ImageVector?) {
+    if (leadingIcon == null) return
+    val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
+    Box(
+        modifier =
+            Modifier
+                .size(components.decorativeBadgeSize)
+                .background(colors.accent, RipDpiThemeTokens.shapes.full),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = leadingIcon,
+            contentDescription = null,
+            tint = colors.foreground,
+            modifier = Modifier.size(RipDpiIconSizes.Small),
+        )
+    }
+}
+
+@Composable
+private fun RowScope.SettingsRowText(
+    title: String,
+    subtitle: String?,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val components = RipDpiThemeTokens.components
+    val type = RipDpiThemeTokens.type
+    Column(
+        modifier = Modifier.weight(1f),
+        verticalArrangement = Arrangement.spacedBy(components.compactPillVerticalPadding),
+    ) {
+        Text(text = title, style = type.body, color = colors.foreground)
+        subtitle?.let {
+            Text(text = it, style = type.caption, color = colors.mutedForeground)
+        }
+    }
+}
+
+@Composable
+private fun RowScope.SettingsRowTrailing(
+    checked: Boolean?,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    enabled: Boolean,
+    value: String?,
+    monospaceValue: Boolean,
+    showChevron: Boolean,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    when {
+        checked != null && onCheckedChange != null -> {
+            RipDpiSwitch(
+                checked = checked,
+                onCheckedChange = null,
+                enabled = enabled,
+            )
+        }
+
+        value != null -> {
+            Row(
+                modifier = Modifier.weight(1f, fill = false),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = value,
+                    style = if (monospaceValue) type.monoValue else type.caption,
+                    color = colors.mutedForeground,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (showChevron) {
                     Icon(
-                        imageVector = it,
+                        imageVector = RipDpiIcons.ChevronRight,
                         contentDescription = null,
-                        tint = colors.foreground,
+                        tint = colors.mutedForeground,
                         modifier = Modifier.size(RipDpiIconSizes.Small),
                     )
                 }
             }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(components.compactPillVerticalPadding),
-            ) {
-                Text(text = title, style = type.body, color = colors.foreground)
-                subtitle?.let {
-                    Text(text = it, style = type.caption, color = colors.mutedForeground)
-                }
-            }
-            when {
-                checked != null && onCheckedChange != null -> {
-                    RipDpiSwitch(
-                        checked = checked,
-                        onCheckedChange = null,
-                        enabled = enabled,
-                    )
-                }
-
-                value != null -> {
-                    Row(
-                        modifier = Modifier.weight(1f, fill = false),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = value,
-                            style = if (monospaceValue) type.monoValue else type.caption,
-                            color = colors.mutedForeground,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        if (showChevron) {
-                            Icon(
-                                imageVector = RipDpiIcons.ChevronRight,
-                                contentDescription = null,
-                                tint = colors.mutedForeground,
-                                modifier = Modifier.size(RipDpiIconSizes.Small),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        if (showDivider) {
-            HorizontalDivider(color = colors.divider)
         }
     }
 }

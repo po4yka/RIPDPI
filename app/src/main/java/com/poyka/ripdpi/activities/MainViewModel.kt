@@ -140,7 +140,7 @@ class MainViewModel
         serviceStateStore: ServiceStateStore,
         serviceController: ServiceController,
         diagnosticsTimelineSource: DiagnosticsTimelineSource,
-        stringResolver: StringResolver,
+        private val stringResolver: StringResolver,
         trafficStatsReader: TrafficStatsReader,
         permissionPlatformBridge: PermissionPlatformBridge,
         permissionStatusProvider: PermissionStatusProvider,
@@ -232,10 +232,12 @@ class MainViewModel
                     dataTransferred = runtime.dataTransferred,
                     errorMessage = runtime.errorMessage,
                     permissionSummary =
-                        permissionActions.buildPermissionSummary(
+                        buildPermissionSummary(
                             snapshot = permissions.snapshot,
                             issue = permissions.issue,
                             configuredMode = configuredMode,
+                            stringResolver = stringResolver,
+                            deviceManufacturer = Build.MANUFACTURER.orEmpty(),
                         ),
                     approachSummary =
                         connectionActions.buildApproachSummary(

@@ -31,13 +31,7 @@ mod tests {
             _phase: &'static str,
         ) {
         }
-        fn on_failure_classified(
-            &self,
-            _target: SocketAddr,
-            _failure: &ClassifiedFailure,
-            _host: Option<&str>,
-        ) {
-        }
+        fn on_failure_classified(&self, _target: SocketAddr, _failure: &ClassifiedFailure, _host: Option<&str>) {}
         fn on_route_advanced(
             &self,
             _target: SocketAddr,
@@ -47,20 +41,8 @@ mod tests {
             _host: Option<&str>,
         ) {
         }
-        fn on_host_autolearn_state(
-            &self,
-            _enabled: bool,
-            _learned_host_count: usize,
-            _penalized_host_count: usize,
-        ) {
-        }
-        fn on_host_autolearn_event(
-            &self,
-            _action: &'static str,
-            _host: Option<&str>,
-            _group_index: Option<usize>,
-        ) {
-        }
+        fn on_host_autolearn_state(&self, _enabled: bool, _learned_host_count: usize, _penalized_host_count: usize) {}
+        fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
     }
 
     // loom::sync::Arc does not support CoerceUnsized, so we must create a

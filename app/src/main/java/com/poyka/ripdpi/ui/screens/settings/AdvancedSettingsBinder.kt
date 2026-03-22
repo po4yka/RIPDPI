@@ -1,5 +1,3 @@
-@file:Suppress("CyclomaticComplexMethod", "LargeClass", "LongMethod", "MagicNumber", "MaxLineLength")
-
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeAdaptive

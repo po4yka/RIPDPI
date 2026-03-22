@@ -66,8 +66,7 @@ pub async fn run_tunnel(
     stats: Arc<Stats>,
 ) -> io::Result<()> {
     // Set the fd to non-blocking so AsyncFd can register it with the reactor.
-    let flags = fcntl(tun_fd, FcntlArg::F_GETFL)
-        .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+    let flags = fcntl(tun_fd, FcntlArg::F_GETFL).map_err(|e| io::Error::from_raw_os_error(e as i32))?;
     fcntl(tun_fd, FcntlArg::F_SETFL(OFlag::from_bits_truncate(flags) | OFlag::O_NONBLOCK))
         .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
 

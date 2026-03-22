@@ -346,7 +346,7 @@ pub(crate) fn shutdown_proxy_listener(listener_fd: i32) -> Result<(), std::io::E
 mod tests {
     use super::*;
 
-    use std::net::{Ipv4Addr, IpAddr, TcpListener};
+    use std::net::{IpAddr, Ipv4Addr, TcpListener};
     use std::sync::Mutex;
 
     use ciadpi_config::RuntimeConfig;

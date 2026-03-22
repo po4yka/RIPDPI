@@ -48,14 +48,21 @@ pub(crate) fn run_fat_header_attempt(
     };
 
     let uses_tls = target.port == 443;
-    let mut stream =
-        match open_probe_stream(&connect_target, target.port, transport, Some(sni), false, TlsClientProfile::Auto, None) {
-            Ok(stream) => stream,
-            Err(err) => {
-                let status = if uses_tls { FatHeaderStatus::HandshakeFailed } else { FatHeaderStatus::ConnectFailed };
-                return FatHeaderObservation { status, bytes_sent: 0, responses_seen: 0, error: Some(err) };
-            }
-        };
+    let mut stream = match open_probe_stream(
+        &connect_target,
+        target.port,
+        transport,
+        Some(sni),
+        false,
+        TlsClientProfile::Auto,
+        None,
+    ) {
+        Ok(stream) => stream,
+        Err(err) => {
+            let status = if uses_tls { FatHeaderStatus::HandshakeFailed } else { FatHeaderStatus::ConnectFailed };
+            return FatHeaderObservation { status, bytes_sent: 0, responses_seen: 0, error: Some(err) };
+        }
+    };
 
     let requests = target.fat_header_requests.unwrap_or(FAT_HEADER_REQUESTS).max(1);
     let mut bytes_sent = 0usize;
@@ -173,10 +180,7 @@ mod tests {
 
     #[test]
     fn classify_fat_io_error_threshold_cutoff_with_responses() {
-        assert_eq!(
-            classify_fat_io_error(ErrorKind::UnexpectedEof, 8 * 1024, 1),
-            FatHeaderStatus::ThresholdCutoff
-        );
+        assert_eq!(classify_fat_io_error(ErrorKind::UnexpectedEof, 8 * 1024, 1), FatHeaderStatus::ThresholdCutoff);
     }
 
     #[test]

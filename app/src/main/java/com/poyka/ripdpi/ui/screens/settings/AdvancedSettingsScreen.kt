@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod")
-
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.foundation.background
@@ -469,63 +467,7 @@ private fun AdvancedSettingsScreenPreview() {
 private fun AdvancedSettingsScreenDarkPreview() {
     RipDpiTheme(themePreference = "dark") {
         AdvancedSettingsScreen(
-            uiState =
-                SettingsUiState(
-                    enableCmdSettings = true,
-                    cmdArgs = "--fake --split 2",
-                    proxy =
-                        ProxyNetworkUiState(
-                            proxyIp = "127.0.0.1",
-                            proxyPort = 1080,
-                            maxConnections = 256,
-                            bufferSize = 8192,
-                        ),
-                    desync =
-                        DesyncCoreUiState(
-                            desyncMethod = "fake",
-                            splitMarker = "host+1",
-                            defaultTtl = 8,
-                            customTtl = true,
-                            udpFakeCount = 1,
-                        ),
-                    fake =
-                        FakeTransportUiState(
-                            fakeTtl = 12,
-                            fakeSni = "alt.example.org",
-                            fakeOffsetMarker = "method+2",
-                            fakeTlsUseOriginal = true,
-                            fakeTlsRandomize = true,
-                            fakeTlsDupSessionId = true,
-                            fakeTlsPadEncap = true,
-                            fakeTlsSize = -24,
-                            fakeTlsSniMode = "randomized",
-                            dropSack = true,
-                        ),
-                    desyncHttp = true,
-                    desyncHttps = true,
-                    desyncUdp = true,
-                    tlsPrelude =
-                        TlsPreludeUiState(
-                            tlsrecEnabled = true,
-                            tlsrecMarker = "sniext+4",
-                            tlsPreludeMode = TcpChainStepKind.TlsRandRec.wireName,
-                            tlsPreludeStepCount = 1,
-                            tlsRandRecFragmentCount = 5,
-                            tlsRandRecMinFragmentSize = 24,
-                            tlsRandRecMaxFragmentSize = 48,
-                        ),
-                    hostsMode = "blacklist",
-                    hostsBlacklist = "example.com\ncdn.example.net",
-                    autolearn =
-                        HostAutolearnUiState(
-                            hostAutolearnStorePresent = true,
-                        ),
-                    httpParser =
-                        HttpParserUiState(
-                            hostMixedCase = true,
-                            domainMixedCase = true,
-                        ),
-                ),
+            uiState = previewAdvancedSettingsDarkUiState(),
             hostPackCatalog =
                 previewHostPackCatalog(
                     source = HostPackCatalogSourceDownloaded,
@@ -551,3 +493,58 @@ private fun AdvancedSettingsScreenDarkPreview() {
         )
     }
 }
+
+private fun previewAdvancedSettingsDarkUiState(): SettingsUiState =
+    SettingsUiState(
+        enableCmdSettings = true,
+        cmdArgs = "--fake --split 2",
+        proxy =
+            ProxyNetworkUiState(
+                proxyIp = "127.0.0.1",
+                proxyPort = 1080,
+                maxConnections = 256,
+                bufferSize = 8192,
+            ),
+        desync =
+            DesyncCoreUiState(
+                desyncMethod = "fake",
+                splitMarker = "host+1",
+                defaultTtl = 8,
+                customTtl = true,
+                udpFakeCount = 1,
+            ),
+        fake =
+            FakeTransportUiState(
+                fakeTtl = 12,
+                fakeSni = "alt.example.org",
+                fakeOffsetMarker = "method+2",
+                fakeTlsUseOriginal = true,
+                fakeTlsRandomize = true,
+                fakeTlsDupSessionId = true,
+                fakeTlsPadEncap = true,
+                fakeTlsSize = -24,
+                fakeTlsSniMode = "randomized",
+                dropSack = true,
+            ),
+        desyncHttp = true,
+        desyncHttps = true,
+        desyncUdp = true,
+        tlsPrelude =
+            TlsPreludeUiState(
+                tlsrecEnabled = true,
+                tlsrecMarker = "sniext+4",
+                tlsPreludeMode = TcpChainStepKind.TlsRandRec.wireName,
+                tlsPreludeStepCount = 1,
+                tlsRandRecFragmentCount = 5,
+                tlsRandRecMinFragmentSize = 24,
+                tlsRandRecMaxFragmentSize = 48,
+            ),
+        hostsMode = "blacklist",
+        hostsBlacklist = "example.com\ncdn.example.net",
+        autolearn = HostAutolearnUiState(hostAutolearnStorePresent = true),
+        httpParser =
+            HttpParserUiState(
+                hostMixedCase = true,
+                domainMixedCase = true,
+            ),
+    )

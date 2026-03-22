@@ -126,37 +126,39 @@ class DiagnosticsViewModel
         val uiState: StateFlow<DiagnosticsUiState> =
             combine(combinedData, combinedUi) { (live, scan, config), ui ->
                 uiStateFactory.buildUiState(
-                    profiles = scan.profiles,
-                    settings = config.settings,
-                    progress = live.progress,
-                    sessions = scan.sessions,
-                    approachStats = scan.approachStats,
-                    snapshots = live.snapshots,
-                    contexts = live.contexts,
-                    telemetry = live.telemetry,
-                    nativeEvents = live.nativeEvents,
-                    exports = scan.exports,
-                    rememberedPolicies = config.rememberedPolicies,
-                    activeConnectionPolicy = config.activeConnectionPolicy,
-                    selectedSectionRequest = ui.selection.selectedSectionRequest,
-                    selectedProfileId = ui.selection.selectedProfileId,
-                    selectedApproachMode = ui.selection.selectedApproachMode,
-                    selectedProbe = ui.selection.selectedProbe,
-                    selectedEventId = ui.selection.selectedEventId,
-                    sessionPathMode = ui.filter.sessionPathModeFilter,
-                    sessionStatus = ui.filter.sessionStatusFilter,
-                    sessionSearch = ui.filter.sessionSearch,
-                    eventSource = ui.filter.eventSourceFilter,
-                    eventSeverity = ui.filter.eventSeverityFilter,
-                    eventSearch = ui.filter.eventSearch,
-                    eventAutoScroll = ui.filter.eventAutoScroll,
-                    selectedSessionDetail = ui.sessionDetail.selectedSessionDetail,
-                    selectedStrategyProbeCandidate = ui.selection.selectedStrategyProbeCandidate,
-                    selectedApproachDetail = ui.selection.selectedApproachDetail,
-                    sensitiveSessionDetailsVisible = ui.sessionDetail.sensitiveSessionDetailsVisible,
-                    archiveActionState = ui.scanLifecycle.archiveActionState,
-                    scanStartedAt = ui.scanLifecycle.scanStartedAt,
-                    completedProbes = ui.scanLifecycle.accumulatedProbes,
+                    DiagnosticsUiStateInput(
+                        profiles = scan.profiles,
+                        settings = config.settings,
+                        progress = live.progress,
+                        sessions = scan.sessions,
+                        approachStats = scan.approachStats,
+                        snapshots = live.snapshots,
+                        contexts = live.contexts,
+                        telemetry = live.telemetry,
+                        nativeEvents = live.nativeEvents,
+                        exports = scan.exports,
+                        rememberedPolicies = config.rememberedPolicies,
+                        activeConnectionPolicy = config.activeConnectionPolicy,
+                        selectedSectionRequest = ui.selection.selectedSectionRequest,
+                        selectedProfileId = ui.selection.selectedProfileId,
+                        selectedApproachMode = ui.selection.selectedApproachMode,
+                        selectedProbe = ui.selection.selectedProbe,
+                        selectedEventId = ui.selection.selectedEventId,
+                        sessionPathMode = ui.filter.sessionPathModeFilter,
+                        sessionStatus = ui.filter.sessionStatusFilter,
+                        sessionSearch = ui.filter.sessionSearch,
+                        eventSource = ui.filter.eventSourceFilter,
+                        eventSeverity = ui.filter.eventSeverityFilter,
+                        eventSearch = ui.filter.eventSearch,
+                        eventAutoScroll = ui.filter.eventAutoScroll,
+                        selectedSessionDetail = ui.sessionDetail.selectedSessionDetail,
+                        selectedStrategyProbeCandidate = ui.selection.selectedStrategyProbeCandidate,
+                        selectedApproachDetail = ui.selection.selectedApproachDetail,
+                        sensitiveSessionDetailsVisible = ui.sessionDetail.sensitiveSessionDetailsVisible,
+                        archiveActionState = ui.scanLifecycle.archiveActionState,
+                        scanStartedAt = ui.scanLifecycle.scanStartedAt,
+                        completedProbes = ui.scanLifecycle.accumulatedProbes,
+                    ),
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -178,16 +180,21 @@ class DiagnosticsViewModel
             )
 
         private val selectionActions =
-            DiagnosticsSelectionActions(mutations, selectionState, sessionDetailState, filterState)
+            DiagnosticsSelectionActions(mutations, selectionState, sessionDetailState)
+
+        private val filterActions = DiagnosticsFilterActions(filterState)
 
         private val scanActions =
             DiagnosticsScanActions(
                 mutations = mutations,
                 scanLifecycle = scanLifecycleState,
                 loadSessionDetail = { sessionId, showSensitive ->
-                    with(selectionActions) {
-                        mutations.loadSessionDetail(sessionId, showSensitive)
-                    }
+                    mutations.loadSessionDetail(
+                        sessionId = sessionId,
+                        showSensitiveDetails = showSensitive,
+                        selection = selectionState,
+                        sessionDetail = sessionDetailState,
+                    )
                 },
             )
 
@@ -233,20 +240,20 @@ class DiagnosticsViewModel
 
         fun toggleSensitiveSessionDetails() = selectionActions.toggleSensitiveSessionDetails()
 
-        fun setSessionPathModeFilter(pathMode: String?) = selectionActions.setSessionPathModeFilter(pathMode)
+        fun setSessionPathModeFilter(pathMode: String?) = filterActions.setSessionPathModeFilter(pathMode)
 
-        fun setSessionStatusFilter(status: String?) = selectionActions.setSessionStatusFilter(status)
+        fun setSessionStatusFilter(status: String?) = filterActions.setSessionStatusFilter(status)
 
-        fun setSessionSearch(query: String) = selectionActions.setSessionSearch(query)
+        fun setSessionSearch(query: String) = filterActions.setSessionSearch(query)
 
         fun toggleEventFilter(
             source: String? = null,
             severity: String? = null,
-        ) = selectionActions.toggleEventFilter(source, severity)
+        ) = filterActions.toggleEventFilter(source, severity)
 
-        fun setEventSearch(query: String) = selectionActions.setEventSearch(query)
+        fun setEventSearch(query: String) = filterActions.setEventSearch(query)
 
-        fun setEventAutoScroll(enabled: Boolean) = selectionActions.setEventAutoScroll(enabled)
+        fun setEventAutoScroll(enabled: Boolean) = filterActions.setEventAutoScroll(enabled)
 
         fun startRawScan() = scanActions.startRawScan()
 

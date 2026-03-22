@@ -1296,7 +1296,8 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 current_group_index = config.groups.len() - 1;
                 for token in value.split(',') {
                     if token.starts_with("p=") {
-                        let (_, pri) = token.split_once('=').ok_or_else(|| ConfigError::invalid("--auto", Some(token)))?;
+                        let (_, pri) =
+                            token.split_once('=').ok_or_else(|| ConfigError::invalid("--auto", Some(token)))?;
                         let pri = pri.parse::<f32>().map_err(|_| ConfigError::invalid("--auto", Some(token)))?;
                         if let Some(prev) = config.groups.get_mut(current_group_index - 1) {
                             prev.pri = pri as i32;

@@ -23,10 +23,7 @@ mod tests {
 
     impl MonitorModel {
         fn new() -> Self {
-            Self {
-                cancel: Arc::new(AtomicBool::new(false)),
-                worker: Arc::new(Mutex::new(None)),
-            }
+            Self { cancel: Arc::new(AtomicBool::new(false)), worker: Arc::new(Mutex::new(None)) }
         }
 
         /// Returns `true` if a new scan was started, `false` if one was already running.

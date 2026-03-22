@@ -200,10 +200,7 @@ pub(crate) fn extract_host_from_url(url: &str) -> Option<String> {
 }
 
 pub(crate) fn extract_path_from_url(url: &str) -> String {
-    let without_scheme = url
-        .strip_prefix("https://")
-        .or_else(|| url.strip_prefix("http://"))
-        .unwrap_or(url);
+    let without_scheme = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")).unwrap_or(url);
     match without_scheme.find('/') {
         Some(idx) => without_scheme[idx..].to_string(),
         None => "/".to_string(),
@@ -227,12 +224,8 @@ mod tests {
 
     #[test]
     fn classify_http_response_blockpage_for_403() {
-        let response = HttpResponse {
-            status_code: 403,
-            reason: "Forbidden".to_string(),
-            headers: HashMap::new(),
-            body: vec![],
-        };
+        let response =
+            HttpResponse { status_code: 403, reason: "Forbidden".to_string(), headers: HashMap::new(), body: vec![] };
         assert_eq!(classify_http_response(&response), "http_blockpage");
     }
 
@@ -249,12 +242,8 @@ mod tests {
 
     #[test]
     fn classify_http_response_blockpage_for_302_redirect() {
-        let response = HttpResponse {
-            status_code: 302,
-            reason: "Found".to_string(),
-            headers: HashMap::new(),
-            body: vec![],
-        };
+        let response =
+            HttpResponse { status_code: 302, reason: "Found".to_string(), headers: HashMap::new(), body: vec![] };
         assert_eq!(classify_http_response(&response), "http_blockpage");
     }
 
@@ -386,21 +375,13 @@ mod tests {
 
     #[test]
     fn is_blockpage_true_for_blockpage_status() {
-        let obs = HttpObservation {
-            status: "http_blockpage".to_string(),
-            response: None,
-            error: None,
-        };
+        let obs = HttpObservation { status: "http_blockpage".to_string(), response: None, error: None };
         assert!(is_blockpage(&obs));
     }
 
     #[test]
     fn is_blockpage_false_for_ok_status() {
-        let obs = HttpObservation {
-            status: "http_ok".to_string(),
-            response: None,
-            error: None,
-        };
+        let obs = HttpObservation { status: "http_ok".to_string(), response: None, error: None };
         assert!(!is_blockpage(&obs));
     }
 }

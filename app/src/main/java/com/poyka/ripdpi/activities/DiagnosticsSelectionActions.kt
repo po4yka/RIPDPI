@@ -1,5 +1,3 @@
-@file:Suppress("TooManyFunctions")
-
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
@@ -10,7 +8,6 @@ internal class DiagnosticsSelectionActions(
     private val mutations: DiagnosticsMutationRunner,
     private val selection: MutableStateFlow<SelectionState>,
     private val sessionDetail: MutableStateFlow<SessionDetailState>,
-    private val filters: MutableStateFlow<FilterState>,
 ) {
     fun selectSection(section: DiagnosticsSection) {
         selection.update { it.copy(selectedSectionRequest = section) }
@@ -25,7 +22,12 @@ internal class DiagnosticsSelectionActions(
 
     fun selectSession(sessionId: String) {
         mutations.launch {
-            loadSessionDetail(sessionId, showSensitiveDetails = false)
+            loadSessionDetail(
+                sessionId = sessionId,
+                showSensitiveDetails = false,
+                selection = selection,
+                sessionDetail = sessionDetail,
+            )
         }
     }
 
@@ -89,10 +91,43 @@ internal class DiagnosticsSelectionActions(
                 ?.session
                 ?.id ?: return
         mutations.launch {
-            loadSessionDetail(sessionId, showSensitiveDetails = nextValue)
+            loadSessionDetail(
+                sessionId = sessionId,
+                showSensitiveDetails = nextValue,
+                selection = selection,
+                sessionDetail = sessionDetail,
+            )
         }
     }
+}
 
+private fun toggleValue(
+    current: String?,
+    next: String?,
+): String? = if (current == next) null else next
+
+internal suspend fun DiagnosticsMutationRunner.loadSessionDetail(
+    sessionId: String,
+    showSensitiveDetails: Boolean,
+    selection: MutableStateFlow<SelectionState>,
+    sessionDetail: MutableStateFlow<SessionDetailState>,
+) {
+    val detail = diagnosticsDetailLoader.loadSessionDetail(sessionId)
+    selection.update { it.copy(selectedStrategyProbeCandidate = null) }
+    sessionDetail.value =
+        SessionDetailState(
+            selectedSessionDetail =
+                uiStateFactory.toSessionDetailUiModel(
+                    detail = detail,
+                    showSensitiveDetails = showSensitiveDetails,
+                ),
+            sensitiveSessionDetailsVisible = showSensitiveDetails,
+        )
+}
+
+internal class DiagnosticsFilterActions(
+    private val filters: MutableStateFlow<FilterState>,
+) {
     fun setSessionPathModeFilter(pathMode: String?) {
         filters.update { it.copy(sessionPathModeFilter = toggleValue(it.sessionPathModeFilter, pathMode)) }
     }
@@ -128,26 +163,4 @@ internal class DiagnosticsSelectionActions(
     fun setEventAutoScroll(enabled: Boolean) {
         filters.update { it.copy(eventAutoScroll = enabled) }
     }
-
-    internal suspend fun DiagnosticsMutationRunner.loadSessionDetail(
-        sessionId: String,
-        showSensitiveDetails: Boolean,
-    ) {
-        val detail = diagnosticsDetailLoader.loadSessionDetail(sessionId)
-        selection.update { it.copy(selectedStrategyProbeCandidate = null) }
-        sessionDetail.value =
-            SessionDetailState(
-                selectedSessionDetail =
-                    uiStateFactory.toSessionDetailUiModel(
-                        detail = detail,
-                        showSensitiveDetails = showSensitiveDetails,
-                    ),
-                sensitiveSessionDetailsVisible = showSensitiveDetails,
-            )
-    }
 }
-
-private fun toggleValue(
-    current: String?,
-    next: String?,
-): String? = if (current == next) null else next

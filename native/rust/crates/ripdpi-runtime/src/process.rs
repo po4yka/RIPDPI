@@ -61,18 +61,34 @@ fn daemonize() -> io::Result<()> {
     // daemon(false, false): chdir to "/" and redirect stdio to /dev/null.
     // nix::unistd::daemon is only available on Linux/Android/FreeBSD/Solaris/NetBSD;
     // fall back to the raw libc call on other platforms (e.g. macOS for local dev).
-    #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd",
-              target_os = "solaris", target_os = "illumos", target_os = "netbsd",
-              target_os = "openbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "solaris",
+        target_os = "illumos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
     {
         nix::unistd::daemon(false, false).map_err(|e| io::Error::from_raw_os_error(e as i32))
     }
-    #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "freebsd",
-                  target_os = "solaris", target_os = "illumos", target_os = "netbsd",
-                  target_os = "openbsd")))]
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "solaris",
+        target_os = "illumos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    )))]
     {
         let rc = unsafe { libc::daemon(0, 0) };
-        if rc == 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
+        if rc == 0 {
+            Ok(())
+        } else {
+            Err(io::Error::last_os_error())
+        }
     }
 }
 

@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 #[cfg(not(feature = "loom"))]
 use std::sync::OnceLock;
 
-use crate::sync::{AtomicBool, Arc, Ordering};
+use crate::sync::{Arc, AtomicBool, Ordering};
 
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_proxy_config::{NetworkSnapshot, ProxyRuntimeContext};
@@ -138,8 +138,7 @@ impl EmbeddedProxyControl {
 // compiled only on the production path. Loom tests exercise the underlying
 // Mutex<Option<Arc<...>>> pattern directly via local instances.
 #[cfg(not(feature = "loom"))]
-static TELEMETRY_SINK: OnceLock<std::sync::Mutex<Option<std::sync::Arc<dyn RuntimeTelemetrySink>>>> =
-    OnceLock::new();
+static TELEMETRY_SINK: OnceLock<std::sync::Mutex<Option<std::sync::Arc<dyn RuntimeTelemetrySink>>>> = OnceLock::new();
 
 #[cfg(not(feature = "loom"))]
 fn telemetry_slot() -> &'static std::sync::Mutex<Option<std::sync::Arc<dyn RuntimeTelemetrySink>>> {

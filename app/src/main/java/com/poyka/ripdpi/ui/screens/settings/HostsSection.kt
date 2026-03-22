@@ -26,6 +26,8 @@ import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
@@ -380,11 +382,20 @@ internal fun HostPackApplyDialog(
     RipDpiDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.host_pack_apply_dialog_title, preset.title),
-        message = stringResource(R.string.host_pack_apply_dialog_message),
-        dismissLabel = stringResource(R.string.host_pack_apply_dismiss),
-        onDismiss = onDismiss,
-        confirmLabel = stringResource(R.string.host_pack_apply_confirm),
-        onConfirm = onApply,
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.host_pack_apply_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.host_pack_apply_confirm),
+                onClick = onApply,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.host_pack_apply_dialog_message),
+            ),
     ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),

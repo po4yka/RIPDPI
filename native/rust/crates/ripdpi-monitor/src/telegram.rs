@@ -108,9 +108,7 @@ fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig)
         }
     };
 
-    let request = format!(
-        "GET {path} HTTP/1.1\r\nHost: {host}\r\nAccept: */*\r\nConnection: close\r\n\r\n"
-    );
+    let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
     if let Err(err) = stream.write_all(request.as_bytes()).and_then(|_| stream.flush()) {
         stream.shutdown();
         return TelegramTransferResult {
