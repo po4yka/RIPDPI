@@ -587,7 +587,7 @@ internal fun DiagnosticsScanWorkflowCard(
         )
         LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             items(badges) { badge ->
-                EventBadge(text = badge.first, tone = badge.second)
+                EventBadge(text = badge.text, tone = badge.tone)
             }
         }
         scan.selectedProfileScopeLabel?.let { label ->
@@ -644,6 +644,11 @@ private data class WorkflowStatusUiModel(
     val title: String,
     val body: String,
     val tone: StatusIndicatorTone,
+)
+
+private data class WorkflowBadgeUiModel(
+    val text: String,
+    val tone: DiagnosticsTone,
 )
 
 @Composable
@@ -739,26 +744,81 @@ private fun workflowBadges(
     profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel,
     strategyProbeSelected: Boolean,
     isFullAudit: Boolean,
-): List<Pair<String, DiagnosticsTone>> =
+): List<WorkflowBadgeUiModel> =
     buildList {
         if (isFullAudit) {
-            add(stringResource(R.string.diagnostics_profile_badge_http_https_quic) to DiagnosticsTone.Info)
-            add(stringResource(R.string.diagnostics_profile_badge_all_builtin) to DiagnosticsTone.Warning)
-            add(stringResource(R.string.diagnostics_profile_badge_raw_only) to DiagnosticsTone.Warning)
-            add(stringResource(R.string.diagnostics_profile_badge_manual_apply) to DiagnosticsTone.Positive)
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_http_https_quic),
+                    DiagnosticsTone.Info,
+                ),
+            )
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_all_builtin),
+                    DiagnosticsTone.Warning,
+                ),
+            )
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_raw_only),
+                    DiagnosticsTone.Warning,
+                ),
+            )
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_manual_apply),
+                    DiagnosticsTone.Positive,
+                ),
+            )
         } else if (strategyProbeSelected) {
-            add(stringResource(R.string.diagnostics_profile_badge_http_https_quic) to DiagnosticsTone.Info)
-            add(stringResource(R.string.diagnostics_profile_badge_raw_only) to DiagnosticsTone.Warning)
-            add(stringResource(R.string.diagnostics_profile_badge_manual_apply) to DiagnosticsTone.Positive)
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_http_https_quic),
+                    DiagnosticsTone.Info,
+                ),
+            )
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_raw_only),
+                    DiagnosticsTone.Warning,
+                ),
+            )
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_manual_apply),
+                    DiagnosticsTone.Positive,
+                ),
+            )
         } else {
-            add(stringResource(R.string.diagnostics_profile_badge_dns_http_https_tcp) to DiagnosticsTone.Info)
-            add(stringResource(R.string.diagnostics_profile_badge_raw_and_in_path) to DiagnosticsTone.Positive)
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_dns_http_https_tcp),
+                    DiagnosticsTone.Info,
+                ),
+            )
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_raw_and_in_path),
+                    DiagnosticsTone.Positive,
+                ),
+            )
         }
         if (profile.manualOnly) {
-            add(stringResource(R.string.diagnostics_profile_badge_manual_only) to DiagnosticsTone.Warning)
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_manual_only),
+                    DiagnosticsTone.Warning,
+                ),
+            )
         }
         if (profile.regionTag?.equals("ru", ignoreCase = true) == true) {
-            add(stringResource(R.string.diagnostics_profile_badge_region_net) to DiagnosticsTone.Warning)
+            add(
+                WorkflowBadgeUiModel(
+                    stringResource(R.string.diagnostics_profile_badge_region_net),
+                    DiagnosticsTone.Warning,
+                ),
+            )
         }
     }
 

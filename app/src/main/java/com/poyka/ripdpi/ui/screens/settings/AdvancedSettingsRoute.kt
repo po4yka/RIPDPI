@@ -36,44 +36,45 @@ fun AdvancedSettingsRoute(
         uiState = uiState,
         hostPackCatalog = hostPackCatalog,
         notice = notice,
-        onBack = onBack,
-        onToggleChanged = binder::onToggleChanged,
-        onTextConfirmed = { setting, value ->
-            binder.onTextConfirmed(
-                setting = setting,
-                value = value,
-                uiState = uiState,
-            )
-        },
-        onOptionSelected = { setting, value ->
-            binder.onOptionSelected(
-                setting = setting,
-                value = value,
-                uiState = uiState,
-            )
-        },
-        onApplyHostPackPreset = viewModel::applyHostPackPreset,
-        onRefreshHostPackCatalog = viewModel::refreshHostPackCatalog,
-        onForgetLearnedHosts = viewModel::forgetLearnedHosts,
-        onClearRememberedNetworks = viewModel::clearRememberedNetworks,
-        onWsTunnelModeChanged = { mode -> binder.onWsTunnelModeChanged(mode) },
-        onRotateTelemetrySalt = viewModel::rotateTelemetrySalt,
-        onSaveActivationRange = { dimension, start, end ->
-            binder.onSaveActivationRange(
-                dimension = dimension,
-                start = start,
-                end = end,
-                uiState = uiState,
-            )
-        },
-        onResetAdaptiveSplit = {
-            binder.onResetAdaptiveSplit(uiState)
-        },
-        onResetAdaptiveFakeTtlProfile = viewModel::resetAdaptiveFakeTtlProfile,
-        onResetActivationWindow = viewModel::resetActivationWindow,
-        onResetHttpParserEvasions = viewModel::resetHttpParserEvasions,
-        onResetFakePayloadLibrary = viewModel::resetFakePayloadLibrary,
-        onResetFakeTlsProfile = viewModel::resetFakeTlsProfile,
+        actions =
+            AdvancedSettingsActions(
+                onBack = onBack,
+                onToggleChanged = binder::onToggleChanged,
+                onTextConfirmed = { setting, value ->
+                    binder.onTextConfirmed(
+                        setting = setting,
+                        value = value,
+                        uiState = uiState,
+                    )
+                },
+                onOptionSelected = { setting, value ->
+                    binder.onOptionSelected(
+                        setting = setting,
+                        value = value,
+                        uiState = uiState,
+                    )
+                },
+                onApplyHostPackPreset = viewModel::applyHostPackPreset,
+                onRefreshHostPackCatalog = viewModel::refreshHostPackCatalog,
+                onForgetLearnedHosts = viewModel::forgetLearnedHosts,
+                onClearRememberedNetworks = viewModel::clearRememberedNetworks,
+                onWsTunnelModeChanged = binder::onWsTunnelModeChanged,
+                onRotateTelemetrySalt = viewModel::rotateTelemetrySalt,
+                onSaveActivationRange = { dimension, start, end ->
+                    binder.onSaveActivationRange(
+                        dimension = dimension,
+                        start = start,
+                        end = end,
+                        uiState = uiState,
+                    )
+                },
+                onResetAdaptiveSplit = { binder.onResetAdaptiveSplit(uiState) },
+                onResetAdaptiveFakeTtlProfile = viewModel::resetAdaptiveFakeTtlProfile,
+                onResetActivationWindow = viewModel::resetActivationWindow,
+                onResetHttpParserEvasions = viewModel::resetHttpParserEvasions,
+                onResetFakePayloadLibrary = viewModel::resetFakePayloadLibrary,
+                onResetFakeTlsProfile = viewModel::resetFakeTlsProfile,
+            ),
         modifier = modifier,
     )
 }
