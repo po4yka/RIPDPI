@@ -11,8 +11,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -485,8 +485,7 @@ private data class SparklineGeometry(
             width * index.toFloat() / values.lastIndex.toFloat()
         }
 
-    fun yFor(index: Int): Float =
-        height - ((values[index] - min) / range) * height
+    fun yFor(index: Int): Float = height - ((values[index] - min) / range) * height
 
     companion object {
         fun from(
@@ -567,8 +566,12 @@ private fun SparklineValueChip(
 internal fun SessionRow(
     session: DiagnosticsSessionRowUiModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    RipDpiCard(onClick = onClick) {
+    RipDpiCard(
+        modifier = modifier,
+        onClick = onClick,
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -602,6 +605,7 @@ internal fun SessionRow(
 internal fun TelegramResultCard(
     probe: DiagnosticsProbeResultUiModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -609,7 +613,10 @@ internal fun TelegramResultCard(
     val verdict = details["verdict"] ?: probe.outcome
     val verdictTone = statusTone(probe.tone)
 
-    RipDpiCard(onClick = onClick) {
+    RipDpiCard(
+        modifier = modifier,
+        onClick = onClick,
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -739,9 +746,13 @@ private fun formatTransferBytes(bytes: Long): String =
 internal fun ProbeResultRow(
     probe: DiagnosticsProbeResultUiModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
-    RipDpiCard(onClick = onClick) {
+    RipDpiCard(
+        modifier = modifier,
+        onClick = onClick,
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -783,9 +794,11 @@ internal fun ProbeResultRow(
 internal fun EventRow(
     event: DiagnosticsEventUiModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
     RipDpiCard(
+        modifier = modifier,
         onClick = onClick,
         paddingValues =
             androidx.compose.foundation.layout
@@ -918,8 +931,9 @@ internal fun DiagnosticsPreviewCard(
 internal fun EmptyStateCard(
     title: String,
     body: String,
+    modifier: Modifier = Modifier,
 ) {
-    RipDpiCard {
+    RipDpiCard(modifier = modifier) {
         Text(
             text = title,
             style = RipDpiThemeTokens.type.bodyEmphasis,

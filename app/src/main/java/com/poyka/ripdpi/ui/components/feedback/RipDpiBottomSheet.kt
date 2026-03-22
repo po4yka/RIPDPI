@@ -39,6 +39,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
+@Suppress("LongParameterList")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RipDpiBottomSheet(
@@ -51,9 +52,11 @@ fun RipDpiBottomSheet(
     testTag: String? = null,
     primaryActionLabel: String? = null,
     onPrimaryAction: (() -> Unit)? = null,
+    primaryActionTestTag: String? = null,
     primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     secondaryActionLabel: String? = null,
     onSecondaryAction: (() -> Unit)? = null,
+    secondaryActionTestTag: String? = null,
     actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -79,9 +82,11 @@ fun RipDpiBottomSheet(
             icon = icon,
             primaryActionLabel = primaryActionLabel,
             onPrimaryAction = onPrimaryAction,
+            primaryActionTestTag = primaryActionTestTag,
             primaryActionVariant = primaryActionVariant,
             secondaryActionLabel = secondaryActionLabel,
             onSecondaryAction = onSecondaryAction,
+            secondaryActionTestTag = secondaryActionTestTag,
             actionLayout = actionLayout,
             content = content,
         )
@@ -96,9 +101,11 @@ fun RipDpiBottomSheetCard(
     icon: ImageVector? = null,
     primaryActionLabel: String? = null,
     onPrimaryAction: (() -> Unit)? = null,
+    primaryActionTestTag: String? = null,
     primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     secondaryActionLabel: String? = null,
     onSecondaryAction: (() -> Unit)? = null,
+    secondaryActionTestTag: String? = null,
     actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -154,9 +161,11 @@ fun RipDpiBottomSheetCard(
             BottomSheetActionColumn(
                 primaryActionLabel = primaryActionLabel,
                 onPrimaryAction = onPrimaryAction,
+                primaryActionTestTag = primaryActionTestTag,
                 primaryActionVariant = primaryActionVariant,
                 secondaryActionLabel = secondaryActionLabel,
                 onSecondaryAction = onSecondaryAction,
+                secondaryActionTestTag = secondaryActionTestTag,
                 actionLayout = actionLayout,
             )
         }
@@ -202,9 +211,11 @@ private fun RipDpiBottomSheetIconBadge(icon: ImageVector) {
 private fun BottomSheetActionColumn(
     primaryActionLabel: String?,
     onPrimaryAction: (() -> Unit)?,
+    primaryActionTestTag: String?,
     primaryActionVariant: RipDpiButtonVariant,
     secondaryActionLabel: String?,
     onSecondaryAction: (() -> Unit)?,
+    secondaryActionTestTag: String?,
     actionLayout: RipDpiActionLayout,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -226,7 +237,7 @@ private fun BottomSheetActionColumn(
                 RipDpiButton(
                     text = primaryActionLabel,
                     onClick = primaryAction,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(primaryActionTestTag),
                     variant = primaryActionVariant,
                 )
             }
@@ -235,7 +246,7 @@ private fun BottomSheetActionColumn(
                 RipDpiButton(
                     text = secondaryActionLabel,
                     onClick = secondaryAction,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(secondaryActionTestTag),
                     variant = RipDpiButtonVariant.Outline,
                 )
             }
@@ -251,6 +262,7 @@ private fun BottomSheetActionColumn(
                 RipDpiButton(
                     text = secondaryActionLabel,
                     onClick = secondaryAction,
+                    modifier = Modifier.ripDpiTestTag(secondaryActionTestTag),
                     variant = RipDpiButtonVariant.Outline,
                     density = RipDpiControlDensity.Compact,
                 )
@@ -260,6 +272,7 @@ private fun BottomSheetActionColumn(
                 RipDpiButton(
                     text = primaryActionLabel,
                     onClick = primaryAction,
+                    modifier = Modifier.ripDpiTestTag(primaryActionTestTag),
                     variant = primaryActionVariant,
                     density = RipDpiControlDensity.Compact,
                 )

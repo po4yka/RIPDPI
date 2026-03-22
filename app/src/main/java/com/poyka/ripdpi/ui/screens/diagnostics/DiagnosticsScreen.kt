@@ -56,8 +56,8 @@ import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
@@ -655,6 +655,7 @@ private fun ApproachesSection(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun SessionsSection(
     uiState: DiagnosticsUiState,
@@ -675,7 +676,16 @@ private fun SessionsSection(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
-            RipDpiCard {
+            RipDpiCard(
+                modifier =
+                    Modifier.ripDpiTestTag(
+                        if (uiState.sessions.sessions.isEmpty()) {
+                            RipDpiTestTags.DiagnosticsSessionsStateEmpty
+                        } else {
+                            RipDpiTestTags.DiagnosticsSessionsStateContent
+                        },
+                    ),
+            ) {
                 Text(
                     text = stringResource(R.string.diagnostics_history_section),
                     style = RipDpiThemeTokens.type.sectionTitle,
@@ -721,11 +731,16 @@ private fun SessionsSection(
                 EmptyStateCard(
                     title = stringResource(R.string.diagnostics_history_empty_title),
                     body = stringResource(R.string.diagnostics_history_empty),
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSessionsStateEmpty),
                 )
             }
         } else {
             items(uiState.sessions.sessions, key = { it.id }) { session ->
-                SessionRow(session = session, onClick = { onSelectSession(session.id) })
+                SessionRow(
+                    session = session,
+                    onClick = { onSelectSession(session.id) },
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
+                )
             }
         }
     }
@@ -774,7 +789,16 @@ private fun EventsSection(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
-            RipDpiCard {
+            RipDpiCard(
+                modifier =
+                    Modifier.ripDpiTestTag(
+                        if (uiState.events.events.isEmpty()) {
+                            RipDpiTestTags.DiagnosticsEventsStateEmpty
+                        } else {
+                            RipDpiTestTags.DiagnosticsEventsStateContent
+                        },
+                    ),
+            ) {
                 Text(
                     text = stringResource(R.string.diagnostics_events_title),
                     style = RipDpiThemeTokens.type.sectionTitle,
@@ -831,11 +855,16 @@ private fun EventsSection(
                 EmptyStateCard(
                     title = stringResource(R.string.logs_filtered_empty_title),
                     body = stringResource(R.string.logs_filtered_empty_body),
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsEventsStateEmpty),
                 )
             }
         } else {
             items(uiState.events.events, key = { it.id }) { event ->
-                EventRow(event = event, onClick = { onSelectEvent(event.id) })
+                EventRow(
+                    event = event,
+                    onClick = { onSelectEvent(event.id) },
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsEvent(event.id)),
+                )
             }
         }
     }

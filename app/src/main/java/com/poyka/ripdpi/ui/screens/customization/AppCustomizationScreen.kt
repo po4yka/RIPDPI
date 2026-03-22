@@ -77,8 +77,10 @@ internal fun AppCustomizationScreen(
             title = stringResource(R.string.customization_shape_sheet_title),
             message = stringResource(R.string.customization_shape_sheet_body),
             icon = RipDpiIcons.Info,
+            testTag = RipDpiTestTags.CustomizationShapeInfoSheet,
             primaryActionLabel = stringResource(R.string.customization_shape_sheet_action),
             onPrimaryAction = { showAdaptiveShapeSheet = false },
+            primaryActionTestTag = RipDpiTestTags.CustomizationShapeInfoSheetConfirm,
         ) {
             Text(
                 text = stringResource(R.string.customization_shape_sheet_point_one),
