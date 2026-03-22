@@ -9,11 +9,11 @@ import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
-import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.ScanKind
 
 internal const val StrategyProbeSuiteQuickV1 = "quick_v1"

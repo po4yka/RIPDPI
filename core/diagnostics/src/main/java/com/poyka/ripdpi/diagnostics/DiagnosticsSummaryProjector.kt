@@ -59,9 +59,7 @@ class DiagnosticsSummaryProjector
                 packVersions = report?.packVersions.orEmpty(),
             )
 
-        private fun buildHeaderLines(
-            session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity?,
-        ): List<String> =
+        private fun buildHeaderLines(session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity?): List<String> =
             buildList {
                 session?.let {
                     add("sessionId=${it.id}")

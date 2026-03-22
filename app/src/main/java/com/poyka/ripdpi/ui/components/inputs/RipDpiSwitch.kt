@@ -253,21 +253,21 @@ private fun SwitchLayout(
     alpha: Float,
 ) {
     Box(
-            modifier =
-                modifier
-                    .ripDpiTestTag(testTag)
-                    .size(width = dimensions.width, height = dimensions.height)
-                    .then(
-                        if (interactive) {
-                            Modifier.ripDpiToggleable(
-                                value = checked,
-                                enabled = true,
-                                role = Role.Switch,
-                                interactionSource = resolvedInteractionSource,
-                                onValueChange = { value -> onCheckedChange?.invoke(value) },
-                            )
-                        } else {
-                            Modifier
+        modifier =
+            modifier
+                .ripDpiTestTag(testTag)
+                .size(width = dimensions.width, height = dimensions.height)
+                .then(
+                    if (interactive) {
+                        Modifier.ripDpiToggleable(
+                            value = checked,
+                            enabled = true,
+                            role = Role.Switch,
+                            interactionSource = resolvedInteractionSource,
+                            onValueChange = { value -> onCheckedChange?.invoke(value) },
+                        )
+                    } else {
+                        Modifier
                     },
                 ),
         contentAlignment = Alignment.CenterStart,
@@ -314,16 +314,29 @@ private fun switchTrackColor(
     isDark: Boolean,
 ): Color =
     when {
-        isPressed && checked -> lerp(foregroundColor, onSurfaceVariant, PressedCheckedTrackBlend)
-        isPressed ->
+        isPressed && checked -> {
+            lerp(foregroundColor, onSurfaceVariant, PressedCheckedTrackBlend)
+        }
+
+        isPressed -> {
             lerp(
                 backgroundColor,
                 foregroundColor,
                 if (isDark) PressedDarkTrackBlend else PressedLightTrackBlend,
             )
-        checked -> foregroundColor
-        isDark -> lerp(backgroundColor, foregroundColor, 0.25f)
-        else -> lerp(backgroundColor, foregroundColor, 0.16f)
+        }
+
+        checked -> {
+            foregroundColor
+        }
+
+        isDark -> {
+            lerp(backgroundColor, foregroundColor, 0.25f)
+        }
+
+        else -> {
+            lerp(backgroundColor, foregroundColor, 0.16f)
+        }
     }
 
 private fun switchThumbColor(

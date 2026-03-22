@@ -195,7 +195,7 @@ internal class ProxyServiceRuntimeCoordinator(
         }
 
         proxyRuntimeSupervisor.detach()
-        host.serviceScope.launch(Dispatchers.IO) { stop(skipRuntimeShutdown = true) }
+        host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
 }
 

@@ -7,10 +7,10 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import javax.inject.Inject
+import javax.inject.Singleton
 
 interface NetworkDnsPathPreferenceStore {
     suspend fun getPreferredPath(fingerprintHash: String): EncryptedDnsPathCandidate?
