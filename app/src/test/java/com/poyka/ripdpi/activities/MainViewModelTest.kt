@@ -106,7 +106,9 @@ class MainViewModelTest {
             advanceUntilIdle()
 
             assertEquals(0, permissionStatusProvider.currentSnapshotCalls)
-            assertEquals(ConnectionState.Disconnected, viewModel.uiState.value.connectionState)
+            // The combine maps Running + Disconnected -> Connecting even
+            // before initialize(), because uiState is a reactive flow.
+            assertEquals(ConnectionState.Connecting, viewModel.uiState.value.connectionState)
 
             viewModel.initialize()
             runCurrent()
