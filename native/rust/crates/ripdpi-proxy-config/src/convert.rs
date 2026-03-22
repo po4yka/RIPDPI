@@ -1,13 +1,13 @@
 use std::net::IpAddr;
 use std::str::FromStr;
 
-use ciadpi_config::{
+use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
     parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, NumericRange,
     OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
     UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
-use ciadpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
+use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
 use serde_json::Value;
 
@@ -234,11 +234,11 @@ pub fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<Runtime
         args.remove(0);
     }
 
-    let parsed = ciadpi_config::parse_cli(&args, &StartupEnv::default())
+    let parsed = ripdpi_config::parse_cli(&args, &StartupEnv::default())
         .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid command-line proxy config: {}", err.option)))?;
 
     match parsed {
-        ciadpi_config::ParseResult::Run(config) => Ok(config),
+        ripdpi_config::ParseResult::Run(config) => Ok(config),
         _ => Err(ProxyConfigError::InvalidConfig(
             "Command-line proxy config must resolve to a runnable config".to_string(),
         )),
@@ -285,11 +285,11 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned);
     config.ws_tunnel_mode = match ws_tunnel.mode.as_deref() {
-        Some("fallback") => ciadpi_config::WsTunnelMode::Fallback,
-        Some("always") => ciadpi_config::WsTunnelMode::Always,
-        Some("off" | _) => ciadpi_config::WsTunnelMode::Off,
+        Some("fallback") => ripdpi_config::WsTunnelMode::Fallback,
+        Some("always") => ripdpi_config::WsTunnelMode::Always,
+        Some("off" | _) => ripdpi_config::WsTunnelMode::Off,
         None => {
-            if ws_tunnel.enabled { ciadpi_config::WsTunnelMode::Always } else { ciadpi_config::WsTunnelMode::Off }
+            if ws_tunnel.enabled { ripdpi_config::WsTunnelMode::Always } else { ripdpi_config::WsTunnelMode::Off }
         }
     };
     if listen.custom_ttl {
@@ -330,7 +330,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         if min_ttl == 0 || max_ttl == 0 || min_ttl > max_ttl {
             return Err(ProxyConfigError::InvalidConfig("Invalid adaptive fake TTL window".to_string()));
         }
-        group.auto_ttl = Some(ciadpi_config::AutoTtlConfig { delta, min_ttl, max_ttl });
+        group.auto_ttl = Some(ripdpi_config::AutoTtlConfig { delta, min_ttl, max_ttl });
         let fallback_ttl = if fake_packets.adaptive_fake_ttl_fallback > 0 {
             fake_packets.adaptive_fake_ttl_fallback
         } else if fake_packets.fake_ttl > 0 {
@@ -366,7 +366,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         if host.is_empty() {
             None
         } else {
-            ciadpi_config::normalize_quic_fake_host(host).ok()
+            ripdpi_config::normalize_quic_fake_host(host).ok()
         }
     };
     group.mod_http = (u32::from(parser_evasions.host_mixed_case) * MH_HMIX)
@@ -385,7 +385,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         }
         let midhost_offset = Some(str::trim(step.midhost_marker.as_str()))
             .filter(|value| !value.is_empty())
-            .map(ciadpi_config::parse_offset_expr)
+            .map(ripdpi_config::parse_offset_expr)
             .transpose()
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid tcpChainSteps midhostMarker".to_string()))?;
         if kind == TcpChainStepKind::HostFake && midhost_offset.is_some_and(|value| value.base.is_adaptive()) {
@@ -395,7 +395,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         }
         let fake_host_template = Some(str::trim(step.fake_host_template.as_str()))
             .filter(|value| !value.is_empty())
-            .map(ciadpi_config::normalize_fake_host_template)
+            .map(ripdpi_config::normalize_fake_host_template)
             .transpose()
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid tcpChainSteps fakeHostTemplate".to_string()))?;
         let (fragment_count, min_fragment_size, max_fragment_size) = match kind {
@@ -619,7 +619,7 @@ pub fn parse_desync_mode(value: &str) -> Result<DesyncMode, ProxyConfigError> {
 
 fn parse_hosts(hosts: Option<&str>) -> Result<Vec<String>, ProxyConfigError> {
     let hosts = hosts.unwrap_or_default();
-    ciadpi_config::parse_hosts_spec(hosts)
+    ripdpi_config::parse_hosts_spec(hosts)
         .map_err(|_| ProxyConfigError::InvalidConfig("Invalid hosts list".to_string()))
 }
 
@@ -628,6 +628,6 @@ where
     F: FnOnce() -> String,
 {
     let spec = marker.map(str::trim).filter(|value| !value.is_empty()).map_or_else(legacy, ToOwned::to_owned);
-    ciadpi_config::parse_offset_expr(&spec)
+    ripdpi_config::parse_offset_expr(&spec)
         .map_err(|_| ProxyConfigError::InvalidConfig(format!("Invalid {field_name}")))
 }

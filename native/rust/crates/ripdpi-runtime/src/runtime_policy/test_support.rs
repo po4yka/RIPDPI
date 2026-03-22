@@ -1,10 +1,10 @@
 use std::net::SocketAddr;
 
-use ciadpi_config::{DesyncGroup, RuntimeConfig};
+use ripdpi_config::{DesyncGroup, RuntimeConfig};
 
 #[allow(dead_code)]
 pub(super) mod rust_packet_seeds {
-    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../third_party/byedpi/tests/rust_packet_seeds.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));
 }
 
 pub(super) fn sample_dest(port: u16) -> SocketAddr {

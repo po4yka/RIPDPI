@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 
-use ciadpi_config::AutoTtlConfig;
+use ripdpi_config::AutoTtlConfig;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum AdaptiveFakeTtlTarget {

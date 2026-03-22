@@ -12,8 +12,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 android-support = { workspace = true }
-ciadpi-config = { workspace = true }
-ciadpi-desync = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-desync = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-session = { workspace = true }
 jni = { workspace = true }

@@ -6,8 +6,8 @@ use std::time::{Duration, Instant};
 
 use crate::platform;
 use crate::runtime_policy::{extract_host_info, ConnectionRoute, HostSource, RouteAdvance, TransportProtocol};
-use ciadpi_config::{QuicInitialMode, RuntimeConfig, DETECT_CONNECT};
-use ciadpi_desync::{plan_udp, ActivationTransport, DesyncAction};
+use ripdpi_config::{QuicInitialMode, RuntimeConfig, DETECT_CONNECT};
+use ripdpi_desync::{plan_udp, ActivationTransport, DesyncAction};
 use ripdpi_session::{SessionState, SocketType, S_ATP_I4, S_ATP_I6};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 

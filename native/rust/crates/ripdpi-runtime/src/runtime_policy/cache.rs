@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 
-use ciadpi_config::{dump_cache_entries, load_cache_entries_from_path, prefix_match_bytes, RuntimeConfig};
+use ripdpi_config::{dump_cache_entries, load_cache_entries_from_path, prefix_match_bytes, RuntimeConfig};
 
 use super::autolearn::load_learned_host_store;
 use super::types::{CacheRecord, GroupPolicy};
@@ -69,7 +69,7 @@ impl RuntimePolicy {
         attempted_mask: u64,
         host: Option<String>,
     ) -> io::Result<()> {
-        let entry = ciadpi_config::CacheEntry {
+        let entry = ripdpi_config::CacheEntry {
             addr: dest.ip(),
             bits: cache_bits(config, dest.ip()),
             port: dest.port(),
@@ -167,7 +167,7 @@ impl RuntimePolicy {
     }
 }
 
-fn cache_matches(entry: &ciadpi_config::CacheEntry, dest: SocketAddr) -> bool {
+fn cache_matches(entry: &ripdpi_config::CacheEntry, dest: SocketAddr) -> bool {
     if entry.port != dest.port() {
         return false;
     }
@@ -197,7 +197,7 @@ fn cache_bits(config: &RuntimeConfig, ip: IpAddr) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ciadpi_config::DesyncGroup;
+    use ripdpi_config::DesyncGroup;
 
     use crate::runtime_policy::test_support::{config_with_groups, sample_dest};
 
@@ -209,7 +209,7 @@ mod tests {
         let config = config_with_groups(vec![group]);
         let mut policy = RuntimePolicy {
             records: vec![CacheRecord {
-                entry: ciadpi_config::CacheEntry {
+                entry: ripdpi_config::CacheEntry {
                     addr: dest.ip(),
                     bits: 32,
                     port: dest.port(),
@@ -248,7 +248,7 @@ mod tests {
         };
         let config = config_with_groups(vec![group]);
         let record = CacheRecord {
-            entry: ciadpi_config::CacheEntry {
+            entry: ripdpi_config::CacheEntry {
                 addr: IpAddr::from([1, 2, 3, 4]),
                 bits: 32,
                 port: 443,

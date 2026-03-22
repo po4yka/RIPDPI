@@ -1,4 +1,4 @@
-use ciadpi_config::{RuntimeConfig, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS};
+use ripdpi_config::{RuntimeConfig, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS};
 use serde::{Deserialize, Serialize};
 
 pub(crate) const HOSTS_DISABLE: &str = "disable";
