@@ -30,13 +30,9 @@ internal class DisabledEchoProbeProvider
 internal abstract class DiagnosticsComparisonProvidersModule {
     @Binds
     @Singleton
-    abstract fun bindControlComparisonProvider(
-        provider: DisabledControlComparisonProvider,
-    ): ControlComparisonProvider
+    abstract fun bindControlComparisonProvider(provider: DisabledControlComparisonProvider): ControlComparisonProvider
 
     @Binds
     @Singleton
-    abstract fun bindEchoProbeProvider(
-        provider: DisabledEchoProbeProvider,
-    ): EchoProbeProvider
+    abstract fun bindEchoProbeProvider(provider: DisabledEchoProbeProvider): EchoProbeProvider
 }

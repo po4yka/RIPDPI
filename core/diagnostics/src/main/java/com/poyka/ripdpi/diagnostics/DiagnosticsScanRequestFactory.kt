@@ -64,7 +64,8 @@ internal class DiagnosticsScanRequestFactory
                 plan = plan,
                 requestJson =
                     json.encodeToString(
-                        com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire.serializer(),
+                        com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
+                            .serializer(),
                         engineRequest,
                     ),
                 exposeProgress = exposeProgress,

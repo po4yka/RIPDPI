@@ -176,29 +176,32 @@ private class AdvancedSettingsMutationWriter(
         val filter = uiState.desync.groupActivationFilter
         val updatedFilter =
             when (dimension) {
-                ActivationWindowDimension.Round ->
+                ActivationWindowDimension.Round -> {
                     filter.copy(
                         round =
                             normalizeRoundRange(
                                 updateNumericRangeBoundary(filter.round, value, updateStart),
                             ),
                     )
+                }
 
-                ActivationWindowDimension.PayloadSize ->
+                ActivationWindowDimension.PayloadSize -> {
                     filter.copy(
                         payloadSize =
                             normalizePayloadSizeRange(
                                 updateNumericRangeBoundary(filter.payloadSize, value, updateStart),
                             ),
                     )
+                }
 
-                ActivationWindowDimension.StreamBytes ->
+                ActivationWindowDimension.StreamBytes -> {
                     filter.copy(
                         streamBytes =
                             normalizeStreamBytesRange(
                                 updateNumericRangeBoundary(filter.streamBytes, value, updateStart),
                             ),
                     )
+                }
             }
         updateGroupActivationFilter(key, value, updatedFilter)
     }
@@ -228,7 +231,10 @@ private class AdvancedSettingsMutationWriter(
         }
     }
 
-    fun updateAdaptiveFakeTtlMin(value: String, uiState: SettingsUiState) {
+    fun updateAdaptiveFakeTtlMin(
+        value: String,
+        uiState: SettingsUiState,
+    ) {
         value.toIntOrNull()?.let { minTtl ->
             val normalized = minTtl.coerceIn(MinTtl, MaxTtl)
             val maxTtl = uiState.fake.adaptiveFakeTtlMax.coerceAtLeast(normalized)
@@ -240,7 +246,10 @@ private class AdvancedSettingsMutationWriter(
         }
     }
 
-    fun updateAdaptiveFakeTtlMax(value: String, uiState: SettingsUiState) {
+    fun updateAdaptiveFakeTtlMax(
+        value: String,
+        uiState: SettingsUiState,
+    ) {
         value.toIntOrNull()?.let { maxTtl ->
             val minTtl = uiState.fake.adaptiveFakeTtlMin.coerceIn(MinTtl, MaxTtl)
             val normalized = maxTtl.coerceIn(minTtl, MaxTtl)
@@ -311,31 +320,48 @@ private class AdvancedSettingsMutationWriter(
         }
     }
 
-    fun updateAdaptiveSplitPreset(value: String, uiState: SettingsUiState) {
+    fun updateAdaptiveSplitPreset(
+        value: String,
+        uiState: SettingsUiState,
+    ) {
         when (value) {
-            AdaptiveSplitPresetCustom -> Unit
-            AdaptiveSplitPresetManual ->
+            AdaptiveSplitPresetCustom -> {
+                Unit
+            }
+
+            AdaptiveSplitPresetManual -> {
                 updatePrimarySplitMarker(
                     uiState = uiState,
                     key = "splitMarker",
                     marker = manualSplitMarkerFallback(uiState),
                 )
-            else ->
+            }
+
+            else -> {
                 updatePrimarySplitMarker(
                     uiState = uiState,
                     key = "splitMarker",
                     marker = value,
                 )
+            }
         }
     }
 
-    fun updateAdaptiveFakeTtlMode(value: String, uiState: SettingsUiState) {
+    fun updateAdaptiveFakeTtlMode(
+        value: String,
+        uiState: SettingsUiState,
+    ) {
         when (value) {
-            AdaptiveFakeTtlModeCustom -> Unit
-            AdaptiveFakeTtlModeFixed ->
+            AdaptiveFakeTtlModeCustom -> {
+                Unit
+            }
+
+            AdaptiveFakeTtlModeFixed -> {
                 updateValue("adaptiveFakeTtlEnabled", "false") {
                     setAdaptiveFakeTtlEnabled(false)
                 }
+            }
+
             AdaptiveFakeTtlModeAdaptive -> {
                 val minTtl = uiState.fake.adaptiveFakeTtlMin.coerceIn(MinTtl, MaxTtl)
                 val maxTtl = uiState.fake.adaptiveFakeTtlMax.coerceIn(minTtl, MaxTtl)
@@ -359,7 +385,7 @@ private class AdvancedSettingsMutationWriter(
         uiState: SettingsUiState,
     ) {
         when (dimension) {
-            ActivationWindowDimension.Round ->
+            ActivationWindowDimension.Round -> {
                 updateGroupActivationFilter(
                     key = "groupActivationFilter.round",
                     value = listOfNotNull(start, end).joinToString("-"),
@@ -368,8 +394,9 @@ private class AdvancedSettingsMutationWriter(
                             round = normalizeRoundRange(start, end),
                         ),
                 )
+            }
 
-            ActivationWindowDimension.PayloadSize ->
+            ActivationWindowDimension.PayloadSize -> {
                 updateGroupActivationFilter(
                     key = "groupActivationFilter.payloadSize",
                     value = listOfNotNull(start, end).joinToString("-"),
@@ -378,8 +405,9 @@ private class AdvancedSettingsMutationWriter(
                             payloadSize = normalizePayloadSizeRange(start, end),
                         ),
                 )
+            }
 
-            ActivationWindowDimension.StreamBytes ->
+            ActivationWindowDimension.StreamBytes -> {
                 updateGroupActivationFilter(
                     key = "groupActivationFilter.streamBytes",
                     value = listOfNotNull(start, end).joinToString("-"),
@@ -388,6 +416,7 @@ private class AdvancedSettingsMutationWriter(
                             streamBytes = normalizeStreamBytesRange(start, end),
                         ),
                 )
+            }
         }
     }
 
@@ -435,13 +464,11 @@ private fun AdvancedSettingsMutationWriter.updateHostAutolearnMaxHosts(value: St
 private val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
     mapOf(
         AdvancedToggleSetting.UseCommandLine to
-            {
-                enabled ->
+            { enabled ->
                 updateBoolean("enableCmdSettings", enabled) { setEnableCmdSettings(enabled) }
             },
         AdvancedToggleSetting.DiagnosticsMonitorEnabled to
-            {
-                enabled ->
+            { enabled ->
                 updateBoolean("diagnosticsMonitorEnabled", enabled) {
                     setDiagnosticsMonitorEnabled(enabled)
                 }
@@ -515,8 +542,7 @@ private val textHandlers: Map<AdvancedTextSetting, TextHandler> =
         AdvancedTextSetting.ProxyPort to
             { value, _ -> updateIntValue("proxyPort", value) { port -> { setProxyPort(port) } } },
         AdvancedTextSetting.MaxConnections to
-            {
-                value, _ ->
+            { value, _ ->
                 updateIntValue("maxConnections", value) { maxConnections ->
                     { setMaxConnections(maxConnections) }
                 }

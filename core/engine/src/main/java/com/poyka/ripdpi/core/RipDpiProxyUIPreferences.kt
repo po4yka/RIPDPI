@@ -325,9 +325,10 @@ class RipDpiProxyUIPreferences(
             )
 
         private fun buildWsTunnelConfig(settings: AppSettings): RipDpiWsTunnelConfig {
-            val mode = settings.wsTunnelMode.ifEmpty {
-                if (settings.wsTunnelEnabled) "always" else "off"
-            }
+            val mode =
+                settings.wsTunnelMode.ifEmpty {
+                    if (settings.wsTunnelEnabled) "always" else "off"
+                }
             return RipDpiWsTunnelConfig(
                 enabled = mode != "off",
                 mode = mode,

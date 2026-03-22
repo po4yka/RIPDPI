@@ -481,6 +481,7 @@ class NativeConfigContractSnapshotTest {
         quic: JsonObject = quicExpected(),
         hosts: JsonObject = hostsExpected(),
         hostAutolearn: JsonObject = hostAutolearnExpected(),
+        wsTunnel: JsonObject = wsTunnelExpected(),
     ): JsonObject =
         buildJsonObject {
             put("kind", JsonPrimitive("ui"))
@@ -493,6 +494,7 @@ class NativeConfigContractSnapshotTest {
             put("quic", quic)
             put("hosts", hosts)
             put("hostAutolearn", hostAutolearn)
+            put("wsTunnel", wsTunnel)
             put("runtimeContext", JsonNull)
         }
 
@@ -666,6 +668,15 @@ class NativeConfigContractSnapshotTest {
             put("maxHosts", JsonPrimitive(maxHosts))
             put("storePath", storePath?.let(::JsonPrimitive) ?: JsonNull)
             put("networkScopeKey", networkScopeKey?.let(::JsonPrimitive) ?: JsonNull)
+        }
+
+    private fun wsTunnelExpected(
+        enabled: Boolean = false,
+        mode: String? = null,
+    ): JsonObject =
+        buildJsonObject {
+            put("enabled", JsonPrimitive(enabled))
+            put("mode", mode?.let(::JsonPrimitive) ?: JsonNull)
         }
 
     private fun activationFilterExpected(

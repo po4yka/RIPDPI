@@ -264,15 +264,25 @@ private fun EncryptedDnsPathCandidate.protocolPreferenceHint(
     currentPath: EncryptedDnsPathCandidate?,
 ): String =
     when {
-        preferredPath != null && pathKey() == preferredPath.pathKey() ->
+        preferredPath != null && pathKey() == preferredPath.pathKey() -> {
             " This network already preferred this encrypted DNS path."
-        preferredPath != null && protocol == preferredPath.protocol ->
+        }
+
+        preferredPath != null && protocol == preferredPath.protocol -> {
             " This network already leaned toward ${protocol.uppercase(Locale.US)}."
-        currentPath != null && pathKey() == currentPath.pathKey() ->
+        }
+
+        currentPath != null && pathKey() == currentPath.pathKey() -> {
             " This matches the currently active encrypted DNS path."
-        currentPath != null && protocol == currentPath.protocol ->
+        }
+
+        currentPath != null && protocol == currentPath.protocol -> {
             " This keeps the current encrypted DNS protocol family."
-        else -> ""
+        }
+
+        else -> {
+            ""
+        }
     }
 
 private fun CandidateObservation.isHealthy(): Boolean =
@@ -290,21 +300,21 @@ private fun averageLatency(entries: List<CandidateObservation>): Long? =
         ?.average()
         ?.toLong()
 
-private fun defaultPort(protocol: String, builtInPort: Int?): Int =
+private fun defaultPort(
+    protocol: String,
+    builtInPort: Int?,
+): Int =
     when (protocol) {
         EncryptedDnsProtocolDot -> DefaultPortDot
         EncryptedDnsProtocolDoh -> DefaultPortDoh
         else -> builtInPort ?: DefaultPortDoh
     }
 
-private fun String.requiresHost(dohUrl: String): Boolean =
-    this != EncryptedDnsProtocolDoh && dohUrl.isBlank()
+private fun String.requiresHost(dohUrl: String): Boolean = this != EncryptedDnsProtocolDoh && dohUrl.isBlank()
 
-private fun String.displayLabel(): String =
-    replace('_', ' ').replaceFirstChar { it.uppercase() }
+private fun String.displayLabel(): String = replace('_', ' ').replaceFirstChar { it.uppercase() }
 
-private fun hasHttpScheme(value: String): Boolean =
-    value.startsWith(SchemeHttp) || value.startsWith(SchemeHttps)
+private fun hasHttpScheme(value: String): Boolean = value.startsWith(SchemeHttp) || value.startsWith(SchemeHttps)
 
 private fun URI.resolvedPort(): Int =
     if (port > 0) {

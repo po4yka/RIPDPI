@@ -39,13 +39,11 @@ fun TelemetrySampleEntity.winningStrategyFamily(): String? =
 
 fun TelemetrySampleEntity.rttBand(): String = aggregateRttBand(proxyRttBand, resolverRttBand)
 
-fun TelemetrySampleEntity.retryCount(): Long =
-    aggregateRetryCount(proxyRouteRetryCount, tunnelRecoveryRetryCount)
+fun TelemetrySampleEntity.retryCount(): Long = aggregateRetryCount(proxyRouteRetryCount, tunnelRecoveryRetryCount)
 
 fun BypassUsageSessionEntity.winningStrategyFamily(): String? =
     aggregateWinningStrategyFamily(winningTcpStrategyFamily, winningQuicStrategyFamily)
 
 fun BypassUsageSessionEntity.rttBand(): String = aggregateRttBand(proxyRttBand, resolverRttBand)
 
-fun BypassUsageSessionEntity.retryCount(): Long =
-    aggregateRetryCount(proxyRouteRetryCount, tunnelRecoveryRetryCount)
+fun BypassUsageSessionEntity.retryCount(): Long = aggregateRetryCount(proxyRouteRetryCount, tunnelRecoveryRetryCount)

@@ -10,9 +10,9 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.flow.Flow
 
 internal const val DiagnosticsHistoryDayMillis = 24L * 60L * 60L * 1000L
 
@@ -176,7 +176,8 @@ class RoomDiagnosticsScanRecordStore
 
         override suspend fun getScanSession(sessionId: String): ScanSessionEntity? = dao.getScanSession(sessionId)
 
-        override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> = dao.getProbeResults(sessionId)
+        override suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity> =
+            dao.getProbeResults(sessionId)
 
         override suspend fun upsertScanSession(session: ScanSessionEntity) {
             dao.upsertScanSession(session)
@@ -200,7 +201,8 @@ class RoomDiagnosticsArtifactStore
     @Inject
     constructor(
         private val dao: DiagnosticsDao,
-    ) : DiagnosticsArtifactReadStore, DiagnosticsArtifactWriteStore {
+    ) : DiagnosticsArtifactReadStore,
+        DiagnosticsArtifactWriteStore {
         override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = dao.observeSnapshots(limit)
 
         override fun observeConnectionSnapshots(
@@ -212,7 +214,8 @@ class RoomDiagnosticsArtifactStore
                 limit = limit,
             )
 
-        override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> = dao.observeContextSnapshots(limit)
+        override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> =
+            dao.observeContextSnapshots(limit)
 
         override fun observeConnectionContexts(
             connectionSessionId: String,
@@ -234,7 +237,8 @@ class RoomDiagnosticsArtifactStore
                 limit = limit,
             )
 
-        override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = dao.observeNativeEvents(limit)
+        override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> =
+            dao.observeNativeEvents(limit)
 
         override fun observeConnectionNativeEvents(
             connectionSessionId: String,
@@ -378,33 +382,23 @@ class RoomDiagnosticsHistoryRetentionStore
 abstract class DiagnosticsHistoryStoresModule {
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsProfileCatalog(
-        store: RoomDiagnosticsProfileCatalog,
-    ): DiagnosticsProfileCatalog
+    abstract fun bindDiagnosticsProfileCatalog(store: RoomDiagnosticsProfileCatalog): DiagnosticsProfileCatalog
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsScanRecordStore(
-        store: RoomDiagnosticsScanRecordStore,
-    ): DiagnosticsScanRecordStore
+    abstract fun bindDiagnosticsScanRecordStore(store: RoomDiagnosticsScanRecordStore): DiagnosticsScanRecordStore
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsArtifactReadStore(
-        store: RoomDiagnosticsArtifactStore,
-    ): DiagnosticsArtifactReadStore
+    abstract fun bindDiagnosticsArtifactReadStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactReadStore
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsArtifactWriteStore(
-        store: RoomDiagnosticsArtifactStore,
-    ): DiagnosticsArtifactWriteStore
+    abstract fun bindDiagnosticsArtifactWriteStore(store: RoomDiagnosticsArtifactStore): DiagnosticsArtifactWriteStore
 
     @Binds
     @Singleton
-    abstract fun bindBypassUsageHistoryStore(
-        store: RoomBypassUsageHistoryStore,
-    ): BypassUsageHistoryStore
+    abstract fun bindBypassUsageHistoryStore(store: RoomBypassUsageHistoryStore): BypassUsageHistoryStore
 
     @Binds
     @Singleton
@@ -426,7 +420,5 @@ abstract class DiagnosticsHistoryStoresModule {
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsHistoryClock(
-        clock: SystemDiagnosticsHistoryClock,
-    ): DiagnosticsHistoryClock
+    abstract fun bindDiagnosticsHistoryClock(clock: SystemDiagnosticsHistoryClock): DiagnosticsHistoryClock
 }

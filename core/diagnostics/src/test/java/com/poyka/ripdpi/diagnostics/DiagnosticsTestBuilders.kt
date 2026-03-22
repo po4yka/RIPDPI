@@ -37,6 +37,7 @@ internal data class DiagnosticsServicesBundle(
     val resolverActions: DiagnosticsResolverActions,
 )
 
+@Suppress("LongParameterList", "LongMethod")
 internal fun createDiagnosticsServices(
     context: Context,
     appSettingsRepository: AppSettingsRepository,
