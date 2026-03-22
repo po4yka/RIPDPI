@@ -1,23 +1,25 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
+#[cfg(test)]
+use std::collections::BTreeSet;
 
 use ripdpi_failure_classifier::{classify_quic_probe, ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
 use crate::candidates::StrategyCandidateSpec;
+#[cfg(test)]
 use crate::observations::observation_for_probe;
 use crate::types::{
-    Diagnosis, ObservationKind, ProbeObservation, ProbeDetail, ProbeResult, ScanRequest, StrategyProbeProtocol,
-    TransportFailureKind,
+    ObservationKind, ProbeDetail, ProbeObservation, ProbeResult, StrategyProbeProtocol, TransportFailureKind,
 };
+#[cfg(test)]
+use crate::types::{Diagnosis, ScanRequest};
 use crate::util::stable_probe_hash;
 
-pub(crate) const CONNECTIVITY_CLASSIFIER_VERSION: &str = "ru_ooni_v1";
-
-// --- Functions ---
-
+#[cfg(test)]
 pub(crate) fn failure_detail_value<'a>(result: &'a ProbeResult, key: &str) -> Option<&'a str> {
     result.details.iter().find_map(|detail| (detail.key == key).then_some(detail.value.as_str()))
 }
 
+#[cfg(test)]
 pub(crate) fn classify_transport_failure_text(text: &str, stage: FailureStage) -> Option<ClassifiedFailure> {
     let normalized = text.trim().to_ascii_lowercase();
     if normalized.is_empty() || normalized == "none" {
@@ -54,10 +56,7 @@ pub(crate) fn classify_transport_failure_text(text: &str, stage: FailureStage) -
     None
 }
 
-pub(crate) fn classify_strategy_probe_result(result: &ProbeResult) -> Option<ClassifiedFailure> {
-    observation_for_probe(result).as_ref().and_then(classify_strategy_probe_observation)
-}
-
+#[cfg(test)]
 pub(crate) fn strategy_probe_failure_weight(result: &ProbeResult) -> usize {
     observation_for_probe(result).as_ref().map(strategy_probe_observation_weight).unwrap_or_else(|| match result.probe_type.as_str() {
         "strategy_https" | "strategy_quic" => 2,
@@ -77,6 +76,7 @@ pub(crate) fn strategy_probe_failure_priority(class: FailureClass) -> usize {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn classify_strategy_probe_baseline_results(results: &[ProbeResult]) -> Option<ClassifiedFailure> {
     classify_strategy_probe_baseline_observations(
         &results.iter().filter_map(observation_for_probe).collect::<Vec<_>>(),
@@ -321,6 +321,7 @@ pub(crate) fn pack_versions_from_refs(pack_refs: &[String]) -> BTreeMap<String, 
     versions
 }
 
+#[cfg(test)]
 pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[ProbeResult]) -> Vec<Diagnosis> {
     let mut diagnoses = Vec::new();
     let mut seen = BTreeSet::<String>::new();
@@ -597,6 +598,7 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
     diagnoses
 }
 
+#[cfg(test)]
 fn classify_throughput_diagnosis(results: &[ProbeResult], diagnoses: &mut Vec<Diagnosis>, seen: &mut BTreeSet<String>) {
     let throughput_results = results.iter().filter(|result| result.probe_type == "throughput_window");
     let mut control_medians = Vec::<u64>::new();
@@ -637,6 +639,7 @@ fn classify_throughput_diagnosis(results: &[ProbeResult], diagnoses: &mut Vec<Di
     }
 }
 
+#[cfg(test)]
 fn median(values: &mut Vec<u64>) -> u64 {
     if values.is_empty() {
         return 0;
@@ -645,6 +648,7 @@ fn median(values: &mut Vec<u64>) -> u64 {
     values[values.len() / 2]
 }
 
+#[cfg(test)]
 fn push_diagnosis(diagnoses: &mut Vec<Diagnosis>, seen: &mut BTreeSet<String>, diagnosis: Diagnosis) {
     let key = format!("{}:{}", diagnosis.code, diagnosis.target.as_deref().unwrap_or("*"));
     if seen.insert(key) {
@@ -652,34 +656,42 @@ fn push_diagnosis(diagnoses: &mut Vec<Diagnosis>, seen: &mut BTreeSet<String>, d
     }
 }
 
+#[cfg(test)]
 fn diagnosis_evidence(result: &ProbeResult, keys: &[&str]) -> Vec<String> {
     keys.iter().filter_map(|key| failure_detail_value(result, key).map(|value| format!("{key}={value}"))).collect()
 }
 
+#[cfg(test)]
 fn normalize_host(value: &str) -> String {
     value.trim().to_ascii_lowercase().trim_start_matches("www.").to_string()
 }
 
+#[cfg(test)]
 fn is_timeout_error(value: &str) -> bool {
     value.contains("timed out") || value.contains("timeout") || value.contains("would block")
 }
 
+#[cfg(test)]
 fn is_reset_error(value: &str) -> bool {
     value.contains("reset") || value.contains("broken pipe") || value.contains("aborted")
 }
 
+#[cfg(test)]
 fn is_close_error(value: &str) -> bool {
     value.contains("unexpected eof") || value.contains("closed") || value.contains("close notify")
 }
 
+#[cfg(test)]
 fn is_http_failure(value: &str) -> bool {
     !matches!(value, "not_run" | "http_ok")
 }
 
+#[cfg(test)]
 fn is_tls_failure(value: &str) -> bool {
     !matches!(value, "not_run" | "tls_ok" | "tcp_connect_ok")
 }
 
+#[cfg(test)]
 fn is_quic_failure(value: &str) -> bool {
     !matches!(value, "not_run" | "quic_initial_response" | "quic_response")
 }
