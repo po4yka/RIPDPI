@@ -23,6 +23,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -116,7 +117,7 @@ internal fun ScanSection(
         if (uiState.scan.diagnoses.isNotEmpty()) {
             item {
                 DiagnosisSummaryCard(
-                    title = "Diagnosis summary",
+                    title = stringResource(R.string.diagnostics_diagnosis_summary_title),
                     diagnoses = uiState.scan.diagnoses,
                 )
             }
@@ -124,8 +125,8 @@ internal fun ScanSection(
         selectedProfile?.takeIf { it.regionTag?.equals("ru", ignoreCase = true) == true }?.let {
             item {
                 WarningBanner(
-                    title = "Russia-focused suite",
-                    message = "Manual local checks tuned for Russian DPI patterns. Results are evidence, not attribution.",
+                    title = stringResource(R.string.diagnostics_region_suite_title),
+                    message = stringResource(R.string.diagnostics_region_suite_message),
                     tone = WarningBannerTone.Restricted,
                 )
             }
@@ -149,7 +150,7 @@ internal fun ScanSection(
             }
             if (progress.completedProbes.isNotEmpty()) {
                 item {
-                    SettingsCategoryHeader(title = "Live results")
+                    SettingsCategoryHeader(title = stringResource(R.string.diagnostics_live_results_title))
                 }
                 items(
                     items = progress.completedProbes.reversed().take(8),
@@ -375,23 +376,28 @@ internal fun DiagnosticsProfileCard(
     val (badge, description) =
         when {
             profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> {
-                "RU WEB" to "Russia-focused web connectivity, DNS, TLS, and HTTP evidence."
+                stringResource(R.string.diagnostics_profile_badge_ru_web) to
+                    stringResource(R.string.diagnostics_profile_desc_web_connectivity)
             }
 
             profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.MESSAGING -> {
-                "RU MSG" to "Messaging bootstrap, media, and protocol reachability checks."
+                stringResource(R.string.diagnostics_profile_badge_ru_msg) to
+                    stringResource(R.string.diagnostics_profile_desc_messaging)
             }
 
             profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.CIRCUMVENTION -> {
-                "RU BYPASS" to "Tor and VPN bootstrap plus handshake reachability."
+                stringResource(R.string.diagnostics_profile_badge_ru_adapt) to
+                    stringResource(R.string.diagnostics_profile_desc_adaptation)
             }
 
             profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.THROTTLING -> {
-                "RU RATE" to "Manual throughput windows against neutral control endpoints."
+                stringResource(R.string.diagnostics_profile_badge_ru_rate) to
+                    stringResource(R.string.diagnostics_profile_desc_throttling)
             }
 
             profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.DPI_FULL -> {
-                "RU FULL" to "Combined Russia-specific DPI heuristics across multiple services."
+                stringResource(R.string.diagnostics_profile_badge_ru_full) to
+                    stringResource(R.string.diagnostics_profile_desc_network_full)
             }
 
             profile.strategyProbeSuiteId == "full_matrix_v1" -> {
@@ -599,10 +605,10 @@ internal fun DiagnosticsScanWorkflowCard(
                 add(stringResource(R.string.diagnostics_profile_badge_raw_and_in_path) to DiagnosticsTone.Positive)
             }
             if (profile.manualOnly) {
-                add("Manual only" to DiagnosticsTone.Warning)
+                add(stringResource(R.string.diagnostics_profile_badge_manual_only) to DiagnosticsTone.Warning)
             }
             if (profile.regionTag?.equals("ru", ignoreCase = true) == true) {
-                add("Russia DPI" to DiagnosticsTone.Warning)
+                add(stringResource(R.string.diagnostics_profile_badge_region_net) to DiagnosticsTone.Warning)
             }
         }
 
@@ -743,16 +749,18 @@ private fun DiagnosisSummaryCard(
     }
 }
 
+@Composable
+@ReadOnlyComposable
 private fun com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.displayFamilyLabel(): String =
     when (this) {
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.GENERAL -> "General"
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> "Web Connectivity"
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.MESSAGING -> "Messaging"
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.CIRCUMVENTION -> "Circumvention"
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.THROTTLING -> "Throttling"
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.DPI_FULL -> "DPI Full"
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_PROBING -> "Automatic Probing"
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_AUDIT -> "Automatic Audit"
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.GENERAL -> stringResource(R.string.diagnostics_family_general)
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> stringResource(R.string.diagnostics_family_web_connectivity)
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.MESSAGING -> stringResource(R.string.diagnostics_family_messaging)
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.CIRCUMVENTION -> stringResource(R.string.diagnostics_family_adaptation)
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.THROTTLING -> stringResource(R.string.diagnostics_family_throttling)
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.DPI_FULL -> stringResource(R.string.diagnostics_family_network_full)
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_PROBING -> stringResource(R.string.diagnostics_family_automatic_probing)
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_AUDIT -> stringResource(R.string.diagnostics_family_automatic_audit)
     }
 
 @Composable

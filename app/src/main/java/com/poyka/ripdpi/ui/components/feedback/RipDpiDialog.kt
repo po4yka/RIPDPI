@@ -350,7 +350,7 @@ private fun RipDpiDestructiveDialogPreview() {
             confirmAction = RipDpiDialogAction(label = "Reset", onClick = {}),
             visuals =
                 RipDpiDialogVisuals(
-                    message = "Custom command line arguments and bypass rules will be removed.",
+                    message = "Custom command line arguments and routing rules will be removed.",
                     tone = RipDpiDialogTone.Destructive,
                 ),
         )

@@ -371,7 +371,7 @@ private fun RipDpiDesignSystemCatalog(
                     listOf(
                         "Button" to {
                             RipDpiButton(
-                                text = "Start local bypass service with diagnostic telemetry",
+                                text = "Start local optimization service with diagnostic telemetry",
                                 onClick = {},
                             )
                         },
@@ -421,7 +421,7 @@ private fun RipDpiDesignSystemCatalog(
                         "Selected" to {
                             PresetCard(
                                 title = "Automatic",
-                                description = "Detect and apply the strongest DPI bypass strategy.",
+                                description = "Detect and apply the strongest optimization strategy.",
                                 badgeText = "Active",
                                 selected = true,
                                 onClick = {},

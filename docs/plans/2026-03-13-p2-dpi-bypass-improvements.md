@@ -1,4 +1,4 @@
-# P2 DPI Bypass Improvements Implementation Plan
+# P2 Network Optimization Improvements Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
