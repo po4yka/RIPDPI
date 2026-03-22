@@ -59,7 +59,7 @@ class DefaultServiceStateStore
         private val _status = MutableStateFlow(AppStatus.Halted to Mode.VPN)
         override val status: StateFlow<Pair<AppStatus, Mode>> = _status.asStateFlow()
 
-        private val _events = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
+        private val _events = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 8)
         override val events: SharedFlow<ServiceEvent> = _events.asSharedFlow()
 
         private val _telemetry = MutableStateFlow(ServiceTelemetrySnapshot())
