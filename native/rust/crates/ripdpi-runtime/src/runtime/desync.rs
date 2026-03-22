@@ -3,8 +3,8 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use crate::platform;
-use ciadpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind};
-use ciadpi_desync::{
+use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind};
+use ripdpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes, plan_tcp,
     resolve_hostfake_span, ActivationContext, ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan,
 };
@@ -17,7 +17,7 @@ use super::state::{RuntimeState, DESYNC_SEED_BASE};
 pub(super) fn activation_context_from_progress(
     progress: OutboundProgress,
     transport: ActivationTransport,
-    tcp_segment_hint: Option<ciadpi_desync::TcpSegmentHint>,
+    tcp_segment_hint: Option<ripdpi_desync::TcpSegmentHint>,
     resolved_fake_ttl: Option<u8>,
     adaptive: AdaptivePlannerHints,
 ) -> ActivationContext {
@@ -409,7 +409,7 @@ pub(super) fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ciadpi_config::{NumericRange, OffsetExpr, TcpChainStep};
+    use ripdpi_config::{NumericRange, OffsetExpr, TcpChainStep};
 
     fn test_group() -> DesyncGroup {
         DesyncGroup::new(0)

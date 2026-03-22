@@ -2,7 +2,7 @@ use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ciadpi_config::{
+use ripdpi_config::{
     DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
     DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE,
 };
@@ -498,6 +498,6 @@ pub(super) fn trigger_flag(trigger: TriggerEvent) -> u32 {
         TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
         TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
         TriggerEvent::Connect => DETECT_CONNECT,
-        TriggerEvent::Torst => ciadpi_config::DETECT_TORST,
+        TriggerEvent::Torst => ripdpi_config::DETECT_TORST,
     }
 }

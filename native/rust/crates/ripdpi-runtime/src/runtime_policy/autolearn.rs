@@ -4,7 +4,7 @@ use std::io;
 use std::net::IpAddr;
 use std::path::Path;
 
-use ciadpi_config::RuntimeConfig;
+use ripdpi_config::RuntimeConfig;
 use sha2::{Digest, Sha256};
 
 use super::types::{LearnedHostRecord, LearnedHostStore, LearnedNetworkScopeStore, LoadLearnedHostStoreError};
@@ -329,7 +329,7 @@ mod tests {
                 .expect("persist learned host");
         }
 
-        config.groups.push(ciadpi_config::DesyncGroup::new(1));
+        config.groups.push(ripdpi_config::DesyncGroup::new(1));
         let mut policy = RuntimePolicy::load(&config);
 
         assert!(policy.learned_hosts(&config).is_empty());

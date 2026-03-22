@@ -16,6 +16,7 @@ members = [
     "crates/ripdpi-session",
     "crates/ripdpi-ws-tunnel",
     "crates/ripdpi-config",
+    "crates/ripdpi-desync",
     "crates/hs5t-android",
 ]
 exclude = [
@@ -45,10 +46,7 @@ ripdpi-packets = { path = "crates/ripdpi-packets" }
 ripdpi-session = { path = "crates/ripdpi-session" }
 ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-config = { path = "crates/ripdpi-config" }
-
-ciadpi-config = { path = "third_party/byedpi/crates/ciadpi-config" }
-ciadpi-desync = { path = "third_party/byedpi/crates/ciadpi-desync" }
-ciadpi-packets = { path = "third_party/byedpi/crates/ciadpi-packets" }
+ripdpi-desync = { path = "crates/ripdpi-desync" }
 
 hs5t-config = { path = "third_party/hev-socks5-tunnel/crates/hs5t-config" }
 hs5t-core = { path = "third_party/hev-socks5-tunnel/crates/hs5t-core" }

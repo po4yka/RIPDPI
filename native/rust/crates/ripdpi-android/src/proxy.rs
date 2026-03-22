@@ -5,7 +5,7 @@ use android_support::{
     init_android_logging, throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception,
     HandleRegistry,
 };
-use ciadpi_config::RuntimeConfig;
+use ripdpi_config::RuntimeConfig;
 use jni::objects::JString;
 use jni::sys::{jint, jlong, jstring};
 use jni::JNIEnv;
@@ -349,7 +349,7 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, TcpListener};
     use std::sync::Mutex;
 
-    use ciadpi_config::RuntimeConfig;
+    use ripdpi_config::RuntimeConfig;
     use jni::sys::jlong;
     use proptest::collection::vec;
     use proptest::prelude::*;

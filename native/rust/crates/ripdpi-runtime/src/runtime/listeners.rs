@@ -12,7 +12,7 @@ use crate::retry_stealth::RetryPacer;
 use crate::runtime_policy::RuntimePolicy;
 use crate::{current_runtime_telemetry, EmbeddedProxyControl};
 use crate::{platform, process};
-use ciadpi_config::RuntimeConfig;
+use ripdpi_config::RuntimeConfig;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll};
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};

@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use ciadpi_desync::AdaptivePlannerHints;
+use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_packets::parse_quic_initial;
 
 use crate::retry_stealth::{adaptive_signature_hash, target_key, RetryDecision, RetryLane, RetrySignature};

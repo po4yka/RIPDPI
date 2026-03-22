@@ -232,40 +232,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ciadpi-config"
-version = "0.1.0"
-dependencies = [
- "ciadpi-packets",
-]
-
-[[package]]
-name = "ciadpi-desync"
-version = "0.1.0"
-dependencies = [
- "ciadpi-config",
- "ciadpi-packets",
- "ciadpi-session",
-]
-
-[[package]]
-name = "ciadpi-packets"
-version = "0.1.0"
-dependencies = [
- "aes",
- "aes-gcm",
- "hkdf",
- "sha2",
-]
-
-[[package]]
-name = "ciadpi-session"
-version = "0.1.0"
-dependencies = [
- "ciadpi-config",
- "ciadpi-packets",
-]
-
-[[package]]
 name = "cipher"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1872,8 +1838,6 @@ name = "ripdpi-android"
 version = "0.1.0"
 dependencies = [
  "android-support",
- "ciadpi-config",
- "ciadpi-desync",
  "golden-test-support",
  "jni",
  "libc",
@@ -1882,6 +1846,8 @@ dependencies = [
  "nix",
  "once_cell",
  "proptest",
+ "ripdpi-config",
+ "ripdpi-desync",
  "ripdpi-failure-classifier",
  "ripdpi-monitor",
  "ripdpi-packets",
@@ -1902,6 +1868,20 @@ dependencies = [
  "ripdpi-packets",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "ripdpi-desync"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "aes-gcm",
+ "hkdf",
+ "ripdpi-config",
+ "ripdpi-packets",
+ "ripdpi-session",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -1937,12 +1917,12 @@ dependencies = [
 name = "ripdpi-monitor"
 version = "0.1.0"
 dependencies = [
- "ciadpi-config",
  "golden-test-support",
  "local-network-fixture",
  "loom",
  "native-soak-support",
  "rcgen",
+ "ripdpi-config",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
@@ -1971,9 +1951,8 @@ dependencies = [
 name = "ripdpi-proxy-config"
 version = "0.1.0"
 dependencies = [
- "ciadpi-config",
- "ciadpi-packets",
  "proptest",
+ "ripdpi-config",
  "ripdpi-packets",
  "serde",
  "serde_json",
@@ -1986,9 +1965,6 @@ version = "0.1.0"
 dependencies = [
  "aes",
  "aes-gcm",
- "ciadpi-config",
- "ciadpi-desync",
- "ciadpi-packets",
  "hkdf",
  "libc",
  "local-network-fixture",
@@ -1997,6 +1973,8 @@ dependencies = [
  "mio 0.8.11",
  "native-soak-support",
  "nix",
+ "ripdpi-config",
+ "ripdpi-desync",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
