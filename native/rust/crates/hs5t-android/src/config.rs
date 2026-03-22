@@ -1,4 +1,4 @@
-use hs5t_config::{Config, MapDnsConfig, MiscConfig, Socks5Config, TunnelConfig};
+use ripdpi_tunnel_config::{Config, MapDnsConfig, MiscConfig, Socks5Config, TunnelConfig};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -150,6 +150,69 @@ pub(crate) fn config_from_payload(payload: TunnelConfigPayload) -> Result<Config
 
 pub(crate) fn parse_tunnel_config_json(json: &str) -> Result<TunnelConfigPayload, String> {
     serde_json::from_str::<TunnelConfigPayload>(json).map_err(|err| format!("Invalid tunnel config JSON: {err}"))
+}
+
+/// Convert from the RIPDPI-owned config type to the vendored hs5t-config type
+/// required by hs5t-core's `run_tunnel` API. Field-by-field copy since the
+/// structs are API-identical but live in different crates.
+pub(crate) fn to_hs5t_config(cfg: &Config) -> hs5t_config::Config {
+    hs5t_config::Config {
+        tunnel: hs5t_config::TunnelConfig {
+            name: cfg.tunnel.name.clone(),
+            mtu: cfg.tunnel.mtu,
+            multi_queue: cfg.tunnel.multi_queue,
+            ipv4: cfg.tunnel.ipv4.clone(),
+            ipv6: cfg.tunnel.ipv6.clone(),
+            post_up_script: cfg.tunnel.post_up_script.clone(),
+            pre_down_script: cfg.tunnel.pre_down_script.clone(),
+        },
+        socks5: hs5t_config::Socks5Config {
+            port: cfg.socks5.port,
+            address: cfg.socks5.address.clone(),
+            udp: cfg.socks5.udp.clone(),
+            udp_address: cfg.socks5.udp_address.clone(),
+            pipeline: cfg.socks5.pipeline,
+            username: cfg.socks5.username.clone(),
+            password: cfg.socks5.password.clone(),
+            mark: cfg.socks5.mark,
+        },
+        mapdns: cfg.mapdns.as_ref().map(|m| hs5t_config::MapDnsConfig {
+            address: m.address.clone(),
+            port: m.port,
+            network: m.network.clone(),
+            netmask: m.netmask.clone(),
+            cache_size: m.cache_size,
+            resolver_id: m.resolver_id.clone(),
+            encrypted_dns_protocol: m.encrypted_dns_protocol.clone(),
+            encrypted_dns_host: m.encrypted_dns_host.clone(),
+            encrypted_dns_port: m.encrypted_dns_port,
+            encrypted_dns_tls_server_name: m.encrypted_dns_tls_server_name.clone(),
+            encrypted_dns_bootstrap_ips: m.encrypted_dns_bootstrap_ips.clone(),
+            encrypted_dns_doh_url: m.encrypted_dns_doh_url.clone(),
+            encrypted_dns_dnscrypt_provider_name: m.encrypted_dns_dnscrypt_provider_name.clone(),
+            encrypted_dns_dnscrypt_public_key: m.encrypted_dns_dnscrypt_public_key.clone(),
+            doh_url: m.doh_url.clone(),
+            doh_bootstrap_ips: m.doh_bootstrap_ips.clone(),
+            dns_query_timeout_ms: m.dns_query_timeout_ms,
+            resolver_fallback_active: m.resolver_fallback_active,
+            resolver_fallback_reason: m.resolver_fallback_reason.clone(),
+        }),
+        misc: hs5t_config::MiscConfig {
+            task_stack_size: cfg.misc.task_stack_size,
+            tcp_buffer_size: cfg.misc.tcp_buffer_size,
+            udp_recv_buffer_size: cfg.misc.udp_recv_buffer_size,
+            udp_copy_buffer_nums: cfg.misc.udp_copy_buffer_nums,
+            max_session_count: cfg.misc.max_session_count,
+            connect_timeout: cfg.misc.connect_timeout,
+            tcp_read_write_timeout: cfg.misc.tcp_read_write_timeout,
+            udp_read_write_timeout: cfg.misc.udp_read_write_timeout,
+            log_file: cfg.misc.log_file.clone(),
+            log_level: cfg.misc.log_level.clone(),
+            pid_file: cfg.misc.pid_file.clone(),
+            limit_nofile: cfg.misc.limit_nofile,
+            filter_injected_resets: cfg.misc.filter_injected_resets,
+        },
+    }
 }
 
 pub(crate) fn mapdns_resolver_protocol(mapdns: &MapDnsConfig) -> Option<String> {
