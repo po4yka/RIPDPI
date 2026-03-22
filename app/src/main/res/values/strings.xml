@@ -1085,9 +1085,11 @@ Source: %2$s</string>
     <string name="permissions_notifications_denied">Notification permission is required before RIPDPI can start its local VPN or proxy.</string>
     <string name="permissions_notifications_open_settings">Notification permission is still blocked. Open app settings and allow notifications for RIPDPI.</string>
     <string name="permissions_battery_title">Battery optimization</string>
-    <string name="permissions_battery_body">Allow RIPDPI to ignore battery optimizations so Android is less likely to interrupt the local VPN or proxy in the background.</string>
-    <string name="permissions_battery_body_samsung">Allow RIPDPI to ignore battery optimizations. On Samsung phones such as the Galaxy S24 Ultra, also set App info &gt; Battery to Unrestricted and add RIPDPI to Never sleeping apps so One UI is less likely to stop the local VPN or proxy.</string>
+    <string name="permissions_battery_body">Allow RIPDPI to ignore Android battery optimization so Doze is less likely to interrupt the local VPN or proxy in the background.</string>
     <string name="permissions_battery_continue">Review battery settings</string>
+    <string name="permissions_background_activity_title">Background activity</string>
+    <string name="permissions_background_activity_body">Some devices add extra background limits beyond Android battery optimization. If RIPDPI stops in the background, review the app battery or background usage settings.</string>
+    <string name="permissions_background_activity_body_samsung">Samsung devices can still stop RIPDPI in the background even when Android battery optimization is disabled. If sessions stop, set App info &gt; Battery to Unrestricted and add RIPDPI to Never sleeping apps.</string>
     <string name="settings_connectivity_section">Connectivity</string>
     <string name="settings_permissions_section">Permissions</string>
     <string name="settings_permission_status_granted">Granted</string>
@@ -1103,10 +1105,8 @@ Source: %2$s</string>
     <string name="settings_permissions_vpn_active">Required for the currently selected local VPN mode.</string>
     <string name="settings_permissions_vpn_optional">Only needed when you want to run RIPDPI in local VPN mode.</string>
     <string name="settings_permissions_vpn_needed">Grant Android VPN consent before RIPDPI can start the local VPN path.</string>
-    <string name="settings_permissions_battery_ready">Android is already allowing RIPDPI to run without battery optimization limits.</string>
-    <string name="settings_permissions_battery_needed">Recommended so the system is less likely to stop RIPDPI while it is running in the background.</string>
-    <string name="settings_permissions_battery_ready_samsung">Android is already allowing RIPDPI to ignore battery optimizations. On Samsung, keep RIPDPI on Unrestricted battery if sessions still stop in the background.</string>
-    <string name="settings_permissions_battery_needed_samsung">Recommended on Samsung: allow RIPDPI to ignore battery optimizations, set Battery to Unrestricted, and add it to Never sleeping apps.</string>
+    <string name="settings_permissions_battery_ready">Android is already letting RIPDPI ignore Doze battery optimization.</string>
+    <string name="settings_permissions_battery_needed">Recommended so Doze is less likely to pause RIPDPI while it is running in the background.</string>
     <string name="settings_connectivity_dns_body">Resolver mode, protocol, IPv6, and local tunnel DNS behavior.</string>
     <string name="settings_connectivity_dns_body_proxy">Saved now and applied the next time VPN mode is active.</string>
     <string name="settings_advanced_body">Low-level RIPDPI flags, proxy listeners, and protocol overrides.</string>
@@ -1248,7 +1248,6 @@ Source: %2$s</string>
     <string name="diagnostics_warn_vpn_permission">VPN permission is not currently granted.</string>
     <string name="diagnostics_warn_notification_permission">Notification permission is disabled, so service issues may be harder to notice.</string>
     <string name="diagnostics_warn_power_restriction">Power or background restrictions may interfere with stable diagnostics.</string>
-    <string name="diagnostics_warn_samsung_background_limits">Samsung background limits can still interrupt RIPDPI. Check Battery &gt; Unrestricted and Never sleeping apps if sessions stop in the background.</string>
 
     <!-- Diagnostics context field labels -->
     <string name="diagnostics_field_capabilities">Capabilities</string>

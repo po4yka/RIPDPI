@@ -1,11 +1,16 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.ui.test.assertHasNoClickAction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import com.poyka.ripdpi.permissions.BackgroundGuidanceUiState
+import com.poyka.ripdpi.permissions.PermissionItemUiState
+import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -57,5 +62,57 @@ class SettingsPreferencesScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsSupportBundle).performClick()
 
         assertTrue(clicked)
+    }
+
+    @Test
+    fun backgroundGuidanceBannerRendersSeparatelyFromPermissionRows() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(),
+                    onOpenDnsSettings = {},
+                    onOpenAdvancedSettings = {},
+                    onOpenCustomization = {},
+                    onOpenAbout = {},
+                    onOpenDataTransparency = {},
+                    onShareDebugBundle = {},
+                    permissionSummary =
+                        PermissionSummaryUiState(
+                            backgroundGuidance =
+                                BackgroundGuidanceUiState(
+                                    title = "Background activity",
+                                    message = "Vendor limits can still stop RIPDPI in the background.",
+                                ),
+                            items =
+                                listOf(
+                                    PermissionItemUiState(
+                                        kind = PermissionKind.BatteryOptimization,
+                                        title = "Battery optimization",
+                                        subtitle = "Doze exemption review.",
+                                        statusLabel = "Recommended",
+                                        actionLabel = "Review",
+                                    ),
+                                ),
+                        ),
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                    onThemeSelected = {},
+                    onWebRtcProtectionChanged = {},
+                    onBiometricChanged = {},
+                    onSaveBackupPin = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasTestTag(RipDpiTestTags.SettingsBackgroundGuidanceBanner))
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.SettingsBackgroundGuidanceBanner)
+            .assertIsDisplayed()
+            .assertHasNoClickAction()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.settingsPermission(PermissionKind.BatteryOptimization))
+            .assertIsDisplayed()
     }
 }

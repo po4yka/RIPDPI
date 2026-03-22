@@ -186,7 +186,6 @@ class MainViewModel
                 permissionStatusProvider = permissionStatusProvider,
                 permissionPlatformBridge = permissionPlatformBridge,
                 stringResolver = stringResolver,
-                deviceManufacturer = Build.MANUFACTURER.orEmpty(),
                 permissionState = permissionState,
                 onStartMode = { mode -> connectionActions.startMode(mode) },
                 onShowPermissionIssue = { issue ->
