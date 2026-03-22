@@ -1,4 +1,4 @@
-# RIPDPI for Android
+# RIPDPI (Routing & Internet Performance Diagnostics Platform Interface)
 
 **English** | [Русский](README-ru.md)
 
