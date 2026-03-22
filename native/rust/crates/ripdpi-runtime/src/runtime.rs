@@ -44,7 +44,7 @@ mod tests {
     #[cfg(not(feature = "loom"))]
     use super::state::ClientSlotGuard;
     use ciadpi_config::{DETECT_CONNECT, DETECT_HTTP_LOCAT};
-    use ciadpi_session::{
+    use ripdpi_session::{
         encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_CONN,
         S_VER5,
     };
