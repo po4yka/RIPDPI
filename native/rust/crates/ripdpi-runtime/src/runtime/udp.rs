@@ -8,7 +8,7 @@ use crate::platform;
 use crate::runtime_policy::{extract_host_info, ConnectionRoute, HostSource, RouteAdvance, TransportProtocol};
 use ciadpi_config::{QuicInitialMode, RuntimeConfig, DETECT_CONNECT};
 use ciadpi_desync::{plan_udp, ActivationTransport, DesyncAction};
-use ciadpi_session::{SessionState, SocketType, S_ATP_I4, S_ATP_I6};
+use ripdpi_session::{SessionState, SocketType, S_ATP_I4, S_ATP_I6};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use super::adaptive::{note_adaptive_udp_failure, note_adaptive_udp_success, resolve_adaptive_udp_hints};

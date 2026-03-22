@@ -6,7 +6,7 @@ use ciadpi_config::{
     DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
     DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE,
 };
-use ciadpi_session::{
+use ripdpi_session::{
     detect_response_trigger, TriggerEvent, S_ATP_I4, S_ATP_I6, S_AUTH_NONE, S_CMD_CONN, S_ER_GEN, S_VER5,
 };
 use ripdpi_dns_resolver::{

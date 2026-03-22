@@ -10,7 +10,7 @@ use ciadpi_config::{
     RuntimeConfig, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
     DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
-use ciadpi_session::SessionState;
+use ripdpi_session::SessionState;
 use ripdpi_failure_classifier::{
     classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
@@ -384,13 +384,13 @@ fn timeout_count_limit(config: &RuntimeConfig) -> i32 {
 }
 
 #[cfg(test)]
-fn response_trigger_supported(config: &RuntimeConfig, trigger: ciadpi_session::TriggerEvent) -> bool {
+fn response_trigger_supported(config: &RuntimeConfig, trigger: ripdpi_session::TriggerEvent) -> bool {
     use ciadpi_config::DETECT_CONNECT;
     let flag = match trigger {
-        ciadpi_session::TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
-        ciadpi_session::TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
-        ciadpi_session::TriggerEvent::Connect => DETECT_CONNECT,
-        ciadpi_session::TriggerEvent::Torst => DETECT_TORST,
+        ripdpi_session::TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
+        ripdpi_session::TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
+        ripdpi_session::TriggerEvent::Connect => DETECT_CONNECT,
+        ripdpi_session::TriggerEvent::Torst => DETECT_TORST,
     };
     config.groups.iter().any(|group| group.detect & flag != 0)
 }
@@ -553,7 +553,7 @@ mod tests {
     use super::*;
     use ciadpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT};
     use ciadpi_packets::DEFAULT_FAKE_TLS;
-    use ciadpi_session::TriggerEvent;
+    use ripdpi_session::TriggerEvent;
 
     #[test]
     fn timeout_and_trigger_helpers_follow_runtime_configuration() {
