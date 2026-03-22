@@ -5,9 +5,8 @@ the<CommonExtension>().lint.apply {
     abortOnError = true
     checkDependencies = true
     checkReleaseBuilds = true
-    enable += setOf("Interoperability", "MissingTranslation")
-    disable += setOf("ObsoleteLintCustomCheck")
     htmlReport = true
     xmlReport = true
+    lintConfig = rootProject.file("lint.xml")
     baseline = project.file("lint-baseline.xml")
 }

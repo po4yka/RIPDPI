@@ -2,97 +2,13 @@
 <issues format="6" by="lint 9.1.0" type="baseline" client="gradle" dependencies="true" name="AGP (9.1.0)" variant="all" version="9.1.0">
 
     <issue
-        id="CannotEnableHidden"
-        message="Issue `KotlinPropertyAccess` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `KotlinPropertyAccess` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `KotlinPropertyAccess` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `LambdaLast` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `LambdaLast` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `LambdaLast` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `NoHardKeywords` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `NoHardKeywords` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `NoHardKeywords` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `UnknownNullness` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `UnknownNullness` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
-        id="CannotEnableHidden"
-        message="Issue `UnknownNullness` was configured with severity `warning` in service, but was not enabled (or was disabled) in library diagnostics-data">
-        <location
-            file="service"/>
-    </issue>
-
-    <issue
         id="MissingPermission"
         message="Missing permissions required by ConnectivityManager.getActiveNetwork: android.permission.ACCESS_NETWORK_STATE"
         errorLine1="            val network = connectivityManager.activeNetwork ?: return null"
         errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
-            line="39"
+            line="77"
             column="27"/>
     </issue>
 
@@ -103,7 +19,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
-            line="40"
+            line="78"
             column="32"/>
     </issue>
 
@@ -114,30 +30,30 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
-            line="41"
+            line="79"
             column="34"/>
     </issue>
 
     <issue
         id="MissingPermission"
         message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
-        errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
-        errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="                dataNetworkType = telephony.dataNetworkType,"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
-            line="105"
-            column="61"/>
+            line="146"
+            column="35"/>
     </issue>
 
     <issue
         id="MissingPermission"
         message="Missing permissions required by TelephonyManager.getDataNetworkType: android.permission.READ_PHONE_STATE or android.permission.READ_BASIC_PHONE_STATE"
-        errorLine1="                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),"
-        errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="                dataNetworkType = telephony.dataNetworkType,"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
-            line="105"
-            column="61"/>
+            line="146"
+            column="35"/>
     </issue>
 
     <issue
@@ -154,23 +70,23 @@
     <issue
         id="MissingPermission"
         message="Missing permissions required by ConnectivityManager.getActiveNetwork: android.permission.ACCESS_NETWORK_STATE"
-        errorLine1="        val activeNetwork = cm.activeNetwork"
-        errorLine2="                            ~~~~~~~~~~~~~~~~">
+        errorLine1="        val activeNetwork = connectivityManager.activeNetwork"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/services/RipDpiVpnService.kt"
-            line="905"
+            line="130"
             column="29"/>
     </issue>
 
     <issue
         id="NewApi"
         message="Call requires API level 28 (current min is 27): `android.net.LinkProperties#getPrivateDnsServerName`"
-        errorLine1="            linkProperties?.privateDnsServerName?.trim()?.takeIf { it.isNotEmpty() } ?: &quot;system&quot;"
-        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="                privateDnsServerName = linkProperties?.privateDnsServerName,"
+        errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt"
-            line="71"
-            column="29"/>
+            line="86"
+            column="56"/>
     </issue>
 
 </issues>
