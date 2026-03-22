@@ -1896,6 +1896,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-config"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-packets",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "ripdpi-dns-resolver"
 version = "0.1.0"
 dependencies = [
