@@ -442,7 +442,7 @@ class DiagnosticsScanExecutionCoordinator
             rememberedNetworkPolicyStore.rememberValidatedPolicy(
                 policy = policy,
                 source = RememberedNetworkPolicySourceStrategyProbe,
-                now = report.finishedAt,
+                validatedAt = report.finishedAt,
             )
         }
     }

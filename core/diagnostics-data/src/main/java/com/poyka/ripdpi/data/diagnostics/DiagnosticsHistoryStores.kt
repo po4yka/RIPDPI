@@ -8,16 +8,29 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import dagger.Binds
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 
+internal const val DiagnosticsHistoryDayMillis = 24L * 60L * 60L * 1000L
+
+internal fun diagnosticsHistoryRetentionThreshold(
+    now: Long,
+    retentionDays: Int,
+): Long = now - retentionDays.toLong() * DiagnosticsHistoryDayMillis
+
 fun interface DiagnosticsHistoryClock {
     fun now(): Long
 }
+
+@Singleton
+class SystemDiagnosticsHistoryClock
+    @Inject
+    constructor() : DiagnosticsHistoryClock {
+        override fun now(): Long = System.currentTimeMillis()
+    }
 
 interface DiagnosticsProfileCatalog {
     fun observeProfiles(): Flow<List<DiagnosticProfileEntity>>
@@ -347,7 +360,7 @@ class RoomDiagnosticsHistoryRetentionStore
             if (retentionDays <= 0) {
                 return
             }
-            val threshold = clock.now() - retentionDays * 24L * 60L * 60L * 1000L
+            val threshold = diagnosticsHistoryRetentionThreshold(clock.now(), retentionDays)
             dao.deleteProbeResultsOlderThan(threshold)
             dao.deleteScanSessionsOlderThan(threshold)
             dao.deleteSnapshotsOlderThan(threshold)
@@ -410,12 +423,10 @@ abstract class DiagnosticsHistoryStoresModule {
     abstract fun bindDiagnosticsHistoryRetentionStore(
         store: RoomDiagnosticsHistoryRetentionStore,
     ): DiagnosticsHistoryRetentionStore
-}
 
-@Module
-@InstallIn(SingletonComponent::class)
-object DiagnosticsHistoryClockModule {
-    @Provides
+    @Binds
     @Singleton
-    fun provideDiagnosticsHistoryClock(): DiagnosticsHistoryClock = DiagnosticsHistoryClock { System.currentTimeMillis() }
+    abstract fun bindDiagnosticsHistoryClock(
+        clock: SystemDiagnosticsHistoryClock,
+    ): DiagnosticsHistoryClock
 }

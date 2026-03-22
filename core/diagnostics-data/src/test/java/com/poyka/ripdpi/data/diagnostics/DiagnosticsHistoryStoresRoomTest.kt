@@ -40,7 +40,7 @@ class DiagnosticsHistoryStoresRoomTest {
                 .allowMainThreadQueries()
                 .build()
         dao = db.diagnosticsDao()
-        clock = MutableDiagnosticsHistoryClock(now = 40L * DayMs)
+        clock = MutableDiagnosticsHistoryClock(now = 40L * DiagnosticsHistoryDayMillis)
     }
 
     @After
@@ -230,7 +230,7 @@ class DiagnosticsHistoryStoresRoomTest {
             val bypassStore = RoomBypassUsageHistoryStore(dao)
             val dnsStore = RoomNetworkDnsPathPreferenceRecordStore(dao, clock)
             val retentionStore = RoomDiagnosticsHistoryRetentionStore(dao, clock)
-            val threshold = clock.now() - 14L * DayMs
+            val threshold = diagnosticsHistoryRetentionThreshold(clock.now(), 14)
 
             scanStore.upsertScanSession(scanSession(id = "scan-old", startedAt = 5L, finishedAt = threshold - 10L))
             scanStore.upsertScanSession(scanSession(id = "scan-new", startedAt = threshold + 10L, finishedAt = threshold + 20L))
@@ -284,10 +284,6 @@ class DiagnosticsHistoryStoresRoomTest {
         private var now: Long,
     ) : DiagnosticsHistoryClock {
         override fun now(): Long = now
-    }
-
-    private companion object {
-        private const val DayMs = 24L * 60L * 60L * 1000L
     }
 }
 

@@ -18,7 +18,7 @@ interface NetworkDnsPathPreferenceStore {
     suspend fun rememberPreferredPath(
         fingerprint: NetworkFingerprint,
         path: EncryptedDnsPathCandidate,
-        updatedAt: Long? = null,
+        recordedAt: Long? = null,
     ): NetworkDnsPathPreferenceEntity
 }
 
@@ -44,18 +44,18 @@ class DefaultNetworkDnsPathPreferenceStore
         override suspend fun rememberPreferredPath(
             fingerprint: NetworkFingerprint,
             path: EncryptedDnsPathCandidate,
-            updatedAt: Long?,
+            recordedAt: Long?,
         ): NetworkDnsPathPreferenceEntity {
             val fingerprintHash = fingerprint.scopeKey()
             val existing = recordStore.getNetworkDnsPathPreference(fingerprintHash)
-            val effectiveUpdatedAt = updatedAt ?: clock.now()
+            val effectiveRecordedAt = recordedAt ?: clock.now()
             val persisted =
                 NetworkDnsPathPreferenceEntity(
                     id = existing?.id ?: 0L,
                     fingerprintHash = fingerprintHash,
                     summaryJson = json.encodeToString(NetworkFingerprintSummary.serializer(), fingerprint.summary()),
                     pathJson = json.encodeToString(EncryptedDnsPathCandidate.serializer(), path),
-                    updatedAt = effectiveUpdatedAt,
+                    updatedAt = effectiveRecordedAt,
                 )
             val id = recordStore.upsertNetworkDnsPathPreference(persisted)
             recordStore.pruneNetworkDnsPathPreferences()

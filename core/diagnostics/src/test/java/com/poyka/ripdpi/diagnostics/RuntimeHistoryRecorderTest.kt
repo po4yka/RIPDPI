@@ -231,13 +231,13 @@ class RuntimeHistoryRecorderTest {
                 rememberedPolicyStore.rememberValidatedPolicy(
                     policy = rememberedPolicyJson("fingerprint-a", Mode.VPN),
                     source = RememberedNetworkPolicySourceManualSession,
-                    now = 100L,
+                    validatedAt = 100L,
                 )
             val secondPolicy =
                 rememberedPolicyStore.rememberValidatedPolicy(
                     policy = rememberedPolicyJson("fingerprint-b", Mode.VPN),
                     source = RememberedNetworkPolicySourceManualSession,
-                    now = 200L,
+                    validatedAt = 200L,
                 )
             val recorder =
                 createRuntimeHistoryRecorder(

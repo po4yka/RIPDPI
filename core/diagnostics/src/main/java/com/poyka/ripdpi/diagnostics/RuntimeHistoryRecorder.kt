@@ -638,7 +638,7 @@ class DefaultRuntimeHistoryRecorder
                     rememberedNetworkPolicyStore.upsertObservedPolicy(
                         policy = policy.policy.copy(strategySignatureJson = session.strategyJson),
                         source = RememberedNetworkPolicySourceManualSession,
-                        now = policy.appliedAt,
+                        observedAt = policy.appliedAt,
                     )
                 }
             activeRememberedPolicySession =

@@ -166,13 +166,13 @@ internal class TestRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
     override suspend fun upsertObservedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: String,
-        now: Long?,
+        observedAt: Long?,
     ): RememberedNetworkPolicyEntity = sampleRememberedPolicyEntity()
 
     override suspend fun rememberValidatedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: String,
-        now: Long?,
+        validatedAt: Long?,
     ): RememberedNetworkPolicyEntity = sampleRememberedPolicyEntity()
 
     override suspend fun recordApplied(
