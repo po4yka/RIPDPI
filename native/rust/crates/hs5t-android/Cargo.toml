@@ -29,7 +29,7 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 golden-test-support = { workspace = true }
-hs5t-tunnel = { path = "../../third_party/hev-socks5-tunnel/crates/hs5t-tunnel" }
+ripdpi-tun-driver = { workspace = true }
 jni = { workspace = true, features = ["invocation"] }
 libc = { workspace = true }
 local-network-fixture = { workspace = true }

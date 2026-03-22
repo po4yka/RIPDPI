@@ -848,7 +848,6 @@ dependencies = [
  "golden-test-support",
  "hs5t-config",
  "hs5t-core",
- "hs5t-tunnel",
  "jni",
  "libc",
  "local-network-fixture",
@@ -859,6 +858,8 @@ dependencies = [
  "once_cell",
  "proptest",
  "ripdpi-telemetry",
+ "ripdpi-tun-driver",
+ "ripdpi-tunnel-config",
  "serde",
  "serde_json",
  "tokio",
@@ -2001,6 +2002,25 @@ version = "0.1.0"
 dependencies = [
  "hdrhistogram",
  "serde",
+]
+
+[[package]]
+name = "ripdpi-tun-driver"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "nix",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "ripdpi-tunnel-config"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_yaml",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

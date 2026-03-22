@@ -18,6 +18,7 @@ members = [
     "crates/ripdpi-config",
     "crates/ripdpi-desync",
     "crates/ripdpi-tunnel-config",
+    "crates/ripdpi-tun-driver",
     "crates/hs5t-android",
 ]
 exclude = [
@@ -47,6 +48,7 @@ ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
 
+ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
 ripdpi-tunnel-config = { path = "crates/ripdpi-tunnel-config" }
 hs5t-core = { path = "third_party/hev-socks5-tunnel/crates/hs5t-core" }
 
