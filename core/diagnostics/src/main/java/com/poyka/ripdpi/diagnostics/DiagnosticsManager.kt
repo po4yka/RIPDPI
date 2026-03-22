@@ -95,7 +95,9 @@ abstract class DiagnosticsManagerModule {
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsScanController(controller: DefaultDiagnosticsScanController): DiagnosticsScanController
+    internal abstract fun bindDiagnosticsScanController(
+        controller: DefaultDiagnosticsScanController,
+    ): DiagnosticsScanController
 
     @Binds
     @Singleton
@@ -115,7 +117,9 @@ abstract class DiagnosticsManagerModule {
 
     @Binds
     @Singleton
-    abstract fun bindAutomaticProbeLauncher(controller: DefaultDiagnosticsScanController): AutomaticProbeLauncher
+    internal abstract fun bindAutomaticProbeLauncher(
+        controller: DefaultDiagnosticsScanController,
+    ): AutomaticProbeLauncher
 
     @Binds
     @Singleton

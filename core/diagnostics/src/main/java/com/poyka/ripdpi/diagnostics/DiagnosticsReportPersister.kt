@@ -6,13 +6,14 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
 internal object DiagnosticsReportPersister {
     suspend fun persistScanReport(
-        report: ScanReport,
+        report: EngineScanReportWire,
         scanRecordStore: DiagnosticsScanRecordStore,
         artifactWriteStore: DiagnosticsArtifactWriteStore,
         serviceStateStore: ServiceStateStore,
@@ -36,7 +37,7 @@ internal object DiagnosticsReportPersister {
                 serviceMode = serviceStateStore.status.value.second.name,
                 status = "completed",
                 summary = normalizedReport.summary,
-                reportJson = json.encodeToString(ScanReport.serializer(), normalizedReport),
+                reportJson = json.encodeToString(EngineScanReportWire.serializer(), normalizedReport),
                 startedAt = normalizedReport.startedAt,
                 finishedAt = normalizedReport.finishedAt,
             ),
@@ -118,7 +119,7 @@ internal object DiagnosticsReportPersister {
     }
 
     private suspend fun bridgeEventsToHistory(
-        report: ScanReport,
+        report: EngineScanReportWire,
         artifactWriteStore: DiagnosticsArtifactWriteStore,
     ) {
         report.results.forEach { result ->
@@ -133,5 +134,18 @@ internal object DiagnosticsReportPersister {
                 ),
             )
         }
+    }
+
+    private fun EngineScanReportWire.withDerivedProbeRetryCount(): EngineScanReportWire =
+        copy(
+            results = results.map { result ->
+                result.withDerivedProbeRetryCount()
+            },
+        )
+
+    private fun com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire.withDerivedProbeRetryCount():
+        com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire {
+        val retryCount = deriveProbeRetryCount(details)
+        return copy(probeRetryCount = probeRetryCount ?: retryCount)
     }
 }

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 
@@ -21,6 +22,7 @@ internal object DiagnosticsShareSummaryBuilder {
         scanRecordStore: DiagnosticsScanRecordStore,
         artifactReadStore: DiagnosticsArtifactReadStore,
         json: Json,
+        projector: DiagnosticsSummaryProjector = DiagnosticsSummaryProjector(),
     ): ShareSummary {
         val selectedSession =
             sessionId
@@ -63,19 +65,24 @@ internal object DiagnosticsShareSummaryBuilder {
             selectedSession
                 ?.reportJson
                 ?.let { reportJson ->
-                    runCatching { json.decodeFromString(ScanReport.serializer(), reportJson) }.getOrNull()
+                    runCatching { json.decodeEngineScanReportWireCompat(reportJson).toSessionProjection() }.getOrNull()
                 }
+        val summaryProjection =
+            projector.project(
+                session = selectedSession,
+                report = selectedReport,
+                latestSnapshotModel = latestSnapshotModel,
+                latestContextModel = latestContextModel,
+                latestTelemetry = latestTelemetry,
+                selectedResults = selectedResults,
+                warnings = latestWarnings,
+            )
         val title =
             selectedSession?.let { "RIPDPI diagnostics ${it.id.take(8)}" } ?: "RIPDPI diagnostics summary"
         val body =
             buildBody(
                 selectedSession = selectedSession,
-                selectedReport = selectedReport,
-                selectedResults = selectedResults,
-                latestSnapshotModel = latestSnapshotModel,
-                latestContextModel = latestContextModel,
-                latestTelemetry = latestTelemetry,
-                latestWarnings = latestWarnings,
+                summaryProjection = summaryProjection,
             )
         return ShareSummary(
             title = title,
@@ -94,104 +101,38 @@ internal object DiagnosticsShareSummaryBuilder {
 
     private fun buildBody(
         selectedSession: ScanSessionEntity?,
-        selectedReport: ScanReport?,
-        selectedResults: List<ProbeResultEntity>,
-        latestSnapshotModel: NetworkSnapshotModel?,
-        latestContextModel: DiagnosticContextModel?,
-        latestTelemetry: TelemetrySampleEntity?,
-        latestWarnings: List<NativeSessionEventEntity>,
+        summaryProjection: com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryProjection,
     ): String =
         buildString {
             appendLine("RIPDPI diagnostics summary")
             appendLine("session=${selectedSession?.id ?: "latest-live"}")
-            appendSessionSection(selectedSession)
-            appendSnapshotSection(latestSnapshotModel)
-            appendContextSection(latestContextModel)
-            appendTelemetrySection(latestTelemetry)
-            appendResultsSection(selectedResults)
-            appendReportSection(selectedReport)
-            appendWarningsSection(latestWarnings)
+            summaryProjection.sessionLines.forEach(::appendLine)
+            summaryProjection.networkLines.forEach(::appendLine)
+            summaryProjection.contextLines.forEach(::appendLine)
+            summaryProjection.telemetryLines.forEach(::appendLine)
+            summaryProjection.resultLines.forEach(::appendLine)
+            appendReportSection(summaryProjection.reportProjection())
+            summaryProjection.warningLines.forEach(::appendLine)
         }
 }
 
-private fun StringBuilder.appendSessionSection(selectedSession: ScanSessionEntity?) {
-    selectedSession ?: return
-    appendLine("pathMode=${selectedSession.pathMode}")
-    appendLine("serviceMode=${selectedSession.serviceMode ?: "unknown"}")
-    appendLine("status=${selectedSession.status}")
-    appendLine("summary=${selectedSession.summary}")
-    appendLine("startedAt=${selectedSession.startedAt}")
-    appendLine("finishedAt=${selectedSession.finishedAt ?: "running"}")
-}
-
-private fun StringBuilder.appendSnapshotSection(latestSnapshotModel: NetworkSnapshotModel?) {
-    val snapshot = latestSnapshotModel?.toRedactedSummary() ?: return
-    appendLine("transport=${snapshot.transport}")
-    appendLine("publicIp=${snapshot.publicIp}")
-    appendLine("publicAsn=${snapshot.publicAsn}")
-    appendLine("dns=${snapshot.dnsServers}")
-    appendLine("privateDns=${snapshot.privateDnsMode}")
-    appendLine("validated=${snapshot.networkValidated}")
-    snapshot.wifiDetails?.let { wifi ->
-        appendLine("wifiSsid=${wifi.ssid}")
-        appendLine("wifiBand=${wifi.band}")
-        appendLine("wifiStandard=${wifi.wifiStandard}")
-        appendLine("wifiSignal=${wifi.rssiDbm ?: "unknown"}")
+private fun com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryProjection.reportProjection():
+    DiagnosticsSessionProjection? =
+    if (
+        diagnoses.isEmpty() &&
+        classifierVersion == null &&
+        packVersions.isEmpty()
+    ) {
+        null
+    } else {
+        DiagnosticsSessionProjection(
+            diagnoses = diagnoses,
+            classifierVersion = classifierVersion,
+            packVersions = packVersions,
+        )
     }
-    snapshot.cellularDetails?.let { cellular ->
-        appendLine("carrier=${cellular.carrierName}")
-        appendLine("networkOperator=${cellular.networkOperatorName}")
-        appendLine("dataNetwork=${cellular.dataNetworkType}")
-        appendLine("voiceNetwork=${cellular.voiceNetworkType}")
-        appendLine("roaming=${cellular.isNetworkRoaming ?: "unknown"}")
-    }
-}
 
-private fun StringBuilder.appendContextSection(latestContextModel: DiagnosticContextModel?) {
-    val contextSummary = latestContextModel?.toRedactedSummary() ?: return
-    appendLine("appVersion=${contextSummary.device.appVersionName}")
-    appendLine("device=${contextSummary.device.deviceName}")
-    appendLine("android=${contextSummary.device.androidVersion}")
-    appendLine("serviceMode=${contextSummary.service.activeMode}")
-    appendLine("profile=${contextSummary.service.selectedProfileName}")
-    appendLine("configSource=${contextSummary.service.configSource}")
-    appendLine("proxy=${contextSummary.service.proxyEndpoint}")
-    appendLine("vpnPermission=${contextSummary.permissions.vpnPermissionState}")
-    appendLine("notifications=${contextSummary.permissions.notificationPermissionState}")
-    appendLine("batteryOptimization=${contextSummary.permissions.batteryOptimizationState}")
-    appendLine("dataSaver=${contextSummary.permissions.dataSaverState}")
-}
-
-private fun StringBuilder.appendTelemetrySection(latestTelemetry: TelemetrySampleEntity?) {
-    latestTelemetry ?: return
-    appendLine("networkType=${latestTelemetry.networkType}")
-    appendLine("failureClass=${latestTelemetry.failureClass ?: "none"}")
-    appendLine("winningStrategyFamily=${latestTelemetry.winningStrategyFamily() ?: "none"}")
-    appendLine("telemetryNetworkFingerprintHash=${latestTelemetry.telemetryNetworkFingerprintHash ?: "none"}")
-    appendLine("rttBand=${latestTelemetry.rttBand()}")
-    appendLine("retryCount=${latestTelemetry.retryCount()}")
-    appendLine("resolverId=${latestTelemetry.resolverId ?: "unknown"}")
-    appendLine("resolverProtocol=${latestTelemetry.resolverProtocol ?: "unknown"}")
-    appendLine("resolverEndpoint=${latestTelemetry.resolverEndpoint ?: "unknown"}")
-    appendLine("resolverLatencyMs=${latestTelemetry.resolverLatencyMs ?: 0}")
-    appendLine("dnsFailuresTotal=${latestTelemetry.dnsFailuresTotal}")
-    appendLine("resolverFallback=${latestTelemetry.resolverFallbackReason ?: latestTelemetry.resolverFallbackActive}")
-    appendLine("networkHandoverClass=${latestTelemetry.networkHandoverClass ?: "none"}")
-    appendLine("txBytes=${latestTelemetry.txBytes}")
-    appendLine("rxBytes=${latestTelemetry.rxBytes}")
-    appendLine("txPackets=${latestTelemetry.txPackets}")
-    appendLine("rxPackets=${latestTelemetry.rxPackets}")
-}
-
-private fun StringBuilder.appendResultsSection(selectedResults: List<ProbeResultEntity>) {
-    if (selectedResults.isEmpty()) return
-    appendLine("results=${selectedResults.size}")
-    selectedResults.take(ShareSummaryResultPreviewLimit).forEach { result ->
-        appendLine("${result.probeType}:${result.target}=${result.outcome}")
-    }
-}
-
-private fun StringBuilder.appendReportSection(selectedReport: ScanReport?) {
+private fun StringBuilder.appendReportSection(selectedReport: DiagnosticsSessionProjection?) {
     selectedReport ?: return
     selectedReport.classifierVersion?.let { appendLine("classifierVersion=$it") }
     if (selectedReport.diagnoses.isNotEmpty()) {
@@ -202,13 +143,5 @@ private fun StringBuilder.appendReportSection(selectedReport: ScanReport?) {
     }
     selectedReport.packVersions.forEach { (packId, version) ->
         appendLine("pack.$packId=$version")
-    }
-}
-
-private fun StringBuilder.appendWarningsSection(latestWarnings: List<NativeSessionEventEntity>) {
-    if (latestWarnings.isEmpty()) return
-    appendLine("warnings=")
-    latestWarnings.take(ShareSummaryWarningPreviewLimit).forEach { warning ->
-        appendLine("- ${warning.source}: ${warning.message}")
     }
 }
