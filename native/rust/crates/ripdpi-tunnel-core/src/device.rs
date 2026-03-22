@@ -85,77 +85,76 @@ impl Device for TunDevice {
     }
 }
 
-// ── Test helpers ──────────────────────────────────────────────────────────────
-
-/// Build a raw IPv4/TCP SYN packet (no payload, no checksum).
-///
-/// `caps.checksum = ChecksumCapabilities::ignored()` means smoltcp won't
-/// reject it due to a bad checksum.
-pub fn build_tcp_syn(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: u16) -> Vec<u8> {
-    let mut pkt = vec![0u8; 40]; // 20-byte IPv4 header + 20-byte TCP header
-                                 // IPv4 header
-    pkt[0] = 0x45; // version=4, IHL=5
-    pkt[2] = 0;
-    pkt[3] = 40; // total length = 40
-    pkt[4] = 0x00;
-    pkt[5] = 0x01; // ID
-    pkt[6] = 0x40;
-    pkt[7] = 0x00; // DF flag
-    pkt[8] = 64; // TTL
-    pkt[9] = 6; // Protocol: TCP
-                // Checksum: 0 (ignored by smoltcp when caps.checksum = ignored)
-    pkt[12..16].copy_from_slice(&src_ip);
-    pkt[16..20].copy_from_slice(&dst_ip);
-    // TCP header at offset 20
-    pkt[20..22].copy_from_slice(&src_port.to_be_bytes());
-    pkt[22..24].copy_from_slice(&dst_port.to_be_bytes());
-    // Seq = 0, Ack = 0 (bytes 24..32 = 0)
-    pkt[32] = 0x50; // data offset = 5 (20 bytes)
-    pkt[33] = 0x02; // SYN flag
-    pkt[34] = 0xff;
-    pkt[35] = 0xff; // window = 65535
-    pkt
-}
-
-/// Build an IPv4/TCP ACK packet given the SYN-ACK's seq number.
-///
-/// `ack_seq` is the `seq_number` from the SYN-ACK (we ack seq+1).
-pub fn build_tcp_ack(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: u16, seq: u32, ack: u32) -> Vec<u8> {
-    let mut pkt = vec![0u8; 40];
-    pkt[0] = 0x45;
-    pkt[2] = 0;
-    pkt[3] = 40;
-    pkt[8] = 64;
-    pkt[9] = 6;
-    pkt[12..16].copy_from_slice(&src_ip);
-    pkt[16..20].copy_from_slice(&dst_ip);
-    pkt[20..22].copy_from_slice(&src_port.to_be_bytes());
-    pkt[22..24].copy_from_slice(&dst_port.to_be_bytes());
-    pkt[24..28].copy_from_slice(&seq.to_be_bytes()); // seq
-    pkt[28..32].copy_from_slice(&ack.to_be_bytes()); // ack_seq
-    pkt[32] = 0x50; // data offset
-    pkt[33] = 0x10; // ACK flag
-    pkt[34] = 0xff;
-    pkt[35] = 0xff;
-    pkt
-}
-
-/// Extract seq and ack numbers from a raw IPv4/TCP packet.
-///
-/// Returns `(seq, ack_seq)`.  Panics if the packet is too short.
-pub fn tcp_seq_ack(pkt: &[u8]) -> (u32, u32) {
-    let ihl = ((pkt[0] & 0x0f) as usize) * 4;
-    let seq = u32::from_be_bytes([pkt[ihl + 4], pkt[ihl + 5], pkt[ihl + 6], pkt[ihl + 7]]);
-    let ack = u32::from_be_bytes([pkt[ihl + 8], pkt[ihl + 9], pkt[ihl + 10], pkt[ihl + 11]]);
-    (seq, ack)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use smoltcp::iface::{Config as IfaceConfig, Interface, SocketSet};
     use smoltcp::socket::tcp::{self, Socket as TcpSocket};
     use smoltcp::wire::{HardwareAddress, IpAddress, IpCidr};
+
+    // ── Test helpers ─────────────────────────────────────────────────────────
+
+    /// Build a raw IPv4/TCP SYN packet (no payload, no checksum).
+    ///
+    /// `caps.checksum = ChecksumCapabilities::ignored()` means smoltcp won't
+    /// reject it due to a bad checksum.
+    fn build_tcp_syn(src_ip: [u8; 4], dst_ip: [u8; 4], src_port: u16, dst_port: u16) -> Vec<u8> {
+        let mut pkt = vec![0u8; 40]; // 20-byte IPv4 header + 20-byte TCP header
+        pkt[0] = 0x45; // version=4, IHL=5
+        pkt[2] = 0;
+        pkt[3] = 40; // total length = 40
+        pkt[4] = 0x00;
+        pkt[5] = 0x01; // ID
+        pkt[6] = 0x40;
+        pkt[7] = 0x00; // DF flag
+        pkt[8] = 64; // TTL
+        pkt[9] = 6; // Protocol: TCP
+        pkt[12..16].copy_from_slice(&src_ip);
+        pkt[16..20].copy_from_slice(&dst_ip);
+        pkt[20..22].copy_from_slice(&src_port.to_be_bytes());
+        pkt[22..24].copy_from_slice(&dst_port.to_be_bytes());
+        pkt[32] = 0x50; // data offset = 5 (20 bytes)
+        pkt[33] = 0x02; // SYN flag
+        pkt[34] = 0xff;
+        pkt[35] = 0xff; // window = 65535
+        pkt
+    }
+
+    /// Build an IPv4/TCP ACK packet given the SYN-ACK's seq number.
+    fn build_tcp_ack(
+        src_ip: [u8; 4],
+        dst_ip: [u8; 4],
+        src_port: u16,
+        dst_port: u16,
+        seq: u32,
+        ack: u32,
+    ) -> Vec<u8> {
+        let mut pkt = vec![0u8; 40];
+        pkt[0] = 0x45;
+        pkt[2] = 0;
+        pkt[3] = 40;
+        pkt[8] = 64;
+        pkt[9] = 6;
+        pkt[12..16].copy_from_slice(&src_ip);
+        pkt[16..20].copy_from_slice(&dst_ip);
+        pkt[20..22].copy_from_slice(&src_port.to_be_bytes());
+        pkt[22..24].copy_from_slice(&dst_port.to_be_bytes());
+        pkt[24..28].copy_from_slice(&seq.to_be_bytes());
+        pkt[28..32].copy_from_slice(&ack.to_be_bytes());
+        pkt[32] = 0x50; // data offset
+        pkt[33] = 0x10; // ACK flag
+        pkt[34] = 0xff;
+        pkt[35] = 0xff;
+        pkt
+    }
+
+    /// Extract seq and ack numbers from a raw IPv4/TCP packet.
+    fn tcp_seq_ack(pkt: &[u8]) -> (u32, u32) {
+        let ihl = ((pkt[0] & 0x0f) as usize) * 4;
+        let seq = u32::from_be_bytes([pkt[ihl + 4], pkt[ihl + 5], pkt[ihl + 6], pkt[ihl + 7]]);
+        let ack = u32::from_be_bytes([pkt[ihl + 8], pkt[ihl + 9], pkt[ihl + 10], pkt[ihl + 11]]);
+        (seq, ack)
+    }
 
     fn make_interface(device: &mut TunDevice) -> Interface {
         let config = IfaceConfig::new(HardwareAddress::Ip);
