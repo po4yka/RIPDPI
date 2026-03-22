@@ -162,12 +162,7 @@ pub struct ProxyUiProtocolConfig {
 
 impl Default for ProxyUiProtocolConfig {
     fn default() -> Self {
-        Self {
-            resolve_domains: true,
-            desync_http: true,
-            desync_https: true,
-            desync_udp: false,
-        }
+        Self { resolve_domains: true, desync_http: true, desync_https: true, desync_udp: false }
     }
 }
 
@@ -184,11 +179,7 @@ pub struct ProxyUiChainConfig {
 
 impl Default for ProxyUiChainConfig {
     fn default() -> Self {
-        Self {
-            tcp_steps: default_tcp_chain_steps(),
-            udp_steps: Vec::new(),
-            group_activation_filter: None,
-        }
+        Self { tcp_steps: default_tcp_chain_steps(), udp_steps: Vec::new(), group_activation_filter: None }
     }
 }
 

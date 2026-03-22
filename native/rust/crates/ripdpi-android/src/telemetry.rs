@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_runtime::RuntimeTelemetrySink;
@@ -163,7 +163,7 @@ impl ProxyTelemetryState {
         let message = format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}");
         log::info!("{message}");
         {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.listener_address = Some(bind_addr);
             Self::push_event_to(&mut guard.events, "proxy", "info", message);
         }
@@ -175,7 +175,7 @@ impl ProxyTelemetryState {
         let message = "listener stopped".to_string();
         log::info!("{message}");
         {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             Self::push_event_to(&mut guard.events, "proxy", "info", message);
         }
     }
@@ -196,7 +196,7 @@ impl ProxyTelemetryState {
         let message = format!("client error: {error}");
         log::warn!("{message}");
         {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_error = Some(error);
             Self::push_event_to(&mut guard.events, "proxy", "warn", message);
         }
@@ -211,7 +211,7 @@ impl ProxyTelemetryState {
         let message = format!("client error: {error_str}");
         log::warn!("{message}");
         {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_error = Some(error_str);
             Self::push_event_to(&mut guard.events, "proxy", "warn", message);
         }
@@ -228,7 +228,7 @@ impl ProxyTelemetryState {
         );
         log::info!("{message}");
         {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_target = Some(target);
             guard.last_host = host;
             Self::push_event_to(&mut guard.events, "proxy", "info", message);
@@ -255,7 +255,7 @@ impl ProxyTelemetryState {
         );
         log::warn!("{message}");
         {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_target = Some(target);
             guard.last_host = host;
             Self::push_event_to(&mut guard.events, "proxy", "warn", message);
@@ -274,7 +274,7 @@ impl ProxyTelemetryState {
             failure.evidence.summary
         );
         {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_target = Some(target);
             guard.last_host = host;
             guard.last_error = Some(failure.evidence.summary.clone());
@@ -293,9 +293,9 @@ impl ProxyTelemetryState {
             self.candidate_diversification_count.fetch_add(1, Ordering::Relaxed);
         }
         let message =
-            format!("retry pacing target={} group={} reason={} backoffMs={}", target, group_index, reason, backoff_ms);
+            format!("retry pacing target={target} group={group_index} reason={reason} backoffMs={backoff_ms}");
         {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_target = Some(target);
             guard.last_retry_reason = Some(reason.to_string());
             Self::push_event_to(&mut guard.events, "proxy", "info", message);
@@ -307,7 +307,7 @@ impl ProxyTelemetryState {
             self.tcp_connect_histogram.record(rtt_ms);
         }
         {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.upstream_address = Some(upstream_address);
             guard.upstream_rtt_ms = upstream_rtt_ms;
         }
@@ -331,14 +331,14 @@ impl ProxyTelemetryState {
             "autolearn action={} host={} group={}",
             action,
             host.as_deref().unwrap_or("<none>"),
-            group_index.map(|value| value.to_string()).unwrap_or_else(|| "<none>".to_string())
+            group_index.map_or_else(|| "<none>".to_string(), |value| value.to_string())
         );
         match level {
             "warn" => log::warn!("{message}"),
             _ => log::info!("{message}"),
         }
         {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_autolearn_host = host;
             guard.last_autolearn_action = Some(action.to_string());
             Self::push_event_to(&mut guard.events, "autolearn", level, message);
@@ -360,7 +360,7 @@ impl ProxyTelemetryState {
             last_autolearn_action,
             native_events,
         ) = {
-            let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             (
                 guard.listener_address.clone(),
                 guard.upstream_address.clone(),
@@ -436,7 +436,7 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn clear_last_error(&self) {
-        let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
         guard.last_error = None;
     }
 
@@ -446,7 +446,7 @@ impl ProxyTelemetryState {
             "error" => log::error!("{message}"),
             _ => log::info!("{message}"),
         }
-        let mut guard = self.strings.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
         Self::push_event_to(&mut guard.events, source, level, message);
     }
 

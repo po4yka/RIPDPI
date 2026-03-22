@@ -57,11 +57,11 @@ mod tests {
     use std::net::IpAddr;
     use std::str::FromStr;
 
+    use proptest::collection::vec;
+    use proptest::prelude::*;
     use ripdpi_config::{
         QuicFakeProfile, QuicInitialMode, TcpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
     };
-    use proptest::collection::vec;
-    use proptest::prelude::*;
     use ripdpi_proxy_config::{
         ProxyUiActivationFilter, ProxyUiChainConfig, ProxyUiFakePacketConfig, ProxyUiHostAutolearnConfig,
         ProxyUiHostsConfig, ProxyUiListenConfig, ProxyUiParserEvasionConfig, ProxyUiProtocolConfig, ProxyUiQuicConfig,

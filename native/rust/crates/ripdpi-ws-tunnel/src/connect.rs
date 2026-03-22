@@ -31,9 +31,8 @@ pub fn open_ws_tunnel(dc: u8, protect_path: Option<&str>) -> io::Result<WsStream
 
     // DNS resolve and connect
     let addr = format!("{host}:443");
-    let tcp = TcpStream::connect(&addr).map_err(|e| {
-        io::Error::new(e.kind(), format!("WS tunnel TCP connect to {addr}: {e}"))
-    })?;
+    let tcp = TcpStream::connect(&addr)
+        .map_err(|e| io::Error::new(e.kind(), format!("WS tunnel TCP connect to {addr}: {e}")))?;
     tcp.set_nodelay(true)?;
 
     // Set a short read timeout so the relay's shared mutex is not held
@@ -46,13 +45,8 @@ pub fn open_ws_tunnel(dc: u8, protect_path: Option<&str>) -> io::Result<WsStream
     }
 
     // Build WS request with binary subprotocol
-    let mut request = url
-        .as_str()
-        .into_client_request()
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
-    request
-        .headers_mut()
-        .insert("Sec-WebSocket-Protocol", "binary".parse().unwrap());
+    let mut request = url.as_str().into_client_request().map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+    request.headers_mut().insert("Sec-WebSocket-Protocol", "binary".parse().unwrap());
 
     // Perform WS handshake; tungstenite handles TLS via rustls for wss:// URLs
     let (ws, _response) = tungstenite::client_tls(request, tcp)

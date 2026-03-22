@@ -37,11 +37,11 @@ use ripdpi_failure_classifier::FailureClass;
 #[cfg(test)]
 use ripdpi_proxy_config::ProxyRuntimeContext;
 #[cfg(test)]
-use strategy::*;
-#[cfg(test)]
 use std::net::IpAddr;
 #[cfg(test)]
 use std::time::Duration;
+#[cfg(test)]
+use strategy::*;
 #[cfg(test)]
 use tls::*;
 #[cfg(test)]
@@ -176,7 +176,7 @@ fn run_scan(
     request: ScanRequest,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
 ) {
-    run_engine_scan(shared, cancel, session_id, request, tls_verifier)
+    run_engine_scan(shared, cancel, session_id, request, tls_verifier);
 }
 
 fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> {

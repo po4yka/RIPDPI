@@ -238,7 +238,7 @@ pub fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<Runtime
         .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid command-line proxy config: {}", err.option)))?;
 
     match parsed {
-        ripdpi_config::ParseResult::Run(config) => Ok(config),
+        ripdpi_config::ParseResult::Run(config) => Ok(*config),
         _ => Err(ProxyConfigError::InvalidConfig(
             "Command-line proxy config must resolve to a runnable config".to_string(),
         )),
@@ -247,7 +247,15 @@ pub fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<Runtime
 
 pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, ProxyConfigError> {
     let ProxyUiConfig {
-        listen, protocols, chains, fake_packets, parser_evasions, quic, hosts, host_autolearn, ws_tunnel,
+        listen,
+        protocols,
+        chains,
+        fake_packets,
+        parser_evasions,
+        quic,
+        hosts,
+        host_autolearn,
+        ws_tunnel,
     } = payload;
 
     let listen_ip =
@@ -289,7 +297,11 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         Some("always") => ripdpi_config::WsTunnelMode::Always,
         Some("off" | _) => ripdpi_config::WsTunnelMode::Off,
         None => {
-            if ws_tunnel.enabled { ripdpi_config::WsTunnelMode::Always } else { ripdpi_config::WsTunnelMode::Off }
+            if ws_tunnel.enabled {
+                ripdpi_config::WsTunnelMode::Always
+            } else {
+                ripdpi_config::WsTunnelMode::Off
+            }
         }
     };
     if listen.custom_ttl {

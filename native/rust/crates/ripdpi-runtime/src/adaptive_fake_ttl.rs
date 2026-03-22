@@ -40,8 +40,7 @@ impl AdaptiveFakeTtlResolver {
     ) -> u8 {
         let key = AdaptiveFakeTtlKey {
             group_index,
-            target: normalized_host(host)
-                .map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
+            target: normalized_host(host).map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
         };
         let state = self.states.entry(key).or_insert_with(|| AdaptiveFakeTtlState::new(config, fallback_ttl, None));
         let effective = state.detected_fallback.or(fallback_ttl);
@@ -55,8 +54,7 @@ impl AdaptiveFakeTtlResolver {
     pub fn note_success(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>) {
         if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
             group_index,
-            target: normalized_host(host)
-                .map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
+            target: normalized_host(host).map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
         }) {
             state.pinned_ttl = Some(state.current_ttl());
         }
@@ -65,8 +63,7 @@ impl AdaptiveFakeTtlResolver {
     pub fn note_failure(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>) {
         if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
             group_index,
-            target: normalized_host(host)
-                .map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
+            target: normalized_host(host).map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
         }) {
             state.pinned_ttl = None;
             state.advance();
@@ -77,8 +74,7 @@ impl AdaptiveFakeTtlResolver {
         let detected = detected_from_observed_ttl(observed_ttl);
         if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
             group_index,
-            target: normalized_host(host)
-                .map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
+            target: normalized_host(host).map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
         }) {
             state.detected_fallback = Some(detected);
         }

@@ -47,6 +47,7 @@ impl RuntimePolicy {
         None
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn select_next(
         &self,
         config: &RuntimeConfig,
@@ -249,6 +250,7 @@ impl RuntimePolicy {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn select_host_route_after(
         &self,
         config: &RuntimeConfig,
@@ -321,6 +323,7 @@ impl RuntimePolicy {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn preferred_host_candidate(
         &self,
         config: &RuntimeConfig,

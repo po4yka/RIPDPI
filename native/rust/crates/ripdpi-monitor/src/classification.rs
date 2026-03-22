@@ -7,11 +7,11 @@ use ripdpi_failure_classifier::{classify_quic_probe, ClassifiedFailure, FailureA
 use crate::candidates::StrategyCandidateSpec;
 #[cfg(test)]
 use crate::observations::observation_for_probe;
+#[cfg(test)]
+use crate::types::{Diagnosis, ScanRequest};
 use crate::types::{
     ObservationKind, ProbeDetail, ProbeObservation, ProbeResult, StrategyProbeProtocol, TransportFailureKind,
 };
-#[cfg(test)]
-use crate::types::{Diagnosis, ScanRequest};
 use crate::util::stable_probe_hash;
 
 #[cfg(test)]
@@ -58,10 +58,13 @@ pub(crate) fn classify_transport_failure_text(text: &str, stage: FailureStage) -
 
 #[cfg(test)]
 pub(crate) fn strategy_probe_failure_weight(result: &ProbeResult) -> usize {
-    observation_for_probe(result).as_ref().map(strategy_probe_observation_weight).unwrap_or_else(|| match result.probe_type.as_str() {
-        "strategy_https" | "strategy_quic" => 2,
-        _ => 1,
-    })
+    observation_for_probe(result).as_ref().map_or_else(
+        || match result.probe_type.as_str() {
+            "strategy_https" | "strategy_quic" => 2,
+            _ => 1,
+        },
+        strategy_probe_observation_weight,
+    )
 }
 
 pub(crate) fn strategy_probe_failure_priority(class: FailureClass) -> usize {
@@ -78,9 +81,7 @@ pub(crate) fn strategy_probe_failure_priority(class: FailureClass) -> usize {
 
 #[cfg(test)]
 pub(crate) fn classify_strategy_probe_baseline_results(results: &[ProbeResult]) -> Option<ClassifiedFailure> {
-    classify_strategy_probe_baseline_observations(
-        &results.iter().filter_map(observation_for_probe).collect::<Vec<_>>(),
-    )
+    classify_strategy_probe_baseline_observations(&results.iter().filter_map(observation_for_probe).collect::<Vec<_>>())
 }
 
 pub(crate) fn classify_strategy_probe_observation(observation: &ProbeObservation) -> Option<ClassifiedFailure> {
@@ -112,7 +113,7 @@ pub(crate) fn classify_strategy_probe_observation(observation: &ProbeObservation
                 }),
         ),
         StrategyProbeProtocol::Quic => classify_quic_probe(
-            observation.evidence.first().map(String::as_str).unwrap_or("quic_error"),
+            observation.evidence.first().map_or("quic_error", String::as_str),
             quic_error_from_failure(strategy.transport_failure.clone()),
         ),
         _ => None,
@@ -147,10 +148,7 @@ pub(crate) fn classify_strategy_probe_baseline_observations(
         .map(|(_, _, failure)| failure)
 }
 
-fn classify_failure_from_transport(
-    failure: TransportFailureKind,
-    stage: FailureStage,
-) -> Option<ClassifiedFailure> {
+fn classify_failure_from_transport(failure: TransportFailureKind, stage: FailureStage) -> Option<ClassifiedFailure> {
     let evidence = match failure {
         TransportFailureKind::Alert => "alert",
         TransportFailureKind::Reset => "reset",
@@ -161,18 +159,12 @@ fn classify_failure_from_transport(
         TransportFailureKind::None => return None,
     };
     match failure {
-        TransportFailureKind::Alert => Some(ClassifiedFailure::new(
-            FailureClass::TlsAlert,
-            stage,
-            FailureAction::RetryWithMatchingGroup,
-            evidence,
-        )),
-        TransportFailureKind::Reset | TransportFailureKind::Close => Some(ClassifiedFailure::new(
-            FailureClass::TcpReset,
-            stage,
-            FailureAction::RetryWithMatchingGroup,
-            evidence,
-        )),
+        TransportFailureKind::Alert => {
+            Some(ClassifiedFailure::new(FailureClass::TlsAlert, stage, FailureAction::RetryWithMatchingGroup, evidence))
+        }
+        TransportFailureKind::Reset | TransportFailureKind::Close => {
+            Some(ClassifiedFailure::new(FailureClass::TcpReset, stage, FailureAction::RetryWithMatchingGroup, evidence))
+        }
         TransportFailureKind::Timeout => Some(ClassifiedFailure::new(
             FailureClass::SilentDrop,
             stage,
@@ -640,7 +632,7 @@ fn classify_throughput_diagnosis(results: &[ProbeResult], diagnoses: &mut Vec<Di
 }
 
 #[cfg(test)]
-fn median(values: &mut Vec<u64>) -> u64 {
+fn median(values: &mut [u64]) -> u64 {
     if values.is_empty() {
         return 0;
     }

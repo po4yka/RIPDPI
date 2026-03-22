@@ -9,7 +9,6 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use ripdpi_config::{parse_cli, ParseResult, StartupEnv};
 use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
     FixtureManifest, FixtureStack,
@@ -17,6 +16,7 @@ use local_network_fixture::{
 use native_soak_support::{
     acquire_global_lock, assert_growth, write_json_artifact, GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW,
 };
+use ripdpi_config::{parse_cli, ParseResult, StartupEnv};
 use ripdpi_runtime::process::prepare_embedded;
 use ripdpi_runtime::runtime::{create_listener, run_proxy_with_embedded_control};
 use ripdpi_runtime::{clear_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
@@ -479,7 +479,7 @@ fn start_proxy(config: ripdpi_config::RuntimeConfig, telemetry: Option<Arc<Recor
 fn proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
     let args = args.iter().map(|value| (*value).to_string()).collect::<Vec<_>>();
     match parse_cli(&args, &StartupEnv::default()).expect("parse runtime config") {
-        ParseResult::Run(config) => config,
+        ParseResult::Run(config) => *config,
         other => panic!("unexpected parse result: {other:?}"),
     }
 }

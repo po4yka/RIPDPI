@@ -613,7 +613,7 @@ pub(crate) fn read_until_marker(stream: &mut impl Read, marker: &[u8]) -> Vec<u8
 pub(crate) fn read_http_request(stream: &mut impl Read) -> Vec<u8> {
     let mut request = read_until_marker(stream, b"\r\n\r\n");
     let header_len =
-        request.windows(4).position(|window| window == b"\r\n\r\n").map(|offset| offset + 4).unwrap_or(request.len());
+        request.windows(4).position(|window| window == b"\r\n\r\n").map_or(request.len(), |offset| offset + 4);
     let header_text = String::from_utf8_lossy(&request[..header_len]).into_owned();
     let content_length = header_text
         .lines()
@@ -632,7 +632,7 @@ pub(crate) fn read_http_request(stream: &mut impl Read) -> Vec<u8> {
 
 pub(crate) fn read_http_body(request: &mut Vec<u8>) -> Vec<u8> {
     let header_len =
-        request.windows(4).position(|window| window == b"\r\n\r\n").map(|offset| offset + 4).unwrap_or(request.len());
+        request.windows(4).position(|window| window == b"\r\n\r\n").map_or(request.len(), |offset| offset + 4);
     let header_text = String::from_utf8_lossy(&request[..header_len]).into_owned();
     let content_length = header_text
         .lines()

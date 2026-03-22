@@ -5,16 +5,16 @@
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::thread;
 use std::time::Duration;
 
-use ripdpi_config::{parse_cli, DesyncGroup, ParseResult, QuicInitialMode, RuntimeConfig, StartupEnv};
-use ripdpi_packets::IS_UDP;
 use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
     FixtureStack,
 };
+use ripdpi_config::{parse_cli, DesyncGroup, ParseResult, QuicInitialMode, RuntimeConfig, StartupEnv};
+use ripdpi_packets::IS_UDP;
 use ripdpi_runtime::process::prepare_embedded;
 use ripdpi_runtime::runtime::{create_listener, run_proxy_with_embedded_control};
 use ripdpi_runtime::{clear_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
@@ -313,7 +313,7 @@ fn hosts_filter_only_routes_matching_domain_via_upstream(fixture: &FixtureStack)
 }
 
 fn test_guard() -> MutexGuard<'static, ()> {
-    TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    TEST_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 fn nested_proxy_e2e_enabled() -> bool {
@@ -353,7 +353,7 @@ fn start_proxy(config: ripdpi_config::RuntimeConfig, telemetry: Option<Arc<Recor
 fn proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
     let args = args.iter().map(|value| (*value).to_string()).collect::<Vec<_>>();
     match parse_cli(&args, &StartupEnv::default()).expect("parse runtime config") {
-        ParseResult::Run(config) => config,
+        ParseResult::Run(config) => *config,
         other => panic!("unexpected parse result: {other:?}"),
     }
 }

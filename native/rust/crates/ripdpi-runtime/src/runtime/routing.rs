@@ -6,9 +6,6 @@ use ripdpi_config::{
     DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
     DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE,
 };
-use ripdpi_session::{
-    detect_response_trigger, TriggerEvent, S_ATP_I4, S_ATP_I6, S_AUTH_NONE, S_CMD_CONN, S_ER_GEN, S_VER5,
-};
 use ripdpi_dns_resolver::{
     extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
 };
@@ -17,6 +14,9 @@ use ripdpi_failure_classifier::{
     classify_transport_error, confirm_dns_tampering, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
 use ripdpi_proxy_config::ProxyEncryptedDnsContext;
+use ripdpi_session::{
+    detect_response_trigger, TriggerEvent, S_ATP_I4, S_ATP_I6, S_AUTH_NONE, S_CMD_CONN, S_ER_GEN, S_VER5,
+};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use crate::platform;

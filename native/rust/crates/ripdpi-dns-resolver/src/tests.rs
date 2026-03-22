@@ -578,7 +578,8 @@ fn start_reusable_dnscrypt_server(
     let handle = thread::spawn(move || {
         let (mut cert_stream, _) = listener.accept().expect("dnscrypt cert accept");
         let cert_packet = read_length_prefixed_frame(&mut cert_stream).expect("dnscrypt cert read");
-        let cert_response = build_dnscrypt_cert_response(&cert_packet, &server.provider_name, &server.certificate_bytes());
+        let cert_response =
+            build_dnscrypt_cert_response(&cert_packet, &server.provider_name, &server.certificate_bytes());
         write_length_prefixed_frame(&mut cert_stream, &cert_response).expect("dnscrypt cert write");
         drop(cert_stream);
 

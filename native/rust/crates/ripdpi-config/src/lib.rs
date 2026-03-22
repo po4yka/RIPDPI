@@ -617,7 +617,7 @@ impl StartupEnv {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseResult {
-    Run(RuntimeConfig),
+    Run(Box<RuntimeConfig>),
     Help,
     Version,
 }
@@ -1072,7 +1072,7 @@ fn parse_legacy_offset_expr(spec: &str) -> Result<Option<OffsetExpr>, ConfigErro
     let bytes = suffix.as_bytes();
     let proto = match bytes.first().copied() {
         Some(b's') => OffsetProto::TlsOnly,
-        Some(b'h') | Some(b'n') => OffsetProto::Any,
+        Some(b'h' | b'n') => OffsetProto::Any,
         _ => return Err(ConfigError::invalid("offset", Some(spec))),
     };
     let second = bytes.get(1).copied();
@@ -1284,14 +1284,14 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 for token in value.split(',') {
                     match token.chars().next() {
-                        Some('0') | Some('2') => {
+                        Some('0' | '2') => {
                             config.auto_level |= AUTO_NOPOST;
                             if token.starts_with('2') {
                                 config.auto_level |= AUTO_SORT;
                             }
                         }
                         Some('1') => {}
-                        Some('3') | Some('s') => config.auto_level |= AUTO_SORT,
+                        Some('3' | 's') => config.auto_level |= AUTO_SORT,
                         Some('r') => config.auto_level = 0,
                         _ => return Err(ConfigError::invalid(arg, Some(value))),
                     }
@@ -1602,7 +1602,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
         config.host_autolearn_store_path = Some(HOST_AUTOLEARN_DEFAULT_STORE_FILE.to_owned());
     }
 
-    Ok(ParseResult::Run(config))
+    Ok(ParseResult::Run(Box::new(config)))
 }
 
 fn common_suffix_match(host: &str, rule: &str) -> bool {

@@ -1,9 +1,9 @@
 use crate::types::{
-    CircumventionObservationFact, DnsObservationFact, DnsObservationStatus, DomainObservationFact,
-    EndpointProbeStatus, HttpProbeStatus, ObservationKind, ProbeObservation, ProbeResult, QuicObservationFact,
-    QuicProbeStatus, ServiceObservationFact, StrategyObservationFact, StrategyProbeProtocol, StrategyProbeStatus,
-    TcpObservationFact, TcpProbeStatus, TelegramObservationFact, TelegramTransferStatus, TelegramVerdict,
-    ThroughputObservationFact, ThroughputProbeStatus, TlsProbeStatus, TransportFailureKind,
+    CircumventionObservationFact, DnsObservationFact, DnsObservationStatus, DomainObservationFact, EndpointProbeStatus,
+    HttpProbeStatus, ObservationKind, ProbeObservation, ProbeResult, QuicObservationFact, QuicProbeStatus,
+    ServiceObservationFact, StrategyObservationFact, StrategyProbeProtocol, StrategyProbeStatus, TcpObservationFact,
+    TcpProbeStatus, TelegramObservationFact, TelegramTransferStatus, TelegramVerdict, ThroughputObservationFact,
+    ThroughputProbeStatus, TlsProbeStatus, TransportFailureKind,
 };
 
 pub(crate) const ENGINE_ANALYSIS_VERSION: &str = "observations_v1";
@@ -163,7 +163,9 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                     .unwrap_or_default(),
                 download_status: telegram_transfer_status(detail_value(result, "downloadStatus").unwrap_or("error")),
                 upload_status: telegram_transfer_status(detail_value(result, "uploadStatus").unwrap_or("error")),
-                dc_reachable: detail_value(result, "dcReachable").and_then(|value| value.parse::<usize>().ok()).unwrap_or(0),
+                dc_reachable: detail_value(result, "dcReachable")
+                    .and_then(|value| value.parse::<usize>().ok())
+                    .unwrap_or(0),
                 dc_total: detail_value(result, "dcTotal").and_then(|value| value.parse::<usize>().ok()).unwrap_or(0),
             }),
             throughput: None,
@@ -183,7 +185,7 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
             throughput: Some(ThroughputObservationFact {
                 label: result.target.clone(),
                 status: throughput_status(&result.outcome),
-                is_control: detail_value(result, "isControl").map(|value| value == "true").unwrap_or(false),
+                is_control: detail_value(result, "isControl").is_some_and(|value| value == "true"),
                 median_bps: detail_value(result, "medianBps").and_then(|value| value.parse::<u64>().ok()).unwrap_or(0),
                 sample_bps: detail_list(result, "bpsReadings")
                     .into_iter()
@@ -219,9 +221,7 @@ pub(crate) fn observation_for_probe(result: &ProbeResult) -> Option<ProbeObserva
                 },
                 status: strategy_status(&result.outcome),
                 transport_failure: transport_failure(
-                    detail_value(result, "error")
-                        .or_else(|| detail_value(result, "tlsError"))
-                        .unwrap_or("none"),
+                    detail_value(result, "error").or_else(|| detail_value(result, "tlsError")).unwrap_or("none"),
                 ),
             }),
             evidence: vec![result.outcome.clone()],

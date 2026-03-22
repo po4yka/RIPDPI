@@ -1,14 +1,14 @@
 use std::os::fd::AsRawFd;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use android_support::{
     init_android_logging, throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception,
     HandleRegistry,
 };
-use ripdpi_config::RuntimeConfig;
 use jni::objects::JString;
 use jni::sys::{jint, jlong, jstring};
 use jni::JNIEnv;
+use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::{NetworkSnapshot, ProxyRuntimeContext};
 use ripdpi_runtime::{runtime, EmbeddedProxyControl};
 
@@ -88,7 +88,7 @@ pub(crate) fn proxy_destroy_entry(mut env: JNIEnv, handle: jlong) {
 pub(crate) fn proxy_update_network_snapshot_entry(mut env: JNIEnv, handle: jlong, snapshot_json: JString) {
     init_android_logging("ripdpi-native");
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        update_network_snapshot(&mut env, handle, snapshot_json)
+        update_network_snapshot(&mut env, handle, snapshot_json);
     }))
     .map_err(|panic_payload| {
         let msg = extract_panic_message(panic_payload);
@@ -164,7 +164,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
     ));
 
     {
-        let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+        let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
         if let Err(message) = try_mark_proxy_running(&mut state, listener_fd, control.clone()) {
             throw_illegal_state(env, message);
             return libc::EINVAL;
@@ -173,7 +173,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong) -> jint {
 
     let result = runtime::run_proxy_with_embedded_control(config, listener, control);
 
-    let mut state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+    let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
     *state = ProxySessionState::Idle;
     if let Err(err) = &result {
         session.telemetry.on_client_error(err.to_string());
@@ -195,7 +195,7 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
     };
 
     let (listener_fd, control) = {
-        let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+        let state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
         match listener_fd_for_proxy_stop(&state) {
             Ok(parts) => parts,
             Err(message) => {
@@ -235,7 +235,7 @@ fn update_network_snapshot(env: &mut JNIEnv, handle: jlong, snapshot_json: JStri
             return;
         }
     };
-    let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+    let state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
     if let ProxySessionState::Running { control, .. } = &*state {
         control.update_network_snapshot(snapshot);
     }
@@ -250,7 +250,7 @@ fn destroy_session(env: &mut JNIEnv, handle: jlong) {
             return;
         }
     };
-    let state = session.state.lock().unwrap_or_else(|e| e.into_inner());
+    let state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
     if let Err(message) = ensure_proxy_destroyable(&state) {
         throw_illegal_state(env, message);
         return;
@@ -349,10 +349,10 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, TcpListener};
     use std::sync::Mutex;
 
-    use ripdpi_config::RuntimeConfig;
     use jni::sys::jlong;
     use proptest::collection::vec;
     use proptest::prelude::*;
+    use ripdpi_config::RuntimeConfig;
     use ripdpi_runtime::EmbeddedProxyControl;
 
     use crate::telemetry::ProxyTelemetryState;

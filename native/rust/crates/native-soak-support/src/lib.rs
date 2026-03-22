@@ -95,8 +95,7 @@ pub fn acquire_global_lock() -> io::Result<SoakLock> {
 
 pub fn artifact_dir() -> io::Result<PathBuf> {
     let dir = std::env::var("RIPDPI_SOAK_ARTIFACT_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from(DEFAULT_ARTIFACT_DIR));
+        .map_or_else(|_| PathBuf::from(DEFAULT_ARTIFACT_DIR), PathBuf::from);
     fs::create_dir_all(&dir)?;
     Ok(dir)
 }

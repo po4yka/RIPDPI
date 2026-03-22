@@ -210,7 +210,7 @@ mod tests {
     fn ranged_probe_delay_stays_within_bounds() {
         for seed in 0..100 {
             let result = ranged_probe_delay(seed, "a", "b", 100, 200);
-            assert!(result >= 100 && result <= 200, "got {result}");
+            assert!((100..=200).contains(&result), "got {result}");
         }
     }
 
