@@ -26,6 +26,7 @@ internal object RipDpiTestTags {
     const val HomeApproachCard = "home-approach-card"
     const val HomeHistoryCard = "home-history-card"
     const val HomeStatsGrid = "home-stats-grid"
+    const val HomeErrorBanner = "home-error-banner"
     const val HomePermissionIssueBanner = "home-permission-issue-banner"
     const val HomePermissionRecommendationBanner = "home-permission-recommendation-banner"
 
@@ -273,6 +274,11 @@ internal object RipDpiTestTags {
 
     val hostPackApplyModeOption: (String) -> String =
         { value -> "host-pack-apply-mode-${sanitize(value)}" }
+
+    fun dropdownOption(
+        tag: String,
+        value: String,
+    ): String = "$tag-option-${sanitize(value)}"
 
     private fun sanitize(value: String): String =
         value

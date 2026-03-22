@@ -108,6 +108,12 @@ internal fun AdvancedDropdownSetting(
             onValueSelected = { selectedValue -> onSelected(setting, selectedValue) },
             enabled = enabled,
             testTag = RipDpiTestTags.advancedOption(setting),
+            optionTagForValue = { selectedValue ->
+                RipDpiTestTags.dropdownOption(
+                    RipDpiTestTags.advancedOption(setting),
+                    selectedValue,
+                )
+            },
         )
         if (showDivider) {
             HorizontalDivider(color = colors.divider)

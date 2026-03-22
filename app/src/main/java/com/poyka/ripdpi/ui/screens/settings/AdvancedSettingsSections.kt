@@ -18,9 +18,9 @@ import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
-import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -402,11 +402,12 @@ internal fun LazyListScope.wsTunnelSection(
             testTag = RipDpiTestTags.advancedSection("ws_tunnel"),
         ) {
             RipDpiCard {
-                val options = listOf(
-                    RipDpiDropdownOption("off", stringResource(R.string.ws_tunnel_mode_off)),
-                    RipDpiDropdownOption("always", stringResource(R.string.ws_tunnel_mode_always)),
-                    RipDpiDropdownOption("fallback", stringResource(R.string.ws_tunnel_mode_fallback)),
-                )
+                val options =
+                    listOf(
+                        RipDpiDropdownOption("off", stringResource(R.string.ws_tunnel_mode_off)),
+                        RipDpiDropdownOption("always", stringResource(R.string.ws_tunnel_mode_always)),
+                        RipDpiDropdownOption("fallback", stringResource(R.string.ws_tunnel_mode_fallback)),
+                    )
                 RipDpiDropdown(
                     options = options,
                     selectedValue = uiState.autolearn.wsTunnelMode,
@@ -415,6 +416,12 @@ internal fun LazyListScope.wsTunnelSection(
                     helperText = stringResource(R.string.ws_tunnel_mode_helper),
                     enabled = visualEditorEnabled,
                     testTag = RipDpiTestTags.advancedSection("ws_tunnel_mode"),
+                    optionTagForValue = { selectedValue ->
+                        RipDpiTestTags.dropdownOption(
+                            RipDpiTestTags.advancedSection("ws_tunnel_mode"),
+                            selectedValue,
+                        )
+                    },
                 )
             }
         }

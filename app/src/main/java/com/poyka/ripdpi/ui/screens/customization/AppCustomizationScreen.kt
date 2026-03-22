@@ -30,6 +30,7 @@ import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
+import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -78,9 +79,12 @@ internal fun AppCustomizationScreen(
             message = stringResource(R.string.customization_shape_sheet_body),
             icon = RipDpiIcons.Info,
             testTag = RipDpiTestTags.CustomizationShapeInfoSheet,
-            primaryActionLabel = stringResource(R.string.customization_shape_sheet_action),
-            onPrimaryAction = { showAdaptiveShapeSheet = false },
-            primaryActionTestTag = RipDpiTestTags.CustomizationShapeInfoSheetConfirm,
+            primaryAction =
+                RipDpiSheetAction(
+                    label = stringResource(R.string.customization_shape_sheet_action),
+                    onClick = { showAdaptiveShapeSheet = false },
+                    testTag = RipDpiTestTags.CustomizationShapeInfoSheetConfirm,
+                ),
         ) {
             Text(
                 text = stringResource(R.string.customization_shape_sheet_point_one),

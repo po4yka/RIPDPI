@@ -45,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -142,7 +143,7 @@ fun HomeScreen(
                 message = uiState.errorMessage,
                 tone = WarningBannerTone.Error,
                 modifier = Modifier.fillMaxWidth(),
-                testTag = RipDpiTestTags.HomePermissionIssueBanner,
+                testTag = RipDpiTestTags.HomeErrorBanner,
             )
         }
 
@@ -421,6 +422,7 @@ private fun HomeConnectionButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val performHaptic = rememberRipDpiHapticPerformer()
+    val connectionStateDescription = "${homeStatusLabel(state)}, $modeLabel"
     val pressScale by animateFloatAsState(
         targetValue =
             if (isPressed && state != ConnectionState.Connecting) {
@@ -505,11 +507,18 @@ private fun HomeConnectionButton(
         label = "homeConnectionBorder",
     )
 
-    LaunchedEffect(state) {
+    LaunchedEffect(state, motion.animationsEnabled) {
         val priorState = previousState.value
         previousState.value = state
 
         if (priorState == state) {
+            return@LaunchedEffect
+        }
+
+        if (!motion.animationsEnabled) {
+            buttonScale.snapTo(1f)
+            haloScale.snapTo(1f)
+            shakeOffset.snapTo(0f)
             return@LaunchedEffect
         }
 
@@ -669,6 +678,7 @@ private fun HomeConnectionButton(
                     .ripDpiTestTag(RipDpiTestTags.HomeConnectionButton)
                     .semantics(mergeDescendants = true) {
                         contentDescription = label
+                        stateDescription = connectionStateDescription
                     }.size(homeChrome.connectionButtonSize)
                     .graphicsLayer {
                         scaleX = buttonScale.value * pressScale
