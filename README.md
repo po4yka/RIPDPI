@@ -12,7 +12,7 @@ Android application for optimizing network connectivity with:
 - integrated diagnostics and passive telemetry
 - in-repository Rust native modules
 
-RIPDPI runs a local SOCKS5 proxy derived from [ByeDPI](https://github.com/hufrea/byedpi). In VPN mode it redirects Android traffic through that local proxy by using a local TUN-to-SOCKS bridge derived from [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel).
+RIPDPI runs a local SOCKS5 proxy built from in-repository Rust modules. In VPN mode it redirects Android traffic through that local proxy using a local TUN-to-SOCKS bridge.
 
 ## Diagnostics
 
@@ -44,7 +44,7 @@ What the app does not record:
 
 ## Settings
 
-RIPDPI keeps the legacy ByeDPI CLI path, but the Android UI now exposes a broader typed strategy surface than the original command-line app.
+The Android UI exposes a broad typed strategy surface beyond the command-line path.
 
 ## Advanced Strategy Surface
 
@@ -83,7 +83,6 @@ Implementation details and the native call path are documented in [docs/native/b
 - [Proxy engine and current native strategy surface](docs/native/byedpi.md)
 - [TUN-to-SOCKS native bridge](docs/native/hev-socks5-tunnel.md)
 - [Testing, E2E, golden contracts, and soak coverage](docs/testing.md)
-- [External projects analysis and feature ideas](docs/external-projects-analysis.md)
 
 ## Building
 
