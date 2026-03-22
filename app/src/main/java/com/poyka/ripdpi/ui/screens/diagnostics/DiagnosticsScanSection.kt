@@ -59,6 +59,9 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val MaxVisibleEvidence = 3
+
+@Suppress("CyclomaticComplexMethod")
 @Composable
 internal fun ScanSection(
     uiState: DiagnosticsUiState,
@@ -75,6 +78,17 @@ internal fun ScanSection(
     val layout = RipDpiThemeTokens.layout
     val selectedProfile = uiState.scan.selectedProfile
     val strategyProbeSelected = selectedProfile?.kind == com.poyka.ripdpi.diagnostics.ScanKind.STRATEGY_PROBE
+    val scanStateTag =
+        when {
+            uiState.scan.activeProgress != null -> RipDpiTestTags.DiagnosticsScanStateProgress
+            uiState.scan.strategyProbeReport != null ||
+                uiState.scan.latestResults.isNotEmpty() ||
+                uiState.scan.latestSession != null ||
+                uiState.scan.resolverRecommendation != null
+            -> RipDpiTestTags.DiagnosticsScanStateContent
+
+            else -> RipDpiTestTags.DiagnosticsScanStateIdle
+        }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding =
@@ -141,12 +155,17 @@ internal fun ScanSection(
                     onRunRawScan = onRunRawScan,
                     onRunInPathScan = onRunInPathScan,
                     onCancelScan = onCancelScan,
+                    modifier = Modifier.ripDpiTestTag(scanStateTag),
                 )
             }
         }
         uiState.scan.activeProgress?.let { progress ->
             item {
-                ScanProgressCard(progress = progress, strategyProbeSelected = strategyProbeSelected)
+                ScanProgressCard(
+                    progress = progress,
+                    strategyProbeSelected = strategyProbeSelected,
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanProgressCard),
+                )
             }
             if (progress.completedProbes.isNotEmpty()) {
                 item {
@@ -160,7 +179,13 @@ internal fun ScanSection(
                         visible = true,
                         enter = fadeIn() + slideInVertically { it / 2 },
                     ) {
-                        LiveProbeResultRow(probe = probe)
+                        LiveProbeResultRow(
+                            probe = probe,
+                            modifier =
+                                Modifier.ripDpiTestTag(
+                                    RipDpiTestTags.diagnosticsLiveProbe("${probe.target}-${probe.outcome}"),
+                                ),
+                        )
                     }
                 }
             }
@@ -175,7 +200,11 @@ internal fun ScanSection(
                             stringResource(R.string.diagnostics_latest_scan_section)
                         },
                 )
-                SessionRow(session = session, onClick = {})
+                SessionRow(
+                    session = session,
+                    onClick = {},
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
+                )
             }
         }
         uiState.scan.resolverRecommendation?.let { recommendation ->
@@ -208,9 +237,17 @@ internal fun ScanSection(
             }
             items(uiState.scan.latestResults, key = { it.id }) { probe ->
                 if (probe.probeType == "telegram_availability") {
-                    TelegramResultCard(probe = probe, onClick = { onSelectProbe(probe) })
+                    TelegramResultCard(
+                        probe = probe,
+                        onClick = { onSelectProbe(probe) },
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
+                    )
                 } else {
-                    ProbeResultRow(probe = probe, onClick = { onSelectProbe(probe) })
+                    ProbeResultRow(
+                        probe = probe,
+                        onClick = { onSelectProbe(probe) },
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
+                    )
                 }
             }
         }
@@ -221,10 +258,11 @@ internal fun ScanSection(
 private fun ScanProgressCard(
     progress: DiagnosticsProgressUiModel,
     strategyProbeSelected: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
-    RipDpiCard {
+    RipDpiCard(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -338,11 +376,14 @@ private fun PhaseChip(step: PhaseStepUiModel) {
 }
 
 @Composable
-private fun LiveProbeResultRow(probe: CompletedProbeUiModel) {
+private fun LiveProbeResultRow(
+    probe: CompletedProbeUiModel,
+    modifier: Modifier = Modifier,
+) {
     val palette = metricPalette(probe.tone)
     Row(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .padding(horizontal = RipDpiThemeTokens.spacing.md, vertical = RipDpiThemeTokens.spacing.xs),
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
@@ -429,6 +470,7 @@ internal fun DiagnosticsProfileCard(
                 }
             },
         badgeText = if (profile.regionTag?.equals("ru", ignoreCase = true) == true) "$badge · RU" else badge,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProfile(profile.id)),
         selected = selected,
         onClick = onClick,
     )
@@ -495,6 +537,7 @@ internal fun ResolverRecommendationCard(
     }
 }
 
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun DiagnosticsScanWorkflowCard(
     profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel,
@@ -504,6 +547,7 @@ internal fun DiagnosticsScanWorkflowCard(
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -612,7 +656,10 @@ internal fun DiagnosticsScanWorkflowCard(
             }
         }
 
-    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Tonal,
+    ) {
         StatusIndicator(label = status.first, tone = status.third)
         Text(
             text = profile.name,
@@ -673,7 +720,7 @@ internal fun DiagnosticsScanWorkflowCard(
                         stringResource(R.string.diagnostics_action_start_probe)
                     },
                 onClick = onRunRawScan,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
                 enabled = scan.runRawEnabled,
             )
         } else {
@@ -684,13 +731,16 @@ internal fun DiagnosticsScanWorkflowCard(
                 RipDpiButton(
                     text = stringResource(R.string.diagnostics_action_raw),
                     onClick = onRunRawScan,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
                     enabled = scan.runRawEnabled,
                 )
                 RipDpiButton(
                     text = stringResource(R.string.diagnostics_action_in_path),
                     onClick = onRunInPathScan,
-                    modifier = Modifier.weight(1f),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunInPathAction),
                     variant = RipDpiButtonVariant.Outline,
                     enabled = scan.runInPathEnabled,
                 )
@@ -701,7 +751,7 @@ internal fun DiagnosticsScanWorkflowCard(
                 text = stringResource(R.string.diagnostics_action_cancel),
                 onClick = onCancelScan,
                 variant = RipDpiButtonVariant.Destructive,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsScanCancelAction),
             )
         }
     }
@@ -736,7 +786,7 @@ private fun DiagnosisSummaryCard(
                             color = colors.mutedForeground,
                         )
                     }
-                    diagnosis.evidence.take(3).forEach { evidence ->
+                    diagnosis.evidence.take(MaxVisibleEvidence).forEach { evidence ->
                         Text(
                             text = evidence,
                             style = RipDpiThemeTokens.type.secondaryBody,
@@ -753,14 +803,53 @@ private fun DiagnosisSummaryCard(
 @ReadOnlyComposable
 private fun com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.displayFamilyLabel(): String =
     when (this) {
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.GENERAL -> stringResource(R.string.diagnostics_family_general)
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> stringResource(R.string.diagnostics_family_web_connectivity)
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.MESSAGING -> stringResource(R.string.diagnostics_family_messaging)
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.CIRCUMVENTION -> stringResource(R.string.diagnostics_family_adaptation)
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.THROTTLING -> stringResource(R.string.diagnostics_family_throttling)
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.DPI_FULL -> stringResource(R.string.diagnostics_family_network_full)
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_PROBING -> stringResource(R.string.diagnostics_family_automatic_probing)
-        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_AUDIT -> stringResource(R.string.diagnostics_family_automatic_audit)
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.GENERAL -> {
+            stringResource(
+                R.string.diagnostics_family_general,
+            )
+        }
+
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> {
+            stringResource(
+                R.string.diagnostics_family_web_connectivity,
+            )
+        }
+
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.MESSAGING -> {
+            stringResource(
+                R.string.diagnostics_family_messaging,
+            )
+        }
+
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.CIRCUMVENTION -> {
+            stringResource(
+                R.string.diagnostics_family_adaptation,
+            )
+        }
+
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.THROTTLING -> {
+            stringResource(
+                R.string.diagnostics_family_throttling,
+            )
+        }
+
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.DPI_FULL -> {
+            stringResource(
+                R.string.diagnostics_family_network_full,
+            )
+        }
+
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_PROBING -> {
+            stringResource(
+                R.string.diagnostics_family_automatic_probing,
+            )
+        }
+
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_AUDIT -> {
+            stringResource(
+                R.string.diagnostics_family_automatic_audit,
+            )
+        }
     }
 
 @Composable

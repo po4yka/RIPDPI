@@ -382,15 +382,18 @@ internal fun HostPackApplyDialog(
     RipDpiDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.host_pack_apply_dialog_title, preset.title),
+        dialogTestTag = RipDpiTestTags.HostPackApplyDialog,
         dismissAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.host_pack_apply_dismiss),
                 onClick = onDismiss,
+                testTag = RipDpiTestTags.HostPackApplyDismiss,
             ),
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(R.string.host_pack_apply_confirm),
                 onClick = onApply,
+                testTag = RipDpiTestTags.HostPackApplyConfirm,
             ),
         visuals =
             RipDpiDialogVisuals(
@@ -410,12 +413,16 @@ internal fun HostPackApplyDialog(
                 value = targetMode,
                 options = targetOptions,
                 onSelected = onTargetModeChanged,
+                testTag = RipDpiTestTags.HostPackTargetDropdown,
+                optionTagForValue = RipDpiTestTags.hostPackTargetOption,
             )
             HostPackDialogDropdown(
                 title = stringResource(R.string.host_pack_action_title),
                 value = applyMode,
                 options = applyModeOptions,
                 onSelected = onApplyModeChanged,
+                testTag = RipDpiTestTags.HostPackApplyModeDropdown,
+                optionTagForValue = RipDpiTestTags.hostPackApplyModeOption,
             )
         }
     }
@@ -428,6 +435,8 @@ private fun HostPackDialogDropdown(
     options: List<RipDpiDropdownOption<String>>,
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
+    testTag: String? = null,
+    optionTagForValue: ((String) -> String)? = null,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
@@ -446,6 +455,8 @@ private fun HostPackDialogDropdown(
             options = options,
             selectedValue = value,
             onValueSelected = onSelected,
+            testTag = testTag,
+            optionTagForValue = optionTagForValue,
         )
     }
 }

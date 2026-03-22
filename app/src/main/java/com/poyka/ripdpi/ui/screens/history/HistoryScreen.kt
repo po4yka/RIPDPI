@@ -48,8 +48,8 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -192,6 +192,7 @@ internal fun HistoryScreen(
             title = detail.session.title,
             message = detail.session.subtitle,
             icon = RipDpiIcons.Logs,
+            testTag = RipDpiTestTags.HistoryConnectionDetailSheet,
         ) {
             StatusIndicator(
                 label = detail.session.connectionState,
@@ -213,7 +214,11 @@ internal fun HistoryScreen(
                     color = colors.foreground,
                 )
                 detail.events.forEach { event ->
-                    EventRow(event = event, onClick = {})
+                    EventRow(
+                        event = event,
+                        onClick = {},
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyEvent(event.id)),
+                    )
                 }
             }
         }
@@ -225,6 +230,7 @@ internal fun HistoryScreen(
             title = detail.session.title,
             message = detail.session.subtitle,
             icon = RipDpiIcons.Search,
+            testTag = RipDpiTestTags.HistoryDiagnosticsDetailSheet,
         ) {
             StatusIndicator(
                 label = detail.session.status,
@@ -246,7 +252,11 @@ internal fun HistoryScreen(
                     color = colors.foreground,
                 )
                 detail.events.forEach { event ->
-                    EventRow(event = event, onClick = {})
+                    EventRow(
+                        event = event,
+                        onClick = {},
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyEvent(event.id)),
+                    )
                 }
             }
         }
@@ -258,6 +268,7 @@ internal fun HistoryScreen(
             title = event.source,
             message = event.createdAtLabel,
             icon = RipDpiIcons.Info,
+            testTag = RipDpiTestTags.HistoryEventDetailSheet,
         ) {
             StatusIndicator(
                 label = event.severity,
@@ -321,6 +332,14 @@ private fun ConnectionsSection(
     ) {
         item {
             FilterCard(
+                modifier =
+                    Modifier.ripDpiTestTag(
+                        if (uiState.connections.sessions.isEmpty()) {
+                            RipDpiTestTags.HistoryConnectionsStateEmpty
+                        } else {
+                            RipDpiTestTags.HistoryConnectionsStateContent
+                        },
+                    ),
                 title = stringResource(R.string.history_connections_section),
                 searchValue = uiState.connections.filters.query,
                 searchPlaceholder = stringResource(R.string.history_connection_search_placeholder),
@@ -348,6 +367,7 @@ private fun ConnectionsSection(
                 EmptyStateCard(
                     title = stringResource(R.string.history_connections_empty_title),
                     body = stringResource(R.string.history_connections_empty_body),
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryConnectionsStateEmpty),
                 )
             }
         } else {
@@ -355,6 +375,7 @@ private fun ConnectionsSection(
                 ConnectionSessionCard(
                     session = session,
                     onClick = { onSelectConnection(session.id) },
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyConnection(session.id)),
                 )
             }
         }
@@ -378,6 +399,14 @@ private fun DiagnosticsSection(
     ) {
         item {
             FilterCard(
+                modifier =
+                    Modifier.ripDpiTestTag(
+                        if (uiState.diagnostics.sessions.isEmpty()) {
+                            RipDpiTestTags.HistoryDiagnosticsStateEmpty
+                        } else {
+                            RipDpiTestTags.HistoryDiagnosticsStateContent
+                        },
+                    ),
                 title = stringResource(R.string.history_diagnostics_section),
                 searchValue = uiState.diagnostics.filters.query,
                 searchPlaceholder = stringResource(R.string.diagnostics_search_placeholder),
@@ -405,6 +434,7 @@ private fun DiagnosticsSection(
                 EmptyStateCard(
                     title = stringResource(R.string.history_diagnostics_empty_title),
                     body = stringResource(R.string.history_diagnostics_empty_body),
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryDiagnosticsStateEmpty),
                 )
             }
         } else {
@@ -412,6 +442,7 @@ private fun DiagnosticsSection(
                 DiagnosticsSessionCard(
                     session = session,
                     onClick = { onSelectSession(session.id) },
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyDiagnosticsSession(session.id)),
                 )
             }
         }
@@ -453,6 +484,14 @@ private fun EventsSection(
     ) {
         item {
             FilterCard(
+                modifier =
+                    Modifier.ripDpiTestTag(
+                        if (uiState.events.events.isEmpty()) {
+                            RipDpiTestTags.HistoryEventsStateEmpty
+                        } else {
+                            RipDpiTestTags.HistoryEventsStateContent
+                        },
+                    ),
                 title = stringResource(R.string.history_events_section),
                 searchValue = uiState.events.filters.search,
                 searchPlaceholder = stringResource(R.string.diagnostics_events_search_placeholder),
@@ -483,11 +522,16 @@ private fun EventsSection(
                 EmptyStateCard(
                     title = stringResource(R.string.history_events_empty_title),
                     body = stringResource(R.string.history_events_empty_body),
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryEventsStateEmpty),
                 )
             }
         } else {
             items(uiState.events.events, key = { it.id }) { event ->
-                EventRow(event = event, onClick = { onSelectEvent(event.id) })
+                EventRow(
+                    event = event,
+                    onClick = { onSelectEvent(event.id) },
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyEvent(event.id)),
+                )
             }
         }
     }
@@ -495,6 +539,7 @@ private fun EventsSection(
 
 @Composable
 private fun FilterCard(
+    modifier: Modifier = Modifier,
     title: String,
     searchValue: String,
     searchPlaceholder: String,
@@ -508,7 +553,7 @@ private fun FilterCard(
 ) {
     val spacing = RipDpiThemeTokens.spacing
 
-    RipDpiCard {
+    RipDpiCard(modifier = modifier) {
         Text(
             text = title,
             style = RipDpiThemeTokens.type.sectionTitle,
@@ -553,9 +598,7 @@ private data class HistoryFilterChipsConfig(
 )
 
 @Composable
-private fun HistoryChips(
-    config: HistoryFilterChipsConfig,
-) {
+private fun HistoryChips(config: HistoryFilterChipsConfig) {
     val spacing = RipDpiThemeTokens.spacing
     if (config.options.isEmpty()) {
         return
@@ -582,8 +625,10 @@ private fun HistoryChips(
 private fun ConnectionSessionCard(
     session: HistoryConnectionRowUiModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     RipDpiCard(
+        modifier = modifier,
         onClick = onClick,
         variant = RipDpiCardVariant.Elevated,
     ) {
@@ -614,8 +659,10 @@ private fun ConnectionSessionCard(
 private fun DiagnosticsSessionCard(
     session: DiagnosticsSessionRowUiModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     RipDpiCard(
+        modifier = modifier,
         onClick = onClick,
         variant = RipDpiCardVariant.Elevated,
     ) {
@@ -646,8 +693,10 @@ private fun DiagnosticsSessionCard(
 private fun EventRow(
     event: DiagnosticsEventUiModel,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     RipDpiCard(
+        modifier = modifier,
         onClick = onClick,
         variant = RipDpiCardVariant.Outlined,
     ) {
@@ -743,8 +792,12 @@ private fun MetricList(metrics: List<com.poyka.ripdpi.activities.DiagnosticsMetr
 private fun EmptyStateCard(
     title: String,
     body: String,
+    modifier: Modifier = Modifier,
 ) {
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Outlined,
+    ) {
         Text(
             text = title,
             style = RipDpiThemeTokens.type.bodyEmphasis,

@@ -68,7 +68,10 @@ internal fun DiagnosticsBottomSheetHost(
                             },
                         onClick = onToggleSensitiveSessionDetails,
                         variant = RipDpiButtonVariant.Outline,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .ripDpiTestTag(RipDpiTestTags.DiagnosticsSessionSensitiveToggle),
                     )
                 }
                 if (detail.diagnoses.isNotEmpty()) {
@@ -96,6 +99,7 @@ internal fun DiagnosticsBottomSheetHost(
                         ProbeResultRow(
                             probe = probe,
                             onClick = { onSelectProbe(probe) },
+                            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
                         )
                     }
                 }
@@ -109,7 +113,11 @@ internal fun DiagnosticsBottomSheetHost(
                         color = colors.foreground,
                     )
                     detail.events.take(6).forEach { event ->
-                        EventRow(event = event, onClick = { onSelectEvent(event.id) })
+                        EventRow(
+                            event = event,
+                            onClick = { onSelectEvent(event.id) },
+                            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsEvent(event.id)),
+                        )
                     }
                 }
             }
@@ -121,6 +129,7 @@ internal fun DiagnosticsBottomSheetHost(
             title = event.source,
             message = event.createdAtLabel,
             icon = RipDpiIcons.Info,
+            testTag = RipDpiTestTags.DiagnosticsEventDetailSheet,
         ) {
             StatusIndicator(label = event.severity, tone = statusTone(event.tone))
             Text(
@@ -137,6 +146,7 @@ internal fun DiagnosticsBottomSheetHost(
             title = detail.approach.title,
             message = detail.approach.subtitle,
             icon = RipDpiIcons.Search,
+            testTag = RipDpiTestTags.DiagnosticsApproachDetailSheet,
         ) {
             StatusIndicator(label = detail.approach.verificationState, tone = statusTone(detail.approach.tone))
             if (detail.signature.isNotEmpty()) {
@@ -156,7 +166,11 @@ internal fun DiagnosticsBottomSheetHost(
                 MetricsRow(metrics = detail.runtimeSummary)
             }
             detail.recentSessions.forEach { session ->
-                SessionRow(session = session, onClick = {})
+                SessionRow(
+                    session = session,
+                    onClick = {},
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
+                )
             }
             detail.recentUsageNotes.forEach { note ->
                 Text(

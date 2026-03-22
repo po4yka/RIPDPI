@@ -262,11 +262,20 @@ class DebugAutomationController
             intent
                 ?.let { source ->
                     buildMap {
+                        val isExternalAutomationLaunch =
+                            source.action == AutomationLaunchContract.LaunchAction ||
+                                (
+                                    source.data?.scheme == AutomationLaunchContract.LaunchUriScheme &&
+                                        source.data?.host == AutomationLaunchContract.LaunchUriHost &&
+                                        source.data?.path == AutomationLaunchContract.LaunchUriPath
+                                )
                         if (source.hasExtra(AutomationLaunchContract.Enabled)) {
                             put(
                                 AutomationLaunchContract.Enabled,
                                 source.getBooleanExtra(AutomationLaunchContract.Enabled, false),
                             )
+                        } else if (isExternalAutomationLaunch) {
+                            put(AutomationLaunchContract.Enabled, true)
                         }
                         if (source.hasExtra(AutomationLaunchContract.ResetState)) {
                             put(
@@ -303,6 +312,29 @@ class DebugAutomationController
                                 AutomationLaunchContract.DataPreset,
                                 source.getStringExtra(AutomationLaunchContract.DataPreset),
                             )
+                        }
+                        source.data?.let { deepLink ->
+                            deepLink.getQueryParameter(AutomationLaunchContract.LaunchParamEnabled)?.let {
+                                put(AutomationLaunchContract.Enabled, it)
+                            }
+                            deepLink.getQueryParameter(AutomationLaunchContract.LaunchParamResetState)?.let {
+                                put(AutomationLaunchContract.ResetState, it)
+                            }
+                            deepLink.getQueryParameter(AutomationLaunchContract.LaunchParamStartRoute)?.let {
+                                put(AutomationLaunchContract.StartRoute, it)
+                            }
+                            deepLink.getQueryParameter(AutomationLaunchContract.LaunchParamDisableMotion)?.let {
+                                put(AutomationLaunchContract.DisableMotion, it)
+                            }
+                            deepLink.getQueryParameter(AutomationLaunchContract.LaunchParamPermissionPreset)?.let {
+                                put(AutomationLaunchContract.PermissionPreset, it)
+                            }
+                            deepLink.getQueryParameter(AutomationLaunchContract.LaunchParamServicePreset)?.let {
+                                put(AutomationLaunchContract.ServicePreset, it)
+                            }
+                            deepLink.getQueryParameter(AutomationLaunchContract.LaunchParamDataPreset)?.let {
+                                put(AutomationLaunchContract.DataPreset, it)
+                            }
                         }
                     }
                 }.orEmpty()
