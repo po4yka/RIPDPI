@@ -9,7 +9,7 @@ use crate::runtime_policy::{
     extract_host, group_requires_payload, route_matches_payload, ConnectionRoute, TransportProtocol,
 };
 use ciadpi_config::RuntimeConfig;
-use ciadpi_session::{
+use ripdpi_session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, parse_http_connect_request,
     parse_socks4_request, parse_socks5_request, ClientRequest, SessionConfig, SessionError, SocketType, S_ATP_I4,
     S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_ER_CMD, S_ER_GEN, S_VER5,
@@ -756,7 +756,7 @@ fn parse_shadowsocks_target(packet: &[u8], config: &RuntimeConfig) -> Option<(So
 mod tests {
     use super::*;
     use ciadpi_config::RuntimeConfig;
-    use ciadpi_session::{S_CMD_CONN, S_VER5};
+    use ripdpi_session::{S_CMD_CONN, S_VER5};
     use std::io::{Read, Write};
     use std::net::{Ipv4Addr, TcpListener, TcpStream};
     use std::time::Duration;

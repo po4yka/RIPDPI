@@ -8,7 +8,7 @@ use ciadpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes, plan_tcp,
     resolve_hostfake_span, ActivationContext, ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan,
 };
-use ciadpi_session::OutboundProgress;
+use ripdpi_session::OutboundProgress;
 use socket2::SockRef;
 
 use super::adaptive::{resolve_adaptive_fake_ttl, resolve_adaptive_tcp_hints};

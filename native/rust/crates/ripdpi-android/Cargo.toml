@@ -15,7 +15,7 @@ android-support = { workspace = true }
 ciadpi-config = { workspace = true }
 ciadpi-desync = { workspace = true }
 ciadpi-packets = { workspace = true }
-ciadpi-session = { workspace = true }
+ripdpi-session = { workspace = true }
 jni = { workspace = true }
 libc = { workspace = true }
 loom = { workspace = true, optional = true }

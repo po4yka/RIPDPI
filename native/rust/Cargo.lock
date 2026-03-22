@@ -1875,7 +1875,6 @@ dependencies = [
  "ciadpi-config",
  "ciadpi-desync",
  "ciadpi-packets",
- "ciadpi-session",
  "golden-test-support",
  "jni",
  "libc",
@@ -1888,6 +1887,7 @@ dependencies = [
  "ripdpi-monitor",
  "ripdpi-proxy-config",
  "ripdpi-runtime",
+ "ripdpi-session",
  "ripdpi-telemetry",
  "serde",
  "serde_json",
@@ -1967,7 +1967,6 @@ dependencies = [
  "ciadpi-config",
  "ciadpi-desync",
  "ciadpi-packets",
- "ciadpi-session",
  "hkdf",
  "libc",
  "local-network-fixture",
@@ -1979,12 +1978,20 @@ dependencies = [
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
+ "ripdpi-session",
  "ripdpi-ws-tunnel",
  "rustls",
  "serde",
  "serde_json",
  "sha2",
  "socket2 0.5.10",
+]
+
+[[package]]
+name = "ripdpi-session"
+version = "0.1.0"
+dependencies = [
+ "ciadpi-packets",
 ]
 
 [[package]]
