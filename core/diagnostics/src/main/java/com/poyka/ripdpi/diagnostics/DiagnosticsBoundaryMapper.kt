@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -33,7 +34,7 @@ class DiagnosticsBoundaryMapper
                 name = entity.name,
                 source = entity.source,
                 version = entity.version,
-                request = decodeProfileProjection(entity.requestJson),
+                request = decodeProfileProjection(json, entity.requestJson),
                 updatedAt = entity.updatedAt,
             )
 
@@ -45,18 +46,18 @@ class DiagnosticsBoundaryMapper
                 approachProfileName = entity.approachProfileName,
                 strategyId = entity.strategyId,
                 strategyLabel = entity.strategyLabel,
-                strategySignature = decodeStrategySignature(entity.strategyJson),
+                strategySignature = decodeStrategySignature(json, entity.strategyJson),
                 pathMode = entity.pathMode,
                 serviceMode = entity.serviceMode,
                 status = entity.status,
                 summary = entity.summary,
-                report = decodeScanProjection(entity.reportJson),
+                report = decodeScanProjection(json, entity.reportJson),
                 startedAt = entity.startedAt,
                 finishedAt = entity.finishedAt,
             )
 
         fun toProbeResult(entity: ProbeResultEntity): ProbeResult {
-            val details = decodeProbeDetails(entity.detailJson)
+            val details = decodeProbeDetails(json, entity.detailJson)
             return ProbeResult(
                 probeType = entity.probeType,
                 target = entity.target,
@@ -72,7 +73,7 @@ class DiagnosticsBoundaryMapper
                 sessionId = entity.sessionId,
                 connectionSessionId = entity.connectionSessionId,
                 snapshotKind = entity.snapshotKind,
-                snapshot = decodeNetworkSnapshot(entity.payloadJson),
+                snapshot = decodeNetworkSnapshot(json, entity.payloadJson),
                 capturedAt = entity.capturedAt,
             )
 
@@ -82,7 +83,7 @@ class DiagnosticsBoundaryMapper
                 sessionId = entity.sessionId,
                 connectionSessionId = entity.connectionSessionId,
                 contextKind = entity.contextKind,
-                context = decodeContext(entity.payloadJson),
+                context = decodeContext(json, entity.payloadJson),
                 capturedAt = entity.capturedAt,
             )
 
@@ -153,7 +154,7 @@ class DiagnosticsBoundaryMapper
                 approachProfileName = entity.approachProfileName,
                 strategyId = entity.strategyId,
                 strategyLabel = entity.strategyLabel,
-                strategySignature = decodeStrategySignature(entity.strategyJson),
+                strategySignature = decodeStrategySignature(json, entity.strategyJson),
                 networkType = entity.networkType,
                 publicIp = entity.publicIp,
                 failureClass = entity.failureClass,
@@ -178,10 +179,10 @@ class DiagnosticsBoundaryMapper
                 id = entity.id,
                 fingerprintHash = entity.fingerprintHash,
                 mode = entity.mode,
-                summary = decodeNetworkFingerprintSummary(entity.summaryJson),
+                summary = decodeNetworkFingerprintSummary(json, entity.summaryJson),
                 proxyConfigJson = entity.proxyConfigJson,
-                vpnDnsPolicy = decodeVpnDnsPolicy(entity.vpnDnsPolicyJson),
-                strategySignature = decodeStrategySignature(entity.strategySignatureJson),
+                vpnDnsPolicy = decodeVpnDnsPolicy(json, entity.vpnDnsPolicyJson),
+                strategySignature = decodeStrategySignature(json, entity.strategySignatureJson),
                 winningTcpStrategyFamily = entity.winningTcpStrategyFamily,
                 winningQuicStrategyFamily = entity.winningQuicStrategyFamily,
                 source = entity.source,
@@ -208,47 +209,67 @@ class DiagnosticsBoundaryMapper
                 restartReason = policy.restartReason,
                 handoverClassification = policy.handoverClassification,
             )
+    }
 
-        fun decodeScanReport(payload: String?): ScanReport? =
-            payload
-                ?.takeIf { it.isNotBlank() }
-                ?.let { json.decodeEngineScanReportWireCompat(it).toLegacyScanReportCompat() }
+private fun decodeScanProjection(
+    json: Json,
+    payload: String?,
+): DiagnosticsSessionProjection? =
+    payload
+        ?.takeIf { it.isNotBlank() }
+        ?.let { json.decodeEngineScanReportWireCompat(it).toSessionProjection() }
 
-        fun decodeScanProjection(payload: String?): DiagnosticsSessionProjection? =
-            payload
-                ?.takeIf { it.isNotBlank() }
-                ?.let { json.decodeEngineScanReportWireCompat(it).toSessionProjection() }
+private fun decodeProfileProjection(
+    json: Json,
+    payload: String?,
+): com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection? =
+    payload
+        ?.takeIf { it.isNotBlank() }
+        ?.let { json.decodeProfileSpecWireCompat(it).toProfileProjection() }
 
-        fun decodeProfileProjection(payload: String?): com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection? =
-            payload
-                ?.takeIf { it.isNotBlank() }
-                ?.let { json.decodeProfileSpecWireCompat(it).toProfileProjection() }
+private fun decodeStrategySignature(
+    json: Json,
+    payload: String?,
+): BypassStrategySignature? =
+    decodeOrNull(json, BypassStrategySignature.serializer(), payload)
 
-        fun decodeStrategySignature(payload: String?): BypassStrategySignature? =
-            decodeOrNull(BypassStrategySignature.serializer(), payload)
+private fun decodeContext(
+    json: Json,
+    payload: String?,
+): DiagnosticContextModel? =
+    decodeOrNull(json, DiagnosticContextModel.serializer(), payload)
 
-        private fun decodeContext(payload: String?): DiagnosticContextModel? =
-            decodeOrNull(DiagnosticContextModel.serializer(), payload)
+private fun decodeNetworkSnapshot(
+    json: Json,
+    payload: String?,
+): NetworkSnapshotModel? =
+    decodeOrNull(json, NetworkSnapshotModel.serializer(), payload)
 
-        private fun decodeNetworkSnapshot(payload: String?): NetworkSnapshotModel? =
-            decodeOrNull(NetworkSnapshotModel.serializer(), payload)
+private fun decodeNetworkFingerprintSummary(
+    json: Json,
+    payload: String?,
+): NetworkFingerprintSummary? =
+    decodeOrNull(json, NetworkFingerprintSummary.serializer(), payload)
 
-        private fun decodeNetworkFingerprintSummary(payload: String?): NetworkFingerprintSummary? =
-            decodeOrNull(NetworkFingerprintSummary.serializer(), payload)
+private fun decodeVpnDnsPolicy(
+    json: Json,
+    payload: String?,
+): VpnDnsPolicyJson? =
+    decodeOrNull(json, VpnDnsPolicyJson.serializer(), payload)
 
-        private fun decodeVpnDnsPolicy(payload: String?): VpnDnsPolicyJson? =
-            decodeOrNull(VpnDnsPolicyJson.serializer(), payload)
+private fun decodeProbeDetails(
+    json: Json,
+    payload: String,
+): List<ProbeDetail> =
+    runCatching {
+        json.decodeFromString(ListSerializer(ProbeDetail.serializer()), payload)
+    }.getOrElse { emptyList() }
 
-        private fun decodeProbeDetails(payload: String): List<ProbeDetail> =
-            runCatching {
-                json.decodeFromString(ListSerializer(ProbeDetail.serializer()), payload)
-            }.getOrElse { emptyList() }
-
-        private fun <T> decodeOrNull(
-            serializer: kotlinx.serialization.KSerializer<T>,
-            payload: String?,
-        ): T? =
-            payload?.takeIf { it.isNotBlank() }?.let {
-                runCatching { json.decodeFromString(serializer, it) }.getOrNull()
-            }
+private fun <T> decodeOrNull(
+    json: Json,
+    serializer: KSerializer<T>,
+    payload: String?,
+): T? =
+    payload?.takeIf { it.isNotBlank() }?.let {
+        runCatching { json.decodeFromString(serializer, it) }.getOrNull()
     }
