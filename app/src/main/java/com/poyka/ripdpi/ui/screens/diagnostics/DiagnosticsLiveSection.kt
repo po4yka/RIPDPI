@@ -1,9 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,16 +26,18 @@ import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
-internal fun LiveSection(uiState: DiagnosticsUiState) {
+internal fun LiveSection(
+    live: DiagnosticsLiveUiModel,
+    health: DiagnosticsHealth,
+) {
     LiveSectionContent(
-        live = uiState.live,
-        health = uiState.overview.health,
+        live = live,
+        health = health,
     )
 }
 
@@ -72,7 +72,11 @@ private fun LiveSectionContent(
             item(key = "live_trends_header") {
                 SettingsCategoryHeader(title = stringResource(R.string.diagnostics_trends_section))
             }
-            items(live.trends, key = { it.label }) { trend ->
+            items(
+                items = live.trends,
+                key = { it.label },
+                contentType = { "trend" },
+            ) { trend ->
                 TelemetrySparkline(trend = trend)
             }
         }
@@ -83,7 +87,11 @@ private fun LiveSectionContent(
             item(key = "live_context_header") {
                 SettingsCategoryHeader(title = stringResource(R.string.diagnostics_context_section))
             }
-            items(live.contextGroups, key = { it.title }) { group ->
+            items(
+                items = live.contextGroups,
+                key = { it.title },
+                contentType = { "context_group" },
+            ) { group ->
                 ContextGroupCard(group = group)
             }
         }
@@ -91,7 +99,11 @@ private fun LiveSectionContent(
             item(key = "live_passive_events_header") {
                 SettingsCategoryHeader(title = stringResource(R.string.diagnostics_passive_events_section))
             }
-            items(live.passiveEvents, key = { it.id }) { event ->
+            items(
+                items = live.passiveEvents,
+                key = { it.id },
+                contentType = { "passive_event" },
+            ) { event ->
                 EventRow(event = event, onClick = {})
             }
         }
@@ -145,89 +157,37 @@ internal fun LiveHeroCard(
                     tone = if (live.networkLabel == null) DiagnosticsTone.Neutral else DiagnosticsTone.Info,
                 )
             }
-            AnimatedContent(
-                targetState = live.headline,
-                transitionSpec = {
-                    androidx.compose.animation.fadeIn(
-                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                    ) togetherWith
-                        androidx.compose.animation.fadeOut(
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                        )
-                },
-                label = "liveHeroHeadline",
-            ) { headline ->
-                Text(
-                    text = headline,
-                    style = RipDpiThemeTokens.type.screenTitle,
-                    color = colors.foreground,
-                )
-            }
-            AnimatedContent(
-                targetState = live.body,
-                transitionSpec = {
-                    androidx.compose.animation.fadeIn(
-                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                    ) togetherWith
-                        androidx.compose.animation.fadeOut(
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                        )
-                },
-                label = "liveHeroBody",
-            ) { body ->
-                Text(
-                    text = body,
-                    style = RipDpiThemeTokens.type.body,
-                    color = colors.foreground.copy(alpha = 0.92f),
-                )
-            }
+            Text(
+                text = live.headline,
+                style = RipDpiThemeTokens.type.screenTitle,
+                color = colors.foreground,
+            )
+            Text(
+                text = live.body,
+                style = RipDpiThemeTokens.type.body,
+                color = colors.foreground.copy(alpha = 0.92f),
+            )
             if (live.highlights.isNotEmpty()) {
                 LiveHighlightsGrid(highlights = live.highlights.take(4))
             }
             HorizontalDivider(color = animatedAccent.copy(alpha = 0.14f))
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                AnimatedContent(
-                    targetState = live.signalLabel,
-                    transitionSpec = {
-                        androidx.compose.animation.fadeIn(
-                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                        ) togetherWith
-                            androidx.compose.animation.fadeOut(
-                                animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                            )
-                    },
-                    label = "liveHeroSignalLabel",
-                ) { signalLabel ->
+                Text(
+                    text = live.signalLabel,
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = animatedAccent,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                     Text(
-                        text = signalLabel,
-                        style = RipDpiThemeTokens.type.bodyEmphasis,
-                        color = animatedAccent,
+                        text = live.eventSummaryLabel,
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.foreground.copy(alpha = 0.82f),
                     )
-                }
-                AnimatedContent(
-                    targetState = live.eventSummaryLabel to live.freshnessLabel,
-                    transitionSpec = {
-                        androidx.compose.animation.fadeIn(
-                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                        ) togetherWith
-                            androidx.compose.animation.fadeOut(
-                                animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                            )
-                    },
-                    label = "liveHeroMeta",
-                ) { meta ->
-                    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                        Text(
-                            text = meta.first,
-                            style = RipDpiThemeTokens.type.secondaryBody,
-                            color = colors.foreground.copy(alpha = 0.82f),
-                        )
-                        Text(
-                            text = meta.second,
-                            style = RipDpiThemeTokens.type.monoSmall,
-                            color = colors.mutedForeground,
-                        )
-                    }
+                    Text(
+                        text = live.freshnessLabel,
+                        style = RipDpiThemeTokens.type.monoSmall,
+                        color = colors.mutedForeground,
+                    )
                 }
             }
         }
@@ -290,24 +250,11 @@ internal fun LiveHighlightCard(
                 style = RipDpiThemeTokens.type.sectionTitle,
                 color = animatedContent.copy(alpha = 0.72f),
             )
-            AnimatedContent(
-                targetState = metric.value,
-                transitionSpec = {
-                    androidx.compose.animation.fadeIn(
-                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                    ) togetherWith
-                        androidx.compose.animation.fadeOut(
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                        )
-                },
-                label = "liveHighlightValue",
-            ) { value ->
-                Text(
-                    text = value,
-                    style = RipDpiThemeTokens.type.monoValue,
-                    color = animatedContent,
-                )
-            }
+            Text(
+                text = metric.value,
+                style = RipDpiThemeTokens.type.monoValue,
+                color = animatedContent,
+            )
         }
     }
 }

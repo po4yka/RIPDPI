@@ -410,6 +410,24 @@ data class DiagnosticsShareUiModel(
     val isArchiveBusy: Boolean = false,
 )
 
+@Immutable
+data class DiagnosticsPerformanceUiModel(
+    val buildSequence: Long,
+    val totalDurationMillis: Double,
+    val eventMappingDurationMillis: Double,
+    val resolveDurationMillis: Double,
+    val overviewDurationMillis: Double,
+    val scanDurationMillis: Double,
+    val liveDurationMillis: Double,
+    val sessionsDurationMillis: Double,
+    val approachesDurationMillis: Double,
+    val eventsDurationMillis: Double,
+    val shareDurationMillis: Double,
+    val telemetryCount: Int,
+    val nativeEventCount: Int,
+    val sessionCount: Int,
+)
+
 @Stable
 data class DiagnosticsUiState(
     val selectedSection: DiagnosticsSection = DiagnosticsSection.Overview,
@@ -425,6 +443,7 @@ data class DiagnosticsUiState(
     val selectedEvent: DiagnosticsEventUiModel? = null,
     val selectedProbe: DiagnosticsProbeResultUiModel? = null,
     val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel? = null,
+    val performance: DiagnosticsPerformanceUiModel? = null,
 )
 
 sealed interface DiagnosticsEffect {
