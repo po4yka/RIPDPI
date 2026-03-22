@@ -1,17 +1,21 @@
 package com.poyka.ripdpi.activities
 
+import androidx.compose.runtime.Immutable
+
 enum class HistorySection {
     Connections,
     Diagnostics,
     Events,
 }
 
+@Immutable
 data class HistoryConnectionFiltersUiModel(
     val mode: String? = null,
     val status: String? = null,
     val query: String = "",
 )
 
+@Immutable
 data class HistoryConnectionRowUiModel(
     val id: String,
     val title: String,
@@ -25,6 +29,7 @@ data class HistoryConnectionRowUiModel(
     val tone: DiagnosticsTone,
 )
 
+@Immutable
 data class HistoryConnectionDetailUiModel(
     val session: HistoryConnectionRowUiModel,
     val highlights: List<DiagnosticsMetricUiModel>,
@@ -33,6 +38,7 @@ data class HistoryConnectionDetailUiModel(
     val events: List<DiagnosticsEventUiModel>,
 )
 
+@Immutable
 data class HistoryConnectionsUiModel(
     val filters: HistoryConnectionFiltersUiModel = HistoryConnectionFiltersUiModel(),
     val sessions: List<HistoryConnectionRowUiModel> = emptyList(),
@@ -41,6 +47,7 @@ data class HistoryConnectionsUiModel(
     val focusedSessionId: String? = null,
 )
 
+@Immutable
 data class HistoryUiState(
     val selectedSection: HistorySection = HistorySection.Connections,
     val connections: HistoryConnectionsUiModel = HistoryConnectionsUiModel(),
