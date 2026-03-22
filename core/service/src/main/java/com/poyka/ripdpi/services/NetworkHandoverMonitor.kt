@@ -1,11 +1,14 @@
 package com.poyka.ripdpi.services
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.ConnectivityManager.NetworkCallback
 import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
+import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -98,7 +101,11 @@ class DefaultNetworkHandoverMonitor
                     }
 
                 runCatching {
-                    connectivityManager.registerDefaultNetworkCallback(callback)
+                    if (hasNetworkStatePermission()) {
+                        connectivityManager.registerDefaultNetworkCallback(callback)
+                    } else {
+                        error("android.permission.ACCESS_NETWORK_STATE is required to observe network handover events")
+                    }
                 }.onFailure {
                     close(it)
                 }
@@ -109,6 +116,10 @@ class DefaultNetworkHandoverMonitor
                     }
                 }
             }
+
+        private fun hasNetworkStatePermission(): Boolean =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_NETWORK_STATE) ==
+                PackageManager.PERMISSION_GRANTED
     }
 
 internal fun observeNetworkHandoverEvents(

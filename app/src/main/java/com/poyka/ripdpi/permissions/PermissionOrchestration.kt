@@ -146,9 +146,7 @@ class AndroidPermissionStatusProvider
                                     PermissionStatus.RequiresSystemPrompt
                                 },
                             batteryOptimization =
-                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                                    PermissionStatus.NotApplicable
-                                } else {
+                                run {
                                     val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
                                     if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
                                         PermissionStatus.Granted
@@ -180,9 +178,7 @@ class AndroidPermissionStatusProvider
                                 PermissionStatus.RequiresSystemPrompt
                             },
                         batteryOptimization =
-                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                                PermissionStatus.NotApplicable
-                            } else {
+                            run {
                                 val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
                                 if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
                                     PermissionStatus.Granted

@@ -1,13 +1,16 @@
 package com.poyka.ripdpi.services
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.service.R
@@ -127,9 +130,17 @@ class RipDpiVpnService :
 
     override fun syncUnderlyingNetworksFromActiveNetwork() {
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork = connectivityManager.activeNetwork
+        val activeNetwork =
+            if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
+                connectivityManager.activeNetwork
+            } else {
+                null
+            }
         setUnderlyingNetworks(activeNetwork?.let { arrayOf(it) })
     }
+
+    private fun hasPermission(permission: String): Boolean =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
     private fun startForegroundService() {
         val notification: Notification = createNotification()

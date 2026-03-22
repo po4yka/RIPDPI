@@ -294,7 +294,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
         route = ConfigGraphRoute,
     ) {
         composable(Route.Config.route) {
-            val configGraphEntry = remember(it) { navController.getBackStackEntry(ConfigGraphRoute) }
+            val configGraphEntry = remember(navController, it) { navController.getBackStackEntry(ConfigGraphRoute) }
             val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
             ConfigRoute(
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor.route) },
@@ -303,7 +303,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             )
         }
         composable(Route.ModeEditor.route) {
-            val configGraphEntry = remember(it) { navController.getBackStackEntry(ConfigGraphRoute) }
+            val configGraphEntry = remember(navController, it) { navController.getBackStackEntry(ConfigGraphRoute) }
             val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
             ModeEditorRoute(
                 onBack = { navController.popBackStack() },
@@ -324,7 +324,7 @@ private fun NavGraphBuilder.addSettingsRoutes(
         route = SettingsGraphRoute,
     ) {
         composable(Route.Settings.route) {
-            val settingsGraphEntry = remember(it) { navController.getBackStackEntry(SettingsGraphRoute) }
+            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry(SettingsGraphRoute) }
             val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
             SettingsRoute(
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings.route) },
@@ -340,17 +340,17 @@ private fun NavGraphBuilder.addSettingsRoutes(
             )
         }
         composable(Route.DnsSettings.route) {
-            val settingsGraphEntry = remember(it) { navController.getBackStackEntry(SettingsGraphRoute) }
+            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry(SettingsGraphRoute) }
             val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
             DnsSettingsRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
         }
         composable(Route.AdvancedSettings.route) {
-            val settingsGraphEntry = remember(it) { navController.getBackStackEntry(SettingsGraphRoute) }
+            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry(SettingsGraphRoute) }
             val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
             AdvancedSettingsRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
         }
         composable(Route.AppCustomization.route) {
-            val settingsGraphEntry = remember(it) { navController.getBackStackEntry(SettingsGraphRoute) }
+            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry(SettingsGraphRoute) }
             val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
             AppCustomizationRoute(onBack = { navController.popBackStack() }, viewModel = settingsViewModel)
         }

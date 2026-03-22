@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import androidx.annotation.VisibleForTesting
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
@@ -44,7 +43,6 @@ import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.proto.AppSettings
 
-@VisibleForTesting
 internal fun AppSettings.toUiState(
     isHydrated: Boolean = true,
     serviceStatus: AppStatus = AppStatus.Halted,

@@ -2,12 +2,12 @@ package com.poyka.ripdpi.ui.theme
 
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 
 @Composable
 fun RipDpiTheme(
@@ -33,7 +33,9 @@ fun RipDpiTheme(
 
     val colorScheme = if (isDark) ripDpiDarkColorScheme() else ripDpiLightColorScheme()
     val extendedColors = if (isDark) DarkRipDpiExtendedColors else LightRipDpiExtendedColors
-    val layout = ripDpiLayoutForWidth(screenWidthDp = LocalConfiguration.current.screenWidthDp)
+    val density = LocalDensity.current
+    val screenWidthDp = with(density) { LocalWindowInfo.current.containerSize.width.toDp().value.toInt() }
+    val layout = ripDpiLayoutForWidth(screenWidthDp = screenWidthDp)
     val motion = rememberRipDpiMotion()
 
     CompositionLocalProvider(
