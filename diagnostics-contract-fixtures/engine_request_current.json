@@ -36,5 +36,6 @@
   "whitelistSni": [],
   "strategyProbe": {
     "suiteId": "quick_v1"
-  }
+  },
+  "nativeLogLevel": "debug"
 }

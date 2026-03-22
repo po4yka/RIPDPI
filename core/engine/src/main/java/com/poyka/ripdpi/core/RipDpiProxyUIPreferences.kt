@@ -172,6 +172,7 @@ class RipDpiProxyUIPreferences(
     hosts: RipDpiHostsConfig = RipDpiHostsConfig(),
     hostAutolearn: RipDpiHostAutolearnConfig = RipDpiHostAutolearnConfig(),
     wsTunnel: RipDpiWsTunnelConfig = RipDpiWsTunnelConfig(),
+    nativeLogLevel: String? = null,
     runtimeContext: RipDpiRuntimeContext? = null,
 ) : RipDpiProxyPreferences {
     val listen: RipDpiListenConfig = normalizeListenConfig(listen)
@@ -183,6 +184,7 @@ class RipDpiProxyUIPreferences(
     val hosts: RipDpiHostsConfig = normalizeHostsConfig(hosts)
     val hostAutolearn: RipDpiHostAutolearnConfig = normalizeHostAutolearnConfig(hostAutolearn)
     val wsTunnel: RipDpiWsTunnelConfig = wsTunnel
+    val nativeLogLevel: String? = nativeLogLevel?.trim()?.takeIf { it.isNotEmpty() }
     val runtimeContext: RipDpiRuntimeContext? = normalizeRuntimeContext(runtimeContext)
     val chainSummary: String = formatChainSummary(this.chains.tcpSteps, this.chains.udpSteps)
 
@@ -207,6 +209,7 @@ class RipDpiProxyUIPreferences(
                     networkScopeKey = networkScopeKey ?: hostAutolearn.networkScopeKey,
                 ),
             wsTunnel = wsTunnel,
+            nativeLogLevel = nativeLogLevel,
             runtimeContext = runtimeContext ?: this.runtimeContext,
         )
 

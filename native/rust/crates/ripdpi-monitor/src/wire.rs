@@ -80,6 +80,8 @@ pub struct EngineScanRequestWire {
     pub strategy_probe: Option<StrategyProbeRequest>,
     #[serde(default)]
     pub network_snapshot: Option<ripdpi_proxy_config::NetworkSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_log_level: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,6 +197,7 @@ impl From<ScanRequest> for EngineScanRequestWire {
             telegram_target: value.telegram_target,
             strategy_probe: value.strategy_probe,
             network_snapshot: value.network_snapshot,
+            native_log_level: None,
         }
     }
 }

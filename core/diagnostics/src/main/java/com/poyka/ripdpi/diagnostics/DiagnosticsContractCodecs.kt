@@ -180,7 +180,14 @@ internal fun ScanPlan.toEngineScanRequestWire(): EngineScanRequestWire =
         telegramTarget = intent.telegramTarget,
         strategyProbe = intent.strategyProbe,
         networkSnapshot = context.networkSnapshot,
+        nativeLogLevel = diagnosticsNativeLogLevel(context.pathMode),
     )
+
+private fun diagnosticsNativeLogLevel(pathMode: ScanPathMode): String =
+    when (pathMode) {
+        ScanPathMode.RAW_PATH -> "debug"
+        ScanPathMode.IN_PATH -> "info"
+    }
 
 internal fun EngineProbeResultWire.toProbeResult(): ProbeResult =
     ProbeResult(

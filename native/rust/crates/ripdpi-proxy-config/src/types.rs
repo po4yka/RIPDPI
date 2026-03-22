@@ -73,6 +73,7 @@ pub struct ProxyEncryptedDnsContext {
 pub struct RuntimeConfigEnvelope {
     pub config: RuntimeConfig,
     pub runtime_context: Option<ProxyRuntimeContext>,
+    pub native_log_level: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -349,6 +350,8 @@ pub struct ProxyUiConfig {
     pub host_autolearn: ProxyUiHostAutolearnConfig,
     #[serde(default)]
     pub ws_tunnel: ProxyUiWsTunnelConfig,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_log_level: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]

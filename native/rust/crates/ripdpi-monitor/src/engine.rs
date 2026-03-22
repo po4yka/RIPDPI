@@ -174,7 +174,15 @@ impl ExecutionRuntime {
         self.results.extend(artifacts.probe_results);
         self.observations.extend(artifacts.observations);
         for event in artifacts.events {
-            push_event(&self.shared, &event.source, &event.level, event.message);
+            push_event(
+                &self.shared,
+                &plan.session_id,
+                &plan.request.profile_id,
+                &plan.request.path_mode,
+                &event.source,
+                &event.level,
+                event.message,
+            );
         }
         self.completed_steps += 1;
         set_progress(
@@ -291,6 +299,9 @@ pub(crate) fn run_engine_scan(
     );
     push_event(
         &shared,
+        &plan.session_id,
+        &plan.request.profile_id,
+        &plan.request.path_mode,
         "engine",
         "info",
         format!(
@@ -315,7 +326,15 @@ pub(crate) fn run_engine_scan(
                 None,
             );
             set_report(&shared, report);
-            push_event(&shared, "engine", "warn", "Diagnostics cancelled".to_string());
+            push_event(
+                &shared,
+                &plan.session_id,
+                &plan.request.profile_id,
+                &plan.request.path_mode,
+                "engine",
+                "warn",
+                "Diagnostics cancelled".to_string(),
+            );
             set_progress(
                 &shared,
                 ScanProgress {
@@ -369,7 +388,15 @@ pub(crate) fn run_engine_scan(
                 None,
             );
             set_report(&shared, report);
-            push_event(&shared, "engine", "info", "Diagnostics finished".to_string());
+            push_event(
+                &shared,
+                &plan.session_id,
+                &plan.request.profile_id,
+                &plan.request.path_mode,
+                "engine",
+                "info",
+                "Diagnostics finished".to_string(),
+            );
             set_progress(
                 &shared,
                 ScanProgress {
@@ -542,7 +569,15 @@ impl ExecutionStageRunner for EnvironmentRunner {
             artifacts,
         );
         if snapshot.transport == "none" {
-            push_event(&runtime.shared, "engine", "warn", "OS reports no network; aborting scan".to_string());
+            push_event(
+                &runtime.shared,
+                &plan.session_id,
+                &plan.request.profile_id,
+                &plan.request.path_mode,
+                "engine",
+                "warn",
+                "OS reports no network; aborting scan".to_string(),
+            );
             let report = build_report(
                 plan.session_id.clone(),
                 plan.request.clone(),
@@ -559,6 +594,9 @@ impl ExecutionStageRunner for EnvironmentRunner {
         if !snapshot.validated && !snapshot.captive_portal {
             push_event(
                 &runtime.shared,
+                &plan.session_id,
+                &plan.request.profile_id,
+                &plan.request.path_mode,
                 "engine",
                 "warn",
                 "OS reports unvalidated network; probe results may be unreliable".to_string(),

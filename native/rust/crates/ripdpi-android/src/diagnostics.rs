@@ -151,6 +151,7 @@ fn start_diagnostics_scan(env: &mut JNIEnv, handle: jlong, request_json: JString
                 telegram_target: request.telegram_target,
                 strategy_probe: request.strategy_probe,
                 network_snapshot: request.network_snapshot,
+                native_log_level: None,
             },
             Err(err) => {
                 throw_illegal_argument(env, format!("Invalid diagnostics request: {err}"));

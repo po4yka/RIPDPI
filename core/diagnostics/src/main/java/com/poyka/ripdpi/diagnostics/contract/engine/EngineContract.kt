@@ -65,6 +65,7 @@ data class EngineScanRequestWire(
     val telegramTarget: TelegramTarget? = null,
     val strategyProbe: StrategyProbeRequest? = null,
     val networkSnapshot: NativeNetworkSnapshot? = null,
+    val nativeLogLevel: String? = null,
 )
 
 @Serializable

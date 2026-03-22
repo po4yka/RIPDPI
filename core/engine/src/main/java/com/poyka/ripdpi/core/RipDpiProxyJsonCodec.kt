@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.normalizeActivationFilter
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -125,6 +126,7 @@ internal object RipDpiProxyJsonCodec {
                 hosts = EndpointCodec.toNative(preferences.hosts),
                 hostAutolearn = EndpointCodec.toNative(preferences.hostAutolearn),
                 wsTunnel = EndpointCodec.toNative(preferences.wsTunnel),
+                nativeLogLevel = preferences.nativeLogLevel,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(preferences.runtimeContext),
             ),
         )
@@ -362,6 +364,8 @@ internal object RipDpiProxyJsonCodec {
             val hosts: NativeHostsConfig = NativeHostsConfig(),
             val hostAutolearn: NativeHostAutolearnConfig = NativeHostAutolearnConfig(),
             val wsTunnel: NativeWsTunnelConfig = NativeWsTunnelConfig(),
+            @EncodeDefault(EncodeDefault.Mode.NEVER)
+            val nativeLogLevel: String? = null,
             val runtimeContext: NativeRuntimeContext? = null,
         ) : NativeProxyConfig
     }
@@ -682,6 +686,7 @@ internal object RipDpiProxyJsonCodec {
                 hosts = toModel(value.hosts),
                 hostAutolearn = toModel(value.hostAutolearn),
                 wsTunnel = toModel(value.wsTunnel),
+                nativeLogLevel = value.nativeLogLevel,
                 runtimeContext = ProxyRuntimeContextCodec.toModel(value.runtimeContext),
             )
     }

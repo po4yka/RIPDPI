@@ -2,12 +2,14 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use android_support::log_with_level;
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_runtime::RuntimeTelemetrySink;
 use ripdpi_telemetry::{LatencyDistributions, LatencyHistogram};
 use serde::Serialize;
 
 const MAX_PROXY_EVENTS: usize = 128;
+static NEXT_PROXY_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Returns true for I/O errors caused by transient network conditions
 /// (e.g., Doze mode, network handover, airplane mode toggle).
@@ -101,6 +103,8 @@ struct TelemetryStrings {
 }
 
 pub(crate) struct ProxyTelemetryState {
+    session_id: String,
+    log_scope: String,
     running: AtomicBool,
     active_sessions: AtomicU64,
     total_sessions: AtomicU64,
@@ -123,7 +127,11 @@ pub(crate) struct ProxyTelemetryState {
 
 impl ProxyTelemetryState {
     pub(crate) fn new() -> Self {
+        let ordinal = NEXT_PROXY_SESSION_ID.fetch_add(1, Ordering::Relaxed);
+        let session_id = format!("proxy-{ordinal}");
         Self {
+            log_scope: format!("proxy:{session_id}"),
+            session_id,
             running: AtomicBool::new(false),
             active_sessions: AtomicU64::new(0),
             total_sessions: AtomicU64::new(0),
@@ -158,10 +166,18 @@ impl ProxyTelemetryState {
         }
     }
 
+    pub(crate) fn log_scope(&self) -> &str {
+        &self.log_scope
+    }
+
+    fn log_line(&self, source: &str, level: &str, message: &str) {
+        log_with_level(level, format!("subsystem=proxy session={} source={} {}", self.session_id, source, message));
+    }
+
     pub(crate) fn mark_running(&self, bind_addr: String, max_clients: usize, group_count: usize) {
         self.running.store(true, Ordering::Relaxed);
         let message = format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}");
-        log::info!("{message}");
+        self.log_line("proxy", "info", &message);
         {
             let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.listener_address = Some(bind_addr);
@@ -173,7 +189,7 @@ impl ProxyTelemetryState {
         self.running.store(false, Ordering::Relaxed);
         self.active_sessions.store(0, Ordering::Relaxed);
         let message = "listener stopped".to_string();
-        log::info!("{message}");
+        self.log_line("proxy", "info", &message);
         {
             let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             Self::push_event_to(&mut guard.events, "proxy", "info", message);
@@ -194,7 +210,7 @@ impl ProxyTelemetryState {
     pub(crate) fn on_client_error(&self, error: String) {
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         let message = format!("client error: {error}");
-        log::warn!("{message}");
+        self.log_line("proxy", "warn", &message);
         {
             let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_error = Some(error);
@@ -209,7 +225,7 @@ impl ProxyTelemetryState {
         }
         let error_str = error.to_string();
         let message = format!("client error: {error_str}");
-        log::warn!("{message}");
+        self.log_line("proxy", "warn", &message);
         {
             let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_error = Some(error_str);
@@ -226,7 +242,7 @@ impl ProxyTelemetryState {
             target,
             host.as_deref().unwrap_or("<none>")
         );
-        log::info!("{message}");
+        self.log_line("proxy", "info", &message);
         {
             let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_target = Some(target);
@@ -253,7 +269,7 @@ impl ProxyTelemetryState {
             trigger,
             host.as_deref().unwrap_or("<none>")
         );
-        log::warn!("{message}");
+        self.log_line("proxy", "warn", &message);
         {
             let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_target = Some(target);
@@ -273,6 +289,7 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>"),
             failure.evidence.summary
         );
+        self.log_line("proxy", level, &message);
         {
             let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_target = Some(target);
@@ -294,6 +311,7 @@ impl ProxyTelemetryState {
         }
         let message =
             format!("retry pacing target={target} group={group_index} reason={reason} backoffMs={backoff_ms}");
+        self.log_line("proxy", "info", &message);
         {
             let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_target = Some(target);
@@ -333,10 +351,7 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>"),
             group_index.map_or_else(|| "<none>".to_string(), |value| value.to_string())
         );
-        match level {
-            "warn" => log::warn!("{message}"),
-            _ => log::info!("{message}"),
-        }
+        self.log_line("autolearn", level, &message);
         {
             let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
             guard.last_autolearn_host = host;
@@ -441,11 +456,7 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn push_event(&self, source: &str, level: &str, message: String) {
-        match level {
-            "warn" => log::warn!("{message}"),
-            "error" => log::error!("{message}"),
-            _ => log::info!("{message}"),
-        }
+        self.log_line(source, level, &message);
         let mut guard = self.strings.lock().unwrap_or_else(PoisonError::into_inner);
         Self::push_event_to(&mut guard.events, source, level, message);
     }

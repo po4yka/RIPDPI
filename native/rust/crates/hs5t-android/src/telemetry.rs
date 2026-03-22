@@ -2,11 +2,13 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 
+use android_support::log_with_level;
 use ripdpi_telemetry::{LatencyDistributions, LatencyHistogram};
 use ripdpi_tunnel_core::DnsStatsSnapshot;
 use serde::Serialize;
 
 pub(crate) const MAX_TUNNEL_EVENTS: usize = 128;
+static NEXT_TUNNEL_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -64,6 +66,8 @@ pub(crate) struct NativeRuntimeSnapshot {
 }
 
 pub(crate) struct TunnelTelemetryState {
+    session_id: String,
+    log_scope: String,
     running: AtomicBool,
     total_sessions: AtomicU64,
     total_errors: AtomicU64,
@@ -75,7 +79,11 @@ pub(crate) struct TunnelTelemetryState {
 
 impl TunnelTelemetryState {
     pub(crate) fn new() -> Self {
+        let ordinal = NEXT_TUNNEL_SESSION_ID.fetch_add(1, Ordering::Relaxed);
+        let session_id = format!("tunnel-{ordinal}");
         Self {
+            log_scope: format!("tunnel:{session_id}"),
+            session_id,
             running: AtomicBool::new(false),
             total_sessions: AtomicU64::new(0),
             total_errors: AtomicU64::new(0),
@@ -86,24 +94,29 @@ impl TunnelTelemetryState {
         }
     }
 
+    pub(crate) fn log_scope(&self) -> &str {
+        &self.log_scope
+    }
+
+    pub(crate) fn log_line(&self, source: &str, level: &str, message: &str) {
+        log_with_level(level, format!("subsystem=tunnel session={} source={} {}", self.session_id, source, message));
+    }
+
     pub(crate) fn mark_started(&self, upstream: String) {
         self.running.store(true, Ordering::Relaxed);
         self.total_sessions.fetch_add(1, Ordering::Relaxed);
         if let Ok(mut guard) = self.upstream_address.lock() {
             *guard = Some(upstream.clone());
         }
-        log::info!("tunnel started upstream={upstream}");
         self.push_event("tunnel", "info", format!("tunnel started upstream={upstream}"));
     }
 
     pub(crate) fn mark_stop_requested(&self) {
-        log::info!("tunnel stop requested");
         self.push_event("tunnel", "info", "tunnel stop requested".to_string());
     }
 
     pub(crate) fn mark_stopped(&self) {
         self.running.store(false, Ordering::Relaxed);
-        log::info!("tunnel stopped");
         self.push_event("tunnel", "info", "tunnel stopped".to_string());
     }
 
@@ -112,7 +125,6 @@ impl TunnelTelemetryState {
         if let Ok(mut guard) = self.last_error.lock() {
             *guard = Some(error.clone());
         }
-        log::warn!("tunnel error: {error}");
         self.push_event("tunnel", "warn", format!("tunnel error: {error}"));
     }
 
@@ -184,6 +196,7 @@ impl TunnelTelemetryState {
     }
 
     fn push_event(&self, source: &str, level: &str, message: String) {
+        self.log_line(source, level, &message);
         if let Ok(mut guard) = self.events.lock() {
             if guard.len() >= MAX_TUNNEL_EVENTS {
                 guard.pop_front();
