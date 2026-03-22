@@ -7,10 +7,9 @@ use std::sync::PoisonError;
 use jni::objects::JThrowable;
 use jni::sys::jint;
 use jni::JNIEnv;
+use log::LevelFilter;
 use once_cell::sync::OnceCell;
 
-#[cfg(target_os = "android")]
-use log::LevelFilter;
 use std::fmt;
 #[cfg(target_os = "android")]
 use tracing::Subscriber;
@@ -61,20 +60,81 @@ pub fn init_android_logging(tag: &'static str) {
     INIT.get_or_init(|| {
         #[cfg(target_os = "android")]
         {
-            android_logger::init_once(
-                android_logger::Config::default().with_max_level(LevelFilter::Info).with_tag(tag),
-            );
+            android_logger::init_once(android_logger::Config::default().with_tag(tag));
 
             let _ = LogTracer::init();
 
             let _ = tracing_subscriber::registry().with(AndroidLogLayer).try_init();
         }
 
+        log::set_max_level(default_android_log_level());
+
         #[cfg(not(target_os = "android"))]
         {
             let _ = tag;
         }
     });
+}
+
+pub fn default_android_log_level() -> LevelFilter {
+    if cfg!(debug_assertions) {
+        LevelFilter::Debug
+    } else {
+        LevelFilter::Info
+    }
+}
+
+pub fn android_log_level_from_str(level: &str) -> Option<LevelFilter> {
+    match level.trim().to_ascii_lowercase().as_str() {
+        "trace" => Some(LevelFilter::Trace),
+        "debug" => Some(LevelFilter::Debug),
+        "info" => Some(LevelFilter::Info),
+        "warn" | "warning" => Some(LevelFilter::Warn),
+        "error" => Some(LevelFilter::Error),
+        "off" => Some(LevelFilter::Off),
+        _ => None,
+    }
+}
+
+pub fn android_log_level_from_debug_verbosity(debug: i32) -> LevelFilter {
+    match debug {
+        i32::MIN..=0 => LevelFilter::Info,
+        1 => LevelFilter::Debug,
+        _ => LevelFilter::Trace,
+    }
+}
+
+pub fn set_android_log_scope_level(scope: impl Into<String>, level: LevelFilter) {
+    let mut scopes = log_scope_levels().lock().unwrap_or_else(PoisonError::into_inner);
+    scopes.insert(scope.into(), level);
+    apply_android_log_level(&scopes);
+}
+
+pub fn clear_android_log_scope_level(scope: &str) {
+    let mut scopes = log_scope_levels().lock().unwrap_or_else(PoisonError::into_inner);
+    scopes.remove(scope);
+    apply_android_log_level(&scopes);
+}
+
+pub fn log_with_level(level: &str, message: impl AsRef<str>) {
+    let message = message.as_ref();
+    match level.trim().to_ascii_lowercase().as_str() {
+        "trace" => log::trace!("{message}"),
+        "debug" => log::debug!("{message}"),
+        "warn" | "warning" => log::warn!("{message}"),
+        "error" => log::error!("{message}"),
+        _ => log::info!("{message}"),
+    }
+}
+
+fn log_scope_levels() -> &'static Mutex<HashMap<String, LevelFilter>> {
+    static LOG_SCOPE_LEVELS: OnceCell<Mutex<HashMap<String, LevelFilter>>> = OnceCell::new();
+    LOG_SCOPE_LEVELS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn apply_android_log_level(scopes: &HashMap<String, LevelFilter>) {
+    let level = scopes.values().copied().max().unwrap_or_else(default_android_log_level);
+    log::set_max_level(level);
 }
 
 /// Ignore SIGPIPE so that socket peer disconnects don't crash the process.
@@ -205,6 +265,7 @@ mod tests {
 
     static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
     static JNI_TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+    static LOG_LEVEL_TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
     #[test]
     fn formatter_renders_plain_message_golden() {
@@ -299,6 +360,37 @@ mod tests {
         with_env(|env| {
             assert!(describe_exception(env).is_none());
         });
+    }
+
+    #[test]
+    fn android_log_level_parser_supports_expected_values() {
+        assert_eq!(android_log_level_from_str("trace"), Some(LevelFilter::Trace));
+        assert_eq!(android_log_level_from_str("debug"), Some(LevelFilter::Debug));
+        assert_eq!(android_log_level_from_str("info"), Some(LevelFilter::Info));
+        assert_eq!(android_log_level_from_str("warning"), Some(LevelFilter::Warn));
+        assert_eq!(android_log_level_from_str("error"), Some(LevelFilter::Error));
+        assert_eq!(android_log_level_from_str("off"), Some(LevelFilter::Off));
+        assert_eq!(android_log_level_from_str("nope"), None);
+    }
+
+    #[test]
+    fn scoped_log_levels_keep_the_most_verbose_active_request() {
+        let _serial = LOG_LEVEL_TEST_MUTEX.lock().expect("lock android-support log level tests");
+        clear_android_log_scope_level("android-support:test:a");
+        clear_android_log_scope_level("android-support:test:b");
+        log::set_max_level(default_android_log_level());
+
+        set_android_log_scope_level("android-support:test:a", LevelFilter::Warn);
+        assert_eq!(log::max_level(), LevelFilter::Warn);
+
+        set_android_log_scope_level("android-support:test:b", LevelFilter::Trace);
+        assert_eq!(log::max_level(), LevelFilter::Trace);
+
+        clear_android_log_scope_level("android-support:test:b");
+        assert_eq!(log::max_level(), LevelFilter::Warn);
+
+        clear_android_log_scope_level("android-support:test:a");
+        assert_eq!(log::max_level(), default_android_log_level());
     }
 
     fn test_jvm() -> &'static JavaVM {

@@ -3,7 +3,8 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use android_support::{
-    throw_illegal_argument, throw_illegal_state, throw_io_exception, throw_runtime_exception, HandleRegistry,
+    android_log_level_from_str, clear_android_log_scope_level, set_android_log_scope_level, throw_illegal_argument,
+    throw_illegal_state, throw_io_exception, throw_runtime_exception, HandleRegistry,
 };
 use jni::objects::JString;
 use jni::sys::{jint, jlong, jlongArray};
@@ -116,6 +117,13 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
             return 0;
         }
     };
+    let native_log_level = match android_log_level_from_str(&config.misc.log_level) {
+        Some(level) => level,
+        None => {
+            throw_illegal_argument(env, format!("Unsupported tunnel logLevel: {}", config.misc.log_level));
+            return 0;
+        }
+    };
     let runtime = match shared_tunnel_runtime() {
         Ok(runtime) => runtime,
         Err(err) => {
@@ -123,12 +131,14 @@ fn create_session(env: &mut JNIEnv, config_json: JString) -> jlong {
             return 0;
         }
     };
+    let telemetry = Arc::new(TunnelTelemetryState::new());
+    set_android_log_scope_level(telemetry.log_scope().to_string(), native_log_level);
 
     SESSIONS.insert(TunnelSession {
         runtime,
         config,
         last_error: Arc::new(Mutex::new(None)),
-        telemetry: Arc::new(TunnelTelemetryState::new()),
+        telemetry,
         state: Mutex::new(TunnelSessionState::Ready),
     }) as jlong
 }
@@ -203,7 +213,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
         match result {
             Ok(Ok(())) => {}
             Ok(Err(err)) => {
-                log::error!("tunnel worker exited with error: {err}");
+                telemetry.log_line("worker", "error", &format!("worker exited with error: {err}"));
                 let mut guard = last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                 *guard = Some(err.to_string());
                 drop(guard);
@@ -217,7 +227,7 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
                 } else {
                     "unknown panic".to_string()
                 };
-                log::error!("tunnel worker panicked: {msg}");
+                telemetry.log_line("worker", "error", &format!("worker panicked: {msg}"));
                 let mut guard = last_error.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                 *guard = Some(format!("Tunnel worker panicked: {msg}"));
                 drop(guard);
@@ -261,7 +271,7 @@ fn stop_session(env: &mut JNIEnv, handle: jlong) {
     running.0.cancel();
     session.telemetry.mark_stop_requested();
     if running.1.join().is_err() {
-        log::error!("tunnel worker panicked during shutdown");
+        session.telemetry.log_line("worker", "error", "tunnel worker panicked during shutdown");
     }
 }
 
@@ -339,7 +349,9 @@ pub(crate) fn lookup_tunnel_session(handle: jlong) -> Result<Arc<TunnelSession>,
 
 pub(crate) fn remove_tunnel_session(handle: jlong) -> Result<Arc<TunnelSession>, &'static str> {
     let handle = to_handle(handle).ok_or("Invalid tunnel handle")?;
-    SESSIONS.remove(handle).ok_or("Unknown tunnel handle")
+    let session = SESSIONS.remove(handle).ok_or("Unknown tunnel handle")?;
+    clear_android_log_scope_level(session.telemetry.log_scope());
+    Ok(session)
 }
 
 pub(crate) fn validate_tun_fd(tun_fd: jint) -> Result<(), &'static str> {

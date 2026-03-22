@@ -19,6 +19,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
+use android_support::{android_log_level_from_str, clear_android_log_scope_level, set_android_log_scope_level};
+use log::LevelFilter;
 use rustls::client::danger::ServerCertVerifier;
 
 use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
@@ -100,6 +102,14 @@ impl MonitorSession {
 
     pub fn start_scan(&self, session_id: String, request: EngineScanRequestWire) -> Result<(), String> {
         validate_scan_request(&request)?;
+        let native_log_level = request
+            .native_log_level
+            .as_deref()
+            .map(|value| {
+                android_log_level_from_str(value)
+                    .ok_or_else(|| format!("Unsupported diagnostics nativeLogLevel: {value}"))
+            })
+            .transpose()?;
         let mut worker_guard = self.worker.lock().map_err(|_| "monitor worker poisoned".to_string())?;
         if worker_guard.is_some() {
             return Err("diagnostics scan already running".to_string());
@@ -115,7 +125,8 @@ impl MonitorSession {
         let cancel = self.cancel.clone();
         let tls_verifier = self.tls_verifier.clone();
         let domain_request: ScanRequest = request.into();
-        let handle = thread::spawn(move || run_scan(shared, cancel, session_id, domain_request, tls_verifier));
+        let handle =
+            thread::spawn(move || run_scan(shared, cancel, session_id, domain_request, tls_verifier, native_log_level));
         *worker_guard = Some(handle);
         Ok(())
     }
@@ -175,8 +186,32 @@ fn run_scan(
     session_id: String,
     request: ScanRequest,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    native_log_level: Option<LevelFilter>,
 ) {
+    let _log_scope =
+        native_log_level.map(|level| ScopedAndroidLogLevel::new(diagnostics_log_scope(&session_id), level));
     run_engine_scan(shared, cancel, session_id, request, tls_verifier);
+}
+
+struct ScopedAndroidLogLevel {
+    scope: String,
+}
+
+impl ScopedAndroidLogLevel {
+    fn new(scope: String, level: LevelFilter) -> Self {
+        set_android_log_scope_level(scope.clone(), level);
+        Self { scope }
+    }
+}
+
+impl Drop for ScopedAndroidLogLevel {
+    fn drop(&mut self) {
+        clear_android_log_scope_level(&self.scope);
+    }
+}
+
+fn diagnostics_log_scope(session_id: &str) -> String {
+    format!("diagnostics:{session_id}")
 }
 
 fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> {
