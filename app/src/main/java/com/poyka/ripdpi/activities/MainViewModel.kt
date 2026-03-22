@@ -219,6 +219,13 @@ class MainViewModel
                 diagnosticsTimelineSource.approachStats,
             ) { settings, (status, activeMode), runtime, permissions, approachStats ->
                 val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
+                val effectiveConnectionState = when {
+                    status == AppStatus.Halted && runtime.connectionState == ConnectionState.Connected ->
+                        ConnectionState.Disconnected
+                    status == AppStatus.Running && runtime.connectionState == ConnectionState.Disconnected ->
+                        ConnectionState.Connecting
+                    else -> runtime.connectionState
+                }
                 MainUiState(
                     appStatus = status,
                     activeMode = activeMode,
@@ -226,7 +233,7 @@ class MainViewModel
                     proxyIp = settings.proxyIp.ifEmpty { "127.0.0.1" },
                     proxyPort = if (settings.proxyPort > 0) settings.proxyPort.toString() else "1080",
                     theme = settings.appTheme.ifEmpty { "system" },
-                    connectionState = runtime.connectionState,
+                    connectionState = effectiveConnectionState,
                     connectionDuration = runtime.connectionDuration,
                     dataTransferred = runtime.dataTransferred,
                     errorMessage = runtime.errorMessage,
