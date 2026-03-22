@@ -77,7 +77,7 @@ That script runs:
 - `cargo fmt --check`
 - `cargo clippy --workspace --all-targets -D warnings`
 - workspace Rust tests through `cargo nextest`
-- focused vendored `byedpi` smoke coverage
+
 
 Focused native commands for the current policy/runtime surface:
 

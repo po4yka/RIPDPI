@@ -6,10 +6,10 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 
 | Native module | Built artifact | Used in app | Main Kotlin bridge | Methods actually reached from app |
 | --- | --- | --- | --- | --- |
-| `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ciadpi_config::parse_cli`, `ciadpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_embedded_control`, `EmbeddedProxyControl::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling |
-| `native/rust/crates/hs5t-android` | `libhev-socks5-tunnel.so` | VPN mode only | `core/engine/src/main/java/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `hs5t_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
+| `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/java/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ripdpi_config::parse_cli`, `ripdpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_embedded_control`, `EmbeddedProxyControl::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling |
+| `native/rust/crates/hs5t-android` | `libhev-socks5-tunnel.so` | VPN mode only | `core/engine/src/main/java/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `ripdpi_tunnel_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
 | `native/rust/crates/ripdpi-monitor` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/java/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, TLS/HTTP reachability probes, TCP fat-header probes, whitelist-SNI retries, diagnostics session state |
-| `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `hs5t-core` for DoH/DoT/DNSCrypt exchange, metadata collection, and IP answer extraction |
+| `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt exchange, metadata collection, and IP answer extraction |
 
 ## Shared Strategy Bridge
 
@@ -20,7 +20,7 @@ That crate is not built as a standalone `.so`, but it is a first-class part of t
 - UI-configured strategy JSON
 - diagnostics recommendation drafts
 - automatic-probing candidate overlays
-- vendored CLI-compatible runtime config
+- CLI-compatible runtime config
 
 aligned around the same `RuntimeConfig` shape.
 
@@ -93,7 +93,7 @@ The in-repo Rust stack currently exposes:
 - adaptive tuning beyond fake TTL, including split placement, TLS record sizing, UDP burst behavior, and QUIC fake-profile selection
 - retry-stealth pacing with jitter and cooldown-aware candidate diversification for both the live runtime and the diagnostics probe runner
 
-See [byedpi.md](byedpi.md) for the proxy-specific details.
+See [proxy-engine.md](proxy-engine.md) for the proxy-specific details.
 
 ## Build Integration
 
@@ -151,6 +151,6 @@ Structured telemetry and diagnostics-event payloads are treated as compatibility
 
 ## Documents
 
-- [byedpi usage](byedpi.md)
-- [hev-socks5-tunnel usage](hev-socks5-tunnel.md)
+- [Proxy engine](proxy-engine.md)
+- [TUN-to-SOCKS tunnel](tunnel.md)
 - [testing coverage](../testing.md)

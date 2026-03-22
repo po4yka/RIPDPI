@@ -1,3 +1,5 @@
+> **Note:** This plan references vendored crate paths under `native/rust/third_party/` that have been migrated to RIPDPI-owned crates under `native/rust/crates/ripdpi-*/`. See `docs/plans/2026-03-22-vendored-crate-migration.md` for the migration details.
+
 # P2 Network Optimization Improvements Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

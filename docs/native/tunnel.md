@@ -1,8 +1,8 @@
-# hev-socks5-tunnel Usage
+# TUN-to-SOCKS Tunnel
 
 ## Role in RIPDPI
 
-`hev-socks5-tunnel` is used only in VPN mode. It takes the Android TUN file descriptor, reads packets from it, and forwards traffic to the local SOCKS5 proxy started by `libripdpi.so`.
+The TUN-to-SOCKS tunnel is used only in VPN mode. It takes the Android TUN file descriptor, reads packets from it, and forwards traffic to the local SOCKS5 proxy started by `libripdpi.so`.
 
 When encrypted DNS is enabled, the tunnel also intercepts DNS with a mapped-DNS listener (`198.18.0.53` over the synthetic `198.18.0.0/15` pool), resolves those queries through the shared encrypted resolver, and rewrites follow-up traffic back to the real upstream IPv4 targets before opening SOCKS sessions. The active encrypted DNS path can come from the user's current settings or from a validated remembered VPN policy that replays an exact DoH/DoT/DNSCrypt endpoint for the current network.
 
@@ -12,7 +12,7 @@ The built shared library is `libhev-socks5-tunnel.so`.
 
 Start path:
 
-`RipDpiVpnService.startTun2Socks()` -> `Tun2SocksTunnel.start(config, tunFd)` -> `jniCreate(configJson)` -> `jniStart(handle, tunFd)` -> native worker thread -> `hs5t_core::run_tunnel()`
+`RipDpiVpnService.startTun2Socks()` -> `Tun2SocksTunnel.start(config, tunFd)` -> `jniCreate(configJson)` -> `jniStart(handle, tunFd)` -> native worker thread -> `ripdpi_tunnel_core::run_tunnel()`
 
 Stop path:
 
@@ -28,9 +28,9 @@ Relevant sources:
 
 | Method | Defined in | Reached from | Current status | Purpose |
 | --- | --- | --- | --- | --- |
-| `hs5t_core::run_tunnel` | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-core/src/lib.rs` | `jniStart(handle, tunFd)` worker thread | Used | Runs the tunnel runtime from the in-memory config and Android TUN fd. |
+| `ripdpi_tunnel_core::run_tunnel` | `native/rust/crates/ripdpi-tunnel-core/src/tunnel_api.rs` | `jniStart(handle, tunFd)` worker thread | Used | Runs the tunnel runtime from the in-memory config and Android TUN fd. |
 | `CancellationToken::cancel` | `tokio-util` | `jniStop(handle)` | Used | Requests tunnel shutdown from another thread. |
-| `Stats::snapshot` | `native/rust/third_party/hev-socks5-tunnel/crates/hs5t-core/src/stats.rs` | `jniGetStats(handle)` | Used | Returns packet and byte counters. |
+| `Stats::snapshot` | `native/rust/crates/ripdpi-tunnel-core/src/stats.rs` | `jniGetStats(handle)` | Used | Returns packet and byte counters. |
 | tunnel telemetry snapshot assembly | `native/rust/crates/hs5t-android/src/lib.rs` | `jniGetTelemetry(handle)` | Used | Returns tunnel lifecycle, counters, last error, resolver endpoint/latency/fallback fields, and a bounded drained event ring. |
 
 ## JNI Surface Exposed to Kotlin
@@ -61,9 +61,7 @@ The old Android C tunnel stack is gone. The Rust tunnel runtime now builds from 
 
 The Rust crate graph is centered on:
 
-- `hs5t-core`
-- `hs5t-session`
-- `hs5t-tunnel`
+- `ripdpi-tunnel-core` (includes session and DNS cache as internal modules)
 - `tokio`
 - `smoltcp`
 - `fast-socks5`

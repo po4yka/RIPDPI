@@ -63,7 +63,7 @@ Android UI покрывает широкий typed strategy surface за пре�
 - retry-stealth pacing с jitter, diversified candidate order и adaptive tuning beyond fake TTL
 - diagnostics-side automatic probing с candidate scoreboard и ручной рекомендацией
 
-Подробности по native call path и текущей strategy surface: [docs/native/byedpi.md](docs/native/byedpi.md).
+Подробности по native call path и текущей strategy surface: [docs/native/proxy-engine.md](docs/native/proxy-engine.md).
 
 ## FAQ
 
@@ -80,8 +80,8 @@ Android UI покрывает широкий typed strategy surface за пре�
 ## Документация
 
 - [Native integration и использование модулей](docs/native/README.md)
-- [Proxy engine и текущая native strategy surface](docs/native/byedpi.md)
-- [TUN-to-SOCKS native bridge](docs/native/hev-socks5-tunnel.md)
+- [Proxy engine и текущая native strategy surface](docs/native/proxy-engine.md)
+- [TUN-to-SOCKS native bridge](docs/native/tunnel.md)
 - [Тесты, E2E, golden contracts и soak coverage](docs/testing.md)
 
 ## Сборка
