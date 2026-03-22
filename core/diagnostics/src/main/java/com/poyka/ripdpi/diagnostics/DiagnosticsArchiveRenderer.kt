@@ -13,6 +13,8 @@ import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
 import javax.inject.Named
 
+private const val SuccessRatePercentScale = 100
+
 class DiagnosticsArchiveRenderer
     @Inject
     constructor(
@@ -23,7 +25,6 @@ class DiagnosticsArchiveRenderer
         private companion object {
             private const val SummaryProbeResultPreviewCount = 5
             private const val SummaryWarningPreviewCount = 3
-            private const val SuccessRatePercentScale = 100
         }
 
         internal fun render(
@@ -199,168 +200,12 @@ class DiagnosticsArchiveRenderer
                 appendSummaryHeader(createdAt, selection)
                 appendSessionSummary(selection)
                 appendApproachSummary(selection)
-                appendNetworkSummary(selection)
-                appendContextSummary(selection)
+                appendNetworkSummary(selection, redactor)
+                appendContextSummary(selection, redactor)
                 appendTelemetrySummary(selection)
-                appendResultSummary(selection)
-                appendWarningSummary(selection)
+                appendResultSummary(selection, SummaryProbeResultPreviewCount)
+                appendWarningSummary(selection, SummaryWarningPreviewCount)
             }.trim()
-
-        private fun StringBuilder.appendSummaryHeader(
-            createdAt: Long,
-            selection: DiagnosticsArchiveSelection,
-        ) {
-            appendLine("RIPDPI diagnostics archive")
-            appendLine("generatedAt=$createdAt")
-            appendLine("scope=${DiagnosticsArchiveFormat.scope}")
-            appendLine("privacyMode=${DiagnosticsArchiveFormat.privacyMode}")
-            appendLine("logcatIncluded=${selection.logcatSnapshot != null}")
-            appendLine("logcatCaptureScope=${LogcatSnapshotCollector.AppVisibleSnapshotScope}")
-            appendLine("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
-            appendLine("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
-        }
-
-        private fun StringBuilder.appendSessionSummary(selection: DiagnosticsArchiveSelection) {
-            val session = selection.primarySession ?: return
-            appendLine("pathMode=${session.pathMode}")
-            appendLine("serviceMode=${session.serviceMode ?: "unknown"}")
-            appendLine("status=${session.status}")
-            appendLine("summary=${session.summary}")
-            selection.primaryReport?.strategyProbeReport?.let { strategyProbe ->
-                appendLine("strategySuite=${strategyProbe.suiteId}")
-                appendLine("strategyTcpCandidates=${strategyProbe.tcpCandidates.size}")
-                appendLine("strategyQuicCandidates=${strategyProbe.quicCandidates.size}")
-            }
-            selection.primaryReport?.classifierVersion?.let { appendLine("classifierVersion=$it") }
-            selection.primaryReport?.diagnoses?.takeIf(List<*>::isNotEmpty)?.let { diagnoses ->
-                appendLine("diagnosisCount=${diagnoses.size}")
-                diagnoses.forEach { diagnosis ->
-                    appendLine("diagnosis.${diagnosis.code}=${diagnosis.summary}")
-                }
-            }
-            selection.primaryReport?.packVersions?.takeIf(Map<*, *>::isNotEmpty)?.forEach { (packId, version) ->
-                appendLine("pack.$packId=$version")
-            }
-        }
-
-        private fun StringBuilder.appendApproachSummary(selection: DiagnosticsArchiveSelection) {
-            selection.selectedApproachSummary?.let {
-                appendLine("approach=${it.displayName}")
-                appendLine("approachVerification=${it.verificationState}")
-                appendLine("approachSuccessRate=${it.successRateLabel()}")
-                appendLine("approachUsageCount=${it.usageCount}")
-                appendLine("approachRuntimeMs=${it.totalRuntimeDurationMs}")
-            }
-        }
-
-        private fun StringBuilder.appendNetworkSummary(selection: DiagnosticsArchiveSelection) {
-            selection.latestSnapshotModel?.let(redactor::redact)?.toRedactedSummary()?.let { summary ->
-                appendLine("transport=${summary.transport}")
-                appendLine("dns=${summary.dnsServers}")
-                appendLine("privateDns=${summary.privateDnsMode}")
-                appendLine("publicIp=${summary.publicIp}")
-                appendLine("publicAsn=${summary.publicAsn}")
-                appendLine("localAddresses=${summary.localAddresses}")
-                appendLine("validated=${summary.networkValidated}")
-                appendLine("captivePortal=${summary.captivePortalDetected}")
-                summary.wifiDetails?.let { appendWifiSummary(it) }
-                summary.cellularDetails?.let { appendCellularSummary(it) }
-            }
-        }
-
-        private fun StringBuilder.appendWifiSummary(wifi: RedactedWifiSummary) {
-            appendLine("wifiSsid=${wifi.ssid}")
-            appendLine("wifiBand=${wifi.band}")
-            appendLine("wifiStandard=${wifi.wifiStandard}")
-            appendLine("wifiFrequencyMhz=${wifi.frequencyMhz ?: "unknown"}")
-            appendLine("wifiLinkSpeedMbps=${wifi.linkSpeedMbps ?: "unknown"}")
-            appendLine("wifiSignalDbm=${wifi.rssiDbm ?: "unknown"}")
-            appendLine("wifiGateway=${wifi.gateway}")
-        }
-
-        private fun StringBuilder.appendCellularSummary(cellular: RedactedCellularSummary) {
-            appendLine("carrier=${cellular.carrierName}")
-            appendLine("networkOperator=${cellular.networkOperatorName}")
-            appendLine("dataNetwork=${cellular.dataNetworkType}")
-            appendLine("voiceNetwork=${cellular.voiceNetworkType}")
-            appendLine("networkCountry=${cellular.networkCountryIso}")
-            appendLine("roaming=${cellular.isNetworkRoaming ?: "unknown"}")
-            appendLine("signalLevel=${cellular.signalLevel ?: "unknown"}")
-            appendLine("signalDbm=${cellular.signalDbm ?: "unknown"}")
-        }
-
-        private fun StringBuilder.appendContextSummary(selection: DiagnosticsArchiveSelection) {
-            (selection.sessionContextModel ?: selection.latestContextModel)
-                ?.let(redactor::redact)
-                ?.toRedactedSummary()
-                ?.let { contextSummary ->
-                    appendLine("appVersion=${contextSummary.device.appVersionName}")
-                    appendLine("device=${contextSummary.device.deviceName}")
-                    appendLine("android=${contextSummary.device.androidVersion}")
-                    appendLine("serviceMode=${contextSummary.service.activeMode}")
-                    appendLine("serviceStatus=${contextSummary.service.serviceStatus}")
-                    appendLine("profile=${contextSummary.service.selectedProfileName}")
-                    appendLine("configSource=${contextSummary.service.configSource}")
-                    appendLine("proxyEndpoint=${contextSummary.service.proxyEndpoint}")
-                    appendLine("desyncMethod=${contextSummary.service.desyncMethod}")
-                    appendLine("chainSummary=${contextSummary.service.chainSummary}")
-                    appendLine("lastNativeError=${contextSummary.service.lastNativeErrorHeadline}")
-                    appendLine("vpnPermission=${contextSummary.permissions.vpnPermissionState}")
-                    appendLine("notifications=${contextSummary.permissions.notificationPermissionState}")
-                    appendLine("batteryOptimization=${contextSummary.permissions.batteryOptimizationState}")
-                    appendLine("dataSaver=${contextSummary.permissions.dataSaverState}")
-                    appendLine("powerSave=${contextSummary.environment.powerSaveModeState}")
-                    appendLine("networkMetered=${contextSummary.environment.networkMeteredState}")
-                    appendLine("roaming=${contextSummary.environment.roamingState}")
-                }
-        }
-
-        private fun StringBuilder.appendTelemetrySummary(selection: DiagnosticsArchiveSelection) {
-            selection.payload.telemetry.firstOrNull()?.let { sample ->
-                appendLine("networkType=${sample.networkType}")
-                appendLine("failureClass=${sample.failureClass ?: "none"}")
-                appendLine("lastFailureClass=${sample.lastFailureClass ?: "none"}")
-                appendLine("lastFallbackAction=${sample.lastFallbackAction ?: "none"}")
-                appendLine("winningStrategyFamily=${sample.winningStrategyFamily() ?: "none"}")
-                appendLine("telemetryNetworkFingerprintHash=${sample.telemetryNetworkFingerprintHash ?: "none"}")
-                appendLine("rttBand=${sample.rttBand()}")
-                appendLine("retryCount=${sample.retryCount()}")
-                appendLine("resolverId=${sample.resolverId ?: "unknown"}")
-                appendLine("resolverProtocol=${sample.resolverProtocol ?: "unknown"}")
-                appendLine("resolverEndpoint=${sample.resolverEndpoint ?: "unknown"}")
-                appendLine("resolverLatencyMs=${sample.resolverLatencyMs ?: 0}")
-                appendLine("dnsFailuresTotal=${sample.dnsFailuresTotal}")
-                appendLine("resolverFallbackReason=${sample.resolverFallbackReason ?: "none"}")
-                appendLine("networkHandoverClass=${sample.networkHandoverClass ?: "none"}")
-                appendLine("txBytes=${sample.txBytes}")
-                appendLine("rxBytes=${sample.rxBytes}")
-            }
-        }
-
-        private fun StringBuilder.appendResultSummary(selection: DiagnosticsArchiveSelection) {
-            appendLine("resultCount=${selection.primaryResults.size}")
-            selection.primaryResults.take(SummaryProbeResultPreviewCount).forEach { result ->
-                appendLine("${result.probeType}:${result.target}=${result.outcome}")
-            }
-        }
-
-        private fun StringBuilder.appendWarningSummary(selection: DiagnosticsArchiveSelection) {
-            val warnings =
-                selection.globalEvents.filter { event ->
-                    event.level.equals("warn", ignoreCase = true) ||
-                        event.level.equals("error", ignoreCase = true)
-                }
-            if (warnings.isEmpty()) return
-            appendLine("recentWarnings=")
-            warnings.take(SummaryWarningPreviewCount).forEach { warning ->
-                appendLine("- ${warning.source}: ${warning.message}")
-            }
-        }
-
-        private fun BypassApproachSummary.successRateLabel(): String =
-            validatedSuccessRate?.let { rate ->
-                "${(rate * SuccessRatePercentScale).toInt()}%"
-            } ?: "unverified"
 
         internal fun buildTelemetryCsv(payload: DiagnosticsArchivePayload): String =
             buildString {
@@ -473,3 +318,171 @@ class DiagnosticsArchiveRenderer
                 json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
             }.getOrNull()?.let(::deriveProbeRetryCount)?.toString()
     }
+
+private fun StringBuilder.appendSummaryHeader(
+    createdAt: Long,
+    selection: DiagnosticsArchiveSelection,
+) {
+    appendLine("RIPDPI diagnostics archive")
+    appendLine("generatedAt=$createdAt")
+    appendLine("scope=${DiagnosticsArchiveFormat.scope}")
+    appendLine("privacyMode=${DiagnosticsArchiveFormat.privacyMode}")
+    appendLine("logcatIncluded=${selection.logcatSnapshot != null}")
+    appendLine("logcatCaptureScope=${LogcatSnapshotCollector.AppVisibleSnapshotScope}")
+    appendLine("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
+    appendLine("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
+}
+
+private fun StringBuilder.appendSessionSummary(selection: DiagnosticsArchiveSelection) {
+    val session = selection.primarySession ?: return
+    appendLine("pathMode=${session.pathMode}")
+    appendLine("serviceMode=${session.serviceMode ?: "unknown"}")
+    appendLine("status=${session.status}")
+    appendLine("summary=${session.summary}")
+    selection.primaryReport?.strategyProbeReport?.let { strategyProbe ->
+        appendLine("strategySuite=${strategyProbe.suiteId}")
+        appendLine("strategyTcpCandidates=${strategyProbe.tcpCandidates.size}")
+        appendLine("strategyQuicCandidates=${strategyProbe.quicCandidates.size}")
+    }
+    selection.primaryReport?.classifierVersion?.let { appendLine("classifierVersion=$it") }
+    selection.primaryReport?.diagnoses?.takeIf(List<*>::isNotEmpty)?.let { diagnoses ->
+        appendLine("diagnosisCount=${diagnoses.size}")
+        diagnoses.forEach { diagnosis ->
+            appendLine("diagnosis.${diagnosis.code}=${diagnosis.summary}")
+        }
+    }
+    selection.primaryReport?.packVersions?.takeIf(Map<*, *>::isNotEmpty)?.forEach { (packId, version) ->
+        appendLine("pack.$packId=$version")
+    }
+}
+
+private fun StringBuilder.appendApproachSummary(selection: DiagnosticsArchiveSelection) {
+    selection.selectedApproachSummary?.let {
+        appendLine("approach=${it.displayName}")
+        appendLine("approachVerification=${it.verificationState}")
+        appendLine("approachSuccessRate=${it.successRateLabel()}")
+        appendLine("approachUsageCount=${it.usageCount}")
+        appendLine("approachRuntimeMs=${it.totalRuntimeDurationMs}")
+    }
+}
+
+private fun StringBuilder.appendNetworkSummary(
+    selection: DiagnosticsArchiveSelection,
+    redactor: DiagnosticsArchiveRedactor,
+) {
+    selection.latestSnapshotModel?.let(redactor::redact)?.toRedactedSummary()?.let { summary ->
+        appendLine("transport=${summary.transport}")
+        appendLine("dns=${summary.dnsServers}")
+        appendLine("privateDns=${summary.privateDnsMode}")
+        appendLine("publicIp=${summary.publicIp}")
+        appendLine("publicAsn=${summary.publicAsn}")
+        appendLine("localAddresses=${summary.localAddresses}")
+        appendLine("validated=${summary.networkValidated}")
+        appendLine("captivePortal=${summary.captivePortalDetected}")
+        summary.wifiDetails?.let { appendWifiSummary(it) }
+        summary.cellularDetails?.let { appendCellularSummary(it) }
+    }
+}
+
+private fun StringBuilder.appendWifiSummary(wifi: RedactedWifiSummary) {
+    appendLine("wifiSsid=${wifi.ssid}")
+    appendLine("wifiBand=${wifi.band}")
+    appendLine("wifiStandard=${wifi.wifiStandard}")
+    appendLine("wifiFrequencyMhz=${wifi.frequencyMhz ?: "unknown"}")
+    appendLine("wifiLinkSpeedMbps=${wifi.linkSpeedMbps ?: "unknown"}")
+    appendLine("wifiSignalDbm=${wifi.rssiDbm ?: "unknown"}")
+    appendLine("wifiGateway=${wifi.gateway}")
+}
+
+private fun StringBuilder.appendCellularSummary(cellular: RedactedCellularSummary) {
+    appendLine("carrier=${cellular.carrierName}")
+    appendLine("networkOperator=${cellular.networkOperatorName}")
+    appendLine("dataNetwork=${cellular.dataNetworkType}")
+    appendLine("voiceNetwork=${cellular.voiceNetworkType}")
+    appendLine("networkCountry=${cellular.networkCountryIso}")
+    appendLine("roaming=${cellular.isNetworkRoaming ?: "unknown"}")
+    appendLine("signalLevel=${cellular.signalLevel ?: "unknown"}")
+    appendLine("signalDbm=${cellular.signalDbm ?: "unknown"}")
+}
+
+private fun StringBuilder.appendContextSummary(
+    selection: DiagnosticsArchiveSelection,
+    redactor: DiagnosticsArchiveRedactor,
+) {
+    (selection.sessionContextModel ?: selection.latestContextModel)
+        ?.let(redactor::redact)
+        ?.toRedactedSummary()
+        ?.let { contextSummary ->
+            appendLine("appVersion=${contextSummary.device.appVersionName}")
+            appendLine("device=${contextSummary.device.deviceName}")
+            appendLine("android=${contextSummary.device.androidVersion}")
+            appendLine("serviceMode=${contextSummary.service.activeMode}")
+            appendLine("serviceStatus=${contextSummary.service.serviceStatus}")
+            appendLine("profile=${contextSummary.service.selectedProfileName}")
+            appendLine("configSource=${contextSummary.service.configSource}")
+            appendLine("proxyEndpoint=${contextSummary.service.proxyEndpoint}")
+            appendLine("desyncMethod=${contextSummary.service.desyncMethod}")
+            appendLine("chainSummary=${contextSummary.service.chainSummary}")
+            appendLine("lastNativeError=${contextSummary.service.lastNativeErrorHeadline}")
+            appendLine("vpnPermission=${contextSummary.permissions.vpnPermissionState}")
+            appendLine("notifications=${contextSummary.permissions.notificationPermissionState}")
+            appendLine("batteryOptimization=${contextSummary.permissions.batteryOptimizationState}")
+            appendLine("dataSaver=${contextSummary.permissions.dataSaverState}")
+            appendLine("powerSave=${contextSummary.environment.powerSaveModeState}")
+            appendLine("networkMetered=${contextSummary.environment.networkMeteredState}")
+            appendLine("roaming=${contextSummary.environment.roamingState}")
+        }
+}
+
+private fun StringBuilder.appendTelemetrySummary(selection: DiagnosticsArchiveSelection) {
+    selection.payload.telemetry.firstOrNull()?.let { sample ->
+        appendLine("networkType=${sample.networkType}")
+        appendLine("failureClass=${sample.failureClass ?: "none"}")
+        appendLine("lastFailureClass=${sample.lastFailureClass ?: "none"}")
+        appendLine("lastFallbackAction=${sample.lastFallbackAction ?: "none"}")
+        appendLine("winningStrategyFamily=${sample.winningStrategyFamily() ?: "none"}")
+        appendLine("telemetryNetworkFingerprintHash=${sample.telemetryNetworkFingerprintHash ?: "none"}")
+        appendLine("rttBand=${sample.rttBand()}")
+        appendLine("retryCount=${sample.retryCount()}")
+        appendLine("resolverId=${sample.resolverId ?: "unknown"}")
+        appendLine("resolverProtocol=${sample.resolverProtocol ?: "unknown"}")
+        appendLine("resolverEndpoint=${sample.resolverEndpoint ?: "unknown"}")
+        appendLine("resolverLatencyMs=${sample.resolverLatencyMs ?: 0}")
+        appendLine("dnsFailuresTotal=${sample.dnsFailuresTotal}")
+        appendLine("resolverFallbackReason=${sample.resolverFallbackReason ?: "none"}")
+        appendLine("networkHandoverClass=${sample.networkHandoverClass ?: "none"}")
+        appendLine("txBytes=${sample.txBytes}")
+        appendLine("rxBytes=${sample.rxBytes}")
+    }
+}
+
+private fun StringBuilder.appendResultSummary(
+    selection: DiagnosticsArchiveSelection,
+    previewCount: Int,
+) {
+    appendLine("resultCount=${selection.primaryResults.size}")
+    selection.primaryResults.take(previewCount).forEach { result ->
+        appendLine("${result.probeType}:${result.target}=${result.outcome}")
+    }
+}
+
+private fun StringBuilder.appendWarningSummary(
+    selection: DiagnosticsArchiveSelection,
+    previewCount: Int,
+) {
+    val warnings =
+        selection.globalEvents.filter { event ->
+            event.level.equals("warn", ignoreCase = true) ||
+                event.level.equals("error", ignoreCase = true)
+        }
+    if (warnings.isEmpty()) return
+    appendLine("recentWarnings=")
+    warnings.take(previewCount).forEach { warning ->
+        appendLine("- ${warning.source}: ${warning.message}")
+    }
+}
+
+private fun BypassApproachSummary.successRateLabel(): String =
+    validatedSuccessRate?.let { rate ->
+        "${(rate * SuccessRatePercentScale).toInt()}%"
+    } ?: "unverified"

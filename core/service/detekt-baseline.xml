@@ -2,42 +2,29 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CyclomaticComplexMethod:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$private fun describeMobileNetworkType(type: Int): String</ID>
-    <ID>LargeClass:RipDpiVpnService.kt$RipDpiVpnService : LifecycleVpnService</ID>
+    <ID>CyclomaticComplexMethod:NetworkFingerprintProvider.kt$NetworkFingerprintMapper$private fun describeMobileNetworkType(type: Int): String</ID>
     <ID>LongMethod:AppStateManagerStateMachineTest.kt$AppStateManagerStateMachineTest$private fun applyCommand( store: DefaultServiceStateStore, model: ServiceModel, command: StateStoreCommand, ): ServiceModel</ID>
     <ID>LongMethod:ConnectionPolicyResolver.kt$DefaultConnectionPolicyResolver$override suspend fun resolve( mode: Mode, resolverOverride: TemporaryResolverOverride?, fingerprint: NetworkFingerprint?, handoverClassification: String?, ): ConnectionPolicyResolution</ID>
-    <ID>LongMethod:RipDpiVpnService.kt$RipDpiVpnService$private fun startTelemetryUpdates()</ID>
     <ID>MagicNumber:ConnectionPolicyResolver.kt$16</ID>
     <ID>MagicNumber:ConnectionPolicyResolver.kt$4</ID>
     <ID>MagicNumber:FieldTelemetry.kt$16</ID>
     <ID>MagicNumber:FieldTelemetry.kt$4</ID>
     <ID>MagicNumber:FieldTelemetry.kt$FileBackedTelemetryInstallSaltStoreDelegate$32</ID>
-    <ID>MagicNumber:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$0xff</ID>
-    <ID>MagicNumber:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$16</ID>
-    <ID>MagicNumber:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$24</ID>
-    <ID>MagicNumber:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$8</ID>
-    <ID>MagicNumber:NetworkSnapshotFactory.kt$NetworkSnapshotFactory$16</ID>
-    <ID>MagicNumber:NetworkSnapshotFactory.kt$NetworkSnapshotFactory$4</ID>
-    <ID>MagicNumber:RipDpiProxyService.kt$RipDpiProxyService$1_000</ID>
-    <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$1080</ID>
+    <ID>MagicNumber:NetworkFingerprintProvider.kt$NetworkFingerprintMapper$0xff</ID>
+    <ID>MagicNumber:NetworkFingerprintProvider.kt$NetworkFingerprintMapper$16</ID>
+    <ID>MagicNumber:NetworkFingerprintProvider.kt$NetworkFingerprintMapper$24</ID>
+    <ID>MagicNumber:NetworkFingerprintProvider.kt$NetworkFingerprintMapper$8</ID>
     <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$128</ID>
-    <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$1_000</ID>
     <ID>MagicNumber:RipDpiVpnService.kt$RipDpiVpnService$32</ID>
     <ID>ReturnCount:ConnectionPolicyResolver.kt$DefaultConnectionPolicyResolver$override suspend fun resolve( mode: Mode, resolverOverride: TemporaryResolverOverride?, fingerprint: NetworkFingerprint?, handoverClassification: String?, ): ConnectionPolicyResolution</ID>
-    <ID>ReturnCount:NetworkFingerprintProvider.kt$AndroidNetworkFingerprintProvider$private fun resolveCellularIdentity(capabilities: NetworkCapabilities?): CellularNetworkIdentityTuple?</ID>
+    <ID>ReturnCount:NetworkFingerprintProvider.kt$DefaultAndroidNetworkSnapshotSource$private fun captureCellularIdentity(transports: Set&lt;CapturedTransport&gt;?): CapturedCellularIdentity?</ID>
+    <ID>ReturnCount:NetworkFingerprintProvider.kt$NetworkFingerprintMapper$private fun resolveCellularIdentity(snapshot: CapturedNetworkSnapshot): CellularNetworkIdentityTuple?</ID>
     <ID>ReturnCount:ProxyStartupFailureResolver.kt$internal fun resolveProxyStartupFailure( readinessError: Exception, proxyStartWasActive: Boolean, proxyStartResult: Result&lt;Int&gt;, ): Exception</ID>
-    <ID>ReturnCount:RipDpiProxyService.kt$RipDpiProxyService$private fun applyPendingNetworkHandoverClass(snapshot: NativeRuntimeSnapshot): NativeRuntimeSnapshot</ID>
-    <ID>ReturnCount:RipDpiProxyService.kt$RipDpiProxyService$private suspend fun handleNetworkHandover(event: NetworkHandoverEvent)</ID>
-    <ID>ReturnCount:RipDpiVpnService.kt$RipDpiVpnService$private fun applyPendingNetworkHandoverClass(snapshot: NativeRuntimeSnapshot): NativeRuntimeSnapshot</ID>
-    <ID>ReturnCount:RipDpiVpnService.kt$RipDpiVpnService$private suspend fun handleNetworkHandover(event: NetworkHandoverEvent)</ID>
-    <ID>ReturnCount:RipDpiVpnService.kt$RipDpiVpnService$private suspend fun refreshEffectiveResolverIfNeeded()</ID>
-    <ID>TooGenericExceptionCaught:RipDpiProxyService.kt$RipDpiProxyService$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:RipDpiVpnService.kt$RipDpiVpnService$e: Exception</ID>
-    <ID>TooManyFunctions:RipDpiVpnService.kt$RipDpiVpnService : LifecycleVpnService</ID>
+    <ID>TooGenericExceptionCaught:ProxyRuntimeSupervisor.kt$ProxyRuntimeSupervisor$readinessError: Exception</ID>
+    <ID>TooGenericExceptionCaught:VpnTunnelRuntime.kt$VpnTunnelRuntime$error: Exception</ID>
+    <ID>UnusedParameter:BaseServiceRuntimeCoordinatorTest.kt$BaseServiceRuntimeCoordinatorTest$fingerprint: NetworkFingerprint? = sampleFingerprint()</ID>
+    <ID>UseCheckOrError:BaseServiceRuntimeCoordinatorTest.kt$TestCoordinator$throw IllegalStateException("boom")</ID>
     <ID>UseCheckOrError:DefaultDiagnosticsRuntimeCoordinator.kt$DefaultDiagnosticsRuntimeCoordinator$throw IllegalStateException("Timed out waiting for service status $target")</ID>
-    <ID>UseCheckOrError:RipDpiProxyService.kt$RipDpiProxyService$throw IllegalStateException("Proxy fields not null")</ID>
-    <ID>UseCheckOrError:RipDpiVpnService.kt$RipDpiVpnService$throw IllegalStateException("Proxy fields not null")</ID>
-    <ID>UseCheckOrError:RipDpiVpnService.kt$RipDpiVpnService$throw IllegalStateException("VPN field not null")</ID>
     <ID>UseCheckOrError:VpnTunnelSessionProvider.kt$DefaultVpnTunnelSessionProvider$throw IllegalStateException("VPN connection failed")</ID>
   </CurrentIssues>
 </SmellBaseline>
