@@ -20,8 +20,6 @@ members = [
     "crates/hs5t-android",
 ]
 exclude = [
-    "third_party/byedpi",
-    "third_party/byedpi/crates/*",
     "third_party/hev-socks5-tunnel",
     "third_party/hev-socks5-tunnel/crates/*",
 ]
