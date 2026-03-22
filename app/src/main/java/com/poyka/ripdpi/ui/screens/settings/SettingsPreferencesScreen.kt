@@ -38,6 +38,8 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
@@ -360,30 +362,36 @@ private fun BackupPinEditor(
         RipDpiTextField(
             value = value,
             onValueChange = onValueChange,
-            label = stringResource(R.string.biometric_prompt_pin_label),
-            placeholder = stringResource(R.string.biometric_prompt_pin_placeholder),
-            helperText =
-                if (hasSavedPin && errorText == null && value.length == 4) {
-                    stringResource(R.string.settings_backup_pin_helper_saved)
-                } else {
-                    stringResource(R.string.biometric_prompt_pin_helper)
-                },
-            errorText = errorText,
-            keyboardOptions =
-                androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = KeyboardType.NumberPassword,
-                    imeAction = ImeAction.Done,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.biometric_prompt_pin_label),
+                    placeholder = stringResource(R.string.biometric_prompt_pin_placeholder),
+                    helperText =
+                        if (hasSavedPin && errorText == null && value.length == 4) {
+                            stringResource(R.string.settings_backup_pin_helper_saved)
+                        } else {
+                            stringResource(R.string.biometric_prompt_pin_helper)
+                        },
+                    errorText = errorText,
+                    testTag = RipDpiTestTags.SettingsBackupPinField,
                 ),
-            keyboardActions =
-                androidx.compose.foundation.text.KeyboardActions(
-                    onDone = {
-                        if (canSave) {
-                            onSave()
-                        }
-                    },
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions =
+                        androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = KeyboardType.NumberPassword,
+                            imeAction = ImeAction.Done,
+                        ),
+                    keyboardActions =
+                        androidx.compose.foundation.text.KeyboardActions(
+                            onDone = {
+                                if (canSave) {
+                                    onSave()
+                                }
+                            },
+                        ),
+                    visualTransformation = PasswordVisualTransformation(),
                 ),
-            visualTransformation = PasswordVisualTransformation(),
-            testTag = RipDpiTestTags.SettingsBackupPinField,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),

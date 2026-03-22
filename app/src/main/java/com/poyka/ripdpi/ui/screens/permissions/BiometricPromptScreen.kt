@@ -28,6 +28,8 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.navigation.Route
@@ -151,13 +153,19 @@ fun BiometricPromptScreen(
                     RipDpiTextField(
                         value = pin,
                         onValueChange = onPinChanged,
-                        label = stringResource(R.string.biometric_prompt_pin_label),
-                        placeholder = stringResource(R.string.biometric_prompt_pin_placeholder),
-                        helperText = stringResource(R.string.biometric_prompt_pin_helper),
-                        errorText = pinError,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        visualTransformation = PasswordVisualTransformation(),
-                        testTag = RipDpiTestTags.BiometricPromptPinField,
+                        decoration =
+                            RipDpiTextFieldDecoration(
+                                label = stringResource(R.string.biometric_prompt_pin_label),
+                                placeholder = stringResource(R.string.biometric_prompt_pin_placeholder),
+                                helperText = stringResource(R.string.biometric_prompt_pin_helper),
+                                errorText = pinError,
+                                testTag = RipDpiTestTags.BiometricPromptPinField,
+                            ),
+                        behavior =
+                            RipDpiTextFieldBehavior(
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                visualTransformation = PasswordVisualTransformation(),
+                            ),
                     )
                 }
             }
