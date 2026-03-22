@@ -342,43 +342,6 @@ internal fun HostPackApplyDialog(
     onDismiss: () -> Unit,
     onApply: () -> Unit,
 ) {
-    val targetOptions =
-        listOf(
-            RipDpiDropdownOption(
-                value = HostPackTargetBlacklist,
-                label = stringResource(R.string.host_pack_target_blacklist),
-            ),
-            RipDpiDropdownOption(
-                value = HostPackTargetWhitelist,
-                label = stringResource(R.string.host_pack_target_whitelist),
-            ),
-        )
-    val applyModeOptions =
-        listOf(
-            RipDpiDropdownOption(
-                value = HostPackApplyModeMerge,
-                label = stringResource(R.string.host_pack_apply_merge),
-            ),
-            RipDpiDropdownOption(
-                value = HostPackApplyModeReplace,
-                label = stringResource(R.string.host_pack_apply_replace),
-            ),
-        )
-    val sourceSummary = hostPackSourceSummary(preset)
-    val summary =
-        if (sourceSummary.isBlank()) {
-            stringResource(
-                R.string.host_pack_apply_summary_hosts_only,
-                preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size,
-            )
-        } else {
-            stringResource(
-                R.string.host_pack_apply_summary,
-                preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size,
-                sourceSummary,
-            )
-        }
-
     RipDpiDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.host_pack_apply_dialog_title, preset.title),
@@ -400,31 +363,85 @@ internal fun HostPackApplyDialog(
                 message = stringResource(R.string.host_pack_apply_dialog_message),
             ),
     ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
-        ) {
-            Text(
-                text = summary,
-                style = RipDpiThemeTokens.type.caption,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
-            HostPackDialogDropdown(
-                title = stringResource(R.string.host_pack_target_title),
-                value = targetMode,
-                options = targetOptions,
-                onSelected = onTargetModeChanged,
-                testTag = RipDpiTestTags.HostPackTargetDropdown,
-                optionTagForValue = RipDpiTestTags.hostPackTargetOption,
-            )
-            HostPackDialogDropdown(
-                title = stringResource(R.string.host_pack_action_title),
-                value = applyMode,
-                options = applyModeOptions,
-                onSelected = onApplyModeChanged,
-                testTag = RipDpiTestTags.HostPackApplyModeDropdown,
-                optionTagForValue = RipDpiTestTags.hostPackApplyModeOption,
-            )
-        }
+        HostPackApplyDialogContent(
+            preset = preset,
+            targetMode = targetMode,
+            applyMode = applyMode,
+            onTargetModeChanged = onTargetModeChanged,
+            onApplyModeChanged = onApplyModeChanged,
+        )
+    }
+}
+
+@Composable
+private fun HostPackApplyDialogContent(
+    preset: HostPackPreset,
+    targetMode: String,
+    applyMode: String,
+    onTargetModeChanged: (String) -> Unit,
+    onApplyModeChanged: (String) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
+    ) {
+        Text(
+            text = hostPackApplySummary(preset),
+            style = RipDpiThemeTokens.type.caption,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        HostPackDialogDropdown(
+            title = stringResource(R.string.host_pack_target_title),
+            value = targetMode,
+            options = rememberHostPackTargetOptions(),
+            onSelected = onTargetModeChanged,
+            testTag = RipDpiTestTags.HostPackTargetDropdown,
+            optionTagForValue = RipDpiTestTags.hostPackTargetOption,
+        )
+        HostPackDialogDropdown(
+            title = stringResource(R.string.host_pack_action_title),
+            value = applyMode,
+            options = rememberHostPackApplyModeOptions(),
+            onSelected = onApplyModeChanged,
+            testTag = RipDpiTestTags.HostPackApplyModeDropdown,
+            optionTagForValue = RipDpiTestTags.hostPackApplyModeOption,
+        )
+    }
+}
+
+@Composable
+private fun rememberHostPackTargetOptions(): List<RipDpiDropdownOption<String>> =
+    listOf(
+        RipDpiDropdownOption(
+            value = HostPackTargetBlacklist,
+            label = stringResource(R.string.host_pack_target_blacklist),
+        ),
+        RipDpiDropdownOption(
+            value = HostPackTargetWhitelist,
+            label = stringResource(R.string.host_pack_target_whitelist),
+        ),
+    )
+
+@Composable
+private fun rememberHostPackApplyModeOptions(): List<RipDpiDropdownOption<String>> =
+    listOf(
+        RipDpiDropdownOption(
+            value = HostPackApplyModeMerge,
+            label = stringResource(R.string.host_pack_apply_merge),
+        ),
+        RipDpiDropdownOption(
+            value = HostPackApplyModeReplace,
+            label = stringResource(R.string.host_pack_apply_replace),
+        ),
+    )
+
+@Composable
+private fun hostPackApplySummary(preset: HostPackPreset): String {
+    val sourceSummary = hostPackSourceSummary(preset)
+    val hostCount = preset.hostCount.takeIf { it > 0 } ?: preset.hosts.size
+    return if (sourceSummary.isBlank()) {
+        stringResource(R.string.host_pack_apply_summary_hosts_only, hostCount)
+    } else {
+        stringResource(R.string.host_pack_apply_summary, hostCount, sourceSummary)
     }
 }
 

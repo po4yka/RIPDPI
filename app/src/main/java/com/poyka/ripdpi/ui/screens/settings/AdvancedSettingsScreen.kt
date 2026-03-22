@@ -27,6 +27,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -142,80 +143,55 @@ internal data class AdvancedNotice(
     val tone: WarningBannerTone,
 )
 
+internal data class AdvancedSettingsActions(
+    val onBack: () -> Unit,
+    val onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+    val onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
+    val onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
+    val onApplyHostPackPreset: (HostPackPreset, String, String) -> Unit,
+    val onRefreshHostPackCatalog: () -> Unit,
+    val onForgetLearnedHosts: () -> Unit,
+    val onClearRememberedNetworks: () -> Unit,
+    val onWsTunnelModeChanged: (String) -> Unit,
+    val onRotateTelemetrySalt: () -> Unit,
+    val onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -> Unit,
+    val onResetAdaptiveSplit: () -> Unit,
+    val onResetAdaptiveFakeTtlProfile: () -> Unit,
+    val onResetActivationWindow: () -> Unit,
+    val onResetHttpParserEvasions: () -> Unit,
+    val onResetFakePayloadLibrary: () -> Unit,
+    val onResetFakeTlsProfile: () -> Unit,
+)
+
+private data class AdvancedSettingsContentState(
+    val visualEditorEnabled: Boolean,
+    val hostPackApplyControlsEnabled: Boolean,
+    val showHostFakeSection: Boolean,
+    val showFakeApproxSection: Boolean,
+    val showQuicFakeSection: Boolean,
+    val showFakePayloadLibrary: Boolean,
+    val showAdaptiveFakeTtlSection: Boolean,
+    val showFakeTlsSection: Boolean,
+    val fakeTlsBaseOptions: List<RipDpiDropdownOption<String>>,
+    val httpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
+    val fakeTlsSniModeOptions: List<RipDpiDropdownOption<String>>,
+    val tlsFakeProfileOptions: List<RipDpiDropdownOption<String>>,
+    val hostsOptions: List<RipDpiDropdownOption<String>>,
+    val quicModeOptions: List<RipDpiDropdownOption<String>>,
+    val udpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
+    val adaptiveSplitPresetOptions: List<AdaptiveSplitPresetUiModel>,
+    val adaptiveFakeTtlModeOptions: List<AdaptiveFakeTtlModeUiModel>,
+)
+
 @Composable
 internal fun AdvancedSettingsScreen(
     uiState: SettingsUiState,
     hostPackCatalog: HostPackCatalogUiState,
     notice: AdvancedNotice?,
-    onBack: () -> Unit,
-    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
-    onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
-    onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
-    onApplyHostPackPreset: (HostPackPreset, String, String) -> Unit,
-    onRefreshHostPackCatalog: () -> Unit,
-    onForgetLearnedHosts: () -> Unit,
-    onClearRememberedNetworks: () -> Unit,
-    onWsTunnelModeChanged: (String) -> Unit,
-    onRotateTelemetrySalt: () -> Unit,
-    onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -> Unit,
-    onResetAdaptiveSplit: () -> Unit,
-    onResetAdaptiveFakeTtlProfile: () -> Unit,
-    onResetActivationWindow: () -> Unit,
-    onResetHttpParserEvasions: () -> Unit,
-    onResetFakePayloadLibrary: () -> Unit,
-    onResetFakeTlsProfile: () -> Unit,
+    actions: AdvancedSettingsActions,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val visualEditorEnabled = !uiState.enableCmdSettings
-    val hostPackApplyControlsEnabled = hostPackApplyEnabled(uiState)
-    val showHostFakeSection = uiState.showHostFakeProfile
-    val showFakeApproxSection = uiState.showFakeApproximationProfile
-    val showQuicFakeSection = uiState.showQuicFakeProfile
-    val showFakePayloadLibrary = uiState.showFakePayloadLibrary
-    val showAdaptiveFakeTtlSection = uiState.showAdaptiveFakeTtlProfile
-    val showFakeTlsSection =
-        uiState.desyncHttpsEnabled ||
-            uiState.isFake ||
-            uiState.fake.hasCustomFakeTlsProfile ||
-            uiState.enableCmdSettings
-    val fakeTlsBaseOptions =
-        rememberSettingsOptions(
-            labelArrayRes = R.array.fake_tls_base_modes,
-            valueArrayRes = R.array.fake_tls_base_modes_entries,
-        )
-    val httpFakeProfileOptions =
-        rememberSettingsOptions(
-            labelArrayRes = R.array.http_fake_profiles,
-            valueArrayRes = R.array.http_fake_profiles_entries,
-        )
-    val fakeTlsSniModeOptions =
-        rememberSettingsOptions(
-            labelArrayRes = R.array.fake_tls_sni_modes,
-            valueArrayRes = R.array.fake_tls_sni_modes_entries,
-        )
-    val tlsFakeProfileOptions =
-        rememberSettingsOptions(
-            labelArrayRes = R.array.tls_fake_profiles,
-            valueArrayRes = R.array.tls_fake_profiles_entries,
-        )
-    val hostsOptions =
-        rememberSettingsOptions(
-            labelArrayRes = R.array.ripdpi_hosts_modes,
-            valueArrayRes = R.array.ripdpi_hosts_modes_entries,
-        )
-    val quicModeOptions =
-        rememberSettingsOptions(
-            labelArrayRes = R.array.quic_initial_modes,
-            valueArrayRes = R.array.quic_initial_modes_entries,
-        )
-    val udpFakeProfileOptions =
-        rememberSettingsOptions(
-            labelArrayRes = R.array.udp_fake_profiles,
-            valueArrayRes = R.array.udp_fake_profiles_entries,
-        )
-    val adaptiveSplitPresetOptions = rememberAdaptiveSplitPresetOptions(uiState)
-    val adaptiveFakeTtlModeOptions = rememberAdaptiveFakeTtlModeOptions(uiState)
+    val contentState = rememberAdvancedSettingsContentState(uiState)
     var pendingHostPack by remember { mutableStateOf<HostPackPreset?>(null) }
     var selectedHostPackTargetMode by rememberSaveable { mutableStateOf(defaultHostPackTargetMode(uiState)) }
     var selectedHostPackApplyMode by rememberSaveable { mutableStateOf(HostPackApplyDialogDefaultMode) }
@@ -229,7 +205,7 @@ internal fun AdvancedSettingsScreen(
             onApplyModeChanged = { selectedHostPackApplyMode = it },
             onDismiss = { pendingHostPack = null },
             onApply = {
-                onApplyHostPackPreset(
+                actions.onApplyHostPackPreset(
                     preset,
                     selectedHostPackTargetMode,
                     selectedHostPackApplyMode,
@@ -239,6 +215,90 @@ internal fun AdvancedSettingsScreen(
         )
     }
 
+    AdvancedSettingsContent(
+        uiState = uiState,
+        hostPackCatalog = hostPackCatalog,
+        notice = notice,
+        actions = actions,
+        contentState = contentState,
+        pendingHostPack = pendingHostPack,
+        onPresetSelected = { preset ->
+            selectedHostPackTargetMode = defaultHostPackTargetMode(uiState)
+            selectedHostPackApplyMode = HostPackApplyDialogDefaultMode
+            pendingHostPack = preset
+        },
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun rememberAdvancedSettingsContentState(
+    uiState: SettingsUiState,
+): AdvancedSettingsContentState =
+    AdvancedSettingsContentState(
+        visualEditorEnabled = !uiState.enableCmdSettings,
+        hostPackApplyControlsEnabled = hostPackApplyEnabled(uiState),
+        showHostFakeSection = uiState.showHostFakeProfile,
+        showFakeApproxSection = uiState.showFakeApproximationProfile,
+        showQuicFakeSection = uiState.showQuicFakeProfile,
+        showFakePayloadLibrary = uiState.showFakePayloadLibrary,
+        showAdaptiveFakeTtlSection = uiState.showAdaptiveFakeTtlProfile,
+        showFakeTlsSection =
+            uiState.desyncHttpsEnabled ||
+                uiState.isFake ||
+                uiState.fake.hasCustomFakeTlsProfile ||
+                uiState.enableCmdSettings,
+        fakeTlsBaseOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.fake_tls_base_modes,
+                valueArrayRes = R.array.fake_tls_base_modes_entries,
+            ),
+        httpFakeProfileOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.http_fake_profiles,
+                valueArrayRes = R.array.http_fake_profiles_entries,
+            ),
+        fakeTlsSniModeOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.fake_tls_sni_modes,
+                valueArrayRes = R.array.fake_tls_sni_modes_entries,
+            ),
+        tlsFakeProfileOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.tls_fake_profiles,
+                valueArrayRes = R.array.tls_fake_profiles_entries,
+            ),
+        hostsOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.ripdpi_hosts_modes,
+                valueArrayRes = R.array.ripdpi_hosts_modes_entries,
+            ),
+        quicModeOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.quic_initial_modes,
+                valueArrayRes = R.array.quic_initial_modes_entries,
+            ),
+        udpFakeProfileOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.udp_fake_profiles,
+                valueArrayRes = R.array.udp_fake_profiles_entries,
+            ),
+        adaptiveSplitPresetOptions = rememberAdaptiveSplitPresetOptions(uiState),
+        adaptiveFakeTtlModeOptions = rememberAdaptiveFakeTtlModeOptions(uiState),
+    )
+
+@Composable
+private fun AdvancedSettingsContent(
+    uiState: SettingsUiState,
+    hostPackCatalog: HostPackCatalogUiState,
+    notice: AdvancedNotice?,
+    actions: AdvancedSettingsActions,
+    contentState: AdvancedSettingsContentState,
+    pendingHostPack: HostPackPreset?,
+    onPresetSelected: (HostPackPreset) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
     RipDpiSettingsScaffold(
         modifier =
             modifier
@@ -247,150 +307,160 @@ internal fun AdvancedSettingsScreen(
                 .background(colors.background),
         title = stringResource(R.string.title_advanced_settings),
         navigationIcon = RipDpiIcons.Back,
-        onNavigationClick = onBack,
+        onNavigationClick = actions.onBack,
     ) {
-        if (uiState.enableCmdSettings) {
-            item(key = "advanced_settings_warning") {
-                WarningBanner(
-                    title = stringResource(R.string.config_cli_banner_title),
-                    message = stringResource(R.string.config_cli_banner_body),
-                    tone = WarningBannerTone.Restricted,
-                    testTag = RipDpiTestTags.AdvancedCommandLineWarning,
-                )
-            }
-        }
-        notice?.let {
-            item(key = "advanced_settings_notice") {
-                WarningBanner(
-                    title = it.title,
-                    message = it.message,
-                    tone = it.tone,
-                    testTag = RipDpiTestTags.AdvancedNoticeBanner,
-                )
-            }
-        }
-
-        diagnosticsHistorySection(
-            uiState = uiState,
-            onToggleChanged = onToggleChanged,
-            onTextConfirmed = onTextConfirmed,
-            onRotateTelemetrySalt = onRotateTelemetrySalt,
-        )
-
-        commandLineOverridesSection(
-            uiState = uiState,
-            onToggleChanged = onToggleChanged,
-            onTextConfirmed = onTextConfirmed,
-        )
-
-        proxySection(
-            uiState = uiState,
-            visualEditorEnabled = visualEditorEnabled,
-            onToggleChanged = onToggleChanged,
-            onTextConfirmed = onTextConfirmed,
-        )
-
-        desyncSection(
-            uiState = uiState,
-            visualEditorEnabled = visualEditorEnabled,
-            showHostFakeSection = showHostFakeSection,
-            showFakeApproxSection = showFakeApproxSection,
-            showAdaptiveFakeTtlSection = showAdaptiveFakeTtlSection,
-            showFakePayloadLibrary = showFakePayloadLibrary,
-            showFakeTlsSection = showFakeTlsSection,
-            adaptiveSplitPresetOptions = adaptiveSplitPresetOptions,
-            adaptiveFakeTtlModeOptions = adaptiveFakeTtlModeOptions,
-            httpFakeProfileOptions = httpFakeProfileOptions,
-            fakeTlsBaseOptions = fakeTlsBaseOptions,
-            fakeTlsSniModeOptions = fakeTlsSniModeOptions,
-            tlsFakeProfileOptions = tlsFakeProfileOptions,
-            udpFakeProfileOptions = udpFakeProfileOptions,
-            onToggleChanged = onToggleChanged,
-            onTextConfirmed = onTextConfirmed,
-            onOptionSelected = onOptionSelected,
-            onResetAdaptiveSplit = onResetAdaptiveSplit,
-            onResetAdaptiveFakeTtlProfile = onResetAdaptiveFakeTtlProfile,
-            onResetFakePayloadLibrary = onResetFakePayloadLibrary,
-            onResetFakeTlsProfile = onResetFakeTlsProfile,
-        )
-
-        activationWindowSection(
-            uiState = uiState,
-            visualEditorEnabled = visualEditorEnabled,
-            onResetActivationWindow = onResetActivationWindow,
-            onSaveActivationRange = onSaveActivationRange,
-        )
-
-        protocolsSection(
-            uiState = uiState,
-            visualEditorEnabled = visualEditorEnabled,
-            onToggleChanged = onToggleChanged,
-        )
-
-        hostAutolearnSection(
-            uiState = uiState,
-            visualEditorEnabled = visualEditorEnabled,
-            onToggleChanged = onToggleChanged,
-            onTextConfirmed = onTextConfirmed,
-            onForgetLearnedHosts = onForgetLearnedHosts,
-        )
-
-        networkStrategyMemorySection(
-            uiState = uiState,
-            visualEditorEnabled = visualEditorEnabled,
-            onToggleChanged = onToggleChanged,
-            onClearRememberedNetworks = onClearRememberedNetworks,
-        )
-
-        wsTunnelSection(
-            uiState = uiState,
-            visualEditorEnabled = visualEditorEnabled,
-            onWsTunnelModeChanged = onWsTunnelModeChanged,
-        )
-
-        httpParserSection(
-            uiState = uiState,
-            visualEditorEnabled = visualEditorEnabled,
-            onToggleChanged = onToggleChanged,
-            onResetHttpParserEvasions = onResetHttpParserEvasions,
-        )
-
-        httpsSection(
-            uiState = uiState,
-            visualEditorEnabled = visualEditorEnabled,
-            onTextConfirmed = onTextConfirmed,
-            onOptionSelected = onOptionSelected,
-        )
-
-        udpSection()
-
-        quicSection(
-            uiState = uiState,
-            visualEditorEnabled = visualEditorEnabled,
-            showQuicFakeSection = showQuicFakeSection,
-            quicModeOptions = quicModeOptions,
-            onToggleChanged = onToggleChanged,
-            onOptionSelected = onOptionSelected,
-            onTextConfirmed = onTextConfirmed,
-        )
-
-        hostsSection(
+        advancedSettingsBannerItems(uiState, notice)
+        advancedSettingsPrimarySections(uiState, actions, contentState)
+        advancedSettingsSecondarySections(
             uiState = uiState,
             hostPackCatalog = hostPackCatalog,
-            visualEditorEnabled = visualEditorEnabled,
-            hostPackApplyControlsEnabled = hostPackApplyControlsEnabled,
-            hostsOptions = hostsOptions,
+            actions = actions,
+            contentState = contentState,
             pendingHostPack = pendingHostPack,
-            onPresetSelected = { preset ->
-                selectedHostPackTargetMode = defaultHostPackTargetMode(uiState)
-                selectedHostPackApplyMode = HostPackApplyDialogDefaultMode
-                pendingHostPack = preset
-            },
-            onRefreshHostPackCatalog = onRefreshHostPackCatalog,
-            onOptionSelected = onOptionSelected,
-            onTextConfirmed = onTextConfirmed,
+            onPresetSelected = onPresetSelected,
         )
     }
+}
+
+private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsBannerItems(
+    uiState: SettingsUiState,
+    notice: AdvancedNotice?,
+) {
+    if (uiState.enableCmdSettings) {
+        item(key = "advanced_settings_warning") {
+            WarningBanner(
+                title = stringResource(R.string.config_cli_banner_title),
+                message = stringResource(R.string.config_cli_banner_body),
+                tone = WarningBannerTone.Restricted,
+                testTag = RipDpiTestTags.AdvancedCommandLineWarning,
+            )
+        }
+    }
+    notice?.let {
+        item(key = "advanced_settings_notice") {
+            WarningBanner(
+                title = it.title,
+                message = it.message,
+                tone = it.tone,
+                testTag = RipDpiTestTags.AdvancedNoticeBanner,
+            )
+        }
+    }
+}
+
+private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsPrimarySections(
+    uiState: SettingsUiState,
+    actions: AdvancedSettingsActions,
+    contentState: AdvancedSettingsContentState,
+) {
+    diagnosticsHistorySection(
+        uiState = uiState,
+        onToggleChanged = actions.onToggleChanged,
+        onTextConfirmed = actions.onTextConfirmed,
+        onRotateTelemetrySalt = actions.onRotateTelemetrySalt,
+    )
+    commandLineOverridesSection(
+        uiState = uiState,
+        onToggleChanged = actions.onToggleChanged,
+        onTextConfirmed = actions.onTextConfirmed,
+    )
+    proxySection(uiState, contentState.visualEditorEnabled, actions.onToggleChanged, actions.onTextConfirmed)
+    desyncSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        showHostFakeSection = contentState.showHostFakeSection,
+        showFakeApproxSection = contentState.showFakeApproxSection,
+        showAdaptiveFakeTtlSection = contentState.showAdaptiveFakeTtlSection,
+        showFakePayloadLibrary = contentState.showFakePayloadLibrary,
+        showFakeTlsSection = contentState.showFakeTlsSection,
+        adaptiveSplitPresetOptions = contentState.adaptiveSplitPresetOptions,
+        adaptiveFakeTtlModeOptions = contentState.adaptiveFakeTtlModeOptions,
+        httpFakeProfileOptions = contentState.httpFakeProfileOptions,
+        fakeTlsBaseOptions = contentState.fakeTlsBaseOptions,
+        fakeTlsSniModeOptions = contentState.fakeTlsSniModeOptions,
+        tlsFakeProfileOptions = contentState.tlsFakeProfileOptions,
+        udpFakeProfileOptions = contentState.udpFakeProfileOptions,
+        onToggleChanged = actions.onToggleChanged,
+        onTextConfirmed = actions.onTextConfirmed,
+        onOptionSelected = actions.onOptionSelected,
+        onResetAdaptiveSplit = actions.onResetAdaptiveSplit,
+        onResetAdaptiveFakeTtlProfile = actions.onResetAdaptiveFakeTtlProfile,
+        onResetFakePayloadLibrary = actions.onResetFakePayloadLibrary,
+        onResetFakeTlsProfile = actions.onResetFakeTlsProfile,
+    )
+    activationWindowSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        onResetActivationWindow = actions.onResetActivationWindow,
+        onSaveActivationRange = actions.onSaveActivationRange,
+    )
+    protocolsSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        onToggleChanged = actions.onToggleChanged,
+    )
+}
+
+private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecondarySections(
+    uiState: SettingsUiState,
+    hostPackCatalog: HostPackCatalogUiState,
+    actions: AdvancedSettingsActions,
+    contentState: AdvancedSettingsContentState,
+    pendingHostPack: HostPackPreset?,
+    onPresetSelected: (HostPackPreset) -> Unit,
+) {
+    hostAutolearnSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        onToggleChanged = actions.onToggleChanged,
+        onTextConfirmed = actions.onTextConfirmed,
+        onForgetLearnedHosts = actions.onForgetLearnedHosts,
+    )
+    networkStrategyMemorySection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        onToggleChanged = actions.onToggleChanged,
+        onClearRememberedNetworks = actions.onClearRememberedNetworks,
+    )
+    wsTunnelSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        onWsTunnelModeChanged = actions.onWsTunnelModeChanged,
+    )
+    httpParserSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        onToggleChanged = actions.onToggleChanged,
+        onResetHttpParserEvasions = actions.onResetHttpParserEvasions,
+    )
+    httpsSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        onTextConfirmed = actions.onTextConfirmed,
+        onOptionSelected = actions.onOptionSelected,
+    )
+    udpSection()
+    quicSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        showQuicFakeSection = contentState.showQuicFakeSection,
+        quicModeOptions = contentState.quicModeOptions,
+        onToggleChanged = actions.onToggleChanged,
+        onOptionSelected = actions.onOptionSelected,
+        onTextConfirmed = actions.onTextConfirmed,
+    )
+    hostsSection(
+        uiState = uiState,
+        hostPackCatalog = hostPackCatalog,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        hostPackApplyControlsEnabled = contentState.hostPackApplyControlsEnabled,
+        hostsOptions = contentState.hostsOptions,
+        pendingHostPack = pendingHostPack,
+        onPresetSelected = onPresetSelected,
+        onRefreshHostPackCatalog = actions.onRefreshHostPackCatalog,
+        onOptionSelected = actions.onOptionSelected,
+        onTextConfirmed = actions.onTextConfirmed,
+    )
 }
 
 @Preview(showBackground = true)
@@ -449,23 +519,7 @@ private fun AdvancedSettingsScreenPreview() {
                 ),
             hostPackCatalog = previewHostPackCatalog(source = "bundled"),
             notice = null,
-            onBack = {},
-            onToggleChanged = { _, _ -> },
-            onTextConfirmed = { _, _ -> },
-            onOptionSelected = { _, _ -> },
-            onApplyHostPackPreset = { _, _, _ -> },
-            onRefreshHostPackCatalog = {},
-            onForgetLearnedHosts = {},
-            onClearRememberedNetworks = {},
-            onWsTunnelModeChanged = {},
-            onRotateTelemetrySalt = {},
-            onSaveActivationRange = { _, _, _ -> },
-            onResetAdaptiveSplit = {},
-            onResetAdaptiveFakeTtlProfile = {},
-            onResetActivationWindow = {},
-            onResetHttpParserEvasions = {},
-            onResetFakePayloadLibrary = {},
-            onResetFakeTlsProfile = {},
+            actions = previewAdvancedSettingsActions(),
         )
     }
 }
@@ -482,23 +536,7 @@ private fun AdvancedSettingsScreenDarkPreview() {
                     lastFetchedAtEpochMillis = 1_741_765_600_000,
                 ),
             notice = null,
-            onBack = {},
-            onToggleChanged = { _, _ -> },
-            onTextConfirmed = { _, _ -> },
-            onOptionSelected = { _, _ -> },
-            onApplyHostPackPreset = { _, _, _ -> },
-            onRefreshHostPackCatalog = {},
-            onForgetLearnedHosts = {},
-            onClearRememberedNetworks = {},
-            onWsTunnelModeChanged = {},
-            onRotateTelemetrySalt = {},
-            onSaveActivationRange = { _, _, _ -> },
-            onResetAdaptiveSplit = {},
-            onResetAdaptiveFakeTtlProfile = {},
-            onResetActivationWindow = {},
-            onResetHttpParserEvasions = {},
-            onResetFakePayloadLibrary = {},
-            onResetFakeTlsProfile = {},
+            actions = previewAdvancedSettingsActions(),
         )
     }
 }
@@ -556,4 +594,25 @@ private fun previewAdvancedSettingsDarkUiState(): SettingsUiState =
                 hostMixedCase = true,
                 domainMixedCase = true,
             ),
+    )
+
+private fun previewAdvancedSettingsActions(): AdvancedSettingsActions =
+    AdvancedSettingsActions(
+        onBack = {},
+        onToggleChanged = { _, _ -> },
+        onTextConfirmed = { _, _ -> },
+        onOptionSelected = { _, _ -> },
+        onApplyHostPackPreset = { _, _, _ -> },
+        onRefreshHostPackCatalog = {},
+        onForgetLearnedHosts = {},
+        onClearRememberedNetworks = {},
+        onWsTunnelModeChanged = {},
+        onRotateTelemetrySalt = {},
+        onSaveActivationRange = { _, _, _ -> },
+        onResetAdaptiveSplit = {},
+        onResetAdaptiveFakeTtlProfile = {},
+        onResetActivationWindow = {},
+        onResetHttpParserEvasions = {},
+        onResetFakePayloadLibrary = {},
+        onResetFakeTlsProfile = {},
     )
