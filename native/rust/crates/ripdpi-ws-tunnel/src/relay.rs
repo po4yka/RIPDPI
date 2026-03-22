@@ -68,11 +68,7 @@ pub fn ws_relay<S: Read + Write + Send + 'static>(
     result
 }
 
-fn uplink_loop<S: Read + Write>(
-    mut reader: TcpStream,
-    ws: &Mutex<WebSocket<S>>,
-    shutdown: &AtomicBool,
-) {
+fn uplink_loop<S: Read + Write>(mut reader: TcpStream, ws: &Mutex<WebSocket<S>>, shutdown: &AtomicBool) {
     // Short read timeout so we can check the shutdown flag
     let _ = reader.set_read_timeout(Some(Duration::from_millis(250)));
     let mut buf = [0u8; 16_384];
@@ -90,10 +86,7 @@ fn uplink_loop<S: Read + Write>(
                     break;
                 }
             }
-            Err(ref e)
-                if e.kind() == io::ErrorKind::WouldBlock
-                    || e.kind() == io::ErrorKind::TimedOut =>
-            {
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut => {
                 continue;
             }
             Err(_) => break,
@@ -126,8 +119,7 @@ fn downlink_loop<S: Read + Write>(
             Ok(Message::Close(_)) => break,
             Ok(_) => {} // Text frames etc. -- ignore
             Err(tungstenite::Error::Io(ref e))
-                if e.kind() == io::ErrorKind::WouldBlock
-                    || e.kind() == io::ErrorKind::TimedOut =>
+                if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
             {
                 continue;
             }

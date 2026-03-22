@@ -256,10 +256,10 @@ mod tests {
         for cycle in 0u8..4 {
             let payload = [cycle; 6];
             let written = write_bytes(&mut buf, &payload);
-            assert_eq!(written, 6, "cycle {}: write failed", cycle);
+            assert_eq!(written, 6, "cycle {cycle}: write failed");
 
             let read = read_available(&mut buf);
-            assert_eq!(read, payload, "cycle {}: data mismatch", cycle);
+            assert_eq!(read, payload, "cycle {cycle}: data mismatch");
         }
     }
 

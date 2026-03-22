@@ -231,10 +231,9 @@ mod tests {
 
     #[test]
     fn cache_bits_with_prefix() {
-        let mut config = RuntimeConfig::default();
-        config.cache_prefix = 8;
+        let config = RuntimeConfig { cache_prefix: 8, ..RuntimeConfig::default() };
         assert_eq!(cache_bits(&config, IpAddr::from([192, 168, 1, 1])), 24);
-        config.cache_prefix = 0;
+        let config = RuntimeConfig::default();
         assert_eq!(cache_bits(&config, IpAddr::from([192, 168, 1, 1])), 32);
         assert_eq!(cache_bits(&config, IpAddr::from([0u16, 0, 0, 0, 0, 0, 0, 1])), 128);
     }

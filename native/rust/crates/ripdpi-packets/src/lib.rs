@@ -494,7 +494,7 @@ fn get_http_code(data: &[u8]) -> Option<u16> {
     if data.len() < 13 || &data[..7] != b"HTTP/1." || !data[12..].contains(&b'\n') {
         return None;
     }
-    let digits_end = data[9..].iter().position(|byte| byte.is_ascii_whitespace()).map(|idx| idx + 9)?;
+    let digits_end = data[9..].iter().position(u8::is_ascii_whitespace).map(|idx| idx + 9)?;
     let code = parse_u16_ascii(&data[9..digits_end])?;
     if !(100..=511).contains(&code) {
         return None;
@@ -823,9 +823,8 @@ pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_af
 
 fn padded_default_fake_tls_client_hello() -> Vec<u8> {
     let mut client_hello = DEFAULT_FAKE_TLS.to_vec();
-    let target_len = read_u16(DEFAULT_FAKE_TLS, 3)
-        .map(|record_len| record_len + TLS_RECORD_HEADER_LEN)
-        .unwrap_or(client_hello.len());
+    let target_len =
+        read_u16(DEFAULT_FAKE_TLS, 3).map_or(client_hello.len(), |record_len| record_len + TLS_RECORD_HEADER_LEN);
     if client_hello.len() < target_len {
         client_hello.resize(target_len, 0);
     }
@@ -1046,9 +1045,8 @@ pub fn is_http_redirect(req: &[u8], resp: &[u8]) -> bool {
     }
     let location_end = resp[location_start..line_end]
         .iter()
-        .position(|&byte| byte == b'/')
-        .map(|idx| idx + location_start)
-        .unwrap_or(line_end);
+        .position(|&b| b == b'/')
+        .map_or(line_end, |idx| idx + location_start);
 
     let mut suffix_start = host.len();
     while suffix_start > 0 && host[suffix_start - 1] != b'.' {

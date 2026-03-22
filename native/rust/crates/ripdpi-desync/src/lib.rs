@@ -483,7 +483,7 @@ fn adaptive_target_end(payload_len: usize, cursor_start: usize, context: Activat
     if remaining <= 1 {
         return None;
     }
-    let budget = context.tcp_segment_hint.map(TcpSegmentHint::adaptive_budget).unwrap_or(1448);
+    let budget = context.tcp_segment_hint.map_or(1448, TcpSegmentHint::adaptive_budget);
     let target_end = if budget < (remaining as i64 - 1) {
         cursor_start as i64 + budget
     } else {
@@ -717,13 +717,12 @@ fn resolve_tlsrandrec_fragment_sizes(
     let max_fragment_size = step.max_fragment_size.max(min_fragment_size as i32) as usize;
     let budget = context
         .tcp_segment_hint
-        .map(TcpSegmentHint::adaptive_budget)
-        .unwrap_or((max_fragment_size * fragment_count.max(1)) as i64)
+        .map_or((max_fragment_size * fragment_count.max(1)) as i64, TcpSegmentHint::adaptive_budget)
         .max(min_fragment_size as i64) as usize;
     match context.adaptive.tlsrandrec_profile.unwrap_or(AdaptiveTlsRandRecProfile::Balanced) {
         AdaptiveTlsRandRecProfile::Balanced => (min_fragment_size, max_fragment_size),
         AdaptiveTlsRandRecProfile::Tight => {
-            let adjusted_min = min_fragment_size.min(16).max(1);
+            let adjusted_min = min_fragment_size.clamp(1, 16);
             let adjusted_max = max_fragment_size.min((budget / fragment_count.max(1)).max(adjusted_min));
             (adjusted_min, adjusted_max.max(adjusted_min))
         }
@@ -948,7 +947,7 @@ pub fn plan_tcp(
                 push_split_actions(&mut actions, chunk);
             }
             TcpChainStepKind::Oob => {
-                actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.oob_data.unwrap_or(b'a') })
+                actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte: group.oob_data.unwrap_or(b'a') });
             }
             TcpChainStepKind::Disorder => {
                 actions.push(DesyncAction::SetTtl(1));

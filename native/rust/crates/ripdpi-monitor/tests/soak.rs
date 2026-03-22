@@ -54,10 +54,7 @@ fn diagnostics_session_soak() {
     for cycle in 0..cycles {
         let session = MonitorSession::new();
         session
-            .start_scan(
-                format!("diagnostics-session-{cycle}"),
-                scan_request(fixture.manifest(), server.port()).into(),
-            )
+            .start_scan(format!("diagnostics-session-{cycle}"), scan_request(fixture.manifest(), server.port()).into())
             .expect("start diagnostics scan");
         let report = wait_for_report(&session, &passive_events);
         assert_report_success(&report);
@@ -170,14 +167,11 @@ fn wait_for_report_with_progress(
         if let Some(progress_json) = session.poll_progress_json().expect("poll progress json") {
             progress_polls.fetch_add(1, Ordering::Relaxed);
             let progress: ScanProgress = serde_json::from_str(&progress_json).expect("decode progress");
-            if last_progress
-                .as_ref()
-                .map(|previous| {
-                    previous.completed_steps != progress.completed_steps
-                        || previous.phase != progress.phase
-                        || previous.message != progress.message
-                })
-                .unwrap_or(true)
+            if last_progress.as_ref().is_none_or(|previous| {
+                previous.completed_steps != progress.completed_steps
+                    || previous.phase != progress.phase
+                    || previous.message != progress.message
+            })
             {
                 last_progress_change = Instant::now();
                 last_progress = Some(progress);
@@ -195,8 +189,7 @@ fn wait_for_report_with_progress(
 
         assert!(
             started.elapsed() <= PROGRESS_TIMEOUT || last_progress_change.elapsed() <= PROGRESS_TIMEOUT,
-            "diagnostics made no progress for more than {:?}",
-            PROGRESS_TIMEOUT
+            "diagnostics made no progress for more than {PROGRESS_TIMEOUT:?}"
         );
         thread::sleep(POLL_INTERVAL);
     }

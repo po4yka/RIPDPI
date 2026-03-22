@@ -209,8 +209,7 @@ mod tests {
     #[test]
     fn extract_host_skips_quic_when_disabled() {
         let packet = rust_packet_seeds::quic_initial_v1();
-        let mut config = RuntimeConfig::default();
-        config.quic_initial_mode = QuicInitialMode::Disabled;
+        let config = RuntimeConfig { quic_initial_mode: QuicInitialMode::Disabled, ..RuntimeConfig::default() };
 
         assert_eq!(extract_host(&config, &packet), None);
     }
@@ -218,8 +217,7 @@ mod tests {
     #[test]
     fn extract_host_respects_quic_version_toggles() {
         let packet = rust_packet_seeds::quic_initial_v2();
-        let mut config = RuntimeConfig::default();
-        config.quic_support_v2 = false;
+        let config = RuntimeConfig { quic_support_v2: false, ..RuntimeConfig::default() };
 
         assert_eq!(extract_host(&config, &packet), None);
     }

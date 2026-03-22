@@ -216,19 +216,21 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                     WsTunnelResult::Ok => return Ok(()),
                     WsTunnelResult::Fallback { init_packet } => {
                         let (upstream, route) = super::routing::connect_target(
-                            target.addr, state, Some(&init_packet), true, dc_host.clone(),
+                            target.addr,
+                            state,
+                            Some(&init_packet),
+                            true,
+                            dc_host.clone(),
                         )?;
-                        return super::relay::relay(
-                            client, upstream, state, target.addr, route, Some(init_packet),
-                        );
+                        return super::relay::relay(client, upstream, state, target.addr, route, Some(init_packet));
                     }
                     WsTunnelResult::FallbackNoInit => {
                         // Fall through to normal desync path
                     }
                 }
             }
-            let ws_fallback_client = should_ws_tunnel_fallback(target.addr, state)
-                .and_then(|_| client.try_clone().ok());
+            let ws_fallback_client =
+                should_ws_tunnel_fallback(target.addr, state).and_then(|_| client.try_clone().ok());
             let desync_result = match maybe_delay_connect(&mut client, state, target.addr, HandshakeKind::Socks4)? {
                 DelayConnect::Immediate => {
                     match super::routing::connect_target(target.addr, state, None, false, dc_host.clone()) {
@@ -308,50 +310,51 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
                     WsTunnelResult::Ok => return Ok(()),
                     WsTunnelResult::Fallback { init_packet } => {
                         let (upstream, route) = super::routing::connect_target(
-                            target.addr, state, Some(&init_packet), true, dc_host.clone(),
+                            target.addr,
+                            state,
+                            Some(&init_packet),
+                            true,
+                            dc_host.clone(),
                         )?;
-                        return super::relay::relay(
-                            client, upstream, state, target.addr, route, Some(init_packet),
-                        );
+                        return super::relay::relay(client, upstream, state, target.addr, route, Some(init_packet));
                     }
                     WsTunnelResult::FallbackNoInit => {
                         // Fall through to normal desync path
                     }
                 }
             }
-            let ws_fallback_client = should_ws_tunnel_fallback(target.addr, state)
-                .and_then(|_| client.try_clone().ok());
-            let desync_result =
-                match maybe_delay_connect(&mut client, state, target.addr, HandshakeKind::Socks5)? {
-                    DelayConnect::Immediate => {
-                        match super::routing::connect_target(target.addr, state, None, false, dc_host.clone()) {
-                            Ok((upstream, route)) => {
-                                let reply_addr = upstream
-                                    .local_addr()
-                                    .unwrap_or_else(|_| SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0));
-                                client.write_all(encode_socks5_reply(0, reply_addr).as_bytes())?;
-                                super::relay::relay(client, upstream, state, target.addr, route, None)
-                            }
-                            Err(err) => Err(err),
+            let ws_fallback_client =
+                should_ws_tunnel_fallback(target.addr, state).and_then(|_| client.try_clone().ok());
+            let desync_result = match maybe_delay_connect(&mut client, state, target.addr, HandshakeKind::Socks5)? {
+                DelayConnect::Immediate => {
+                    match super::routing::connect_target(target.addr, state, None, false, dc_host.clone()) {
+                        Ok((upstream, route)) => {
+                            let reply_addr = upstream
+                                .local_addr()
+                                .unwrap_or_else(|_| SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0));
+                            client.write_all(encode_socks5_reply(0, reply_addr).as_bytes())?;
+                            super::relay::relay(client, upstream, state, target.addr, route, None)
                         }
+                        Err(err) => Err(err),
                     }
-                    DelayConnect::Delayed { route, payload } => {
-                        let host = extract_host(&state.config, &payload).or(dc_host.clone());
-                        match super::routing::connect_target_with_route(
-                            target.addr,
-                            state,
-                            route,
-                            Some(&payload),
-                            host.clone(),
-                        ) {
-                            Ok((upstream, route)) => {
-                                super::relay::relay(client, upstream, state, target.addr, route, Some(payload))
-                            }
-                            Err(err) => Err(err),
+                }
+                DelayConnect::Delayed { route, payload } => {
+                    let host = extract_host(&state.config, &payload).or(dc_host.clone());
+                    match super::routing::connect_target_with_route(
+                        target.addr,
+                        state,
+                        route,
+                        Some(&payload),
+                        host.clone(),
+                    ) {
+                        Ok((upstream, route)) => {
+                            super::relay::relay(client, upstream, state, target.addr, route, Some(payload))
                         }
+                        Err(err) => Err(err),
                     }
-                    DelayConnect::Closed => Ok(()),
-                };
+                }
+                DelayConnect::Closed => Ok(()),
+            };
             // Fallback mode: try WS tunnel after desync failure
             match desync_result {
                 Ok(()) => Ok(()),
@@ -410,47 +413,49 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
                     WsTunnelResult::Ok => return Ok(()),
                     WsTunnelResult::Fallback { init_packet } => {
                         let (upstream, route) = super::routing::connect_target(
-                            target.addr, state, Some(&init_packet), true, dc_host.clone(),
+                            target.addr,
+                            state,
+                            Some(&init_packet),
+                            true,
+                            dc_host.clone(),
                         )?;
-                        return super::relay::relay(
-                            client, upstream, state, target.addr, route, Some(init_packet),
-                        );
+                        return super::relay::relay(client, upstream, state, target.addr, route, Some(init_packet));
                     }
                     WsTunnelResult::FallbackNoInit => {
                         // Fall through to normal desync path
                     }
                 }
             }
-            let ws_fallback_client = should_ws_tunnel_fallback(target.addr, state)
-                .and_then(|_| client.try_clone().ok());
-            let desync_result =
-                match maybe_delay_connect(&mut client, state, target.addr, HandshakeKind::HttpConnect)? {
-                    DelayConnect::Immediate => {
-                        match super::routing::connect_target(target.addr, state, None, false, dc_host.clone()) {
-                            Ok((upstream, route)) => {
-                                client.write_all(encode_http_connect_reply(true).as_bytes())?;
-                                super::relay::relay(client, upstream, state, target.addr, route, None)
-                            }
-                            Err(err) => Err(err),
+            let ws_fallback_client =
+                should_ws_tunnel_fallback(target.addr, state).and_then(|_| client.try_clone().ok());
+            let desync_result = match maybe_delay_connect(&mut client, state, target.addr, HandshakeKind::HttpConnect)?
+            {
+                DelayConnect::Immediate => {
+                    match super::routing::connect_target(target.addr, state, None, false, dc_host.clone()) {
+                        Ok((upstream, route)) => {
+                            client.write_all(encode_http_connect_reply(true).as_bytes())?;
+                            super::relay::relay(client, upstream, state, target.addr, route, None)
                         }
+                        Err(err) => Err(err),
                     }
-                    DelayConnect::Delayed { route, payload } => {
-                        let host = extract_host(&state.config, &payload).or(dc_host.clone());
-                        match super::routing::connect_target_with_route(
-                            target.addr,
-                            state,
-                            route,
-                            Some(&payload),
-                            host.clone(),
-                        ) {
-                            Ok((upstream, route)) => {
-                                super::relay::relay(client, upstream, state, target.addr, route, Some(payload))
-                            }
-                            Err(err) => Err(err),
+                }
+                DelayConnect::Delayed { route, payload } => {
+                    let host = extract_host(&state.config, &payload).or(dc_host.clone());
+                    match super::routing::connect_target_with_route(
+                        target.addr,
+                        state,
+                        route,
+                        Some(&payload),
+                        host.clone(),
+                    ) {
+                        Ok((upstream, route)) => {
+                            super::relay::relay(client, upstream, state, target.addr, route, Some(payload))
                         }
+                        Err(err) => Err(err),
                     }
-                    DelayConnect::Closed => Ok(()),
-                };
+                }
+                DelayConnect::Closed => Ok(()),
+            };
             // Fallback mode: try WS tunnel after desync failure
             match desync_result {
                 Ok(()) => Ok(()),

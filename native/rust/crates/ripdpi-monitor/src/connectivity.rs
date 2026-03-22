@@ -311,11 +311,11 @@ pub(crate) fn run_service_probe(
     );
 
     let bootstrap_status =
-        bootstrap.as_ref().map(|observation| observation.status.clone()).unwrap_or_else(|| "not_run".to_string());
-    let bootstrap_detail = bootstrap.as_ref().map(describe_http_observation).unwrap_or_else(|| "not_run".to_string());
+        bootstrap.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
+    let bootstrap_detail = bootstrap.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
     let media_status =
-        media.as_ref().map(|observation| observation.status.clone()).unwrap_or_else(|| "not_run".to_string());
-    let media_detail = media.as_ref().map(describe_http_observation).unwrap_or_else(|| "not_run".to_string());
+        media.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
+    let media_detail = media.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
     let outcome = if is_probe_failure(&bootstrap_status)
         || is_probe_failure(&media_status)
         || is_probe_failure(&gateway_status)
@@ -370,8 +370,8 @@ pub(crate) fn run_circumvention_probe(
         tls_verifier,
     );
     let bootstrap_status =
-        bootstrap.as_ref().map(|observation| observation.status.clone()).unwrap_or_else(|| "not_run".to_string());
-    let bootstrap_detail = bootstrap.as_ref().map(describe_http_observation).unwrap_or_else(|| "not_run".to_string());
+        bootstrap.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
+    let bootstrap_detail = bootstrap.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
     let outcome = if is_probe_failure(&bootstrap_status) || is_probe_failure(&handshake_status) {
         "circumvention_blocked"
     } else {
@@ -607,7 +607,7 @@ fn parse_http_target(
         .or_else(|| url.strip_prefix("http://"))
         .ok_or_else(|| "unsupported_url_scheme".to_string())?;
     let (authority, path) = match without_scheme.split_once('/') {
-        Some((authority, suffix)) => (authority, format!("/{}", suffix)),
+        Some((authority, suffix)) => (authority, format!("/{suffix}")),
         None => (without_scheme, "/".to_string()),
     };
     let (host, parsed_port) = split_host_and_port(authority);

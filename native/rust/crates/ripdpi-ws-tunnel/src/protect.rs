@@ -31,8 +31,5 @@ pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Re
 
 #[cfg(not(target_os = "linux"))]
 pub fn protect_socket<T>(_socket: &T, _path: &str) -> io::Result<()> {
-    Err(io::Error::new(
-        io::ErrorKind::Unsupported,
-        "socket protection is only supported on Linux/Android",
-    ))
+    Err(io::Error::new(io::ErrorKind::Unsupported, "socket protection is only supported on Linux/Android"))
 }

@@ -270,12 +270,7 @@ impl EncryptedDnsResolver {
 
     async fn connect_dot_session(&self) -> Result<DotTlsStream, EncryptedDnsError> {
         let tcp_stream = self.connect_plain_tcp().await?;
-        let tls_name = self
-            .inner
-            .endpoint
-            .tls_server_name
-            .clone()
-            .unwrap_or_else(|| self.inner.endpoint.host.clone());
+        let tls_name = self.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| self.inner.endpoint.host.clone());
         let server_name = ServerName::try_from(tls_name).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
         let config = build_client_config(self.inner.tls_verifier.as_ref(), &self.inner.tls_roots);
         let connector = TlsConnector::from(config);
@@ -394,9 +389,7 @@ impl EncryptedDnsResolver {
         {
             Ok(result) => result?,
             Err(_) => {
-                return Err(EncryptedDnsError::DnsCryptCertificate(
-                    "DNSCrypt certificate fetch timed out".to_string(),
-                ));
+                return Err(EncryptedDnsError::DnsCryptCertificate("DNSCrypt certificate fetch timed out".to_string()));
             }
         };
         let message = Message::from_vec(&response).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?;
@@ -472,11 +465,7 @@ impl EncryptedDnsResolver {
         Err(EncryptedDnsError::Request(last_error.unwrap_or_else(|| "no bootstrap addresses".to_string())))
     }
 
-    async fn connect_socks5_tcp(
-        &self,
-        proxy_host: &str,
-        proxy_port: u16,
-    ) -> Result<TokioTcpStream, EncryptedDnsError> {
+    async fn connect_socks5_tcp(&self, proxy_host: &str, proxy_port: u16) -> Result<TokioTcpStream, EncryptedDnsError> {
         let proxy_target = resolve_socket_addr(proxy_host, proxy_port)?;
         let mut proxy_stream = match timeout(self.inner.timeout, TokioTcpStream::connect(proxy_target)).await {
             Ok(Ok(stream)) => stream,
@@ -498,10 +487,7 @@ impl EncryptedDnsResolver {
                 .await
                 .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
             let mut auth_reply = [0u8; 2];
-            proxy_stream
-                .read_exact(&mut auth_reply)
-                .await
-                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            proxy_stream.read_exact(&mut auth_reply).await.map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
             if auth_reply != [0x05, 0x00] {
                 return Err(EncryptedDnsError::Socks5(format!("unexpected auth reply: {auth_reply:?}")));
             }
@@ -510,16 +496,10 @@ impl EncryptedDnsResolver {
             request.extend_from_slice(&[0x05, 0x01, 0x00, 0x03, host_bytes.len() as u8]);
             request.extend_from_slice(host_bytes);
             request.extend_from_slice(&self.inner.endpoint.port.to_be_bytes());
-            proxy_stream
-                .write_all(&request)
-                .await
-                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            proxy_stream.write_all(&request).await.map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
 
             let mut header = [0u8; 4];
-            proxy_stream
-                .read_exact(&mut header)
-                .await
-                .map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
+            proxy_stream.read_exact(&mut header).await.map_err(|err| EncryptedDnsError::Socks5(err.to_string()))?;
             if header[1] != 0x00 {
                 return Err(EncryptedDnsError::Socks5(format!("connect reply {:x}", header[1])));
             }
