@@ -4,7 +4,7 @@ use android_support::{
 use jni::objects::JString;
 use jni::sys::{jlong, jstring};
 use jni::JNIEnv;
-use ripdpi_monitor::{MonitorSession, ScanRequest};
+use ripdpi_monitor::{EngineScanRequestWire, MonitorSession, ScanRequest};
 
 use crate::errors::extract_panic_message;
 use crate::to_handle;
@@ -125,12 +125,38 @@ fn start_diagnostics_scan(env: &mut JNIEnv, handle: jlong, request_json: JString
             return;
         }
     };
-    let request: ScanRequest = match serde_json::from_str(&request_json) {
+    let request = match serde_json::from_str::<EngineScanRequestWire>(&request_json) {
         Ok(request) => request,
-        Err(err) => {
-            throw_illegal_argument(env, format!("Invalid diagnostics request: {err}"));
-            return;
-        }
+        Err(_) => match serde_json::from_str::<ScanRequest>(&request_json) {
+            Ok(request) => EngineScanRequestWire {
+                schema_version: ripdpi_monitor::DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
+                profile_id: request.profile_id,
+                display_name: request.display_name,
+                path_mode: request.path_mode,
+                kind: request.kind,
+                family: request.family,
+                region_tag: request.region_tag,
+                pack_refs: request.pack_refs,
+                proxy_host: request.proxy_host,
+                proxy_port: request.proxy_port,
+                probe_tasks: request.probe_tasks,
+                domain_targets: request.domain_targets,
+                dns_targets: request.dns_targets,
+                tcp_targets: request.tcp_targets,
+                quic_targets: request.quic_targets,
+                service_targets: request.service_targets,
+                circumvention_targets: request.circumvention_targets,
+                throughput_targets: request.throughput_targets,
+                whitelist_sni: request.whitelist_sni,
+                telegram_target: request.telegram_target,
+                strategy_probe: request.strategy_probe,
+                network_snapshot: request.network_snapshot,
+            },
+            Err(err) => {
+                throw_illegal_argument(env, format!("Invalid diagnostics request: {err}"));
+                return;
+            }
+        },
     };
     if let Err(err) = session.start_scan(session_id, request) {
         throw_illegal_state(env, err);

@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -14,7 +16,7 @@ data class DiagnosticProfile(
     val name: String,
     val source: String,
     val version: Int,
-    val request: ScanRequest? = null,
+    val request: DiagnosticsProfileProjection? = null,
     val updatedAt: Long,
 ) {
     constructor(
@@ -29,7 +31,7 @@ data class DiagnosticProfile(
         name = name,
         source = source,
         version = version,
-        request = compatibilityJson.decodeOrNull(ScanRequest.serializer(), requestJson),
+        request = compatibilityJson.decodeProfileSpecWireCompat(requestJson).toProfileProjection(),
         updatedAt = updatedAt,
     )
 }
@@ -47,7 +49,7 @@ data class DiagnosticScanSession(
     val serviceMode: String?,
     val status: String,
     val summary: String,
-    val report: ScanReport? = null,
+    val report: DiagnosticsSessionProjection? = null,
     val startedAt: Long,
     val finishedAt: Long?,
 ) {
@@ -78,7 +80,11 @@ data class DiagnosticScanSession(
         serviceMode = serviceMode,
         status = status,
         summary = summary,
-        report = compatibilityJson.decodeOrNull(ScanReport.serializer(), reportJson),
+        report =
+            reportJson
+                ?.takeIf { it.isNotBlank() }
+                ?.let(compatibilityJson::decodeEngineScanReportWireCompat)
+                ?.toSessionProjection(),
         startedAt = startedAt,
         finishedAt = finishedAt,
     )

@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod", "LongParameterList")
-
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
@@ -94,6 +92,7 @@ internal fun createDiagnosticsServices(
             renderer =
                 DiagnosticsArchiveRenderer(
                     redactor = DiagnosticsArchiveRedactor(json),
+                    projector = DiagnosticsSummaryProjector(),
                     json = json,
                 ),
             fileStore =
@@ -124,28 +123,46 @@ internal fun createDiagnosticsServices(
         )
     val requestFactory =
         DiagnosticsScanRequestFactory(
-            context = context,
             networkMetadataProvider = networkMetadataProvider,
-            networkFingerprintProvider = networkFingerprintProvider,
-            nativeNetworkSnapshotProvider = nativeNetworkSnapshotProvider,
-            diagnosticsContextProvider = diagnosticsContextProvider,
-            networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
-            serviceStateStore = serviceStateStore,
+            intentResolver = DefaultDiagnosticsIntentResolver(stores, appSettingsRepository, json),
+            scanContextCollector =
+                DefaultScanContextCollector(
+                    profileCatalog = stores,
+                    networkFingerprintProvider = networkFingerprintProvider,
+                    nativeNetworkSnapshotProvider = nativeNetworkSnapshotProvider,
+                    diagnosticsContextProvider = diagnosticsContextProvider,
+                    networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
+                    serviceStateStore = serviceStateStore,
+                    json = json,
+                ),
+            diagnosticsPlanner = DefaultDiagnosticsPlanner(),
+            engineRequestEncoder = DefaultEngineRequestEncoder(),
             json = json,
         )
+    val activeScanRegistry = ActiveScanRegistry(timelineSource)
+    val scanAdmissionService = ScanAdmissionService(appSettingsRepository, stores, activeScanRegistry)
+    val bridgeExecutionService = BridgeExecutionService(networkDiagnosticsBridgeFactory, activeScanRegistry)
+    val passiveEventPersistenceService = PassiveEventPersistenceService(stores, json)
     val executionCoordinator =
         DiagnosticsScanExecutionCoordinator(
-            context = context,
             scanRecordStore = stores,
-            artifactWriteStore = stores,
-            networkMetadataProvider = networkMetadataProvider,
-            networkFingerprintProvider = networkFingerprintProvider,
-            diagnosticsContextProvider = diagnosticsContextProvider,
-            serviceStateStore = serviceStateStore,
-            resolverOverrideStore = resolverOverrideStore,
-            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-            networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
-            json = json,
+            activeScanRegistry = activeScanRegistry,
+            bridgeExecutionService = bridgeExecutionService,
+            bridgePollingService = BridgePollingService(passiveEventPersistenceService, json),
+            scanFinalizationService =
+                ScanFinalizationService(
+                    context = context,
+                    scanRecordStore = stores,
+                    artifactWriteStore = stores,
+                    networkMetadataProvider = networkMetadataProvider,
+                    networkFingerprintProvider = networkFingerprintProvider,
+                    diagnosticsContextProvider = diagnosticsContextProvider,
+                    serviceStateStore = serviceStateStore,
+                    resolverOverrideStore = resolverOverrideStore,
+                    rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+                    networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
+                    json = json,
+                ),
         )
     val scheduler =
         AutomaticProbeScheduler(
@@ -174,14 +191,14 @@ internal fun createDiagnosticsServices(
     scanController =
         DefaultDiagnosticsScanController(
             appSettingsRepository = appSettingsRepository,
-            profileCatalog = stores,
             scanRecordStore = stores,
             artifactWriteStore = stores,
-            networkDiagnosticsBridgeFactory = networkDiagnosticsBridgeFactory,
             runtimeCoordinator = runtimeCoordinator,
             scanRequestFactory = requestFactory,
+            scanAdmissionService = scanAdmissionService,
+            activeScanRegistry = activeScanRegistry,
+            bridgeExecutionService = bridgeExecutionService,
             executionCoordinator = executionCoordinator,
-            timelineSource = timelineSource,
             scope = scope,
         )
     return DiagnosticsServicesBundle(

@@ -2,6 +2,7 @@ mod candidates;
 mod classification;
 mod connectivity;
 mod dns;
+mod domain;
 mod execution;
 mod fat_header;
 mod http;
@@ -11,6 +12,7 @@ mod tls;
 mod transport;
 mod types;
 mod util;
+mod wire;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -23,6 +25,7 @@ use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
 use connectivity::*;
 use strategy::*;
 use types::SharedState;
+use wire::{EngineProgressWire, EngineScanReportWire, EngineScanRequestWire};
 
 #[cfg(test)]
 use candidates::*;
@@ -49,9 +52,13 @@ mod test_fixtures;
 
 pub use types::{
     CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsTarget, DomainTarget, NativeSessionEvent, ProbeDetail,
-    ProbeResult, QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest, ServiceTarget,
-    StrategyProbeCandidateSummary, StrategyProbeRecommendation, StrategyProbeReport, StrategyProbeRequest, TcpTarget,
-    TelegramDcEndpoint, TelegramTarget, ThroughputTarget,
+    ProbeResult, ProbeTask, ProbeTaskFamily, QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest,
+    ServiceTarget, StrategyProbeCandidateSummary, StrategyProbeRecommendation, StrategyProbeReport,
+    StrategyProbeRequest, TcpTarget, TelegramDcEndpoint, TelegramTarget, ThroughputTarget,
+};
+pub use wire::{
+    EngineProbeResultWire, EngineProbeTaskFamily, EngineProbeTaskWire, EngineProgressWire, EngineScanReportWire,
+    EngineScanRequestWire, ResolverRecommendationWire, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
 };
 
 pub struct MonitorSession {
@@ -86,7 +93,7 @@ impl MonitorSession {
         }
     }
 
-    pub fn start_scan(&self, session_id: String, request: ScanRequest) -> Result<(), String> {
+    pub fn start_scan(&self, session_id: String, request: EngineScanRequestWire) -> Result<(), String> {
         validate_scan_request(&request)?;
         let mut worker_guard = self.worker.lock().map_err(|_| "monitor worker poisoned".to_string())?;
         if worker_guard.is_some() {
@@ -102,7 +109,8 @@ impl MonitorSession {
         let shared = self.shared.clone();
         let cancel = self.cancel.clone();
         let tls_verifier = self.tls_verifier.clone();
-        let handle = thread::spawn(move || run_scan(shared, cancel, session_id, request, tls_verifier));
+        let domain_request: ScanRequest = request.into();
+        let handle = thread::spawn(move || run_scan(shared, cancel, session_id, domain_request, tls_verifier));
         *worker_guard = Some(handle);
         Ok(())
     }
@@ -113,13 +121,23 @@ impl MonitorSession {
 
     pub fn poll_progress_json(&self) -> Result<Option<String>, String> {
         let shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
-        shared.progress.as_ref().map(serde_json::to_string).transpose().map_err(|err| err.to_string())
+        shared
+            .progress
+            .as_ref()
+            .map(|progress| serde_json::to_string(&EngineProgressWire::from(progress.clone())))
+            .transpose()
+            .map_err(|err| err.to_string())
     }
 
     pub fn take_report_json(&self) -> Result<Option<String>, String> {
         self.try_join_worker();
         let shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
-        shared.report.as_ref().map(serde_json::to_string).transpose().map_err(|err| err.to_string())
+        shared
+            .report
+            .as_ref()
+            .map(|report| serde_json::to_string(&EngineScanReportWire::from(report.clone())))
+            .transpose()
+            .map_err(|err| err.to_string())
     }
 
     pub fn poll_passive_events_json(&self) -> Result<Option<String>, String> {
@@ -159,7 +177,7 @@ fn run_scan(
     }
 }
 
-fn validate_scan_request(request: &ScanRequest) -> Result<(), String> {
+fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> {
     match request.kind {
         ScanKind::Connectivity => Ok(()),
         ScanKind::StrategyProbe => {
@@ -214,6 +232,7 @@ mod tests {
             pack_refs: vec![],
             proxy_host: None,
             proxy_port: None,
+            probe_tasks: vec![],
             domain_targets: vec![DomainTarget {
                 host: "127.0.0.1".to_string(),
                 connect_ip: None,
@@ -731,7 +750,7 @@ mod tests {
         request.domain_targets[0].http_port = Some(server.port());
         let session = MonitorSession::new();
 
-        session.start_scan("session-strategy".to_string(), request).expect("start strategy probe");
+        session.start_scan("session-strategy".to_string(), request.into()).expect("start strategy probe");
         let report = wait_for_report(&session);
         let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
 
@@ -761,6 +780,7 @@ mod tests {
             pack_refs: vec![],
             proxy_host: None,
             proxy_port: None,
+            probe_tasks: vec![],
             domain_targets: vec![DomainTarget {
                 host: "127.0.0.1".to_string(),
                 connect_ip: None,
@@ -780,7 +800,7 @@ mod tests {
             network_snapshot: None,
         };
         let session = MonitorSession::new();
-        session.start_scan("session-1".to_string(), request).expect("start scan");
+        session.start_scan("session-1".to_string(), request.into()).expect("start scan");
 
         let report = wait_for_report(&session);
         assert_eq!(report.outcome_for("domain_reachability"), Some("http_blockpage"));
@@ -813,6 +833,7 @@ mod tests {
             pack_refs: vec![],
             proxy_host: None,
             proxy_port: None,
+            probe_tasks: vec![],
             domain_targets: vec![DomainTarget {
                 host: "127.0.0.1".to_string(),
                 connect_ip: None,
@@ -832,7 +853,7 @@ mod tests {
             network_snapshot: None,
         };
         let session = MonitorSession::new();
-        session.start_scan("session-golden".to_string(), request).expect("start scan");
+        session.start_scan("session-golden".to_string(), request.into()).expect("start scan");
 
         let progress_json = wait_for_progress_json(&session);
         assert_monitor_json_golden("progress_starting", &progress_json, server.port());

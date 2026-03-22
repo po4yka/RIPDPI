@@ -11,6 +11,7 @@ use crate::classification::{
     classify_connectivity_diagnoses, pack_versions_from_refs, CONNECTIVITY_CLASSIFIER_VERSION,
 };
 use crate::dns::*;
+use crate::domain::{ExecutionCoordinator, ExecutionPlan, ExecutionRuntime, ProbeFamilyRunner, RunnerOutcome};
 use crate::fat_header::*;
 use crate::http::*;
 use crate::telegram::*;
@@ -28,26 +29,33 @@ pub(crate) fn run_connectivity_scan(
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
 ) {
     let started_at = now_ms();
-    let telegram_steps = if request.telegram_target.is_some() { 1 } else { 0 };
-    let total_steps = (request.dns_targets.len()
-        + request.domain_targets.len()
-        + request.quic_targets.len()
-        + request.tcp_targets.len()
-        + request.service_targets.len()
-        + request.circumvention_targets.len()
-        + request.throughput_targets.len()
-        + telegram_steps)
-        .max(1);
     let transport = transport_for_request(&request);
-    let mut completed_steps = 0usize;
-    let mut results = Vec::new();
+    let family_order = connectivity_family_order(&request);
+    let coordinator = connectivity_execution_coordinator();
+    let total_steps = coordinator.total_steps(&ExecutionPlan {
+        session_id: session_id.clone(),
+        request: request.clone(),
+        started_at,
+        total_steps: 0,
+        transport: transport.clone(),
+        family_order: family_order.clone(),
+    });
+    let plan = ExecutionPlan {
+        session_id: session_id.clone(),
+        request: request.clone(),
+        started_at,
+        total_steps,
+        transport: transport.clone(),
+        family_order,
+    };
+    let mut seed_results = Vec::new();
 
     set_progress(
         &shared,
         ScanProgress {
             session_id: session_id.clone(),
             phase: "starting".to_string(),
-            completed_steps,
+            completed_steps: 0,
             total_steps,
             message: format!("Preparing {}", request.display_name),
             is_finished: false,
@@ -119,254 +127,14 @@ pub(crate) fn run_connectivity_scan(
     }
     // Prepend the environment probe so it appears first in results.
     if let Some(probe) = network_env_probe {
-        results.push(probe);
+        seed_results.push(probe);
     }
-
-    for dns_target in &request.dns_targets {
-        if cancel.load(Ordering::Acquire) {
-            persist_cancelled_report(shared, session_id, request, started_at, results);
-            return;
-        }
-        let probe = run_dns_probe(dns_target, &transport, &request.path_mode);
-        push_event(&shared, "dns_integrity", event_level_for_outcome(&probe.outcome), summarize_probe_event(&probe));
-        let probe_target = probe.target.clone();
-        let probe_outcome = probe.outcome.clone();
-        results.push(probe);
-        completed_steps += 1;
-        set_progress(
-            &shared,
-            ScanProgress {
-                session_id: session_id.clone(),
-                phase: "dns".to_string(),
-                completed_steps,
-                total_steps,
-                message: format!("DNS probe {}", dns_target.domain),
-                is_finished: false,
-                latest_probe_target: Some(probe_target),
-                latest_probe_outcome: Some(probe_outcome),
-            },
-        );
+    let mut runtime = ExecutionRuntime::new(shared.clone(), cancel, seed_results);
+    if matches!(coordinator.run(&plan, &mut runtime, tls_verifier.as_ref()), RunnerOutcome::Cancelled) {
+        persist_cancelled_report(shared, session_id, request, started_at, runtime.into_results());
+        return;
     }
-
-    for domain_target in &request.domain_targets {
-        if cancel.load(Ordering::Acquire) {
-            persist_cancelled_report(shared, session_id, request, started_at, results);
-            return;
-        }
-        let probe = run_domain_probe(domain_target, &transport, tls_verifier.as_ref());
-        push_event(
-            &shared,
-            "domain_reachability",
-            event_level_for_outcome(&probe.outcome),
-            summarize_probe_event(&probe),
-        );
-        let probe_target = probe.target.clone();
-        let probe_outcome = probe.outcome.clone();
-        results.push(probe);
-        completed_steps += 1;
-        set_progress(
-            &shared,
-            ScanProgress {
-                session_id: session_id.clone(),
-                phase: "reachability".to_string(),
-                completed_steps,
-                total_steps,
-                message: format!("Reachability {}", domain_target.host),
-                is_finished: false,
-                latest_probe_target: Some(probe_target),
-                latest_probe_outcome: Some(probe_outcome),
-            },
-        );
-    }
-
-    for quic_target in &request.quic_targets {
-        if cancel.load(Ordering::Acquire) {
-            persist_cancelled_report(shared, session_id, request, started_at, results);
-            return;
-        }
-        let probe = run_quic_probe(quic_target, &transport);
-        push_event(
-            &shared,
-            "quic_reachability",
-            event_level_for_outcome(&probe.outcome),
-            summarize_probe_event(&probe),
-        );
-        let probe_target = probe.target.clone();
-        let probe_outcome = probe.outcome.clone();
-        results.push(probe);
-        completed_steps += 1;
-        set_progress(
-            &shared,
-            ScanProgress {
-                session_id: session_id.clone(),
-                phase: "quic".to_string(),
-                completed_steps,
-                total_steps,
-                message: format!("QUIC {}", quic_target.host),
-                is_finished: false,
-                latest_probe_target: Some(probe_target),
-                latest_probe_outcome: Some(probe_outcome),
-            },
-        );
-    }
-
-    for tcp_target in &request.tcp_targets {
-        if cancel.load(Ordering::Acquire) {
-            persist_cancelled_report(shared, session_id, request, started_at, results);
-            return;
-        }
-        let probe = run_tcp_probe(tcp_target, &request.whitelist_sni, &transport);
-        push_event(&shared, "tcp_fat_header", event_level_for_outcome(&probe.outcome), summarize_probe_event(&probe));
-        let probe_target = probe.target.clone();
-        let probe_outcome = probe.outcome.clone();
-        results.push(probe);
-        completed_steps += 1;
-        set_progress(
-            &shared,
-            ScanProgress {
-                session_id: session_id.clone(),
-                phase: "tcp".to_string(),
-                completed_steps,
-                total_steps,
-                message: format!("TCP {}", tcp_target.provider),
-                is_finished: false,
-                latest_probe_target: Some(probe_target),
-                latest_probe_outcome: Some(probe_outcome),
-            },
-        );
-    }
-
-    for service_target in &request.service_targets {
-        if cancel.load(Ordering::Acquire) {
-            persist_cancelled_report(shared, session_id, request, started_at, results);
-            return;
-        }
-        let probe = run_service_probe(service_target, &transport, tls_verifier.as_ref());
-        push_event(
-            &shared,
-            "service_reachability",
-            event_level_for_outcome(&probe.outcome),
-            summarize_probe_event(&probe),
-        );
-        let probe_target = probe.target.clone();
-        let probe_outcome = probe.outcome.clone();
-        results.push(probe);
-        completed_steps += 1;
-        set_progress(
-            &shared,
-            ScanProgress {
-                session_id: session_id.clone(),
-                phase: "service".to_string(),
-                completed_steps,
-                total_steps,
-                message: format!("Service {}", service_target.service),
-                is_finished: false,
-                latest_probe_target: Some(probe_target),
-                latest_probe_outcome: Some(probe_outcome),
-            },
-        );
-    }
-
-    for circumvention_target in &request.circumvention_targets {
-        if cancel.load(Ordering::Acquire) {
-            persist_cancelled_report(shared, session_id, request, started_at, results);
-            return;
-        }
-        let probe = run_circumvention_probe(circumvention_target, &transport, tls_verifier.as_ref());
-        push_event(
-            &shared,
-            "circumvention_reachability",
-            event_level_for_outcome(&probe.outcome),
-            summarize_probe_event(&probe),
-        );
-        let probe_target = probe.target.clone();
-        let probe_outcome = probe.outcome.clone();
-        results.push(probe);
-        completed_steps += 1;
-        set_progress(
-            &shared,
-            ScanProgress {
-                session_id: session_id.clone(),
-                phase: "circumvention".to_string(),
-                completed_steps,
-                total_steps,
-                message: format!("Circumvention {}", circumvention_target.tool),
-                is_finished: false,
-                latest_probe_target: Some(probe_target),
-                latest_probe_outcome: Some(probe_outcome),
-            },
-        );
-    }
-
-    if let Some(ref telegram_target) = request.telegram_target {
-        if cancel.load(Ordering::Acquire) {
-            persist_cancelled_report(shared, session_id, request, started_at, results);
-            return;
-        }
-        set_progress(
-            &shared,
-            ScanProgress {
-                session_id: session_id.clone(),
-                phase: "telegram_download".to_string(),
-                completed_steps,
-                total_steps,
-                message: "Telegram download probe".to_string(),
-                is_finished: false,
-                latest_probe_target: None,
-                latest_probe_outcome: None,
-            },
-        );
-        let probe = run_telegram_probe(telegram_target, &transport);
-        push_event(&shared, "telegram", event_level_for_outcome(&probe.outcome), summarize_probe_event(&probe));
-        let probe_target = probe.target.clone();
-        let probe_outcome = probe.outcome.clone();
-        results.push(probe);
-        completed_steps += 1;
-        set_progress(
-            &shared,
-            ScanProgress {
-                session_id: session_id.clone(),
-                phase: "telegram".to_string(),
-                completed_steps,
-                total_steps,
-                message: "Telegram availability checked".to_string(),
-                is_finished: false,
-                latest_probe_target: Some(probe_target),
-                latest_probe_outcome: Some(probe_outcome),
-            },
-        );
-    }
-
-    for throughput_target in &request.throughput_targets {
-        if cancel.load(Ordering::Acquire) {
-            persist_cancelled_report(shared, session_id, request, started_at, results);
-            return;
-        }
-        let probe = run_throughput_probe(throughput_target, &transport);
-        push_event(
-            &shared,
-            "throughput_window",
-            event_level_for_outcome(&probe.outcome),
-            summarize_probe_event(&probe),
-        );
-        let probe_target = probe.target.clone();
-        let probe_outcome = probe.outcome.clone();
-        results.push(probe);
-        completed_steps += 1;
-        set_progress(
-            &shared,
-            ScanProgress {
-                session_id: session_id.clone(),
-                phase: "throughput".to_string(),
-                completed_steps,
-                total_steps,
-                message: format!("Throughput {}", throughput_target.label),
-                is_finished: false,
-                latest_probe_target: Some(probe_target),
-                latest_probe_outcome: Some(probe_outcome),
-            },
-        );
-    }
+    let results = runtime.into_results();
 
     let success_count = results.iter().filter(|result| probe_is_success(&result.outcome)).count();
     let diagnoses = classify_connectivity_diagnoses(&request, &results);
@@ -401,6 +169,356 @@ pub(crate) fn run_connectivity_scan(
             latest_probe_outcome: None,
         },
     );
+}
+
+fn connectivity_family_order(request: &ScanRequest) -> Vec<ProbeTaskFamily> {
+    if !request.probe_tasks.is_empty() {
+        let mut families = Vec::new();
+        for task in &request.probe_tasks {
+            if !families.contains(&task.family) {
+                families.push(task.family.clone());
+            }
+        }
+        if !families.is_empty() {
+            return families;
+        }
+    }
+    vec![
+        ProbeTaskFamily::Dns,
+        ProbeTaskFamily::Web,
+        ProbeTaskFamily::Quic,
+        ProbeTaskFamily::Tcp,
+        ProbeTaskFamily::Service,
+        ProbeTaskFamily::Circumvention,
+        ProbeTaskFamily::Telegram,
+        ProbeTaskFamily::Throughput,
+    ]
+}
+
+fn connectivity_execution_coordinator() -> ExecutionCoordinator {
+    ExecutionCoordinator::new(vec![
+        Box::new(DnsProbeRunner),
+        Box::new(WebProbeRunner),
+        Box::new(QuicProbeRunner),
+        Box::new(TcpProbeRunner),
+        Box::new(ServiceProbeRunner),
+        Box::new(CircumventionProbeRunner),
+        Box::new(TelegramProbeRunner),
+        Box::new(ThroughputProbeRunner),
+    ])
+}
+
+struct DnsProbeRunner;
+
+impl ProbeFamilyRunner for DnsProbeRunner {
+    fn family(&self) -> ProbeTaskFamily {
+        ProbeTaskFamily::Dns
+    }
+
+    fn phase(&self) -> &'static str {
+        "dns"
+    }
+
+    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
+        plan.request.dns_targets.len()
+    }
+
+    fn run(
+        &self,
+        plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ) -> RunnerOutcome {
+        for dns_target in &plan.request.dns_targets {
+            if runtime.is_cancelled() {
+                return RunnerOutcome::Cancelled;
+            }
+            let probe = run_dns_probe(dns_target, &plan.transport, &plan.request.path_mode);
+            push_event(
+                &runtime.shared,
+                "dns_integrity",
+                event_level_for_outcome(&probe.outcome),
+                summarize_probe_event(&probe),
+            );
+            runtime.push_result(plan, self.phase(), format!("DNS probe {}", dns_target.domain), probe);
+        }
+        RunnerOutcome::Completed
+    }
+}
+
+struct WebProbeRunner;
+
+impl ProbeFamilyRunner for WebProbeRunner {
+    fn family(&self) -> ProbeTaskFamily {
+        ProbeTaskFamily::Web
+    }
+
+    fn phase(&self) -> &'static str {
+        "reachability"
+    }
+
+    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
+        plan.request.domain_targets.len()
+    }
+
+    fn run(
+        &self,
+        plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ) -> RunnerOutcome {
+        for domain_target in &plan.request.domain_targets {
+            if runtime.is_cancelled() {
+                return RunnerOutcome::Cancelled;
+            }
+            let probe = run_domain_probe(domain_target, &plan.transport, tls_verifier);
+            push_event(
+                &runtime.shared,
+                "domain_reachability",
+                event_level_for_outcome(&probe.outcome),
+                summarize_probe_event(&probe),
+            );
+            runtime.push_result(plan, self.phase(), format!("Reachability {}", domain_target.host), probe);
+        }
+        RunnerOutcome::Completed
+    }
+}
+
+struct QuicProbeRunner;
+
+impl ProbeFamilyRunner for QuicProbeRunner {
+    fn family(&self) -> ProbeTaskFamily {
+        ProbeTaskFamily::Quic
+    }
+
+    fn phase(&self) -> &'static str {
+        "quic"
+    }
+
+    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
+        plan.request.quic_targets.len()
+    }
+
+    fn run(
+        &self,
+        plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ) -> RunnerOutcome {
+        for quic_target in &plan.request.quic_targets {
+            if runtime.is_cancelled() {
+                return RunnerOutcome::Cancelled;
+            }
+            let probe = run_quic_probe(quic_target, &plan.transport);
+            push_event(
+                &runtime.shared,
+                "quic_reachability",
+                event_level_for_outcome(&probe.outcome),
+                summarize_probe_event(&probe),
+            );
+            runtime.push_result(plan, self.phase(), format!("QUIC {}", quic_target.host), probe);
+        }
+        RunnerOutcome::Completed
+    }
+}
+
+struct TcpProbeRunner;
+
+impl ProbeFamilyRunner for TcpProbeRunner {
+    fn family(&self) -> ProbeTaskFamily {
+        ProbeTaskFamily::Tcp
+    }
+
+    fn phase(&self) -> &'static str {
+        "tcp"
+    }
+
+    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
+        plan.request.tcp_targets.len()
+    }
+
+    fn run(
+        &self,
+        plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ) -> RunnerOutcome {
+        for tcp_target in &plan.request.tcp_targets {
+            if runtime.is_cancelled() {
+                return RunnerOutcome::Cancelled;
+            }
+            let probe = run_tcp_probe(tcp_target, &plan.request.whitelist_sni, &plan.transport);
+            push_event(
+                &runtime.shared,
+                "tcp_fat_header",
+                event_level_for_outcome(&probe.outcome),
+                summarize_probe_event(&probe),
+            );
+            runtime.push_result(plan, self.phase(), format!("TCP {}", tcp_target.provider), probe);
+        }
+        RunnerOutcome::Completed
+    }
+}
+
+struct ServiceProbeRunner;
+
+impl ProbeFamilyRunner for ServiceProbeRunner {
+    fn family(&self) -> ProbeTaskFamily {
+        ProbeTaskFamily::Service
+    }
+
+    fn phase(&self) -> &'static str {
+        "service"
+    }
+
+    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
+        plan.request.service_targets.len()
+    }
+
+    fn run(
+        &self,
+        plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ) -> RunnerOutcome {
+        for service_target in &plan.request.service_targets {
+            if runtime.is_cancelled() {
+                return RunnerOutcome::Cancelled;
+            }
+            let probe = run_service_probe(service_target, &plan.transport, tls_verifier);
+            push_event(
+                &runtime.shared,
+                "service_reachability",
+                event_level_for_outcome(&probe.outcome),
+                summarize_probe_event(&probe),
+            );
+            runtime.push_result(plan, self.phase(), format!("Service {}", service_target.service), probe);
+        }
+        RunnerOutcome::Completed
+    }
+}
+
+struct CircumventionProbeRunner;
+
+impl ProbeFamilyRunner for CircumventionProbeRunner {
+    fn family(&self) -> ProbeTaskFamily {
+        ProbeTaskFamily::Circumvention
+    }
+
+    fn phase(&self) -> &'static str {
+        "circumvention"
+    }
+
+    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
+        plan.request.circumvention_targets.len()
+    }
+
+    fn run(
+        &self,
+        plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ) -> RunnerOutcome {
+        for circumvention_target in &plan.request.circumvention_targets {
+            if runtime.is_cancelled() {
+                return RunnerOutcome::Cancelled;
+            }
+            let probe = run_circumvention_probe(circumvention_target, &plan.transport, tls_verifier);
+            push_event(
+                &runtime.shared,
+                "circumvention_reachability",
+                event_level_for_outcome(&probe.outcome),
+                summarize_probe_event(&probe),
+            );
+            runtime.push_result(plan, self.phase(), format!("Circumvention {}", circumvention_target.tool), probe);
+        }
+        RunnerOutcome::Completed
+    }
+}
+
+struct TelegramProbeRunner;
+
+impl ProbeFamilyRunner for TelegramProbeRunner {
+    fn family(&self) -> ProbeTaskFamily {
+        ProbeTaskFamily::Telegram
+    }
+
+    fn phase(&self) -> &'static str {
+        "telegram"
+    }
+
+    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
+        usize::from(plan.request.telegram_target.is_some())
+    }
+
+    fn run(
+        &self,
+        plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ) -> RunnerOutcome {
+        let Some(telegram_target) = plan.request.telegram_target.as_ref() else {
+            return RunnerOutcome::Completed;
+        };
+        if runtime.is_cancelled() {
+            return RunnerOutcome::Cancelled;
+        }
+        set_progress(
+            &runtime.shared,
+            ScanProgress {
+                session_id: plan.session_id.clone(),
+                phase: "telegram_download".to_string(),
+                completed_steps: runtime.completed_steps,
+                total_steps: plan.total_steps,
+                message: "Telegram download probe".to_string(),
+                is_finished: false,
+                latest_probe_target: None,
+                latest_probe_outcome: None,
+            },
+        );
+        let probe = run_telegram_probe(telegram_target, &plan.transport);
+        push_event(&runtime.shared, "telegram", event_level_for_outcome(&probe.outcome), summarize_probe_event(&probe));
+        runtime.push_result(plan, self.phase(), "Telegram availability checked".to_string(), probe);
+        RunnerOutcome::Completed
+    }
+}
+
+struct ThroughputProbeRunner;
+
+impl ProbeFamilyRunner for ThroughputProbeRunner {
+    fn family(&self) -> ProbeTaskFamily {
+        ProbeTaskFamily::Throughput
+    }
+
+    fn phase(&self) -> &'static str {
+        "throughput"
+    }
+
+    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
+        plan.request.throughput_targets.len()
+    }
+
+    fn run(
+        &self,
+        plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ) -> RunnerOutcome {
+        for throughput_target in &plan.request.throughput_targets {
+            if runtime.is_cancelled() {
+                return RunnerOutcome::Cancelled;
+            }
+            let probe = run_throughput_probe(throughput_target, &plan.transport);
+            push_event(
+                &runtime.shared,
+                "throughput_window",
+                event_level_for_outcome(&probe.outcome),
+                summarize_probe_event(&probe),
+            );
+            runtime.push_result(plan, self.phase(), format!("Throughput {}", throughput_target.label), probe);
+        }
+        RunnerOutcome::Completed
+    }
 }
 
 pub(crate) fn persist_cancelled_report(
