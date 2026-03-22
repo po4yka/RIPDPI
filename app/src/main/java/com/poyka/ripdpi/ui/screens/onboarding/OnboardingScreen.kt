@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,10 +88,12 @@ fun OnboardingRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    val currentOnComplete by rememberUpdatedState(onComplete)
+
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             if (effect is OnboardingEffect.OnboardingComplete) {
-                onComplete()
+                currentOnComplete()
             }
         }
     }

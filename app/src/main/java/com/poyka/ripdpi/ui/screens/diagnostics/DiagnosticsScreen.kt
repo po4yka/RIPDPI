@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -107,19 +108,23 @@ fun DiagnosticsRoute(
         }
     }
 
+    val currentOnSaveArchive by rememberUpdatedState(onSaveArchive)
+    val currentOnShareArchive by rememberUpdatedState(onShareArchive)
+    val currentOnShareSummary by rememberUpdatedState(onShareSummary)
+
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 is DiagnosticsEffect.SaveArchiveRequested -> {
-                    onSaveArchive(effect.absolutePath, effect.fileName)
+                    currentOnSaveArchive(effect.absolutePath, effect.fileName)
                 }
 
                 is DiagnosticsEffect.ShareArchiveRequested -> {
-                    onShareArchive(effect.absolutePath, effect.fileName)
+                    currentOnShareArchive(effect.absolutePath, effect.fileName)
                 }
 
                 is DiagnosticsEffect.ShareSummaryRequested -> {
-                    onShareSummary(effect.title, effect.body)
+                    currentOnShareSummary(effect.title, effect.body)
                 }
 
                 is DiagnosticsEffect.ScanStarted -> {
