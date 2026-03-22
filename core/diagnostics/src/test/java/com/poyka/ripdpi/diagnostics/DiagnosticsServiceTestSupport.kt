@@ -129,6 +129,11 @@ internal class FakeDiagnosticsHistoryStores :
 
     override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = snapshotsState
 
+    override suspend fun getSnapshotsForSession(
+        sessionId: String,
+        limit: Int,
+    ): List<NetworkSnapshotEntity> = snapshotsState.value.filter { it.sessionId == sessionId }.take(limit)
+
     override fun observeConnectionSnapshots(
         connectionSessionId: String,
         limit: Int,
@@ -136,6 +141,11 @@ internal class FakeDiagnosticsHistoryStores :
         MutableStateFlow(snapshotsState.value.filter { it.connectionSessionId == connectionSessionId }.take(limit))
 
     override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> = contextsState
+
+    override suspend fun getContextsForSession(
+        sessionId: String,
+        limit: Int,
+    ): List<DiagnosticContextEntity> = contextsState.value.filter { it.sessionId == sessionId }.take(limit)
 
     override fun observeConnectionContexts(
         connectionSessionId: String,
@@ -152,6 +162,11 @@ internal class FakeDiagnosticsHistoryStores :
         MutableStateFlow(telemetryState.value.filter { it.connectionSessionId == connectionSessionId }.take(limit))
 
     override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> = nativeEventsState
+
+    override suspend fun getNativeEventsForSession(
+        sessionId: String,
+        limit: Int,
+    ): List<NativeSessionEventEntity> = nativeEventsState.value.filter { it.sessionId == sessionId }.take(limit)
 
     override fun observeConnectionNativeEvents(
         connectionSessionId: String,

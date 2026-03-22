@@ -355,6 +355,19 @@ interface DiagnosticsDao {
     @Query(
         """
         SELECT * FROM network_snapshots
+        WHERE sessionId = :sessionId
+        ORDER BY capturedAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getSnapshotsForSession(
+        sessionId: String,
+        limit: Int = 200,
+    ): List<NetworkSnapshotEntity>
+
+    @Query(
+        """
+        SELECT * FROM network_snapshots
         WHERE connectionSessionId = :connectionSessionId
         ORDER BY capturedAt DESC
         LIMIT :limit
@@ -373,6 +386,19 @@ interface DiagnosticsDao {
 
     @Query("SELECT * FROM diagnostic_context_snapshots ORDER BY capturedAt DESC LIMIT :limit")
     fun observeContextSnapshots(limit: Int = 100): Flow<List<DiagnosticContextEntity>>
+
+    @Query(
+        """
+        SELECT * FROM diagnostic_context_snapshots
+        WHERE sessionId = :sessionId
+        ORDER BY capturedAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getContextsForSession(
+        sessionId: String,
+        limit: Int = 200,
+    ): List<DiagnosticContextEntity>
 
     @Query(
         """
@@ -417,6 +443,19 @@ interface DiagnosticsDao {
 
     @Query("SELECT * FROM native_session_events ORDER BY createdAt DESC LIMIT :limit")
     fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
+
+    @Query(
+        """
+        SELECT * FROM native_session_events
+        WHERE sessionId = :sessionId
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getNativeEventsForSession(
+        sessionId: String,
+        limit: Int = 500,
+    ): List<NativeSessionEventEntity>
 
     @Query(
         """
