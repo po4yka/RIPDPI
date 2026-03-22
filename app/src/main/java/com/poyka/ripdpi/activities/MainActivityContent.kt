@@ -85,7 +85,6 @@ internal fun MainActivityContent(
                             onSaveDiagnosticsArchive = controller::requestSaveDiagnosticsArchive,
                             onShareDiagnosticsArchive = controller::requestShareDiagnosticsArchive,
                             onShareDiagnosticsSummary = controller::requestShareDiagnosticsSummary,
-                            onStartConfiguredMode = viewModel::onPrimaryConnectionAction,
                             onRepairPermission = { permission -> viewModel.onRepairPermissionRequested(permission) },
                         ),
                     launchRequests =
