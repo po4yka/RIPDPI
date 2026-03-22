@@ -1,12 +1,3 @@
-@file:Suppress(
-    "LongMethod",
-    "MagicNumber",
-    "MaxLineLength",
-    "ReturnCount",
-    "TooGenericExceptionCaught",
-    "UseCheckOrError",
-)
-
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
@@ -134,12 +125,14 @@ class DefaultDiagnosticsScanController
 
             val bridge = networkDiagnosticsBridgeFactory.create()
             runtimeState.registerBridge(bridge, prepared.registerActiveBridge)
-            try {
+            val startFailure =
+                runCatching {
                 bridge.startScan(
                     requestJson = prepared.requestJson,
                     sessionId = prepared.sessionId,
                 )
-            } catch (error: Throwable) {
+                }.exceptionOrNull()
+            if (startFailure != null) {
                 runtimeState.removePreparedScan(prepared.sessionId)
                 runtimeState.clearBridge(bridge, prepared.registerActiveBridge)
                 runCatching { bridge.destroy() }
@@ -148,10 +141,10 @@ class DefaultDiagnosticsScanController
                 }
                 DiagnosticsReportPersister.persistScanFailure(
                     prepared.sessionId,
-                    error.message ?: "Diagnostics scan failed to start",
+                    startFailure.message ?: "Diagnostics scan failed to start",
                     scanRecordStore,
                 )
-                throw error
+                throw startFailure
             }
 
             if (prepared.exposeProgress) {
@@ -269,6 +262,7 @@ class DiagnosticsScanExecutionCoordinator
             private const val FinishedReportPollAttempts = 5
             private const val FinishedReportPollDelayMs = 100L
             private const val PollScanResultTimeoutMs = 300_000L
+            private const val PollScanIntervalMs = 400L
         }
 
         suspend fun execute(
@@ -277,25 +271,29 @@ class DiagnosticsScanExecutionCoordinator
             rawPathRunner: suspend (suspend () -> Unit) -> Unit,
             runtimeState: DiagnosticsScanRuntimeState,
         ) {
+            val failure =
+                runCatching {
+                    val scanBlock: suspend () -> Unit = {
+                        pollScanResult(
+                            prepared = prepared,
+                            bridge = bridge,
+                            runtimeState = runtimeState,
+                        )
+                    }
+
+                    when (prepared.pathMode) {
+                        ScanPathMode.RAW_PATH -> rawPathRunner(scanBlock)
+                        ScanPathMode.IN_PATH -> scanBlock()
+                    }
+                }.exceptionOrNull()
             try {
-                val scanBlock: suspend () -> Unit = {
-                    pollScanResult(
-                        prepared = prepared,
-                        bridge = bridge,
-                        runtimeState = runtimeState,
+                if (failure != null) {
+                    DiagnosticsReportPersister.persistScanFailure(
+                        prepared.sessionId,
+                        failure.message ?: "Diagnostics scan failed",
+                        scanRecordStore,
                     )
                 }
-
-                when (prepared.pathMode) {
-                    ScanPathMode.RAW_PATH -> rawPathRunner(scanBlock)
-                    ScanPathMode.IN_PATH -> scanBlock()
-                }
-            } catch (error: Throwable) {
-                DiagnosticsReportPersister.persistScanFailure(
-                    prepared.sessionId,
-                    error.message ?: "Diagnostics scan failed",
-                    scanRecordStore,
-                )
             } finally {
                 runtimeState.removePreparedScan(prepared.sessionId)
                 if (prepared.exposeProgress) {
@@ -313,91 +311,104 @@ class DiagnosticsScanExecutionCoordinator
         ) {
             withTimeout(PollScanResultTimeoutMs) {
                 while (true) {
-                    DiagnosticsReportPersister.persistNativeEvents(
-                        sessionId = prepared.sessionId,
-                        payload = bridge.pollPassiveEventsJson(),
-                        artifactWriteStore = artifactWriteStore,
-                        json = json,
-                    )
-                    val progress =
-                        bridge
-                            .pollProgressJson()
-                            ?.let { json.decodeFromString(ScanProgress.serializer(), it) }
-                    if (prepared.exposeProgress) {
-                        runtimeState.updateProgress(progress)
-                    }
-                    if (progress != null && progress.isFinished) {
-                        val report =
-                            awaitFinishedReportJson(bridge)
-                                ?.let { json.decodeFromString(ScanReport.serializer(), it) }
-                                ?: throw IllegalStateException("Diagnostics scan completed without a report")
-                        val enrichedReport =
-                            DiagnosticsScanWorkflow.enrichScanReport(
-                                report = report,
-                                settings = prepared.settings,
-                                preferredDnsPath = runtimeState.preferredDnsPath(report.sessionId),
-                            )
-                        val finalReport = maybeApplyTemporaryResolverOverride(enrichedReport, prepared.settings)
-                        DiagnosticsReportPersister.persistScanReport(
-                            finalReport,
-                            scanRecordStore,
-                            artifactWriteStore,
-                            serviceStateStore,
-                            json,
-                        )
-                        rememberNetworkDnsPathPreference(
-                            runtimeState.fingerprint(prepared.sessionId),
-                            finalReport.resolverRecommendation,
-                        )
-                        rememberStrategyProbeRecommendation(finalReport, prepared.settings)
-                        val now = System.currentTimeMillis()
-                        artifactWriteStore.upsertSnapshot(
-                            com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity(
-                                id =
-                                    java.util.UUID
-                                        .randomUUID()
-                                        .toString(),
-                                sessionId = prepared.sessionId,
-                                snapshotKind = "post_scan",
-                                payloadJson =
-                                    json.encodeToString(
-                                        NetworkSnapshotModel.serializer(),
-                                        networkMetadataProvider.captureSnapshot(includePublicIp = true),
-                                    ),
-                                capturedAt = now,
-                            ),
-                        )
-                        artifactWriteStore.upsertContextSnapshot(
-                            com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity(
-                                id =
-                                    java.util.UUID
-                                        .randomUUID()
-                                        .toString(),
-                                sessionId = prepared.sessionId,
-                                contextKind = "post_scan",
-                                payloadJson =
-                                    json.encodeToString(
-                                        DiagnosticContextModel.serializer(),
-                                        diagnosticsContextProvider.captureContext(),
-                                    ),
-                                capturedAt = now,
-                            ),
-                        )
-                        DiagnosticsReportPersister.persistNativeEvents(
-                            sessionId = prepared.sessionId,
-                            payload = bridge.pollPassiveEventsJson(),
-                            artifactWriteStore = artifactWriteStore,
-                            json = json,
-                        )
-                        if (prepared.exposeProgress) {
-                            runtimeState.updateProgress(null)
-                        }
+                    persistPassiveEvents(prepared.sessionId, bridge)
+                    val progress = readProgress(bridge)
+                    if (prepared.exposeProgress) runtimeState.updateProgress(progress)
+                    if (progress?.isFinished == true) {
+                        finishScan(prepared, bridge, runtimeState)
                         break
                     }
-                    delay(400L)
+                    delay(PollScanIntervalMs)
                 }
             }
         }
+
+        private suspend fun finishScan(
+            prepared: PreparedDiagnosticsScan,
+            bridge: NetworkDiagnosticsBridge,
+            runtimeState: DiagnosticsScanRuntimeState,
+        ) {
+            val report = requireFinishedReport(bridge)
+            val finalReport =
+                maybeApplyTemporaryResolverOverride(
+                    DiagnosticsScanWorkflow.enrichScanReport(
+                        report = report,
+                        settings = prepared.settings,
+                        preferredDnsPath = runtimeState.preferredDnsPath(report.sessionId),
+                    ),
+                    prepared.settings,
+                )
+            DiagnosticsReportPersister.persistScanReport(
+                finalReport,
+                scanRecordStore,
+                artifactWriteStore,
+                serviceStateStore,
+                json,
+            )
+            rememberNetworkDnsPathPreference(
+                runtimeState.fingerprint(prepared.sessionId),
+                finalReport.resolverRecommendation,
+            )
+            rememberStrategyProbeRecommendation(finalReport, prepared.settings)
+            persistPostScanArtifacts(prepared.sessionId)
+            persistPassiveEvents(prepared.sessionId, bridge)
+            if (prepared.exposeProgress) runtimeState.updateProgress(null)
+        }
+
+        private suspend fun requireFinishedReport(bridge: NetworkDiagnosticsBridge): ScanReport {
+            val reportJson =
+                checkNotNull(awaitFinishedReportJson(bridge)) {
+                    "Diagnostics scan completed without a report"
+                }
+            return json.decodeFromString(ScanReport.serializer(), reportJson)
+        }
+
+        private suspend fun persistPostScanArtifacts(sessionId: String) {
+            val now = System.currentTimeMillis()
+            artifactWriteStore.upsertSnapshot(
+                com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity(
+                    id = java.util.UUID.randomUUID().toString(),
+                    sessionId = sessionId,
+                    snapshotKind = "post_scan",
+                    payloadJson =
+                        json.encodeToString(
+                            NetworkSnapshotModel.serializer(),
+                            networkMetadataProvider.captureSnapshot(includePublicIp = true),
+                        ),
+                    capturedAt = now,
+                ),
+            )
+            artifactWriteStore.upsertContextSnapshot(
+                com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity(
+                    id = java.util.UUID.randomUUID().toString(),
+                    sessionId = sessionId,
+                    contextKind = "post_scan",
+                    payloadJson =
+                        json.encodeToString(
+                            DiagnosticContextModel.serializer(),
+                            diagnosticsContextProvider.captureContext(),
+                        ),
+                    capturedAt = now,
+                ),
+            )
+        }
+
+        private suspend fun persistPassiveEvents(
+            sessionId: String,
+            bridge: NetworkDiagnosticsBridge,
+        ) {
+            DiagnosticsReportPersister.persistNativeEvents(
+                sessionId = sessionId,
+                payload = bridge.pollPassiveEventsJson(),
+                artifactWriteStore = artifactWriteStore,
+                json = json,
+            )
+        }
+
+        private suspend fun readProgress(bridge: NetworkDiagnosticsBridge): ScanProgress? =
+            bridge
+                .pollProgressJson()
+                ?.let { json.decodeFromString(ScanProgress.serializer(), it) }
 
         private suspend fun awaitFinishedReportJson(bridge: NetworkDiagnosticsBridge): String? {
             repeat(FinishedReportPollAttempts) { attempt ->
@@ -415,15 +426,18 @@ class DiagnosticsScanExecutionCoordinator
         ): ScanReport {
             val recommendation = report.resolverRecommendation ?: return report
             val (status, mode) = serviceStateStore.status.value
-            if (!DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(report, settings, status, mode)) {
-                return report
+            val shouldApply =
+                DiagnosticsScanWorkflow.shouldApplyTemporaryResolverOverride(report, settings, status, mode)
+            return if (shouldApply) {
+                resolverOverrideStore.setTemporaryOverride(
+                    DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation),
+                )
+                report.copy(
+                    resolverRecommendation = recommendation.copy(appliedTemporarily = true),
+                )
+            } else {
+                report
             }
-            resolverOverrideStore.setTemporaryOverride(
-                DiagnosticsScanWorkflow.buildTemporaryResolverOverride(recommendation),
-            )
-            return report.copy(
-                resolverRecommendation = recommendation.copy(appliedTemporarily = true),
-            )
         }
 
         private suspend fun rememberNetworkDnsPathPreference(
@@ -443,26 +457,30 @@ class DiagnosticsScanExecutionCoordinator
             report: ScanReport,
             settings: com.poyka.ripdpi.proto.AppSettings,
         ) {
-            if (!settings.networkStrategyMemoryEnabled || settings.enableCmdSettings) {
-                return
-            }
-            val strategyProbe = report.strategyProbeReport ?: return
-            val fingerprint = networkFingerprintProvider.capture() ?: return
+            val strategyProbe = report.strategyProbeReport
+            val fingerprint = networkFingerprintProvider.capture()
+            val shouldRemember = settings.networkStrategyMemoryEnabled && !settings.enableCmdSettings
             val policy =
-                DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
-                    strategyProbe = strategyProbe,
-                    settings = settings,
-                    fingerprint = fingerprint,
-                    hostAutolearnStorePath =
-                        settings
-                            .takeIf { it.hostAutolearnEnabled }
-                            ?.let { resolveHostAutolearnStorePath(context) },
-                    json = json,
-                ) ?: return
-            rememberedNetworkPolicyStore.rememberValidatedPolicy(
-                policy = policy,
-                source = RememberedNetworkPolicySourceStrategyProbe,
-                validatedAt = report.finishedAt,
-            )
+                if (shouldRemember && strategyProbe != null && fingerprint != null) {
+                    DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
+                        strategyProbe = strategyProbe,
+                        settings = settings,
+                        fingerprint = fingerprint,
+                        hostAutolearnStorePath =
+                            settings
+                                .takeIf { it.hostAutolearnEnabled }
+                                ?.let { resolveHostAutolearnStorePath(context) },
+                        json = json,
+                    )
+                } else {
+                    null
+                }
+            if (policy != null) {
+                rememberedNetworkPolicyStore.rememberValidatedPolicy(
+                    policy = policy,
+                    source = RememberedNetworkPolicySourceStrategyProbe,
+                    validatedAt = report.finishedAt,
+                )
+            }
         }
     }

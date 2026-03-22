@@ -1,5 +1,3 @@
-@file:Suppress("MaxLineLength")
-
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
@@ -138,6 +136,13 @@ abstract class DiagnosticsManagerModule {
     ): DiagnosticsArchiveExporter
 
     companion object {
+        private const val AutomaticHandoverProbeDelaySeconds = 15L
+        private const val AutomaticHandoverProbeCooldownHours = 24L
+        private const val ImportBundledProfilesOnInitialize = true
+        private const val MillisPerSecond = 1_000L
+        private const val MinutesPerHour = 60L
+        private const val SecondsPerMinute = 60L
+
         @Provides
         @Singleton
         @Named("diagnosticsJson")
@@ -168,14 +173,18 @@ abstract class DiagnosticsManagerModule {
 
         @Provides
         @Named("automaticHandoverProbeDelayMs")
-        fun provideAutomaticHandoverProbeDelayMs(): Long = 15_000L
+        fun provideAutomaticHandoverProbeDelayMs(): Long = secondsToMillis(AutomaticHandoverProbeDelaySeconds)
 
         @Provides
         @Named("automaticHandoverProbeCooldownMs")
-        fun provideAutomaticHandoverProbeCooldownMs(): Long = 24L * 60L * 60L * 1_000L
+        fun provideAutomaticHandoverProbeCooldownMs(): Long = hoursToMillis(AutomaticHandoverProbeCooldownHours)
 
         @Provides
         @Named("importBundledProfilesOnInitialize")
-        fun provideImportBundledProfilesOnInitialize(): Boolean = true
+        fun provideImportBundledProfilesOnInitialize(): Boolean = ImportBundledProfilesOnInitialize
+
+        private fun secondsToMillis(seconds: Long): Long = seconds * MillisPerSecond
+
+        private fun hoursToMillis(hours: Long): Long = secondsToMillis(hours * MinutesPerHour * SecondsPerMinute)
     }
 }

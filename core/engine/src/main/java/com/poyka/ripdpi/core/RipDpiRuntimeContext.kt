@@ -1,5 +1,3 @@
-@file:Suppress("ReturnCount")
-
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActiveDnsSettings
@@ -49,11 +47,8 @@ internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): Rip
 }
 
 fun ActiveDnsSettings.toRipDpiRuntimeContext(): RipDpiRuntimeContext? {
-    if (mode != DnsModeEncrypted) {
-        return null
-    }
     val normalizedHost = encryptedDnsHost.trim()
-    if (normalizedHost.isEmpty()) {
+    if (mode != DnsModeEncrypted || normalizedHost.isEmpty()) {
         return null
     }
     val normalizedProtocol =
