@@ -12,7 +12,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 android-support = { workspace = true }
-hs5t-config = { workspace = true }
+hs5t-config = { path = "../../third_party/hev-socks5-tunnel/crates/hs5t-config" }
+ripdpi-tunnel-config = { workspace = true }
 hs5t-core = { workspace = true }
 jni = { workspace = true }
 log = { workspace = true }
