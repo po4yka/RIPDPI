@@ -32,10 +32,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
@@ -136,7 +138,7 @@ internal fun resolveStartupDestination(settings: AppSettings): String =
 class MainViewModel
     @Inject
     constructor(
-        appSettingsRepository: AppSettingsRepository,
+        private val appSettingsRepository: AppSettingsRepository,
         serviceStateStore: ServiceStateStore,
         serviceController: ServiceController,
         diagnosticsTimelineSource: DiagnosticsTimelineSource,
@@ -244,6 +246,8 @@ class MainViewModel
                             configuredMode = configuredMode,
                             stringResolver = stringResolver,
                             deviceManufacturer = Build.MANUFACTURER.orEmpty(),
+                            batteryBannerDismissed = settings.batteryBannerDismissed,
+                            backgroundGuidanceDismissed = settings.backgroundGuidanceDismissed,
                         ),
                     approachSummary =
                         connectionActions.buildApproachSummary(
@@ -265,6 +269,19 @@ class MainViewModel
             initialized = true
             permissionActions.refreshPermissionSnapshot()
             connectionActions.initialize()
+            viewModelScope.launch {
+                permissionState
+                    .map { it.snapshot.batteryOptimization }
+                    .distinctUntilChanged()
+                    .collect { status ->
+                        if (
+                            status == com.poyka.ripdpi.permissions.PermissionStatus.RequiresSettings &&
+                            settingsState.value.batteryBannerDismissed
+                        ) {
+                            appSettingsRepository.update { setBatteryBannerDismissed(false) }
+                        }
+                    }
+            }
         }
 
         fun onPrimaryConnectionAction() {
@@ -307,4 +324,16 @@ class MainViewModel
         fun refreshPermissionSnapshot() = permissionActions.refreshPermissionSnapshot()
 
         fun dismissError() = connectionActions.dismissError()
+
+        fun onDismissBatteryBanner() {
+            viewModelScope.launch {
+                appSettingsRepository.update { setBatteryBannerDismissed(true) }
+            }
+        }
+
+        fun onDismissBackgroundGuidance() {
+            viewModelScope.launch {
+                appSettingsRepository.update { setBackgroundGuidanceDismissed(true) }
+            }
+        }
     }

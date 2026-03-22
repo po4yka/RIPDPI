@@ -60,6 +60,7 @@ fun SettingsRoute(
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
+    onDismissBackgroundGuidance: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -76,6 +77,7 @@ fun SettingsRoute(
         permissionSummary = permissionSummary,
         onRepairPermission = onRepairPermission,
         onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
+        onDismissBackgroundGuidance = onDismissBackgroundGuidance,
         onThemeSelected = viewModel::setAppTheme,
         onWebRtcProtectionChanged = viewModel::setWebRtcProtectionEnabled,
         onBiometricChanged = viewModel::setBiometricEnabled,
@@ -96,6 +98,7 @@ internal fun SettingsScreen(
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
+    onDismissBackgroundGuidance: () -> Unit = {},
     onThemeSelected: (String) -> Unit,
     onWebRtcProtectionChanged: (Boolean) -> Unit,
     onBiometricChanged: (Boolean) -> Unit,
@@ -277,6 +280,7 @@ internal fun SettingsScreen(
                         message = guidance.message,
                         tone = WarningBannerTone.Info,
                         testTag = RipDpiTestTags.SettingsBackgroundGuidanceBanner,
+                        onDismiss = onDismissBackgroundGuidance,
                     )
                     HorizontalDivider(color = colors.divider)
                 }

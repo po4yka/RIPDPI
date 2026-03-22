@@ -97,6 +97,8 @@ fun HomeRoute(
         onOpenHistory = onOpenHistory,
         onRepairPermission = viewModel::onRepairPermissionRequested,
         onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
+        onDismissBatteryBanner = viewModel::onDismissBatteryBanner,
+        onDismissBackgroundGuidance = viewModel::onDismissBackgroundGuidance,
     )
 }
 
@@ -108,6 +110,8 @@ fun HomeScreen(
     onOpenHistory: () -> Unit,
     onRepairPermission: (PermissionKind) -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
+    onDismissBatteryBanner: () -> Unit = {},
+    onDismissBackgroundGuidance: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -179,6 +183,7 @@ fun HomeScreen(
                 message = warning.message,
                 tone = WarningBannerTone.Warning,
                 testTag = RipDpiTestTags.HomePermissionRecommendationBanner,
+                onDismiss = onDismissBatteryBanner,
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -202,6 +207,7 @@ fun HomeScreen(
                 tone = WarningBannerTone.Info,
                 modifier = Modifier.fillMaxWidth(),
                 testTag = RipDpiTestTags.HomeBackgroundGuidanceBanner,
+                onDismiss = onDismissBackgroundGuidance,
             )
         }
 

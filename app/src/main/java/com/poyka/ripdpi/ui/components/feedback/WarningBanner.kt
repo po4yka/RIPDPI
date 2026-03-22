@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,11 +19,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -47,6 +51,7 @@ fun WarningBanner(
     tone: WarningBannerTone = WarningBannerTone.Warning,
     icon: ImageVector? = null,
     onClick: (() -> Unit)? = null,
+    onDismiss: (() -> Unit)? = null,
 ) {
     val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Banner)
     val palette = warningBannerPalette(tone)
@@ -72,6 +77,7 @@ fun WarningBanner(
                 message = message,
                 icon = resolvedIcon,
                 palette = palette,
+                onDismiss = onDismiss,
             )
         }
     } else {
@@ -88,6 +94,7 @@ fun WarningBanner(
                 message = message,
                 icon = resolvedIcon,
                 palette = palette,
+                onDismiss = onDismiss,
             )
         }
     }
@@ -99,6 +106,7 @@ private fun WarningBannerContent(
     message: String,
     icon: ImageVector,
     palette: WarningBannerPalette,
+    onDismiss: (() -> Unit)? = null,
 ) {
     val components = RipDpiThemeTokens.components
     val layout = RipDpiThemeTokens.layout
@@ -141,6 +149,22 @@ private fun WarningBannerContent(
                 style = type.secondaryBody,
                 color = palette.message,
             )
+        }
+        if (onDismiss != null) {
+            IconButton(
+                onClick = onDismiss,
+                modifier =
+                    Modifier
+                        .size(components.decorativeBadgeSize)
+                        .ripDpiTestTag(RipDpiTestTags.WarningBannerDismiss),
+            ) {
+                Icon(
+                    imageVector = RipDpiIcons.Close,
+                    contentDescription = stringResource(R.string.action_dismiss),
+                    tint = palette.title,
+                    modifier = Modifier.size(RipDpiIconSizes.Small),
+                )
+            }
         }
     }
 }
@@ -238,6 +262,27 @@ private fun WarningBannerPreview() {
                 title = "Feature unavailable",
                 message = "This control only applies when command-line mode is enabled.",
                 tone = WarningBannerTone.Restricted,
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun WarningBannerWithDismissPreview() {
+    RipDpiComponentPreview {
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
+            WarningBanner(
+                title = "Battery optimization",
+                message = "Allow RIPDPI to ignore battery optimization.",
+                tone = WarningBannerTone.Warning,
+                onDismiss = {},
+            )
+            WarningBanner(
+                title = "Background activity",
+                message = "Some devices add extra background limits.",
+                tone = WarningBannerTone.Info,
+                onDismiss = {},
             )
         }
     }

@@ -506,10 +506,13 @@ internal fun buildPermissionSummary(
     configuredMode: Mode,
     stringResolver: StringResolver,
     deviceManufacturer: String,
+    batteryBannerDismissed: Boolean = false,
+    backgroundGuidanceDismissed: Boolean = false,
 ): PermissionSummaryUiState {
     val recommendedIssue =
         if (
             issue == null &&
+            !batteryBannerDismissed &&
             snapshot.batteryOptimization != PermissionStatus.Granted &&
             snapshot.batteryOptimization != PermissionStatus.NotApplicable
         ) {
@@ -527,7 +530,9 @@ internal fun buildPermissionSummary(
         snapshot = snapshot,
         issue = issue,
         recommendedIssue = recommendedIssue,
-        backgroundGuidance = buildBackgroundGuidance(stringResolver, deviceManufacturer),
+        backgroundGuidance =
+            if (backgroundGuidanceDismissed) null
+            else buildBackgroundGuidance(stringResolver, deviceManufacturer),
         items =
             listOf(
                 buildNotificationPermissionItem(snapshot.notifications, stringResolver),

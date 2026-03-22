@@ -334,6 +334,7 @@ private fun NavGraphBuilder.addSettingsRoutes(
                 permissionSummary = mainUiState.permissionSummary,
                 onRepairPermission = actions.onRepairPermission,
                 onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
+                onDismissBackgroundGuidance = mainViewModel::onDismissBackgroundGuidance,
                 viewModel = settingsViewModel,
             )
         }

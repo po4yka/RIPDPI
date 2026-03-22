@@ -2,18 +2,9 @@ package com.poyka.ripdpi.permissions
 
 import com.poyka.ripdpi.R
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BatteryOptimizationGuidanceTest {
-    @Test
-    fun `detects samsung manufacturers case insensitively`() {
-        assertTrue(BatteryOptimizationGuidance.isSamsung("Samsung"))
-        assertTrue(BatteryOptimizationGuidance.isSamsung(" samsung "))
-        assertFalse(BatteryOptimizationGuidance.isSamsung("Google"))
-    }
-
     @Test
     fun `returns manufacturer-neutral doze copy`() {
         assertEquals(
@@ -31,22 +22,66 @@ class BatteryOptimizationGuidanceTest {
     }
 
     @Test
-    fun `returns samsung-specific background guidance for samsung devices`() {
-        assertEquals(
-            R.string.permissions_background_activity_title,
-            BatteryOptimizationGuidance.backgroundGuidanceTitleRes(),
-        )
+    fun `returns samsung guidance for samsung devices`() {
         assertEquals(
             R.string.permissions_background_activity_body_samsung,
             BatteryOptimizationGuidance.backgroundGuidanceMessageRes("samsung"),
         )
+        assertEquals(
+            R.string.permissions_background_activity_body_samsung,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("Samsung"),
+        )
+        assertEquals(
+            R.string.permissions_background_activity_body_samsung,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes(" samsung "),
+        )
     }
 
     @Test
-    fun `returns generic background guidance for non samsung devices`() {
+    fun `returns xiaomi guidance for xiaomi brand family`() {
+        assertEquals(
+            R.string.permissions_background_activity_body_xiaomi,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("Xiaomi"),
+        )
+        assertEquals(
+            R.string.permissions_background_activity_body_xiaomi,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("Redmi"),
+        )
+        assertEquals(
+            R.string.permissions_background_activity_body_xiaomi,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("POCO"),
+        )
+    }
+
+    @Test
+    fun `returns huawei guidance for huawei and honor`() {
+        assertEquals(
+            R.string.permissions_background_activity_body_huawei,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("HUAWEI"),
+        )
+        assertEquals(
+            R.string.permissions_background_activity_body_huawei,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("Honor"),
+        )
+    }
+
+    @Test
+    fun `returns oneplus guidance for oneplus devices`() {
+        assertEquals(
+            R.string.permissions_background_activity_body_oneplus,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("OnePlus"),
+        )
+    }
+
+    @Test
+    fun `returns generic guidance for unknown manufacturers`() {
         assertEquals(
             R.string.permissions_background_activity_body,
             BatteryOptimizationGuidance.backgroundGuidanceMessageRes("Google"),
+        )
+        assertEquals(
+            R.string.permissions_background_activity_body,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("Sony"),
         )
     }
 }
