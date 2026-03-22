@@ -1,468 +1,1813 @@
-[
-  {
-    "id": "default",
-    "name": "Default diagnostics",
-    "version": 1,
-    "request": {
-      "profileId": "default",
-      "displayName": "Default diagnostics",
-      "pathMode": "RAW_PATH",
-      "domainTargets": [
-        { "host": "www.youtube.com" },
-        { "host": "discord.com" },
-        { "host": "proton.me" },
-        { "host": "meduza.io" }
-      ],
-      "dnsTargets": [
-        { "domain": "rutor.info" },
-        { "domain": "rezka.ag" },
-        { "domain": "shikimori.one" }
-      ],
-      "tcpTargets": [
-        { "id": "CF-01", "provider": "Cloudflare", "ip": "172.67.70.222", "port": 443, "asn": "13335" },
-        { "id": "AWS-01", "provider": "AWS", "ip": "16.15.219.241", "port": 443, "asn": "16509" }
-      ],
-      "whitelistSni": [
-        "vk.com",
-        "dzen.ru",
-        "2gis.com"
-      ]
-    }
-  },
-  {
-    "id": "automatic-probing",
-    "name": "Automatic probing",
-    "version": 1,
-    "request": {
-      "profileId": "automatic-probing",
-      "displayName": "Automatic probing",
-      "pathMode": "RAW_PATH",
-      "kind": "STRATEGY_PROBE",
-      "domainTargets": [
-        { "host": "www.youtube.com" },
-        { "host": "discord.com" },
-        { "host": "proton.me" }
-      ],
-      "quicTargets": [
-        { "host": "www.youtube.com" },
-        { "host": "discord.com" }
-      ],
-      "strategyProbe": {
-        "suiteId": "quick_v1"
-      }
-    }
-  },
-  {
-    "id": "automatic-audit",
-    "name": "Automatic audit",
-    "version": 1,
-    "request": {
-      "profileId": "automatic-audit",
-      "displayName": "Automatic audit",
-      "pathMode": "RAW_PATH",
-      "kind": "STRATEGY_PROBE",
-      "domainTargets": [
-        { "host": "www.youtube.com" },
-        { "host": "discord.com" },
-        { "host": "proton.me" }
-      ],
-      "quicTargets": [
-        { "host": "www.youtube.com" },
-        { "host": "discord.com" }
-      ],
-      "strategyProbe": {
-        "suiteId": "full_matrix_v1"
-      }
-    }
-  },
-  {
-    "id": "dpi-detector-full",
-    "name": "DPI Detector Full",
-    "version": 1,
-    "request": {
-      "profileId": "dpi-detector-full",
-      "displayName": "DPI Detector Full",
-      "pathMode": "RAW_PATH",
-      "domainTargets": [
-        { "host": "www.instagram.com" },
-        { "host": "www.facebook.com" },
-        { "host": "x.com" },
-        { "host": "www.linkedin.com" },
-        { "host": "discord.com" },
-        { "host": "gateway.discord.gg" },
-        { "host": "media.discordapp.net" },
-        { "host": "www.youtube.com" },
-        { "host": "soundcloud.com" },
-        { "host": "meduza.io" },
-        { "host": "www.dw.com" },
-        { "host": "www.svoboda.org" },
-        { "host": "holod.media" },
-        { "host": "www.euronews.com" },
-        { "host": "www.torproject.org" },
-        { "host": "proton.me" },
-        { "host": "protonvpn.com" },
-        { "host": "roskomsvoboda.org" },
-        { "host": "amnezia.org" },
-        { "host": "nnmclub.to" },
-        { "host": "rezka.ag" },
-        { "host": "hub.docker.com" },
-        { "host": "www.intel.com" },
-        { "host": "www.canva.com" },
-        { "host": "www.coursera.org" },
-        { "host": "aws.amazon.com" },
-        { "host": "www.apkmirror.com" },
-        { "host": "www.currenttime.tv" },
-        { "host": "www.messenger.com" },
-        { "host": "www.themoscowtimes.com" },
-        { "host": "www.linuxserver.io" },
-        { "host": "danbooru.donmai.us" },
-        { "host": "gelbooru.com" },
-        { "host": "browserleaks.com" },
-        { "host": "www.cdn77.com" },
-        { "host": "shikimori.one" },
-        { "host": "mos-gorsud.co" },
-        { "host": "kinopub.online" },
-        { "host": "kino.pub" },
-        { "host": "vk.ru" },
-        { "host": "www.google.com" }
-      ],
-      "dnsTargets": [
-        { "domain": "rutor.info", "udpServer": "8.8.8.8:53" },
-        { "domain": "rutor.info", "udpServer": "1.1.1.1:53" },
-        { "domain": "rutor.info", "udpServer": "9.9.9.9:53" },
-        { "domain": "rutor.info", "udpServer": "94.140.14.14:53" },
-        { "domain": "rezka.ag", "udpServer": "8.8.8.8:53" },
-        { "domain": "rezka.ag", "udpServer": "1.1.1.1:53" },
-        { "domain": "rezka.ag", "udpServer": "9.9.9.9:53" },
-        { "domain": "rezka.ag", "udpServer": "94.140.14.14:53" },
-        { "domain": "meduza.io", "udpServer": "8.8.8.8:53" },
-        { "domain": "meduza.io", "udpServer": "1.1.1.1:53" },
-        { "domain": "meduza.io", "udpServer": "9.9.9.9:53" },
-        { "domain": "meduza.io", "udpServer": "94.140.14.14:53" },
-        { "domain": "discord.com", "udpServer": "8.8.8.8:53" },
-        { "domain": "discord.com", "udpServer": "1.1.1.1:53" },
-        { "domain": "discord.com", "udpServer": "9.9.9.9:53" },
-        { "domain": "discord.com", "udpServer": "94.140.14.14:53" },
-        { "domain": "youtube.com", "udpServer": "8.8.8.8:53" },
-        { "domain": "youtube.com", "udpServer": "1.1.1.1:53" },
-        { "domain": "youtube.com", "udpServer": "9.9.9.9:53" },
-        { "domain": "youtube.com", "udpServer": "94.140.14.14:53" },
-        { "domain": "proton.me", "udpServer": "8.8.8.8:53" },
-        { "domain": "proton.me", "udpServer": "1.1.1.1:53" },
-        { "domain": "proton.me", "udpServer": "9.9.9.9:53" },
-        { "domain": "proton.me", "udpServer": "94.140.14.14:53" }
-      ],
-      "tcpTargets": [
-        { "id": "HE-01", "provider": "Hetzner", "ip": "91.98.156.82", "port": 443, "asn": "24940" },
-        { "id": "HE-02", "provider": "Hetzner", "ip": "46.62.154.37", "port": 443, "asn": "24940" },
-        { "id": "HE-02", "provider": "Hetzner HTTP", "ip": "185.189.229.124", "port": 80, "asn": "24940" },
-        { "id": "HE-03", "provider": "Hetzner Cloud 2", "ip": "5.161.249.234", "port": 443, "asn": "213230" },
-        { "id": "HE-04", "provider": "Hetzner Cloud 2", "ip": "178.156.198.203", "port": 443, "asn": "213230" },
-        { "id": "HE-05", "provider": "Hetzner Cloud 3", "ip": "5.78.155.139", "port": 443, "asn": "212317" },
-        { "id": "HE-06", "provider": "Hetzner Cloud 3", "ip": "5.78.82.109", "port": 443, "asn": "212317" },
-        { "id": "HE-07", "provider": "Hetzner Cloud 4", "ip": "5.223.45.178", "port": 443, "asn": "215859" },
-        { "id": "HE-08", "provider": "Hetzner Cloud 4", "ip": "5.223.68.131", "port": 443, "asn": "215859" },
-        { "id": "CF-01", "provider": "Cloudflare", "ip": "172.67.70.222", "port": 443, "asn": "13335" },
-        { "id": "CF-02", "provider": "Cloudflare", "ip": "172.67.181.54", "port": 443, "asn": "13335" },
-        { "id": "CF-03", "provider": "Cloudflare", "ip": "104.18.63.125", "port": 443, "asn": "13335" },
-        { "id": "CF-04", "provider": "Cloudflare", "ip": "104.19.153.39", "port": 443, "asn": "13335" },
-        { "id": "CF-05", "provider": "Cloudflare", "ip": "104.18.46.6", "port": 443, "asn": "13335" },
-        { "id": "CF-06", "provider": "Cloudflare", "ip": "104.16.59.56", "port": 443, "asn": "13335" },
-        { "id": "CDN-02", "provider": "CDN77 #1", "ip": "89.187.169.9", "port": 443, "asn": "60068" },
-        { "id": "CDN-03", "provider": "CDN77 #1", "ip": "169.150.239.5", "port": 443, "asn": "60068" },
-        { "id": "CDN-04", "provider": "CDN77 #1 HTTP", "ip": "84.17.50.100", "port": 80, "asn": "60068" },
-        { "id": "CDN-05", "provider": "CDN77 #2", "ip": "82.27.130.121", "port": 443, "asn": "212238" },
-        { "id": "CDN-06", "provider": "CDN77 #2", "ip": "194.32.146.68", "port": 443, "asn": "212238" },
-        { "id": "CDN-07", "provider": "CDN77 #2", "ip": "173.211.70.143", "port": 443, "asn": "212238" },
-        { "id": "AK-01", "provider": "Akamai 1", "ip": "23.222.76.4", "port": 443, "asn": "20940" },
-        { "id": "AK-02", "provider": "Akamai 1", "ip": "23.46.144.6", "port": 443, "asn": "20940" },
-        { "id": "AK-03", "provider": "Akamai 1 HTTP", "ip": "72.246.41.5", "port": 80, "asn": "20940" },
-        { "id": "AK-04", "provider": "Akamai 1", "ip": "95.100.240.7", "port": 443, "asn": "20940" },
-        { "id": "AK-05", "provider": "Akamai 2", "ip": "23.1.64.4", "port": 443, "asn": "16625" },
-        { "id": "AK-06", "provider": "Akamai 2", "ip": "184.31.208.5", "port": 443, "asn": "16625" },
-        { "id": "AK-07", "provider": "Akamai 3", "ip": "23.62.225.111", "port": 443, "asn": "12222" },
-        { "id": "AK-08", "provider": "Akamai 3", "ip": "88.221.209.114", "port": 443, "asn": "12222" },
-        { "id": "AK-09", "provider": "Akamai 4", "ip": "23.11.41.163", "port": 443, "asn": "33905", "sni": "media.miele.com" },
-        { "id": "AK-10", "provider": "Akamai Cloud", "ip": "172.236.2.30", "port": 443, "asn": "63949", "sni": "media.miele.com" },
-        { "id": "AK-11", "provider": "Akamai Cloud", "ip": "212.71.233.10", "port": 443, "asn": "63949", "sni": "media.miele.com" },
-        { "id": "AK-10", "provider": "Akamai Cloud", "ip": "172.236.2.30", "port": 443, "asn": "63949" },
-        { "id": "AK-11", "provider": "Akamai Cloud", "ip": "212.71.233.10", "port": 443, "asn": "63949" },
-        { "id": "AWS-01", "provider": "AWS 1", "ip": "16.15.219.241", "port": 443, "asn": "16509" },
-        { "id": "AWS-02", "provider": "AWS 1", "ip": "76.223.67.41", "port": 443, "asn": "16509" },
-        { "id": "AWS-03", "provider": "AWS 1", "ip": "168.100.27.4", "port": 443, "asn": "16509" },
-        { "id": "AWS-04", "provider": "AWS 2", "ip": "54.196.100.238", "port": 443, "asn": "14618" },
-        { "id": "AWS-05", "provider": "AWS 2", "ip": "148.5.72.176", "port": 443, "asn": "14618" },
-        { "id": "AWS-06", "provider": "AWS 3", "ip": "198.22.163.54", "port": 443, "asn": "8987" },
-        { "id": "AWS-07", "provider": "AWS 3", "ip": "108.175.48.27", "port": 443, "asn": "8987" },
-        { "id": "CNT-01", "provider": "Contabo 1", "ip": "173.249.28.198", "port": 443, "asn": "51167" },
-        { "id": "CNT-02", "provider": "Contabo 1", "ip": "62.171.173.1", "port": 443, "asn": "51167" },
-        { "id": "CNT-03", "provider": "Contabo 1", "ip": "185.211.6.51", "port": 443, "asn": "51167" },
-        { "id": "CNT-04", "provider": "Contabo 1", "ip": "5.189.159.58", "port": 443, "asn": "51167" },
-        { "id": "CNT-05", "provider": "Contabo 2", "ip": "217.217.252.183", "port": 443, "asn": "141995" },
-        { "id": "CNT-06", "provider": "Contabo 2", "ip": "147.93.153.44", "port": 443, "asn": "141995" },
-        { "id": "CNT-07", "provider": "Contabo 2", "ip": "94.136.190.9", "port": 443, "asn": "141995" },
-        { "id": "FST-01", "provider": "Fastly", "ip": "151.101.66.245", "port": 443, "asn": "54113", "sni": "www.jetblue.com" },
-        { "id": "FST-02", "provider": "Fastly", "ip": "151.101.194.114", "port": 443, "asn": "54113", "sni": "ssl.p.jwpcdn.com" },
-        { "id": "GC-01", "provider": "Google Cloud", "ip": "147.189.239.240", "port": 443, "asn": "396982" },
-        { "id": "GC-02", "provider": "Google Cloud", "ip": "35.227.66.60", "port": 443, "asn": "396982" },
-        { "id": "GCR-01", "provider": "Gcore 1", "ip": "213.156.152.155", "port": 443, "asn": "199524" },
-        { "id": "GCR-02", "provider": "Gcore 1", "ip": "92.223.13.10", "port": 443, "asn": "199524" },
-        { "id": "GCR-03", "provider": "Gcore 1", "ip": "185.145.113.133", "port": 443, "asn": "199524" },
-        { "id": "GCR-04", "provider": "Gcore 1", "ip": "82.117.228.93", "port": 443, "asn": "199524" },
-        { "id": "GCR-05", "provider": "Gcore 2", "ip": "5.8.34.27", "port": 443, "asn": "202422" },
-        { "id": "GCR-06", "provider": "Gcore 2", "ip": "5.188.190.167", "port": 443, "asn": "202422" },
-        { "id": "OR-01", "provider": "Oracle Cloud", "ip": "152.67.64.161", "port": 443, "asn": "31898" },
-        { "id": "OR-02", "provider": "Oracle Cloud", "ip": "67.222.57.149", "port": 443, "asn": "31898" },
-        { "id": "OR-03", "provider": "Oracle Cloud", "ip": "132.145.253.77", "port": 443, "asn": "31898" },
-        { "id": "OR-04", "provider": "Oracle Cloud", "ip": "158.180.238.77", "port": 443, "asn": "31898" },
-        { "id": "OR-05", "provider": "Oracle 1 HTTP", "ip": "79.72.37.28", "port": 80, "asn": "54253" },
-        { "id": "OR-06", "provider": "Oracle 1", "ip": "158.178.160.240", "port": 443, "asn": "54253" },
-        { "id": "OR-07", "provider": "Oracle 1", "ip": "217.142.192.157", "port": 443, "asn": "54253" },
-        { "id": "OR-09", "provider": "Oracle 2", "ip": "156.151.59.19", "port": 443, "asn": "1219" },
-        { "id": "OR-10", "provider": "Oracle 3", "ip": "139.87.83.30", "port": 443, "asn": "6142" },
-        { "id": "OR-11", "provider": "Oracle 3", "ip": "139.87.117.158", "port": 443, "asn": "6142" },
-        { "id": "OR-12", "provider": "Oracle 4", "ip": "207.127.85.89", "port": 443, "asn": "14544" },
-        { "id": "OR-13", "provider": "Oracle 5", "ip": "155.248.72.27", "port": 443, "asn": "20054" },
-        { "id": "OVH-01", "provider": "OVH", "ip": "199.168.193.103", "port": 443, "asn": "16276" },
-        { "id": "OVH-02", "provider": "OVH", "ip": "141.95.228.164", "port": 443, "asn": "16276" },
-        { "id": "OVH-03", "provider": "OVH", "ip": "46.105.222.91", "port": 443, "asn": "16276" },
-        { "id": "OVH-04", "provider": "OVH", "ip": "40.160.45.210", "port": 443, "asn": "16276" },
-        { "id": "OVH-05", "provider": "OVH HTTP", "ip": "185.155.218.223", "port": 80, "asn": "16276" },
-        { "id": "SW-01", "provider": "Scaleway 1", "ip": "62.4.10.75", "port": 443, "asn": "12876" },
-        { "id": "SW-02", "provider": "Scaleway 1", "ip": "51.158.153.203", "port": 443, "asn": "12876" },
-        { "id": "SW-03", "provider": "Scaleway 1", "ip": "212.83.152.108", "port": 443, "asn": "12876" },
-        { "id": "SW-04", "provider": "Scaleway 1 HTTP", "ip": "163.172.223.99", "port": 80, "asn": "12876" },
-        { "id": "SW-05", "provider": "Scaleway 2", "ip": "81.56.227.171", "port": 443, "asn": "29447" },
-        { "id": "SW-06", "provider": "Scaleway 2", "ip": "83.158.240.200", "port": 443, "asn": "29447" },
-        { "id": "SW-07", "provider": "Scaleway 2", "ip": "81.56.11.201", "port": 443, "asn": "29447" },
-        { "id": "DO-01", "provider": "DigitalOcean 1", "ip": "157.230.91.62", "port": 443, "asn": "14061" },
-        { "id": "DO-02", "provider": "DigitalOcean 1", "ip": "138.68.63.162", "port": 443, "asn": "14061" },
-        { "id": "DO-03", "provider": "DigitalOcean 1", "ip": "159.203.180.157", "port": 443, "asn": "14061" },
-        { "id": "DO-04", "provider": "DigitalOcean 1", "ip": "147.182.168.41", "port": 443, "asn": "14061" },
-        { "id": "DO-05", "provider": "DigitalOcean 1", "ip": "45.55.107.70", "port": 443, "asn": "14061" },
-        { "id": "DO-06", "provider": "DigitalOcean 2", "ip": "141.0.173.188", "port": 443, "asn": "46652" },
-        { "id": "DO-07", "provider": "DigitalOcean 2", "ip": "69.55.57.11", "port": 443, "asn": "46652" },
-        { "id": "VLT-01", "provider": "Vultr", "ip": "209.250.243.50", "port": 443, "asn": "20473" },
-        { "id": "VLT-02", "provider": "Vultr", "ip": "64.176.188.124", "port": 443, "asn": "20473" },
-        { "id": "VLT-03", "provider": "Vultr", "ip": "108.61.167.59", "port": 443, "asn": "20473" },
-        { "id": "VLT-04", "provider": "Vultr", "ip": "173.199.115.182", "port": 443, "asn": "20473" },
-        { "id": "MBC-01", "provider": "Melbicom 1", "ip": "193.35.224.194", "port": 443, "asn": "8849" },
-        { "id": "MBC-03", "provider": "Melbicom 2", "ip": "185.6.14.1", "port": 443, "asn": "56630" },
-        { "id": "FT-01", "provider": "FranTech", "ip": "104.244.74.134", "port": 443, "asn": "53667" },
-        { "id": "FT-02", "provider": "FranTech", "ip": "198.251.88.98", "port": 443, "asn": "53667" },
-        { "id": "CV-01", "provider": "Clouvider", "ip": "130.185.249.20", "port": 443, "asn": "62240" },
-        { "id": "CV-02", "provider": "Clouvider", "ip": "194.127.178.154", "port": 443, "asn": "62240" },
-        { "id": "ME-01", "provider": "M247 Europe SRL", "ip": "146.70.158.22", "port": 443, "asn": "9009" },
-        { "id": "IM-01", "provider": "IOMART 1", "ip": "213.175.200.210", "port": 443, "asn": "20860" },
-        { "id": "IM-02", "provider": "IOMART 2", "ip": "185.224.199.82", "port": 443, "asn": "21130" },
-        { "id": "ZL-01", "provider": "Zenlayer", "ip": "193.118.45.137", "port": 443, "asn": "21859" },
-        { "id": "CN-01", "provider": "CreaNova", "ip": "185.212.149.82", "port": 443, "asn": "51765" },
-        { "id": "SCA-01", "provider": "Scalaxy", "ip": "5.61.55.146", "port": 443, "asn": "58061" }
-      ],
-      "whitelistSni": [
-        "vk.com",
-        "2gis.com",
-        "2gis.ru",
-        "300.ya.ru",
-        "ad.adriver.ru",
-        "3475482542.mc.yandex.ru",
-        "742231.ms.ok.ru",
-        "a.wb.ru",
-        "ad.mail.ru",
-        "adm.mp.rzd.ru",
-        "akashi.vk-portal.net",
-        "alfabank.ru",
-        "web.max.ru",
-        "ams2-cdn.2gis.com",
-        "an.yandex.ru",
-        "api-maps.yandex.ru",
-        "api.2gis.ru",
-        "api.avito.ru",
-        "api.browser.yandex.com",
-        "api.browser.yandex.ru",
-        "api.events.plus.yandex.net",
-        "api.mindbox.ru",
-        "api.photo.2gis.com",
-        "api.reviews.2gis.com",
-        "avatars.mds.yandex.com",
-        "avatars.mds.yandex.net",
-        "avito.ru",
-        "banners-website.wildberries.ru",
-        "bot.gosuslugi.ru",
-        "bro-bg-store.s3.yandex.com",
-        "bro-bg-store.s3.yandex.net",
-        "bro-bg-store.s3.yandex.ru",
-        "brontp-pre.yandex.ru",
-        "browser.yandex.com",
-        "browser.yandex.ru",
-        "cargo.rzd.ru",
-        "catalog.api.2gis.com",
-        "cdn.lemanapro.ru",
-        "cdn.yandex.ru",
-        "cdnrhkgfkkpupuotntfj.svc.cdn.yandex.net",
-        "chat-prod.wildberries.ru",
-        "chat3.vtb.ru",
-        "cloud.cdn.yandex.com",
-        "cloud.cdn.yandex.net",
-        "cloud.cdn.yandex.ru",
-        "cloudcdn-ams19.cdn.yandex.net",
-        "collections.yandex.com",
-        "collections.yandex.ru",
-        "company.rzd.ru",
-        "contacts.rzd.ru",
-        "contract.gosuslugi.ru",
-        "cs.avito.ru",
-        "csp.yandex.net",
-        "d-assets.2gis.ru",
-        "disk.2gis.com",
-        "disk.rzd.ru",
-        "dmp.dmpkit.lemanapro.ru",
-        "dr.yandex.net",
-        "dr2.yandex.net",
-        "dzen.ru",
-        "egress.yandex.net",
-        "eh.vk.com",
-        "ekmp-a-51.rzd.ru",
-        "enterprise.api-maps.yandex.ru",
-        "esia.gosuslugi.ru",
-        "favorites.api.2gis.com",
-        "favicon.yandex.com",
-        "favicon.yandex.net",
-        "favicon.yandex.ru",
-        "filekeeper-vod.2gis.com",
-        "frontend.vh.yandex.ru",
-        "gosuslugi.ru",
-        "i0.photo.2gis.com",
-        "i1.photo.2gis.com",
-        "i2.photo.2gis.com",
-        "i3.photo.2gis.com",
-        "i4.photo.2gis.com",
-        "i5.photo.2gis.com",
-        "i6.photo.2gis.com",
-        "i7.photo.2gis.com",
-        "i8.photo.2gis.com",
-        "i9.photo.2gis.com",
-        "id.sber.ru",
-        "jam.api.2gis.com",
-        "keys.api.2gis.com",
-        "kiks.yandex.com",
-        "kiks.yandex.ru",
-        "lemanapro.ru",
-        "link.mp.rzd.ru",
-        "lk.gosuslugi.ru",
-        "log.strm.yandex.ru",
-        "login.vk.com",
-        "m.avito.ru",
-        "mail.yandex.com",
-        "mail.yandex.ru",
-        "map.gosuslugi.ru",
-        "mapgl.2gis.com",
-        "market.rzd.ru",
-        "mc.yandex.com",
-        "mc.yandex.ru",
-        "mddc.tinkoff.ru",
-        "mediafeeds.yandex.com",
-        "mediafeeds.yandex.ru",
-        "metrics.alfabank.ru",
-        "mp.rzd.ru",
-        "my.rzd.ru",
-        "neuro.translate.yandex.ru",
-        "novorossiya.gosuslugi.ru",
-        "ok.ru",
-        "ozon.ru",
-        "partners.gosuslugi.ru",
-        "partners.lemanapro.ru",
-        "personalization-web-stable.mindbox.ru",
-        "pos.gosuslugi.ru",
-        "privacy-cs.mail.ru",
-        "prodvizhenie.rzd.ru",
-        "public-api.reviews.2gis.com",
-        "pulse.mp.rzd.ru",
-        "queuev4.vk.com",
-        "rs.mail.ru",
-        "rzd.ru",
-        "s.vtb.ru",
-        "s0.bss.2gis.com",
-        "s1.bss.2gis.com",
-        "s3.yandex.net",
-        "sba.yandex.com",
-        "sba.yandex.net",
-        "sba.yandex.ru",
-        "secure-cloud.rzd.ru",
-        "secure.rzd.ru",
-        "sfd.gosuslugi.ru",
-        "sntr.avito.ru",
-        "speller.yandex.net",
-        "splitter.wb.ru",
-        "sso-app4.vtb.ru",
-        "sso-app5.vtb.ru",
-        "sso.dzen.ru",
-        "st-ok.cdn-vk.ru",
-        "st.avito.ru",
-        "static-mon.yandex.net",
-        "static.lemanapro.ru",
-        "stats.avito.ru",
-        "stats.vk-portal.net",
-        "storage.ape.yandex.net",
-        "strm-rad-23.strm.yandex.net",
-        "strm-spbmiran-08.strm.yandex.net",
-        "strm.yandex.net",
-        "strm.yandex.ru",
-        "styles.api.2gis.com",
-        "suggest.dzen.ru",
-        "suggest.sso.dzen.ru",
-        "surveys.yandex.ru",
-        "sync.browser.yandex.net",
-        "team.rzd.ru",
-        "ticket.rzd.ru",
-        "tile0.maps.2gis.com",
-        "tile1.maps.2gis.com",
-        "tile2.maps.2gis.com",
-        "tile3.maps.2gis.com",
-        "tile4.maps.2gis.com",
-        "top-fwz1.mail.ru",
-        "travel.rzd.ru",
-        "user-geo-data.wildberries.ru",
-        "vk-portal.net",
-        "wap.yandex.com",
-        "wap.yandex.ru",
-        "wb.ru",
-        "web-static.mindbox.ru",
-        "welcome.rzd.ru",
-        "widgets.cbonds.ru",
-        "www.avito.ru",
-        "www.gosuslugi.ru",
-        "www.ozon.ru",
-        "www.rzd.ru",
-        "www.vtb.ru",
-        "www.wildberries.ru",
-        "xapi.ozon.ru",
-        "yabro-wbplugin.edadeal.yandex.ru",
-        "yabs.yandex.ru",
-        "yandex.com",
-        "yandex.net",
-        "yandex.ru",
-        "yastatic.net",
-        "zen-yabro-morda.mediascope.mc.yandex.ru",
-        "zen.yandex.com",
-        "zen.yandex.net",
-        "zen.yandex.ru"
-      ],
-      "telegramTarget": {
-        "mediaUrl": "https://telegram.org/img/Telegram200million.png",
-        "uploadIp": "149.154.167.99",
-        "uploadPort": 443,
-        "dcEndpoints": [
-          { "ip": "149.154.175.53", "label": "DC1", "port": 443 },
-          { "ip": "149.154.167.51", "label": "DC2", "port": 443 },
-          { "ip": "149.154.175.100", "label": "DC3", "port": 443 },
-          { "ip": "149.154.167.91", "label": "DC4", "port": 443 },
-          { "ip": "91.108.56.130", "label": "DC5", "port": 443 }
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-03-22",
+  "profiles": [
+    {
+      "id": "default",
+      "name": "Default diagnostics",
+      "version": 1,
+      "request": {
+        "profileId": "default",
+        "displayName": "Default diagnostics",
+        "pathMode": "RAW_PATH",
+        "domainTargets": [
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "discord.com"
+          },
+          {
+            "host": "proton.me"
+          },
+          {
+            "host": "meduza.io"
+          }
         ],
-        "stallTimeoutMs": 10000,
-        "totalTimeoutMs": 60000,
-        "uploadSizeBytes": 10485760
+        "dnsTargets": [
+          {
+            "domain": "rutor.info"
+          },
+          {
+            "domain": "rezka.ag"
+          },
+          {
+            "domain": "shikimori.one"
+          }
+        ],
+        "tcpTargets": [
+          {
+            "id": "CF-01",
+            "provider": "Cloudflare",
+            "ip": "172.67.70.222",
+            "port": 443,
+            "asn": "13335"
+          },
+          {
+            "id": "AWS-01",
+            "provider": "AWS",
+            "ip": "16.15.219.241",
+            "port": 443,
+            "asn": "16509"
+          }
+        ],
+        "whitelistSni": [
+          "vk.com",
+          "dzen.ru",
+          "2gis.com"
+        ]
+      }
+    },
+    {
+      "id": "automatic-probing",
+      "name": "Automatic probing",
+      "version": 1,
+      "request": {
+        "profileId": "automatic-probing",
+        "displayName": "Automatic probing",
+        "pathMode": "RAW_PATH",
+        "kind": "STRATEGY_PROBE",
+        "domainTargets": [
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "discord.com"
+          },
+          {
+            "host": "proton.me"
+          }
+        ],
+        "quicTargets": [
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "discord.com"
+          }
+        ],
+        "strategyProbe": {
+          "suiteId": "quick_v1"
+        }
+      }
+    },
+    {
+      "id": "automatic-audit",
+      "name": "Automatic audit",
+      "version": 1,
+      "request": {
+        "profileId": "automatic-audit",
+        "displayName": "Automatic audit",
+        "pathMode": "RAW_PATH",
+        "kind": "STRATEGY_PROBE",
+        "domainTargets": [
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "discord.com"
+          },
+          {
+            "host": "proton.me"
+          }
+        ],
+        "quicTargets": [
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "discord.com"
+          }
+        ],
+        "strategyProbe": {
+          "suiteId": "full_matrix_v1"
+        }
+      }
+    },
+    {
+      "id": "dpi-detector-full",
+      "name": "DPI Detector Full",
+      "version": 1,
+      "request": {
+        "profileId": "dpi-detector-full",
+        "displayName": "DPI Detector Full",
+        "pathMode": "RAW_PATH",
+        "domainTargets": [
+          {
+            "host": "www.instagram.com"
+          },
+          {
+            "host": "www.facebook.com"
+          },
+          {
+            "host": "x.com"
+          },
+          {
+            "host": "www.linkedin.com"
+          },
+          {
+            "host": "discord.com"
+          },
+          {
+            "host": "gateway.discord.gg"
+          },
+          {
+            "host": "media.discordapp.net"
+          },
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "soundcloud.com"
+          },
+          {
+            "host": "meduza.io"
+          },
+          {
+            "host": "www.dw.com"
+          },
+          {
+            "host": "www.svoboda.org"
+          },
+          {
+            "host": "holod.media"
+          },
+          {
+            "host": "www.euronews.com"
+          },
+          {
+            "host": "www.torproject.org"
+          },
+          {
+            "host": "proton.me"
+          },
+          {
+            "host": "protonvpn.com"
+          },
+          {
+            "host": "roskomsvoboda.org"
+          },
+          {
+            "host": "amnezia.org"
+          },
+          {
+            "host": "nnmclub.to"
+          },
+          {
+            "host": "rezka.ag"
+          },
+          {
+            "host": "hub.docker.com"
+          },
+          {
+            "host": "www.intel.com"
+          },
+          {
+            "host": "www.canva.com"
+          },
+          {
+            "host": "www.coursera.org"
+          },
+          {
+            "host": "aws.amazon.com"
+          },
+          {
+            "host": "www.apkmirror.com"
+          },
+          {
+            "host": "www.currenttime.tv"
+          },
+          {
+            "host": "www.messenger.com"
+          },
+          {
+            "host": "www.themoscowtimes.com"
+          },
+          {
+            "host": "www.linuxserver.io"
+          },
+          {
+            "host": "danbooru.donmai.us"
+          },
+          {
+            "host": "gelbooru.com"
+          },
+          {
+            "host": "browserleaks.com"
+          },
+          {
+            "host": "www.cdn77.com"
+          },
+          {
+            "host": "shikimori.one"
+          },
+          {
+            "host": "mos-gorsud.co"
+          },
+          {
+            "host": "kinopub.online"
+          },
+          {
+            "host": "kino.pub"
+          },
+          {
+            "host": "vk.ru"
+          },
+          {
+            "host": "www.google.com"
+          }
+        ],
+        "dnsTargets": [
+          {
+            "domain": "rutor.info",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "rutor.info",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "rutor.info",
+            "udpServer": "9.9.9.9:53"
+          },
+          {
+            "domain": "rutor.info",
+            "udpServer": "94.140.14.14:53"
+          },
+          {
+            "domain": "rezka.ag",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "rezka.ag",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "rezka.ag",
+            "udpServer": "9.9.9.9:53"
+          },
+          {
+            "domain": "rezka.ag",
+            "udpServer": "94.140.14.14:53"
+          },
+          {
+            "domain": "meduza.io",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "meduza.io",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "meduza.io",
+            "udpServer": "9.9.9.9:53"
+          },
+          {
+            "domain": "meduza.io",
+            "udpServer": "94.140.14.14:53"
+          },
+          {
+            "domain": "discord.com",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "discord.com",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "discord.com",
+            "udpServer": "9.9.9.9:53"
+          },
+          {
+            "domain": "discord.com",
+            "udpServer": "94.140.14.14:53"
+          },
+          {
+            "domain": "youtube.com",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "youtube.com",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "youtube.com",
+            "udpServer": "9.9.9.9:53"
+          },
+          {
+            "domain": "youtube.com",
+            "udpServer": "94.140.14.14:53"
+          },
+          {
+            "domain": "proton.me",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "proton.me",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "proton.me",
+            "udpServer": "9.9.9.9:53"
+          },
+          {
+            "domain": "proton.me",
+            "udpServer": "94.140.14.14:53"
+          }
+        ],
+        "tcpTargets": [
+          {
+            "id": "HE-01",
+            "provider": "Hetzner",
+            "ip": "91.98.156.82",
+            "port": 443,
+            "asn": "24940"
+          },
+          {
+            "id": "HE-02",
+            "provider": "Hetzner",
+            "ip": "46.62.154.37",
+            "port": 443,
+            "asn": "24940"
+          },
+          {
+            "id": "HE-02",
+            "provider": "Hetzner HTTP",
+            "ip": "185.189.229.124",
+            "port": 80,
+            "asn": "24940"
+          },
+          {
+            "id": "HE-03",
+            "provider": "Hetzner Cloud 2",
+            "ip": "5.161.249.234",
+            "port": 443,
+            "asn": "213230"
+          },
+          {
+            "id": "HE-04",
+            "provider": "Hetzner Cloud 2",
+            "ip": "178.156.198.203",
+            "port": 443,
+            "asn": "213230"
+          },
+          {
+            "id": "HE-05",
+            "provider": "Hetzner Cloud 3",
+            "ip": "5.78.155.139",
+            "port": 443,
+            "asn": "212317"
+          },
+          {
+            "id": "HE-06",
+            "provider": "Hetzner Cloud 3",
+            "ip": "5.78.82.109",
+            "port": 443,
+            "asn": "212317"
+          },
+          {
+            "id": "HE-07",
+            "provider": "Hetzner Cloud 4",
+            "ip": "5.223.45.178",
+            "port": 443,
+            "asn": "215859"
+          },
+          {
+            "id": "HE-08",
+            "provider": "Hetzner Cloud 4",
+            "ip": "5.223.68.131",
+            "port": 443,
+            "asn": "215859"
+          },
+          {
+            "id": "CF-01",
+            "provider": "Cloudflare",
+            "ip": "172.67.70.222",
+            "port": 443,
+            "asn": "13335"
+          },
+          {
+            "id": "CF-02",
+            "provider": "Cloudflare",
+            "ip": "172.67.181.54",
+            "port": 443,
+            "asn": "13335"
+          },
+          {
+            "id": "CF-03",
+            "provider": "Cloudflare",
+            "ip": "104.18.63.125",
+            "port": 443,
+            "asn": "13335"
+          },
+          {
+            "id": "CF-04",
+            "provider": "Cloudflare",
+            "ip": "104.19.153.39",
+            "port": 443,
+            "asn": "13335"
+          },
+          {
+            "id": "CF-05",
+            "provider": "Cloudflare",
+            "ip": "104.18.46.6",
+            "port": 443,
+            "asn": "13335"
+          },
+          {
+            "id": "CF-06",
+            "provider": "Cloudflare",
+            "ip": "104.16.59.56",
+            "port": 443,
+            "asn": "13335"
+          },
+          {
+            "id": "CDN-02",
+            "provider": "CDN77 #1",
+            "ip": "89.187.169.9",
+            "port": 443,
+            "asn": "60068"
+          },
+          {
+            "id": "CDN-03",
+            "provider": "CDN77 #1",
+            "ip": "169.150.239.5",
+            "port": 443,
+            "asn": "60068"
+          },
+          {
+            "id": "CDN-04",
+            "provider": "CDN77 #1 HTTP",
+            "ip": "84.17.50.100",
+            "port": 80,
+            "asn": "60068"
+          },
+          {
+            "id": "CDN-05",
+            "provider": "CDN77 #2",
+            "ip": "82.27.130.121",
+            "port": 443,
+            "asn": "212238"
+          },
+          {
+            "id": "CDN-06",
+            "provider": "CDN77 #2",
+            "ip": "194.32.146.68",
+            "port": 443,
+            "asn": "212238"
+          },
+          {
+            "id": "CDN-07",
+            "provider": "CDN77 #2",
+            "ip": "173.211.70.143",
+            "port": 443,
+            "asn": "212238"
+          },
+          {
+            "id": "AK-01",
+            "provider": "Akamai 1",
+            "ip": "23.222.76.4",
+            "port": 443,
+            "asn": "20940"
+          },
+          {
+            "id": "AK-02",
+            "provider": "Akamai 1",
+            "ip": "23.46.144.6",
+            "port": 443,
+            "asn": "20940"
+          },
+          {
+            "id": "AK-03",
+            "provider": "Akamai 1 HTTP",
+            "ip": "72.246.41.5",
+            "port": 80,
+            "asn": "20940"
+          },
+          {
+            "id": "AK-04",
+            "provider": "Akamai 1",
+            "ip": "95.100.240.7",
+            "port": 443,
+            "asn": "20940"
+          },
+          {
+            "id": "AK-05",
+            "provider": "Akamai 2",
+            "ip": "23.1.64.4",
+            "port": 443,
+            "asn": "16625"
+          },
+          {
+            "id": "AK-06",
+            "provider": "Akamai 2",
+            "ip": "184.31.208.5",
+            "port": 443,
+            "asn": "16625"
+          },
+          {
+            "id": "AK-07",
+            "provider": "Akamai 3",
+            "ip": "23.62.225.111",
+            "port": 443,
+            "asn": "12222"
+          },
+          {
+            "id": "AK-08",
+            "provider": "Akamai 3",
+            "ip": "88.221.209.114",
+            "port": 443,
+            "asn": "12222"
+          },
+          {
+            "id": "AK-09",
+            "provider": "Akamai 4",
+            "ip": "23.11.41.163",
+            "port": 443,
+            "asn": "33905",
+            "sni": "media.miele.com"
+          },
+          {
+            "id": "AK-10",
+            "provider": "Akamai Cloud",
+            "ip": "172.236.2.30",
+            "port": 443,
+            "asn": "63949",
+            "sni": "media.miele.com"
+          },
+          {
+            "id": "AK-11",
+            "provider": "Akamai Cloud",
+            "ip": "212.71.233.10",
+            "port": 443,
+            "asn": "63949",
+            "sni": "media.miele.com"
+          },
+          {
+            "id": "AK-10",
+            "provider": "Akamai Cloud",
+            "ip": "172.236.2.30",
+            "port": 443,
+            "asn": "63949"
+          },
+          {
+            "id": "AK-11",
+            "provider": "Akamai Cloud",
+            "ip": "212.71.233.10",
+            "port": 443,
+            "asn": "63949"
+          },
+          {
+            "id": "AWS-01",
+            "provider": "AWS 1",
+            "ip": "16.15.219.241",
+            "port": 443,
+            "asn": "16509"
+          },
+          {
+            "id": "AWS-02",
+            "provider": "AWS 1",
+            "ip": "76.223.67.41",
+            "port": 443,
+            "asn": "16509"
+          },
+          {
+            "id": "AWS-03",
+            "provider": "AWS 1",
+            "ip": "168.100.27.4",
+            "port": 443,
+            "asn": "16509"
+          },
+          {
+            "id": "AWS-04",
+            "provider": "AWS 2",
+            "ip": "54.196.100.238",
+            "port": 443,
+            "asn": "14618"
+          },
+          {
+            "id": "AWS-05",
+            "provider": "AWS 2",
+            "ip": "148.5.72.176",
+            "port": 443,
+            "asn": "14618"
+          },
+          {
+            "id": "AWS-06",
+            "provider": "AWS 3",
+            "ip": "198.22.163.54",
+            "port": 443,
+            "asn": "8987"
+          },
+          {
+            "id": "AWS-07",
+            "provider": "AWS 3",
+            "ip": "108.175.48.27",
+            "port": 443,
+            "asn": "8987"
+          },
+          {
+            "id": "CNT-01",
+            "provider": "Contabo 1",
+            "ip": "173.249.28.198",
+            "port": 443,
+            "asn": "51167"
+          },
+          {
+            "id": "CNT-02",
+            "provider": "Contabo 1",
+            "ip": "62.171.173.1",
+            "port": 443,
+            "asn": "51167"
+          },
+          {
+            "id": "CNT-03",
+            "provider": "Contabo 1",
+            "ip": "185.211.6.51",
+            "port": 443,
+            "asn": "51167"
+          },
+          {
+            "id": "CNT-04",
+            "provider": "Contabo 1",
+            "ip": "5.189.159.58",
+            "port": 443,
+            "asn": "51167"
+          },
+          {
+            "id": "CNT-05",
+            "provider": "Contabo 2",
+            "ip": "217.217.252.183",
+            "port": 443,
+            "asn": "141995"
+          },
+          {
+            "id": "CNT-06",
+            "provider": "Contabo 2",
+            "ip": "147.93.153.44",
+            "port": 443,
+            "asn": "141995"
+          },
+          {
+            "id": "CNT-07",
+            "provider": "Contabo 2",
+            "ip": "94.136.190.9",
+            "port": 443,
+            "asn": "141995"
+          },
+          {
+            "id": "FST-01",
+            "provider": "Fastly",
+            "ip": "151.101.66.245",
+            "port": 443,
+            "asn": "54113",
+            "sni": "www.jetblue.com"
+          },
+          {
+            "id": "FST-02",
+            "provider": "Fastly",
+            "ip": "151.101.194.114",
+            "port": 443,
+            "asn": "54113",
+            "sni": "ssl.p.jwpcdn.com"
+          },
+          {
+            "id": "GC-01",
+            "provider": "Google Cloud",
+            "ip": "147.189.239.240",
+            "port": 443,
+            "asn": "396982"
+          },
+          {
+            "id": "GC-02",
+            "provider": "Google Cloud",
+            "ip": "35.227.66.60",
+            "port": 443,
+            "asn": "396982"
+          },
+          {
+            "id": "GCR-01",
+            "provider": "Gcore 1",
+            "ip": "213.156.152.155",
+            "port": 443,
+            "asn": "199524"
+          },
+          {
+            "id": "GCR-02",
+            "provider": "Gcore 1",
+            "ip": "92.223.13.10",
+            "port": 443,
+            "asn": "199524"
+          },
+          {
+            "id": "GCR-03",
+            "provider": "Gcore 1",
+            "ip": "185.145.113.133",
+            "port": 443,
+            "asn": "199524"
+          },
+          {
+            "id": "GCR-04",
+            "provider": "Gcore 1",
+            "ip": "82.117.228.93",
+            "port": 443,
+            "asn": "199524"
+          },
+          {
+            "id": "GCR-05",
+            "provider": "Gcore 2",
+            "ip": "5.8.34.27",
+            "port": 443,
+            "asn": "202422"
+          },
+          {
+            "id": "GCR-06",
+            "provider": "Gcore 2",
+            "ip": "5.188.190.167",
+            "port": 443,
+            "asn": "202422"
+          },
+          {
+            "id": "OR-01",
+            "provider": "Oracle Cloud",
+            "ip": "152.67.64.161",
+            "port": 443,
+            "asn": "31898"
+          },
+          {
+            "id": "OR-02",
+            "provider": "Oracle Cloud",
+            "ip": "67.222.57.149",
+            "port": 443,
+            "asn": "31898"
+          },
+          {
+            "id": "OR-03",
+            "provider": "Oracle Cloud",
+            "ip": "132.145.253.77",
+            "port": 443,
+            "asn": "31898"
+          },
+          {
+            "id": "OR-04",
+            "provider": "Oracle Cloud",
+            "ip": "158.180.238.77",
+            "port": 443,
+            "asn": "31898"
+          },
+          {
+            "id": "OR-05",
+            "provider": "Oracle 1 HTTP",
+            "ip": "79.72.37.28",
+            "port": 80,
+            "asn": "54253"
+          },
+          {
+            "id": "OR-06",
+            "provider": "Oracle 1",
+            "ip": "158.178.160.240",
+            "port": 443,
+            "asn": "54253"
+          },
+          {
+            "id": "OR-07",
+            "provider": "Oracle 1",
+            "ip": "217.142.192.157",
+            "port": 443,
+            "asn": "54253"
+          },
+          {
+            "id": "OR-09",
+            "provider": "Oracle 2",
+            "ip": "156.151.59.19",
+            "port": 443,
+            "asn": "1219"
+          },
+          {
+            "id": "OR-10",
+            "provider": "Oracle 3",
+            "ip": "139.87.83.30",
+            "port": 443,
+            "asn": "6142"
+          },
+          {
+            "id": "OR-11",
+            "provider": "Oracle 3",
+            "ip": "139.87.117.158",
+            "port": 443,
+            "asn": "6142"
+          },
+          {
+            "id": "OR-12",
+            "provider": "Oracle 4",
+            "ip": "207.127.85.89",
+            "port": 443,
+            "asn": "14544"
+          },
+          {
+            "id": "OR-13",
+            "provider": "Oracle 5",
+            "ip": "155.248.72.27",
+            "port": 443,
+            "asn": "20054"
+          },
+          {
+            "id": "OVH-01",
+            "provider": "OVH",
+            "ip": "199.168.193.103",
+            "port": 443,
+            "asn": "16276"
+          },
+          {
+            "id": "OVH-02",
+            "provider": "OVH",
+            "ip": "141.95.228.164",
+            "port": 443,
+            "asn": "16276"
+          },
+          {
+            "id": "OVH-03",
+            "provider": "OVH",
+            "ip": "46.105.222.91",
+            "port": 443,
+            "asn": "16276"
+          },
+          {
+            "id": "OVH-04",
+            "provider": "OVH",
+            "ip": "40.160.45.210",
+            "port": 443,
+            "asn": "16276"
+          },
+          {
+            "id": "OVH-05",
+            "provider": "OVH HTTP",
+            "ip": "185.155.218.223",
+            "port": 80,
+            "asn": "16276"
+          },
+          {
+            "id": "SW-01",
+            "provider": "Scaleway 1",
+            "ip": "62.4.10.75",
+            "port": 443,
+            "asn": "12876"
+          },
+          {
+            "id": "SW-02",
+            "provider": "Scaleway 1",
+            "ip": "51.158.153.203",
+            "port": 443,
+            "asn": "12876"
+          },
+          {
+            "id": "SW-03",
+            "provider": "Scaleway 1",
+            "ip": "212.83.152.108",
+            "port": 443,
+            "asn": "12876"
+          },
+          {
+            "id": "SW-04",
+            "provider": "Scaleway 1 HTTP",
+            "ip": "163.172.223.99",
+            "port": 80,
+            "asn": "12876"
+          },
+          {
+            "id": "SW-05",
+            "provider": "Scaleway 2",
+            "ip": "81.56.227.171",
+            "port": 443,
+            "asn": "29447"
+          },
+          {
+            "id": "SW-06",
+            "provider": "Scaleway 2",
+            "ip": "83.158.240.200",
+            "port": 443,
+            "asn": "29447"
+          },
+          {
+            "id": "SW-07",
+            "provider": "Scaleway 2",
+            "ip": "81.56.11.201",
+            "port": 443,
+            "asn": "29447"
+          },
+          {
+            "id": "DO-01",
+            "provider": "DigitalOcean 1",
+            "ip": "157.230.91.62",
+            "port": 443,
+            "asn": "14061"
+          },
+          {
+            "id": "DO-02",
+            "provider": "DigitalOcean 1",
+            "ip": "138.68.63.162",
+            "port": 443,
+            "asn": "14061"
+          },
+          {
+            "id": "DO-03",
+            "provider": "DigitalOcean 1",
+            "ip": "159.203.180.157",
+            "port": 443,
+            "asn": "14061"
+          },
+          {
+            "id": "DO-04",
+            "provider": "DigitalOcean 1",
+            "ip": "147.182.168.41",
+            "port": 443,
+            "asn": "14061"
+          },
+          {
+            "id": "DO-05",
+            "provider": "DigitalOcean 1",
+            "ip": "45.55.107.70",
+            "port": 443,
+            "asn": "14061"
+          },
+          {
+            "id": "DO-06",
+            "provider": "DigitalOcean 2",
+            "ip": "141.0.173.188",
+            "port": 443,
+            "asn": "46652"
+          },
+          {
+            "id": "DO-07",
+            "provider": "DigitalOcean 2",
+            "ip": "69.55.57.11",
+            "port": 443,
+            "asn": "46652"
+          },
+          {
+            "id": "VLT-01",
+            "provider": "Vultr",
+            "ip": "209.250.243.50",
+            "port": 443,
+            "asn": "20473"
+          },
+          {
+            "id": "VLT-02",
+            "provider": "Vultr",
+            "ip": "64.176.188.124",
+            "port": 443,
+            "asn": "20473"
+          },
+          {
+            "id": "VLT-03",
+            "provider": "Vultr",
+            "ip": "108.61.167.59",
+            "port": 443,
+            "asn": "20473"
+          },
+          {
+            "id": "VLT-04",
+            "provider": "Vultr",
+            "ip": "173.199.115.182",
+            "port": 443,
+            "asn": "20473"
+          },
+          {
+            "id": "MBC-01",
+            "provider": "Melbicom 1",
+            "ip": "193.35.224.194",
+            "port": 443,
+            "asn": "8849"
+          },
+          {
+            "id": "MBC-03",
+            "provider": "Melbicom 2",
+            "ip": "185.6.14.1",
+            "port": 443,
+            "asn": "56630"
+          },
+          {
+            "id": "FT-01",
+            "provider": "FranTech",
+            "ip": "104.244.74.134",
+            "port": 443,
+            "asn": "53667"
+          },
+          {
+            "id": "FT-02",
+            "provider": "FranTech",
+            "ip": "198.251.88.98",
+            "port": 443,
+            "asn": "53667"
+          },
+          {
+            "id": "CV-01",
+            "provider": "Clouvider",
+            "ip": "130.185.249.20",
+            "port": 443,
+            "asn": "62240"
+          },
+          {
+            "id": "CV-02",
+            "provider": "Clouvider",
+            "ip": "194.127.178.154",
+            "port": 443,
+            "asn": "62240"
+          },
+          {
+            "id": "ME-01",
+            "provider": "M247 Europe SRL",
+            "ip": "146.70.158.22",
+            "port": 443,
+            "asn": "9009"
+          },
+          {
+            "id": "IM-01",
+            "provider": "IOMART 1",
+            "ip": "213.175.200.210",
+            "port": 443,
+            "asn": "20860"
+          },
+          {
+            "id": "IM-02",
+            "provider": "IOMART 2",
+            "ip": "185.224.199.82",
+            "port": 443,
+            "asn": "21130"
+          },
+          {
+            "id": "ZL-01",
+            "provider": "Zenlayer",
+            "ip": "193.118.45.137",
+            "port": 443,
+            "asn": "21859"
+          },
+          {
+            "id": "CN-01",
+            "provider": "CreaNova",
+            "ip": "185.212.149.82",
+            "port": 443,
+            "asn": "51765"
+          },
+          {
+            "id": "SCA-01",
+            "provider": "Scalaxy",
+            "ip": "5.61.55.146",
+            "port": 443,
+            "asn": "58061"
+          }
+        ],
+        "whitelistSni": [
+          "vk.com",
+          "2gis.com",
+          "2gis.ru",
+          "300.ya.ru",
+          "ad.adriver.ru",
+          "3475482542.mc.yandex.ru",
+          "742231.ms.ok.ru",
+          "a.wb.ru",
+          "ad.mail.ru",
+          "adm.mp.rzd.ru",
+          "akashi.vk-portal.net",
+          "alfabank.ru",
+          "web.max.ru",
+          "ams2-cdn.2gis.com",
+          "an.yandex.ru",
+          "api-maps.yandex.ru",
+          "api.2gis.ru",
+          "api.avito.ru",
+          "api.browser.yandex.com",
+          "api.browser.yandex.ru",
+          "api.events.plus.yandex.net",
+          "api.mindbox.ru",
+          "api.photo.2gis.com",
+          "api.reviews.2gis.com",
+          "avatars.mds.yandex.com",
+          "avatars.mds.yandex.net",
+          "avito.ru",
+          "banners-website.wildberries.ru",
+          "bot.gosuslugi.ru",
+          "bro-bg-store.s3.yandex.com",
+          "bro-bg-store.s3.yandex.net",
+          "bro-bg-store.s3.yandex.ru",
+          "brontp-pre.yandex.ru",
+          "browser.yandex.com",
+          "browser.yandex.ru",
+          "cargo.rzd.ru",
+          "catalog.api.2gis.com",
+          "cdn.lemanapro.ru",
+          "cdn.yandex.ru",
+          "cdnrhkgfkkpupuotntfj.svc.cdn.yandex.net",
+          "chat-prod.wildberries.ru",
+          "chat3.vtb.ru",
+          "cloud.cdn.yandex.com",
+          "cloud.cdn.yandex.net",
+          "cloud.cdn.yandex.ru",
+          "cloudcdn-ams19.cdn.yandex.net",
+          "collections.yandex.com",
+          "collections.yandex.ru",
+          "company.rzd.ru",
+          "contacts.rzd.ru",
+          "contract.gosuslugi.ru",
+          "cs.avito.ru",
+          "csp.yandex.net",
+          "d-assets.2gis.ru",
+          "disk.2gis.com",
+          "disk.rzd.ru",
+          "dmp.dmpkit.lemanapro.ru",
+          "dr.yandex.net",
+          "dr2.yandex.net",
+          "dzen.ru",
+          "egress.yandex.net",
+          "eh.vk.com",
+          "ekmp-a-51.rzd.ru",
+          "enterprise.api-maps.yandex.ru",
+          "esia.gosuslugi.ru",
+          "favorites.api.2gis.com",
+          "favicon.yandex.com",
+          "favicon.yandex.net",
+          "favicon.yandex.ru",
+          "filekeeper-vod.2gis.com",
+          "frontend.vh.yandex.ru",
+          "gosuslugi.ru",
+          "i0.photo.2gis.com",
+          "i1.photo.2gis.com",
+          "i2.photo.2gis.com",
+          "i3.photo.2gis.com",
+          "i4.photo.2gis.com",
+          "i5.photo.2gis.com",
+          "i6.photo.2gis.com",
+          "i7.photo.2gis.com",
+          "i8.photo.2gis.com",
+          "i9.photo.2gis.com",
+          "id.sber.ru",
+          "jam.api.2gis.com",
+          "keys.api.2gis.com",
+          "kiks.yandex.com",
+          "kiks.yandex.ru",
+          "lemanapro.ru",
+          "link.mp.rzd.ru",
+          "lk.gosuslugi.ru",
+          "log.strm.yandex.ru",
+          "login.vk.com",
+          "m.avito.ru",
+          "mail.yandex.com",
+          "mail.yandex.ru",
+          "map.gosuslugi.ru",
+          "mapgl.2gis.com",
+          "market.rzd.ru",
+          "mc.yandex.com",
+          "mc.yandex.ru",
+          "mddc.tinkoff.ru",
+          "mediafeeds.yandex.com",
+          "mediafeeds.yandex.ru",
+          "metrics.alfabank.ru",
+          "mp.rzd.ru",
+          "my.rzd.ru",
+          "neuro.translate.yandex.ru",
+          "novorossiya.gosuslugi.ru",
+          "ok.ru",
+          "ozon.ru",
+          "partners.gosuslugi.ru",
+          "partners.lemanapro.ru",
+          "personalization-web-stable.mindbox.ru",
+          "pos.gosuslugi.ru",
+          "privacy-cs.mail.ru",
+          "prodvizhenie.rzd.ru",
+          "public-api.reviews.2gis.com",
+          "pulse.mp.rzd.ru",
+          "queuev4.vk.com",
+          "rs.mail.ru",
+          "rzd.ru",
+          "s.vtb.ru",
+          "s0.bss.2gis.com",
+          "s1.bss.2gis.com",
+          "s3.yandex.net",
+          "sba.yandex.com",
+          "sba.yandex.net",
+          "sba.yandex.ru",
+          "secure-cloud.rzd.ru",
+          "secure.rzd.ru",
+          "sfd.gosuslugi.ru",
+          "sntr.avito.ru",
+          "speller.yandex.net",
+          "splitter.wb.ru",
+          "sso-app4.vtb.ru",
+          "sso-app5.vtb.ru",
+          "sso.dzen.ru",
+          "st-ok.cdn-vk.ru",
+          "st.avito.ru",
+          "static-mon.yandex.net",
+          "static.lemanapro.ru",
+          "stats.avito.ru",
+          "stats.vk-portal.net",
+          "storage.ape.yandex.net",
+          "strm-rad-23.strm.yandex.net",
+          "strm-spbmiran-08.strm.yandex.net",
+          "strm.yandex.net",
+          "strm.yandex.ru",
+          "styles.api.2gis.com",
+          "suggest.dzen.ru",
+          "suggest.sso.dzen.ru",
+          "surveys.yandex.ru",
+          "sync.browser.yandex.net",
+          "team.rzd.ru",
+          "ticket.rzd.ru",
+          "tile0.maps.2gis.com",
+          "tile1.maps.2gis.com",
+          "tile2.maps.2gis.com",
+          "tile3.maps.2gis.com",
+          "tile4.maps.2gis.com",
+          "top-fwz1.mail.ru",
+          "travel.rzd.ru",
+          "user-geo-data.wildberries.ru",
+          "vk-portal.net",
+          "wap.yandex.com",
+          "wap.yandex.ru",
+          "wb.ru",
+          "web-static.mindbox.ru",
+          "welcome.rzd.ru",
+          "widgets.cbonds.ru",
+          "www.avito.ru",
+          "www.gosuslugi.ru",
+          "www.ozon.ru",
+          "www.rzd.ru",
+          "www.vtb.ru",
+          "www.wildberries.ru",
+          "xapi.ozon.ru",
+          "yabro-wbplugin.edadeal.yandex.ru",
+          "yabs.yandex.ru",
+          "yandex.com",
+          "yandex.net",
+          "yandex.ru",
+          "yastatic.net",
+          "zen-yabro-morda.mediascope.mc.yandex.ru",
+          "zen.yandex.com",
+          "zen.yandex.net",
+          "zen.yandex.ru"
+        ],
+        "telegramTarget": {
+          "mediaUrl": "https://telegram.org/img/Telegram200million.png",
+          "uploadIp": "149.154.167.99",
+          "uploadPort": 443,
+          "dcEndpoints": [
+            {
+              "ip": "149.154.175.53",
+              "label": "DC1",
+              "port": 443
+            },
+            {
+              "ip": "149.154.167.51",
+              "label": "DC2",
+              "port": 443
+            },
+            {
+              "ip": "149.154.175.100",
+              "label": "DC3",
+              "port": 443
+            },
+            {
+              "ip": "149.154.167.91",
+              "label": "DC4",
+              "port": 443
+            },
+            {
+              "ip": "91.108.56.130",
+              "label": "DC5",
+              "port": 443
+            }
+          ],
+          "stallTimeoutMs": 10000,
+          "totalTimeoutMs": 60000,
+          "uploadSizeBytes": 10485760
+        }
+      }
+    },
+    {
+      "id": "ru-web-connectivity",
+      "name": "Russia Web Connectivity",
+      "version": 1,
+      "request": {
+        "profileId": "ru-web-connectivity",
+        "displayName": "Russia Web Connectivity",
+        "pathMode": "RAW_PATH",
+        "family": "WEB_CONNECTIVITY",
+        "regionTag": "ru",
+        "manualOnly": true,
+        "packRefs": [
+          "ru-independent-media@1",
+          "ru-global-platforms@1",
+          "ru-control@1"
+        ],
+        "domainTargets": [
+          {
+            "host": "meduza.io"
+          },
+          {
+            "host": "www.svoboda.org"
+          },
+          {
+            "host": "www.dw.com"
+          },
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "discord.com"
+          },
+          {
+            "host": "proton.me"
+          }
+        ],
+        "dnsTargets": [
+          {
+            "domain": "meduza.io",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "meduza.io",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "youtube.com",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "youtube.com",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "discord.com",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "proton.me",
+            "udpServer": "1.1.1.1:53"
+          }
+        ],
+        "quicTargets": [
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "discord.com"
+          }
+        ],
+        "tcpTargets": [
+          {
+            "id": "CF-01",
+            "provider": "Cloudflare",
+            "ip": "172.67.70.222",
+            "port": 443,
+            "asn": "13335"
+          },
+          {
+            "id": "AWS-01",
+            "provider": "AWS",
+            "ip": "16.15.219.241",
+            "port": 443,
+            "asn": "16509"
+          }
+        ],
+        "whitelistSni": [
+          "vk.com",
+          "dzen.ru",
+          "2gis.com"
+        ]
+      }
+    },
+    {
+      "id": "ru-messaging",
+      "name": "Russia Messaging Suite",
+      "version": 1,
+      "request": {
+        "profileId": "ru-messaging",
+        "displayName": "Russia Messaging Suite",
+        "pathMode": "RAW_PATH",
+        "family": "MESSAGING",
+        "regionTag": "ru",
+        "manualOnly": true,
+        "packRefs": [
+          "ru-messaging@1",
+          "ru-control@1"
+        ],
+        "domainTargets": [
+          {
+            "host": "telegram.org"
+          },
+          {
+            "host": "signal.org"
+          },
+          {
+            "host": "www.whatsapp.com"
+          },
+          {
+            "host": "discord.com"
+          }
+        ],
+        "quicTargets": [
+          {
+            "host": "www.whatsapp.com"
+          },
+          {
+            "host": "discord.com"
+          }
+        ],
+        "serviceTargets": [
+          {
+            "id": "telegram",
+            "service": "Telegram",
+            "bootstrapUrl": "https://telegram.org/",
+            "mediaUrl": "https://telegram.org/img/t_logo.png",
+            "tcpEndpointHost": "telegram.org",
+            "tlsServerName": "telegram.org"
+          },
+          {
+            "id": "signal",
+            "service": "Signal",
+            "bootstrapUrl": "https://signal.org/",
+            "mediaUrl": "https://updates.signal.org/android/latest.json",
+            "tcpEndpointHost": "signal.org",
+            "tlsServerName": "signal.org"
+          },
+          {
+            "id": "whatsapp",
+            "service": "WhatsApp",
+            "bootstrapUrl": "https://www.whatsapp.com/",
+            "tcpEndpointHost": "www.whatsapp.com",
+            "tlsServerName": "www.whatsapp.com",
+            "quicHost": "www.whatsapp.com"
+          },
+          {
+            "id": "discord",
+            "service": "Discord",
+            "bootstrapUrl": "https://discord.com/",
+            "mediaUrl": "https://media.discordapp.net/",
+            "tcpEndpointHost": "discord.com",
+            "tlsServerName": "discord.com",
+            "quicHost": "discord.com"
+          }
+        ],
+        "telegramTarget": {
+          "mediaUrl": "https://telegram.org/",
+          "uploadIp": "149.154.167.51",
+          "uploadPort": 443,
+          "dcEndpoints": [
+            {
+              "ip": "149.154.175.50",
+              "label": "DC1"
+            },
+            {
+              "ip": "149.154.167.51",
+              "label": "DC2"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ru-circumvention",
+      "name": "Russia Circumvention Suite",
+      "version": 1,
+      "request": {
+        "profileId": "ru-circumvention",
+        "displayName": "Russia Circumvention Suite",
+        "pathMode": "RAW_PATH",
+        "family": "CIRCUMVENTION",
+        "regionTag": "ru",
+        "manualOnly": true,
+        "packRefs": [
+          "ru-circumvention@1",
+          "ru-control@1"
+        ],
+        "domainTargets": [
+          {
+            "host": "www.torproject.org"
+          },
+          {
+            "host": "psiphon.ca"
+          },
+          {
+            "host": "riseup.net"
+          },
+          {
+            "host": "protonvpn.com"
+          }
+        ],
+        "circumventionTargets": [
+          {
+            "id": "tor",
+            "tool": "Tor",
+            "bootstrapUrl": "https://www.torproject.org/download/",
+            "handshakeHost": "www.torproject.org",
+            "tlsServerName": "www.torproject.org"
+          },
+          {
+            "id": "psiphon",
+            "tool": "Psiphon",
+            "bootstrapUrl": "https://psiphon.ca/",
+            "handshakeHost": "psiphon.ca",
+            "tlsServerName": "psiphon.ca"
+          },
+          {
+            "id": "riseupvpn",
+            "tool": "RiseupVPN",
+            "bootstrapUrl": "https://riseup.net/en/vpn",
+            "handshakeHost": "api.black.riseup.net",
+            "tlsServerName": "api.black.riseup.net"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ru-throttling",
+      "name": "Russia Throttling Suite",
+      "version": 1,
+      "request": {
+        "profileId": "ru-throttling",
+        "displayName": "Russia Throttling Suite",
+        "pathMode": "RAW_PATH",
+        "family": "THROTTLING",
+        "regionTag": "ru",
+        "manualOnly": true,
+        "packRefs": [
+          "ru-throttling@1",
+          "neutral-control@1"
+        ],
+        "domainTargets": [
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "speed.cloudflare.com"
+          },
+          {
+            "host": "speed.hetzner.de"
+          }
+        ],
+        "throughputTargets": [
+          {
+            "id": "youtube-web",
+            "label": "YouTube Web",
+            "url": "https://www.youtube.com/",
+            "isControl": false,
+            "windowBytes": 8388608,
+            "runs": 2
+          },
+          {
+            "id": "cloudflare-control",
+            "label": "Cloudflare Control",
+            "url": "https://speed.cloudflare.com/__down?bytes=8388608",
+            "isControl": true,
+            "windowBytes": 8388608,
+            "runs": 2
+          },
+          {
+            "id": "hetzner-control",
+            "label": "Hetzner Control",
+            "url": "https://speed.hetzner.de/10MB.bin",
+            "isControl": true,
+            "windowBytes": 8388608,
+            "runs": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "ru-dpi-full",
+      "name": "Russia DPI Full",
+      "version": 1,
+      "request": {
+        "profileId": "ru-dpi-full",
+        "displayName": "Russia DPI Full",
+        "pathMode": "RAW_PATH",
+        "family": "DPI_FULL",
+        "regionTag": "ru",
+        "manualOnly": true,
+        "packRefs": [
+          "ru-independent-media@1",
+          "ru-global-platforms@1",
+          "ru-messaging@1",
+          "ru-circumvention@1",
+          "ru-throttling@1",
+          "neutral-control@1"
+        ],
+        "domainTargets": [
+          {
+            "host": "meduza.io"
+          },
+          {
+            "host": "www.svoboda.org"
+          },
+          {
+            "host": "www.dw.com"
+          },
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "discord.com"
+          },
+          {
+            "host": "telegram.org"
+          },
+          {
+            "host": "signal.org"
+          },
+          {
+            "host": "www.whatsapp.com"
+          },
+          {
+            "host": "www.torproject.org"
+          },
+          {
+            "host": "psiphon.ca"
+          },
+          {
+            "host": "riseup.net"
+          },
+          {
+            "host": "protonvpn.com"
+          }
+        ],
+        "dnsTargets": [
+          {
+            "domain": "meduza.io",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "youtube.com",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "discord.com",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "signal.org",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "psiphon.ca",
+            "udpServer": "8.8.8.8:53"
+          }
+        ],
+        "quicTargets": [
+          {
+            "host": "www.youtube.com"
+          },
+          {
+            "host": "discord.com"
+          },
+          {
+            "host": "www.whatsapp.com"
+          }
+        ],
+        "tcpTargets": [
+          {
+            "id": "CF-01",
+            "provider": "Cloudflare",
+            "ip": "172.67.70.222",
+            "port": 443,
+            "asn": "13335"
+          },
+          {
+            "id": "AWS-01",
+            "provider": "AWS",
+            "ip": "16.15.219.241",
+            "port": 443,
+            "asn": "16509"
+          },
+          {
+            "id": "GC-01",
+            "provider": "Google Cloud",
+            "ip": "147.189.239.240",
+            "port": 443,
+            "asn": "396982"
+          }
+        ],
+        "serviceTargets": [
+          {
+            "id": "telegram",
+            "service": "Telegram",
+            "bootstrapUrl": "https://telegram.org/",
+            "mediaUrl": "https://telegram.org/img/t_logo.png",
+            "tcpEndpointHost": "telegram.org",
+            "tlsServerName": "telegram.org"
+          },
+          {
+            "id": "signal",
+            "service": "Signal",
+            "bootstrapUrl": "https://signal.org/",
+            "mediaUrl": "https://updates.signal.org/android/latest.json",
+            "tcpEndpointHost": "signal.org",
+            "tlsServerName": "signal.org"
+          },
+          {
+            "id": "whatsapp",
+            "service": "WhatsApp",
+            "bootstrapUrl": "https://www.whatsapp.com/",
+            "tcpEndpointHost": "www.whatsapp.com",
+            "tlsServerName": "www.whatsapp.com",
+            "quicHost": "www.whatsapp.com"
+          },
+          {
+            "id": "discord",
+            "service": "Discord",
+            "bootstrapUrl": "https://discord.com/",
+            "mediaUrl": "https://media.discordapp.net/",
+            "tcpEndpointHost": "discord.com",
+            "tlsServerName": "discord.com",
+            "quicHost": "discord.com"
+          }
+        ],
+        "circumventionTargets": [
+          {
+            "id": "tor",
+            "tool": "Tor",
+            "bootstrapUrl": "https://www.torproject.org/download/",
+            "handshakeHost": "www.torproject.org",
+            "tlsServerName": "www.torproject.org"
+          },
+          {
+            "id": "psiphon",
+            "tool": "Psiphon",
+            "bootstrapUrl": "https://psiphon.ca/",
+            "handshakeHost": "psiphon.ca",
+            "tlsServerName": "psiphon.ca"
+          },
+          {
+            "id": "riseupvpn",
+            "tool": "RiseupVPN",
+            "bootstrapUrl": "https://riseup.net/en/vpn",
+            "handshakeHost": "api.black.riseup.net",
+            "tlsServerName": "api.black.riseup.net"
+          }
+        ],
+        "throughputTargets": [
+          {
+            "id": "youtube-web",
+            "label": "YouTube Web",
+            "url": "https://www.youtube.com/",
+            "isControl": false,
+            "windowBytes": 8388608,
+            "runs": 2
+          },
+          {
+            "id": "cloudflare-control",
+            "label": "Cloudflare Control",
+            "url": "https://speed.cloudflare.com/__down?bytes=8388608",
+            "isControl": true,
+            "windowBytes": 8388608,
+            "runs": 2
+          }
+        ],
+        "whitelistSni": [
+          "vk.com",
+          "dzen.ru",
+          "2gis.com"
+        ]
       }
     }
-  }
-]
+  ]
+}

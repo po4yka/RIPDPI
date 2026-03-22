@@ -1,5 +1,3 @@
-@file:Suppress("CyclomaticComplexMethod", "LongMethod", "MagicNumber", "MaxLineLength")
-
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
@@ -22,103 +20,17 @@ class DiagnosticsArchiveRenderer
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
+        private companion object {
+            private const val SummaryProbeResultPreviewCount = 5
+            private const val SummaryWarningPreviewCount = 3
+            private const val SuccessRatePercentScale = 100
+        }
+
         internal fun render(
             target: DiagnosticsArchiveTarget,
             selection: DiagnosticsArchiveSelection,
         ): List<DiagnosticsArchiveEntry> {
-            val redactedPayload =
-                selection.payload.copy(
-                    sessionSnapshots = selection.payload.sessionSnapshots.map(redactor::redact),
-                    sessionContexts = selection.payload.sessionContexts.map(redactor::redact),
-                    latestPassiveSnapshot = selection.payload.latestPassiveSnapshot?.let(redactor::redact),
-                    latestPassiveContext = selection.payload.latestPassiveContext?.let(redactor::redact),
-                    telemetry =
-                        selection.payload.telemetry.map { sample ->
-                            sample.copy(publicIp = if (sample.publicIp != null) "redacted" else null)
-                        },
-                )
-            val entries =
-                mutableListOf(
-                    DiagnosticsArchiveEntry(
-                        name = "summary.txt",
-                        bytes =
-                            buildSummary(
-                                createdAt = target.createdAt,
-                                selection = selection,
-                            ).toByteArray(),
-                    ),
-                    DiagnosticsArchiveEntry(
-                        name = "report.json",
-                        bytes =
-                            json
-                                .encodeToString(
-                                    DiagnosticsArchivePayload.serializer(),
-                                    redactedPayload,
-                                ).toByteArray(),
-                    ),
-                    DiagnosticsArchiveEntry(
-                        name = "strategy-matrix.json",
-                        bytes =
-                            json
-                                .encodeToString(
-                                    StrategyMatrixArchivePayload.serializer(),
-                                    StrategyMatrixArchivePayload(
-                                        sessionId = selection.primarySession?.id,
-                                        profileId = selection.primarySession?.profileId,
-                                        strategyProbeReport = selection.primaryReport?.strategyProbeReport,
-                                    ),
-                                ).toByteArray(),
-                    ),
-                    DiagnosticsArchiveEntry(
-                        name = "probe-results.csv",
-                        bytes = buildProbeResultsCsv(selection.primaryResults).toByteArray(),
-                    ),
-                    DiagnosticsArchiveEntry(
-                        name = "native-events.csv",
-                        bytes =
-                            buildNativeEventsCsv(
-                                primaryEvents = selection.primaryEvents,
-                                globalEvents = selection.globalEvents,
-                            ).toByteArray(),
-                    ),
-                    DiagnosticsArchiveEntry(
-                        name = "network-snapshots.json",
-                        bytes =
-                            json
-                                .encodeToString(
-                                    DiagnosticsArchiveSnapshotPayload.serializer(),
-                                    DiagnosticsArchiveSnapshotPayload(
-                                        sessionSnapshots =
-                                            selection.primarySnapshots
-                                                .mapNotNull(redactor::decodeNetworkSnapshot)
-                                                .map(redactor::redact),
-                                        latestPassiveSnapshot =
-                                            redactor
-                                                .decodeNetworkSnapshot(
-                                                    selection.latestPassiveSnapshot,
-                                                )?.let(redactor::redact),
-                                    ),
-                                ).toByteArray(),
-                    ),
-                    DiagnosticsArchiveEntry(
-                        name = "diagnostic-context.json",
-                        bytes =
-                            json
-                                .encodeToString(
-                                    DiagnosticsArchiveContextPayload.serializer(),
-                                    DiagnosticsArchiveContextPayload(
-                                        sessionContexts =
-                                            selection.primaryContexts
-                                                .mapNotNull(redactor::decodeDiagnosticContext)
-                                                .map(redactor::redact),
-                                        latestPassiveContext =
-                                            redactor
-                                                .decodeDiagnosticContext(selection.latestPassiveContext)
-                                                ?.let(redactor::redact),
-                                    ),
-                                ).toByteArray(),
-                    ),
-                )
+            val entries = buildBaseEntries(target, selection).toMutableList()
             selection.logcatSnapshot?.let { snapshot ->
                 entries += DiagnosticsArchiveEntry(name = "logcat.txt", bytes = snapshot.content.toByteArray())
             }
@@ -134,6 +46,102 @@ class DiagnosticsArchiveRenderer
                 )
             return entries
         }
+
+        private fun buildBaseEntries(
+            target: DiagnosticsArchiveTarget,
+            selection: DiagnosticsArchiveSelection,
+        ): List<DiagnosticsArchiveEntry> =
+            listOf(
+                textEntry(
+                    name = "summary.txt",
+                    content = buildSummary(createdAt = target.createdAt, selection = selection),
+                ),
+                jsonEntry(
+                    name = "report.json",
+                    serializer = DiagnosticsArchivePayload.serializer(),
+                    value = buildRedactedPayload(selection),
+                ),
+                jsonEntry(
+                    name = "strategy-matrix.json",
+                    serializer = StrategyMatrixArchivePayload.serializer(),
+                    value =
+                        StrategyMatrixArchivePayload(
+                            sessionId = selection.primarySession?.id,
+                            profileId = selection.primarySession?.profileId,
+                            strategyProbeReport = selection.primaryReport?.strategyProbeReport,
+                        ),
+                ),
+                textEntry(
+                    name = "probe-results.csv",
+                    content = buildProbeResultsCsv(selection.primaryResults),
+                ),
+                textEntry(
+                    name = "native-events.csv",
+                    content = buildNativeEventsCsv(selection.primaryEvents, selection.globalEvents),
+                ),
+                jsonEntry(
+                    name = "network-snapshots.json",
+                    serializer = DiagnosticsArchiveSnapshotPayload.serializer(),
+                    value = buildSnapshotPayload(selection),
+                ),
+                jsonEntry(
+                    name = "diagnostic-context.json",
+                    serializer = DiagnosticsArchiveContextPayload.serializer(),
+                    value = buildContextPayload(selection),
+                ),
+            )
+
+        private fun buildRedactedPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchivePayload =
+            selection.payload.copy(
+                primaryReport = selection.primaryReport,
+                sessionSnapshots = selection.payload.sessionSnapshots.map(redactor::redact),
+                sessionContexts = selection.payload.sessionContexts.map(redactor::redact),
+                latestPassiveSnapshot = selection.payload.latestPassiveSnapshot?.let(redactor::redact),
+                latestPassiveContext = selection.payload.latestPassiveContext?.let(redactor::redact),
+                telemetry =
+                    selection.payload.telemetry.map { sample ->
+                        sample.copy(publicIp = if (sample.publicIp != null) "redacted" else null)
+                    },
+            )
+
+        private fun buildSnapshotPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveSnapshotPayload =
+            DiagnosticsArchiveSnapshotPayload(
+                sessionSnapshots =
+                    selection.primarySnapshots
+                        .mapNotNull(redactor::decodeNetworkSnapshot)
+                        .map(redactor::redact),
+                latestPassiveSnapshot =
+                    redactor
+                        .decodeNetworkSnapshot(selection.latestPassiveSnapshot)
+                        ?.let(redactor::redact),
+            )
+
+        private fun buildContextPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveContextPayload =
+            DiagnosticsArchiveContextPayload(
+                sessionContexts =
+                    selection.primaryContexts
+                        .mapNotNull(redactor::decodeDiagnosticContext)
+                        .map(redactor::redact),
+                latestPassiveContext =
+                    redactor
+                        .decodeDiagnosticContext(selection.latestPassiveContext)
+                        ?.let(redactor::redact),
+            )
+
+        private fun textEntry(
+            name: String,
+            content: String,
+        ): DiagnosticsArchiveEntry = DiagnosticsArchiveEntry(name = name, bytes = content.toByteArray())
+
+        private fun <T> jsonEntry(
+            name: String,
+            serializer: kotlinx.serialization.KSerializer<T>,
+            value: T,
+        ): DiagnosticsArchiveEntry =
+            DiagnosticsArchiveEntry(
+                name = name,
+                bytes = json.encodeToString(serializer, value).toByteArray(),
+            )
 
         private fun encodeManifest(
             target: DiagnosticsArchiveTarget,
@@ -164,6 +172,9 @@ class DiagnosticsArchiveRenderer
                         selection.payload.telemetry
                             .firstOrNull()
                             ?.toArchiveTelemetrySummary(),
+                    classifierVersion = selection.primaryReport?.classifierVersion,
+                    diagnosisCount = selection.primaryReport?.diagnoses?.size ?: 0,
+                    packVersions = selection.primaryReport?.packVersions.orEmpty(),
                     includedFiles = selection.includedFiles,
                     logcatIncluded = selection.logcatSnapshot != null,
                     logcatCaptureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
@@ -185,123 +196,171 @@ class DiagnosticsArchiveRenderer
             selection: DiagnosticsArchiveSelection,
         ): String =
             buildString {
-                appendLine("RIPDPI diagnostics archive")
-                appendLine("generatedAt=$createdAt")
-                appendLine("scope=${DiagnosticsArchiveFormat.scope}")
-                appendLine("privacyMode=${DiagnosticsArchiveFormat.privacyMode}")
-                appendLine("logcatIncluded=${selection.logcatSnapshot != null}")
-                appendLine("logcatCaptureScope=${LogcatSnapshotCollector.AppVisibleSnapshotScope}")
-                appendLine("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
-                appendLine("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
-                selection.primarySession?.let {
-                    appendLine("pathMode=${it.pathMode}")
-                    appendLine("serviceMode=${it.serviceMode ?: "unknown"}")
-                    appendLine("status=${it.status}")
-                    appendLine("summary=${it.summary}")
-                    selection.primaryReport?.strategyProbeReport?.let { strategyProbe ->
-                        appendLine("strategySuite=${strategyProbe.suiteId}")
-                        appendLine("strategyTcpCandidates=${strategyProbe.tcpCandidates.size}")
-                        appendLine("strategyQuicCandidates=${strategyProbe.quicCandidates.size}")
-                    }
-                }
-                selection.selectedApproachSummary?.let {
-                    appendLine("approach=${it.displayName}")
-                    appendLine("approachVerification=${it.verificationState}")
-                    appendLine(
-                        "approachSuccessRate=${it.validatedSuccessRate?.let { rate ->
-                            "${(rate * 100).toInt()}%"
-                        } ?: "unverified"}",
-                    )
-                    appendLine("approachUsageCount=${it.usageCount}")
-                    appendLine("approachRuntimeMs=${it.totalRuntimeDurationMs}")
-                }
-                selection.latestSnapshotModel?.let(redactor::redact)?.toRedactedSummary()?.let { summary ->
-                    appendLine("transport=${summary.transport}")
-                    appendLine("dns=${summary.dnsServers}")
-                    appendLine("privateDns=${summary.privateDnsMode}")
-                    appendLine("publicIp=${summary.publicIp}")
-                    appendLine("publicAsn=${summary.publicAsn}")
-                    appendLine("localAddresses=${summary.localAddresses}")
-                    appendLine("validated=${summary.networkValidated}")
-                    appendLine("captivePortal=${summary.captivePortalDetected}")
-                    summary.wifiDetails?.let { wifi ->
-                        appendLine("wifiSsid=${wifi.ssid}")
-                        appendLine("wifiBand=${wifi.band}")
-                        appendLine("wifiStandard=${wifi.wifiStandard}")
-                        appendLine("wifiFrequencyMhz=${wifi.frequencyMhz ?: "unknown"}")
-                        appendLine("wifiLinkSpeedMbps=${wifi.linkSpeedMbps ?: "unknown"}")
-                        appendLine("wifiSignalDbm=${wifi.rssiDbm ?: "unknown"}")
-                        appendLine("wifiGateway=${wifi.gateway}")
-                    }
-                    summary.cellularDetails?.let { cellular ->
-                        appendLine("carrier=${cellular.carrierName}")
-                        appendLine("networkOperator=${cellular.networkOperatorName}")
-                        appendLine("dataNetwork=${cellular.dataNetworkType}")
-                        appendLine("voiceNetwork=${cellular.voiceNetworkType}")
-                        appendLine("networkCountry=${cellular.networkCountryIso}")
-                        appendLine("roaming=${cellular.isNetworkRoaming ?: "unknown"}")
-                        appendLine("signalLevel=${cellular.signalLevel ?: "unknown"}")
-                        appendLine("signalDbm=${cellular.signalDbm ?: "unknown"}")
-                    }
-                }
-                (selection.sessionContextModel ?: selection.latestContextModel)
-                    ?.let(redactor::redact)
-                    ?.toRedactedSummary()
-                    ?.let { contextSummary ->
-                        appendLine("appVersion=${contextSummary.device.appVersionName}")
-                        appendLine("device=${contextSummary.device.deviceName}")
-                        appendLine("android=${contextSummary.device.androidVersion}")
-                        appendLine("serviceMode=${contextSummary.service.activeMode}")
-                        appendLine("serviceStatus=${contextSummary.service.serviceStatus}")
-                        appendLine("profile=${contextSummary.service.selectedProfileName}")
-                        appendLine("configSource=${contextSummary.service.configSource}")
-                        appendLine("proxyEndpoint=${contextSummary.service.proxyEndpoint}")
-                        appendLine("desyncMethod=${contextSummary.service.desyncMethod}")
-                        appendLine("chainSummary=${contextSummary.service.chainSummary}")
-                        appendLine("lastNativeError=${contextSummary.service.lastNativeErrorHeadline}")
-                        appendLine("vpnPermission=${contextSummary.permissions.vpnPermissionState}")
-                        appendLine("notifications=${contextSummary.permissions.notificationPermissionState}")
-                        appendLine("batteryOptimization=${contextSummary.permissions.batteryOptimizationState}")
-                        appendLine("dataSaver=${contextSummary.permissions.dataSaverState}")
-                        appendLine("powerSave=${contextSummary.environment.powerSaveModeState}")
-                        appendLine("networkMetered=${contextSummary.environment.networkMeteredState}")
-                        appendLine("roaming=${contextSummary.environment.roamingState}")
-                    }
-                selection.payload.telemetry.firstOrNull()?.let { sample ->
-                    appendLine("networkType=${sample.networkType}")
-                    appendLine("failureClass=${sample.failureClass ?: "none"}")
-                    appendLine("lastFailureClass=${sample.lastFailureClass ?: "none"}")
-                    appendLine("lastFallbackAction=${sample.lastFallbackAction ?: "none"}")
-                    appendLine("winningStrategyFamily=${sample.winningStrategyFamily() ?: "none"}")
-                    appendLine("telemetryNetworkFingerprintHash=${sample.telemetryNetworkFingerprintHash ?: "none"}")
-                    appendLine("rttBand=${sample.rttBand()}")
-                    appendLine("retryCount=${sample.retryCount()}")
-                    appendLine("resolverId=${sample.resolverId ?: "unknown"}")
-                    appendLine("resolverProtocol=${sample.resolverProtocol ?: "unknown"}")
-                    appendLine("resolverEndpoint=${sample.resolverEndpoint ?: "unknown"}")
-                    appendLine("resolverLatencyMs=${sample.resolverLatencyMs ?: 0}")
-                    appendLine("dnsFailuresTotal=${sample.dnsFailuresTotal}")
-                    appendLine("resolverFallbackReason=${sample.resolverFallbackReason ?: "none"}")
-                    appendLine("networkHandoverClass=${sample.networkHandoverClass ?: "none"}")
-                    appendLine("txBytes=${sample.txBytes}")
-                    appendLine("rxBytes=${sample.rxBytes}")
-                }
-                appendLine("resultCount=${selection.primaryResults.size}")
-                selection.primaryResults.take(5).forEach { result ->
-                    appendLine("${result.probeType}:${result.target}=${result.outcome}")
-                }
-                if (selection.globalEvents.isNotEmpty()) {
-                    appendLine("recentWarnings=")
-                    selection.globalEvents
-                        .filter { event ->
-                            event.level.equals("warn", ignoreCase = true) ||
-                                event.level.equals("error", ignoreCase = true)
-                        }.take(3)
-                        .forEach { warning ->
-                            appendLine("- ${warning.source}: ${warning.message}")
-                        }
-                }
+                appendSummaryHeader(createdAt, selection)
+                appendSessionSummary(selection)
+                appendApproachSummary(selection)
+                appendNetworkSummary(selection)
+                appendContextSummary(selection)
+                appendTelemetrySummary(selection)
+                appendResultSummary(selection)
+                appendWarningSummary(selection)
             }.trim()
+
+        private fun StringBuilder.appendSummaryHeader(
+            createdAt: Long,
+            selection: DiagnosticsArchiveSelection,
+        ) {
+            appendLine("RIPDPI diagnostics archive")
+            appendLine("generatedAt=$createdAt")
+            appendLine("scope=${DiagnosticsArchiveFormat.scope}")
+            appendLine("privacyMode=${DiagnosticsArchiveFormat.privacyMode}")
+            appendLine("logcatIncluded=${selection.logcatSnapshot != null}")
+            appendLine("logcatCaptureScope=${LogcatSnapshotCollector.AppVisibleSnapshotScope}")
+            appendLine("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
+            appendLine("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
+        }
+
+        private fun StringBuilder.appendSessionSummary(selection: DiagnosticsArchiveSelection) {
+            val session = selection.primarySession ?: return
+            appendLine("pathMode=${session.pathMode}")
+            appendLine("serviceMode=${session.serviceMode ?: "unknown"}")
+            appendLine("status=${session.status}")
+            appendLine("summary=${session.summary}")
+            selection.primaryReport?.strategyProbeReport?.let { strategyProbe ->
+                appendLine("strategySuite=${strategyProbe.suiteId}")
+                appendLine("strategyTcpCandidates=${strategyProbe.tcpCandidates.size}")
+                appendLine("strategyQuicCandidates=${strategyProbe.quicCandidates.size}")
+            }
+            selection.primaryReport?.classifierVersion?.let { appendLine("classifierVersion=$it") }
+            selection.primaryReport?.diagnoses?.takeIf(List<*>::isNotEmpty)?.let { diagnoses ->
+                appendLine("diagnosisCount=${diagnoses.size}")
+                diagnoses.forEach { diagnosis ->
+                    appendLine("diagnosis.${diagnosis.code}=${diagnosis.summary}")
+                }
+            }
+            selection.primaryReport?.packVersions?.takeIf(Map<*, *>::isNotEmpty)?.forEach { (packId, version) ->
+                appendLine("pack.$packId=$version")
+            }
+        }
+
+        private fun StringBuilder.appendApproachSummary(selection: DiagnosticsArchiveSelection) {
+            selection.selectedApproachSummary?.let {
+                appendLine("approach=${it.displayName}")
+                appendLine("approachVerification=${it.verificationState}")
+                appendLine("approachSuccessRate=${it.successRateLabel()}")
+                appendLine("approachUsageCount=${it.usageCount}")
+                appendLine("approachRuntimeMs=${it.totalRuntimeDurationMs}")
+            }
+        }
+
+        private fun StringBuilder.appendNetworkSummary(selection: DiagnosticsArchiveSelection) {
+            selection.latestSnapshotModel?.let(redactor::redact)?.toRedactedSummary()?.let { summary ->
+                appendLine("transport=${summary.transport}")
+                appendLine("dns=${summary.dnsServers}")
+                appendLine("privateDns=${summary.privateDnsMode}")
+                appendLine("publicIp=${summary.publicIp}")
+                appendLine("publicAsn=${summary.publicAsn}")
+                appendLine("localAddresses=${summary.localAddresses}")
+                appendLine("validated=${summary.networkValidated}")
+                appendLine("captivePortal=${summary.captivePortalDetected}")
+                summary.wifiDetails?.let { appendWifiSummary(it) }
+                summary.cellularDetails?.let { appendCellularSummary(it) }
+            }
+        }
+
+        private fun StringBuilder.appendWifiSummary(wifi: RedactedWifiSummary) {
+            appendLine("wifiSsid=${wifi.ssid}")
+            appendLine("wifiBand=${wifi.band}")
+            appendLine("wifiStandard=${wifi.wifiStandard}")
+            appendLine("wifiFrequencyMhz=${wifi.frequencyMhz ?: "unknown"}")
+            appendLine("wifiLinkSpeedMbps=${wifi.linkSpeedMbps ?: "unknown"}")
+            appendLine("wifiSignalDbm=${wifi.rssiDbm ?: "unknown"}")
+            appendLine("wifiGateway=${wifi.gateway}")
+        }
+
+        private fun StringBuilder.appendCellularSummary(cellular: RedactedCellularSummary) {
+            appendLine("carrier=${cellular.carrierName}")
+            appendLine("networkOperator=${cellular.networkOperatorName}")
+            appendLine("dataNetwork=${cellular.dataNetworkType}")
+            appendLine("voiceNetwork=${cellular.voiceNetworkType}")
+            appendLine("networkCountry=${cellular.networkCountryIso}")
+            appendLine("roaming=${cellular.isNetworkRoaming ?: "unknown"}")
+            appendLine("signalLevel=${cellular.signalLevel ?: "unknown"}")
+            appendLine("signalDbm=${cellular.signalDbm ?: "unknown"}")
+        }
+
+        private fun StringBuilder.appendContextSummary(selection: DiagnosticsArchiveSelection) {
+            (selection.sessionContextModel ?: selection.latestContextModel)
+                ?.let(redactor::redact)
+                ?.toRedactedSummary()
+                ?.let { contextSummary ->
+                    appendLine("appVersion=${contextSummary.device.appVersionName}")
+                    appendLine("device=${contextSummary.device.deviceName}")
+                    appendLine("android=${contextSummary.device.androidVersion}")
+                    appendLine("serviceMode=${contextSummary.service.activeMode}")
+                    appendLine("serviceStatus=${contextSummary.service.serviceStatus}")
+                    appendLine("profile=${contextSummary.service.selectedProfileName}")
+                    appendLine("configSource=${contextSummary.service.configSource}")
+                    appendLine("proxyEndpoint=${contextSummary.service.proxyEndpoint}")
+                    appendLine("desyncMethod=${contextSummary.service.desyncMethod}")
+                    appendLine("chainSummary=${contextSummary.service.chainSummary}")
+                    appendLine("lastNativeError=${contextSummary.service.lastNativeErrorHeadline}")
+                    appendLine("vpnPermission=${contextSummary.permissions.vpnPermissionState}")
+                    appendLine("notifications=${contextSummary.permissions.notificationPermissionState}")
+                    appendLine("batteryOptimization=${contextSummary.permissions.batteryOptimizationState}")
+                    appendLine("dataSaver=${contextSummary.permissions.dataSaverState}")
+                    appendLine("powerSave=${contextSummary.environment.powerSaveModeState}")
+                    appendLine("networkMetered=${contextSummary.environment.networkMeteredState}")
+                    appendLine("roaming=${contextSummary.environment.roamingState}")
+                }
+        }
+
+        private fun StringBuilder.appendTelemetrySummary(selection: DiagnosticsArchiveSelection) {
+            selection.payload.telemetry.firstOrNull()?.let { sample ->
+                appendLine("networkType=${sample.networkType}")
+                appendLine("failureClass=${sample.failureClass ?: "none"}")
+                appendLine("lastFailureClass=${sample.lastFailureClass ?: "none"}")
+                appendLine("lastFallbackAction=${sample.lastFallbackAction ?: "none"}")
+                appendLine("winningStrategyFamily=${sample.winningStrategyFamily() ?: "none"}")
+                appendLine("telemetryNetworkFingerprintHash=${sample.telemetryNetworkFingerprintHash ?: "none"}")
+                appendLine("rttBand=${sample.rttBand()}")
+                appendLine("retryCount=${sample.retryCount()}")
+                appendLine("resolverId=${sample.resolverId ?: "unknown"}")
+                appendLine("resolverProtocol=${sample.resolverProtocol ?: "unknown"}")
+                appendLine("resolverEndpoint=${sample.resolverEndpoint ?: "unknown"}")
+                appendLine("resolverLatencyMs=${sample.resolverLatencyMs ?: 0}")
+                appendLine("dnsFailuresTotal=${sample.dnsFailuresTotal}")
+                appendLine("resolverFallbackReason=${sample.resolverFallbackReason ?: "none"}")
+                appendLine("networkHandoverClass=${sample.networkHandoverClass ?: "none"}")
+                appendLine("txBytes=${sample.txBytes}")
+                appendLine("rxBytes=${sample.rxBytes}")
+            }
+        }
+
+        private fun StringBuilder.appendResultSummary(selection: DiagnosticsArchiveSelection) {
+            appendLine("resultCount=${selection.primaryResults.size}")
+            selection.primaryResults.take(SummaryProbeResultPreviewCount).forEach { result ->
+                appendLine("${result.probeType}:${result.target}=${result.outcome}")
+            }
+        }
+
+        private fun StringBuilder.appendWarningSummary(selection: DiagnosticsArchiveSelection) {
+            val warnings =
+                selection.globalEvents.filter { event ->
+                    event.level.equals("warn", ignoreCase = true) ||
+                        event.level.equals("error", ignoreCase = true)
+                }
+            if (warnings.isEmpty()) return
+            appendLine("recentWarnings=")
+            warnings.take(SummaryWarningPreviewCount).forEach { warning ->
+                appendLine("- ${warning.source}: ${warning.message}")
+            }
+        }
+
+        private fun BypassApproachSummary.successRateLabel(): String =
+            validatedSuccessRate?.let { rate ->
+                "${(rate * SuccessRatePercentScale).toInt()}%"
+            } ?: "unverified"
 
         internal fun buildTelemetryCsv(payload: DiagnosticsArchivePayload): String =
             buildString {

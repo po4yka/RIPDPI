@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
+import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
 import com.poyka.ripdpi.activities.DiagnosticsNetworkSnapshotUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
@@ -18,6 +19,7 @@ import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -67,6 +69,12 @@ internal fun DiagnosticsBottomSheetHost(
                         onClick = onToggleSensitiveSessionDetails,
                         variant = RipDpiButtonVariant.Outline,
                         modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                if (detail.diagnoses.isNotEmpty()) {
+                    DiagnosisSummaryCard(
+                        diagnoses = detail.diagnoses,
+                        reportMetadata = detail.reportMetadata,
                     )
                 }
                 detail.strategyProbeReport?.let { report ->
@@ -271,6 +279,32 @@ internal fun DiagnosticsBottomSheetHost(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosisSummaryCard(
+    diagnoses: List<DiagnosticsDiagnosisUiModel>,
+    reportMetadata: List<com.poyka.ripdpi.activities.DiagnosticsFieldUiModel>,
+) {
+    val colors = RipDpiThemeTokens.colors
+    RipDpiCard {
+        Text(
+            text = stringResource(R.string.diagnostics_results_section),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        diagnoses.forEach { diagnosis ->
+            StatusIndicator(label = diagnosis.code, tone = statusTone(diagnosis.tone))
+            Text(
+                text = diagnosis.summary,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.foreground,
+            )
+        }
+        reportMetadata.forEach { field ->
+            SettingsRow(title = field.label, value = field.value, monospaceValue = false)
         }
     }
 }

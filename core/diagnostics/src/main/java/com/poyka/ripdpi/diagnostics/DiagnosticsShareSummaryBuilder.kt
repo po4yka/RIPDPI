@@ -59,11 +59,18 @@ internal object DiagnosticsShareSummaryBuilder {
             artifactReadStore.observeNativeEvents(limit = 50).first().filter {
                 it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
             }
+        val selectedReport =
+            selectedSession
+                ?.reportJson
+                ?.let { reportJson ->
+                    runCatching { json.decodeFromString(ScanReport.serializer(), reportJson) }.getOrNull()
+                }
         val title =
             selectedSession?.let { "RIPDPI diagnostics ${it.id.take(8)}" } ?: "RIPDPI diagnostics summary"
         val body =
             buildBody(
                 selectedSession = selectedSession,
+                selectedReport = selectedReport,
                 selectedResults = selectedResults,
                 latestSnapshotModel = latestSnapshotModel,
                 latestContextModel = latestContextModel,
@@ -87,6 +94,7 @@ internal object DiagnosticsShareSummaryBuilder {
 
     private fun buildBody(
         selectedSession: ScanSessionEntity?,
+        selectedReport: ScanReport?,
         selectedResults: List<ProbeResultEntity>,
         latestSnapshotModel: NetworkSnapshotModel?,
         latestContextModel: DiagnosticContextModel?,
@@ -101,6 +109,7 @@ internal object DiagnosticsShareSummaryBuilder {
             appendContextSection(latestContextModel)
             appendTelemetrySection(latestTelemetry)
             appendResultsSection(selectedResults)
+            appendReportSection(selectedReport)
             appendWarningsSection(latestWarnings)
         }
 }
@@ -179,6 +188,20 @@ private fun StringBuilder.appendResultsSection(selectedResults: List<ProbeResult
     appendLine("results=${selectedResults.size}")
     selectedResults.take(ShareSummaryResultPreviewLimit).forEach { result ->
         appendLine("${result.probeType}:${result.target}=${result.outcome}")
+    }
+}
+
+private fun StringBuilder.appendReportSection(selectedReport: ScanReport?) {
+    selectedReport ?: return
+    selectedReport.classifierVersion?.let { appendLine("classifierVersion=$it") }
+    if (selectedReport.diagnoses.isNotEmpty()) {
+        appendLine("diagnosisCount=${selectedReport.diagnoses.size}")
+        selectedReport.diagnoses.take(ShareSummaryResultPreviewLimit).forEach { diagnosis ->
+            appendLine("diagnosis.${diagnosis.code}=${diagnosis.summary}")
+        }
+    }
+    selectedReport.packVersions.forEach { (packId, version) ->
+        appendLine("pack.$packId=$version")
     }
 }
 

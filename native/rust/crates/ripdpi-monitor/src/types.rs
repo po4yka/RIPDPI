@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
 use ripdpi_proxy_config::NetworkSnapshot;
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,19 @@ pub enum ScanPathMode {
 pub enum ScanKind {
     Connectivity,
     StrategyProbe,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DiagnosticProfileFamily {
+    General,
+    WebConnectivity,
+    Messaging,
+    Circumvention,
+    Throttling,
+    DpiFull,
+    AutomaticProbing,
+    AutomaticAudit,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,12 +141,93 @@ pub struct StrategyProbeRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ServiceTarget {
+    pub id: String,
+    pub service: String,
+    #[serde(default)]
+    pub bootstrap_url: Option<String>,
+    #[serde(default)]
+    pub media_url: Option<String>,
+    #[serde(default)]
+    pub tcp_endpoint_host: Option<String>,
+    #[serde(default)]
+    pub tcp_endpoint_ip: Option<String>,
+    #[serde(default = "default_quic_port")]
+    pub tcp_endpoint_port: u16,
+    #[serde(default)]
+    pub tls_server_name: Option<String>,
+    #[serde(default)]
+    pub quic_host: Option<String>,
+    #[serde(default)]
+    pub quic_connect_ip: Option<String>,
+    #[serde(default = "default_quic_port")]
+    pub quic_port: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CircumventionTarget {
+    pub id: String,
+    pub tool: String,
+    #[serde(default)]
+    pub bootstrap_url: Option<String>,
+    #[serde(default)]
+    pub handshake_host: Option<String>,
+    #[serde(default)]
+    pub handshake_ip: Option<String>,
+    #[serde(default = "default_quic_port")]
+    pub handshake_port: u16,
+    #[serde(default)]
+    pub tls_server_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThroughputTarget {
+    pub id: String,
+    pub label: String,
+    pub url: String,
+    #[serde(default)]
+    pub connect_ip: Option<String>,
+    #[serde(default)]
+    pub port: Option<u16>,
+    #[serde(default)]
+    pub is_control: bool,
+    #[serde(default = "default_throughput_window_bytes")]
+    pub window_bytes: usize,
+    #[serde(default = "default_throughput_runs")]
+    pub runs: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Diagnosis {
+    pub code: String,
+    pub summary: String,
+    #[serde(default = "default_diagnosis_severity")]
+    pub severity: String,
+    #[serde(default)]
+    pub target: Option<String>,
+    #[serde(default)]
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScanRequest {
     pub profile_id: String,
     pub display_name: String,
     pub path_mode: ScanPathMode,
     #[serde(default = "default_scan_kind")]
     pub kind: ScanKind,
+    #[serde(default = "default_diagnostic_profile_family")]
+    pub family: DiagnosticProfileFamily,
+    #[serde(default)]
+    pub region_tag: Option<String>,
+    #[serde(default)]
+    pub manual_only: bool,
+    #[serde(default)]
+    pub pack_refs: Vec<String>,
     pub proxy_host: Option<String>,
     pub proxy_port: Option<u16>,
     pub domain_targets: Vec<DomainTarget>,
@@ -141,6 +235,12 @@ pub struct ScanRequest {
     pub tcp_targets: Vec<TcpTarget>,
     #[serde(default)]
     pub quic_targets: Vec<QuicTarget>,
+    #[serde(default)]
+    pub service_targets: Vec<ServiceTarget>,
+    #[serde(default)]
+    pub circumvention_targets: Vec<CircumventionTarget>,
+    #[serde(default)]
+    pub throughput_targets: Vec<ThroughputTarget>,
     pub whitelist_sni: Vec<String>,
     #[serde(default)]
     pub telegram_target: Option<TelegramTarget>,
@@ -194,6 +294,12 @@ pub struct ScanReport {
     pub finished_at: u64,
     pub summary: String,
     pub results: Vec<ProbeResult>,
+    #[serde(default)]
+    pub diagnoses: Vec<Diagnosis>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub classifier_version: Option<String>,
+    #[serde(default)]
+    pub pack_versions: BTreeMap<String, u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strategy_probe_report: Option<StrategyProbeReport>,
 }
@@ -276,7 +382,14 @@ mod tests {
         }"#;
         let request: ScanRequest = serde_json::from_str(json).expect("deserialize");
         assert_eq!(request.kind, ScanKind::Connectivity);
+        assert_eq!(request.family, DiagnosticProfileFamily::General);
+        assert!(request.region_tag.is_none());
+        assert!(!request.manual_only);
+        assert!(request.pack_refs.is_empty());
         assert!(request.quic_targets.is_empty());
+        assert!(request.service_targets.is_empty());
+        assert!(request.circumvention_targets.is_empty());
+        assert!(request.throughput_targets.is_empty());
         assert!(request.telegram_target.is_none());
         assert!(request.strategy_probe.is_none());
     }
@@ -316,6 +429,36 @@ mod tests {
         }"#;
         let request: ScanRequest = serde_json::from_str(json).expect("deserialize");
         assert!(request.network_snapshot.is_none());
+    }
+
+    #[test]
+    fn scan_report_deserializes_with_new_defaults() {
+        let json = r#"{
+            "sessionId": "session-1",
+            "profileId": "default",
+            "pathMode": "RAW_PATH",
+            "startedAt": 1,
+            "finishedAt": 2,
+            "summary": "done",
+            "results": []
+        }"#;
+        let report: ScanReport = serde_json::from_str(json).expect("deserialize");
+        assert!(report.diagnoses.is_empty());
+        assert!(report.classifier_version.is_none());
+        assert!(report.pack_versions.is_empty());
+    }
+
+    #[test]
+    fn throughput_target_defaults_window_and_runs() {
+        let json = r#"{
+            "id": "youtube",
+            "label": "YouTube",
+            "url": "https://www.youtube.com/"
+        }"#;
+        let target: ThroughputTarget = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(target.window_bytes, 8 * 1024 * 1024);
+        assert_eq!(target.runs, 2);
+        assert!(!target.is_control);
     }
 
     #[test]

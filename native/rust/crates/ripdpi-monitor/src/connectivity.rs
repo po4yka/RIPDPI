@@ -1,9 +1,15 @@
 use std::collections::BTreeSet;
+use std::io::{ErrorKind, Read, Write};
+use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
 use rustls::client::danger::ServerCertVerifier;
 
+use crate::classification::{
+    classify_connectivity_diagnoses, pack_versions_from_refs, CONNECTIVITY_CLASSIFIER_VERSION,
+};
 use crate::dns::*;
 use crate::fat_header::*;
 use crate::http::*;
@@ -23,8 +29,15 @@ pub(crate) fn run_connectivity_scan(
 ) {
     let started_at = now_ms();
     let telegram_steps = if request.telegram_target.is_some() { 1 } else { 0 };
-    let total_steps =
-        (request.dns_targets.len() + request.domain_targets.len() + request.tcp_targets.len() + telegram_steps).max(1);
+    let total_steps = (request.dns_targets.len()
+        + request.domain_targets.len()
+        + request.quic_targets.len()
+        + request.tcp_targets.len()
+        + request.service_targets.len()
+        + request.circumvention_targets.len()
+        + request.throughput_targets.len()
+        + telegram_steps)
+        .max(1);
     let transport = transport_for_request(&request);
     let mut completed_steps = 0usize;
     let mut results = Vec::new();
@@ -65,6 +78,7 @@ pub(crate) fn run_connectivity_scan(
             if let Some(probe) = network_env_probe {
                 short_results.push(probe);
             }
+            let pack_versions = pack_versions_from_refs(&request.pack_refs);
             let report = ScanReport {
                 session_id: session_id.clone(),
                 profile_id: request.profile_id,
@@ -73,6 +87,9 @@ pub(crate) fn run_connectivity_scan(
                 finished_at: now_ms(),
                 summary: "network_unavailable".to_string(),
                 results: short_results,
+                diagnoses: Vec::new(),
+                classifier_version: Some(CONNECTIVITY_CLASSIFIER_VERSION.to_string()),
+                pack_versions,
                 strategy_probe_report: None,
             };
             set_report(&shared, report);
@@ -162,6 +179,37 @@ pub(crate) fn run_connectivity_scan(
         );
     }
 
+    for quic_target in &request.quic_targets {
+        if cancel.load(Ordering::Acquire) {
+            persist_cancelled_report(shared, session_id, request, started_at, results);
+            return;
+        }
+        let probe = run_quic_probe(quic_target, &transport);
+        push_event(
+            &shared,
+            "quic_reachability",
+            event_level_for_outcome(&probe.outcome),
+            summarize_probe_event(&probe),
+        );
+        let probe_target = probe.target.clone();
+        let probe_outcome = probe.outcome.clone();
+        results.push(probe);
+        completed_steps += 1;
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: session_id.clone(),
+                phase: "quic".to_string(),
+                completed_steps,
+                total_steps,
+                message: format!("QUIC {}", quic_target.host),
+                is_finished: false,
+                latest_probe_target: Some(probe_target),
+                latest_probe_outcome: Some(probe_outcome),
+            },
+        );
+    }
+
     for tcp_target in &request.tcp_targets {
         if cancel.load(Ordering::Acquire) {
             persist_cancelled_report(shared, session_id, request, started_at, results);
@@ -181,6 +229,68 @@ pub(crate) fn run_connectivity_scan(
                 completed_steps,
                 total_steps,
                 message: format!("TCP {}", tcp_target.provider),
+                is_finished: false,
+                latest_probe_target: Some(probe_target),
+                latest_probe_outcome: Some(probe_outcome),
+            },
+        );
+    }
+
+    for service_target in &request.service_targets {
+        if cancel.load(Ordering::Acquire) {
+            persist_cancelled_report(shared, session_id, request, started_at, results);
+            return;
+        }
+        let probe = run_service_probe(service_target, &transport, tls_verifier.as_ref());
+        push_event(
+            &shared,
+            "service_reachability",
+            event_level_for_outcome(&probe.outcome),
+            summarize_probe_event(&probe),
+        );
+        let probe_target = probe.target.clone();
+        let probe_outcome = probe.outcome.clone();
+        results.push(probe);
+        completed_steps += 1;
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: session_id.clone(),
+                phase: "service".to_string(),
+                completed_steps,
+                total_steps,
+                message: format!("Service {}", service_target.service),
+                is_finished: false,
+                latest_probe_target: Some(probe_target),
+                latest_probe_outcome: Some(probe_outcome),
+            },
+        );
+    }
+
+    for circumvention_target in &request.circumvention_targets {
+        if cancel.load(Ordering::Acquire) {
+            persist_cancelled_report(shared, session_id, request, started_at, results);
+            return;
+        }
+        let probe = run_circumvention_probe(circumvention_target, &transport, tls_verifier.as_ref());
+        push_event(
+            &shared,
+            "circumvention_reachability",
+            event_level_for_outcome(&probe.outcome),
+            summarize_probe_event(&probe),
+        );
+        let probe_target = probe.target.clone();
+        let probe_outcome = probe.outcome.clone();
+        results.push(probe);
+        completed_steps += 1;
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: session_id.clone(),
+                phase: "circumvention".to_string(),
+                completed_steps,
+                total_steps,
+                message: format!("Circumvention {}", circumvention_target.tool),
                 is_finished: false,
                 latest_probe_target: Some(probe_target),
                 latest_probe_outcome: Some(probe_outcome),
@@ -227,8 +337,41 @@ pub(crate) fn run_connectivity_scan(
         );
     }
 
+    for throughput_target in &request.throughput_targets {
+        if cancel.load(Ordering::Acquire) {
+            persist_cancelled_report(shared, session_id, request, started_at, results);
+            return;
+        }
+        let probe = run_throughput_probe(throughput_target, &transport);
+        push_event(
+            &shared,
+            "throughput_window",
+            event_level_for_outcome(&probe.outcome),
+            summarize_probe_event(&probe),
+        );
+        let probe_target = probe.target.clone();
+        let probe_outcome = probe.outcome.clone();
+        results.push(probe);
+        completed_steps += 1;
+        set_progress(
+            &shared,
+            ScanProgress {
+                session_id: session_id.clone(),
+                phase: "throughput".to_string(),
+                completed_steps,
+                total_steps,
+                message: format!("Throughput {}", throughput_target.label),
+                is_finished: false,
+                latest_probe_target: Some(probe_target),
+                latest_probe_outcome: Some(probe_outcome),
+            },
+        );
+    }
+
     let success_count = results.iter().filter(|result| probe_is_success(&result.outcome)).count();
-    let summary = format!("{success_count}/{} probes succeeded", results.len());
+    let diagnoses = classify_connectivity_diagnoses(&request, &results);
+    let summary = build_connectivity_summary(success_count, results.len(), diagnoses.len());
+    let pack_versions = pack_versions_from_refs(&request.pack_refs);
     let report = ScanReport {
         session_id: session_id.clone(),
         profile_id: request.profile_id,
@@ -237,6 +380,9 @@ pub(crate) fn run_connectivity_scan(
         finished_at: now_ms(),
         summary,
         results,
+        diagnoses,
+        classifier_version: Some(CONNECTIVITY_CLASSIFIER_VERSION.to_string()),
+        pack_versions,
         strategy_probe_report: None,
     };
 
@@ -264,6 +410,7 @@ pub(crate) fn persist_cancelled_report(
     started_at: u64,
     results: Vec<ProbeResult>,
 ) {
+    let pack_versions = pack_versions_from_refs(&request.pack_refs);
     let report = ScanReport {
         session_id: session_id.clone(),
         profile_id: request.profile_id,
@@ -272,6 +419,9 @@ pub(crate) fn persist_cancelled_report(
         finished_at: now_ms(),
         summary: "Scan cancelled".to_string(),
         results,
+        diagnoses: Vec::new(),
+        classifier_version: Some(CONNECTIVITY_CLASSIFIER_VERSION.to_string()),
+        pack_versions,
         strategy_probe_report: None,
     };
     set_report(&shared, report);
@@ -535,6 +685,399 @@ pub(crate) fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transp
     }
 }
 
+pub(crate) fn run_quic_probe(target: &QuicTarget, transport: &TransportConfig) -> ProbeResult {
+    let started = now_ms();
+    let connect_target = quic_connect_target(target);
+    let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str())).unwrap_or_default();
+    let response = relay_udp_payload(&connect_target, target.port, transport, &payload);
+    let latency_ms = now_ms().saturating_sub(started);
+    let (outcome, status, error) = match response {
+        Ok(bytes) if parse_quic_initial(&bytes).is_some() => {
+            ("quic_initial_response".to_string(), "quic_initial_response".to_string(), "none".to_string())
+        }
+        Ok(bytes) if !bytes.is_empty() => {
+            ("quic_response".to_string(), "quic_response".to_string(), "none".to_string())
+        }
+        Ok(_) => ("quic_empty".to_string(), "quic_empty".to_string(), "none".to_string()),
+        Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err),
+    };
+    ProbeResult {
+        probe_type: "quic_reachability".to_string(),
+        target: target.host.clone(),
+        outcome,
+        details: vec![
+            ProbeDetail { key: "status".to_string(), value: status },
+            ProbeDetail { key: "error".to_string(), value: error },
+            ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
+            ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
+        ],
+    }
+}
+
+pub(crate) fn run_service_probe(
+    target: &ServiceTarget,
+    transport: &TransportConfig,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> ProbeResult {
+    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, None, transport));
+    let media = target.media_url.as_ref().map(|url| probe_http_url(url, None, None, transport));
+    let (gateway_status, gateway_error) = run_endpoint_probe(
+        target.tcp_endpoint_host.as_deref(),
+        target.tcp_endpoint_ip.as_deref(),
+        target.tcp_endpoint_port,
+        target.tls_server_name.as_deref().or(target.tcp_endpoint_host.as_deref()),
+        transport,
+        tls_verifier,
+    );
+    let (quic_status, quic_error) = run_quic_endpoint_probe(
+        target.quic_host.as_deref(),
+        target.quic_connect_ip.as_deref(),
+        target.quic_port,
+        transport,
+    );
+
+    let bootstrap_status =
+        bootstrap.as_ref().map(|observation| observation.status.clone()).unwrap_or_else(|| "not_run".to_string());
+    let bootstrap_detail = bootstrap.as_ref().map(describe_http_observation).unwrap_or_else(|| "not_run".to_string());
+    let media_status =
+        media.as_ref().map(|observation| observation.status.clone()).unwrap_or_else(|| "not_run".to_string());
+    let media_detail = media.as_ref().map(describe_http_observation).unwrap_or_else(|| "not_run".to_string());
+    let outcome = if is_probe_failure(&bootstrap_status)
+        || is_probe_failure(&media_status)
+        || is_probe_failure(&gateway_status)
+        || is_probe_failure(&quic_status)
+    {
+        if bootstrap_status == "http_ok"
+            && media_status == "http_ok"
+            && matches!(gateway_status.as_str(), "not_run" | "tls_ok" | "tcp_connect_ok")
+            && matches!(quic_status.as_str(), "not_run" | "quic_initial_response" | "quic_response")
+        {
+            "service_ok"
+        } else if bootstrap_status != "not_run" && bootstrap_status != "http_ok" {
+            "service_blocked"
+        } else {
+            "service_partial"
+        }
+    } else {
+        "service_ok"
+    };
+
+    ProbeResult {
+        probe_type: "service_reachability".to_string(),
+        target: target.service.clone(),
+        outcome: outcome.to_string(),
+        details: vec![
+            ProbeDetail { key: "id".to_string(), value: target.id.clone() },
+            ProbeDetail { key: "service".to_string(), value: target.service.clone() },
+            ProbeDetail { key: "bootstrapStatus".to_string(), value: bootstrap_status },
+            ProbeDetail { key: "bootstrapDetail".to_string(), value: bootstrap_detail },
+            ProbeDetail { key: "mediaStatus".to_string(), value: media_status },
+            ProbeDetail { key: "mediaDetail".to_string(), value: media_detail },
+            ProbeDetail { key: "gatewayStatus".to_string(), value: gateway_status },
+            ProbeDetail { key: "gatewayError".to_string(), value: gateway_error },
+            ProbeDetail { key: "quicStatus".to_string(), value: quic_status },
+            ProbeDetail { key: "quicError".to_string(), value: quic_error },
+        ],
+    }
+}
+
+pub(crate) fn run_circumvention_probe(
+    target: &CircumventionTarget,
+    transport: &TransportConfig,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> ProbeResult {
+    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, None, transport));
+    let (handshake_status, handshake_error) = run_endpoint_probe(
+        target.handshake_host.as_deref(),
+        target.handshake_ip.as_deref(),
+        target.handshake_port,
+        target.tls_server_name.as_deref().or(target.handshake_host.as_deref()),
+        transport,
+        tls_verifier,
+    );
+    let bootstrap_status =
+        bootstrap.as_ref().map(|observation| observation.status.clone()).unwrap_or_else(|| "not_run".to_string());
+    let bootstrap_detail = bootstrap.as_ref().map(describe_http_observation).unwrap_or_else(|| "not_run".to_string());
+    let outcome = if is_probe_failure(&bootstrap_status) || is_probe_failure(&handshake_status) {
+        "circumvention_blocked"
+    } else {
+        "circumvention_ok"
+    };
+    ProbeResult {
+        probe_type: "circumvention_reachability".to_string(),
+        target: target.tool.clone(),
+        outcome: outcome.to_string(),
+        details: vec![
+            ProbeDetail { key: "id".to_string(), value: target.id.clone() },
+            ProbeDetail { key: "tool".to_string(), value: target.tool.clone() },
+            ProbeDetail { key: "bootstrapStatus".to_string(), value: bootstrap_status },
+            ProbeDetail { key: "bootstrapDetail".to_string(), value: bootstrap_detail },
+            ProbeDetail { key: "handshakeStatus".to_string(), value: handshake_status },
+            ProbeDetail { key: "handshakeError".to_string(), value: handshake_error },
+        ],
+    }
+}
+
+pub(crate) fn run_throughput_probe(target: &ThroughputTarget, transport: &TransportConfig) -> ProbeResult {
+    let samples = (0..target.runs.max(1)).map(|_| measure_throughput_window(target, transport)).collect::<Vec<_>>();
+    let mut bps_values = samples.iter().map(|sample| sample.bps).filter(|bps| *bps > 0).collect::<Vec<_>>();
+    bps_values.sort_unstable();
+    let median_bps = if bps_values.is_empty() { 0 } else { bps_values[bps_values.len() / 2] };
+    let outcome = if samples.iter().any(|sample| sample.status == "http_ok" && sample.bps > 0) {
+        "throughput_measured"
+    } else {
+        "throughput_failed"
+    };
+    ProbeResult {
+        probe_type: "throughput_window".to_string(),
+        target: target.label.clone(),
+        outcome: outcome.to_string(),
+        details: vec![
+            ProbeDetail { key: "id".to_string(), value: target.id.clone() },
+            ProbeDetail { key: "url".to_string(), value: target.url.clone() },
+            ProbeDetail { key: "isControl".to_string(), value: target.is_control.to_string() },
+            ProbeDetail { key: "windowBytes".to_string(), value: target.window_bytes.to_string() },
+            ProbeDetail { key: "runs".to_string(), value: target.runs.to_string() },
+            ProbeDetail {
+                key: "bpsReadings".to_string(),
+                value: samples.iter().map(|sample| sample.bps.to_string()).collect::<Vec<_>>().join("|"),
+            },
+            ProbeDetail {
+                key: "statusReadings".to_string(),
+                value: samples.iter().map(|sample| sample.status.clone()).collect::<Vec<_>>().join("|"),
+            },
+            ProbeDetail {
+                key: "byteReadings".to_string(),
+                value: samples.iter().map(|sample| sample.bytes_read.to_string()).collect::<Vec<_>>().join("|"),
+            },
+            ProbeDetail {
+                key: "errorReadings".to_string(),
+                value: samples.iter().map(|sample| sample.error.clone()).collect::<Vec<_>>().join("|"),
+            },
+            ProbeDetail { key: "medianBps".to_string(), value: median_bps.to_string() },
+        ],
+    }
+}
+
+#[derive(Clone)]
+struct ThroughputSample {
+    status: String,
+    bytes_read: usize,
+    bps: u64,
+    error: String,
+}
+
+struct ParsedHttpTarget {
+    host: String,
+    path: String,
+    port: u16,
+    secure: bool,
+    connect_target: TargetAddress,
+}
+
+fn measure_throughput_window(target: &ThroughputTarget, transport: &TransportConfig) -> ThroughputSample {
+    let parsed = match parse_http_target(&target.url, target.connect_ip.as_deref(), target.port) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            return ThroughputSample { status: "invalid_target".to_string(), bytes_read: 0, bps: 0, error: err }
+        }
+    };
+    let started = std::time::Instant::now();
+    let mut stream = match open_probe_stream(
+        &parsed.connect_target,
+        parsed.port,
+        transport,
+        if parsed.secure { Some(parsed.host.as_str()) } else { None },
+        parsed.secure,
+        TlsClientProfile::Auto,
+        None,
+    ) {
+        Ok(stream) => stream,
+        Err(err) => {
+            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err }
+        }
+    };
+    let request =
+        format!("GET {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\nConnection: close\r\n\r\n", parsed.path, parsed.host);
+    if let Err(err) = stream.write_all(request.as_bytes()).and_then(|_| stream.flush()) {
+        stream.shutdown();
+        return ThroughputSample {
+            status: "http_unreachable".to_string(),
+            bytes_read: 0,
+            bps: 0,
+            error: err.to_string(),
+        };
+    }
+    let headers = match read_http_headers(&mut stream, MAX_HTTP_BYTES) {
+        Ok(headers) => headers,
+        Err(err) => {
+            stream.shutdown();
+            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err };
+        }
+    };
+    let header_end = match find_headers_end(&headers) {
+        Some(index) => index,
+        None => {
+            stream.shutdown();
+            return ThroughputSample {
+                status: "http_unreachable".to_string(),
+                bytes_read: 0,
+                bps: 0,
+                error: "response_missing_headers".to_string(),
+            };
+        }
+    };
+    let response = match parse_http_response(&headers[..header_end], headers[header_end + 4..].to_vec()) {
+        Ok(response) => response,
+        Err(err) => {
+            stream.shutdown();
+            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err };
+        }
+    };
+    let status = classify_http_response(&response);
+    let mut bytes_read = response.body.len().min(target.window_bytes);
+    let mut last_error = "none".to_string();
+    while bytes_read < target.window_bytes {
+        let remaining = target.window_bytes - bytes_read;
+        let mut chunk = vec![0u8; remaining.min(16 * 1024)];
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => {
+                bytes_read += read;
+            }
+            Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
+                last_error = err.to_string();
+                break;
+            }
+            Err(err) => {
+                last_error = err.to_string();
+                break;
+            }
+        }
+    }
+    stream.shutdown();
+    let duration_ms = started.elapsed().as_millis().max(1) as u64;
+    let bps = (bytes_read as u64).saturating_mul(8).saturating_mul(1000) / duration_ms;
+    ThroughputSample { status, bytes_read, bps, error: last_error }
+}
+
+fn probe_http_url(
+    url: &str,
+    connect_ip: Option<&str>,
+    port_override: Option<u16>,
+    transport: &TransportConfig,
+) -> HttpObservation {
+    match parse_http_target(url, connect_ip, port_override) {
+        Ok(parsed) => {
+            try_http_request(&parsed.connect_target, parsed.port, transport, &parsed.host, &parsed.path, parsed.secure)
+        }
+        Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
+    }
+}
+
+fn run_endpoint_probe(
+    host: Option<&str>,
+    connect_ip: Option<&str>,
+    port: u16,
+    tls_name: Option<&str>,
+    transport: &TransportConfig,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> (String, String) {
+    let Some(target) = connect_target_from_parts(host, connect_ip) else {
+        return ("not_run".to_string(), "not_run".to_string());
+    };
+    if tls_name.is_some() || port == 443 {
+        let server_name = tls_name.or(host).unwrap_or_default();
+        let observation =
+            try_tls_handshake(&target, port, transport, server_name, true, TlsClientProfile::Auto, tls_verifier);
+        (observation.status, observation.error.unwrap_or_else(|| "none".to_string()))
+    } else {
+        match connect_transport(&target, port, transport) {
+            Ok(stream) => {
+                let _ = stream.shutdown(std::net::Shutdown::Both);
+                ("tcp_connect_ok".to_string(), "none".to_string())
+            }
+            Err(err) => ("tcp_connect_failed".to_string(), err),
+        }
+    }
+}
+
+fn run_quic_endpoint_probe(
+    host: Option<&str>,
+    connect_ip: Option<&str>,
+    port: u16,
+    transport: &TransportConfig,
+) -> (String, String) {
+    let Some(host_name) = host else {
+        return ("not_run".to_string(), "not_run".to_string());
+    };
+    let connect_target = connect_target_from_parts(Some(host_name), connect_ip)
+        .unwrap_or_else(|| TargetAddress::Host(host_name.to_string()));
+    let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(host_name)).unwrap_or_default();
+    match relay_udp_payload(&connect_target, port, transport, &payload) {
+        Ok(bytes) if parse_quic_initial(&bytes).is_some() => ("quic_initial_response".to_string(), "none".to_string()),
+        Ok(bytes) if !bytes.is_empty() => ("quic_response".to_string(), "none".to_string()),
+        Ok(_) => ("quic_empty".to_string(), "none".to_string()),
+        Err(err) => ("quic_error".to_string(), err),
+    }
+}
+
+fn parse_http_target(
+    url: &str,
+    connect_ip: Option<&str>,
+    port_override: Option<u16>,
+) -> Result<ParsedHttpTarget, String> {
+    let secure = url.starts_with("https://");
+    let without_scheme = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .ok_or_else(|| "unsupported_url_scheme".to_string())?;
+    let (authority, path) = match without_scheme.split_once('/') {
+        Some((authority, suffix)) => (authority, format!("/{}", suffix)),
+        None => (without_scheme, "/".to_string()),
+    };
+    let (host, parsed_port) = split_host_and_port(authority);
+    if host.is_empty() {
+        return Err("missing_url_host".to_string());
+    }
+    let port = port_override.or(parsed_port).unwrap_or(if secure { 443 } else { 80 });
+    let connect_target =
+        connect_target_from_parts(Some(host.as_str()), connect_ip).unwrap_or_else(|| TargetAddress::Host(host.clone()));
+    Ok(ParsedHttpTarget { host, path, port, secure, connect_target })
+}
+
+fn split_host_and_port(authority: &str) -> (String, Option<u16>) {
+    if authority.starts_with('[') {
+        return (authority.to_string(), None);
+    }
+    match authority.rsplit_once(':') {
+        Some((host, port)) => match port.parse::<u16>() {
+            Ok(parsed_port) => (host.to_string(), Some(parsed_port)),
+            Err(_) => (authority.to_string(), None),
+        },
+        None => (authority.to_string(), None),
+    }
+}
+
+fn connect_target_from_parts(host: Option<&str>, connect_ip: Option<&str>) -> Option<TargetAddress> {
+    connect_ip
+        .and_then(|value| value.parse::<IpAddr>().ok())
+        .map(TargetAddress::Ip)
+        .or_else(|| host.filter(|value| !value.is_empty()).map(|value| TargetAddress::Host(value.to_string())))
+}
+
+fn is_probe_failure(status: &str) -> bool {
+    !matches!(status, "not_run" | "http_ok" | "tls_ok" | "tcp_connect_ok" | "quic_initial_response" | "quic_response")
+}
+
+fn build_connectivity_summary(success_count: usize, result_count: usize, diagnosis_count: usize) -> String {
+    if diagnosis_count > 0 {
+        format!("{success_count}/{result_count} probes succeeded · {diagnosis_count} diagnoses")
+    } else {
+        format!("{success_count}/{result_count} probes succeeded")
+    }
+}
+
 pub(crate) fn summarize_probe_event(probe: &ProbeResult) -> String {
     match probe.probe_type.as_str() {
         "dns_integrity" => format!(
@@ -560,6 +1103,31 @@ pub(crate) fn summarize_probe_event(probe: &ProbeResult) -> String {
             probe_detail_value(probe, "bytesSent"),
             probe_detail_value(probe, "responsesSeen"),
         ),
+        "quic_reachability" => format!(
+            "{} -> {} (status={}, latency={}ms)",
+            probe.target,
+            probe.outcome,
+            probe_detail_value(probe, "status"),
+            probe_detail_value(probe, "latencyMs"),
+        ),
+        "service_reachability" => format!(
+            "{} -> {} (bootstrap={}, media={}, gateway={})",
+            probe.target,
+            probe.outcome,
+            probe_detail_value(probe, "bootstrapStatus"),
+            probe_detail_value(probe, "mediaStatus"),
+            probe_detail_value(probe, "gatewayStatus"),
+        ),
+        "circumvention_reachability" => format!(
+            "{} -> {} (bootstrap={}, handshake={})",
+            probe.target,
+            probe.outcome,
+            probe_detail_value(probe, "bootstrapStatus"),
+            probe_detail_value(probe, "handshakeStatus"),
+        ),
+        "throughput_window" => {
+            format!("{} -> {} (median={}bps)", probe.target, probe.outcome, probe_detail_value(probe, "medianBps"),)
+        }
         _ => format!("{} -> {}", probe.target, probe.outcome),
     }
 }

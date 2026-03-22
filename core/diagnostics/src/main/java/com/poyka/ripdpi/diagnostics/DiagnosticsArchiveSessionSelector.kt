@@ -75,6 +75,7 @@ class DiagnosticsArchiveSessionSelector
                     scope = DiagnosticsArchiveFormat.scope,
                     privacyMode = DiagnosticsArchiveFormat.privacyMode,
                     session = primarySession,
+                    primaryReport = primaryReport,
                     results = primaryResults,
                     sessionSnapshots = primarySnapshots,
                     sessionContexts = primaryContexts,
