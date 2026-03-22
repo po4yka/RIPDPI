@@ -62,12 +62,22 @@ interface DiagnosticsScanRecordStore {
 interface DiagnosticsArtifactReadStore {
     fun observeSnapshots(limit: Int = 100): Flow<List<NetworkSnapshotEntity>>
 
+    suspend fun getSnapshotsForSession(
+        sessionId: String,
+        limit: Int = 200,
+    ): List<NetworkSnapshotEntity>
+
     fun observeConnectionSnapshots(
         connectionSessionId: String,
         limit: Int = 100,
     ): Flow<List<NetworkSnapshotEntity>>
 
     fun observeContexts(limit: Int = 100): Flow<List<DiagnosticContextEntity>>
+
+    suspend fun getContextsForSession(
+        sessionId: String,
+        limit: Int = 200,
+    ): List<DiagnosticContextEntity>
 
     fun observeConnectionContexts(
         connectionSessionId: String,
@@ -82,6 +92,11 @@ interface DiagnosticsArtifactReadStore {
     ): Flow<List<TelemetrySampleEntity>>
 
     fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
+
+    suspend fun getNativeEventsForSession(
+        sessionId: String,
+        limit: Int = 500,
+    ): List<NativeSessionEventEntity>
 
     fun observeConnectionNativeEvents(
         connectionSessionId: String,
@@ -205,6 +220,11 @@ class RoomDiagnosticsArtifactStore
         DiagnosticsArtifactWriteStore {
         override fun observeSnapshots(limit: Int): Flow<List<NetworkSnapshotEntity>> = dao.observeSnapshots(limit)
 
+        override suspend fun getSnapshotsForSession(
+            sessionId: String,
+            limit: Int,
+        ): List<NetworkSnapshotEntity> = dao.getSnapshotsForSession(sessionId = sessionId, limit = limit)
+
         override fun observeConnectionSnapshots(
             connectionSessionId: String,
             limit: Int,
@@ -216,6 +236,11 @@ class RoomDiagnosticsArtifactStore
 
         override fun observeContexts(limit: Int): Flow<List<DiagnosticContextEntity>> =
             dao.observeContextSnapshots(limit)
+
+        override suspend fun getContextsForSession(
+            sessionId: String,
+            limit: Int,
+        ): List<DiagnosticContextEntity> = dao.getContextsForSession(sessionId = sessionId, limit = limit)
 
         override fun observeConnectionContexts(
             connectionSessionId: String,
@@ -239,6 +264,11 @@ class RoomDiagnosticsArtifactStore
 
         override fun observeNativeEvents(limit: Int): Flow<List<NativeSessionEventEntity>> =
             dao.observeNativeEvents(limit)
+
+        override suspend fun getNativeEventsForSession(
+            sessionId: String,
+            limit: Int,
+        ): List<NativeSessionEventEntity> = dao.getNativeEventsForSession(sessionId = sessionId, limit = limit)
 
         override fun observeConnectionNativeEvents(
             connectionSessionId: String,

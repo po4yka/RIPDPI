@@ -24,16 +24,12 @@ internal object DiagnosticsSessionQueries {
                     scanRecordStore.getScanSession(sessionId),
                 ) { "Unknown diagnostics session: $sessionId" }
             val results = scanRecordStore.getProbeResults(sessionId)
-            val snapshots =
-                artifactReadStore.observeSnapshots(limit = 200).first().filter { it.sessionId == sessionId }
+            val snapshots = artifactReadStore.getSnapshotsForSession(sessionId)
             val latestContext =
                 artifactReadStore
-                    .observeContexts(limit = 200)
-                    .first()
-                    .filter { it.sessionId == sessionId }
+                    .getContextsForSession(sessionId)
                     .maxByOrNull { it.capturedAt }
-            val events =
-                artifactReadStore.observeNativeEvents(limit = 500).first().filter { it.sessionId == sessionId }
+            val events = artifactReadStore.getNativeEventsForSession(sessionId)
             DiagnosticSessionDetail(
                 session = mapper.toDiagnosticScanSession(session),
                 results = results.map(mapper::toProbeResult),
