@@ -56,6 +56,10 @@ pub trait RuntimeTelemetrySink: Send + Sync {
     fn on_host_autolearn_state(&self, enabled: bool, learned_host_count: usize, penalized_host_count: usize);
 
     fn on_host_autolearn_event(&self, action: &'static str, host: Option<&str>, group_index: Option<usize>);
+
+    /// Called when a connection target is identified as a known Telegram DC.
+    /// Fired for all Telegram IP connections, regardless of WS tunnel config.
+    fn on_telegram_dc_detected(&self, _target: SocketAddr, _dc: u8) {}
 }
 
 #[derive(Clone)]
