@@ -341,9 +341,9 @@ pub fn send_fake_tcp(
         let mut moved = 0usize;
         while moved < original_prefix.len() {
             let chunk = nix::fcntl::splice(
-                pipe_r.as_raw_fd(),
+                &pipe_r,
                 None,
-                fd,
+                stream,
                 None,
                 original_prefix.len() - moved,
                 nix::fcntl::SpliceFFlags::empty(),
@@ -505,23 +505,14 @@ fn wait_tcp_stage_fd(fd: libc::c_int, wait_send: bool, await_interval: Duration)
 }
 
 fn alloc_region(len: usize) -> io::Result<*mut u8> {
-    use nix::sys::mman::{mmap, MapFlags, ProtFlags};
+    use nix::sys::mman::{mmap_anonymous, MapFlags, ProtFlags};
     use std::num::NonZeroUsize;
-    use std::os::fd::BorrowedFd;
     let size =
         NonZeroUsize::new(len).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "zero-length mmap region"))?;
     // SAFETY: anonymous private mapping; no backing fd; no aliasing with existing mappings.
-    let ptr = unsafe {
-        mmap::<BorrowedFd<'_>>(
-            None,
-            size,
-            ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
-            MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
-            None,
-            0,
-        )
-    }
-    .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+    let ptr =
+        unsafe { mmap_anonymous(None, size, ProtFlags::PROT_READ | ProtFlags::PROT_WRITE, MapFlags::MAP_PRIVATE) }
+            .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
     Ok(ptr.as_ptr().cast())
 }
 
