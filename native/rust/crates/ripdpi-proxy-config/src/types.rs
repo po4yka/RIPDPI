@@ -355,6 +355,17 @@ pub struct ProxyUiConfig {
     pub hosts: ProxyUiHostsConfig,
     #[serde(default)]
     pub host_autolearn: ProxyUiHostAutolearnConfig,
+    #[serde(default)]
+    pub ws_tunnel: ProxyUiWsTunnelConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiWsTunnelConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub mode: Option<String>,
 }
 
 // --- Android OS network state snapshot ---

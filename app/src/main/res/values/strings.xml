@@ -269,6 +269,12 @@
     <string name="network_strategy_memory_count_summary">%1$d remembered networks stored locally.</string>
     <string name="network_strategy_memory_clear_action">Clear remembered networks</string>
     <string name="network_strategy_memory_helper">Only validated network matches auto-apply. Raw SSID, BSSID, and carrier identifiers stay out of storage.</string>
+    <string name="ws_tunnel_section_title">WebSocket tunnel</string>
+    <string name="ws_tunnel_mode_label">WS tunnel mode</string>
+    <string name="ws_tunnel_mode_helper">Controls when Telegram traffic uses WSS tunnel via web.telegram.org.</string>
+    <string name="ws_tunnel_mode_off">Off</string>
+    <string name="ws_tunnel_mode_always">Always (try first)</string>
+    <string name="ws_tunnel_mode_fallback">Fallback (last resort)</string>
     <string name="host_autolearn_cli_status_title">Controlled by command line</string>
     <string name="host_autolearn_cli_status_body">Visual host learning settings are paused while raw RIPDPI arguments are enabled. Use --host-autolearn, --host-autolearn-penalty-ttl, --host-autolearn-max-hosts, and optional --host-autolearn-file in command line settings.</string>
     <string name="host_autolearn_cli_live_status_body">This session is learning hosts through command line flags. Edit raw RIPDPI arguments to change the next start.</string>

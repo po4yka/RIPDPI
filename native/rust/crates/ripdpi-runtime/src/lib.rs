@@ -60,6 +60,9 @@ pub trait RuntimeTelemetrySink: Send + Sync {
     /// Called when a connection target is identified as a known Telegram DC.
     /// Fired for all Telegram IP connections, regardless of WS tunnel config.
     fn on_telegram_dc_detected(&self, _target: SocketAddr, _dc: u8) {}
+
+    /// Called when the runtime escalates from desync to WS tunnel (fallback mode).
+    fn on_ws_tunnel_escalation(&self, _target: SocketAddr, _dc: u8, _success: bool) {}
 }
 
 #[derive(Clone)]

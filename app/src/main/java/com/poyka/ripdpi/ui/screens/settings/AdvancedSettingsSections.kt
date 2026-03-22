@@ -18,6 +18,8 @@ import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
+import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -383,6 +385,36 @@ internal fun LazyListScope.networkStrategyMemorySection(
                     text = stringResource(R.string.network_strategy_memory_helper),
                     style = RipDpiThemeTokens.type.caption,
                     color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+            }
+        }
+    }
+}
+
+internal fun LazyListScope.wsTunnelSection(
+    uiState: SettingsUiState,
+    visualEditorEnabled: Boolean,
+    onWsTunnelModeChanged: (String) -> Unit,
+) {
+    item(key = "advanced_ws_tunnel") {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.ws_tunnel_section_title),
+            testTag = RipDpiTestTags.advancedSection("ws_tunnel"),
+        ) {
+            RipDpiCard {
+                val options = listOf(
+                    RipDpiDropdownOption("off", stringResource(R.string.ws_tunnel_mode_off)),
+                    RipDpiDropdownOption("always", stringResource(R.string.ws_tunnel_mode_always)),
+                    RipDpiDropdownOption("fallback", stringResource(R.string.ws_tunnel_mode_fallback)),
+                )
+                RipDpiDropdown(
+                    options = options,
+                    selectedValue = uiState.autolearn.wsTunnelMode,
+                    onValueSelected = onWsTunnelModeChanged,
+                    label = stringResource(R.string.ws_tunnel_mode_label),
+                    helperText = stringResource(R.string.ws_tunnel_mode_helper),
+                    enabled = visualEditorEnabled,
+                    testTag = RipDpiTestTags.advancedSection("ws_tunnel_mode"),
                 )
             }
         }

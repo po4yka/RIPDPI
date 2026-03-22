@@ -147,6 +147,7 @@ data class HostAutolearnUiState(
     val hostAutolearnPenaltyTtlHours: Int = DefaultHostAutolearnPenaltyTtlHours,
     val hostAutolearnMaxHosts: Int = DefaultHostAutolearnMaxHosts,
     val networkStrategyMemoryEnabled: Boolean = false,
+    val wsTunnelMode: String = "off",
     val rememberedNetworkCount: Int = 0,
     val hostAutolearnRuntimeEnabled: Boolean = false,
     val hostAutolearnStorePresent: Boolean = false,

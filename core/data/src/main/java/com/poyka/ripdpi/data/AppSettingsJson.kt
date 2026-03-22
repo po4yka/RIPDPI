@@ -123,6 +123,8 @@ internal data class AppSettingsSnapshot(
     val hostAutolearnPenaltyTtlHours: Int = defaultSettings.hostAutolearnPenaltyTtlHours,
     val hostAutolearnMaxHosts: Int = defaultSettings.hostAutolearnMaxHosts,
     val networkStrategyMemoryEnabled: Boolean = defaultSettings.networkStrategyMemoryEnabled,
+    val wsTunnelEnabled: Boolean = defaultSettings.wsTunnelEnabled,
+    val wsTunnelMode: String = defaultSettings.wsTunnelMode,
     val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
 )
 
@@ -130,6 +132,9 @@ fun AppSettings.toJson(): String = appSettingsJson.encodeToString(toSnapshot())
 
 fun appSettingsFromJson(payload: String): AppSettings =
     appSettingsJson.decodeFromString<AppSettingsSnapshot>(payload).toAppSettings()
+
+private fun AppSettings.effectiveWsTunnelMode(): String =
+    wsTunnelMode.ifEmpty { if (wsTunnelEnabled) "always" else "off" }
 
 private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
     activeDnsSettings().let { activeDns ->
@@ -238,6 +243,8 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             hostAutolearnPenaltyTtlHours = normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours),
             hostAutolearnMaxHosts = normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts),
             networkStrategyMemoryEnabled = networkStrategyMemoryEnabled,
+            wsTunnelEnabled = wsTunnelEnabled,
+            wsTunnelMode = effectiveWsTunnelMode(),
             groupActivationFilter =
                 if (hasGroupActivationFilter()) {
                     groupActivationFilter.toModel().let(
@@ -361,6 +368,8 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setHostAutolearnPenaltyTtlHours(normalizeHostAutolearnPenaltyTtlHours(hostAutolearnPenaltyTtlHours))
         .setHostAutolearnMaxHosts(normalizeHostAutolearnMaxHosts(hostAutolearnMaxHosts))
         .setNetworkStrategyMemoryEnabled(networkStrategyMemoryEnabled)
+        .setWsTunnelEnabled(wsTunnelEnabled)
+        .setWsTunnelMode(wsTunnelMode)
         .setGroupActivationFilterCompat(normalizeActivationFilter(groupActivationFilter))
         .also { builder ->
             tcpChainSteps.forEach { step ->

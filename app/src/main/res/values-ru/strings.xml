@@ -270,6 +270,12 @@
     <string name="network_strategy_memory_count_summary">%1$d запомненных сетей хранятся локально.</string>
     <string name="network_strategy_memory_clear_action">Очистить запомненные сети</string>
     <string name="network_strategy_memory_helper">Только проверенные совпадения сетей применяются автоматически. Сырые SSID, BSSID и идентификаторы оператора не попадают в хранилище.</string>
+    <string name="ws_tunnel_section_title">WebSocket-туннель</string>
+    <string name="ws_tunnel_mode_label">Режим WS-туннеля</string>
+    <string name="ws_tunnel_mode_helper">Определяет, когда трафик Telegram направляется через WSS-туннель web.telegram.org.</string>
+    <string name="ws_tunnel_mode_off">Выкл</string>
+    <string name="ws_tunnel_mode_always">Всегда (приоритет)</string>
+    <string name="ws_tunnel_mode_fallback">Резерв (последний шанс)</string>
     <string name="host_autolearn_cli_status_title">Управляется командной строкой</string>
     <string name="host_autolearn_cli_status_body">Визуальные настройки обучения по хостам приостановлены, пока включены аргументы RIPDPI командной строки. Используйте --host-autolearn, --host-autolearn-penalty-ttl, --host-autolearn-max-hosts и необязательный --host-autolearn-file в настройках командной строки.</string>
     <string name="host_autolearn_cli_live_status_body">Текущая сессия обучается по хостам через флаги командной строки. Редактируйте аргументы RIPDPI командной строки для изменения следующего запуска.</string>

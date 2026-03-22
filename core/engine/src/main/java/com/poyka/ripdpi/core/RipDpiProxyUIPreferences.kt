@@ -157,6 +157,11 @@ data class RipDpiHostAutolearnConfig(
     val networkScopeKey: String? = null,
 )
 
+data class RipDpiWsTunnelConfig(
+    val enabled: Boolean = false,
+    val mode: String? = null,
+)
+
 class RipDpiProxyUIPreferences(
     listen: RipDpiListenConfig = RipDpiListenConfig(),
     protocols: RipDpiProtocolConfig = RipDpiProtocolConfig(),
@@ -166,6 +171,7 @@ class RipDpiProxyUIPreferences(
     quic: RipDpiQuicConfig = RipDpiQuicConfig(),
     hosts: RipDpiHostsConfig = RipDpiHostsConfig(),
     hostAutolearn: RipDpiHostAutolearnConfig = RipDpiHostAutolearnConfig(),
+    wsTunnel: RipDpiWsTunnelConfig = RipDpiWsTunnelConfig(),
     runtimeContext: RipDpiRuntimeContext? = null,
 ) : RipDpiProxyPreferences {
     val listen: RipDpiListenConfig = normalizeListenConfig(listen)
@@ -176,6 +182,7 @@ class RipDpiProxyUIPreferences(
     val quic: RipDpiQuicConfig = normalizeQuicConfig(quic)
     val hosts: RipDpiHostsConfig = normalizeHostsConfig(hosts)
     val hostAutolearn: RipDpiHostAutolearnConfig = normalizeHostAutolearnConfig(hostAutolearn)
+    val wsTunnel: RipDpiWsTunnelConfig = wsTunnel
     val runtimeContext: RipDpiRuntimeContext? = normalizeRuntimeContext(runtimeContext)
     val chainSummary: String = formatChainSummary(this.chains.tcpSteps, this.chains.udpSteps)
 
@@ -199,6 +206,7 @@ class RipDpiProxyUIPreferences(
                     storePath = hostAutolearnStorePath ?: hostAutolearn.storePath,
                     networkScopeKey = networkScopeKey ?: hostAutolearn.networkScopeKey,
                 ),
+            wsTunnel = wsTunnel,
             runtimeContext = runtimeContext ?: this.runtimeContext,
         )
 
@@ -218,6 +226,7 @@ class RipDpiProxyUIPreferences(
                 quic = buildQuicConfig(settings),
                 hosts = buildHostsConfig(settings),
                 hostAutolearn = buildHostAutolearnConfig(settings, hostAutolearnStorePath, networkScopeKey),
+                wsTunnel = buildWsTunnelConfig(settings),
                 runtimeContext = runtimeContext,
             )
 
@@ -314,6 +323,16 @@ class RipDpiProxyUIPreferences(
                 storePath = hostAutolearnStorePath,
                 networkScopeKey = networkScopeKey,
             )
+
+        private fun buildWsTunnelConfig(settings: AppSettings): RipDpiWsTunnelConfig {
+            val mode = settings.wsTunnelMode.ifEmpty {
+                if (settings.wsTunnelEnabled) "always" else "off"
+            }
+            return RipDpiWsTunnelConfig(
+                enabled = mode != "off",
+                mode = mode,
+            )
+        }
     }
 }
 

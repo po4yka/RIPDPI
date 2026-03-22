@@ -155,6 +155,7 @@ internal fun AdvancedSettingsScreen(
     onRefreshHostPackCatalog: () -> Unit,
     onForgetLearnedHosts: () -> Unit,
     onClearRememberedNetworks: () -> Unit,
+    onWsTunnelModeChanged: (String) -> Unit,
     onRotateTelemetrySalt: () -> Unit,
     onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -> Unit,
     onResetAdaptiveSplit: () -> Unit,
@@ -341,6 +342,12 @@ internal fun AdvancedSettingsScreen(
             onClearRememberedNetworks = onClearRememberedNetworks,
         )
 
+        wsTunnelSection(
+            uiState = uiState,
+            visualEditorEnabled = visualEditorEnabled,
+            onWsTunnelModeChanged = onWsTunnelModeChanged,
+        )
+
         httpParserSection(
             uiState = uiState,
             visualEditorEnabled = visualEditorEnabled,
@@ -450,6 +457,7 @@ private fun AdvancedSettingsScreenPreview() {
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
             onClearRememberedNetworks = {},
+            onWsTunnelModeChanged = {},
             onRotateTelemetrySalt = {},
             onSaveActivationRange = { _, _, _ -> },
             onResetAdaptiveSplit = {},
@@ -482,6 +490,7 @@ private fun AdvancedSettingsScreenDarkPreview() {
             onRefreshHostPackCatalog = {},
             onForgetLearnedHosts = {},
             onClearRememberedNetworks = {},
+            onWsTunnelModeChanged = {},
             onRotateTelemetrySalt = {},
             onSaveActivationRange = { _, _, _ -> },
             onResetAdaptiveSplit = {},
