@@ -4,6 +4,7 @@ import android.content.Intent
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.BatteryOptimizationGuidance
+import com.poyka.ripdpi.permissions.BackgroundGuidanceUiState
 import com.poyka.ripdpi.permissions.PermissionAction
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
@@ -26,7 +27,6 @@ internal class MainPermissionActions(
     private val permissionStatusProvider: PermissionStatusProvider,
     private val permissionPlatformBridge: PermissionPlatformBridge,
     private val stringResolver: StringResolver,
-    private val deviceManufacturer: String,
     val permissionState: MutableStateFlow<PermissionRuntimeState>,
     private val onStartMode: (Mode) -> Unit,
     private val onShowPermissionIssue: (PermissionIssueUiState) -> Unit,
@@ -420,14 +420,7 @@ internal class MainPermissionActions(
                 PermissionItemUiState(
                     kind = PermissionKind.BatteryOptimization,
                     title = stringResolver.getString(R.string.permissions_battery_title),
-                    subtitle =
-                        stringResolver.getString(
-                            if (status == PermissionStatus.Granted) {
-                                BatteryOptimizationGuidance.readySubtitleRes(deviceManufacturer)
-                            } else {
-                                R.string.settings_permissions_battery_ready
-                            },
-                        ),
+                    subtitle = stringResolver.getString(BatteryOptimizationGuidance.dozeReadySubtitleRes()),
                     statusLabel =
                         if (status == PermissionStatus.NotApplicable) {
                             stringResolver.getString(R.string.settings_permission_status_not_needed)
@@ -444,10 +437,7 @@ internal class MainPermissionActions(
                 PermissionItemUiState(
                     kind = PermissionKind.BatteryOptimization,
                     title = stringResolver.getString(R.string.permissions_battery_title),
-                    subtitle =
-                        stringResolver.getString(
-                            BatteryOptimizationGuidance.recommendedSubtitleRes(deviceManufacturer),
-                        ),
+                    subtitle = stringResolver.getString(BatteryOptimizationGuidance.dozeRecommendedSubtitleRes()),
                     statusLabel = stringResolver.getString(R.string.settings_permission_status_recommended),
                     actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
                 )
@@ -497,10 +487,7 @@ internal class MainPermissionActions(
                 PermissionIssueUiState(
                     kind = kind,
                     title = stringResolver.getString(R.string.permissions_battery_title),
-                    message =
-                        stringResolver.getString(
-                            BatteryOptimizationGuidance.issueMessageRes(deviceManufacturer),
-                        ),
+                    message = stringResolver.getString(BatteryOptimizationGuidance.dozeIssueMessageRes()),
                     recovery = PermissionRecovery.OpenBatteryOptimizationSettings,
                     actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
                     blocking = blocking,
@@ -531,7 +518,6 @@ internal fun buildPermissionSummary(
                 status = snapshot.batteryOptimization,
                 blocking = false,
                 stringResolver = stringResolver,
-                deviceManufacturer = deviceManufacturer,
             )
         } else {
             null
@@ -541,11 +527,12 @@ internal fun buildPermissionSummary(
         snapshot = snapshot,
         issue = issue,
         recommendedIssue = recommendedIssue,
+        backgroundGuidance = buildBackgroundGuidance(stringResolver, deviceManufacturer),
         items =
             listOf(
                 buildNotificationPermissionItem(snapshot.notifications, stringResolver),
                 buildVpnPermissionItem(snapshot.vpnConsent, configuredMode, stringResolver),
-                buildBatteryPermissionItem(snapshot.batteryOptimization, stringResolver, deviceManufacturer),
+                buildBatteryPermissionItem(snapshot.batteryOptimization, stringResolver),
             ),
     )
 }
@@ -645,7 +632,6 @@ private fun buildVpnPermissionItem(
 private fun buildBatteryPermissionItem(
     status: PermissionStatus,
     stringResolver: StringResolver,
-    deviceManufacturer: String,
 ): PermissionItemUiState =
     when (status) {
         PermissionStatus.Granted,
@@ -654,14 +640,7 @@ private fun buildBatteryPermissionItem(
             PermissionItemUiState(
                 kind = PermissionKind.BatteryOptimization,
                 title = stringResolver.getString(R.string.permissions_battery_title),
-                subtitle =
-                    stringResolver.getString(
-                        if (status == PermissionStatus.Granted) {
-                            BatteryOptimizationGuidance.readySubtitleRes(deviceManufacturer)
-                        } else {
-                            R.string.settings_permissions_battery_ready
-                        },
-                    ),
+                subtitle = stringResolver.getString(BatteryOptimizationGuidance.dozeReadySubtitleRes()),
                 statusLabel =
                     if (status == PermissionStatus.NotApplicable) {
                         stringResolver.getString(R.string.settings_permission_status_not_needed)
@@ -678,22 +657,30 @@ private fun buildBatteryPermissionItem(
             PermissionItemUiState(
                 kind = PermissionKind.BatteryOptimization,
                 title = stringResolver.getString(R.string.permissions_battery_title),
-                subtitle =
-                    stringResolver.getString(
-                        BatteryOptimizationGuidance.recommendedSubtitleRes(deviceManufacturer),
-                    ),
+                subtitle = stringResolver.getString(BatteryOptimizationGuidance.dozeRecommendedSubtitleRes()),
                 statusLabel = stringResolver.getString(R.string.settings_permission_status_recommended),
                 actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
             )
         }
     }
 
+private fun buildBackgroundGuidance(
+    stringResolver: StringResolver,
+    deviceManufacturer: String,
+): BackgroundGuidanceUiState =
+    BackgroundGuidanceUiState(
+        title = stringResolver.getString(BatteryOptimizationGuidance.backgroundGuidanceTitleRes()),
+        message =
+            stringResolver.getString(
+                BatteryOptimizationGuidance.backgroundGuidanceMessageRes(deviceManufacturer),
+            ),
+    )
+
 private fun createPermissionIssue(
     kind: PermissionKind,
     status: PermissionStatus,
     blocking: Boolean,
     stringResolver: StringResolver,
-    deviceManufacturer: String,
 ): PermissionIssueUiState =
     when (kind) {
         PermissionKind.Notifications -> {
@@ -733,10 +720,7 @@ private fun createPermissionIssue(
             PermissionIssueUiState(
                 kind = kind,
                 title = stringResolver.getString(R.string.permissions_battery_title),
-                message =
-                    stringResolver.getString(
-                        BatteryOptimizationGuidance.issueMessageRes(deviceManufacturer),
-                    ),
+                message = stringResolver.getString(BatteryOptimizationGuidance.dozeIssueMessageRes()),
                 recovery = PermissionRecovery.OpenBatteryOptimizationSettings,
                 actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
                 blocking = blocking,

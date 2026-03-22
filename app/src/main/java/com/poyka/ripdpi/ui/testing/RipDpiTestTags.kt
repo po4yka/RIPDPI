@@ -29,6 +29,7 @@ internal object RipDpiTestTags {
     const val HomeErrorBanner = "home-error-banner"
     const val HomePermissionIssueBanner = "home-permission-issue-banner"
     const val HomePermissionRecommendationBanner = "home-permission-recommendation-banner"
+    const val HomeBackgroundGuidanceBanner = "home-background-guidance-banner"
 
     const val ConfigEditCurrentButton = "config-edit-current"
     const val ConfigDnsSettings = "config-dns-settings"
@@ -54,6 +55,7 @@ internal object RipDpiTestTags {
     const val SettingsBackupPinWarning = "settings-backup-pin-warning"
     const val SettingsThemeDropdown = "settings-theme-dropdown"
     const val SettingsCustomization = "settings-customization"
+    const val SettingsBackgroundGuidanceBanner = "settings-background-guidance-banner"
     const val SettingsSupportBundle = "settings-support-bundle"
     const val SettingsDataTransparency = "settings-data-transparency"
     const val SettingsAbout = "settings-about"

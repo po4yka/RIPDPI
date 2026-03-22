@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import app.cash.turbine.test
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.BypassApproachId
@@ -312,8 +313,30 @@ class MainViewModelTest {
                 viewModel.uiState.value.permissionSummary.recommendedIssue
                     ?.kind,
             )
+            assertTrue(viewModel.uiState.value.permissionSummary.backgroundGuidance != null)
             collector.cancel()
         }
+
+    @Test
+    fun `permission summary keeps background guidance separate from doze recommendation`() {
+        val summary =
+            buildPermissionSummary(
+                snapshot =
+                    PermissionSnapshot(
+                        vpnConsent = PermissionStatus.Granted,
+                        notifications = PermissionStatus.Granted,
+                        batteryOptimization = PermissionStatus.Granted,
+                    ),
+                issue = null,
+                configuredMode = Mode.VPN,
+                stringResolver = FakeStringResolver(),
+                deviceManufacturer = "samsung",
+            )
+
+        assertNull(summary.recommendedIssue)
+        assertEquals(R.string.permissions_background_activity_title.toString(), summary.backgroundGuidance?.title)
+        assertEquals(R.string.permissions_background_activity_body_samsung.toString(), summary.backgroundGuidance?.message)
+    }
 
     @Test
     fun `battery optimization repair clears pending action when exemption is still missing`() =

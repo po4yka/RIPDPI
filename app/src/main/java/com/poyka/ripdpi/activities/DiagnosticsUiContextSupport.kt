@@ -4,7 +4,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
-import com.poyka.ripdpi.permissions.BatteryOptimizationGuidance
 import java.util.Locale
 
 internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(
@@ -237,29 +236,13 @@ internal fun DiagnosticsUiFactorySupport.buildContextWarnings(
     }
     val hasPowerRestriction =
         context.permissions.dataSaverState == "enabled" || context.environment.powerSaveModeState == "enabled"
-    val samsungWarningRes = BatteryOptimizationGuidance.diagnosticsWarningRes(context.device.manufacturer)
     if (hasPowerRestriction) {
         warnings +=
             DiagnosticsEventUiModel(
                 id = "context-power-restriction",
                 source = "Context",
                 severity = "WARN",
-                message =
-                    samsungWarningRes?.let(this.context::getString)
-                        ?: this.context.getString(R.string.diagnostics_warn_power_restriction),
-                createdAtLabel = "now",
-                tone = DiagnosticsTone.Warning,
-            )
-    }
-    if (samsungWarningRes != null && context.permissions.batteryOptimizationState != "enabled" &&
-        !hasPowerRestriction
-    ) {
-        warnings +=
-            DiagnosticsEventUiModel(
-                id = "context-samsung-background-limits",
-                source = "Context",
-                severity = "WARN",
-                message = this.context.getString(samsungWarningRes),
+                message = this.context.getString(R.string.diagnostics_warn_power_restriction),
                 createdAtLabel = "now",
                 tone = DiagnosticsTone.Warning,
             )

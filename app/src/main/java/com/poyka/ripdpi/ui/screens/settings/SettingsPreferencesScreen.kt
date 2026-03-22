@@ -271,6 +271,15 @@ internal fun SettingsScreen(
             SettingsSection(
                 title = stringResource(R.string.settings_permissions_section),
             ) {
+                permissionSummary.backgroundGuidance?.let { guidance ->
+                    WarningBanner(
+                        title = guidance.title,
+                        message = guidance.message,
+                        tone = WarningBannerTone.Info,
+                        testTag = RipDpiTestTags.SettingsBackgroundGuidanceBanner,
+                    )
+                    HorizontalDivider(color = colors.divider)
+                }
                 permissionSummary.items.forEachIndexed { index, item ->
                     SettingsRow(
                         title = item.title,

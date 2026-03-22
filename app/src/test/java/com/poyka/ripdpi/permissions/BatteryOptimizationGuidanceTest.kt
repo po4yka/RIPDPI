@@ -15,39 +15,38 @@ class BatteryOptimizationGuidanceTest {
     }
 
     @Test
-    fun `returns samsung-specific copy for samsung devices`() {
+    fun `returns manufacturer-neutral doze copy`() {
         assertEquals(
-            R.string.permissions_battery_body_samsung,
-            BatteryOptimizationGuidance.issueMessageRes("samsung"),
+            R.string.permissions_battery_body,
+            BatteryOptimizationGuidance.dozeIssueMessageRes(),
         )
         assertEquals(
-            R.string.settings_permissions_battery_ready_samsung,
-            BatteryOptimizationGuidance.readySubtitleRes("samsung"),
+            R.string.settings_permissions_battery_ready,
+            BatteryOptimizationGuidance.dozeReadySubtitleRes(),
         )
         assertEquals(
-            R.string.settings_permissions_battery_needed_samsung,
-            BatteryOptimizationGuidance.recommendedSubtitleRes("samsung"),
-        )
-        assertEquals(
-            R.string.diagnostics_warn_samsung_background_limits,
-            BatteryOptimizationGuidance.diagnosticsWarningRes("samsung"),
+            R.string.settings_permissions_battery_needed,
+            BatteryOptimizationGuidance.dozeRecommendedSubtitleRes(),
         )
     }
 
     @Test
-    fun `returns default copy for non samsung devices`() {
+    fun `returns samsung-specific background guidance for samsung devices`() {
         assertEquals(
-            R.string.permissions_battery_body,
-            BatteryOptimizationGuidance.issueMessageRes("Google"),
+            R.string.permissions_background_activity_title,
+            BatteryOptimizationGuidance.backgroundGuidanceTitleRes(),
         )
         assertEquals(
-            R.string.settings_permissions_battery_ready,
-            BatteryOptimizationGuidance.readySubtitleRes("Google"),
+            R.string.permissions_background_activity_body_samsung,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("samsung"),
         )
+    }
+
+    @Test
+    fun `returns generic background guidance for non samsung devices`() {
         assertEquals(
-            R.string.settings_permissions_battery_needed,
-            BatteryOptimizationGuidance.recommendedSubtitleRes("Google"),
+            R.string.permissions_background_activity_body,
+            BatteryOptimizationGuidance.backgroundGuidanceMessageRes("Google"),
         )
-        assertEquals(null, BatteryOptimizationGuidance.diagnosticsWarningRes("Google"))
     }
 }

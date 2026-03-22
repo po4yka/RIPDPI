@@ -6,19 +6,7 @@ import org.junit.Test
 
 class BatteryOptimizationIntentsTest {
     @Test
-    fun `prefers direct battery optimization request when available`() {
-        val route =
-            BatteryOptimizationIntents.resolveRoute(
-                sdkInt = Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
-            ) { action ->
-                action == android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-            }
-
-        assertEquals(BatteryOptimizationRoute.DirectRequest, route)
-    }
-
-    @Test
-    fun `falls back to battery optimization settings when direct request is unavailable`() {
+    fun `uses battery optimization settings when review activity is available`() {
         val route =
             BatteryOptimizationIntents.resolveRoute(
                 sdkInt = Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
