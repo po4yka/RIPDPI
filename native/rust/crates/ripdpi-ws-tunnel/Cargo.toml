@@ -9,9 +9,10 @@ aes = { workspace = true }
 ctr = "0.9"
 cipher = "0.4"
 log = { workspace = true }
+socket2 = { workspace = true }
 tungstenite = { version = "0.24", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 nix = { workspace = true }
 
 [lints]

@@ -1994,6 +1994,7 @@ dependencies = [
  "ctr",
  "log",
  "nix",
+ "socket2 0.5.10",
  "tungstenite",
 ]
 

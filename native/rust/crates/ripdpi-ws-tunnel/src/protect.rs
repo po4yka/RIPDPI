@@ -5,11 +5,12 @@ use std::io;
 /// On Android, VPN apps must "protect" outgoing sockets so traffic does not
 /// loop back through the TUN interface. This sends the socket FD to the Java
 /// VpnService via a Unix socket at `path`, which calls `VpnService.protect()`.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
     use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags};
     use std::io::IoSlice;
     use std::io::Read;
+    use std::os::fd::AsRawFd;
     use std::os::unix::net::UnixStream;
     use std::time::Duration;
 
@@ -29,7 +30,7 @@ pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Re
     Ok(())
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn protect_socket<T>(_socket: &T, _path: &str) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "socket protection is only supported on Linux/Android"))
 }
