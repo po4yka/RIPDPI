@@ -2,6 +2,7 @@ use crate::sync::{Arc, AtomicBool, Ordering};
 use std::collections::HashMap;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::platform;
@@ -18,7 +19,10 @@ use super::retry::{
 use super::routing::{note_route_success_for_transport, select_route_for_transport};
 use super::state::{flush_autolearn_updates, RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
 
-#[derive(Debug, Clone)]
+pub(super) struct UdpRelaySockets {
+    pub(super) client: UdpSocket,
+}
+
 struct UdpFlowActivationState {
     session: SessionState,
     last_used: Instant,
@@ -26,10 +30,16 @@ struct UdpFlowActivationState {
     host: Option<String>,
     payload: Vec<u8>,
     awaiting_response: bool,
+    upstream: UdpSocket,
 }
 
-pub(super) fn build_udp_relay_socket(ip: IpAddr, protect_path: Option<&str>) -> io::Result<UdpSocket> {
-    let bind_addr = SocketAddr::new(ip, 0);
+pub(super) fn build_udp_relay_sockets(ip: IpAddr, _protect_path: Option<&str>) -> io::Result<UdpRelaySockets> {
+    let client = bind_udp_socket(SocketAddr::new(ip, 0), None)?;
+    client.set_nonblocking(true)?;
+    Ok(UdpRelaySockets { client })
+}
+
+fn bind_udp_socket(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Result<UdpSocket> {
     let domain = match bind_addr {
         SocketAddr::V4(_) => Domain::IPV4,
         SocketAddr::V6(_) => Domain::IPV6,
@@ -46,20 +56,46 @@ pub(super) fn build_udp_relay_socket(ip: IpAddr, protect_path: Option<&str>) -> 
     Ok(socket)
 }
 
-pub(super) fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running: Arc<AtomicBool>) -> io::Result<()> {
+fn build_udp_upstream_socket(target: SocketAddr, protect_path: Option<&str>) -> io::Result<UdpSocket> {
+    let domain = match target {
+        SocketAddr::V4(_) => Domain::IPV4,
+        SocketAddr::V6(_) => Domain::IPV6,
+    };
+    let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
+    socket.set_reuse_address(true)?;
+    if let Some(path) = protect_path {
+        platform::protect_socket(&socket, path)?;
+    }
+    let socket: UdpSocket = socket.into();
+    socket.set_read_timeout(Some(Duration::from_millis(250)))?;
+    socket.set_write_timeout(Some(Duration::from_secs(5)))?;
+    socket.connect(target)?;
+    socket.set_nonblocking(true)?;
+    Ok(socket)
+}
+
+pub(super) fn udp_associate_loop(
+    client_relay: UdpSocket,
+    protect_path: Option<String>,
+    state: RuntimeState,
+    running: Arc<AtomicBool>,
+) -> io::Result<()> {
     let mut udp_client_addr = None;
-    let mut buffer = [0u8; 65_535];
+    let mut client_buffer = [0u8; 65_535];
+    let mut upstream_buffer = [0u8; 65_535];
     let mut flow_state = HashMap::<(SocketAddr, SocketAddr), UdpFlowActivationState>::new();
 
     while running.load(Ordering::Relaxed) {
         expire_udp_flows(&state, &mut flow_state, Instant::now())?;
-        match relay.recv_from(&mut buffer) {
+        let mut made_progress = false;
+        match client_relay.recv_from(&mut client_buffer) {
             Ok((n, sender)) => {
+                made_progress = true;
                 let now = Instant::now();
                 let known_client = udp_client_addr;
                 if known_client.is_none() || known_client == Some(sender) {
                     udp_client_addr = Some(sender);
-                    let Some((target, payload)) = parse_socks5_udp_packet(&buffer[..n], &state.config) else {
+                    let Some((target, payload)) = parse_socks5_udp_packet(&client_buffer[..n], &state.config) else {
                         continue;
                     };
                     let host_info = extract_host_info(&state.config, payload);
@@ -98,14 +134,23 @@ pub(super) fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running:
                             host.as_deref(),
                             payload,
                         )?;
-                        let entry = flow_state.entry((sender, target)).or_insert_with(|| UdpFlowActivationState {
-                            session: SessionState::default(),
-                            last_used: now,
-                            route: route.clone(),
-                            host: host.clone(),
-                            payload: payload.to_vec(),
-                            awaiting_response: true,
-                        });
+                        if !flow_state.contains_key(&(sender, target)) {
+                            flow_state.insert(
+                                (sender, target),
+                                UdpFlowActivationState {
+                                    session: SessionState::default(),
+                                    last_used: now,
+                                    route: route.clone(),
+                                    host: host.clone(),
+                                    payload: payload.to_vec(),
+                                    awaiting_response: true,
+                                    upstream: build_udp_upstream_socket(target, protect_path.as_deref())?,
+                                },
+                            );
+                        }
+                        let entry = flow_state
+                            .get_mut(&(sender, target))
+                            .ok_or_else(|| io::Error::other("udp flow entry missing after insert"))?;
                         entry.last_used = now;
                         entry.route = route.clone();
                         entry.host = host.clone();
@@ -122,43 +167,63 @@ pub(super) fn udp_associate_loop(relay: UdpSocket, state: RuntimeState, running:
                         )
                     };
                     let actions = plan_udp(group, payload, state.config.default_ttl, activation);
-                    execute_udp_actions(&relay, target, &actions)?;
-                } else if let Some(client_addr) = udp_client_addr {
-                    if let Some(entry) = flow_state.get_mut(&(client_addr, sender)) {
-                        entry.last_used = now;
-                        entry.session.observe_inbound(&buffer[..n]);
-                        if entry.awaiting_response {
-                            note_adaptive_udp_success(
-                                &state,
-                                sender,
-                                entry.route.group_index,
-                                entry.host.as_deref(),
-                                &entry.payload,
-                            )?;
-                            note_retry_success(
-                                &state,
-                                sender,
-                                entry.route.group_index,
-                                entry.host.as_deref(),
-                                Some(&entry.payload),
-                                TransportProtocol::Udp,
-                            )?;
-                            note_route_success_for_transport(
-                                &state,
-                                sender,
-                                &entry.route,
-                                entry.host.as_deref(),
-                                TransportProtocol::Udp,
-                            )?;
-                            entry.awaiting_response = false;
-                        }
-                    }
-                    let packet = encode_socks5_udp_packet(sender, &buffer[..n]);
-                    relay.send_to(&packet, client_addr)?;
+                    let entry = flow_state
+                        .get(&(sender, target))
+                        .ok_or_else(|| io::Error::other("udp flow entry missing after insert"))?;
+                    execute_udp_actions(&entry.upstream, target, &actions)?;
                 }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
             Err(err) => return Err(err),
+        }
+
+        let keys = flow_state.keys().copied().collect::<Vec<_>>();
+        for (client_addr, sender) in keys {
+            let Some(entry) = flow_state.get_mut(&(client_addr, sender)) else {
+                continue;
+            };
+            match entry.upstream.recv(&mut upstream_buffer) {
+                Ok(n) => {
+                    made_progress = true;
+                    let now = Instant::now();
+                    entry.last_used = now;
+                    entry.session.observe_inbound(&upstream_buffer[..n]);
+                    if entry.awaiting_response {
+                        note_adaptive_udp_success(
+                            &state,
+                            sender,
+                            entry.route.group_index,
+                            entry.host.as_deref(),
+                            &entry.payload,
+                        )?;
+                        note_retry_success(
+                            &state,
+                            sender,
+                            entry.route.group_index,
+                            entry.host.as_deref(),
+                            Some(&entry.payload),
+                            TransportProtocol::Udp,
+                        )?;
+                        note_route_success_for_transport(
+                            &state,
+                            sender,
+                            &entry.route,
+                            entry.host.as_deref(),
+                            TransportProtocol::Udp,
+                        )?;
+                        entry.awaiting_response = false;
+                    }
+                    let packet = encode_socks5_udp_packet(sender, &upstream_buffer[..n]);
+                    client_relay.send_to(&packet, client_addr)?;
+                }
+                Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
+                Err(err) if err.raw_os_error() == Some(libc::ECONNREFUSED) => {}
+                Err(err) => return Err(err),
+            }
+        }
+
+        if !made_progress {
+            thread::sleep(Duration::from_millis(10));
         }
     }
 
@@ -174,11 +239,13 @@ fn expire_udp_flows(
     let expired = flow_state
         .iter()
         .filter(|(_, value)| now.duration_since(value.last_used) >= UDP_FLOW_IDLE_TIMEOUT)
-        .map(|(key, value)| (*key, value.clone()))
+        .map(|(key, _)| *key)
         .collect::<Vec<_>>();
 
-    for ((client_addr, target), entry) in expired {
-        flow_state.remove(&(client_addr, target));
+    for (client_addr, target) in expired {
+        let Some(entry) = flow_state.remove(&(client_addr, target)) else {
+            continue;
+        };
         if !entry.awaiting_response {
             continue;
         }
@@ -289,14 +356,14 @@ pub(super) fn encode_socks5_udp_packet(sender: SocketAddr, payload: &[u8]) -> Ve
     packet
 }
 
-fn execute_udp_actions(relay: &UdpSocket, target: SocketAddr, actions: &[DesyncAction]) -> io::Result<()> {
+fn execute_udp_actions(upstream: &UdpSocket, target: SocketAddr, actions: &[DesyncAction]) -> io::Result<()> {
     for action in actions {
         match action {
             DesyncAction::Write(bytes) => {
-                relay.send_to(bytes, target)?;
+                upstream.send(bytes)?;
             }
             DesyncAction::SetTtl(ttl) => {
-                set_udp_ttl(relay, target, *ttl)?;
+                set_udp_ttl(upstream, target, *ttl)?;
             }
             DesyncAction::RestoreDefaultTtl => {}
             DesyncAction::WriteUrgent { .. }
@@ -401,5 +468,24 @@ mod tests {
 
         // Unknown address type
         assert!(parse_socks5_udp_packet(&[0, 0, 0, 0x05, 0, 0, 0, 0, 0, 0], &config).is_none());
+    }
+
+    #[test]
+    fn build_udp_relay_sockets_keep_client_loopback() {
+        let sockets = build_udp_relay_sockets(IpAddr::V4(Ipv4Addr::LOCALHOST), None).expect("udp relay sockets");
+        assert_eq!(
+            sockets.client.local_addr().expect("client relay addr").ip(),
+            IpAddr::V4(Ipv4Addr::LOCALHOST)
+        );
+    }
+
+    #[test]
+    fn build_udp_upstream_socket_connects_ipv4_targets() {
+        let upstream = build_udp_upstream_socket(
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443),
+            None,
+        )
+        .expect("udp upstream socket");
+        assert!(upstream.local_addr().expect("upstream relay addr").is_ipv4());
     }
 }

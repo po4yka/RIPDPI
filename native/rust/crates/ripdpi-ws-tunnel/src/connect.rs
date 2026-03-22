@@ -1,7 +1,8 @@
 use std::io;
-use std::net::TcpStream;
+use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tungstenite::client::IntoClientRequest;
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::WebSocket;
@@ -29,20 +30,30 @@ pub fn open_ws_tunnel(dc: u8, protect_path: Option<&str>) -> io::Result<WsStream
     let url = ws_url(dc);
     let host = format!("kws{dc}.web.telegram.org");
 
-    // DNS resolve and connect
+    // Resolve the endpoint and protect the raw socket before connecting so
+    // Android VPN mode does not route the tunnel through itself.
     let addr = format!("{host}:443");
-    let tcp = TcpStream::connect(&addr)
+    let target = addr.to_socket_addrs()?.next().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::AddrNotAvailable, format!("WS tunnel resolved no address: {addr}"))
+    })?;
+    let domain = match target {
+        std::net::SocketAddr::V4(_) => Domain::IPV4,
+        std::net::SocketAddr::V6(_) => Domain::IPV6,
+    };
+    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
+
+    if let Some(path) = protect_path {
+        protect::protect_socket(&socket, path)?;
+    }
+    socket
+        .connect(&SockAddr::from(target))
         .map_err(|e| io::Error::new(e.kind(), format!("WS tunnel TCP connect to {addr}: {e}")))?;
+    let tcp: TcpStream = socket.into();
     tcp.set_nodelay(true)?;
 
     // Set a short read timeout so the relay's shared mutex is not held
     // indefinitely during ws.read(). This ensures fair bidirectional throughput.
     tcp.set_read_timeout(Some(WS_READ_TIMEOUT))?;
-
-    // Protect socket from VPN loop on Android
-    if let Some(path) = protect_path {
-        protect::protect_socket(&tcp, path)?;
-    }
 
     // Build WS request with binary subprotocol
     let mut request = url.as_str().into_client_request().map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
