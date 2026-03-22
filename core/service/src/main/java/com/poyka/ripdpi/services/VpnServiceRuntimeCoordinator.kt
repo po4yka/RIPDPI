@@ -1,13 +1,10 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.RipDpiProxyFactory
-import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
-import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -16,7 +13,6 @@ import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
-import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
@@ -30,16 +26,15 @@ import logcat.logcat
 import javax.inject.Inject
 
 internal class VpnServiceRuntimeCoordinator(
-    private val vpnHost: VpnCoordinatorHost,
-    private val appSettingsRepository: AppSettingsRepository,
+    vpnHost: VpnCoordinatorHost,
     connectionPolicyResolver: ConnectionPolicyResolver,
-    private val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
-    private val vpnTunnelSessionProvider: VpnTunnelSessionProvider,
     private val resolverOverrideStore: ResolverOverrideStore,
     serviceRuntimeRegistry: ServiceRuntimeRegistry,
     rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
     networkHandoverMonitor: NetworkHandoverMonitor,
     policyHandoverEventStore: PolicyHandoverEventStore,
+    private val vpnTunnelRuntime: VpnTunnelRuntime,
+    private val resolverRefreshPlanner: VpnResolverRefreshPlanner,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -55,13 +50,6 @@ internal class VpnServiceRuntimeCoordinator(
         ioDispatcher = ioDispatcher,
         clock = clock,
     ) {
-    private companion object {
-        private const val MapDnsAddress = "198.18.0.53"
-    }
-
-    private var tun2SocksBridge: Tun2SocksBridge? = null
-    private var tunSession: VpnTunnelSession? = null
-
     override val serviceLabel: String = "VPN"
 
     override fun createRuntimeSession(): VpnRuntimeSession = VpnRuntimeSession()
@@ -114,15 +102,14 @@ internal class VpnServiceRuntimeCoordinator(
         resolution: ConnectionPolicyResolution,
     ) {
         proxyRuntimeSupervisor.start(resolution.proxyPreferences, ::handleProxyExit)
-        startTun2Socks(
-            session = session,
+        vpnTunnelRuntime.start(
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
         )
     }
 
     override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
-        stopTun2Socks()
+        vpnTunnelRuntime.stop()
         if (skipRuntimeShutdown) {
             proxyRuntimeSupervisor.detach()
         } else {
@@ -133,11 +120,45 @@ internal class VpnServiceRuntimeCoordinator(
     override fun startModeTelemetryUpdates() {
         replaceTelemetryJob {
             while (status == ServiceStatus.Connected) {
-                refreshEffectiveResolverIfNeeded()
+                val session = runtimeSession ?: return@replaceTelemetryJob
+                val initialRefreshPlan =
+                    resolverRefreshPlanner.plan(
+                        currentSignature = vpnTunnelRuntime.currentDnsSignature,
+                        tunnelRunning = vpnTunnelRuntime.isRunning,
+                    )
+                if (initialRefreshPlan.requiresTunnelRebuild) {
+                    mutex.withLock {
+                        val activeSession = runtimeSession
+                        if (
+                            status != ServiceStatus.Connected ||
+                            !vpnTunnelRuntime.isRunning ||
+                            activeSession?.runtimeId != session.runtimeId
+                        ) {
+                            return@withLock
+                        }
+                        val latestRefreshPlan =
+                            resolverRefreshPlanner.plan(
+                                currentSignature = vpnTunnelRuntime.currentDnsSignature,
+                                tunnelRunning = vpnTunnelRuntime.isRunning,
+                            )
+                        if (!latestRefreshPlan.requiresTunnelRebuild) {
+                            return@withLock
+                        }
+                        val latestResolution =
+                            latestRefreshPlan.connectionPolicy
+                                ?: error("VPN resolver refresh plan missing connection policy")
+                        vpnTunnelRuntime.stop()
+                        vpnTunnelRuntime.start(
+                            activeDns = latestResolution.activeDns,
+                            overrideReason = latestResolution.resolverFallbackReason,
+                        )
+                    }
+                }
+
                 val proxyTelemetry =
                     proxyRuntimeSupervisor.pollTelemetry()
                         ?: NativeRuntimeSnapshot.idle(source = "proxy")
-                val tunnelTelemetryResult = runCatching { tun2SocksBridge?.telemetry() }
+                val tunnelTelemetryResult = vpnTunnelRuntime.pollTelemetry()
                 val tunnelTelemetry =
                     tunnelTelemetryResult.getOrNull()
                         ?: NativeRuntimeSnapshot.idle(source = "tunnel")
@@ -152,7 +173,7 @@ internal class VpnServiceRuntimeCoordinator(
                             classifyFailureReason(error, isTunnelContext = true)
                         }
                     val tunnelStoppedUnexpectedly =
-                        tunSession != null && enrichedTunnelTelemetry.state != "running"
+                        vpnTunnelRuntime.isRunning && enrichedTunnelTelemetry.state != "running"
                     if (telemetryFailure != null || tunnelStoppedUnexpectedly) {
                         val failureReason =
                             telemetryFailure
@@ -164,7 +185,7 @@ internal class VpnServiceRuntimeCoordinator(
                             consumePendingNetworkHandoverClass = { null },
                             proxyTelemetry = proxyTelemetry,
                             tunnelTelemetry = enrichedTunnelTelemetry,
-                            tunnelRecoveryRetryCount = runtimeSession?.tunnelRecoveryRetryCount ?: 0L,
+                            tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
                             failureReason = failureReason,
                         )
                         updateStatus(ServiceStatus.Failed, failureReason)
@@ -178,7 +199,7 @@ internal class VpnServiceRuntimeCoordinator(
                     consumePendingNetworkHandoverClass = { null },
                     proxyTelemetry = proxyTelemetry,
                     tunnelTelemetry = enrichedTunnelTelemetry,
-                    tunnelRecoveryRetryCount = runtimeSession?.tunnelRecoveryRetryCount ?: 0L,
+                    tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
                 )
                 if (statusReporter.startedAt != null) {
                     host.updateNotification(
@@ -196,7 +217,7 @@ internal class VpnServiceRuntimeCoordinator(
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
     ) {
-        stopTun2Socks()
+        vpnTunnelRuntime.stop()
         proxyRuntimeSupervisor.stop()
         applyActiveConnectionPolicy(
             session = session,
@@ -205,8 +226,7 @@ internal class VpnServiceRuntimeCoordinator(
             appliedAt = appliedAt,
         )
         proxyRuntimeSupervisor.start(resolution.proxyPreferences, ::handleProxyExit)
-        startTun2Socks(
-            session = session,
+        vpnTunnelRuntime.start(
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
         )
@@ -222,7 +242,7 @@ internal class VpnServiceRuntimeCoordinator(
             newStatus = newStatus,
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = ::consumePendingNetworkHandoverClass,
-            tunnelRecoveryRetryCount = runtimeSession?.tunnelRecoveryRetryCount ?: 0L,
+            tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
             failureReason = failureReason,
         )
     }
@@ -235,50 +255,7 @@ internal class VpnServiceRuntimeCoordinator(
 
     override fun onAfterStopCleanup(session: VpnRuntimeSession?) {
         resolverOverrideStore.clear()
-    }
-
-    private suspend fun startTun2Socks(
-        session: VpnRuntimeSession,
-        activeDns: ActiveDnsSettings,
-        overrideReason: String? = null,
-    ) {
-        check(tunSession == null) { "VPN field not null" }
-
-        val settings = appSettingsRepository.snapshot()
-        val port = if (settings.proxyPort > 0) settings.proxyPort else 1080
-        val dns = if (activeDns.mode == DnsModeEncrypted) MapDnsAddress else activeDns.dnsIp
-        val ipv6 = settings.ipv6Enable
-        val config = RipDpiVpnService.buildTun2SocksConfig(activeDns, overrideReason, port, ipv6)
-
-        val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dns, ipv6)
-        try {
-            val tunnelBridge = tun2SocksBridgeFactory.create()
-            tunnelBridge.start(config, tunnelSession.tunFd)
-            tun2SocksBridge = tunnelBridge
-            tunSession = tunnelSession
-            session.currentDnsSignature = dnsSignature(activeDns, overrideReason)
-            if (session.tunnelStartCount > 0) {
-                session.tunnelRecoveryRetryCount += 1
-            }
-            session.tunnelStartCount += 1
-        } catch (error: Exception) {
-            tunnelSession.close()
-            throw error
-        }
-
-        vpnHost.syncUnderlyingNetworksFromActiveNetwork()
-    }
-
-    private suspend fun stopTun2Socks() {
-        val session = tunSession ?: return
-
-        try {
-            tun2SocksBridge?.stop()
-        } finally {
-            tun2SocksBridge = null
-            session.close()
-            tunSession = null
-        }
+        vpnTunnelRuntime.resetRuntimeState()
     }
 
     private suspend fun handleProxyExit(result: Result<Int>) {
@@ -306,53 +283,6 @@ internal class VpnServiceRuntimeCoordinator(
         proxyRuntimeSupervisor.detach()
         requestAsyncStop(skipRuntimeShutdown = true)
     }
-
-    private suspend fun refreshEffectiveResolverIfNeeded() {
-        val session = runtimeSession ?: return
-        val resolution =
-            connectionPolicyResolver.resolve(
-                mode = Mode.VPN,
-                resolverOverride = resolverOverrideStore.override.value,
-            )
-        if (resolution.settings.activeDnsSettings() == resolution.activeDns &&
-            resolverOverrideStore.override.value != null
-        ) {
-            resolverOverrideStore.clear()
-        }
-        val signature = dnsSignature(resolution.activeDns, resolution.resolverFallbackReason)
-        if (tunSession == null || session.currentDnsSignature == signature) {
-            return
-        }
-
-        mutex.withLock {
-            val activeSession = runtimeSession
-            if (status != ServiceStatus.Connected || tunSession == null ||
-                activeSession?.runtimeId != session.runtimeId
-            ) {
-                return@withLock
-            }
-            val latestResolution =
-                connectionPolicyResolver.resolve(
-                    mode = Mode.VPN,
-                    resolverOverride = resolverOverrideStore.override.value,
-                )
-            if (latestResolution.settings.activeDnsSettings() == latestResolution.activeDns &&
-                resolverOverrideStore.override.value != null
-            ) {
-                resolverOverrideStore.clear()
-            }
-            val latestSignature = dnsSignature(latestResolution.activeDns, latestResolution.resolverFallbackReason)
-            if (activeSession.currentDnsSignature == latestSignature) {
-                return@withLock
-            }
-            stopTun2Socks()
-            startTun2Socks(
-                session = activeSession,
-                activeDns = latestResolution.activeDns,
-                overrideReason = latestResolution.resolverFallbackReason,
-            )
-        }
-    }
 }
 
 internal class VpnServiceRuntimeCoordinatorFactory
@@ -360,7 +290,6 @@ internal class VpnServiceRuntimeCoordinatorFactory
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val connectionPolicyResolver: ConnectionPolicyResolver,
-        private val ripDpiProxyFactory: RipDpiProxyFactory,
         private val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
         private val serviceStateStore: ServiceStateStore,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
@@ -371,29 +300,36 @@ internal class VpnServiceRuntimeCoordinatorFactory
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val networkHandoverMonitor: NetworkHandoverMonitor,
         private val policyHandoverEventStore: PolicyHandoverEventStore,
-        private val networkSnapshotFactory: NetworkSnapshotFactory,
+        private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        private val resolverRefreshPlanner: VpnResolverRefreshPlanner,
+        private val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
+        private val serviceStatusReporterFactory: ServiceStatusReporterFactory,
     ) {
         fun create(host: VpnCoordinatorHost): VpnServiceRuntimeCoordinator =
             VpnServiceRuntimeCoordinator(
                 vpnHost = host,
-                appSettingsRepository = appSettingsRepository,
                 connectionPolicyResolver = connectionPolicyResolver,
-                tun2SocksBridgeFactory = tun2SocksBridgeFactory,
-                vpnTunnelSessionProvider = vpnTunnelSessionProvider,
                 resolverOverrideStore = resolverOverrideStore,
                 serviceRuntimeRegistry = serviceRuntimeRegistry,
                 rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
                 networkHandoverMonitor = networkHandoverMonitor,
                 policyHandoverEventStore = policyHandoverEventStore,
+                vpnTunnelRuntime =
+                    VpnTunnelRuntime(
+                        vpnHost = host,
+                        appSettingsRepository = appSettingsRepository,
+                        tun2SocksBridgeFactory = tun2SocksBridgeFactory,
+                        vpnTunnelSessionProvider = vpnTunnelSessionProvider,
+                    ),
+                resolverRefreshPlanner = resolverRefreshPlanner,
                 proxyRuntimeSupervisor =
-                    ProxyRuntimeSupervisor(
+                    proxyRuntimeSupervisorFactory.create(
                         scope = host.serviceScope,
                         dispatcher = Dispatchers.IO,
-                        ripDpiProxyFactory = ripDpiProxyFactory,
-                        networkSnapshotProvider = networkSnapshotFactory,
+                        networkSnapshotProvider = networkSnapshotProvider,
                     ),
                 statusReporter =
-                    ServiceStatusReporter(
+                    serviceStatusReporterFactory.create(
                         mode = Mode.VPN,
                         sender = Sender.VPN,
                         serviceStateStore = serviceStateStore,
