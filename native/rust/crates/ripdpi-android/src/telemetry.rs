@@ -565,6 +565,7 @@ mod tests {
     use std::net::SocketAddr;
 
     use golden_test_support::{assert_text_golden, canonicalize_json_with};
+    use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
     use ripdpi_runtime::RuntimeTelemetrySink;
     use serde_json::Value;
 
@@ -668,6 +669,32 @@ mod tests {
         assert_eq!(diversified.last_retry_reason.as_deref(), Some("candidate_order_diversified"));
         assert_eq!(diversified.candidate_diversification_count, 1);
         assert_eq!(diversified.native_events.len(), 1);
+    }
+
+    #[test]
+    fn failure_classification_telemetry_records_strategy_execution_context() {
+        let state = Arc::new(ProxyTelemetryState::new());
+        let observer = ProxyTelemetryObserver { state: state.clone() };
+        let target = SocketAddr::from(([203, 0, 113, 10], 443));
+        let failure = ClassifiedFailure::new(
+            FailureClass::StrategyExecutionFailure,
+            FailureStage::FirstWrite,
+            FailureAction::RetryWithMatchingGroup,
+            "desync action=set_ttl: Invalid argument (os error 22)",
+        )
+        .with_tag("action", "set_ttl")
+        .with_tag("errno", "22");
+
+        observer.on_failure_classified(target, &failure, Some("example.org"));
+
+        let snapshot = state.snapshot();
+        assert_eq!(snapshot.last_failure_class.as_deref(), Some("strategy_execution_failure"));
+        assert_eq!(snapshot.last_fallback_action.as_deref(), Some("retry_with_matching_group"));
+        assert_eq!(snapshot.last_error.as_deref(), Some("desync action=set_ttl: Invalid argument (os error 22)"));
+        assert_eq!(snapshot.network_errors, 1);
+        assert!(snapshot.native_events.iter().any(|event| {
+            event.message.contains("class=strategy_execution_failure") && event.message.contains("action=set_ttl")
+        }));
     }
 
     #[test]

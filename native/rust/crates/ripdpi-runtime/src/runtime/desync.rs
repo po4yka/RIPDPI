@@ -14,6 +14,31 @@ use socket2::SockRef;
 use super::adaptive::{resolve_adaptive_fake_ttl, resolve_adaptive_tcp_hints};
 use super::state::{RuntimeState, DESYNC_SEED_BASE};
 
+#[derive(Debug)]
+struct DesyncActionError {
+    action: &'static str,
+    source: io::Error,
+}
+
+impl std::fmt::Display for DesyncActionError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "desync action={}: {}", self.action, self.source)
+    }
+}
+
+impl std::error::Error for DesyncActionError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.source)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct DesyncActionContext {
+    pub(super) action: &'static str,
+    pub(super) kind: io::ErrorKind,
+    pub(super) errno: Option<i32>,
+}
+
 pub(super) fn activation_context_from_progress(
     progress: OutboundProgress,
     transport: ActivationTransport,
@@ -100,17 +125,17 @@ fn execute_tcp_actions(
     for action in actions {
         match action {
             DesyncAction::Write(bytes) => writer.write_all(bytes)?,
-            DesyncAction::WriteUrgent { prefix, urgent_byte } => send_out_of_band(writer, prefix, *urgent_byte)?,
-            DesyncAction::SetTtl(ttl) => set_stream_ttl(writer, *ttl)?,
+            DesyncAction::WriteUrgent { prefix, urgent_byte } => send_oob_action(writer, prefix, *urgent_byte)?,
+            DesyncAction::SetTtl(ttl) => set_ttl_action(writer, *ttl)?,
             DesyncAction::RestoreDefaultTtl => {
                 if default_ttl != 0 {
-                    set_stream_ttl(writer, default_ttl)?;
+                    restore_default_ttl_action(writer, default_ttl)?;
                 }
             }
-            DesyncAction::SetMd5Sig { key_len } => platform::set_tcp_md5sig(writer, *key_len)?,
+            DesyncAction::SetMd5Sig { key_len } => set_md5sig_action(writer, *key_len)?,
             DesyncAction::AttachDropSack => {}
             DesyncAction::DetachDropSack => {}
-            DesyncAction::AwaitWritable => platform::wait_tcp_stage(writer, wait_send, await_interval)?,
+            DesyncAction::AwaitWritable => await_writable_action(writer, wait_send, await_interval)?,
         }
     }
     Ok(())
@@ -155,42 +180,42 @@ fn execute_tcp_plan(
         match step.kind {
             TcpChainStepKind::Split => {
                 writer.write_all(chunk)?;
-                platform::wait_tcp_stage(
+                await_writable_action(
                     writer,
                     config.wait_send,
                     Duration::from_millis(config.await_interval.max(1) as u64),
                 )?;
             }
             TcpChainStepKind::Oob => {
-                send_out_of_band(writer, chunk, group.oob_data.unwrap_or(b'a'))?;
-                platform::wait_tcp_stage(
+                send_oob_action(writer, chunk, group.oob_data.unwrap_or(b'a'))?;
+                await_writable_action(
                     writer,
                     config.wait_send,
                     Duration::from_millis(config.await_interval.max(1) as u64),
                 )?;
             }
             TcpChainStepKind::Disorder => {
-                set_stream_ttl(writer, 1)?;
+                set_ttl_action(writer, 1)?;
                 writer.write_all(chunk)?;
-                platform::wait_tcp_stage(
+                await_writable_action(
                     writer,
                     config.wait_send,
                     Duration::from_millis(config.await_interval.max(1) as u64),
                 )?;
                 if config.default_ttl != 0 {
-                    set_stream_ttl(writer, config.default_ttl)?;
+                    restore_default_ttl_action(writer, config.default_ttl)?;
                 }
             }
             TcpChainStepKind::Disoob => {
-                set_stream_ttl(writer, 1)?;
-                send_out_of_band(writer, chunk, group.oob_data.unwrap_or(b'a'))?;
-                platform::wait_tcp_stage(
+                set_ttl_action(writer, 1)?;
+                send_oob_action(writer, chunk, group.oob_data.unwrap_or(b'a'))?;
+                await_writable_action(
                     writer,
                     config.wait_send,
                     Duration::from_millis(config.await_interval.max(1) as u64),
                 )?;
                 if config.default_ttl != 0 {
-                    set_stream_ttl(writer, config.default_ttl)?;
+                    restore_default_ttl_action(writer, config.default_ttl)?;
                 }
             }
             TcpChainStepKind::Fake => {
@@ -219,7 +244,7 @@ fn execute_tcp_plan(
                 let second = &plan.tampered[end..];
                 if second.is_empty() {
                     writer.write_all(chunk)?;
-                    platform::wait_tcp_stage(
+                    await_writable_action(
                         writer,
                         config.wait_send,
                         Duration::from_millis(config.await_interval.max(1) as u64),
@@ -256,15 +281,15 @@ fn execute_tcp_plan(
             TcpChainStepKind::FakeDisorder => {
                 let second = &plan.tampered[end..];
                 if second.is_empty() {
-                    set_stream_ttl(writer, 1)?;
+                    set_ttl_action(writer, 1)?;
                     writer.write_all(chunk)?;
-                    platform::wait_tcp_stage(
+                    await_writable_action(
                         writer,
                         config.wait_send,
                         Duration::from_millis(config.await_interval.max(1) as u64),
                     )?;
                     if config.default_ttl != 0 {
-                        set_stream_ttl(writer, config.default_ttl)?;
+                        restore_default_ttl_action(writer, config.default_ttl)?;
                     }
                     cursor = end;
                     continue;
@@ -298,7 +323,7 @@ fn execute_tcp_plan(
             TcpChainStepKind::HostFake => {
                 let Some(span) = resolve_hostfake_span(configured_step, &plan.tampered, start, end, seed) else {
                     writer.write_all(chunk)?;
-                    platform::wait_tcp_stage(
+                    await_writable_action(
                         writer,
                         config.wait_send,
                         Duration::from_millis(config.await_interval.max(1) as u64),
@@ -309,7 +334,7 @@ fn execute_tcp_plan(
 
                 if start < span.host_start {
                     writer.write_all(&plan.tampered[start..span.host_start])?;
-                    platform::wait_tcp_stage(
+                    await_writable_action(
                         writer,
                         config.wait_send,
                         Duration::from_millis(config.await_interval.max(1) as u64),
@@ -330,20 +355,20 @@ fn execute_tcp_plan(
 
                 if let Some(midhost) = span.midhost {
                     writer.write_all(&plan.tampered[span.host_start..midhost])?;
-                    platform::wait_tcp_stage(
+                    await_writable_action(
                         writer,
                         config.wait_send,
                         Duration::from_millis(config.await_interval.max(1) as u64),
                     )?;
                     writer.write_all(&plan.tampered[midhost..span.host_end])?;
-                    platform::wait_tcp_stage(
+                    await_writable_action(
                         writer,
                         config.wait_send,
                         Duration::from_millis(config.await_interval.max(1) as u64),
                     )?;
                 } else {
                     writer.write_all(real_host)?;
-                    platform::wait_tcp_stage(
+                    await_writable_action(
                         writer,
                         config.wait_send,
                         Duration::from_millis(config.await_interval.max(1) as u64),
@@ -362,7 +387,7 @@ fn execute_tcp_plan(
 
                 if span.host_end < end {
                     writer.write_all(&plan.tampered[span.host_end..end])?;
-                    platform::wait_tcp_stage(
+                    await_writable_action(
                         writer,
                         config.wait_send,
                         Duration::from_millis(config.await_interval.max(1) as u64),
@@ -404,6 +429,44 @@ pub(super) fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
         (Ok(()), _) | (_, Ok(())) => Ok(()),
         (Err(err), _) => Err(err),
     }
+}
+
+pub(super) fn desync_action_context(error: &io::Error) -> Option<DesyncActionContext> {
+    let wrapped = error.get_ref()?.downcast_ref::<DesyncActionError>()?;
+    Some(DesyncActionContext {
+        action: wrapped.action,
+        kind: wrapped.source.kind(),
+        errno: wrapped.source.raw_os_error(),
+    })
+}
+
+pub(super) fn wrap_desync_action_error(action: &'static str, error: io::Error) -> io::Error {
+    let kind = error.kind();
+    io::Error::new(kind, DesyncActionError { action, source: error })
+}
+
+fn map_desync_action_error<T>(action: &'static str, result: io::Result<T>) -> io::Result<T> {
+    result.map_err(|error| wrap_desync_action_error(action, error))
+}
+
+fn send_oob_action(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> io::Result<()> {
+    map_desync_action_error("send_oob", send_out_of_band(writer, prefix, urgent_byte))
+}
+
+fn set_ttl_action(stream: &TcpStream, ttl: u8) -> io::Result<()> {
+    map_desync_action_error("set_ttl", set_stream_ttl(stream, ttl))
+}
+
+fn restore_default_ttl_action(stream: &TcpStream, ttl: u8) -> io::Result<()> {
+    map_desync_action_error("restore_default_ttl", set_stream_ttl(stream, ttl))
+}
+
+fn set_md5sig_action(stream: &TcpStream, key_len: u16) -> io::Result<()> {
+    map_desync_action_error("set_md5sig", platform::set_tcp_md5sig(stream, key_len))
+}
+
+fn await_writable_action(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
+    map_desync_action_error("await_writable", platform::wait_tcp_stage(stream, wait_send, await_interval))
 }
 
 #[cfg(test)]
@@ -459,5 +522,17 @@ mod tests {
         group.tcp_chain.clear();
         group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, test_offset()));
         assert!(requires_special_tcp_execution(&group));
+    }
+
+    #[test]
+    fn desync_action_context_preserves_action_name_and_error_details() {
+        let err =
+            map_desync_action_error::<()>("set_ttl", Err(io::Error::from_raw_os_error(libc::EINVAL))).unwrap_err();
+
+        let context = desync_action_context(&err).expect("wrapped desync action");
+        assert_eq!(context.action, "set_ttl");
+        assert_eq!(context.kind, io::ErrorKind::InvalidInput);
+        assert_eq!(context.errno, Some(libc::EINVAL));
+        assert!(err.to_string().contains("desync action=set_ttl"));
     }
 }

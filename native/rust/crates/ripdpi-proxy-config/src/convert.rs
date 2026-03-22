@@ -5,7 +5,7 @@ use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
     parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, NumericRange,
     OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
-    UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    UdpChainStep, UdpChainStepKind, DETECT_CONNECT, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
@@ -512,7 +512,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     let action_proto = group.proto;
     groups.push(group);
     if action_proto != 0 {
-        groups.push(DesyncGroup::new(groups.len()));
+        let mut fallback = DesyncGroup::new(groups.len());
+        fallback.detect = DETECT_CONNECT;
+        groups.push(fallback);
     }
 
     config.groups = groups;

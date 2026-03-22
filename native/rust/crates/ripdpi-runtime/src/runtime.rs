@@ -43,16 +43,25 @@ pub fn run_proxy_with_embedded_control(
 mod tests {
     #[cfg(not(feature = "loom"))]
     use super::state::ClientSlotGuard;
-    use ripdpi_config::{DETECT_CONNECT, DETECT_HTTP_LOCAT};
+    use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+    use crate::adaptive_tuning::AdaptivePlannerResolver;
+    use crate::retry_stealth::RetryPacer;
+    use crate::runtime::desync::send_with_group;
+    use crate::runtime::routing::{advance_route_for_failure, select_route};
+    use crate::runtime::state::RuntimeState;
+    use crate::runtime_policy::RuntimePolicy;
+    use crate::sync::{Arc, AtomicUsize, Mutex};
+    use ripdpi_config::{DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT};
+    use ripdpi_packets::{DEFAULT_FAKE_TLS, IS_HTTPS};
     use ripdpi_session::{
-        encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_CONN,
-        S_VER5,
+        encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, OutboundProgress, S_ATP_I4, S_ATP_I6,
+        S_CMD_CONN, S_ER_CONN, S_VER5,
     };
-    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+    use std::io::Read;
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
     #[cfg(not(feature = "loom"))]
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    #[cfg(not(feature = "loom"))]
-    use std::sync::Arc;
+    use std::sync::atomic::Ordering;
+    use std::thread;
 
     use super::routing::{encode_upstream_socks_connect, failure_penalizes_strategy, failure_trigger_mask};
 
@@ -154,6 +163,7 @@ mod tests {
             (FailureClass::TlsHandshakeFailure, DETECT_TLS_HANDSHAKE_FAILURE),
             (FailureClass::DnsTampering, DETECT_DNS_TAMPER),
             (FailureClass::ConnectFailure, DETECT_CONNECT),
+            (FailureClass::StrategyExecutionFailure, DETECT_CONNECT),
         ];
 
         for (class, expected_mask) in cases {
@@ -183,6 +193,7 @@ mod tests {
         let non_penalizing = [
             FailureClass::DnsTampering,
             FailureClass::ConnectFailure,
+            FailureClass::StrategyExecutionFailure,
             FailureClass::QuicBreakage,
             FailureClass::Unknown,
         ];
@@ -197,5 +208,76 @@ mod tests {
                 ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
             assert!(!failure_penalizes_strategy(&failure), "{class:?} should not penalize");
         }
+    }
+
+    #[test]
+    fn strategy_execution_failure_advances_to_plain_connect_fallback_and_replays_payload() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fixture listener");
+        let target = listener.local_addr().expect("listener addr");
+        let payload = DEFAULT_FAKE_TLS.to_vec();
+        let expected = payload.clone();
+
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().expect("accept fallback connection");
+            let mut received = vec![0u8; expected.len()];
+            socket.read_exact(&mut received).expect("read fallback payload");
+            received
+        });
+
+        let mut primary = DesyncGroup::new(0);
+        primary.proto = IS_HTTPS;
+        primary.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disorder, OffsetExpr::tls_host(1)));
+
+        let mut fallback = DesyncGroup::new(1);
+        fallback.detect = DETECT_CONNECT;
+
+        let config = ripdpi_config::RuntimeConfig { groups: vec![primary, fallback], ..Default::default() };
+        let state = RuntimeState {
+            config: Arc::new(config.clone()),
+            cache: Arc::new(Mutex::new(RuntimePolicy::load(&config))),
+            adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
+            adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
+            retry_stealth: Arc::new(Mutex::new(RetryPacer::default())),
+            active_clients: Arc::new(AtomicUsize::new(0)),
+            telemetry: None,
+            runtime_context: None,
+        };
+
+        let initial = select_route(&state, target, Some(&payload), None, false).expect("initial route");
+        assert_eq!(initial.group_index, 0);
+
+        let failure = ClassifiedFailure::new(
+            FailureClass::StrategyExecutionFailure,
+            FailureStage::FirstWrite,
+            FailureAction::RetryWithMatchingGroup,
+            "desync action=set_ttl: Invalid argument (os error 22)",
+        )
+        .with_tag("action", "set_ttl")
+        .with_tag("errno", libc::EINVAL.to_string());
+        let next = advance_route_for_failure(&state, target, &initial, None, Some(&payload), &failure)
+            .expect("advance route")
+            .expect("fallback route");
+        assert_eq!(next.group_index, 1);
+
+        let mut upstream = TcpStream::connect(target).expect("connect fallback upstream");
+        let progress = OutboundProgress {
+            round: 1,
+            payload_size: payload.len(),
+            stream_start: 0,
+            stream_end: payload.len().saturating_sub(1),
+        };
+        send_with_group(
+            &mut upstream,
+            &state,
+            next.group_index,
+            &config.groups[next.group_index],
+            &payload,
+            progress,
+            Some("example.org"),
+            target,
+        )
+        .expect("send via fallback group");
+
+        assert_eq!(server.join().expect("join fallback server"), payload);
     }
 }

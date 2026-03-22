@@ -18,6 +18,7 @@ pub enum FailureClass {
     Redirect,
     TlsHandshakeFailure,
     ConnectFailure,
+    StrategyExecutionFailure,
 }
 
 impl FailureClass {
@@ -33,6 +34,7 @@ impl FailureClass {
             Self::Redirect => "redirect",
             Self::TlsHandshakeFailure => "tls_handshake_failure",
             Self::ConnectFailure => "connect_failure",
+            Self::StrategyExecutionFailure => "strategy_execution_failure",
         }
     }
 }
@@ -160,6 +162,32 @@ pub fn classify_transport_error(stage: FailureStage, error: &io::Error) -> Class
         _ => ClassifiedFailure::new(FailureClass::Unknown, stage, FailureAction::SurfaceOnly, error.to_string())
             .with_tag("kind", format!("{kind:?}")),
     }
+}
+
+pub fn classify_strategy_execution_failure(
+    stage: FailureStage,
+    action: &str,
+    kind: io::ErrorKind,
+    errno: Option<i32>,
+    summary: impl Into<String>,
+) -> Option<ClassifiedFailure> {
+    if stage != FailureStage::FirstWrite {
+        return None;
+    }
+    if !is_strategy_execution_kind(kind) && !errno.is_some_and(is_strategy_execution_errno) {
+        return None;
+    }
+    Some(
+        ClassifiedFailure::new(
+            FailureClass::StrategyExecutionFailure,
+            stage,
+            FailureAction::RetryWithMatchingGroup,
+            summary,
+        )
+        .with_tag("action", action.to_string())
+        .with_tag("kind", format!("{kind:?}"))
+        .with_tag("errno", errno.map(|value| value.to_string()).unwrap_or_else(|| "none".to_string())),
+    )
 }
 
 pub fn classify_tls_alert(response: &[u8]) -> Option<ClassifiedFailure> {
@@ -306,6 +334,19 @@ fn body_has_blockpage_keywords(body: &str) -> bool {
     ["blocked", "access denied", "forbidden", "restriction", "censorship"].iter().any(|needle| body.contains(needle))
 }
 
+fn is_strategy_execution_errno(errno: i32) -> bool {
+    errno == libc::EINVAL
+        || errno == libc::ENOPROTOOPT
+        || errno == libc::EOPNOTSUPP
+        || errno == libc::ENOTSUP
+        || errno == libc::EPERM
+        || errno == libc::EACCES
+}
+
+fn is_strategy_execution_kind(kind: io::ErrorKind) -> bool {
+    kind == io::ErrorKind::Unsupported
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -388,6 +429,81 @@ mod tests {
         let f = classify_transport_error(FailureStage::Connect, &err);
         assert_eq!(f.class, FailureClass::Unknown);
         assert_eq!(f.action, FailureAction::SurfaceOnly);
+    }
+
+    #[test]
+    fn strategy_execution_failures_retry_only_for_first_write_capability_errors() {
+        let failure = classify_strategy_execution_failure(
+            FailureStage::FirstWrite,
+            "set_ttl",
+            io::ErrorKind::InvalidInput,
+            Some(libc::EINVAL),
+            "desync action=set_ttl: Invalid argument (os error 22)",
+        )
+        .expect("first-write EINVAL should retry");
+
+        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.action, FailureAction::RetryWithMatchingGroup);
+        assert!(failure.evidence.summary.contains("desync action=set_ttl"));
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "action=set_ttl"));
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "kind=InvalidInput"));
+        assert!(failure.evidence.tags.iter().any(|tag| tag == &format!("errno={}", libc::EINVAL)));
+    }
+
+    #[test]
+    fn strategy_execution_failures_retry_for_unsupported_desync_actions() {
+        let failure = classify_strategy_execution_failure(
+            FailureStage::FirstWrite,
+            "await_writable",
+            io::ErrorKind::Unsupported,
+            None,
+            "desync action=await_writable: only supported on Linux/Android",
+        )
+        .expect("unsupported first-write action should retry");
+
+        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.action, FailureAction::RetryWithMatchingGroup);
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "action=await_writable"));
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "kind=Unsupported"));
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "errno=none"));
+    }
+
+    #[test]
+    fn strategy_execution_failures_ignore_other_stages_and_non_capability_errors() {
+        assert!(classify_strategy_execution_failure(
+            FailureStage::Connect,
+            "set_ttl",
+            io::ErrorKind::InvalidInput,
+            Some(libc::EINVAL),
+            "desync action=set_ttl: Invalid argument (os error 22)",
+        )
+        .is_none());
+        assert!(classify_strategy_execution_failure(
+            FailureStage::FirstWrite,
+            "set_ttl",
+            io::ErrorKind::ConnectionReset,
+            Some(libc::ECONNRESET),
+            "desync action=set_ttl: Connection reset by peer (os error 54)",
+        )
+        .is_none());
+        assert!(classify_strategy_execution_failure(
+            FailureStage::FirstWrite,
+            "set_ttl",
+            io::ErrorKind::ConnectionReset,
+            None,
+            "desync action=set_ttl: Connection reset by peer",
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn invalid_input_transport_errors_remain_unknown_outside_desync_strategy_path() {
+        for stage in [FailureStage::Connect, FailureStage::FirstResponse] {
+            let err = io::Error::from_raw_os_error(libc::EINVAL);
+            let failure = classify_transport_error(stage, &err);
+            assert_eq!(failure.class, FailureClass::Unknown);
+            assert_eq!(failure.action, FailureAction::SurfaceOnly);
+        }
     }
 
     // ── TLS alert parsing edge cases ──
