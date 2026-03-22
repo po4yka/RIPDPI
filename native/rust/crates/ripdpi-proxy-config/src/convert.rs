@@ -7,10 +7,8 @@ use ciadpi_config::{
     OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
     UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
-use ciadpi_packets::{
-    HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL,
-    MH_SPACE, MH_UNIXEOL,
-};
+use ciadpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
+use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
 use serde_json::Value;
 
 use crate::presets;

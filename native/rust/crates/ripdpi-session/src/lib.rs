@@ -2,7 +2,7 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use ciadpi_packets::{is_http_redirect, is_tls_client_hello, is_tls_server_hello, tls_session_id_mismatch};
+use ripdpi_packets::{is_http_redirect, is_tls_client_hello, is_tls_server_hello, tls_session_id_mismatch};
 
 /// Maximum number of ClientHello bytes to store for session-ID mismatch detection.
 const CLIENT_HELLO_PREFIX_CAP: usize = 76;
@@ -444,7 +444,7 @@ mod tests {
 
     #[test]
     fn detect_response_trigger_tls_to_non_tls_is_ssl_err() {
-        let tls_hello = ciadpi_packets::DEFAULT_FAKE_TLS;
+        let tls_hello = ripdpi_packets::DEFAULT_FAKE_TLS;
         let non_tls = b"HTTP/1.1 200 OK\r\n\r\n";
         assert_eq!(detect_response_trigger(tls_hello, non_tls), Some(TriggerEvent::SslErr));
     }
@@ -478,7 +478,7 @@ mod tests {
     #[test]
     fn session_state_tls_flag_cleared_on_non_server_hello() {
         let mut state = SessionState::default();
-        state.observe_outbound(ciadpi_packets::DEFAULT_FAKE_TLS);
+        state.observe_outbound(ripdpi_packets::DEFAULT_FAKE_TLS);
         assert!(state.saw_tls_client_hello);
         state.observe_inbound(b"not tls at all");
         assert!(!state.saw_tls_client_hello);

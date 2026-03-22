@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use ciadpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig};
-use ciadpi_packets::{
+use ripdpi_packets::{
     is_http, is_tls_client_hello, parse_http, parse_quic_initial, parse_tls, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP,
 };
 
@@ -171,7 +171,7 @@ mod tests {
         group.proto = IS_TCP | IS_HTTP;
         let config = RuntimeConfig::default();
         let http_payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
-        let tls_payload = ciadpi_packets::DEFAULT_FAKE_TLS;
+        let tls_payload = ripdpi_packets::DEFAULT_FAKE_TLS;
         assert!(matches_payload(&config, &group, http_payload));
         assert!(!matches_payload(&config, &group, tls_payload));
     }
