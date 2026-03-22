@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use hs5t_config::{Config, MapDnsConfig, MiscConfig, Socks5Config, TunnelConfig};
 use hs5t_core::{run_tunnel, Stats};
-use hs5t_tunnel::{LinuxTunnel, TunnelDriver};
+use ripdpi_tun_driver::{LinuxTunnel, TunnelDriver};
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use tokio_util::sync::CancellationToken;
 
