@@ -2,7 +2,7 @@
 
 ## Role in RIPDPI
 
-The local SOCKS5 proxy is now implemented by the in-repo Rust module derived from `byedpi`.
+The local SOCKS5 proxy is implemented by the in-repo Rust native module.
 
 - Proxy mode: the app exposes the local SOCKS5 proxy directly.
 - VPN mode: the app starts the same local SOCKS5 proxy first, then routes TUN traffic through `hev-socks5-tunnel`.
@@ -44,7 +44,7 @@ Relevant sources:
 
 | Method | Defined in | Reached from | When it is used | Purpose |
 | --- | --- | --- | --- | --- |
-| `ciadpi_config::parse_cli` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreate(configJson)` | Command-line mode only | Parses user-supplied ByeDPI-style arguments into a `RuntimeConfig`. |
+| `ciadpi_config::parse_cli` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreate(configJson)` | Command-line mode only | Parses user-supplied CLI arguments into a `RuntimeConfig`. |
 | `ciadpi_config::parse_hosts_spec` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreate(configJson)` | UI mode host list setup | Parses the app host list string into normalized host rules. |
 | `runtime::create_listener` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Start only | Opens the local listening socket for the proxy runtime. |
 | `runtime::run_proxy_with_embedded_control` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Always after session start | Runs the Rust proxy loop on the listener owned by the native session, with session-local shutdown state, telemetry sink, and runtime context. |
@@ -71,7 +71,7 @@ That behavior matches the old JNI C wrapper, even though the naming comes from t
 
 ## Current RIPDPI-native Strategy Surface
 
-The proxy engine now exposes a substantially broader typed strategy surface than the original Android wrapper around standalone ByeDPI flags.
+The proxy engine exposes a broad typed strategy surface.
 
 ### Config translation
 
@@ -93,7 +93,7 @@ Notable TCP step kinds now include:
 - partial Linux/Android-focused `fakedsplit`
 - partial Linux/Android-focused `fakeddisorder`
 
-These remain typed RIPDPI steps rather than direct zapret2 parity features.
+These are typed RIPDPI steps.
 
 ### Fake payload and fake transport surface
 
@@ -171,7 +171,7 @@ The drained event ring records:
 
 `RipDpiProxyCmdPreferences` now serializes a single JSON payload with `kind = "command_line"`.
 
-This path still goes through `ciadpi_config::parse_cli`, so CLI flags are interpreted by the in-repo Rust module rather than an Android-only parser.
+This path still goes through `ciadpi_config::parse_cli`, so CLI flags are interpreted by the in-repo Rust module.
 
 ## Current Test Coverage
 

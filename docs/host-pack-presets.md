@@ -18,20 +18,11 @@ The app stays offline at runtime. Bundled packs are generated explicitly through
 python3 scripts/sync_host_packs.py
 ```
 
-Bundled source inputs:
-
-- `runetfreedom/russia-blocked-geosite` `release/youtube.txt`
-- `runetfreedom/russia-blocked-geosite` `release/discord.txt`
-- `v2fly/domain-list-community` `data/telegram`
-
-The sync script normalizes those upstream lists into `app/src/main/assets/host-packs/catalog.json` and records the upstream URL, ref, and latest commit SHA for traceability.
+The sync script normalizes upstream domain lists into `app/src/main/assets/host-packs/catalog.json` and records the source URL, ref, and latest commit SHA for traceability.
 
 ## Runtime Refresh
 
-The Advanced settings screen can fetch a newer curated snapshot from:
-
-- `https://raw.githubusercontent.com/runetfreedom/russia-blocked-geosite/release/geosite.dat`
-- `https://raw.githubusercontent.com/runetfreedom/russia-blocked-geosite/release/geosite.dat.sha256sum`
+The Advanced settings screen can fetch a newer curated snapshot from the configured upstream source.
 
 Runtime refresh behavior:
 
