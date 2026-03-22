@@ -24,11 +24,6 @@ class DiagnosticsArchiveRenderer
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
-        private companion object {
-            private const val SummaryProbeResultPreviewCount = 5
-            private const val SummaryWarningPreviewCount = 3
-        }
-
         internal fun render(
             target: DiagnosticsArchiveTarget,
             selection: DiagnosticsArchiveSelection,
@@ -228,7 +223,9 @@ class DiagnosticsArchiveRenderer
                 session = selection.primarySession,
                 report = selection.primaryReport?.toSessionProjection(),
                 latestSnapshotModel = selection.latestSnapshotModel?.let(redactor::redact),
-                latestContextModel = (selection.sessionContextModel ?: selection.latestContextModel)?.let(redactor::redact),
+                latestContextModel =
+                    (selection.sessionContextModel ?: selection.latestContextModel)
+                        ?.let(redactor::redact),
                 latestTelemetry = selection.payload.telemetry.firstOrNull(),
                 selectedResults = selection.primaryResults,
                 warnings =
@@ -348,27 +345,6 @@ class DiagnosticsArchiveRenderer
                 json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
             }.getOrNull()?.let(::deriveProbeRetryCount)?.toString()
     }
-
-private fun StringBuilder.appendWifiSummary(wifi: RedactedWifiSummary) {
-    appendLine("wifiSsid=${wifi.ssid}")
-    appendLine("wifiBand=${wifi.band}")
-    appendLine("wifiStandard=${wifi.wifiStandard}")
-    appendLine("wifiFrequencyMhz=${wifi.frequencyMhz ?: "unknown"}")
-    appendLine("wifiLinkSpeedMbps=${wifi.linkSpeedMbps ?: "unknown"}")
-    appendLine("wifiSignalDbm=${wifi.rssiDbm ?: "unknown"}")
-    appendLine("wifiGateway=${wifi.gateway}")
-}
-
-private fun StringBuilder.appendCellularSummary(cellular: RedactedCellularSummary) {
-    appendLine("carrier=${cellular.carrierName}")
-    appendLine("networkOperator=${cellular.networkOperatorName}")
-    appendLine("dataNetwork=${cellular.dataNetworkType}")
-    appendLine("voiceNetwork=${cellular.voiceNetworkType}")
-    appendLine("networkCountry=${cellular.networkCountryIso}")
-    appendLine("roaming=${cellular.isNetworkRoaming ?: "unknown"}")
-    appendLine("signalLevel=${cellular.signalLevel ?: "unknown"}")
-    appendLine("signalDbm=${cellular.signalDbm ?: "unknown"}")
-}
 
 private fun BypassApproachSummary.successRateLabel(): String =
     validatedSuccessRate?.let { rate ->

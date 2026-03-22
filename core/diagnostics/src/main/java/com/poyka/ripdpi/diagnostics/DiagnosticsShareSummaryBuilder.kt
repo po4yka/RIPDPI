@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 
 internal object DiagnosticsShareSummaryBuilder {
+    @Suppress("CyclomaticComplexMethod")
     suspend fun build(
         sessionId: String?,
         scanRecordStore: DiagnosticsScanRecordStore,

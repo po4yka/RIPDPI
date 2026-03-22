@@ -33,7 +33,8 @@ class DiagnosticsDatabaseMigrationTest {
     @Test
     fun `migration 1 to 2 clears remembered policies but preserves diagnostics history`() {
         val seededDatabase =
-            Room.databaseBuilder(context, DiagnosticsDatabase::class.java, TestDatabaseName)
+            Room
+                .databaseBuilder(context, DiagnosticsDatabase::class.java, TestDatabaseName)
                 .allowMainThreadQueries()
                 .build()
         try {
@@ -44,10 +45,10 @@ class DiagnosticsDatabaseMigrationTest {
 
         val rawDatabase =
             SQLiteDatabase.openDatabase(
-            context.getDatabasePath(TestDatabaseName).path,
-            null,
-            SQLiteDatabase.OPEN_READWRITE,
-        )
+                context.getDatabasePath(TestDatabaseName).path,
+                null,
+                SQLiteDatabase.OPEN_READWRITE,
+            )
         try {
             rawDatabase.version = 1
         } finally {
@@ -55,7 +56,8 @@ class DiagnosticsDatabaseMigrationTest {
         }
 
         val migrated =
-            Room.databaseBuilder(context, DiagnosticsDatabase::class.java, TestDatabaseName)
+            Room
+                .databaseBuilder(context, DiagnosticsDatabase::class.java, TestDatabaseName)
                 .addMigrations(DiagnosticsMigration1To2)
                 .allowMainThreadQueries()
                 .build()
@@ -73,6 +75,7 @@ class DiagnosticsDatabaseMigrationTest {
         }
     }
 
+    @Suppress("LongMethod")
     private fun DiagnosticsDatabase.seedMigrationFixtures() {
         runBlocking {
             val dao = diagnosticsDao()

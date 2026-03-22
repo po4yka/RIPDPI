@@ -24,6 +24,7 @@ class DiagnosticsArchiveSessionSelector
                 else -> sessions.firstOrNull { it.reportJson != null } ?: sessions.firstOrNull()
             }
 
+        @Suppress("LongMethod")
         internal fun buildSelection(
             primarySession: ScanSessionEntity?,
             primaryResults: List<ProbeResultEntity>,

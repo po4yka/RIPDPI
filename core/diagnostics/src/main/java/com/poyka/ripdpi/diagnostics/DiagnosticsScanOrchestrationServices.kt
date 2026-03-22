@@ -48,7 +48,8 @@ class ScanAdmissionService
             const val AutomaticProbeProfileId = "automatic-probing"
         }
 
-        suspend fun admitManualStart(): Pair<com.poyka.ripdpi.proto.AppSettings, com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity> {
+        suspend fun admitManualStart():
+            Pair<com.poyka.ripdpi.proto.AppSettings, com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity> {
             check(!activeScanRegistry.hasActiveScan()) { "Diagnostics scan already active" }
             val settings = appSettingsRepository.snapshot()
             val profileId = settings.diagnosticsActiveProfileId.ifEmpty { "default" }
@@ -59,6 +60,7 @@ class ScanAdmissionService
             return settings to profile
         }
 
+        @Suppress("ReturnCount", "UnusedParameter")
         suspend fun admitAutomaticProbe(
             settings: com.poyka.ripdpi.proto.AppSettings,
         ): com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity? {
@@ -317,7 +319,9 @@ class ScanFinalizationService
                     ),
                     prepared.settings,
                 )
-            val derived = com.poyka.ripdpi.diagnostics.domain.DerivedScanReport(finalReport.toEngineScanReportWire())
+            val derived =
+                com.poyka.ripdpi.diagnostics.domain
+                    .DerivedScanReport(finalReport.toEngineScanReportWire())
             DiagnosticsReportPersister.persistScanReport(
                 report = derived.report,
                 scanRecordStore = scanRecordStore,

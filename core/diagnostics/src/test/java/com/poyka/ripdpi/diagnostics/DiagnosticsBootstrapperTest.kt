@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.diagnostics
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.test.runTest
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticProfileWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsPackWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test

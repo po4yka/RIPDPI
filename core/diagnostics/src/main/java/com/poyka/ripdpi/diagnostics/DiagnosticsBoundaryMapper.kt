@@ -230,32 +230,27 @@ private fun decodeProfileProjection(
 private fun decodeStrategySignature(
     json: Json,
     payload: String?,
-): BypassStrategySignature? =
-    decodeOrNull(json, BypassStrategySignature.serializer(), payload)
+): BypassStrategySignature? = decodeOrNull(json, BypassStrategySignature.serializer(), payload)
 
 private fun decodeContext(
     json: Json,
     payload: String?,
-): DiagnosticContextModel? =
-    decodeOrNull(json, DiagnosticContextModel.serializer(), payload)
+): DiagnosticContextModel? = decodeOrNull(json, DiagnosticContextModel.serializer(), payload)
 
 private fun decodeNetworkSnapshot(
     json: Json,
     payload: String?,
-): NetworkSnapshotModel? =
-    decodeOrNull(json, NetworkSnapshotModel.serializer(), payload)
+): NetworkSnapshotModel? = decodeOrNull(json, NetworkSnapshotModel.serializer(), payload)
 
 private fun decodeNetworkFingerprintSummary(
     json: Json,
     payload: String?,
-): NetworkFingerprintSummary? =
-    decodeOrNull(json, NetworkFingerprintSummary.serializer(), payload)
+): NetworkFingerprintSummary? = decodeOrNull(json, NetworkFingerprintSummary.serializer(), payload)
 
 private fun decodeVpnDnsPolicy(
     json: Json,
     payload: String?,
-): VpnDnsPolicyJson? =
-    decodeOrNull(json, VpnDnsPolicyJson.serializer(), payload)
+): VpnDnsPolicyJson? = decodeOrNull(json, VpnDnsPolicyJson.serializer(), payload)
 
 private fun decodeProbeDetails(
     json: Json,

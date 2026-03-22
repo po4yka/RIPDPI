@@ -151,7 +151,10 @@ private fun HandleLaunchRequests(
             return@LaunchedEffect
         }
         when {
-            currentRoute == Route.Home.route -> launchRequests.onLaunchHomeHandled()
+            currentRoute == Route.Home.route -> {
+                launchRequests.onLaunchHomeHandled()
+            }
+
             shouldNavigateToHomeFromLaunchRequest(launchRequests.launchHomeRequested, currentRoute) -> {
                 navigateHome()
                 launchRequests.onLaunchHomeHandled()
@@ -285,9 +288,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     }
 }
 
-private fun NavGraphBuilder.addConfigRoutes(
-    navController: NavHostController,
-) {
+private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
     navigation(
         startDestination = Route.Config.route,
         route = ConfigGraphRoute,
@@ -380,10 +381,11 @@ private fun routeEnterTransition(
     } else {
         fadeIn(
             animationSpec = tween(durationMillis = routeDurationMillis, easing = FastOutSlowInEasing),
-        ) + scaleIn(
-            initialScale = 0.985f,
-            animationSpec = tween(durationMillis = routeDurationMillis, easing = FastOutSlowInEasing),
-        )
+        ) +
+            scaleIn(
+                initialScale = 0.985f,
+                animationSpec = tween(durationMillis = routeDurationMillis, easing = FastOutSlowInEasing),
+            )
     }
 
 private fun routeExitTransition(
@@ -407,10 +409,11 @@ private fun routePopEnterTransition(
     } else {
         fadeIn(
             animationSpec = tween(durationMillis = routeDurationMillis, easing = FastOutSlowInEasing),
-        ) + scaleIn(
-            initialScale = 0.992f,
-            animationSpec = tween(durationMillis = routeDurationMillis, easing = FastOutSlowInEasing),
-        )
+        ) +
+            scaleIn(
+                initialScale = 0.992f,
+                animationSpec = tween(durationMillis = routeDurationMillis, easing = FastOutSlowInEasing),
+            )
     }
 
 private fun routePopExitTransition(
@@ -422,10 +425,11 @@ private fun routePopExitTransition(
     } else {
         fadeOut(
             animationSpec = tween(durationMillis = quickDurationMillis, easing = FastOutSlowInEasing),
-        ) + scaleOut(
-            targetScale = 0.992f,
-            animationSpec = tween(durationMillis = quickDurationMillis, easing = FastOutSlowInEasing),
-        )
+        ) +
+            scaleOut(
+                targetScale = 0.992f,
+                animationSpec = tween(durationMillis = quickDurationMillis, easing = FastOutSlowInEasing),
+            )
     }
 
 private fun NavDestination?.isTopLevelDestination(): Boolean =

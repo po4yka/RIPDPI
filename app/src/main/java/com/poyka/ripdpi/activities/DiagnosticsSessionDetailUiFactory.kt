@@ -34,7 +34,8 @@ internal class DiagnosticsSessionDetailUiFactory
             val reportMetadata =
                 buildList {
                     report?.classifierVersion?.let { add(DiagnosticsFieldUiModel("Classifier", it)) }
-                    report?.packVersions
+                    report
+                        ?.packVersions
                         ?.takeIf { it.isNotEmpty() }
                         ?.let { versions ->
                             add(

@@ -124,6 +124,7 @@ class NetworkSnapshotFactory
             )
         }
 
+        @android.annotation.SuppressLint("MissingPermission")
         private fun activeNetworkOrNull() =
             if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
                 connectivityManager.activeNetwork
@@ -159,6 +160,7 @@ class NetworkSnapshotFactory
             )
         }
 
+        @android.annotation.SuppressLint("MissingPermission")
         private fun resolveCellularSnapshot(cellularIdentity: CellularNetworkIdentityTuple?): NativeCellularSnapshot? {
             if (cellularIdentity == null) {
                 return null
@@ -302,11 +304,9 @@ internal fun describeWifiBand(frequencyMhz: Int?): String =
         ?.second
         ?: "unknown"
 
-internal fun describeWifiChannelWidth(channelWidth: Int?): String =
-    WifiChannelWidthLabels[channelWidth] ?: "unknown"
+internal fun describeWifiChannelWidth(channelWidth: Int?): String = WifiChannelWidthLabels[channelWidth] ?: "unknown"
 
-internal fun describeWifiStandard(standard: Int?): String =
-    WifiStandardLabels[standard] ?: "unknown"
+internal fun describeWifiStandard(standard: Int?): String = WifiStandardLabels[standard] ?: "unknown"
 
 internal fun describeMobileNetworkType(type: Int?): String =
     type?.let(MobileNetworkTypeLabels::get) ?: type?.toString() ?: "unknown"

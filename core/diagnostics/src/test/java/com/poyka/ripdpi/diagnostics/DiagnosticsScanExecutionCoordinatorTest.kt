@@ -336,6 +336,7 @@ private fun executionCoordinatorFixtures(
     )
 }
 
+@Suppress("LongMethod")
 private suspend fun preparedDiagnosticsScan(
     sessionId: String,
     settings: com.poyka.ripdpi.proto.AppSettings,

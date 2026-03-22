@@ -69,7 +69,8 @@ class BundledDiagnosticsProfileImporter
                             version = profile.version,
                             requestJson =
                                 json.encodeToString(
-                                    com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire.serializer(),
+                                    com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
+                                        .serializer(),
                                     profile.request,
                                 ),
                             updatedAt = now,

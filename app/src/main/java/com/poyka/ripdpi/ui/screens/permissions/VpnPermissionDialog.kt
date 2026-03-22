@@ -8,8 +8,8 @@ import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner

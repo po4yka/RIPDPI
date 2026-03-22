@@ -313,6 +313,7 @@ data class NetworkDnsPathPreferenceEntity(
     val updatedAt: Long,
 )
 
+@Suppress("TooManyFunctions")
 @Dao
 interface DiagnosticsDao {
     @Query("SELECT * FROM diagnostic_profiles ORDER BY updatedAt DESC")
@@ -582,11 +583,12 @@ object DiagnosticsDatabaseModule {
     fun provideDiagnosticsDatabase(
         @ApplicationContext context: Context,
     ): DiagnosticsDatabase =
-        Room.databaseBuilder(
-            context,
-            DiagnosticsDatabase::class.java,
-            "diagnostics.db",
-        ).addMigrations(DiagnosticsMigration1To2)
+        Room
+            .databaseBuilder(
+                context,
+                DiagnosticsDatabase::class.java,
+                "diagnostics.db",
+            ).addMigrations(DiagnosticsMigration1To2)
             .fallbackToDestructiveMigrationOnDowngrade(true)
             .build()
 

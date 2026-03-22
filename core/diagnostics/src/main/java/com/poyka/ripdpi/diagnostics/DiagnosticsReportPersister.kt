@@ -138,9 +138,10 @@ internal object DiagnosticsReportPersister {
 
     private fun EngineScanReportWire.withDerivedProbeRetryCount(): EngineScanReportWire =
         copy(
-            results = results.map { result ->
-                result.withDerivedProbeRetryCount()
-            },
+            results =
+                results.map { result ->
+                    result.withDerivedProbeRetryCount()
+                },
         )
 
     private fun com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire.withDerivedProbeRetryCount():

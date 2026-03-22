@@ -200,7 +200,7 @@ internal class VpnServiceRuntimeCoordinator(
             failureReason = failureReason,
         )
         updateStatus(ServiceStatus.Failed, failureReason)
-        host.serviceScope.launch(Dispatchers.IO) { stop() }
+        host.serviceScope.launch(ioDispatcher) { stop() }
         return true
     }
 
@@ -289,7 +289,7 @@ internal class VpnServiceRuntimeCoordinator(
         }
 
         proxyRuntimeSupervisor.detach()
-        host.serviceScope.launch(Dispatchers.IO) { stop(skipRuntimeShutdown = true) }
+        host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
 }
 

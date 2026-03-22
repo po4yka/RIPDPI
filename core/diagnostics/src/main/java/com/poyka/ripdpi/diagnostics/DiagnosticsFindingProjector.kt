@@ -210,23 +210,27 @@ class DiagnosticsFindingProjector
             tcp.forEach { observation ->
                 val diagnosis =
                     when (observation.status) {
-                        TcpProbeStatus.BLOCKED_16KB ->
+                        TcpProbeStatus.BLOCKED_16KB -> {
                             Diagnosis(
                                 code = "tcp_16kb_cutoff",
                                 summary = "TCP flow failed around the 16 KiB threshold",
                                 target = observation.provider,
                                 evidence = listOfNotNull(observation.bytesSent?.toString()),
                             )
+                        }
 
-                        TcpProbeStatus.WHITELIST_SNI_OK ->
+                        TcpProbeStatus.WHITELIST_SNI_OK -> {
                             Diagnosis(
                                 code = "whitelist_sni_bypassable",
                                 summary = "A whitelisted SNI restored TCP reachability",
                                 target = observation.provider,
                                 evidence = listOfNotNull(observation.selectedSni),
                             )
+                        }
 
-                        else -> null
+                        else -> {
+                            null
+                        }
                     }
                 diagnosis?.let { pushDiagnosis(diagnoses, seen, it) }
             }

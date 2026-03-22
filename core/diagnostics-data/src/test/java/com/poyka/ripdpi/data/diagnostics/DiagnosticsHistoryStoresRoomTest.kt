@@ -36,7 +36,8 @@ class DiagnosticsHistoryStoresRoomTest {
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         db =
-            Room.inMemoryDatabaseBuilder(context, DiagnosticsDatabase::class.java)
+            Room
+                .inMemoryDatabaseBuilder(context, DiagnosticsDatabase::class.java)
                 .allowMainThreadQueries()
                 .build()
         dao = db.diagnosticsDao()
@@ -139,7 +140,14 @@ class DiagnosticsHistoryStoresRoomTest {
             store.upsertBypassUsageSession(bypassUsageSession(id = "usage-1", startedAt = 20L, finishedAt = 30L))
             store.upsertBypassUsageSession(bypassUsageSession(id = "usage-2", startedAt = 40L, finishedAt = 50L))
 
-            assertEquals("usage-2", store.observeBypassUsageSessions(limit = 10).first().first().id)
+            assertEquals(
+                "usage-2",
+                store
+                    .observeBypassUsageSessions(limit = 10)
+                    .first()
+                    .first()
+                    .id,
+            )
             assertEquals("usage-1", store.getBypassUsageSession("usage-1")?.id)
         }
 
@@ -223,6 +231,7 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
+    @Suppress("LongMethod")
     fun `history retention store trims old rows across diagnostics tables`() =
         runTest {
             val scanStore = RoomDiagnosticsScanRecordStore(db, dao)
@@ -233,7 +242,14 @@ class DiagnosticsHistoryStoresRoomTest {
             val threshold = diagnosticsHistoryRetentionThreshold(clock.now(), 14)
 
             scanStore.upsertScanSession(scanSession(id = "scan-old", startedAt = 5L, finishedAt = threshold - 10L))
-            scanStore.upsertScanSession(scanSession(id = "scan-new", startedAt = threshold + 10L, finishedAt = threshold + 20L))
+            scanStore.upsertScanSession(
+                scanSession(
+                    id = "scan-new",
+                    startedAt = threshold + 10L,
+                    finishedAt =
+                        threshold + 20L,
+                ),
+            )
             scanStore.replaceProbeResults(
                 "scan-old",
                 listOf(probeResult(id = "probe-old", sessionId = "scan-old", createdAt = threshold - 10L)),
@@ -242,20 +258,106 @@ class DiagnosticsHistoryStoresRoomTest {
                 "scan-new",
                 listOf(probeResult(id = "probe-new", sessionId = "scan-new", createdAt = threshold + 10L)),
             )
-            artifactStore.upsertSnapshot(snapshot(id = "snap-old", sessionId = "scan-old", capturedAt = threshold - 10L))
-            artifactStore.upsertSnapshot(snapshot(id = "snap-new", sessionId = "scan-new", capturedAt = threshold + 10L))
-            artifactStore.upsertContextSnapshot(context(id = "ctx-old", sessionId = "scan-old", capturedAt = threshold - 10L))
-            artifactStore.upsertContextSnapshot(context(id = "ctx-new", sessionId = "scan-new", capturedAt = threshold + 10L))
-            artifactStore.insertTelemetrySample(telemetry(id = "tel-old", sessionId = "scan-old", createdAt = threshold - 10L))
-            artifactStore.insertTelemetrySample(telemetry(id = "tel-new", sessionId = "scan-new", createdAt = threshold + 10L))
-            artifactStore.insertNativeSessionEvent(nativeEvent(id = "evt-old", sessionId = "scan-old", createdAt = threshold - 10L))
-            artifactStore.insertNativeSessionEvent(nativeEvent(id = "evt-new", sessionId = "scan-new", createdAt = threshold + 10L))
-            artifactStore.insertExportRecord(exportRecord(id = "exp-old", sessionId = "scan-old", createdAt = threshold - 10L))
-            artifactStore.insertExportRecord(exportRecord(id = "exp-new", sessionId = "scan-new", createdAt = threshold + 10L))
-            bypassStore.upsertBypassUsageSession(bypassUsageSession(id = "usage-old", startedAt = 1L, finishedAt = threshold - 10L))
-            bypassStore.upsertBypassUsageSession(bypassUsageSession(id = "usage-new", startedAt = threshold + 1L, finishedAt = threshold + 20L))
-            dnsStore.upsertNetworkDnsPathPreference(dnsPreference(fingerprintHash = "dns-old", updatedAt = threshold - 10L))
-            dnsStore.upsertNetworkDnsPathPreference(dnsPreference(fingerprintHash = "dns-new", updatedAt = threshold + 10L))
+            artifactStore.upsertSnapshot(
+                snapshot(id = "snap-old", sessionId = "scan-old", capturedAt = threshold - 10L),
+            )
+            artifactStore.upsertSnapshot(
+                snapshot(id = "snap-new", sessionId = "scan-new", capturedAt = threshold + 10L),
+            )
+            artifactStore.upsertContextSnapshot(
+                context(
+                    id = "ctx-old",
+                    sessionId = "scan-old",
+                    capturedAt =
+                        threshold - 10L,
+                ),
+            )
+            artifactStore.upsertContextSnapshot(
+                context(
+                    id = "ctx-new",
+                    sessionId = "scan-new",
+                    capturedAt =
+                        threshold + 10L,
+                ),
+            )
+            artifactStore.insertTelemetrySample(
+                telemetry(
+                    id = "tel-old",
+                    sessionId = "scan-old",
+                    createdAt =
+                        threshold - 10L,
+                ),
+            )
+            artifactStore.insertTelemetrySample(
+                telemetry(
+                    id = "tel-new",
+                    sessionId = "scan-new",
+                    createdAt =
+                        threshold + 10L,
+                ),
+            )
+            artifactStore.insertNativeSessionEvent(
+                nativeEvent(
+                    id = "evt-old",
+                    sessionId = "scan-old",
+                    createdAt =
+                        threshold - 10L,
+                ),
+            )
+            artifactStore.insertNativeSessionEvent(
+                nativeEvent(
+                    id = "evt-new",
+                    sessionId = "scan-new",
+                    createdAt =
+                        threshold + 10L,
+                ),
+            )
+            artifactStore.insertExportRecord(
+                exportRecord(
+                    id = "exp-old",
+                    sessionId = "scan-old",
+                    createdAt =
+                        threshold - 10L,
+                ),
+            )
+            artifactStore.insertExportRecord(
+                exportRecord(
+                    id = "exp-new",
+                    sessionId = "scan-new",
+                    createdAt =
+                        threshold + 10L,
+                ),
+            )
+            bypassStore.upsertBypassUsageSession(
+                bypassUsageSession(
+                    id = "usage-old",
+                    startedAt = 1L,
+                    finishedAt =
+                        threshold - 10L,
+                ),
+            )
+            bypassStore.upsertBypassUsageSession(
+                bypassUsageSession(
+                    id = "usage-new",
+                    startedAt = threshold + 1L,
+                    finishedAt =
+                        threshold + 20L,
+                ),
+            )
+            dnsStore.upsertNetworkDnsPathPreference(
+                dnsPreference(
+                    fingerprintHash = "dns-old",
+                    updatedAt =
+                        threshold - 10L,
+                ),
+            )
+            dnsStore.upsertNetworkDnsPathPreference(
+                dnsPreference(
+                    fingerprintHash = "dns-new",
+                    updatedAt =
+                        threshold + 10L,
+                ),
+            )
 
             retentionStore.trimOldData(retentionDays = 14)
 

@@ -39,7 +39,13 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
-@Suppress("LongParameterList")
+data class RipDpiSheetAction(
+    val label: String,
+    val onClick: () -> Unit,
+    val testTag: String? = null,
+    val variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RipDpiBottomSheet(
@@ -50,13 +56,8 @@ fun RipDpiBottomSheet(
     message: String? = null,
     icon: ImageVector? = null,
     testTag: String? = null,
-    primaryActionLabel: String? = null,
-    onPrimaryAction: (() -> Unit)? = null,
-    primaryActionTestTag: String? = null,
-    primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
-    secondaryActionLabel: String? = null,
-    onSecondaryAction: (() -> Unit)? = null,
-    secondaryActionTestTag: String? = null,
+    primaryAction: RipDpiSheetAction? = null,
+    secondaryAction: RipDpiSheetAction? = null,
     actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -80,13 +81,8 @@ fun RipDpiBottomSheet(
             modifier = Modifier.ripDpiTestTag(testTag),
             message = message,
             icon = icon,
-            primaryActionLabel = primaryActionLabel,
-            onPrimaryAction = onPrimaryAction,
-            primaryActionTestTag = primaryActionTestTag,
-            primaryActionVariant = primaryActionVariant,
-            secondaryActionLabel = secondaryActionLabel,
-            onSecondaryAction = onSecondaryAction,
-            secondaryActionTestTag = secondaryActionTestTag,
+            primaryAction = primaryAction,
+            secondaryAction = secondaryAction,
             actionLayout = actionLayout,
             content = content,
         )
@@ -99,13 +95,8 @@ fun RipDpiBottomSheetCard(
     modifier: Modifier = Modifier,
     message: String? = null,
     icon: ImageVector? = null,
-    primaryActionLabel: String? = null,
-    onPrimaryAction: (() -> Unit)? = null,
-    primaryActionTestTag: String? = null,
-    primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
-    secondaryActionLabel: String? = null,
-    onSecondaryAction: (() -> Unit)? = null,
-    secondaryActionTestTag: String? = null,
+    primaryAction: RipDpiSheetAction? = null,
+    secondaryAction: RipDpiSheetAction? = null,
     actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -159,13 +150,8 @@ fun RipDpiBottomSheetCard(
             content()
 
             BottomSheetActionColumn(
-                primaryActionLabel = primaryActionLabel,
-                onPrimaryAction = onPrimaryAction,
-                primaryActionTestTag = primaryActionTestTag,
-                primaryActionVariant = primaryActionVariant,
-                secondaryActionLabel = secondaryActionLabel,
-                onSecondaryAction = onSecondaryAction,
-                secondaryActionTestTag = secondaryActionTestTag,
+                primaryAction = primaryAction,
+                secondaryAction = secondaryAction,
                 actionLayout = actionLayout,
             )
         }
@@ -209,18 +195,13 @@ private fun RipDpiBottomSheetIconBadge(icon: ImageVector) {
 
 @Composable
 private fun BottomSheetActionColumn(
-    primaryActionLabel: String?,
-    onPrimaryAction: (() -> Unit)?,
-    primaryActionTestTag: String?,
-    primaryActionVariant: RipDpiButtonVariant,
-    secondaryActionLabel: String?,
-    onSecondaryAction: (() -> Unit)?,
-    secondaryActionTestTag: String?,
+    primaryAction: RipDpiSheetAction?,
+    secondaryAction: RipDpiSheetAction?,
     actionLayout: RipDpiActionLayout,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val hasPrimaryAction = primaryActionLabel != null && onPrimaryAction != null
-    val hasSecondaryAction = secondaryActionLabel != null && onSecondaryAction != null
+    val hasPrimaryAction = primaryAction != null
+    val hasSecondaryAction = secondaryAction != null
     val resolvedActionLayout = actionLayout.resolvedActionLayout()
 
     if (!hasPrimaryAction && !hasSecondaryAction) {
@@ -232,21 +213,19 @@ private fun BottomSheetActionColumn(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            val primaryAction = onPrimaryAction
-            if (primaryActionLabel != null && primaryAction != null) {
+            primaryAction?.let { action ->
                 RipDpiButton(
-                    text = primaryActionLabel,
-                    onClick = primaryAction,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(primaryActionTestTag),
-                    variant = primaryActionVariant,
+                    text = action.label,
+                    onClick = action.onClick,
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(action.testTag),
+                    variant = action.variant,
                 )
             }
-            val secondaryAction = onSecondaryAction
-            if (secondaryActionLabel != null && secondaryAction != null) {
+            secondaryAction?.let { action ->
                 RipDpiButton(
-                    text = secondaryActionLabel,
-                    onClick = secondaryAction,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(secondaryActionTestTag),
+                    text = action.label,
+                    onClick = action.onClick,
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(action.testTag),
                     variant = RipDpiButtonVariant.Outline,
                 )
             }
@@ -257,23 +236,21 @@ private fun BottomSheetActionColumn(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val secondaryAction = onSecondaryAction
-            if (secondaryActionLabel != null && secondaryAction != null) {
+            secondaryAction?.let { action ->
                 RipDpiButton(
-                    text = secondaryActionLabel,
-                    onClick = secondaryAction,
-                    modifier = Modifier.ripDpiTestTag(secondaryActionTestTag),
+                    text = action.label,
+                    onClick = action.onClick,
+                    modifier = Modifier.ripDpiTestTag(action.testTag),
                     variant = RipDpiButtonVariant.Outline,
                     density = RipDpiControlDensity.Compact,
                 )
             }
-            val primaryAction = onPrimaryAction
-            if (primaryActionLabel != null && primaryAction != null) {
+            primaryAction?.let { action ->
                 RipDpiButton(
-                    text = primaryActionLabel,
-                    onClick = primaryAction,
-                    modifier = Modifier.ripDpiTestTag(primaryActionTestTag),
-                    variant = primaryActionVariant,
+                    text = action.label,
+                    onClick = action.onClick,
+                    modifier = Modifier.ripDpiTestTag(action.testTag),
+                    variant = action.variant,
                     density = RipDpiControlDensity.Compact,
                 )
             }
@@ -308,10 +285,8 @@ private fun RipDpiBottomSheetPreview(themePreference: String) {
                 title = "Launcher icon options",
                 message = "Changes apply immediately, but some launchers cache icon masks until the next refresh.",
                 icon = RipDpiIcons.Info,
-                primaryActionLabel = "Apply icon",
-                onPrimaryAction = {},
-                secondaryActionLabel = "Not now",
-                onSecondaryAction = {},
+                primaryAction = RipDpiSheetAction(label = "Apply icon", onClick = {}),
+                secondaryAction = RipDpiSheetAction(label = "Not now", onClick = {}),
             ) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),

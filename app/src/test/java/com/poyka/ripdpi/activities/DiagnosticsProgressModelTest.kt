@@ -40,11 +40,15 @@ class DiagnosticsProgressModelTest {
                 now = 5_000L,
             )
 
-        assertEquals(4, model.phaseSteps.size)
+        assertEquals(8, model.phaseSteps.size)
         assertEquals(PhaseState.Active, model.phaseSteps[0].state) // dns
         assertEquals(PhaseState.Pending, model.phaseSteps[1].state) // reachability
-        assertEquals(PhaseState.Pending, model.phaseSteps[2].state) // tcp
-        assertEquals(PhaseState.Pending, model.phaseSteps[3].state) // telegram
+        assertEquals(PhaseState.Pending, model.phaseSteps[2].state) // quic
+        assertEquals(PhaseState.Pending, model.phaseSteps[3].state) // tcp
+        assertEquals(PhaseState.Pending, model.phaseSteps[4].state) // service
+        assertEquals(PhaseState.Pending, model.phaseSteps[5].state) // circumvention
+        assertEquals(PhaseState.Pending, model.phaseSteps[6].state) // telegram
+        assertEquals(PhaseState.Pending, model.phaseSteps[7].state) // throughput
     }
 
     @Test
@@ -60,8 +64,12 @@ class DiagnosticsProgressModelTest {
 
         assertEquals(PhaseState.Completed, model.phaseSteps[0].state) // dns
         assertEquals(PhaseState.Completed, model.phaseSteps[1].state) // reachability
-        assertEquals(PhaseState.Active, model.phaseSteps[2].state) // tcp
-        assertEquals(PhaseState.Pending, model.phaseSteps[3].state) // telegram
+        assertEquals(PhaseState.Completed, model.phaseSteps[2].state) // quic
+        assertEquals(PhaseState.Active, model.phaseSteps[3].state) // tcp
+        assertEquals(PhaseState.Pending, model.phaseSteps[4].state) // service
+        assertEquals(PhaseState.Pending, model.phaseSteps[5].state) // circumvention
+        assertEquals(PhaseState.Pending, model.phaseSteps[6].state) // telegram
+        assertEquals(PhaseState.Pending, model.phaseSteps[7].state) // throughput
     }
 
     @Test
@@ -109,8 +117,12 @@ class DiagnosticsProgressModelTest {
 
         assertEquals("DNS", model.phaseSteps[0].label)
         assertEquals("Reach", model.phaseSteps[1].label)
-        assertEquals("TCP", model.phaseSteps[2].label)
-        assertEquals("TG", model.phaseSteps[3].label)
+        assertEquals("QUIC", model.phaseSteps[2].label)
+        assertEquals("TCP", model.phaseSteps[3].label)
+        assertEquals("Svc", model.phaseSteps[4].label)
+        assertEquals("Adaptation", model.phaseSteps[5].label)
+        assertEquals("TG", model.phaseSteps[6].label)
+        assertEquals("Rate", model.phaseSteps[7].label)
     }
 
     // --- Phase stepper: strategy probe ---

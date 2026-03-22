@@ -24,11 +24,10 @@ import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ProbeResult
-import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
-import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -83,14 +82,8 @@ internal fun historyScanSession(
     pathMode: String = "RAW_PATH",
     serviceMode: String? = "VPN",
     summary: String = "Scan summary",
-    report: ScanReport? =
-        ScanReport(
-            sessionId = id,
-            profileId = "default",
-            pathMode = ScanPathMode.RAW_PATH,
-            startedAt = 1L,
-            finishedAt = 2L,
-            summary = summary,
+    report: DiagnosticsSessionProjection? =
+        DiagnosticsSessionProjection(
             results =
                 listOf(
                     ProbeResult(

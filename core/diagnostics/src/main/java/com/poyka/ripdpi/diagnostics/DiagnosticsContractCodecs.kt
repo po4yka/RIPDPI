@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskFamily
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskWire
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire

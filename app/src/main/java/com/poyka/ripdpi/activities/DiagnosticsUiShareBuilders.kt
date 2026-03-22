@@ -3,8 +3,8 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
-import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryTextRenderer
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.SummaryMetric
@@ -15,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummarySection
 import java.util.Locale
 
 private const val ShareSessionIdPreviewLength = 8
+private const val MaxShareHighlights = 3
 
 internal fun DiagnosticsUiFactorySupport.buildSharePreview(
     latestSession: DiagnosticScanSession?,
@@ -28,7 +29,17 @@ internal fun DiagnosticsUiFactorySupport.buildSharePreview(
         nativeEvents.firstOrNull {
             it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
         }
-    val body = DiagnosticsSummaryTextRenderer.render(buildSharePreviewDocument(latestSession, latestSnapshot, latestContext, telemetry, latestReport, warningHeadline))
+    val body =
+        DiagnosticsSummaryTextRenderer.render(
+            buildSharePreviewDocument(
+                latestSession,
+                latestSnapshot,
+                latestContext,
+                telemetry,
+                latestReport,
+                warningHeadline,
+            ),
+        )
     return ShareSummary(
         title = context.getString(R.string.diagnostics_share_title),
         body = body.ifBlank { context.getString(R.string.diagnostics_share_no_session) },
@@ -86,8 +97,9 @@ private fun DiagnosticsUiFactorySupport.buildSharePreviewDocument(
             ),
         diagnoses = latestReport?.diagnoses.orEmpty(),
         highlights =
-            latestReport?.diagnoses
-                ?.take(3)
+            latestReport
+                ?.diagnoses
+                ?.take(MaxShareHighlights)
                 ?.map { diagnosis -> DiagnosticsHighlight(title = diagnosis.code, summary = diagnosis.summary) }
                 .orEmpty(),
         observations = latestReport?.observations.orEmpty(),
@@ -145,9 +157,7 @@ private fun StringBuilder.appendShareTelemetry(telemetry: DiagnosticTelemetrySam
     appendLine("Live ${telemetry.connectionState.lowercase(Locale.US)} · ${telemetry.networkType}")
 }
 
-private fun DiagnosticsUiFactorySupport.shareReportLines(
-    report: DiagnosticsSessionProjection,
-): List<String> =
+private fun DiagnosticsUiFactorySupport.shareReportLines(report: DiagnosticsSessionProjection): List<String> =
     buildList {
         add("${report.results.size} probe results in the latest report")
         report.engineAnalysisVersion?.let { add("Engine analysis: $it") }

@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
-        <activity android:name=".activities.MainActivity">
+        <activity android:name=".activities.MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="com.poyka.ripdpi.automation.LAUNCH" />
 

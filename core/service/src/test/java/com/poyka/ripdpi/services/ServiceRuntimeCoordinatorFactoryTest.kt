@@ -50,14 +50,11 @@ class ServiceRuntimeCoordinatorFactoryTest {
             val overrides = TestResolverOverrideStore()
             val resolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.VPN))
             val host = TestVpnServiceHost(backgroundScope)
-            val coordinatorFactory =
-                VpnServiceRuntimeCoordinatorFactory(
+            val runtimeDependencies =
+                VpnServiceRuntimeRuntimeDependencies(
                     appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
                     connectionPolicyResolver = resolver,
                     tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
-                    serviceStateStore = TestServiceStateStore(),
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
-                    telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(),
                     resolverOverrideStore = overrides,
                     serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
@@ -71,7 +68,18 @@ class ServiceRuntimeCoordinatorFactoryTest {
                             resolverOverrideStore = overrides,
                         ),
                     proxyRuntimeSupervisorFactory = proxyFactory,
+                )
+            val statusDependencies =
+                VpnServiceRuntimeStatusDependencies(
+                    serviceStateStore = TestServiceStateStore(),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
                     serviceStatusReporterFactory = statusFactory,
+                )
+            val coordinatorFactory =
+                VpnServiceRuntimeCoordinatorFactory(
+                    runtimeDependencies = runtimeDependencies,
+                    statusDependencies = statusDependencies,
                 )
 
             coordinatorFactory.create(host)

@@ -51,7 +51,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
     private val networkHandoverMonitor: NetworkHandoverMonitor,
     private val policyHandoverEventStore: PolicyHandoverEventStore,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    protected val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     protected val clock: ServiceClock = SystemServiceClock,
 ) where TSession : ServiceRuntimeSession, TSession : HandoverAwareSession {
     private companion object {

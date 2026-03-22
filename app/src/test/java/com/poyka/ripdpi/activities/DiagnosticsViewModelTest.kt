@@ -115,7 +115,7 @@ class DiagnosticsViewModelTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = "{}",
+                                requestJson = """{"profileId":"default","displayName":"Default"}""",
                                 updatedAt = 1L,
                             ),
                         )
@@ -227,7 +227,7 @@ class DiagnosticsViewModelTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = "{}",
+                                requestJson = """{"profileId":"default","displayName":"Default"}""",
                                 updatedAt = 1L,
                             ),
                             DiagnosticProfileEntity(
@@ -235,7 +235,7 @@ class DiagnosticsViewModelTest {
                                 name = "Custom",
                                 source = "local",
                                 version = 1,
-                                requestJson = "{}",
+                                requestJson = """{"profileId":"default","displayName":"Default"}""",
                                 updatedAt = 2L,
                             ),
                         )
@@ -434,7 +434,7 @@ class DiagnosticsViewModelTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = "{}",
+                                requestJson = """{"profileId":"default","displayName":"Default"}""",
                                 updatedAt = 1L,
                             ),
                             DiagnosticProfileEntity(
@@ -523,7 +523,7 @@ class DiagnosticsViewModelTest {
                                 name = "Default",
                                 source = "bundled",
                                 version = 1,
-                                requestJson = "{}",
+                                requestJson = """{"profileId":"default","displayName":"Default"}""",
                                 updatedAt = 1L,
                             ),
                         )

@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.data.diagnostics
 
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.RememberedNetworkPolicySuppressionDurationMs
-import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest

@@ -3,10 +3,10 @@ package com.poyka.ripdpi.activities
 import android.content.Context
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
-import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanProgress
@@ -46,9 +46,7 @@ internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
     result: com.poyka.ripdpi.diagnostics.ProbeResult,
 ): DiagnosticsProbeResultUiModel = core.toProbeResultUiModel(index, result)
 
-internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(
-    diagnosis: Diagnosis,
-): DiagnosticsDiagnosisUiModel =
+internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis): DiagnosticsDiagnosisUiModel =
     DiagnosticsDiagnosisUiModel(
         code = diagnosis.code,
         summary = diagnosis.summary,
@@ -74,8 +72,9 @@ internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
     val isCurrentMatch = activeConnectionPolicy?.matchedPolicy?.id == policy.id
     return DiagnosticsRememberedNetworkUiModel(
         id = policy.id,
-        title = summary?.displayNetworkLabel()
-            ?: ctx.getString(R.string.diagnostics_network_fallback_title, policy.fingerprintHash.take(12)),
+        title =
+            summary?.displayNetworkLabel()
+                ?: ctx.getString(R.string.diagnostics_network_fallback_title, policy.fingerprintHash.take(12)),
         subtitle =
             listOf(
                 policy.mode.uppercase(Locale.US),
@@ -85,8 +84,9 @@ internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
         status = policy.status.displayStatusLabel(ctx),
         statusTone = policy.status.statusTone(),
         source = policy.source.displaySourceLabel(ctx),
-        strategyLabel = signature?.displayStrategyLabel()
-            ?: ctx.getString(R.string.diagnostics_no_strategy_signature),
+        strategyLabel =
+            signature?.displayStrategyLabel()
+                ?: ctx.getString(R.string.diagnostics_no_strategy_signature),
         lastValidatedLabel = policy.lastValidatedAt?.let(::formatTimestamp),
         lastAppliedLabel = policy.lastAppliedAt?.let(::formatTimestamp),
         successCount = policy.successCount,
@@ -98,7 +98,8 @@ internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
 internal fun DiagnosticsUiFactorySupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =
     core.toEventUiModel(event)
 
-private val connectivityPhaseOrder = listOf("dns", "reachability", "quic", "tcp", "service", "circumvention", "telegram", "throughput")
+private val connectivityPhaseOrder =
+    listOf("dns", "reachability", "quic", "tcp", "service", "circumvention", "telegram", "throughput")
 private val strategyProbePhaseOrder = listOf("tcp", "quic")
 
 private fun String.toPhaseLabel(ctx: Context): String =

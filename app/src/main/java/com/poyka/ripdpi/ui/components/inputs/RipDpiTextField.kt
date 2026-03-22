@@ -31,8 +31,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -72,12 +72,13 @@ fun RipDpiTextField(
     val resolvedTextStyle = behavior.textStyle ?: RipDpiThemeTokens.type.monoValue
     val resolvedInteractionSource = behavior.interactionSource ?: remember { MutableInteractionSource() }
     val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
-    val colors = resolveTextFieldColors(
-        enabled = behavior.enabled,
-        hasError = decoration.errorText != null,
-        isFocused = isFocused,
-        isEmpty = value.isEmpty(),
-    )
+    val colors =
+        resolveTextFieldColors(
+            enabled = behavior.enabled,
+            hasError = decoration.errorText != null,
+            isFocused = isFocused,
+            isEmpty = value.isEmpty(),
+        )
     val borderWidth = resolveBorderWidth(enabled = behavior.enabled, hasError = decoration.errorText != null, isFocused)
 
     Column(

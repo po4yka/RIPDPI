@@ -87,10 +87,13 @@ class DiagnosticsExecutionPolicyTest {
                         },
                     nativeNetworkSnapshotProvider =
                         object : NativeNetworkSnapshotProvider {
-                            override fun capture() = com.poyka.ripdpi.data.NativeNetworkSnapshot()
+                            override fun capture() =
+                                com.poyka.ripdpi.data
+                                    .NativeNetworkSnapshot()
                         },
                     diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
-                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, TestDiagnosticsHistoryClock()),
+                    networkDnsPathPreferenceStore =
+                        DefaultNetworkDnsPathPreferenceStore(stores, TestDiagnosticsHistoryClock()),
                     serviceStateStore = FakeServiceStateStore(),
                     json = json,
                 )

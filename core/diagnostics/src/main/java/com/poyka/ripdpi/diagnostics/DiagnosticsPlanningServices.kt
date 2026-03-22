@@ -60,7 +60,10 @@ internal class DefaultDiagnosticsIntentResolver
             profileId: String,
             pathMode: ScanPathMode,
         ): DiagnosticsIntent {
-            val profile = requireNotNull(profileCatalog.getProfile(profileId)) { "Unknown diagnostics profile: $profileId" }
+            val profile =
+                requireNotNull(profileCatalog.getProfile(profileId)) {
+                    "Unknown diagnostics profile: $profileId"
+                }
             val settings = appSettingsRepository.snapshot()
             val spec = json.decodeProfileSpecWireCompat(profile.requestJson)
             val executionPolicy = spec.executionPolicyOrCompat()
@@ -181,27 +184,19 @@ internal class DefaultEngineRequestEncoder
 internal abstract class DiagnosticsPlanningModule {
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsIntentResolver(
-        resolver: DefaultDiagnosticsIntentResolver,
-    ): DiagnosticsIntentResolver
+    abstract fun bindDiagnosticsIntentResolver(resolver: DefaultDiagnosticsIntentResolver): DiagnosticsIntentResolver
 
     @Binds
     @Singleton
-    abstract fun bindScanContextCollector(
-        collector: DefaultScanContextCollector,
-    ): ScanContextCollector
+    abstract fun bindScanContextCollector(collector: DefaultScanContextCollector): ScanContextCollector
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsPlanner(
-        planner: DefaultDiagnosticsPlanner,
-    ): DiagnosticsPlanner
+    abstract fun bindDiagnosticsPlanner(planner: DefaultDiagnosticsPlanner): DiagnosticsPlanner
 
     @Binds
     @Singleton
-    abstract fun bindEngineRequestEncoder(
-        encoder: DefaultEngineRequestEncoder,
-    ): EngineRequestEncoder
+    abstract fun bindEngineRequestEncoder(encoder: DefaultEngineRequestEncoder): EngineRequestEncoder
 }
 
 internal fun com.poyka.ripdpi.proto.AppSettings.proxyHostFor(pathMode: ScanPathMode): String? =

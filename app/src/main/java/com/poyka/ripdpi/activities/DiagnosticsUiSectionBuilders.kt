@@ -111,7 +111,12 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
                 )
             },
         latestSession = latestProfileSession?.let(::toSessionRowUiModel),
-        diagnoses = latestProfileSession?.report?.diagnoses?.map(::toDiagnosisUiModel).orEmpty(),
+        diagnoses =
+            latestProfileSession
+                ?.report
+                ?.diagnoses
+                ?.map(::toDiagnosisUiModel)
+                .orEmpty(),
         latestResults = latestReportResults,
         selectedProfileScopeLabel = toScopeLabel(activeProfileRequest, rawArgsEnabled),
         runRawEnabled = runRawEnabled,
@@ -444,7 +449,10 @@ private fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
 ): List<DiagnosticsMetricUiModel> {
     val retryCount = telemetry.retryCount()
     return buildList {
-        fun addWarningMetric(labelRes: Int, value: String) {
+        fun addWarningMetric(
+            labelRes: Int,
+            value: String,
+        ) {
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(labelRes),
@@ -454,7 +462,10 @@ private fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
             )
         }
 
-        fun addInfoMetric(labelRes: Int, value: String) {
+        fun addInfoMetric(
+            labelRes: Int,
+            value: String,
+        ) {
             add(
                 DiagnosticsMetricUiModel(
                     label = context.getString(labelRes),
@@ -674,8 +685,14 @@ private fun DiagnosticsUiFactorySupport.buildLiveBody(
         events.firstOrNull { it.level.equals("error", ignoreCase = true) }
             ?: events.firstOrNull { it.level.equals("warn", ignoreCase = true) }
     return when {
-        surfacedEvent != null -> surfacedEvent.message
-        telemetry == null -> context.getString(R.string.diagnostics_live_body_waiting)
+        surfacedEvent != null -> {
+            surfacedEvent.message
+        }
+
+        telemetry == null -> {
+            context.getString(R.string.diagnostics_live_body_waiting)
+        }
+
         telemetry.lastFailureClass != null || telemetry.lastFallbackAction != null -> {
             listOfNotNull(telemetry.lastFailureClass, telemetry.lastFallbackAction).joinToString(" · ")
         }

@@ -107,7 +107,8 @@ class DiagnosticsModelsCompatibilityTest {
                     ),
             )
 
-        val decoded = json.decodeFromString(ScanRequest.serializer(), json.encodeToString(ScanRequest.serializer(), request))
+        val decoded =
+            json.decodeFromString(ScanRequest.serializer(), json.encodeToString(ScanRequest.serializer(), request))
 
         assertEquals(DiagnosticProfileFamily.WEB_CONNECTIVITY, decoded.family)
         assertEquals("ru", decoded.regionTag)
@@ -142,7 +143,8 @@ class DiagnosticsModelsCompatibilityTest {
                 packVersions = mapOf("ru-independent-media" to 1, "ru-control" to 1),
             )
 
-        val decoded = json.decodeFromString(ScanReport.serializer(), json.encodeToString(ScanReport.serializer(), report))
+        val decoded =
+            json.decodeFromString(ScanReport.serializer(), json.encodeToString(ScanReport.serializer(), report))
 
         assertEquals("ru_ooni_v1", decoded.classifierVersion)
         assertEquals(1, decoded.diagnoses.size)

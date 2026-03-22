@@ -1,24 +1,24 @@
 package com.poyka.ripdpi.data.diagnostics
 
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusSuppressed
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.RememberedNetworkPolicySuppressionDurationMs
-import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
-import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.toActiveDnsSettings
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import javax.inject.Inject
+import javax.inject.Singleton
 
 interface RememberedNetworkPolicyStore {
     fun observePolicies(limit: Int = 64): Flow<List<RememberedNetworkPolicyEntity>>
@@ -113,7 +113,7 @@ class DefaultRememberedNetworkPolicyStore
             val effectiveValidatedAt = validatedAt ?: clock.now()
             return upsertInternal(
                 existing =
-                recordStore.getRememberedNetworkPolicy(
+                    recordStore.getRememberedNetworkPolicy(
                         fingerprintHash = policy.fingerprintHash,
                         mode = policy.mode,
                     ),
@@ -204,7 +204,11 @@ class DefaultRememberedNetworkPolicyStore
                         proxyConfigJson = policy.proxyConfigJson,
                         vpnDnsPolicyJson =
                             policy.vpnDnsPolicy?.let {
-                                json.encodeToString(com.poyka.ripdpi.data.VpnDnsPolicyJson.serializer(), it)
+                                json.encodeToString(
+                                    com.poyka.ripdpi.data.VpnDnsPolicyJson
+                                        .serializer(),
+                                    it,
+                                )
                             },
                         strategySignatureJson = policy.strategySignatureJson,
                         winningTcpStrategyFamily = policy.winningTcpStrategyFamily,
@@ -226,11 +230,16 @@ class DefaultRememberedNetworkPolicyStore
                         proxyConfigJson = policy.proxyConfigJson,
                         vpnDnsPolicyJson =
                             policy.vpnDnsPolicy?.let {
-                                json.encodeToString(com.poyka.ripdpi.data.VpnDnsPolicyJson.serializer(), it)
+                                json.encodeToString(
+                                    com.poyka.ripdpi.data.VpnDnsPolicyJson
+                                        .serializer(),
+                                    it,
+                                )
                             },
                         strategySignatureJson = policy.strategySignatureJson ?: existing.strategySignatureJson,
                         winningTcpStrategyFamily = policy.winningTcpStrategyFamily ?: existing.winningTcpStrategyFamily,
-                        winningQuicStrategyFamily = policy.winningQuicStrategyFamily ?: existing.winningQuicStrategyFamily,
+                        winningQuicStrategyFamily =
+                            policy.winningQuicStrategyFamily ?: existing.winningQuicStrategyFamily,
                         source = source,
                         status = status,
                         successCount =
@@ -260,14 +269,23 @@ class DefaultRememberedNetworkPolicyStore
                 proxyConfigJson == policy.proxyConfigJson &&
                 vpnDnsPolicyJson ==
                 policy.vpnDnsPolicy?.let {
-                    json.encodeToString(com.poyka.ripdpi.data.VpnDnsPolicyJson.serializer(), it)
+                    json.encodeToString(
+                        com.poyka.ripdpi.data.VpnDnsPolicyJson
+                            .serializer(),
+                        it,
+                    )
                 } &&
                 strategySignatureJson == policy.strategySignatureJson &&
                 winningTcpStrategyFamily == policy.winningTcpStrategyFamily &&
                 winningQuicStrategyFamily == policy.winningQuicStrategyFamily
     }
 
-fun RememberedNetworkPolicyEntity.decodeSummary(json: Json = Json { ignoreUnknownKeys = true }): NetworkFingerprintSummary? =
+fun RememberedNetworkPolicyEntity.decodeSummary(
+    json: Json =
+        Json {
+            ignoreUnknownKeys = true
+        },
+): NetworkFingerprintSummary? =
     runCatching { json.decodeFromString(NetworkFingerprintSummary.serializer(), summaryJson) }.getOrNull()
 
 fun RememberedNetworkPolicyEntity.toPolicyJson(
@@ -278,7 +296,13 @@ fun RememberedNetworkPolicyEntity.toPolicyJson(
         vpnDnsPolicyJson
             ?.takeIf { it.isNotBlank() }
             ?.let { payload ->
-                runCatching { json.decodeFromString(com.poyka.ripdpi.data.VpnDnsPolicyJson.serializer(), payload) }.getOrNull()
+                runCatching {
+                    json.decodeFromString(
+                        com.poyka.ripdpi.data.VpnDnsPolicyJson
+                            .serializer(),
+                        payload,
+                    )
+                }.getOrNull()
             }
     return RememberedNetworkPolicyJson(
         fingerprintHash = fingerprintHash,

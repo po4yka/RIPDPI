@@ -232,9 +232,7 @@ internal fun AdvancedSettingsScreen(
 }
 
 @Composable
-private fun rememberAdvancedSettingsContentState(
-    uiState: SettingsUiState,
-): AdvancedSettingsContentState =
+private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): AdvancedSettingsContentState =
     AdvancedSettingsContentState(
         visualEditorEnabled = !uiState.enableCmdSettings,
         hostPackApplyControlsEnabled = hostPackApplyEnabled(uiState),

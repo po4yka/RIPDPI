@@ -105,9 +105,7 @@ fun SettingsRow(
 }
 
 @Composable
-private fun settingsRowColors(
-    variant: SettingsRowVariant,
-): SettingsRowColors =
+private fun settingsRowColors(variant: SettingsRowVariant): SettingsRowColors =
     with(RipDpiThemeTokens.colors) {
         when (variant) {
             SettingsRowVariant.Default -> SettingsRowColors(Color.Transparent, Color.Transparent)
@@ -173,7 +171,9 @@ private fun settingsRowModifier(
             )
         }
 
-        else -> baseModifier
+        else -> {
+            baseModifier
+        }
     }
 }
 
