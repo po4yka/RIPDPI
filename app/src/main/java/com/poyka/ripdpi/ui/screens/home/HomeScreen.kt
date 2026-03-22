@@ -209,6 +209,16 @@ fun HomeScreen(
             )
         }
 
+        uiState.permissionSummary.backgroundGuidance?.let { guidance ->
+            WarningBanner(
+                title = guidance.title,
+                message = guidance.message,
+                tone = WarningBannerTone.Info,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = RipDpiTestTags.HomeBackgroundGuidanceBanner,
+            )
+        }
+
         if (layout.widthClass == RipDpiWidthClass.Expanded) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

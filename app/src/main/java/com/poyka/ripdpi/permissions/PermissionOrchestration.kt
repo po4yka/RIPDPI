@@ -103,10 +103,16 @@ data class PermissionItemUiState(
     val enabled: Boolean = true,
 )
 
+data class BackgroundGuidanceUiState(
+    val title: String,
+    val message: String,
+)
+
 data class PermissionSummaryUiState(
     val snapshot: PermissionSnapshot = PermissionSnapshot(),
     val issue: PermissionIssueUiState? = null,
     val recommendedIssue: PermissionIssueUiState? = null,
+    val backgroundGuidance: BackgroundGuidanceUiState? = null,
     val items: List<PermissionItemUiState> = emptyList(),
 )
 
