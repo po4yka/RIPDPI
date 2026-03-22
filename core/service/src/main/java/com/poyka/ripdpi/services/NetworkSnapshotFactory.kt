@@ -203,7 +203,15 @@ class NetworkSnapshotFactory
             when {
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> capabilities?.transportInfo as? WifiInfo
                 else -> null
-            } ?: wifiManager?.connectionInfo
+            } ?: currentWifiManagerConnectionInfo()
+
+        @android.annotation.SuppressLint("MissingPermission")
+        private fun currentWifiManagerConnectionInfo(): WifiInfo? {
+            if (!hasWifiStatePermission()) {
+                return null
+            }
+            return runCatching { wifiManager?.connectionInfo }.getOrNull()
+        }
 
         private fun resolveWifiRxLinkSpeed(wifiInfo: WifiInfo?): Int? =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -255,6 +263,8 @@ class NetworkSnapshotFactory
         private fun hasPhoneStatePermission(): Boolean =
             hasPermission(Manifest.permission.READ_PHONE_STATE) ||
                 hasPermission("android.permission.READ_BASIC_PHONE_STATE")
+
+        private fun hasWifiStatePermission(): Boolean = hasPermission(Manifest.permission.ACCESS_WIFI_STATE)
 
         private fun hasServiceStatePermission(): Boolean =
             hasPermission(Manifest.permission.READ_PHONE_STATE) &&

@@ -24,6 +24,9 @@ import java.net.InetAddress
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
+import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 
 internal enum class CapturedTransport {
     Wifi,
@@ -140,13 +143,29 @@ internal class DefaultAndroidNetworkSnapshotSource
                 when {
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> capabilities?.transportInfo as? WifiInfo
                     else -> null
-                } ?: wifiManager?.connectionInfo
-            val gateway = wifiManager?.dhcpInfo?.gateway?.takeIf { it != 0 }
+                } ?: currentWifiManagerConnectionInfo()
+            val gateway = currentWifiGatewayIpv4()
             return CapturedWifiIdentity(
                 ssid = wifiInfo?.ssid,
                 bssid = wifiInfo?.bssid,
                 gatewayIpv4 = gateway,
             )
+        }
+
+        @android.annotation.SuppressLint("MissingPermission")
+        private fun currentWifiManagerConnectionInfo(): WifiInfo? {
+            if (!hasWifiStatePermission()) {
+                return null
+            }
+            return runCatching { wifiManager?.connectionInfo }.getOrNull()
+        }
+
+        @android.annotation.SuppressLint("MissingPermission")
+        private fun currentWifiGatewayIpv4(): Int? {
+            if (!hasWifiStatePermission()) {
+                return null
+            }
+            return runCatching { wifiManager?.dhcpInfo?.gateway?.takeIf { it != 0 } }.getOrNull()
         }
 
         private fun captureCellularIdentity(transports: Set<CapturedTransport>?): CapturedCellularIdentity? {
@@ -182,6 +201,8 @@ internal class DefaultAndroidNetworkSnapshotSource
         private fun hasPhoneStatePermission(): Boolean =
             hasPermission(Manifest.permission.READ_PHONE_STATE) ||
                 hasPermission("android.permission.READ_BASIC_PHONE_STATE")
+
+        private fun hasWifiStatePermission(): Boolean = hasPermission(Manifest.permission.ACCESS_WIFI_STATE)
 
         private fun hasPermission(permission: String): Boolean =
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
@@ -305,7 +326,15 @@ internal class AndroidNetworkFingerprintProvider
         private val snapshotSource: AndroidNetworkSnapshotSource,
         private val mapper: NetworkFingerprintMapper,
     ) : NetworkFingerprintProvider {
-        override fun capture(): NetworkFingerprint? = snapshotSource.capture()?.let(mapper::map)
+        override fun capture(): NetworkFingerprint? =
+            try {
+                snapshotSource.capture()?.let(mapper::map)
+            } catch (error: Exception) {
+                logcat(LogPriority.WARN) {
+                    "Unable to capture network fingerprint\n${error.asLog()}"
+                }
+                null
+            }
     }
 
 @Module
