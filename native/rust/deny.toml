@@ -15,7 +15,7 @@ allow = [
     "Zlib",
     "CDLA-Permissive-2.0",
     "Unicode-3.0",
-    # aws-lc-sys (used by rustls in byedpi)
+    # aws-lc-sys (used by rustls)
     "OpenSSL",
 ]
 
