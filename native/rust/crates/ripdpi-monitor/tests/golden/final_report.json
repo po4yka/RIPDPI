@@ -1,10 +1,37 @@
 {
-  "classifierVersion": "ru_ooni_v1",
+  "classifierVersion": null,
   "diagnoses": [],
+  "engineAnalysisVersion": "observations_v1",
   "finishedAt": 0,
+  "observations": [
+    {
+      "circumvention": null,
+      "dns": null,
+      "domain": {
+        "certificateAnomaly": false,
+        "host": "127.0.0.1",
+        "httpStatus": "BLOCKPAGE",
+        "tls12Status": "HANDSHAKE_FAILED",
+        "tls13Status": "HANDSHAKE_FAILED",
+        "transportFailure": "OTHER"
+      },
+      "evidence": [
+        "http_blockpage"
+      ],
+      "kind": "DOMAIN",
+      "quic": null,
+      "service": null,
+      "strategy": null,
+      "target": "127.0.0.1",
+      "tcp": null,
+      "telegram": null,
+      "throughput": null
+    }
+  ],
   "packVersions": {},
   "pathMode": "RAW_PATH",
   "profileId": "default",
+  "resolverRecommendation": null,
   "results": [
     {
       "details": [
@@ -62,11 +89,14 @@
         }
       ],
       "outcome": "http_blockpage",
+      "probeRetryCount": null,
       "probeType": "domain_reachability",
       "target": "127.0.0.1"
     }
   ],
+  "schemaVersion": 2,
   "sessionId": "session-golden",
   "startedAt": 0,
+  "strategyProbeReport": null,
   "summary": "0/1 probes succeeded"
 }

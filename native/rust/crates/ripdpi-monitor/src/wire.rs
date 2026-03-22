@@ -3,15 +3,16 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
-    CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsTarget, DomainTarget, ProbeDetail, ProbeResult,
-    ProbeTask, ProbeTaskFamily, QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest,
+    CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsTarget, DomainTarget, ProbeDetail, ProbeObservation,
+    ProbeResult, ProbeTask, ProbeTaskFamily, QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest,
     ServiceTarget, StrategyProbeReport, StrategyProbeRequest, TcpTarget, TelegramTarget, ThroughputTarget,
 };
 
-pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 1;
+pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 2;
 
 pub type EngineProbeTaskFamily = ProbeTaskFamily;
 pub type EngineProbeTaskWire = ProbeTask;
+pub type EngineObservationWire = ProbeObservation;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -111,6 +112,10 @@ pub struct EngineScanReportWire {
     #[serde(default)]
     pub strategy_probe_report: Option<StrategyProbeReport>,
     #[serde(default)]
+    pub observations: Vec<EngineObservationWire>,
+    #[serde(default)]
+    pub engine_analysis_version: Option<String>,
+    #[serde(default)]
     pub diagnoses: Vec<Diagnosis>,
     #[serde(default)]
     pub classifier_version: Option<String>,
@@ -207,6 +212,8 @@ impl From<ScanReport> for EngineScanReportWire {
             results: value.results.into_iter().map(EngineProbeResultWire::from).collect(),
             resolver_recommendation: None,
             strategy_probe_report: value.strategy_probe_report,
+            observations: value.observations,
+            engine_analysis_version: value.engine_analysis_version,
             diagnoses: value.diagnoses,
             classifier_version: value.classifier_version,
             pack_versions: value.pack_versions,

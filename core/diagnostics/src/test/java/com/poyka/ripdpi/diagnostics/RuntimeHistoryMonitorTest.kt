@@ -169,13 +169,13 @@ class RuntimeHistoryMonitorTest {
             )
 
             waitUntil(timeoutMillis = 8_000) {
-                stores.telemetryState.value.isNotEmpty() &&
+                stores.telemetryState.value.any { it.resolverId == "cloudflare" } &&
                     stores.snapshotsState.value.isNotEmpty() &&
                     stores.contextsState.value.isNotEmpty()
             }
 
             val session = stores.usageSessionsState.value.single()
-            val telemetrySample = stores.telemetryState.value.single()
+            val telemetrySample = stores.telemetryState.value.last { it.resolverId == "cloudflare" }
             assertEquals("Running", session.connectionState)
             assertEquals("VPN", session.serviceMode)
             assertEquals(1_024L, session.txBytes)

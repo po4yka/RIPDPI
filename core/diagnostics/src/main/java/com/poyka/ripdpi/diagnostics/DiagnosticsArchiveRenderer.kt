@@ -150,6 +150,7 @@ class DiagnosticsArchiveRenderer
             target: DiagnosticsArchiveTarget,
             selection: DiagnosticsArchiveSelection,
         ): String {
+            val summaryDocument = buildSummaryDocument(selection)
             val manifest =
                 DiagnosticsArchiveManifest(
                     fileName = target.fileName,
@@ -175,9 +176,9 @@ class DiagnosticsArchiveRenderer
                         selection.payload.telemetry
                             .firstOrNull()
                             ?.toArchiveTelemetrySummary(),
-                    classifierVersion = selection.primaryReport?.classifierVersion,
-                    diagnosisCount = selection.primaryReport?.diagnoses?.size ?: 0,
-                    packVersions = selection.primaryReport?.packVersions.orEmpty(),
+                    classifierVersion = summaryDocument.classifierVersion,
+                    diagnosisCount = summaryDocument.diagnoses.size,
+                    packVersions = summaryDocument.packVersions,
                     includedFiles = selection.includedFiles,
                     logcatIncluded = selection.logcatSnapshot != null,
                     logcatCaptureScope = LogcatSnapshotCollector.AppVisibleSnapshotScope,
@@ -198,37 +199,43 @@ class DiagnosticsArchiveRenderer
             createdAt: Long,
             selection: DiagnosticsArchiveSelection,
         ): String {
-            val summaryProjection =
-                projector.project(
-                    session = selection.primarySession,
-                    report = selection.primaryReport?.toSessionProjection(),
-                    latestSnapshotModel = selection.latestSnapshotModel?.let(redactor::redact),
-                    latestContextModel =
-                        (selection.sessionContextModel ?: selection.latestContextModel)?.let(redactor::redact),
-                    latestTelemetry = selection.payload.telemetry.firstOrNull(),
-                    selectedResults = selection.primaryResults,
-                    warnings =
-                        selection.globalEvents.filter { event ->
-                            event.level.equals("warn", ignoreCase = true) ||
-                                event.level.equals("error", ignoreCase = true)
-                        },
-                )
-            return buildString {
-                appendSummaryHeader(createdAt, selection)
-                summaryProjection.sessionLines.forEach(::appendLine)
-                appendApproachSummary(selection)
-                appendReportSummary(selection.primaryReport?.toSessionProjection())
-                summaryProjection.networkLines.forEach(::appendLine)
-                summaryProjection.contextLines.forEach(::appendLine)
-                summaryProjection.telemetryLines.forEach(::appendLine)
-                summaryProjection.resultLines
-                    .take(SummaryProbeResultPreviewCount + 1)
-                    .forEach(::appendLine)
-                summaryProjection.warningLines
-                    .take(SummaryWarningPreviewCount + 1)
-                    .forEach(::appendLine)
-            }.trim()
+            val summaryDocument = buildSummaryDocument(selection)
+            return DiagnosticsSummaryTextRenderer.render(
+                document = summaryDocument,
+                preludeLines =
+                    buildList {
+                        add("RIPDPI diagnostics archive")
+                        add("generatedAt=$createdAt")
+                        add("scope=${DiagnosticsArchiveFormat.scope}")
+                        add("privacyMode=${DiagnosticsArchiveFormat.privacyMode}")
+                        add("logcatIncluded=${selection.logcatSnapshot != null}")
+                        add("logcatCaptureScope=${LogcatSnapshotCollector.AppVisibleSnapshotScope}")
+                        add("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
+                        add("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
+                        selection.selectedApproachSummary?.let {
+                            add("approach=${it.displayName}")
+                            add("approachVerification=${it.verificationState}")
+                            add("approachSuccessRate=${it.successRateLabel()}")
+                            add("approachUsageCount=${it.usageCount}")
+                            add("approachRuntimeMs=${it.totalRuntimeDurationMs}")
+                        }
+                    },
+            )
         }
+
+        private fun buildSummaryDocument(selection: DiagnosticsArchiveSelection) =
+            projector.project(
+                session = selection.primarySession,
+                report = selection.primaryReport?.toSessionProjection(),
+                latestSnapshotModel = selection.latestSnapshotModel?.let(redactor::redact),
+                latestContextModel = (selection.sessionContextModel ?: selection.latestContextModel)?.let(redactor::redact),
+                latestTelemetry = selection.payload.telemetry.firstOrNull(),
+                selectedResults = selection.primaryResults,
+                warnings =
+                    selection.globalEvents.filter { event ->
+                        event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
+                    },
+            )
 
         internal fun buildTelemetryCsv(payload: DiagnosticsArchivePayload): String =
             buildString {
@@ -341,49 +348,6 @@ class DiagnosticsArchiveRenderer
                 json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
             }.getOrNull()?.let(::deriveProbeRetryCount)?.toString()
     }
-
-private fun StringBuilder.appendSummaryHeader(
-    createdAt: Long,
-    selection: DiagnosticsArchiveSelection,
-) {
-    appendLine("RIPDPI diagnostics archive")
-    appendLine("generatedAt=$createdAt")
-    appendLine("scope=${DiagnosticsArchiveFormat.scope}")
-    appendLine("privacyMode=${DiagnosticsArchiveFormat.privacyMode}")
-    appendLine("logcatIncluded=${selection.logcatSnapshot != null}")
-    appendLine("logcatCaptureScope=${LogcatSnapshotCollector.AppVisibleSnapshotScope}")
-    appendLine("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
-    appendLine("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
-}
-
-private fun StringBuilder.appendReportSummary(report: DiagnosticsSessionProjection?) {
-    report ?: return
-    report.strategyProbeReport?.let { strategyProbe ->
-        appendLine("strategySuite=${strategyProbe.suiteId}")
-        appendLine("strategyTcpCandidates=${strategyProbe.tcpCandidates.size}")
-        appendLine("strategyQuicCandidates=${strategyProbe.quicCandidates.size}")
-    }
-    report.classifierVersion?.let { appendLine("classifierVersion=$it") }
-    report.diagnoses.takeIf(List<*>::isNotEmpty)?.let { diagnoses ->
-        appendLine("diagnosisCount=${diagnoses.size}")
-        diagnoses.forEach { diagnosis ->
-            appendLine("diagnosis.${diagnosis.code}=${diagnosis.summary}")
-        }
-    }
-    report.packVersions.takeIf(Map<*, *>::isNotEmpty)?.forEach { (packId, version) ->
-        appendLine("pack.$packId=$version")
-    }
-}
-
-private fun StringBuilder.appendApproachSummary(selection: DiagnosticsArchiveSelection) {
-    selection.selectedApproachSummary?.let {
-        appendLine("approach=${it.displayName}")
-        appendLine("approachVerification=${it.verificationState}")
-        appendLine("approachSuccessRate=${it.successRateLabel()}")
-        appendLine("approachUsageCount=${it.usageCount}")
-        appendLine("approachRuntimeMs=${it.totalRuntimeDurationMs}")
-    }
-}
 
 private fun StringBuilder.appendWifiSummary(wifi: RedactedWifiSummary) {
     appendLine("wifiSsid=${wifi.ssid}")
