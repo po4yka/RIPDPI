@@ -1,5 +1,3 @@
-@file:Suppress("MaxLineLength")
-
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyFactory

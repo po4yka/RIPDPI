@@ -6,11 +6,13 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskFamily
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ProbeFamily
 import com.poyka.ripdpi.diagnostics.domain.ProbeTask
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsExecutionPolicyProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.serialization.json.Json
@@ -43,7 +45,12 @@ internal fun ScanRequest.toProfileSpecWire(): ProfileSpecWire =
         kind = kind,
         family = family,
         regionTag = regionTag,
-        manualOnly = manualOnly,
+        executionPolicy =
+            ProfileExecutionPolicyWire(
+                manualOnly = manualOnly,
+                allowBackground = !manualOnly && kind == ScanKind.STRATEGY_PROBE,
+                requiresRawPath = kind == ScanKind.STRATEGY_PROBE,
+            ),
         packRefs = packRefs,
         domainTargets = domainTargets,
         dnsTargets = dnsTargets,
@@ -63,29 +70,40 @@ internal fun ProfileSpecWire.toCompatibilityScanRequest(
     proxyPort: Int? = null,
     networkSnapshot: com.poyka.ripdpi.data.NativeNetworkSnapshot? = null,
 ): ScanRequest =
-    ScanRequest(
-        profileId = profileId,
-        displayName = displayName,
-        pathMode = pathMode,
-        kind = kind,
-        family = family,
-        regionTag = regionTag,
-        manualOnly = manualOnly,
-        packRefs = packRefs,
-        proxyHost = proxyHost,
-        proxyPort = proxyPort,
-        domainTargets = domainTargets,
-        dnsTargets = dnsTargets,
-        tcpTargets = tcpTargets,
-        quicTargets = quicTargets,
-        serviceTargets = serviceTargets,
-        circumventionTargets = circumventionTargets,
-        throughputTargets = throughputTargets,
-        whitelistSni = whitelistSni,
-        telegramTarget = telegramTarget,
-        strategyProbe = strategyProbe,
-        networkSnapshot = networkSnapshot,
-    )
+    run {
+        val executionPolicy = executionPolicyOrCompat()
+        ScanRequest(
+            profileId = profileId,
+            displayName = displayName,
+            pathMode = pathMode,
+            kind = kind,
+            family = family,
+            regionTag = regionTag,
+            manualOnly = executionPolicy.manualOnly,
+            packRefs = packRefs,
+            proxyHost = proxyHost,
+            proxyPort = proxyPort,
+            domainTargets = domainTargets,
+            dnsTargets = dnsTargets,
+            tcpTargets = tcpTargets,
+            quicTargets = quicTargets,
+            serviceTargets = serviceTargets,
+            circumventionTargets = circumventionTargets,
+            throughputTargets = throughputTargets,
+            whitelistSni = whitelistSni,
+            telegramTarget = telegramTarget,
+            strategyProbe = strategyProbe,
+            networkSnapshot = networkSnapshot,
+        )
+    }
+
+internal fun ProfileSpecWire.executionPolicyOrCompat(): ProfileExecutionPolicyWire =
+    executionPolicy
+        ?: ProfileExecutionPolicyWire(
+            manualOnly = manualOnly == true,
+            requiresRawPath = kind == ScanKind.STRATEGY_PROBE,
+            allowBackground = manualOnly != true && kind == ScanKind.STRATEGY_PROBE,
+        )
 
 internal fun ProbeTask.toEngineProbeTaskWire(): EngineProbeTaskWire =
     EngineProbeTaskWire(
@@ -109,20 +127,35 @@ internal fun DiagnosticsIntent.toProfileProjection(): DiagnosticsProfileProjecti
         kind = kind,
         family = family,
         regionTag = regionTag,
+        executionPolicy =
+            DiagnosticsExecutionPolicyProjection(
+                manualOnly = executionPolicy.manualOnly,
+                allowBackground = executionPolicy.allowBackground,
+                requiresRawPath = executionPolicy.requiresRawPath,
+            ),
         manualOnly = executionPolicy.manualOnly,
         packRefs = packRefs,
         strategyProbeSuiteId = strategyProbe?.suiteId,
     )
 
 internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection =
-    DiagnosticsProfileProjection(
-        kind = kind,
-        family = family,
-        regionTag = regionTag,
-        manualOnly = manualOnly,
-        packRefs = packRefs,
-        strategyProbeSuiteId = strategyProbe?.suiteId,
-    )
+    run {
+        val executionPolicy = executionPolicyOrCompat()
+        DiagnosticsProfileProjection(
+            kind = kind,
+            family = family,
+            regionTag = regionTag,
+            executionPolicy =
+                DiagnosticsExecutionPolicyProjection(
+                    manualOnly = executionPolicy.manualOnly,
+                    allowBackground = executionPolicy.allowBackground,
+                    requiresRawPath = executionPolicy.requiresRawPath,
+                ),
+            manualOnly = executionPolicy.manualOnly,
+            packRefs = packRefs,
+            strategyProbeSuiteId = strategyProbe?.suiteId,
+        )
+    }
 
 internal fun ScanPlan.toEngineScanRequestWire(): EngineScanRequestWire =
     EngineScanRequestWire(

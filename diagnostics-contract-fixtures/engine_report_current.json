@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 2,
+  "sessionId": "session-1",
+  "profileId": "ru-web-connectivity",
+  "pathMode": "RAW_PATH",
+  "startedAt": 1,
+  "finishedAt": 2,
+  "summary": "1 issue",
+  "results": [
+    {
+      "probeType": "dns",
+      "target": "meduza.io",
+      "outcome": "substitution",
+      "details": []
+    }
+  ],
+  "observations": [
+    {
+      "kind": "DNS",
+      "target": "meduza.io",
+      "dns": {
+        "domain": "meduza.io",
+        "status": "SUBSTITUTION",
+        "udpAddresses": [
+          "203.0.113.10"
+        ],
+        "encryptedAddresses": [
+          "203.0.113.20"
+        ]
+      },
+      "evidence": [
+        "udp=203.0.113.10"
+      ]
+    }
+  ],
+  "engineAnalysisVersion": "engine_v2",
+  "diagnoses": [],
+  "packVersions": {
+    "ru-independent-media": 1
+  }
+}

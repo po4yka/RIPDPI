@@ -13,6 +13,15 @@ import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
 import kotlinx.serialization.Serializable
 
+const val BundledDiagnosticsCatalogSchemaVersion = 2
+
+@Serializable
+data class ProfileExecutionPolicyWire(
+    val manualOnly: Boolean = false,
+    val allowBackground: Boolean = false,
+    val requiresRawPath: Boolean = false,
+)
+
 @Serializable
 data class ProfileSpecWire(
     val profileId: String,
@@ -20,7 +29,8 @@ data class ProfileSpecWire(
     val kind: ScanKind = ScanKind.CONNECTIVITY,
     val family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
     val regionTag: String? = null,
-    val manualOnly: Boolean = false,
+    val executionPolicy: ProfileExecutionPolicyWire? = null,
+    val manualOnly: Boolean? = null,
     val packRefs: List<String> = emptyList(),
     val domainTargets: List<DomainTarget> = emptyList(),
     val dnsTargets: List<DnsTarget> = emptyList(),
@@ -43,8 +53,15 @@ data class BundledDiagnosticProfileWire(
 )
 
 @Serializable
+data class BundledDiagnosticsPackWire(
+    val id: String,
+    val version: Int,
+)
+
+@Serializable
 data class BundledDiagnosticsCatalogWire(
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = BundledDiagnosticsCatalogSchemaVersion,
     val generatedAt: String? = null,
+    val packs: List<BundledDiagnosticsPackWire> = emptyList(),
     val profiles: List<BundledDiagnosticProfileWire> = emptyList(),
 )

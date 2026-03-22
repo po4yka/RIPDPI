@@ -1,5 +1,3 @@
-@file:Suppress("MaxLineLength")
-
 package com.poyka.ripdpi.diagnostics
 
 import android.content.ContextWrapper

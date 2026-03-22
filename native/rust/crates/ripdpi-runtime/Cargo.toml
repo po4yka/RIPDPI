@@ -17,6 +17,7 @@ mio = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
+ripdpi-ws-tunnel = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

@@ -5,13 +5,11 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
-import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticProfileWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
 import dagger.Binds
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Named
@@ -46,11 +44,23 @@ class BundledDiagnosticsProfileImporter
         private val json: Json,
     ) {
         suspend fun importProfiles() {
-            val bundledProfiles = decodeProfiles(profileSource.readProfilesJson())
-            bundledProfiles.forEach { profile ->
-                val packVersion = profileCatalog.getPackVersion(profile.id)
-                if (packVersion == null || packVersion.version < profile.version) {
-                    val now = clock.now()
+            val catalog = decodeCatalog(profileSource.readProfilesJson())
+            val now = clock.now()
+            catalog.packs.forEach { pack ->
+                val persistedVersion = profileCatalog.getPackVersion(pack.id)
+                if (persistedVersion == null || persistedVersion.version < pack.version) {
+                    profileCatalog.upsertPackVersion(
+                        TargetPackVersionEntity(
+                            packId = pack.id,
+                            version = pack.version,
+                            importedAt = now,
+                        ),
+                    )
+                }
+            }
+            catalog.profiles.forEach { profile ->
+                val existingProfile = profileCatalog.getProfile(profile.id)
+                if (existingProfile == null || existingProfile.version < profile.version) {
                     profileCatalog.upsertProfile(
                         DiagnosticProfileEntity(
                             id = profile.id,
@@ -65,37 +75,12 @@ class BundledDiagnosticsProfileImporter
                             updatedAt = now,
                         ),
                     )
-                    profileCatalog.upsertPackVersion(
-                        TargetPackVersionEntity(
-                            packId = profile.id,
-                            version = profile.version,
-                            importedAt = now,
-                        ),
-                    )
                 }
             }
         }
 
-        private fun decodeProfiles(payload: String): List<BundledDiagnosticProfileWire> =
-            runCatching {
-                json.decodeFromString(BundledDiagnosticsCatalogWire.serializer(), payload).profiles
-            }.getOrElse {
-                runCatching {
-                    json.decodeFromString(
-                        ListSerializer(BundledDiagnosticProfileWire.serializer()),
-                        payload,
-                    )
-                }.getOrElse {
-                    json.decodeFromString(ListSerializer(BundledDiagnosticProfile.serializer()), payload).map { legacy ->
-                        BundledDiagnosticProfileWire(
-                            id = legacy.id,
-                            name = legacy.name,
-                            version = legacy.version,
-                            request = legacy.request.toProfileSpecWire(),
-                        )
-                    }
-                }
-            }
+        private fun decodeCatalog(payload: String): BundledDiagnosticsCatalogWire =
+            json.decodeFromString(BundledDiagnosticsCatalogWire.serializer(), payload)
     }
 
 @dagger.Module

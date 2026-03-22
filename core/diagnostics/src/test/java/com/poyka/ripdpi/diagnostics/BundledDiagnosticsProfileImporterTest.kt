@@ -1,8 +1,12 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
+import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticProfileWire
+import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
+import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsPackWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -29,7 +33,7 @@ class BundledDiagnosticsProfileImporterTest {
             assertFalse(stores.profilesState.value.isEmpty())
             val firstProfile = stores.profilesState.value.first()
             assertTrue(firstProfile.requestJson.isNotBlank())
-            assertEquals(firstProfile.version, stores.getPackVersion(firstProfile.id)?.version)
+            assertEquals(firstProfile.version, stores.getPackVersion("default-pack")?.version)
         }
 
     @Test
@@ -54,7 +58,7 @@ class BundledDiagnosticsProfileImporterTest {
             )
             stores.upsertPackVersion(
                 TargetPackVersionEntity(
-                    packId = bundledProfile.id,
+                    packId = "default-pack",
                     version = bundledProfile.version - 1,
                     importedAt = 1L,
                 ),
@@ -63,7 +67,7 @@ class BundledDiagnosticsProfileImporterTest {
             importer.importProfiles()
 
             assertEquals(bundledProfile.name, stores.getProfile(bundledProfile.id)?.name)
-            assertEquals(bundledProfile.version, stores.getPackVersion(bundledProfile.id)?.version)
+            assertEquals(bundledProfile.version, stores.getPackVersion("default-pack")?.version)
         }
 
     @Test
@@ -88,7 +92,7 @@ class BundledDiagnosticsProfileImporterTest {
             )
             stores.upsertPackVersion(
                 TargetPackVersionEntity(
-                    packId = bundledProfile.id,
+                    packId = "default-pack",
                     version = bundledProfile.version + 1,
                     importedAt = 1L,
                 ),
@@ -97,7 +101,23 @@ class BundledDiagnosticsProfileImporterTest {
             importer.importProfiles()
 
             assertEquals("Custom newer profile", stores.getProfile(bundledProfile.id)?.name)
-            assertEquals(bundledProfile.version + 1, stores.getPackVersion(bundledProfile.id)?.version)
+            assertEquals(bundledProfile.version + 1, stores.getPackVersion("default-pack")?.version)
+        }
+
+    @Test(expected = kotlinx.serialization.SerializationException::class)
+    fun `importer rejects malformed bundled catalog shape`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock(currentTime = 10L)
+            val importer =
+                BundledDiagnosticsProfileImporter(
+                    profileSource = StaticBundledDiagnosticsProfileSource("[]"),
+                    profileCatalog = stores,
+                    clock = clock,
+                    json = json,
+                )
+
+            importer.importProfiles()
         }
 }
 
@@ -109,19 +129,31 @@ private class StaticBundledDiagnosticsProfileSource(
 
 private fun sampleBundledProfilesJson(json: kotlinx.serialization.json.Json): String =
     json.encodeToString(
-        ListSerializer(BundledDiagnosticProfile.serializer()),
-        listOf(
-            BundledDiagnosticProfile(
-                id = "default",
-                name = "Default",
-                version = 3,
-                request =
-                    ScanRequest(
-                        profileId = "default",
-                        displayName = "Default",
-                        pathMode = ScanPathMode.RAW_PATH,
-                        domainTargets = listOf(DomainTarget(host = "example.org")),
+        BundledDiagnosticsCatalogWire.serializer(),
+        BundledDiagnosticsCatalogWire(
+            schemaVersion = 2,
+            generatedAt = "2026-03-22",
+            packs = listOf(BundledDiagnosticsPackWire(id = "default-pack", version = 3)),
+            profiles =
+                listOf(
+                    BundledDiagnosticProfileWire(
+                        id = "default",
+                        name = "Default",
+                        version = 3,
+                        request =
+                            ProfileSpecWire(
+                                profileId = "default",
+                                displayName = "Default",
+                                executionPolicy =
+                                    ProfileExecutionPolicyWire(
+                                        manualOnly = false,
+                                        allowBackground = false,
+                                        requiresRawPath = false,
+                                    ),
+                                packRefs = listOf("default-pack@3"),
+                                domainTargets = listOf(DomainTarget(host = "example.org")),
+                            ),
                     ),
-            ),
+                ),
         ),
     )

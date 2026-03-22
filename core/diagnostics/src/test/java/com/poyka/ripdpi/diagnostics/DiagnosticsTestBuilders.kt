@@ -140,7 +140,7 @@ internal fun createDiagnosticsServices(
             json = json,
         )
     val activeScanRegistry = ActiveScanRegistry(timelineSource)
-    val scanAdmissionService = ScanAdmissionService(appSettingsRepository, stores, activeScanRegistry)
+    val scanAdmissionService = ScanAdmissionService(appSettingsRepository, stores, activeScanRegistry, json)
     val bridgeExecutionService = BridgeExecutionService(networkDiagnosticsBridgeFactory, activeScanRegistry)
     val passiveEventPersistenceService = PassiveEventPersistenceService(stores, json)
     val executionCoordinator =

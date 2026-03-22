@@ -78,10 +78,7 @@ pub(crate) fn run_telegram_probe(target: &TelegramTarget, transport: &TransportC
             ProbeDetail { key: "dcResults".to_string(), value: dc.results.join("|") },
             ProbeDetail { key: "wsTunnelStatus".to_string(), value: ws.status },
             ProbeDetail { key: "wsTunnelRttMs".to_string(), value: ws.rtt_ms.to_string() },
-            ProbeDetail {
-                key: "wsTunnelError".to_string(),
-                value: ws.error.unwrap_or_else(|| "none".to_string()),
-            },
+            ProbeDetail { key: "wsTunnelError".to_string(), value: ws.error.unwrap_or_else(|| "none".to_string()) },
         ],
     }
 }
@@ -494,11 +491,7 @@ fn telegram_ws_tunnel_probe() -> TelegramWsProbeResult {
         }
         Err(e) => {
             let rtt_ms = start.elapsed().as_millis() as u64;
-            TelegramWsProbeResult {
-                status: "unreachable".to_string(),
-                rtt_ms,
-                error: Some(e.to_string()),
-            }
+            TelegramWsProbeResult { status: "unreachable".to_string(), rtt_ms, error: Some(e.to_string()) }
         }
     }
 }

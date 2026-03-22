@@ -54,6 +54,13 @@ enum class DiagnosticsTone {
 }
 
 @Immutable
+data class DiagnosticsExecutionPolicyUiModel(
+    val manualOnly: Boolean = false,
+    val allowBackground: Boolean = false,
+    val requiresRawPath: Boolean = false,
+)
+
+@Immutable
 data class DiagnosticsMetricUiModel(
     val label: String,
     val value: String,
@@ -88,6 +95,7 @@ data class DiagnosticsProfileOptionUiModel(
     val strategyProbeSuiteId: String? = null,
     val family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
     val regionTag: String? = null,
+    val executionPolicy: DiagnosticsExecutionPolicyUiModel = DiagnosticsExecutionPolicyUiModel(),
     val manualOnly: Boolean = false,
     val packRefs: List<String> = emptyList(),
 )

@@ -1,5 +1,3 @@
-@file:Suppress("MaxLineLength")
-
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeError

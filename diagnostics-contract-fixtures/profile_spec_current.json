@@ -1,0 +1,49 @@
+{
+  "profileId": "ru-web-connectivity",
+  "displayName": "Russia Web Connectivity",
+  "kind": "CONNECTIVITY",
+  "family": "WEB_CONNECTIVITY",
+  "regionTag": "ru",
+  "executionPolicy": {
+    "manualOnly": true,
+    "allowBackground": false,
+    "requiresRawPath": false
+  },
+  "packRefs": [
+    "ru-independent-media@1",
+    "ru-global-platforms@1",
+    "ru-control@1"
+  ],
+  "domainTargets": [
+    {
+      "host": "meduza.io"
+    }
+  ],
+  "dnsTargets": [
+    {
+      "domain": "meduza.io",
+      "udpServer": "8.8.8.8:53"
+    }
+  ],
+  "tcpTargets": [
+    {
+      "id": "CF-01",
+      "provider": "Cloudflare",
+      "ip": "172.67.70.222",
+      "port": 443,
+      "asn": "13335"
+    }
+  ],
+  "quicTargets": [
+    {
+      "host": "www.youtube.com",
+      "port": 443
+    }
+  ],
+  "serviceTargets": [],
+  "circumventionTargets": [],
+  "throughputTargets": [],
+  "whitelistSni": [
+    "vk.com"
+  ]
+}
