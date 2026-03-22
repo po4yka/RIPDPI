@@ -168,7 +168,7 @@ internal object RipDpiProxyJsonCodec {
     private fun decode(configJson: String): NativeProxyConfig {
         val element = json.parseToJsonElement(configJson)
         validateUiPayloadShape(element)
-        return json.decodeFromJsonElement(NativeProxyConfig.serializer(), element)
+        return json.decodeFromString(NativeProxyConfig.serializer(), configJson)
     }
 
     private fun decodeOrNull(configJson: String): NativeProxyConfig? = runCatching { decode(configJson) }.getOrNull()
