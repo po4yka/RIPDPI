@@ -2,6 +2,7 @@ mod sync;
 
 use crate::sync::{fetch_add_u64, Arc, AtomicU64, Mutex, Ordering};
 use std::collections::HashMap;
+use std::sync::PoisonError;
 
 use jni::objects::JThrowable;
 use jni::sys::jint;
@@ -42,16 +43,16 @@ impl<T> HandleRegistry<T> {
 
     pub fn insert(&self, value: T) -> u64 {
         let handle = fetch_add_u64(&self.next, 1, Ordering::Relaxed);
-        self.inner.lock().unwrap_or_else(|e| e.into_inner()).insert(handle, Arc::new(value));
+        self.inner.lock().unwrap_or_else(PoisonError::into_inner).insert(handle, Arc::new(value));
         handle
     }
 
     pub fn get(&self, handle: u64) -> Option<Arc<T>> {
-        self.inner.lock().unwrap_or_else(|e| e.into_inner()).get(&handle).cloned()
+        self.inner.lock().unwrap_or_else(PoisonError::into_inner).get(&handle).cloned()
     }
 
     pub fn remove(&self, handle: u64) -> Option<Arc<T>> {
-        self.inner.lock().unwrap_or_else(|e| e.into_inner()).remove(&handle)
+        self.inner.lock().unwrap_or_else(PoisonError::into_inner).remove(&handle)
     }
 }
 

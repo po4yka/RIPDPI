@@ -2,8 +2,8 @@ use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit as BlockKey
 use aes::Aes128;
 use aes_gcm::aead::AeadInPlace;
 use aes_gcm::{Aes128Gcm, Nonce};
-use ripdpi_packets::change_tls_sni_seeded_like_c;
 use hkdf::Hkdf;
+use ripdpi_packets::change_tls_sni_seeded_like_c;
 use sha2::Sha256;
 
 const QUIC_V1_VERSION: u32 = 0x0000_0001;
@@ -47,7 +47,7 @@ fn write_u24(data: &mut [u8], offset: usize, value: u32) {
     data[offset + 2] = (value & 0xff) as u8;
 }
 
-fn write_u32(data: &mut [u8], offset: usize, value: u32) {
+fn _write_u32(data: &mut [u8], offset: usize, value: u32) {
     data[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
 }
 

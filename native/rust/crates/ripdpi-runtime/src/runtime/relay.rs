@@ -10,10 +10,10 @@ use ripdpi_config::{
     RuntimeConfig, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
     DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
-use ripdpi_session::SessionState;
 use ripdpi_failure_classifier::{
     classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
+use ripdpi_session::SessionState;
 
 use super::adaptive::{note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_server_ttl_for_route};
 use super::desync::send_with_group;

@@ -13,21 +13,24 @@ use crate::candidates::{
     StrategyProbeSuite,
 };
 use crate::classification::{
-    classify_strategy_probe_baseline_observations, classified_failure_probe_result, filter_quic_candidates_for_failure,
+    classified_failure_probe_result, classify_strategy_probe_baseline_observations, filter_quic_candidates_for_failure,
     interleave_candidate_families, next_candidate_index, pack_versions_from_refs, reorder_tcp_candidates_for_failure,
 };
 use crate::connectivity::{
     build_network_environment_probe, push_event, run_circumvention_probe, run_dns_probe, run_domain_probe,
-    run_quic_probe, run_service_probe, run_tcp_probe, run_throughput_probe, set_progress, set_report, summarize_probe_event,
+    run_quic_probe, run_service_probe, run_tcp_probe, run_throughput_probe, set_progress, set_report,
+    summarize_probe_event,
 };
-use crate::execution::{execute_quic_candidate, execute_tcp_candidate, skipped_candidate_summary, winning_candidate_index};
+use crate::execution::{
+    execute_quic_candidate, execute_tcp_candidate, skipped_candidate_summary, winning_candidate_index,
+};
 use crate::observations::{observation_for_probe, observations_for_results, ENGINE_ANALYSIS_VERSION};
 use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::telegram::run_telegram_probe;
 use crate::transport::{describe_transport, transport_for_request, TransportConfig};
 use crate::types::{
-    NativeSessionEvent, ProbeObservation, ProbeResult, ProbeTaskFamily, ScanKind, ScanProgress, ScanReport, ScanRequest,
-    SharedState, StrategyProbeCandidateSummary, StrategyProbeRecommendation, StrategyProbeReport,
+    NativeSessionEvent, ProbeObservation, ProbeResult, ProbeTaskFamily, ScanKind, ScanProgress, ScanReport,
+    ScanRequest, SharedState, StrategyProbeCandidateSummary, StrategyProbeRecommendation, StrategyProbeReport,
 };
 use crate::util::{event_level_for_outcome, now_ms, probe_session_seed, stable_probe_hash};
 
@@ -251,16 +254,8 @@ pub(crate) fn run_engine_scan(
     let mut plan = match build_execution_plan(session_id.clone(), request.clone(), started_at, transport.clone()) {
         Ok(plan) => plan,
         Err(message) => {
-            let report = build_report(
-                session_id.clone(),
-                request,
-                started_at,
-                message,
-                Vec::new(),
-                Vec::new(),
-                None,
-                None,
-            );
+            let report =
+                build_report(session_id.clone(), request, started_at, message, Vec::new(), Vec::new(), None, None);
             set_report(&shared, report);
             set_progress(
                 &shared,
@@ -356,15 +351,12 @@ pub(crate) fn run_engine_scan(
         RunnerOutcome::Completed => {
             let summary = match plan.request.kind {
                 ScanKind::Connectivity => {
-                    let success_count =
-                        runtime.results.iter().filter(|result| result.outcome.contains("ok")).count();
+                    let success_count = runtime.results.iter().filter(|result| result.outcome.contains("ok")).count();
                     connectivity_summary(success_count, runtime.results.len())
                 }
-                ScanKind::StrategyProbe => runtime
-                    .strategy
-                    .summary
-                    .clone()
-                    .unwrap_or_else(|| "Automatic probing finished".to_string()),
+                ScanKind::StrategyProbe => {
+                    runtime.strategy.summary.clone().unwrap_or_else(|| "Automatic probing finished".to_string())
+                }
             };
             let report = build_report(
                 plan.session_id.clone(),
@@ -426,13 +418,13 @@ fn build_strategy_execution_plan(session_id: &str, request: &ScanRequest) -> Res
         .as_deref()
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| "strategy_probe scan requires baseProxyConfigJson".to_string())?;
-    let (base_payload, runtime_context) = match parse_proxy_config_json(base_proxy_config_json).map_err(|err| err.to_string())?
-    {
-        ProxyConfigPayload::Ui { config, runtime_context, .. } => (config, runtime_context),
-        ProxyConfigPayload::CommandLine { .. } => {
-            return Err("strategy_probe scans only support UI proxy config".to_string())
-        }
-    };
+    let (base_payload, runtime_context) =
+        match parse_proxy_config_json(base_proxy_config_json).map_err(|err| err.to_string())? {
+            ProxyConfigPayload::Ui { config, runtime_context, .. } => (config, runtime_context),
+            ProxyConfigPayload::CommandLine { .. } => {
+                return Err("strategy_probe scans only support UI proxy config".to_string())
+            }
+        };
     let suite = build_strategy_probe_suite(&strategy_probe.suite_id, &base_payload)?;
     Ok(StrategyExecutionPlan {
         suite_id: strategy_probe.suite_id,
@@ -605,14 +597,7 @@ macro_rules! connectivity_runner {
                     let probe = $body(item, plan, tls_verifier);
                     let outcome = probe.outcome.clone();
                     let artifacts = RunnerArtifacts::from_probe(probe, $source);
-                    runtime.record_step(
-                        plan,
-                        self.phase(),
-                        label.clone(),
-                        Some(label),
-                        Some(outcome),
-                        artifacts,
-                    );
+                    runtime.record_step(plan, self.phase(), label.clone(), Some(label), Some(outcome), artifacts);
                 }
                 RunnerOutcome::Completed
             }
@@ -801,8 +786,10 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
                 )
             })
             .collect::<Vec<_>>();
-        let quic_specs =
-            filter_quic_candidates_for_failure(strategy_plan.suite.quic_candidates.clone(), Some(FailureClass::QuicBreakage));
+        let quic_specs = filter_quic_candidates_for_failure(
+            strategy_plan.suite.quic_candidates.clone(),
+            Some(FailureClass::QuicBreakage),
+        );
         let quic_candidates = quic_specs
             .iter()
             .map(|spec| {
@@ -814,10 +801,8 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
                 )
             })
             .collect::<Vec<_>>();
-        let fallback_quic = quic_specs
-            .first()
-            .or_else(|| strategy_plan.suite.quic_candidates.first())
-            .expect("quic candidate");
+        let fallback_quic =
+            quic_specs.first().or_else(|| strategy_plan.suite.quic_candidates.first()).expect("quic candidate");
         let recommendation = StrategyProbeRecommendation {
             tcp_candidate_id: strategy_plan.suite.tcp_candidates.first().expect("tcp candidate").id.to_string(),
             tcp_candidate_label: strategy_plan.suite.tcp_candidates.first().expect("tcp candidate").label.to_string(),
@@ -860,7 +845,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
     }
 
     fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        plan.strategy.as_ref().map(|strategy| strategy.suite.tcp_candidates.len()).unwrap_or(0)
+        plan.strategy.as_ref().map_or(0, |strategy| strategy.suite.tcp_candidates.len())
     }
 
     fn run(
@@ -903,9 +888,8 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 format!("Testing TCP candidate {}", baseline_spec.label),
             ),
         );
-        let mut hostfake_family_succeeded =
-            baseline_execution.summary.family == "hostfake"
-                && baseline_execution.summary.succeeded_targets == baseline_execution.summary.total_targets;
+        let mut hostfake_family_succeeded = baseline_execution.summary.family == "hostfake"
+            && baseline_execution.summary.succeeded_targets == baseline_execution.summary.total_targets;
         runtime.strategy.tcp_candidates.push(baseline_execution.summary);
 
         if tcp_specs.len() > 1 {
@@ -1010,7 +994,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
     }
 
     fn total_steps(&self, plan: &ExecutionPlan) -> usize {
-        plan.strategy.as_ref().map(|strategy| strategy.suite.quic_candidates.len()).unwrap_or(0)
+        plan.strategy.as_ref().map_or(0, |strategy| strategy.suite.quic_candidates.len())
     }
 
     fn run(

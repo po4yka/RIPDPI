@@ -271,14 +271,13 @@ impl FixtureStack {
             tls_certificate_pem: cert_pem,
         };
 
-        let mut handles = Vec::new();
-        handles.push(start_tcp_echo_server(
+        let mut handles = vec![start_tcp_echo_server(
             config.bind_host.clone(),
             config.tcp_echo_port,
             stop.clone(),
             events.clone(),
             faults.clone(),
-        )?);
+        )?];
         handles.push(start_udp_echo_server(
             config.bind_host.clone(),
             config.udp_echo_port,
@@ -909,7 +908,7 @@ fn start_socks5_server(
                                         "tcp",
                                         peer,
                                         local,
-                                        &format!("fault:{}", mapped),
+                                        &format!("fault:{mapped}"),
                                         0,
                                         None,
                                     ));
@@ -932,7 +931,7 @@ fn start_socks5_server(
                                     return;
                                 }
                                 events.record(event("socks5_relay", "udp", peer, local, "udp_associate", 0, None));
-                                if let Some(udp_local) = udp_shared.local_addr().ok() {
+                                if let Ok(udp_local) = udp_shared.local_addr() {
                                     let _ = stream.write_all(&encode_socks_reply(udp_local));
                                 }
                                 let mut buf = [0u8; 16];
@@ -1262,7 +1261,7 @@ fn parse_http_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
 
 fn normalize_http_target(target: &str) -> (&str, &str) {
     let normalized = if let Some((_, rest)) = target.split_once("://") {
-        let slash = rest.find('/').map(|offset| offset + 1).unwrap_or(rest.len());
+        let slash = rest.find('/').map_or(rest.len(), |offset| offset + 1);
         let suffix = &rest[slash..];
         if suffix.is_empty() {
             "/"
@@ -1393,7 +1392,7 @@ fn other_io<E>(error: E) -> io::Error
 where
     E: ToString,
 {
-    io::Error::new(ErrorKind::Other, error.to_string())
+    io::Error::other(error.to_string())
 }
 
 #[cfg(test)]
@@ -1561,14 +1560,16 @@ mod tests {
         let udp_echo = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("reserve udp echo port");
         let dns_udp = UdpSocket::bind((DEFAULT_BIND_HOST, 0)).expect("reserve dns udp port");
 
-        let mut config = FixtureConfig::default();
-        config.tcp_echo_port = tcp_echo.local_addr().expect("tcp echo addr").port();
-        config.udp_echo_port = udp_echo.local_addr().expect("udp echo addr").port();
-        config.tls_echo_port = tls_echo.local_addr().expect("tls echo addr").port();
-        config.dns_udp_port = dns_udp.local_addr().expect("dns udp addr").port();
-        config.dns_http_port = dns_http.local_addr().expect("dns http addr").port();
-        config.socks5_port = socks5.local_addr().expect("socks5 addr").port();
-        config.control_port = control.local_addr().expect("control addr").port();
+        let config = FixtureConfig {
+            tcp_echo_port: tcp_echo.local_addr().expect("tcp echo addr").port(),
+            udp_echo_port: udp_echo.local_addr().expect("udp echo addr").port(),
+            tls_echo_port: tls_echo.local_addr().expect("tls echo addr").port(),
+            dns_udp_port: dns_udp.local_addr().expect("dns udp addr").port(),
+            dns_http_port: dns_http.local_addr().expect("dns http addr").port(),
+            socks5_port: socks5.local_addr().expect("socks5 addr").port(),
+            control_port: control.local_addr().expect("control addr").port(),
+            ..FixtureConfig::default()
+        };
 
         drop((tcp_echo, tls_echo, dns_http, socks5, control, udp_echo, dns_udp));
         config

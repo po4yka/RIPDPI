@@ -7,10 +7,7 @@ use ripdpi_monitor::{
 use serde_json::Value;
 
 fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../../")
-        .canonicalize()
-        .expect("repo root")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../").canonicalize().expect("repo root")
 }
 
 fn fixture(path: &str) -> String {
@@ -45,11 +42,7 @@ fn engine_schema_version_matches_kotlin_contract_constant() {
     let kotlin_version = kotlin_engine_contract
         .lines()
         .find_map(|line| {
-            line
-                .split('=')
-                .nth(1)
-                .map(str::trim)
-                .filter(|_| line.contains("DiagnosticsEngineSchemaVersion"))
+            line.split('=').nth(1).map(str::trim).filter(|_| line.contains("DiagnosticsEngineSchemaVersion"))
         })
         .expect("kotlin schema version")
         .parse::<u32>()

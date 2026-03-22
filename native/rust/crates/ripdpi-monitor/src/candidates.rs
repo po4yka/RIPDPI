@@ -582,5 +582,4 @@ mod tests {
         let result = build_quic_candidates_for_suite("nonexistent_v99", &base);
         assert!(result.is_err());
     }
-
 }

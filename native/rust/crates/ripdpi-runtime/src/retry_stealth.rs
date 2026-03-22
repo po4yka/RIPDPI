@@ -288,8 +288,7 @@ fn now_ms() -> u64 {
 }
 
 pub fn target_key(host: Option<&str>, dest: SocketAddr) -> String {
-    host.map(str::trim)
-        .filter(|value| !value.is_empty()).map_or_else(|| dest.to_string(), str::to_ascii_lowercase)
+    host.map(str::trim).filter(|value| !value.is_empty()).map_or_else(|| dest.to_string(), str::to_ascii_lowercase)
 }
 
 #[cfg(test)]
