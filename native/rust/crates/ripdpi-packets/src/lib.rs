@@ -1043,10 +1043,8 @@ pub fn is_http_redirect(req: &[u8], resp: &[u8]) -> bool {
             location_start += 8;
         }
     }
-    let location_end = resp[location_start..line_end]
-        .iter()
-        .position(|&b| b == b'/')
-        .map_or(line_end, |idx| idx + location_start);
+    let location_end =
+        resp[location_start..line_end].iter().position(|&b| b == b'/').map_or(line_end, |idx| idx + location_start);
 
     let mut suffix_start = host.len();
     while suffix_start > 0 && host[suffix_start - 1] != b'.' {
