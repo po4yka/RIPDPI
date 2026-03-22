@@ -48,9 +48,10 @@ use util::*;
 mod test_fixtures;
 
 pub use types::{
-    DnsTarget, DomainTarget, NativeSessionEvent, ProbeDetail, ProbeResult, QuicTarget, ScanKind, ScanPathMode,
-    ScanProgress, ScanReport, ScanRequest, StrategyProbeCandidateSummary, StrategyProbeRecommendation,
-    StrategyProbeReport, StrategyProbeRequest, TcpTarget, TelegramDcEndpoint, TelegramTarget,
+    CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsTarget, DomainTarget, NativeSessionEvent, ProbeDetail,
+    ProbeResult, QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest, ServiceTarget,
+    StrategyProbeCandidateSummary, StrategyProbeRecommendation, StrategyProbeReport, StrategyProbeRequest, TcpTarget,
+    TelegramDcEndpoint, TelegramTarget, ThroughputTarget,
 };
 
 pub struct MonitorSession {
@@ -207,6 +208,10 @@ mod tests {
             display_name: "Automatic probing".to_string(),
             path_mode: ScanPathMode::RawPath,
             kind: ScanKind::StrategyProbe,
+            family: DiagnosticProfileFamily::AutomaticProbing,
+            region_tag: None,
+            manual_only: false,
+            pack_refs: vec![],
             proxy_host: None,
             proxy_port: None,
             domain_targets: vec![DomainTarget {
@@ -219,6 +224,9 @@ mod tests {
             dns_targets: vec![],
             tcp_targets: vec![],
             quic_targets: vec![],
+            service_targets: vec![],
+            circumvention_targets: vec![],
+            throughput_targets: vec![],
             whitelist_sni: vec![],
             telegram_target: None,
             strategy_probe: Some(StrategyProbeRequest {
@@ -747,6 +755,10 @@ mod tests {
             display_name: "Passive events".to_string(),
             path_mode: ScanPathMode::RawPath,
             kind: ScanKind::Connectivity,
+            family: DiagnosticProfileFamily::General,
+            region_tag: None,
+            manual_only: false,
+            pack_refs: vec![],
             proxy_host: None,
             proxy_port: None,
             domain_targets: vec![DomainTarget {
@@ -759,6 +771,9 @@ mod tests {
             dns_targets: vec![],
             tcp_targets: vec![],
             quic_targets: vec![],
+            service_targets: vec![],
+            circumvention_targets: vec![],
+            throughput_targets: vec![],
             whitelist_sni: vec![],
             telegram_target: None,
             strategy_probe: None,
@@ -792,6 +807,10 @@ mod tests {
             display_name: "Passive events golden".to_string(),
             path_mode: ScanPathMode::RawPath,
             kind: ScanKind::Connectivity,
+            family: DiagnosticProfileFamily::General,
+            region_tag: None,
+            manual_only: false,
+            pack_refs: vec![],
             proxy_host: None,
             proxy_port: None,
             domain_targets: vec![DomainTarget {
@@ -804,6 +823,9 @@ mod tests {
             dns_targets: vec![],
             tcp_targets: vec![],
             quic_targets: vec![],
+            service_targets: vec![],
+            circumvention_targets: vec![],
+            throughput_targets: vec![],
             whitelist_sni: vec![],
             telegram_target: None,
             strategy_probe: None,

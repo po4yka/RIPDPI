@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod")
-
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -224,12 +222,40 @@ class DiagnosticsArchiveComponentsTest {
                 .decodeToString()
                 .contains("publicIp=redacted"),
         )
+        assertTrue(
+            entries
+                .getValue("summary.txt")
+                .bytes
+                .decodeToString()
+                .contains("classifierVersion=ru_ooni_v1"),
+        )
+        assertTrue(
+            entries
+                .getValue("summary.txt")
+                .bytes
+                .decodeToString()
+                .contains("diagnosis.dns_tampering=DNS answers were substituted"),
+        )
+        assertTrue(
+            entries
+                .getValue("summary.txt")
+                .bytes
+                .decodeToString()
+                .contains("pack.ru-independent-media=1"),
+        )
         assertFalse(
             entries
                 .getValue("report.json")
                 .bytes
                 .decodeToString()
                 .contains("198.51.100.8"),
+        )
+        assertTrue(
+            entries
+                .getValue("report.json")
+                .bytes
+                .decodeToString()
+                .contains("\"classifierVersion\": \"ru_ooni_v1\""),
         )
         assertFalse(
             entries
@@ -249,6 +275,9 @@ class DiagnosticsArchiveComponentsTest {
         assertEquals(DiagnosticsArchiveFormat.includedFiles(logcatIncluded = true), manifest.includedFiles)
         assertEquals("redacted", manifest.networkSummary?.publicIp)
         assertEquals("redacted", manifest.contextSummary?.service?.proxyEndpoint)
+        assertEquals("ru_ooni_v1", manifest.classifierVersion)
+        assertEquals(1, manifest.diagnosisCount)
+        assertEquals(1, manifest.packVersions["ru-independent-media"])
     }
 
     @Test
@@ -391,6 +420,17 @@ class DiagnosticsArchiveComponentsTest {
                         details = listOf(ProbeDetail("attempts", "baseline:fail|fallback:ok")),
                     ),
                 ),
+            diagnoses =
+                listOf(
+                    Diagnosis(
+                        code = "dns_tampering",
+                        summary = "DNS answers were substituted",
+                        target = "blocked.example",
+                        evidence = listOf("dns:blocked.example=substituted"),
+                    ),
+                ),
+            classifierVersion = "ru_ooni_v1",
+            packVersions = mapOf("ru-independent-media" to 1),
         )
 
     private fun networkSnapshotModel() =

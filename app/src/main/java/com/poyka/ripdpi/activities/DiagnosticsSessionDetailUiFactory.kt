@@ -30,8 +30,25 @@ internal class DiagnosticsSessionDetailUiFactory
                             items = items,
                         )
                     }
+            val diagnoses = report?.diagnoses?.map(support::toDiagnosisUiModel).orEmpty()
+            val reportMetadata =
+                buildList {
+                    report?.classifierVersion?.let { add(DiagnosticsFieldUiModel("Classifier", it)) }
+                    report?.packVersions
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { versions ->
+                            add(
+                                DiagnosticsFieldUiModel(
+                                    "Packs",
+                                    versions.entries.joinToString(" · ") { (packId, version) -> "$packId@$version" },
+                                ),
+                            )
+                        }
+                }
             return DiagnosticsSessionDetailUiModel(
                 session = support.toSessionRowUiModel(detail.session),
+                diagnoses = diagnoses,
+                reportMetadata = reportMetadata,
                 probeGroups = probeGroups,
                 snapshots =
                     detail.snapshots.mapNotNull { snapshot ->

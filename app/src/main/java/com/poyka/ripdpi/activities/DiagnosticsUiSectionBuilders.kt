@@ -110,6 +110,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
                 )
             },
         latestSession = latestProfileSession?.let(::toSessionRowUiModel),
+        diagnoses = latestProfileSession?.report?.diagnoses?.map(::toDiagnosisUiModel).orEmpty(),
         latestResults = latestReportResults,
         selectedProfileScopeLabel = toScopeLabel(activeProfileRequest, rawArgsEnabled),
         runRawEnabled = runRawEnabled,

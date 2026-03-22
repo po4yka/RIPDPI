@@ -46,6 +46,9 @@ pub(crate) fn run_strategy_probe_scan(
                 finished_at: now_ms(),
                 summary: "network_unavailable".to_string(),
                 results,
+                diagnoses: vec![],
+                classifier_version: None,
+                pack_versions: std::collections::BTreeMap::new(),
                 strategy_probe_report: None,
             };
             set_report(&shared, report);
@@ -65,6 +68,9 @@ pub(crate) fn run_strategy_probe_scan(
             finished_at: now_ms(),
             summary: "Automatic probing could not start".to_string(),
             results,
+            diagnoses: vec![],
+            classifier_version: None,
+            pack_versions: std::collections::BTreeMap::new(),
             strategy_probe_report: None,
         };
         set_report(&shared, report);
@@ -83,6 +89,9 @@ pub(crate) fn run_strategy_probe_scan(
                     finished_at: now_ms(),
                     summary: "Automatic probing requires UI-configured RIPDPI settings".to_string(),
                     results,
+                    diagnoses: vec![],
+                    classifier_version: None,
+                    pack_versions: std::collections::BTreeMap::new(),
                     strategy_probe_report: None,
                 };
                 set_report(&shared, report);
@@ -97,6 +106,9 @@ pub(crate) fn run_strategy_probe_scan(
                     finished_at: now_ms(),
                     summary: message,
                     results,
+                    diagnoses: vec![],
+                    classifier_version: None,
+                    pack_versions: std::collections::BTreeMap::new(),
                     strategy_probe_report: None,
                 };
                 set_report(&shared, report);
@@ -115,6 +127,9 @@ pub(crate) fn run_strategy_probe_scan(
                 finished_at: now_ms(),
                 summary: message,
                 results,
+                diagnoses: vec![],
+                classifier_version: None,
+                pack_versions: std::collections::BTreeMap::new(),
                 strategy_probe_report: None,
             };
             set_report(&shared, report);
@@ -217,6 +232,9 @@ pub(crate) fn run_strategy_probe_scan(
             finished_at: now_ms(),
             summary: "DNS tampering classified before fallback; resolver override recommended".to_string(),
             results,
+            diagnoses: vec![],
+            classifier_version: None,
+            pack_versions: std::collections::BTreeMap::new(),
             strategy_probe_report: Some(strategy_probe_report),
         };
         set_report(&shared, report);
@@ -566,6 +584,9 @@ pub(crate) fn run_strategy_probe_scan(
         finished_at: now_ms(),
         summary,
         results,
+        diagnoses: vec![],
+        classifier_version: None,
+        pack_versions: std::collections::BTreeMap::new(),
         strategy_probe_report: Some(strategy_probe_report),
     };
 

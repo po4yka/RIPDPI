@@ -110,6 +110,18 @@ private fun DiagnosticsUiFactorySupport.appendShareReport(
     report: ScanReport,
 ) {
     builder.appendLine("${report.results.size} probe results in the latest report")
+    if (report.diagnoses.isNotEmpty()) {
+        builder.appendLine("Diagnoses:")
+        report.diagnoses.take(4).forEach { diagnosis ->
+            builder.appendLine("  - ${diagnosis.code}: ${diagnosis.summary}")
+        }
+    }
+    report.classifierVersion?.let { builder.appendLine("Classifier: $it") }
+    if (report.packVersions.isNotEmpty()) {
+        builder.appendLine(
+            "Packs: ${report.packVersions.entries.joinToString(" · ") { (packId, version) -> "$packId@$version" }}",
+        )
+    }
     report.results.firstOrNull { it.probeType == "telegram_availability" }?.let {
         appendTelegramProbeSummary(builder, it)
     }

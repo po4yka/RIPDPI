@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::ScanKind;
+use crate::types::DiagnosticProfileFamily;
 
 // --- Constants ---
 
@@ -42,6 +43,22 @@ pub(crate) fn default_strategy_probe_suite() -> String {
 
 pub(crate) fn default_scan_kind() -> ScanKind {
     ScanKind::Connectivity
+}
+
+pub(crate) fn default_diagnostic_profile_family() -> DiagnosticProfileFamily {
+    DiagnosticProfileFamily::General
+}
+
+pub(crate) fn default_throughput_window_bytes() -> usize {
+    8 * 1024 * 1024
+}
+
+pub(crate) fn default_throughput_runs() -> usize {
+    2
+}
+
+pub(crate) fn default_diagnosis_severity() -> String {
+    "warning".to_string()
 }
 
 pub(crate) fn default_telegram_dc_port() -> u16 {
@@ -135,7 +152,18 @@ pub(crate) fn late_stage_cutoff(bytes_sent: usize, responses_seen: usize) -> boo
 pub(crate) fn probe_is_success(outcome: &str) -> bool {
     matches!(
         outcome,
-        "dns_match" | "dns_expected_mismatch" | "tls_ok" | "http_ok" | "tcp_fat_header_ok" | "whitelist_sni_ok"
+        "dns_match"
+            | "dns_expected_mismatch"
+            | "tls_ok"
+            | "tls_version_split"
+            | "http_ok"
+            | "tcp_fat_header_ok"
+            | "whitelist_sni_ok"
+            | "quic_initial_response"
+            | "quic_response"
+            | "service_ok"
+            | "circumvention_ok"
+            | "throughput_measured"
     )
 }
 

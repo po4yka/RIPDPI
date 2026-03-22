@@ -1,5 +1,3 @@
-@file:Suppress("UnusedPrivateProperty")
-
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
@@ -17,6 +15,18 @@ enum class ScanPathMode {
 enum class ScanKind {
     CONNECTIVITY,
     STRATEGY_PROBE,
+}
+
+@Serializable
+enum class DiagnosticProfileFamily {
+    GENERAL,
+    WEB_CONNECTIVITY,
+    MESSAGING,
+    CIRCUMVENTION,
+    THROTTLING,
+    DPI_FULL,
+    AUTOMATIC_PROBING,
+    AUTOMATIC_AUDIT,
 }
 
 @Serializable
@@ -90,17 +100,71 @@ data class StrategyProbeRequest(
 )
 
 @Serializable
+data class ServiceTarget(
+    val id: String,
+    val service: String,
+    val bootstrapUrl: String? = null,
+    val mediaUrl: String? = null,
+    val tcpEndpointHost: String? = null,
+    val tcpEndpointIp: String? = null,
+    val tcpEndpointPort: Int = 443,
+    val tlsServerName: String? = null,
+    val quicHost: String? = null,
+    val quicConnectIp: String? = null,
+    val quicPort: Int = 443,
+)
+
+@Serializable
+data class CircumventionTarget(
+    val id: String,
+    val tool: String,
+    val bootstrapUrl: String? = null,
+    val handshakeHost: String? = null,
+    val handshakeIp: String? = null,
+    val handshakePort: Int = 443,
+    val tlsServerName: String? = null,
+)
+
+@Serializable
+data class ThroughputTarget(
+    val id: String,
+    val label: String,
+    val url: String,
+    val connectIp: String? = null,
+    val port: Int? = null,
+    val isControl: Boolean = false,
+    val windowBytes: Int = 8_388_608,
+    val runs: Int = 2,
+)
+
+@Serializable
+data class Diagnosis(
+    val code: String,
+    val summary: String,
+    val severity: String = "warning",
+    val target: String? = null,
+    val evidence: List<String> = emptyList(),
+)
+
+@Serializable
 data class ScanRequest(
     val profileId: String,
     val displayName: String,
     val pathMode: ScanPathMode,
     val kind: ScanKind = ScanKind.CONNECTIVITY,
+    val family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
+    val regionTag: String? = null,
+    val manualOnly: Boolean = false,
+    val packRefs: List<String> = emptyList(),
     val proxyHost: String? = null,
     val proxyPort: Int? = null,
     val domainTargets: List<DomainTarget> = emptyList(),
     val dnsTargets: List<DnsTarget> = emptyList(),
     val tcpTargets: List<TcpTarget> = emptyList(),
     val quicTargets: List<QuicTarget> = emptyList(),
+    val serviceTargets: List<ServiceTarget> = emptyList(),
+    val circumventionTargets: List<CircumventionTarget> = emptyList(),
+    val throughputTargets: List<ThroughputTarget> = emptyList(),
     val whitelistSni: List<String> = emptyList(),
     val telegramTarget: TelegramTarget? = null,
     val strategyProbe: StrategyProbeRequest? = null,
@@ -161,6 +225,9 @@ data class ScanReport(
     val results: List<ProbeResult> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
+    val diagnoses: List<Diagnosis> = emptyList(),
+    val classifierVersion: String? = null,
+    val packVersions: Map<String, Int> = emptyMap(),
 )
 
 @Serializable
@@ -400,6 +467,13 @@ data class BundledDiagnosticProfile(
     val name: String,
     val version: Int,
     val request: ScanRequest,
+)
+
+@Serializable
+data class BundledDiagnosticsCatalog(
+    val schemaVersion: Int = 1,
+    val generatedAt: String? = null,
+    val profiles: List<BundledDiagnosticProfile> = emptyList(),
 )
 
 fun deriveProbeRetryCount(details: List<ProbeDetail>): Int? {

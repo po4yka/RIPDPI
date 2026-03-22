@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.ScanKind
 
 internal const val StrategyProbeSuiteQuickV1 = "quick_v1"
@@ -85,6 +86,10 @@ data class DiagnosticsProfileOptionUiModel(
     val source: String,
     val kind: ScanKind = ScanKind.CONNECTIVITY,
     val strategyProbeSuiteId: String? = null,
+    val family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
+    val regionTag: String? = null,
+    val manualOnly: Boolean = false,
+    val packRefs: List<String> = emptyList(),
 )
 
 enum class PhaseState { Completed, Active, Pending }
@@ -137,6 +142,16 @@ data class DiagnosticsProbeGroupUiModel(
 )
 
 @Immutable
+data class DiagnosticsDiagnosisUiModel(
+    val code: String,
+    val summary: String,
+    val severity: String,
+    val target: String? = null,
+    val tone: DiagnosticsTone,
+    val evidence: List<String> = emptyList(),
+)
+
+@Immutable
 data class DiagnosticsEventUiModel(
     val id: String,
     val source: String,
@@ -171,6 +186,8 @@ data class DiagnosticsSessionRowUiModel(
 @Stable
 data class DiagnosticsSessionDetailUiModel(
     val session: DiagnosticsSessionRowUiModel,
+    val diagnoses: List<DiagnosticsDiagnosisUiModel> = emptyList(),
+    val reportMetadata: List<DiagnosticsFieldUiModel> = emptyList(),
     val probeGroups: List<DiagnosticsProbeGroupUiModel>,
     val snapshots: List<DiagnosticsNetworkSnapshotUiModel>,
     val events: List<DiagnosticsEventUiModel>,
@@ -279,6 +296,7 @@ data class DiagnosticsScanUiModel(
     val activePathMode: com.poyka.ripdpi.diagnostics.ScanPathMode = com.poyka.ripdpi.diagnostics.ScanPathMode.RAW_PATH,
     val activeProgress: DiagnosticsProgressUiModel? = null,
     val latestSession: DiagnosticsSessionRowUiModel? = null,
+    val diagnoses: List<DiagnosticsDiagnosisUiModel> = emptyList(),
     val latestResults: List<DiagnosticsProbeResultUiModel> = emptyList(),
     val selectedProfileScopeLabel: String? = null,
     val runRawEnabled: Boolean = true,

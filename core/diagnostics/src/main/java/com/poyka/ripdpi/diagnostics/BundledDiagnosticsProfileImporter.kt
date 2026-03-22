@@ -44,11 +44,7 @@ class BundledDiagnosticsProfileImporter
         private val json: Json,
     ) {
         suspend fun importProfiles() {
-            val bundledProfiles =
-                json.decodeFromString(
-                    ListSerializer(BundledDiagnosticProfile.serializer()),
-                    profileSource.readProfilesJson(),
-                )
+            val bundledProfiles = decodeProfiles(profileSource.readProfilesJson())
             bundledProfiles.forEach { profile ->
                 val packVersion = profileCatalog.getPackVersion(profile.id)
                 if (packVersion == null || packVersion.version < profile.version) {
@@ -73,6 +69,16 @@ class BundledDiagnosticsProfileImporter
                 }
             }
         }
+
+        private fun decodeProfiles(payload: String): List<BundledDiagnosticProfile> =
+            runCatching {
+                json.decodeFromString(BundledDiagnosticsCatalog.serializer(), payload).profiles
+            }.getOrElse {
+                json.decodeFromString(
+                    ListSerializer(BundledDiagnosticProfile.serializer()),
+                    payload,
+                )
+            }
     }
 
 @dagger.Module
