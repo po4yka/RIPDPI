@@ -26,12 +26,19 @@ struct TelegramDcResult {
     results: Vec<String>,
 }
 
+struct TelegramWsProbeResult {
+    status: String,
+    rtt_ms: u64,
+    error: Option<String>,
+}
+
 // --- Functions ---
 
 pub(crate) fn run_telegram_probe(target: &TelegramTarget, transport: &TransportConfig) -> ProbeResult {
     let dl = telegram_download_probe(target, transport);
     let ul = telegram_upload_probe(target, transport);
     let dc = telegram_dc_probe(target);
+    let ws = telegram_ws_tunnel_probe();
 
     let verdict = if (dl.status == "blocked" || ul.status == "blocked") && dc.reachable == 0 {
         "blocked"
@@ -45,12 +52,15 @@ pub(crate) fn run_telegram_probe(target: &TelegramTarget, transport: &TransportC
         "error"
     };
 
+    let quality_score = compute_telegram_quality_score(&dl, &ul, &dc, &ws);
+
     ProbeResult {
         probe_type: "telegram_availability".to_string(),
         target: "telegram.org".to_string(),
         outcome: verdict.to_string(),
         details: vec![
             ProbeDetail { key: "verdict".to_string(), value: verdict.to_string() },
+            ProbeDetail { key: "qualityScore".to_string(), value: quality_score.to_string() },
             ProbeDetail { key: "downloadStatus".to_string(), value: dl.status },
             ProbeDetail { key: "downloadAvgBps".to_string(), value: dl.avg_bps.to_string() },
             ProbeDetail { key: "downloadPeakBps".to_string(), value: dl.peak_bps.to_string() },
@@ -66,8 +76,61 @@ pub(crate) fn run_telegram_probe(target: &TelegramTarget, transport: &TransportC
             ProbeDetail { key: "dcReachable".to_string(), value: dc.reachable.to_string() },
             ProbeDetail { key: "dcTotal".to_string(), value: dc.total.to_string() },
             ProbeDetail { key: "dcResults".to_string(), value: dc.results.join("|") },
+            ProbeDetail { key: "wsTunnelStatus".to_string(), value: ws.status },
+            ProbeDetail { key: "wsTunnelRttMs".to_string(), value: ws.rtt_ms.to_string() },
+            ProbeDetail {
+                key: "wsTunnelError".to_string(),
+                value: ws.error.unwrap_or_else(|| "none".to_string()),
+            },
         ],
     }
+}
+
+/// Compute a composite quality score from Telegram probe sub-results.
+///
+/// Lower score = better quality. Returns `u64::MAX` if all probes failed.
+///
+/// Weights: download (3x), upload (2x), DC-reachability (1x per DC), WS tunnel (1x).
+/// Penalizes failures with +2000ms per failed component (adapted from tglock's
+/// `benchmark_telegram` scoring algorithm).
+fn compute_telegram_quality_score(
+    dl: &TelegramTransferResult,
+    ul: &TelegramTransferResult,
+    dc: &TelegramDcResult,
+    ws: &TelegramWsProbeResult,
+) -> u64 {
+    const FAILURE_PENALTY_MS: u64 = 2000;
+    const PARTIAL_PENALTY_MS: u64 = 1000;
+    const DL_WEIGHT: u64 = 3;
+    const UL_WEIGHT: u64 = 2;
+    const WS_WEIGHT: u64 = 1;
+
+    let transfer_score = |t: &TelegramTransferResult| -> u64 {
+        match t.status.as_str() {
+            "ok" => t.duration_ms,
+            "slow" | "stalled" => t.duration_ms.saturating_add(PARTIAL_PENALTY_MS),
+            _ => FAILURE_PENALTY_MS,
+        }
+    };
+
+    let dl_score = transfer_score(dl) * DL_WEIGHT;
+    let ul_score = transfer_score(ul) * UL_WEIGHT;
+
+    let dc_total = dc.total.max(1) as u64;
+    let dc_unreachable = dc.total.saturating_sub(dc.reachable) as u64;
+    let dc_score = dc_unreachable * FAILURE_PENALTY_MS;
+    let dc_weight = dc_total;
+
+    let ws_score = if ws.status == "ok" { ws.rtt_ms } else { FAILURE_PENALTY_MS } * WS_WEIGHT;
+
+    let total_weighted = dl_score + ul_score + dc_score + ws_score;
+    let total_weight = DL_WEIGHT + UL_WEIGHT + dc_weight + WS_WEIGHT;
+
+    if dl.status == "blocked" && ul.status == "blocked" && dc.reachable == 0 && ws.status != "ok" {
+        return u64::MAX;
+    }
+
+    total_weighted / total_weight
 }
 
 fn telegram_download_probe(target: &TelegramTarget, transport: &TransportConfig) -> TelegramTransferResult {
@@ -417,6 +480,29 @@ fn telegram_dc_probe(target: &TelegramTarget) -> TelegramDcResult {
     TelegramDcResult { reachable, total: target.dc_endpoints.len(), results }
 }
 
+/// Probe whether the Telegram WebSocket tunnel endpoint is reachable.
+///
+/// Attempts a TLS + WebSocket handshake to `wss://kws2.web.telegram.org/apiws`
+/// (DC2 is the default/most common). Does not send any MTProto data -- only
+/// verifies that the WSS endpoint accepts connections.
+fn telegram_ws_tunnel_probe() -> TelegramWsProbeResult {
+    let start = std::time::Instant::now();
+    match ripdpi_ws_tunnel::probe_ws_tunnel(2) {
+        Ok(()) => {
+            let rtt_ms = start.elapsed().as_millis() as u64;
+            TelegramWsProbeResult { status: "ok".to_string(), rtt_ms, error: None }
+        }
+        Err(e) => {
+            let rtt_ms = start.elapsed().as_millis() as u64;
+            TelegramWsProbeResult {
+                status: "unreachable".to_string(),
+                rtt_ms,
+                error: Some(e.to_string()),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -483,6 +569,99 @@ mod tests {
             "error"
         };
         assert_eq!(verdict, "partial");
+    }
+
+    // --- Quality score tests ---
+
+    fn make_transfer(status: &str, duration_ms: u64) -> TelegramTransferResult {
+        TelegramTransferResult {
+            status: status.to_string(),
+            avg_bps: 0,
+            peak_bps: 0,
+            bytes_total: 0,
+            duration_ms,
+            error: None,
+        }
+    }
+
+    fn make_dc(reachable: usize, total: usize) -> TelegramDcResult {
+        TelegramDcResult { reachable, total, results: vec![] }
+    }
+
+    fn make_ws(status: &str, rtt_ms: u64) -> TelegramWsProbeResult {
+        TelegramWsProbeResult { status: status.to_string(), rtt_ms, error: None }
+    }
+
+    #[test]
+    fn quality_score_low_for_perfect_results() {
+        let dl = make_transfer("ok", 100);
+        let ul = make_transfer("ok", 80);
+        let dc = make_dc(3, 3);
+        let ws = make_ws("ok", 50);
+
+        let score = compute_telegram_quality_score(&dl, &ul, &dc, &ws);
+        // (100*3 + 80*2 + 0 + 50*1) / (3+2+3+1) = (300+160+0+50)/9 = 510/9 = 56
+        assert_eq!(score, 56);
+    }
+
+    #[test]
+    fn quality_score_penalizes_blocked_download_heavily() {
+        let dl = make_transfer("blocked", 0);
+        let ul = make_transfer("ok", 80);
+        let dc = make_dc(3, 3);
+        let ws = make_ws("ok", 50);
+
+        let score = compute_telegram_quality_score(&dl, &ul, &dc, &ws);
+        // (2000*3 + 80*2 + 0 + 50*1) / 9 = (6000+160+0+50)/9 = 6210/9 = 690
+        assert_eq!(score, 690);
+    }
+
+    #[test]
+    fn quality_score_penalizes_unreachable_dcs() {
+        let dl = make_transfer("ok", 100);
+        let ul = make_transfer("ok", 80);
+        let dc = make_dc(1, 3); // 2 unreachable
+        let ws = make_ws("ok", 50);
+
+        let score = compute_telegram_quality_score(&dl, &ul, &dc, &ws);
+        // (100*3 + 80*2 + 2*2000 + 50*1) / 9 = (300+160+4000+50)/9 = 4510/9 = 501
+        assert_eq!(score, 501);
+    }
+
+    #[test]
+    fn quality_score_is_max_when_all_probes_fail() {
+        let dl = make_transfer("blocked", 0);
+        let ul = make_transfer("blocked", 0);
+        let dc = make_dc(0, 3);
+        let ws = make_ws("unreachable", 0);
+
+        let score = compute_telegram_quality_score(&dl, &ul, &dc, &ws);
+        assert_eq!(score, u64::MAX);
+    }
+
+    #[test]
+    fn quality_score_reflects_latency_differences() {
+        let fast_dl = make_transfer("ok", 50);
+        let slow_dl = make_transfer("ok", 500);
+        let ul = make_transfer("ok", 80);
+        let dc = make_dc(3, 3);
+        let ws = make_ws("ok", 50);
+
+        let fast_score = compute_telegram_quality_score(&fast_dl, &ul, &dc, &ws);
+        let slow_score = compute_telegram_quality_score(&slow_dl, &ul, &dc, &ws);
+        assert!(fast_score < slow_score, "faster download should produce lower (better) score");
+    }
+
+    #[test]
+    fn quality_score_partial_penalty_for_slow_transfer() {
+        let dl = make_transfer("slow", 200);
+        let ul = make_transfer("ok", 80);
+        let dc = make_dc(3, 3);
+        let ws = make_ws("ok", 50);
+
+        let score = compute_telegram_quality_score(&dl, &ul, &dc, &ws);
+        // (1200*3 + 80*2 + 0 + 50*1) / 9 = (3600+160+0+50)/9 = 3810/9 = 423
+        assert_eq!(score, 423);
     }
 
     #[test]
