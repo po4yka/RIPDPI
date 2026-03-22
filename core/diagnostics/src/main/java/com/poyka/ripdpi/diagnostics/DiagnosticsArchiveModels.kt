@@ -16,7 +16,7 @@ import java.io.File
 internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
-    const val schemaVersion = 7
+    const val schemaVersion = 8
     const val privacyMode = "split_output"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -89,6 +89,7 @@ internal data class DiagnosticsArchivePayload(
     val scope: String,
     val privacyMode: String,
     val session: ScanSessionEntity?,
+    val primaryReport: ScanReport? = null,
     val results: List<ProbeResultEntity>,
     val sessionSnapshots: List<NetworkSnapshotEntity>,
     val sessionContexts: List<DiagnosticContextEntity>,
@@ -138,6 +139,9 @@ internal data class DiagnosticsArchiveManifest(
     val networkSummary: RedactedNetworkSummary?,
     val contextSummary: RedactedDiagnosticContextSummary?,
     val latestTelemetrySummary: ArchiveTelemetrySummary? = null,
+    val classifierVersion: String? = null,
+    val diagnosisCount: Int = 0,
+    val packVersions: Map<String, Int> = emptyMap(),
     val includedFiles: List<String>,
     val logcatIncluded: Boolean,
     val logcatCaptureScope: String,

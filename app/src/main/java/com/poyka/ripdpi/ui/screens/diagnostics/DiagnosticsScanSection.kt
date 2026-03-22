@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.CompletedProbeUiModel
+import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
@@ -95,14 +96,38 @@ internal fun ScanSection(
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    uiState.scan.profiles.forEach { profile ->
-                        DiagnosticsProfileCard(
-                            profile = profile,
-                            selected = profile.id == uiState.scan.selectedProfileId,
-                            onClick = { onSelectProfile(profile.id) },
+                    uiState.scan.profiles.groupBy { it.family }.forEach { (family, profiles) ->
+                        Text(
+                            text = family.displayFamilyLabel(),
+                            style = RipDpiThemeTokens.type.bodyEmphasis,
+                            color = RipDpiThemeTokens.colors.foreground,
                         )
+                        profiles.forEach { profile ->
+                            DiagnosticsProfileCard(
+                                profile = profile,
+                                selected = profile.id == uiState.scan.selectedProfileId,
+                                onClick = { onSelectProfile(profile.id) },
+                            )
+                        }
                     }
                 }
+            }
+        }
+        if (uiState.scan.diagnoses.isNotEmpty()) {
+            item {
+                DiagnosisSummaryCard(
+                    title = "Diagnosis summary",
+                    diagnoses = uiState.scan.diagnoses,
+                )
+            }
+        }
+        selectedProfile?.takeIf { it.regionTag?.equals("ru", ignoreCase = true) == true }?.let {
+            item {
+                WarningBanner(
+                    title = "Russia-focused suite",
+                    message = "Manual local checks tuned for Russian DPI patterns. Results are evidence, not attribution.",
+                    tone = WarningBannerTone.Restricted,
+                )
             }
         }
         selectedProfile?.let { profile ->
@@ -349,6 +374,26 @@ internal fun DiagnosticsProfileCard(
 ) {
     val (badge, description) =
         when {
+            profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> {
+                "RU WEB" to "Russia-focused web connectivity, DNS, TLS, and HTTP evidence."
+            }
+
+            profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.MESSAGING -> {
+                "RU MSG" to "Messaging bootstrap, media, and protocol reachability checks."
+            }
+
+            profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.CIRCUMVENTION -> {
+                "RU BYPASS" to "Tor and VPN bootstrap plus handshake reachability."
+            }
+
+            profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.THROTTLING -> {
+                "RU RATE" to "Manual throughput windows against neutral control endpoints."
+            }
+
+            profile.family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.DPI_FULL -> {
+                "RU FULL" to "Combined Russia-specific DPI heuristics across multiple services."
+            }
+
             profile.strategyProbeSuiteId == "full_matrix_v1" -> {
                 stringResource(R.string.diagnostics_profile_audit_badge) to
                     stringResource(R.string.diagnostics_profile_audit_body)
@@ -367,8 +412,17 @@ internal fun DiagnosticsProfileCard(
 
     PresetCard(
         title = profile.name,
-        description = description,
-        badgeText = badge,
+        description =
+            buildString {
+                append(description)
+                if (profile.manualOnly) {
+                    append(" Manual run only.")
+                }
+                if (profile.packRefs.isNotEmpty()) {
+                    append(" ${profile.packRefs.size} curated packs included.")
+                }
+            },
+        badgeText = if (profile.regionTag?.equals("ru", ignoreCase = true) == true) "$badge · RU" else badge,
         selected = selected,
         onClick = onClick,
     )
@@ -544,6 +598,12 @@ internal fun DiagnosticsScanWorkflowCard(
                 add(stringResource(R.string.diagnostics_profile_badge_dns_http_https_tcp) to DiagnosticsTone.Info)
                 add(stringResource(R.string.diagnostics_profile_badge_raw_and_in_path) to DiagnosticsTone.Positive)
             }
+            if (profile.manualOnly) {
+                add("Manual only" to DiagnosticsTone.Warning)
+            }
+            if (profile.regionTag?.equals("ru", ignoreCase = true) == true) {
+                add("Russia DPI" to DiagnosticsTone.Warning)
+            }
         }
 
     RipDpiCard(variant = RipDpiCardVariant.Tonal) {
@@ -640,6 +700,60 @@ internal fun DiagnosticsScanWorkflowCard(
         }
     }
 }
+
+@Composable
+private fun DiagnosisSummaryCard(
+    title: String,
+    diagnoses: List<DiagnosticsDiagnosisUiModel>,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+        Text(
+            text = title,
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = colors.foreground,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            diagnoses.forEach { diagnosis ->
+                RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+                    StatusIndicator(label = diagnosis.code, tone = statusTone(diagnosis.tone))
+                    Text(
+                        text = diagnosis.summary,
+                        style = RipDpiThemeTokens.type.bodyEmphasis,
+                        color = colors.foreground,
+                    )
+                    diagnosis.target?.let { target ->
+                        Text(
+                            text = target,
+                            style = RipDpiThemeTokens.type.monoSmall,
+                            color = colors.mutedForeground,
+                        )
+                    }
+                    diagnosis.evidence.take(3).forEach { evidence ->
+                        Text(
+                            text = evidence,
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.mutedForeground,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.displayFamilyLabel(): String =
+    when (this) {
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.GENERAL -> "General"
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.WEB_CONNECTIVITY -> "Web Connectivity"
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.MESSAGING -> "Messaging"
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.CIRCUMVENTION -> "Circumvention"
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.THROTTLING -> "Throttling"
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.DPI_FULL -> "DPI Full"
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_PROBING -> "Automatic Probing"
+        com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_AUDIT -> "Automatic Audit"
+    }
 
 @Composable
 internal fun StrategyProbeReportCard(

@@ -1,5 +1,8 @@
 {
+  "classifierVersion": "ru_ooni_v1",
+  "diagnoses": [],
   "finishedAt": 0,
+  "packVersions": {},
   "pathMode": "RAW_PATH",
   "profileId": "default",
   "results": [

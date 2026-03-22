@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod", "MaxLineLength")
-
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -104,6 +102,30 @@ class DiagnosticsDetailAndShareServicesTest {
                     profileId = "default",
                     pathMode = ScanPathMode.IN_PATH.name,
                     summary = "Blocked DNS",
+                ).copy(
+                    reportJson =
+                        json.encodeToString(
+                            ScanReport.serializer(),
+                            ScanReport(
+                                sessionId = "session-1",
+                                profileId = "default",
+                                pathMode = ScanPathMode.IN_PATH,
+                                startedAt = 10L,
+                                finishedAt = 15L,
+                                summary = "Blocked DNS",
+                                results = emptyList(),
+                                diagnoses =
+                                    listOf(
+                                        Diagnosis(
+                                            code = "dns_tampering",
+                                            summary = "DNS answers were substituted",
+                                            target = "blocked.example",
+                                        ),
+                                    ),
+                                classifierVersion = "ru_ooni_v1",
+                                packVersions = mapOf("ru-independent-media" to 1),
+                            ),
+                        ),
                 )
             stores.sessionsState.value = listOf(session)
             stores.replaceProbeResults(
@@ -191,6 +213,9 @@ class DiagnosticsDetailAndShareServicesTest {
             assertTrue(summary.title.startsWith("RIPDPI diagnostics"))
             assertTrue(summary.body.contains("summary=Blocked DNS"))
             assertTrue(summary.body.contains("dns:blocked.example=dns_blocked"))
+            assertTrue(summary.body.contains("classifierVersion=ru_ooni_v1"))
+            assertTrue(summary.body.contains("diagnosis.dns_tampering=DNS answers were substituted"))
+            assertTrue(summary.body.contains("pack.ru-independent-media=1"))
             assertEquals("Path", summary.compactMetrics.first().label)
             assertSame(expectedArchive, archive)
             assertEquals(session.id, archiveExporter.requestedSessionId)

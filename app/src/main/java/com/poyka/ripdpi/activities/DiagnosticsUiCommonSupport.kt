@@ -4,6 +4,7 @@ import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanProgress
@@ -21,6 +22,10 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
         source = profile.source,
         kind = request?.kind ?: ScanKind.CONNECTIVITY,
         strategyProbeSuiteId = request?.strategyProbe?.suiteId,
+        family = request?.family ?: com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.GENERAL,
+        regionTag = request?.regionTag,
+        manualOnly = request?.manualOnly == true,
+        packRefs = request?.packRefs.orEmpty(),
     )
 }
 
@@ -32,6 +37,24 @@ internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
     index: Int,
     result: com.poyka.ripdpi.diagnostics.ProbeResult,
 ): DiagnosticsProbeResultUiModel = core.toProbeResultUiModel(index, result)
+
+internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(
+    diagnosis: Diagnosis,
+): DiagnosticsDiagnosisUiModel =
+    DiagnosticsDiagnosisUiModel(
+        code = diagnosis.code,
+        summary = diagnosis.summary,
+        severity = diagnosis.severity,
+        target = diagnosis.target,
+        tone =
+            when (diagnosis.severity.lowercase(Locale.US)) {
+                "negative", "error", "blocked" -> DiagnosticsTone.Negative
+                "warning", "degraded" -> DiagnosticsTone.Warning
+                "positive", "ok" -> DiagnosticsTone.Positive
+                else -> DiagnosticsTone.Info
+            },
+        evidence = diagnosis.evidence,
+    )
 
 internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
     policy: DiagnosticsRememberedPolicy,
@@ -64,16 +87,19 @@ internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
 internal fun DiagnosticsUiFactorySupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =
     core.toEventUiModel(event)
 
-private val connectivityPhaseOrder = listOf("dns", "reachability", "tcp", "telegram")
+private val connectivityPhaseOrder = listOf("dns", "reachability", "quic", "tcp", "service", "circumvention", "telegram", "throughput")
 private val strategyProbePhaseOrder = listOf("tcp", "quic")
 
 private fun String.toPhaseLabel(): String =
     when (this) {
         "dns" -> "DNS"
         "reachability" -> "Reach"
-        "tcp" -> "TCP"
-        "telegram" -> "TG"
         "quic" -> "QUIC"
+        "tcp" -> "TCP"
+        "service" -> "Svc"
+        "circumvention" -> "Bypass"
+        "telegram" -> "TG"
+        "throughput" -> "Rate"
         else -> replaceFirstChar { it.uppercase() }
     }
 
