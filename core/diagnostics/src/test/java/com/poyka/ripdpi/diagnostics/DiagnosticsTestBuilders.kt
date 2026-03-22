@@ -46,6 +46,7 @@ internal fun createDiagnosticsServices(
     networkDiagnosticsBridgeFactory: NetworkDiagnosticsBridgeFactory,
     runtimeCoordinator: DiagnosticsRuntimeCoordinator,
     serviceStateStore: ServiceStateStore,
+    activeConnectionPolicyStore: ActiveConnectionPolicyStore = EmptyActiveConnectionPolicyStore(),
     logcatSnapshotCollector: LogcatSnapshotCollector = LogcatSnapshotCollector(),
     diagnosticsHistoryClock: DiagnosticsHistoryClock = TestDiagnosticsHistoryClock(),
     rememberedNetworkPolicyStore: RememberedNetworkPolicyStore =
@@ -142,6 +143,18 @@ internal fun createDiagnosticsServices(
             scope = scope,
         )
     val recommendationStore = DiagnosticsRecommendationStore(stores, json)
+    val runtimeHistoryStartup =
+        createRuntimeHistoryMonitor(
+            appSettingsRepository = appSettingsRepository,
+            stores = stores,
+            networkMetadataProvider = networkMetadataProvider,
+            diagnosticsContextProvider = diagnosticsContextProvider,
+            serviceStateStore = serviceStateStore,
+            diagnosticsHistoryClock = diagnosticsHistoryClock,
+            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            activeConnectionPolicyStore = activeConnectionPolicyStore,
+            scope = scope,
+        )
     scanController =
         DefaultDiagnosticsScanController(
             appSettingsRepository = appSettingsRepository,
@@ -166,6 +179,7 @@ internal fun createDiagnosticsServices(
                         clock = diagnosticsHistoryClock,
                         json = json,
                     ),
+                runtimeHistoryStartup = runtimeHistoryStartup,
                 policyHandoverEventStore = policyHandoverEventStore,
                 automaticProbeScheduler = scheduler,
                 importBundledProfilesOnInitialize = importBundledProfilesOnInitialize,
@@ -186,7 +200,7 @@ internal fun createDiagnosticsServices(
     )
 }
 
-internal fun createRuntimeHistoryRecorder(
+internal fun createRuntimeHistoryMonitor(
     appSettingsRepository: AppSettingsRepository,
     stores: FakeDiagnosticsHistoryStores,
     networkMetadataProvider: NetworkMetadataProvider,
@@ -197,20 +211,35 @@ internal fun createRuntimeHistoryRecorder(
         DefaultRememberedNetworkPolicyStore(stores, diagnosticsHistoryClock),
     activeConnectionPolicyStore: ActiveConnectionPolicyStore = EmptyActiveConnectionPolicyStore(),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1)),
-): DefaultRuntimeHistoryRecorder =
-    DefaultRuntimeHistoryRecorder(
-        appSettingsRepository = appSettingsRepository,
-        profileCatalog = stores,
-        bypassUsageHistoryStore = stores,
-        artifactWriteStore = stores,
-        historyRetentionStore = stores,
-        rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-        networkMetadataProvider = networkMetadataProvider,
-        diagnosticsContextProvider = diagnosticsContextProvider,
+): RuntimeHistoryStartup {
+    val rememberedPolicySessionTracker = RememberedPolicySessionTracker(rememberedNetworkPolicyStore)
+    val artifactPersister =
+        RuntimeArtifactPersister(
+            artifactWriteStore = stores,
+            historyRetentionStore = stores,
+            networkMetadataProvider = networkMetadataProvider,
+            diagnosticsContextProvider = diagnosticsContextProvider,
+            serviceStateStore = serviceStateStore,
+        )
+    val sessionCoordinator =
+        RuntimeSessionCoordinator(
+            appSettingsRepository = appSettingsRepository,
+            profileCatalog = stores,
+            bypassUsageHistoryStore = stores,
+            diagnosticsContextProvider = diagnosticsContextProvider,
+            serviceStateStore = serviceStateStore,
+            activeConnectionPolicyStore = activeConnectionPolicyStore,
+            rememberedPolicySessionTracker = rememberedPolicySessionTracker,
+            artifactPersister = artifactPersister,
+            scope = scope,
+        )
+    return RuntimeHistoryMonitor(
         serviceStateStore = serviceStateStore,
         activeConnectionPolicyStore = activeConnectionPolicyStore,
+        sessionCoordinator = sessionCoordinator,
         scope = scope,
     )
+}
 
 private class EmptyActiveConnectionPolicyStore : ActiveConnectionPolicyStore {
     override val activePolicies: StateFlow<Map<com.poyka.ripdpi.data.Mode, ActiveConnectionPolicy>> =

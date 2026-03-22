@@ -9,8 +9,11 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.RememberedNetworkPolicyProofDurationMs
+import com.poyka.ripdpi.data.RememberedNetworkPolicyProofTransferBytes
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySourceManualSession
+import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.RttBand
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
@@ -30,14 +33,14 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class RuntimeHistoryRecorderTest {
+class RuntimeHistoryMonitorTest {
     @Test
     fun `failure without active session creates failed connection history`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val serviceStateStore = DefaultServiceStateStore()
-            val recorder =
-                createRuntimeHistoryRecorder(
+            val monitor =
+                createRuntimeHistoryMonitor(
                     appSettingsRepository = RecorderFakeAppSettingsRepository(),
                     stores = stores,
                     networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
@@ -45,7 +48,7 @@ class RuntimeHistoryRecorderTest {
                     serviceStateStore = serviceStateStore,
                 )
 
-            recorder.start()
+            monitor.start()
             Thread.sleep(100)
             serviceStateStore.emitFailed(Sender.Proxy, FailureReason.NativeError("boom"))
 
@@ -75,8 +78,8 @@ class RuntimeHistoryRecorderTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val serviceStateStore = DefaultServiceStateStore()
-            val recorder =
-                createRuntimeHistoryRecorder(
+            val monitor =
+                createRuntimeHistoryMonitor(
                     appSettingsRepository =
                         RecorderFakeAppSettingsRepository(
                             defaultAppSettings()
@@ -90,7 +93,7 @@ class RuntimeHistoryRecorderTest {
                     serviceStateStore = serviceStateStore,
                 )
 
-            recorder.start()
+            monitor.start()
             serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
             serviceStateStore.updateTelemetry(
                 ServiceTelemetrySnapshot(
@@ -239,8 +242,8 @@ class RuntimeHistoryRecorderTest {
                     source = RememberedNetworkPolicySourceManualSession,
                     validatedAt = 200L,
                 )
-            val recorder =
-                createRuntimeHistoryRecorder(
+            val monitor =
+                createRuntimeHistoryMonitor(
                     appSettingsRepository = RecorderFakeAppSettingsRepository(),
                     stores = stores,
                     rememberedNetworkPolicyStore = rememberedPolicyStore,
@@ -250,7 +253,7 @@ class RuntimeHistoryRecorderTest {
                     activeConnectionPolicyStore = activePolicyStore,
                 )
 
-            recorder.start()
+            monitor.start()
             serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
             waitUntil { stores.usageSessionsState.value.isNotEmpty() }
 
@@ -303,6 +306,163 @@ class RuntimeHistoryRecorderTest {
             assertEquals(0, firstPersisted.consecutiveFailureCount)
             assertEquals(1_000L, firstPersisted.lastAppliedAt)
             assertEquals(2_000L, secondPersisted.lastAppliedAt)
+        }
+
+    @Test
+    fun `starting monitor twice does not duplicate failure handling`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val monitor =
+                createRuntimeHistoryMonitor(
+                    appSettingsRepository = RecorderFakeAppSettingsRepository(),
+                    stores = stores,
+                    networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = RecorderFakeDiagnosticsContextProvider(),
+                    serviceStateStore = serviceStateStore,
+                )
+
+            monitor.start()
+            monitor.start()
+            Thread.sleep(100)
+            serviceStateStore.emitFailed(Sender.Proxy, FailureReason.NativeError("boom"))
+
+            waitUntil {
+                stores.usageSessionsState.value.isNotEmpty() &&
+                    stores.nativeEventsState.value.isNotEmpty() &&
+                    stores.telemetryState.value.isNotEmpty()
+            }
+
+            assertEquals(1, stores.usageSessionsState.value.size)
+            assertEquals(1, stores.nativeEventsState.value.size)
+            assertEquals(1, stores.telemetryState.value.size)
+        }
+
+    @Test
+    fun `used remembered policy records failure when session ends before proof`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock(currentTime = 1_000L)
+            val serviceStateStore = DefaultServiceStateStore()
+            val activePolicyStore = FakeActiveConnectionPolicyStore()
+            val rememberedPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock)
+            val policy =
+                rememberedPolicyStore.rememberValidatedPolicy(
+                    policy = rememberedPolicyJson("fingerprint-fail", Mode.VPN),
+                    source = RememberedNetworkPolicySourceManualSession,
+                    validatedAt = 100L,
+                )
+            val monitor =
+                createRuntimeHistoryMonitor(
+                    appSettingsRepository = RecorderFakeAppSettingsRepository(),
+                    stores = stores,
+                    rememberedNetworkPolicyStore = rememberedPolicyStore,
+                    networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = RecorderFakeDiagnosticsContextProvider(),
+                    serviceStateStore = serviceStateStore,
+                    activeConnectionPolicyStore = activePolicyStore,
+                )
+
+            monitor.start()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            waitUntil { stores.usageSessionsState.value.isNotEmpty() }
+
+            activePolicyStore.set(
+                ActiveConnectionPolicy(
+                    mode = Mode.VPN,
+                    policy = rememberedPolicyJson("fingerprint-fail", Mode.VPN),
+                    matchedPolicy = policy,
+                    usedRememberedPolicy = true,
+                    fingerprintHash = "fingerprint-fail",
+                    policySignature = "policy-signature-fail",
+                    appliedAt = System.currentTimeMillis() - 1_000L,
+                ),
+            )
+            waitUntil {
+                stores.rememberedPoliciesState.value.any {
+                    it.fingerprintHash == "fingerprint-fail" &&
+                        it.lastAppliedAt != null
+                }
+            }
+
+            serviceStateStore.emitFailed(Sender.Proxy, FailureReason.NativeError("boom"))
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+
+            waitUntil {
+                stores.rememberedPoliciesState.value.any {
+                    it.fingerprintHash == "fingerprint-fail" &&
+                        it.mode == Mode.VPN.preferenceValue &&
+                        it.failureCount == 1
+                }
+            }
+
+            val persisted =
+                requireNotNull(stores.getRememberedNetworkPolicy("fingerprint-fail", Mode.VPN.preferenceValue))
+            assertEquals(1, persisted.failureCount)
+            assertEquals(1, persisted.consecutiveFailureCount)
+        }
+
+    @Test
+    fun `observed remembered policy is validated after proved successful session`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock(currentTime = 1_000L)
+            val serviceStateStore = DefaultServiceStateStore()
+            val activePolicyStore = FakeActiveConnectionPolicyStore()
+            val rememberedPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock)
+            val monitor =
+                createRuntimeHistoryMonitor(
+                    appSettingsRepository = RecorderFakeAppSettingsRepository(),
+                    stores = stores,
+                    rememberedNetworkPolicyStore = rememberedPolicyStore,
+                    networkMetadataProvider = RecorderFakeNetworkMetadataProvider(),
+                    diagnosticsContextProvider = RecorderFakeDiagnosticsContextProvider(),
+                    serviceStateStore = serviceStateStore,
+                    activeConnectionPolicyStore = activePolicyStore,
+                )
+
+            monitor.start()
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            waitUntil { stores.usageSessionsState.value.isNotEmpty() }
+
+            activePolicyStore.set(
+                ActiveConnectionPolicy(
+                    mode = Mode.VPN,
+                    policy = rememberedPolicyJson("fingerprint-success", Mode.VPN),
+                    usedRememberedPolicy = false,
+                    fingerprintHash = "fingerprint-success",
+                    policySignature = "policy-signature-success",
+                    appliedAt = System.currentTimeMillis() - RememberedNetworkPolicyProofDurationMs - 1_000L,
+                ),
+            )
+            waitUntil {
+                stores.rememberedPoliciesState.value.any {
+                    it.fingerprintHash == "fingerprint-success" &&
+                        it.mode == Mode.VPN.preferenceValue
+                }
+            }
+
+            serviceStateStore.updateTelemetry(
+                runningTelemetry(
+                    txBytes = RememberedNetworkPolicyProofTransferBytes / 2,
+                    rxBytes = RememberedNetworkPolicyProofTransferBytes / 2,
+                ),
+            )
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+
+            waitUntil {
+                stores.rememberedPoliciesState.value.any {
+                    it.fingerprintHash == "fingerprint-success" &&
+                        it.mode == Mode.VPN.preferenceValue &&
+                        it.status == RememberedNetworkPolicyStatusValidated
+                }
+            }
+
+            val persisted =
+                requireNotNull(stores.getRememberedNetworkPolicy("fingerprint-success", Mode.VPN.preferenceValue))
+            assertEquals(RememberedNetworkPolicyStatusValidated, persisted.status)
+            assertEquals(1, persisted.successCount)
+            assertNotNull(persisted.lastValidatedAt)
         }
 }
 
@@ -460,4 +620,31 @@ private class FakeActiveConnectionPolicyStore : ActiveConnectionPolicyStore {
     fun clear(mode: Mode) {
         state.value = state.value - mode
     }
+}
+
+private fun runningTelemetry(
+    txBytes: Long,
+    rxBytes: Long,
+): ServiceTelemetrySnapshot {
+    val now = System.currentTimeMillis()
+    return ServiceTelemetrySnapshot(
+        mode = Mode.VPN,
+        status = AppStatus.Running,
+        tunnelStats = TunnelStats(txPackets = 4, txBytes = txBytes, rxPackets = 5, rxBytes = rxBytes),
+        proxyTelemetry =
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                state = "running",
+                health = "healthy",
+            ),
+        tunnelTelemetry =
+            NativeRuntimeSnapshot(
+                source = "tunnel",
+                state = "running",
+                health = "healthy",
+            ),
+        serviceStartedAt = now,
+        restartCount = 1,
+        updatedAt = now,
+    )
 }
