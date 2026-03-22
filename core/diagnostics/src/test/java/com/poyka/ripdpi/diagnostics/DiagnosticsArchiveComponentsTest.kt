@@ -234,7 +234,14 @@ class DiagnosticsArchiveComponentsTest {
                 .getValue("summary.txt")
                 .bytes
                 .decodeToString()
-                .contains("diagnosis.dns_tampering=DNS answers were substituted"),
+                .contains("Diagnoses:"),
+        )
+        assertTrue(
+            entries
+                .getValue("summary.txt")
+                .bytes
+                .decodeToString()
+                .contains("dns_tampering=DNS answers were substituted"),
         )
         assertTrue(
             entries

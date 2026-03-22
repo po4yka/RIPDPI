@@ -10,8 +10,8 @@ use native_soak_support::{
     acquire_global_lock, assert_growth, write_json_artifact, GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW,
 };
 use ripdpi_monitor::{
-    DnsTarget, DomainTarget, MonitorSession, NativeSessionEvent, ScanKind, ScanPathMode, ScanProgress, ScanReport,
-    ScanRequest, TcpTarget,
+    DiagnosticProfileFamily, DnsTarget, DomainTarget, MonitorSession, NativeSessionEvent, ScanKind, ScanPathMode,
+    ScanProgress, ScanReport, ScanRequest, TcpTarget,
 };
 use serde_json::json;
 
@@ -54,7 +54,10 @@ fn diagnostics_session_soak() {
     for cycle in 0..cycles {
         let session = MonitorSession::new();
         session
-            .start_scan(format!("diagnostics-session-{cycle}"), scan_request(fixture.manifest(), server.port()))
+            .start_scan(
+                format!("diagnostics-session-{cycle}"),
+                scan_request(fixture.manifest(), server.port()).into(),
+            )
             .expect("start diagnostics scan");
         let report = wait_for_report(&session, &passive_events);
         assert_report_success(&report);
@@ -114,7 +117,7 @@ fn diagnostics_polling_soak() {
         let session = MonitorSession::new();
         let session_id = format!("diagnostics-polling-{}", completed.load(Ordering::Relaxed));
         session
-            .start_scan(session_id, scan_request(fixture.manifest(), server.port()))
+            .start_scan(session_id, scan_request(fixture.manifest(), server.port()).into())
             .expect("start diagnostics polling scan");
         let report = wait_for_report_with_progress(&session, &progress_polls, &passive_events);
         assert_report_success(&report);
@@ -220,8 +223,13 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
         display_name: "Local diagnostics soak".to_string(),
         path_mode: ScanPathMode::RawPath,
         kind: ScanKind::Connectivity,
+        family: DiagnosticProfileFamily::General,
+        region_tag: None,
+        manual_only: false,
+        pack_refs: vec![],
         proxy_host: None,
         proxy_port: None,
+        probe_tasks: vec![],
         domain_targets: vec![DomainTarget {
             host: manifest.fixture_domain.clone(),
             connect_ip: Some("127.0.0.1".to_string()),
@@ -256,6 +264,9 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
             fat_header_requests: Some(4),
         }],
         quic_targets: vec![],
+        service_targets: vec![],
+        circumvention_targets: vec![],
+        throughput_targets: vec![],
         whitelist_sni: vec![manifest.fixture_domain.clone()],
         telegram_target: None,
         strategy_probe: None,
