@@ -477,6 +477,39 @@ fn ws_tunnel_mode_none_enabled_false_maps_to_off() {
     assert_eq!(config.ws_tunnel_mode, WsTunnelMode::Off);
 }
 
+#[test]
+fn ui_http_strategy_enables_delay_connect() {
+    let mut ui = minimal_ui();
+    ui.protocols.desync_http = true;
+    ui.protocols.desync_udp = false;
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    assert!(config.delay_conn);
+}
+
+#[test]
+fn ui_host_filters_enable_delay_connect() {
+    let mut ui = minimal_ui();
+    ui.hosts.mode = "whitelist".to_string();
+    ui.hosts.entries = Some("example.com".to_string());
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    assert!(config.delay_conn);
+}
+
+#[test]
+fn ui_udp_only_strategy_keeps_delay_connect_disabled() {
+    let mut ui = minimal_ui();
+    ui.protocols.desync_http = false;
+    ui.protocols.desync_https = false;
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    assert!(!config.delay_conn);
+}
+
 // --- Validation edge-case tests ---
 
 #[test]

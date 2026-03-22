@@ -22,7 +22,7 @@ pub(crate) fn extract_host(config: &RuntimeConfig, payload: &[u8]) -> Option<Str
 }
 
 pub(crate) fn group_requires_payload(group: &DesyncGroup) -> bool {
-    !group.filters.hosts.is_empty() || group.proto != 0
+    !group.filters.hosts.is_empty() || (group.proto & (IS_HTTP | IS_HTTPS)) != 0
 }
 
 pub(crate) fn route_matches_payload(
@@ -204,6 +204,28 @@ mod tests {
         let packet = rust_packet_seeds::quic_initial_v1();
 
         assert!(route_matches_payload(&config, 0, sample_dest(443), &packet, TransportProtocol::Udp));
+    }
+
+    #[test]
+    fn group_requires_payload_only_for_l7_or_host_filters() {
+        let mut group = DesyncGroup::new(0);
+        assert!(!group_requires_payload(&group));
+
+        group.proto = IS_TCP;
+        assert!(!group_requires_payload(&group));
+
+        group.proto = IS_UDP;
+        assert!(!group_requires_payload(&group));
+
+        group.proto = IS_HTTP;
+        assert!(group_requires_payload(&group));
+
+        group.proto = IS_HTTPS | IS_TCP;
+        assert!(group_requires_payload(&group));
+
+        group.proto = 0;
+        group.filters.hosts.push("example.com".to_string());
+        assert!(group_requires_payload(&group));
     }
 
     #[test]
