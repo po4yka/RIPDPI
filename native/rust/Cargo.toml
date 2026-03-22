@@ -15,6 +15,7 @@ members = [
     "crates/ripdpi-packets",
     "crates/ripdpi-session",
     "crates/ripdpi-ws-tunnel",
+    "crates/ripdpi-config",
     "crates/hs5t-android",
 ]
 exclude = [
@@ -43,6 +44,7 @@ ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
 ripdpi-packets = { path = "crates/ripdpi-packets" }
 ripdpi-session = { path = "crates/ripdpi-session" }
 ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
+ripdpi-config = { path = "crates/ripdpi-config" }
 
 ciadpi-config = { path = "third_party/byedpi/crates/ciadpi-config" }
 ciadpi-desync = { path = "third_party/byedpi/crates/ciadpi-desync" }

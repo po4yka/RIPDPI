@@ -1,0 +1,15 @@
+[package]
+name = "ripdpi-config"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-packets = { workspace = true }
+
+[dev-dependencies]
+serde_json = "1.0"
+tempfile = "3.14"
