@@ -39,6 +39,8 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -168,21 +170,27 @@ internal fun AdvancedTextSetting(
         RipDpiConfigTextField(
             value = input,
             onValueChange = { input = it },
-            placeholder = placeholder,
-            enabled = enabled,
-            helperText = helperText,
-            errorText = errorText,
-            multiline = multiline,
-            keyboardOptions = keyboardOptions,
-            keyboardActions =
-                KeyboardActions(
-                    onDone = {
-                        if (enabled && isDirty && isValid) {
-                            onConfirm(setting, normalizedInput)
-                        }
-                    },
+            decoration =
+                RipDpiTextFieldDecoration(
+                    placeholder = placeholder,
+                    helperText = helperText,
+                    errorText = errorText,
+                    testTag = RipDpiTestTags.advancedInput(setting),
                 ),
-            testTag = RipDpiTestTags.advancedInput(setting),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    enabled = enabled,
+                    keyboardOptions = keyboardOptions,
+                    keyboardActions =
+                        KeyboardActions(
+                            onDone = {
+                                if (enabled && isDirty && isValid) {
+                                    onConfirm(setting, normalizedInput)
+                                }
+                            },
+                        ),
+                ),
+            multiline = multiline,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -387,12 +395,18 @@ internal fun ActivationBoundaryField(
         RipDpiConfigTextField(
             value = value,
             onValueChange = onValueChange,
-            enabled = enabled,
-            helperText = helperText,
-            errorText = errorText,
-            density = RipDpiControlDensity.Compact,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-            testTag = testTag,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    helperText = helperText,
+                    errorText = errorText,
+                    testTag = testTag,
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    enabled = enabled,
+                    density = RipDpiControlDensity.Compact,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                ),
         )
     }
 }

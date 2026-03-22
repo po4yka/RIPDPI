@@ -56,6 +56,7 @@ import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
@@ -683,9 +684,12 @@ private fun SessionsSection(
                 RipDpiTextField(
                     value = uiState.sessions.filters.query,
                     onValueChange = onSearch,
-                    label = stringResource(R.string.diagnostics_search_label),
-                    placeholder = stringResource(R.string.diagnostics_search_placeholder),
-                    testTag = RipDpiTestTags.DiagnosticsSessionsSearch,
+                    decoration =
+                        RipDpiTextFieldDecoration(
+                            label = stringResource(R.string.diagnostics_search_label),
+                            placeholder = stringResource(R.string.diagnostics_search_placeholder),
+                            testTag = RipDpiTestTags.DiagnosticsSessionsSearch,
+                        ),
                 )
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     items(uiState.sessions.pathModes, key = { it }) { pathMode ->
@@ -779,9 +783,12 @@ private fun EventsSection(
                 RipDpiTextField(
                     value = uiState.events.filters.search,
                     onValueChange = onSearch,
-                    label = stringResource(R.string.diagnostics_search_label),
-                    placeholder = stringResource(R.string.diagnostics_events_search_placeholder),
-                    testTag = RipDpiTestTags.DiagnosticsEventsSearch,
+                    decoration =
+                        RipDpiTextFieldDecoration(
+                            label = stringResource(R.string.diagnostics_search_label),
+                            placeholder = stringResource(R.string.diagnostics_events_search_placeholder),
+                            testTag = RipDpiTestTags.DiagnosticsEventsSearch,
+                        ),
                 )
                 SettingsRow(
                     title = stringResource(R.string.logs_auto_scroll_title),

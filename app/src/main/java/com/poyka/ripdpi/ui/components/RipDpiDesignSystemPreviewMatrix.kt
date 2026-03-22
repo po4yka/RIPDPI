@@ -39,6 +39,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -223,8 +225,11 @@ private fun RipDpiDesignSystemCatalog(
                                 RipDpiConfigTextField(
                                     value = "127.0.0.1",
                                     onValueChange = {},
-                                    label = "Proxy IP",
-                                    helperText = "Local listener address",
+                                    decoration =
+                                        RipDpiTextFieldDecoration(
+                                            label = "Proxy IP",
+                                            helperText = "Local listener address",
+                                        ),
                                 )
                             },
                         )
@@ -233,9 +238,12 @@ private fun RipDpiDesignSystemCatalog(
                                 RipDpiConfigTextField(
                                     value = "127.0.0.1",
                                     onValueChange = {},
-                                    label = "Proxy IP",
-                                    helperText = "Local listener address",
-                                    enabled = false,
+                                    decoration =
+                                        RipDpiTextFieldDecoration(
+                                            label = "Proxy IP",
+                                            helperText = "Local listener address",
+                                        ),
+                                    behavior = RipDpiTextFieldBehavior(enabled = false),
                                 )
                             },
                         )
@@ -245,9 +253,15 @@ private fun RipDpiDesignSystemCatalog(
                                     RipDpiConfigTextField(
                                         value = "127.0.0.1",
                                         onValueChange = {},
-                                        label = "Proxy IP",
-                                        helperText = "Local listener address",
-                                        interactionSource = rememberPreviewInteractionSource(focused = true),
+                                        decoration =
+                                            RipDpiTextFieldDecoration(
+                                                label = "Proxy IP",
+                                                helperText = "Local listener address",
+                                            ),
+                                        behavior =
+                                            RipDpiTextFieldBehavior(
+                                                interactionSource = rememberPreviewInteractionSource(focused = true),
+                                            ),
                                     )
                                 },
                             )
@@ -257,8 +271,11 @@ private fun RipDpiDesignSystemCatalog(
                                 RipDpiConfigTextField(
                                     value = "999.0.0.1",
                                     onValueChange = {},
-                                    label = "Proxy IP",
-                                    errorText = "Enter a valid IP address",
+                                    decoration =
+                                        RipDpiTextFieldDecoration(
+                                            label = "Proxy IP",
+                                            errorText = "Enter a valid IP address",
+                                        ),
                                 )
                             },
                         )
@@ -274,7 +291,7 @@ private fun RipDpiDesignSystemCatalog(
                                 RipDpiConfigTextField(
                                     value = "--dpi-desync=fake --dpi-desync-ttl=5",
                                     onValueChange = {},
-                                    label = "Command line",
+                                    decoration = RipDpiTextFieldDecoration(label = "Command line"),
                                     multiline = true,
                                 )
                             },
@@ -284,9 +301,9 @@ private fun RipDpiDesignSystemCatalog(
                                 RipDpiConfigTextField(
                                     value = "--dpi-desync=fake --dpi-desync-ttl=5",
                                     onValueChange = {},
-                                    label = "Command line",
+                                    decoration = RipDpiTextFieldDecoration(label = "Command line"),
                                     multiline = true,
-                                    enabled = false,
+                                    behavior = RipDpiTextFieldBehavior(enabled = false),
                                 )
                             },
                         )
@@ -296,9 +313,12 @@ private fun RipDpiDesignSystemCatalog(
                                     RipDpiConfigTextField(
                                         value = "--dpi-desync=fake --dpi-desync-ttl=5",
                                         onValueChange = {},
-                                        label = "Command line",
+                                        decoration = RipDpiTextFieldDecoration(label = "Command line"),
                                         multiline = true,
-                                        interactionSource = rememberPreviewInteractionSource(focused = true),
+                                        behavior =
+                                            RipDpiTextFieldBehavior(
+                                                interactionSource = rememberPreviewInteractionSource(focused = true),
+                                            ),
                                     )
                                 },
                             )
@@ -308,9 +328,12 @@ private fun RipDpiDesignSystemCatalog(
                                 RipDpiConfigTextField(
                                     value = "--broken",
                                     onValueChange = {},
-                                    label = "Command line",
+                                    decoration =
+                                        RipDpiTextFieldDecoration(
+                                            label = "Command line",
+                                            errorText = "Option is not supported in this mode",
+                                        ),
                                     multiline = true,
-                                    errorText = "Option is not supported in this mode",
                                 )
                             },
                         )
@@ -375,11 +398,15 @@ private fun RipDpiDesignSystemCatalog(
                             RipDpiConfigTextField(
                                 value = "",
                                 onValueChange = {},
-                                label = "Custom startup command",
-                                helperText =
-                                    "Long commands wrap, but supporting text should remain readable at larger scales.",
+                                decoration =
+                                    RipDpiTextFieldDecoration(
+                                        label = "Custom startup command",
+                                        helperText =
+                                            "Long commands wrap, but supporting text should remain readable " +
+                                                "at larger scales.",
+                                    ),
                                 multiline = true,
-                                density = RipDpiControlDensity.Compact,
+                                behavior = RipDpiTextFieldBehavior(density = RipDpiControlDensity.Compact),
                             )
                         },
                     ),

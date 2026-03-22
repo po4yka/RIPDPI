@@ -54,6 +54,8 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
@@ -299,21 +301,30 @@ fun ModeEditorScreen(
                         RipDpiTextField(
                             value = draft.proxyIp,
                             onValueChange = onProxyIpChanged,
-                            label = stringResource(R.string.bye_dpi_proxy_ip_setting),
-                            placeholder = stringResource(R.string.config_placeholder_proxy_ip),
-                            helperText = stringResource(R.string.config_proxy_helper),
-                            errorText = validationMessage(uiState.validationErrors[ConfigFieldProxyIp]),
-                            testTag = RipDpiTestTags.ModeEditorProxyIp,
+                            decoration =
+                                RipDpiTextFieldDecoration(
+                                    label = stringResource(R.string.bye_dpi_proxy_ip_setting),
+                                    placeholder = stringResource(R.string.config_placeholder_proxy_ip),
+                                    helperText = stringResource(R.string.config_proxy_helper),
+                                    errorText = validationMessage(uiState.validationErrors[ConfigFieldProxyIp]),
+                                    testTag = RipDpiTestTags.ModeEditorProxyIp,
+                                ),
                         )
                         RipDpiTextField(
                             value = draft.proxyPort,
                             onValueChange = onProxyPortChanged,
-                            label = stringResource(R.string.ripdpi_proxy_port_setting),
-                            placeholder = stringResource(R.string.config_placeholder_proxy_port),
-                            helperText = stringResource(R.string.config_port_helper),
-                            errorText = validationMessage(uiState.validationErrors[ConfigFieldProxyPort]),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            testTag = RipDpiTestTags.ModeEditorProxyPort,
+                            decoration =
+                                RipDpiTextFieldDecoration(
+                                    label = stringResource(R.string.ripdpi_proxy_port_setting),
+                                    placeholder = stringResource(R.string.config_placeholder_proxy_port),
+                                    helperText = stringResource(R.string.config_port_helper),
+                                    errorText = validationMessage(uiState.validationErrors[ConfigFieldProxyPort]),
+                                    testTag = RipDpiTestTags.ModeEditorProxyPort,
+                                ),
+                            behavior =
+                                RipDpiTextFieldBehavior(
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                ),
                         )
                     }
                 }
@@ -324,20 +335,32 @@ fun ModeEditorScreen(
                         RipDpiTextField(
                             value = draft.maxConnections,
                             onValueChange = onMaxConnectionsChanged,
-                            label = stringResource(R.string.ripdpi_max_connections_setting),
-                            helperText = stringResource(R.string.config_max_connections_helper),
-                            errorText = validationMessage(uiState.validationErrors[ConfigFieldMaxConnections]),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            testTag = RipDpiTestTags.ModeEditorMaxConnections,
+                            decoration =
+                                RipDpiTextFieldDecoration(
+                                    label = stringResource(R.string.ripdpi_max_connections_setting),
+                                    helperText = stringResource(R.string.config_max_connections_helper),
+                                    errorText = validationMessage(uiState.validationErrors[ConfigFieldMaxConnections]),
+                                    testTag = RipDpiTestTags.ModeEditorMaxConnections,
+                                ),
+                            behavior =
+                                RipDpiTextFieldBehavior(
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                ),
                         )
                         RipDpiTextField(
                             value = draft.bufferSize,
                             onValueChange = onBufferSizeChanged,
-                            label = stringResource(R.string.ripdpi_buffer_size_setting),
-                            helperText = stringResource(R.string.config_buffer_helper),
-                            errorText = validationMessage(uiState.validationErrors[ConfigFieldBufferSize]),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            testTag = RipDpiTestTags.ModeEditorBufferSize,
+                            decoration =
+                                RipDpiTextFieldDecoration(
+                                    label = stringResource(R.string.ripdpi_buffer_size_setting),
+                                    helperText = stringResource(R.string.config_buffer_helper),
+                                    errorText = validationMessage(uiState.validationErrors[ConfigFieldBufferSize]),
+                                    testTag = RipDpiTestTags.ModeEditorBufferSize,
+                                ),
+                            behavior =
+                                RipDpiTextFieldBehavior(
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                ),
                         )
                         Text(
                             text = stringResource(R.string.config_chain_summary_label, draft.chainSummary),
@@ -347,23 +370,35 @@ fun ModeEditorScreen(
                         RipDpiConfigTextField(
                             value = draft.chainDsl,
                             onValueChange = onChainDslChanged,
-                            label = stringResource(R.string.config_chain_editor_label),
-                            placeholder = stringResource(R.string.config_placeholder_chain_dsl),
-                            helperText = stringResource(R.string.config_chain_editor_helper),
-                            errorText = validationMessage(uiState.validationErrors[ConfigFieldStrategyChain]),
+                            decoration =
+                                RipDpiTextFieldDecoration(
+                                    label = stringResource(R.string.config_chain_editor_label),
+                                    placeholder = stringResource(R.string.config_placeholder_chain_dsl),
+                                    helperText = stringResource(R.string.config_chain_editor_helper),
+                                    errorText = validationMessage(uiState.validationErrors[ConfigFieldStrategyChain]),
+                                    testTag = RipDpiTestTags.ModeEditorChainDsl,
+                                ),
                             multiline = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-                            testTag = RipDpiTestTags.ModeEditorChainDsl,
+                            behavior =
+                                RipDpiTextFieldBehavior(
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                                ),
                         )
                         RipDpiTextField(
                             value = draft.defaultTtl,
                             onValueChange = onDefaultTtlChanged,
-                            label = stringResource(R.string.ripdpi_default_ttl_setting),
-                            placeholder = stringResource(R.string.config_placeholder_default_ttl),
-                            helperText = stringResource(R.string.config_default_ttl_helper),
-                            errorText = validationMessage(uiState.validationErrors[ConfigFieldDefaultTtl]),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            testTag = RipDpiTestTags.ModeEditorDefaultTtl,
+                            decoration =
+                                RipDpiTextFieldDecoration(
+                                    label = stringResource(R.string.ripdpi_default_ttl_setting),
+                                    placeholder = stringResource(R.string.config_placeholder_default_ttl),
+                                    helperText = stringResource(R.string.config_default_ttl_helper),
+                                    errorText = validationMessage(uiState.validationErrors[ConfigFieldDefaultTtl]),
+                                    testTag = RipDpiTestTags.ModeEditorDefaultTtl,
+                                ),
+                            behavior =
+                                RipDpiTextFieldBehavior(
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                ),
                         )
                     }
                 }
@@ -407,10 +442,13 @@ fun ModeEditorScreen(
                         RipDpiConfigTextField(
                             value = draft.commandLineArgs,
                             onValueChange = onCommandLineArgsChanged,
-                            label = stringResource(R.string.command_line_arguments),
-                            placeholder = stringResource(R.string.config_placeholder_command_line),
-                            helperText = stringResource(R.string.config_command_line_helper),
-                            testTag = RipDpiTestTags.ModeEditorCommandLineArgs,
+                            decoration =
+                                RipDpiTextFieldDecoration(
+                                    label = stringResource(R.string.command_line_arguments),
+                                    placeholder = stringResource(R.string.config_placeholder_command_line),
+                                    helperText = stringResource(R.string.config_command_line_helper),
+                                    testTag = RipDpiTestTags.ModeEditorCommandLineArgs,
+                                ),
                         )
                     }
                 }

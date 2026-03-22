@@ -55,6 +55,8 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
@@ -509,33 +511,39 @@ internal fun DnsSettingsScreen(
                         RipDpiTextField(
                             value = plainDnsInput,
                             onValueChange = { plainDnsInput = it },
-                            testTag = RipDpiTestTags.DnsPlainAddress,
-                            label = stringResource(R.string.dbs_ip_setting),
-                            placeholder = stringResource(R.string.config_placeholder_dns),
-                            helperText =
-                                if (uiState.isVpn) {
-                                    stringResource(R.string.config_dns_helper)
-                                } else {
-                                    stringResource(R.string.config_dns_disabled_helper)
-                                },
-                            errorText =
-                                if (plainDnsInput.isNotBlank() && !plainDnsValid) {
-                                    stringResource(R.string.config_error_invalid_dns)
-                                } else {
-                                    null
-                                },
-                            keyboardOptions =
-                                KeyboardOptions(
-                                    keyboardType = KeyboardType.Ascii,
-                                    imeAction = ImeAction.Done,
+                            decoration =
+                                RipDpiTextFieldDecoration(
+                                    testTag = RipDpiTestTags.DnsPlainAddress,
+                                    label = stringResource(R.string.dbs_ip_setting),
+                                    placeholder = stringResource(R.string.config_placeholder_dns),
+                                    helperText =
+                                        if (uiState.isVpn) {
+                                            stringResource(R.string.config_dns_helper)
+                                        } else {
+                                            stringResource(R.string.config_dns_disabled_helper)
+                                        },
+                                    errorText =
+                                        if (plainDnsInput.isNotBlank() && !plainDnsValid) {
+                                            stringResource(R.string.config_error_invalid_dns)
+                                        } else {
+                                            null
+                                        },
                                 ),
-                            keyboardActions =
-                                KeyboardActions(
-                                    onDone = {
-                                        if (plainDnsValid && plainDnsDirty) {
-                                            onSavePlainDns(trimmedPlainDns)
-                                        }
-                                    },
+                            behavior =
+                                RipDpiTextFieldBehavior(
+                                    keyboardOptions =
+                                        KeyboardOptions(
+                                            keyboardType = KeyboardType.Ascii,
+                                            imeAction = ImeAction.Done,
+                                        ),
+                                    keyboardActions =
+                                        KeyboardActions(
+                                            onDone = {
+                                                if (plainDnsValid && plainDnsDirty) {
+                                                    onSavePlainDns(trimmedPlainDns)
+                                                }
+                                            },
+                                        ),
                                 ),
                         )
                         RipDpiButton(
@@ -957,22 +965,28 @@ private fun CustomEncryptedDnsSection(
             RipDpiTextField(
                 value = tlsServerNameInput,
                 onValueChange = onTlsServerNameChange,
-                testTag = RipDpiTestTags.DnsCustomTlsServerName,
-                label = stringResource(R.string.dns_custom_tls_server_name_label),
-                placeholder = stringResource(R.string.dns_placeholder_resolver_example),
-                helperText = stringResource(R.string.dns_custom_dot_tls_helper),
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Ascii,
-                        imeAction = ImeAction.Done,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        testTag = RipDpiTestTags.DnsCustomTlsServerName,
+                        label = stringResource(R.string.dns_custom_tls_server_name_label),
+                        placeholder = stringResource(R.string.dns_placeholder_resolver_example),
+                        helperText = stringResource(R.string.dns_custom_dot_tls_helper),
                     ),
-                keyboardActions =
-                    KeyboardActions(
-                        onDone = {
-                            if (customDotValid && customDotDirty) {
-                                onSaveCustomDot()
-                            }
-                        },
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Ascii,
+                                imeAction = ImeAction.Done,
+                            ),
+                        keyboardActions =
+                            KeyboardActions(
+                                onDone = {
+                                    if (customDotValid && customDotDirty) {
+                                        onSaveCustomDot()
+                                    }
+                                },
+                            ),
                     ),
             )
             RipDpiButton(
@@ -1016,41 +1030,53 @@ private fun CustomEncryptedDnsSection(
             RipDpiTextField(
                 value = dnscryptProviderInput,
                 onValueChange = onDnscryptProviderChange,
-                testTag = RipDpiTestTags.DnsCustomDnsCryptProvider,
-                label = stringResource(R.string.dns_custom_dnscrypt_provider_label),
-                placeholder = stringResource(R.string.dns_placeholder_dnscrypt_cert),
-                helperText = stringResource(R.string.dns_custom_dnscrypt_provider_helper),
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Ascii,
-                        imeAction = ImeAction.Next,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        testTag = RipDpiTestTags.DnsCustomDnsCryptProvider,
+                        label = stringResource(R.string.dns_custom_dnscrypt_provider_label),
+                        placeholder = stringResource(R.string.dns_placeholder_dnscrypt_cert),
+                        helperText = stringResource(R.string.dns_custom_dnscrypt_provider_helper),
+                    ),
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Ascii,
+                                imeAction = ImeAction.Next,
+                            ),
                     ),
             )
             RipDpiTextField(
                 value = dnscryptPublicKeyInput,
                 onValueChange = onDnscryptPublicKeyChange,
-                testTag = RipDpiTestTags.DnsCustomDnsCryptPublicKey,
-                label = stringResource(R.string.dns_custom_dnscrypt_public_key_label),
-                placeholder = stringResource(R.string.dns_placeholder_public_key),
-                helperText = stringResource(R.string.dns_custom_dnscrypt_public_key_helper),
-                errorText =
-                    if (dnscryptPublicKeyInput.isNotBlank() && !dnscryptPublicKeyValid) {
-                        stringResource(R.string.dns_custom_dnscrypt_public_key_error)
-                    } else {
-                        null
-                    },
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Ascii,
-                        imeAction = ImeAction.Done,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        testTag = RipDpiTestTags.DnsCustomDnsCryptPublicKey,
+                        label = stringResource(R.string.dns_custom_dnscrypt_public_key_label),
+                        placeholder = stringResource(R.string.dns_placeholder_public_key),
+                        helperText = stringResource(R.string.dns_custom_dnscrypt_public_key_helper),
+                        errorText =
+                            if (dnscryptPublicKeyInput.isNotBlank() && !dnscryptPublicKeyValid) {
+                                stringResource(R.string.dns_custom_dnscrypt_public_key_error)
+                            } else {
+                                null
+                            },
                     ),
-                keyboardActions =
-                    KeyboardActions(
-                        onDone = {
-                            if (customDnsCryptValid && customDnsCryptDirty) {
-                                onSaveCustomDnsCrypt()
-                            }
-                        },
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Ascii,
+                                imeAction = ImeAction.Done,
+                            ),
+                        keyboardActions =
+                            KeyboardActions(
+                                onDone = {
+                                    if (customDnsCryptValid && customDnsCryptDirty) {
+                                        onSaveCustomDnsCrypt()
+                                    }
+                                },
+                            ),
                     ),
             )
             RipDpiButton(
@@ -1076,47 +1102,59 @@ private fun CustomEncryptedDnsSection(
             RipDpiTextField(
                 value = dohUrl,
                 onValueChange = onDohUrlChange,
-                testTag = RipDpiTestTags.DnsCustomDohUrl,
-                label = stringResource(R.string.dns_custom_doh_url_label),
-                placeholder = stringResource(R.string.dns_placeholder_doh_url),
-                helperText = stringResource(R.string.dns_custom_doh_url_helper),
-                errorText =
-                    if (dohUrl.isNotBlank() && !isValidHttpsUrl(dohUrl.trim())) {
-                        stringResource(R.string.dns_custom_doh_url_error)
-                    } else {
-                        null
-                    },
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Uri,
-                        imeAction = ImeAction.Next,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        testTag = RipDpiTestTags.DnsCustomDohUrl,
+                        label = stringResource(R.string.dns_custom_doh_url_label),
+                        placeholder = stringResource(R.string.dns_placeholder_doh_url),
+                        helperText = stringResource(R.string.dns_custom_doh_url_helper),
+                        errorText =
+                            if (dohUrl.isNotBlank() && !isValidHttpsUrl(dohUrl.trim())) {
+                                stringResource(R.string.dns_custom_doh_url_error)
+                            } else {
+                                null
+                            },
+                    ),
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Uri,
+                                imeAction = ImeAction.Next,
+                            ),
                     ),
             )
             RipDpiTextField(
                 value = bootstrapInput,
                 onValueChange = onBootstrapInputChange,
-                testTag = RipDpiTestTags.DnsCustomBootstrap,
-                label = stringResource(R.string.dns_custom_bootstrap_label),
-                placeholder = stringResource(R.string.dns_placeholder_bootstrap_ips),
-                helperText = stringResource(R.string.dns_custom_bootstrap_helper),
-                errorText =
-                    if (bootstrapInput.isNotBlank() && !bootstrapIpsValid) {
-                        stringResource(R.string.dns_custom_bootstrap_error)
-                    } else {
-                        null
-                    },
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Ascii,
-                        imeAction = ImeAction.Done,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        testTag = RipDpiTestTags.DnsCustomBootstrap,
+                        label = stringResource(R.string.dns_custom_bootstrap_label),
+                        placeholder = stringResource(R.string.dns_placeholder_bootstrap_ips),
+                        helperText = stringResource(R.string.dns_custom_bootstrap_helper),
+                        errorText =
+                            if (bootstrapInput.isNotBlank() && !bootstrapIpsValid) {
+                                stringResource(R.string.dns_custom_bootstrap_error)
+                            } else {
+                                null
+                            },
                     ),
-                keyboardActions =
-                    KeyboardActions(
-                        onDone = {
-                            if (customDohValid && customDohDirty) {
-                                onSaveCustomDoh()
-                            }
-                        },
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Ascii,
+                                imeAction = ImeAction.Done,
+                            ),
+                        keyboardActions =
+                            KeyboardActions(
+                                onDone = {
+                                    if (customDohValid && customDohDirty) {
+                                        onSaveCustomDoh()
+                                    }
+                                },
+                            ),
                     ),
             )
             RipDpiButton(
@@ -1158,43 +1196,61 @@ private fun CommonEndpointFields(
             value = host,
             onValueChange = onHostChange,
             modifier = Modifier.weight(1f),
-            testTag = RipDpiTestTags.DnsCustomHost,
-            label = hostLabel,
-            placeholder = stringResource(R.string.dns_placeholder_resolver_example),
-            helperText = hostHelper,
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Ascii,
-                    imeAction = ImeAction.Next,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    testTag = RipDpiTestTags.DnsCustomHost,
+                    label = hostLabel,
+                    placeholder = stringResource(R.string.dns_placeholder_resolver_example),
+                    helperText = hostHelper,
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType = KeyboardType.Ascii,
+                            imeAction = ImeAction.Next,
+                        ),
                 ),
         )
         RipDpiTextField(
             value = portInput,
             onValueChange = onPortInputChange,
             modifier = Modifier.weight(0.4f),
-            testTag = RipDpiTestTags.DnsCustomPort,
-            label = stringResource(R.string.dns_custom_port_label),
-            placeholder = stringResource(R.string.dns_placeholder_port),
-            helperText = stringResource(R.string.dns_custom_port_helper),
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Next,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    testTag = RipDpiTestTags.DnsCustomPort,
+                    label = stringResource(R.string.dns_custom_port_label),
+                    placeholder = stringResource(R.string.dns_placeholder_port),
+                    helperText = stringResource(R.string.dns_custom_port_helper),
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Next,
+                        ),
                 ),
         )
     }
     RipDpiTextField(
         value = bootstrapInput,
         onValueChange = onBootstrapInputChange,
-        testTag = RipDpiTestTags.DnsCustomBootstrap,
-        label = stringResource(R.string.dns_custom_bootstrap_label),
-        placeholder = stringResource(R.string.dns_placeholder_bootstrap_ips),
-        helperText = stringResource(R.string.dns_custom_bootstrap_helper),
-        errorText = bootstrapError,
-        keyboardOptions =
-            KeyboardOptions(
-                keyboardType = KeyboardType.Ascii,
-                imeAction = ImeAction.Next,
+        decoration =
+            RipDpiTextFieldDecoration(
+                testTag = RipDpiTestTags.DnsCustomBootstrap,
+                label = stringResource(R.string.dns_custom_bootstrap_label),
+                placeholder = stringResource(R.string.dns_placeholder_bootstrap_ips),
+                helperText = stringResource(R.string.dns_custom_bootstrap_helper),
+                errorText = bootstrapError,
+            ),
+        behavior =
+            RipDpiTextFieldBehavior(
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Ascii,
+                        imeAction = ImeAction.Next,
+                    ),
             ),
     )
 }

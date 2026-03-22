@@ -48,6 +48,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
@@ -516,9 +517,12 @@ private fun FilterCard(
         RipDpiTextField(
             value = searchValue,
             onValueChange = onSearch,
-            label = stringResource(R.string.diagnostics_search_label),
-            placeholder = searchPlaceholder,
-            testTag = searchTestTag,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.diagnostics_search_label),
+                    placeholder = searchPlaceholder,
+                    testTag = searchTestTag,
+                ),
         )
         if (autoScroll != null && onAutoScroll != null) {
             SettingsRow(
