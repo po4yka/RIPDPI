@@ -29,7 +29,11 @@ class DiagnosticsArchiveSessionSelector
             primaryResults: List<ProbeResultEntity>,
             sourceData: DiagnosticsArchiveSourceData,
         ): DiagnosticsArchiveSelection {
-            val primaryReport = DiagnosticsSessionQueries.decodeScanReport(json, primarySession?.reportJson)
+            val primaryReport =
+                primarySession
+                    ?.reportJson
+                    ?.takeIf(String::isNotBlank)
+                    ?.let(json::decodeEngineScanReportWireCompat)
             val primarySnapshots =
                 primarySession
                     ?.id

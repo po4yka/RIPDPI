@@ -21,7 +21,7 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
         name = profile.name,
         source = profile.source,
         kind = request?.kind ?: ScanKind.CONNECTIVITY,
-        strategyProbeSuiteId = request?.strategyProbe?.suiteId,
+        strategyProbeSuiteId = request?.strategyProbeSuiteId,
         family = request?.family ?: com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.GENERAL,
         regionTag = request?.regionTag,
         manualOnly = request?.manualOnly == true,

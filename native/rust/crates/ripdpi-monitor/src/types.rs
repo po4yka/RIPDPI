@@ -34,6 +34,27 @@ pub enum DiagnosticProfileFamily {
     AutomaticAudit,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ProbeTaskFamily {
+    Dns,
+    Web,
+    Quic,
+    Tcp,
+    Service,
+    Circumvention,
+    Telegram,
+    Throughput,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProbeTask {
+    pub family: ProbeTaskFamily,
+    pub target_id: String,
+    pub label: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DomainTarget {
@@ -230,6 +251,8 @@ pub struct ScanRequest {
     pub pack_refs: Vec<String>,
     pub proxy_host: Option<String>,
     pub proxy_port: Option<u16>,
+    #[serde(default)]
+    pub probe_tasks: Vec<ProbeTask>,
     pub domain_targets: Vec<DomainTarget>,
     pub dns_targets: Vec<DnsTarget>,
     pub tcp_targets: Vec<TcpTarget>,
@@ -386,6 +409,7 @@ mod tests {
         assert!(request.region_tag.is_none());
         assert!(!request.manual_only);
         assert!(request.pack_refs.is_empty());
+        assert!(request.probe_tasks.is_empty());
         assert!(request.quic_targets.is_empty());
         assert!(request.service_targets.is_empty());
         assert!(request.circumvention_targets.is_empty());

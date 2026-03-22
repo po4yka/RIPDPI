@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import kotlinx.serialization.Serializable
 import java.io.File
 
@@ -67,7 +68,7 @@ internal data class DiagnosticsArchiveSourceData(
 internal data class DiagnosticsArchiveSelection(
     val payload: DiagnosticsArchivePayload,
     val primarySession: ScanSessionEntity?,
-    val primaryReport: ScanReport?,
+    val primaryReport: EngineScanReportWire?,
     val primaryResults: List<ProbeResultEntity>,
     val primarySnapshots: List<NetworkSnapshotEntity>,
     val primaryContexts: List<DiagnosticContextEntity>,
@@ -89,7 +90,7 @@ internal data class DiagnosticsArchivePayload(
     val scope: String,
     val privacyMode: String,
     val session: ScanSessionEntity?,
-    val primaryReport: ScanReport? = null,
+    val primaryReport: EngineScanReportWire? = null,
     val results: List<ProbeResultEntity>,
     val sessionSnapshots: List<NetworkSnapshotEntity>,
     val sessionContexts: List<DiagnosticContextEntity>,

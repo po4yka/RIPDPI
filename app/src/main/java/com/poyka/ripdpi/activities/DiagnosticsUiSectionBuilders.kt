@@ -12,8 +12,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
-import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ShareSummary
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
@@ -49,7 +50,7 @@ internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
 internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
     profiles: List<DiagnosticProfile>,
     activeProfile: DiagnosticProfile?,
-    activeProfileRequest: com.poyka.ripdpi.diagnostics.ScanRequest?,
+    activeProfileRequest: DiagnosticsProfileProjection?,
     latestProfileSession: DiagnosticScanSession?,
     latestReportResults: List<DiagnosticsProbeResultUiModel>,
     latestResolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
@@ -241,7 +242,7 @@ internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
     latestContext: DiagnosticContextModel?,
     currentTelemetry: DiagnosticTelemetrySample?,
     nativeEvents: List<DiagnosticEvent>,
-    latestReport: ScanReport?,
+    latestReport: DiagnosticsSessionProjection?,
     approachStats: List<BypassApproachSummary>,
     selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
     archiveActionState: ArchiveActionState,

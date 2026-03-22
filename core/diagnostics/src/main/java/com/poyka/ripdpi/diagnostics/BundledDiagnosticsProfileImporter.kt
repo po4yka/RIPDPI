@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
+import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticProfileWire
+import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
 import dagger.Binds
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -55,7 +57,11 @@ class BundledDiagnosticsProfileImporter
                             name = profile.name,
                             source = "bundled",
                             version = profile.version,
-                            requestJson = json.encodeToString(ScanRequest.serializer(), profile.request),
+                            requestJson =
+                                json.encodeToString(
+                                    com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire.serializer(),
+                                    profile.request,
+                                ),
                             updatedAt = now,
                         ),
                     )
@@ -70,14 +76,25 @@ class BundledDiagnosticsProfileImporter
             }
         }
 
-        private fun decodeProfiles(payload: String): List<BundledDiagnosticProfile> =
+        private fun decodeProfiles(payload: String): List<BundledDiagnosticProfileWire> =
             runCatching {
-                json.decodeFromString(BundledDiagnosticsCatalog.serializer(), payload).profiles
+                json.decodeFromString(BundledDiagnosticsCatalogWire.serializer(), payload).profiles
             }.getOrElse {
-                json.decodeFromString(
-                    ListSerializer(BundledDiagnosticProfile.serializer()),
-                    payload,
-                )
+                runCatching {
+                    json.decodeFromString(
+                        ListSerializer(BundledDiagnosticProfileWire.serializer()),
+                        payload,
+                    )
+                }.getOrElse {
+                    json.decodeFromString(ListSerializer(BundledDiagnosticProfile.serializer()), payload).map { legacy ->
+                        BundledDiagnosticProfileWire(
+                            id = legacy.id,
+                            name = legacy.name,
+                            version = legacy.version,
+                            request = legacy.request.toProfileSpecWire(),
+                        )
+                    }
+                }
             }
     }
 

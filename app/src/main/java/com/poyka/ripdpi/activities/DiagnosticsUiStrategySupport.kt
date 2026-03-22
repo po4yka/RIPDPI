@@ -12,11 +12,11 @@ import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
-import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import java.util.Locale
 import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
 
@@ -214,13 +214,13 @@ internal fun DiagnosticsUiFactorySupport.toResolverRecommendationUiModel(
     )
 
 internal fun DiagnosticsUiFactorySupport.toScopeLabel(
-    request: ScanRequest?,
+    request: DiagnosticsProfileProjection?,
     rawArgsEnabled: Boolean,
 ): String? =
     when (request?.kind) {
         ScanKind.STRATEGY_PROBE -> {
             when {
-                rawArgsEnabled && request.strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1 -> {
+                rawArgsEnabled && request.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1 -> {
                     "Automatic audit · raw-path only · blocked by command-line mode"
                 }
 
@@ -228,7 +228,7 @@ internal fun DiagnosticsUiFactorySupport.toScopeLabel(
                     "Automatic probing · raw-path only · blocked by command-line mode"
                 }
 
-                request.strategyProbe?.suiteId == StrategyProbeSuiteFullMatrixV1 -> {
+                request.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1 -> {
                     "Automatic audit · raw-path only"
                 }
 

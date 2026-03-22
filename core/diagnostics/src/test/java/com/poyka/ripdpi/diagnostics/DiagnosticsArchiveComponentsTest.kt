@@ -27,7 +27,7 @@ class DiagnosticsArchiveComponentsTest {
         }
 
     private val redactor = DiagnosticsArchiveRedactor(json)
-    private val renderer = DiagnosticsArchiveRenderer(redactor, json)
+    private val renderer = DiagnosticsArchiveRenderer(redactor, DiagnosticsSummaryProjector(), json)
     private val selector = DiagnosticsArchiveSessionSelector(redactor, json)
 
     @Test
@@ -92,7 +92,7 @@ class DiagnosticsArchiveComponentsTest {
         val latestCompleted =
             scanSession(
                 id = "session-latest",
-                reportJson = json.encodeToString(scanReport("session-latest")),
+                reportJson = json.encodeToString(scanReport("session-latest").toEngineScanReportWire()),
                 strategyId = "strategy-fast",
             )
         val running =
@@ -171,7 +171,7 @@ class DiagnosticsArchiveComponentsTest {
                         approachSummaries = listOf(approachSummary(strategyId = "strategy-fast")),
                     ),
                 primarySession = scanSession(id = "session-1", strategyId = "strategy-fast"),
-                primaryReport = scanReport("session-1"),
+                primaryReport = scanReport("session-1").toEngineScanReportWire(),
                 primaryResults = listOf(probeResult(sessionId = "session-1")),
                 primarySnapshots = listOf(networkSnapshotEntity(sessionId = "session-1")),
                 primaryContexts = listOf(diagnosticContextEntity(sessionId = "session-1")),
@@ -304,7 +304,7 @@ class DiagnosticsArchiveComponentsTest {
         id: String,
         strategyId: String? = null,
         status: String = "finished",
-        reportJson: String? = json.encodeToString(scanReport(id)),
+        reportJson: String? = json.encodeToString(scanReport(id).toEngineScanReportWire()),
         startedAt: Long = 10L,
     ) = ScanSessionEntity(
         id = id,

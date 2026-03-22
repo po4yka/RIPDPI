@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod", "MaxLineLength")
-
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
@@ -10,6 +8,10 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
+import com.poyka.ripdpi.diagnostics.domain.ExecutionPolicy
+import com.poyka.ripdpi.diagnostics.domain.ScanContext
+import com.poyka.ripdpi.diagnostics.domain.ScanPlan
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -37,18 +39,15 @@ class DiagnosticsScanExecutionCoordinatorTest {
             val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
             val networkFingerprintProvider = FakeNetworkFingerprintProvider()
             val preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock)
-            val coordinator =
-                DiagnosticsScanExecutionCoordinator(
-                    context = TestContext(),
-                    scanRecordStore = stores,
-                    artifactWriteStore = stores,
-                    networkMetadataProvider = FakeNetworkMetadataProvider(),
-                    networkFingerprintProvider = networkFingerprintProvider,
-                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
                     resolverOverrideStore = resolverOverrideStore,
+                    networkFingerprintProvider = networkFingerprintProvider,
+                    preferredPathStore = preferredPathStore,
                     rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
-                    networkDnsPathPreferenceStore = preferredPathStore,
                     json = json,
                 )
             val prepared =
@@ -64,7 +63,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     networkFingerprint = networkFingerprintProvider.capture(),
                 )
             seedPreparedScan(stores, prepared)
-            val runtimeState = DiagnosticsScanRuntimeState(timelineSource).apply { rememberPreparedScan(prepared) }
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
             val bridge =
                 FakeNetworkDiagnosticsBridge(json).apply {
                     autoCompleteOnStart = false
@@ -102,8 +101,10 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     )
                     enqueueReport(scanReportWithResolverRecommendation(prepared.sessionId))
                 }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            coordinator.execute(prepared, bridge, rawPathRunner = { block -> block() }, runtimeState = runtimeState)
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
 
             val session = requireNotNull(stores.getScanSession(prepared.sessionId))
             val preferredPath =
@@ -131,18 +132,13 @@ class DiagnosticsScanExecutionCoordinatorTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
             val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
-            val coordinator =
-                DiagnosticsScanExecutionCoordinator(
-                    context = TestContext(),
-                    scanRecordStore = stores,
-                    artifactWriteStore = stores,
-                    networkMetadataProvider = FakeNetworkMetadataProvider(),
-                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
-                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
                     serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
-                    resolverOverrideStore = FakeResolverOverrideStore(),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
-                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     json = json,
                 )
             val prepared =
@@ -153,7 +149,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     registerActiveBridge = false,
                 )
             seedPreparedScan(stores, prepared)
-            val runtimeState = DiagnosticsScanRuntimeState(timelineSource)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
             val bridge =
                 FakeNetworkDiagnosticsBridge(json).apply {
                     autoCompleteOnStart = false
@@ -169,6 +165,8 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     )
                     enqueueReport(scanReportWithResolverRecommendation(prepared.sessionId))
                 }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
             val progressHistory = mutableListOf<ScanProgress?>()
             val collectionJob =
                 backgroundScope.launch {
@@ -178,7 +176,7 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     }
                 }
 
-            coordinator.execute(prepared, bridge, rawPathRunner = { block -> block() }, runtimeState = runtimeState)
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
             advanceUntilIdle()
             collectionJob.cancel()
 
@@ -191,24 +189,19 @@ class DiagnosticsScanExecutionCoordinatorTest {
             val stores = FakeDiagnosticsHistoryStores()
             val clock = TestDiagnosticsHistoryClock()
             val timelineSource = DefaultDiagnosticsTimelineSource(stores, stores, stores, stores, json)
-            val coordinator =
-                DiagnosticsScanExecutionCoordinator(
-                    context = TestContext(),
-                    scanRecordStore = stores,
-                    artifactWriteStore = stores,
-                    networkMetadataProvider = FakeNetworkMetadataProvider(),
-                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
-                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
                     serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
-                    resolverOverrideStore = FakeResolverOverrideStore(),
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
-                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     json = json,
                 )
             val prepared =
                 preparedDiagnosticsScan(sessionId = "session-failed", settings = defaultDiagnosticsAppSettings())
             seedPreparedScan(stores, prepared)
-            val runtimeState = DiagnosticsScanRuntimeState(timelineSource)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
             val bridge =
                 FakeNetworkDiagnosticsBridge(json).apply {
                     autoCompleteOnStart = false
@@ -223,8 +216,10 @@ class DiagnosticsScanExecutionCoordinatorTest {
                         ),
                     )
                 }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            coordinator.execute(prepared, bridge, rawPathRunner = { block -> block() }, runtimeState = runtimeState)
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
 
             val failedSession = stores.getScanSession(prepared.sessionId)
             assertEquals("failed", failedSession?.status)
@@ -246,23 +241,19 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     .setNetworkStrategyMemoryEnabled(true)
                     .build()
             val networkFingerprintProvider = FakeNetworkFingerprintProvider()
-            val coordinator =
-                DiagnosticsScanExecutionCoordinator(
-                    context = TestContext(),
-                    scanRecordStore = stores,
-                    artifactWriteStore = stores,
-                    networkMetadataProvider = FakeNetworkMetadataProvider(),
-                    networkFingerprintProvider = networkFingerprintProvider,
-                    diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+            val fixtures =
+                executionCoordinatorFixtures(
+                    stores = stores,
+                    timelineSource = timelineSource,
                     serviceStateStore = serviceStateStore,
-                    resolverOverrideStore = FakeResolverOverrideStore(),
+                    networkFingerprintProvider = networkFingerprintProvider,
+                    preferredPathStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
-                    networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
                     json = json,
                 )
             val prepared = preparedDiagnosticsScan(sessionId = "session-strategy", settings = settings)
             seedPreparedScan(stores, prepared)
-            val runtimeState = DiagnosticsScanRuntimeState(timelineSource)
+            fixtures.activeScanRegistry.rememberPreparedScan(prepared)
             val bridge =
                 FakeNetworkDiagnosticsBridge(json).apply {
                     autoCompleteOnStart = false
@@ -278,8 +269,10 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     )
                     enqueueReport(scanReportWithStrategyProbe(prepared.sessionId, settings))
                 }
+            fixtures.activeScanRegistry.registerBridge(bridge, prepared.registerActiveBridge)
+            val handle = BridgeSessionHandle(bridge, prepared.sessionId, prepared.registerActiveBridge)
 
-            coordinator.execute(prepared, bridge, rawPathRunner = { block -> block() }, runtimeState = runtimeState)
+            fixtures.coordinator.execute(prepared, handle, rawPathRunner = { block -> block() })
 
             assertFalse(stores.rememberedPoliciesState.value.isEmpty())
             assertEquals(
@@ -289,6 +282,57 @@ class DiagnosticsScanExecutionCoordinatorTest {
                     .status,
             )
         }
+}
+
+private data class ExecutionCoordinatorFixtures(
+    val coordinator: DiagnosticsScanExecutionCoordinator,
+    val activeScanRegistry: ActiveScanRegistry,
+)
+
+private fun executionCoordinatorFixtures(
+    stores: FakeDiagnosticsHistoryStores,
+    timelineSource: DefaultDiagnosticsTimelineSource,
+    serviceStateStore: FakeServiceStateStore,
+    resolverOverrideStore: FakeResolverOverrideStore = FakeResolverOverrideStore(),
+    networkFingerprintProvider: FakeNetworkFingerprintProvider = FakeNetworkFingerprintProvider(),
+    preferredPathStore: DefaultNetworkDnsPathPreferenceStore =
+        DefaultNetworkDnsPathPreferenceStore(stores, TestDiagnosticsHistoryClock()),
+    rememberedNetworkPolicyStore: DefaultRememberedNetworkPolicyStore =
+        DefaultRememberedNetworkPolicyStore(stores, TestDiagnosticsHistoryClock()),
+    json: kotlinx.serialization.json.Json = diagnosticsTestJson(),
+): ExecutionCoordinatorFixtures {
+    val activeScanRegistry = ActiveScanRegistry(timelineSource)
+    val bridgeExecutionService =
+        BridgeExecutionService(
+            networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(FakeNetworkDiagnosticsBridge(json)),
+            activeScanRegistry = activeScanRegistry,
+        )
+    val passiveEventPersistenceService = PassiveEventPersistenceService(stores, json)
+    val scanFinalizationService =
+        ScanFinalizationService(
+            context = TestContext(),
+            scanRecordStore = stores,
+            artifactWriteStore = stores,
+            networkMetadataProvider = FakeNetworkMetadataProvider(),
+            networkFingerprintProvider = networkFingerprintProvider,
+            diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
+            serviceStateStore = serviceStateStore,
+            resolverOverrideStore = resolverOverrideStore,
+            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            networkDnsPathPreferenceStore = preferredPathStore,
+            json = json,
+        )
+    return ExecutionCoordinatorFixtures(
+        coordinator =
+            DiagnosticsScanExecutionCoordinator(
+                scanRecordStore = stores,
+                activeScanRegistry = activeScanRegistry,
+                bridgeExecutionService = bridgeExecutionService,
+                bridgePollingService = BridgePollingService(passiveEventPersistenceService, json),
+                scanFinalizationService = scanFinalizationService,
+            ),
+        activeScanRegistry = activeScanRegistry,
+    )
 }
 
 private suspend fun preparedDiagnosticsScan(
@@ -301,6 +345,92 @@ private suspend fun preparedDiagnosticsScan(
     sessionId = sessionId,
     settings = settings,
     pathMode = ScanPathMode.RAW_PATH,
+    intent =
+        DiagnosticsIntent(
+            profileId = "default",
+            displayName = "Diagnostics",
+            settings = settings,
+            kind = ScanKind.CONNECTIVITY,
+            family = DiagnosticProfileFamily.GENERAL,
+            regionTag = null,
+            executionPolicy = ExecutionPolicy(manualOnly = false, allowBackground = false, requiresRawPath = false),
+            packRefs = emptyList(),
+            domainTargets = emptyList(),
+            dnsTargets = emptyList(),
+            tcpTargets = emptyList(),
+            quicTargets = emptyList(),
+            serviceTargets = emptyList(),
+            circumventionTargets = emptyList(),
+            throughputTargets = emptyList(),
+            whitelistSni = emptyList(),
+            telegramTarget = null,
+            strategyProbe = null,
+            requestedPathMode = ScanPathMode.RAW_PATH,
+        ),
+    context =
+        ScanContext(
+            settings = settings,
+            pathMode = ScanPathMode.RAW_PATH,
+            networkFingerprint = networkFingerprint,
+            preferredDnsPath = null,
+            networkSnapshot = null,
+            serviceMode = Mode.VPN.name,
+            contextSnapshot = FakeDiagnosticsContextProvider().captureContextForTest(),
+            approachSnapshot =
+                createStoredApproachSnapshot(
+                    diagnosticsTestJson(),
+                    settings,
+                    null,
+                    FakeDiagnosticsContextProvider().captureContextForTest(),
+                ),
+        ),
+    plan =
+        ScanPlan(
+            intent =
+                DiagnosticsIntent(
+                    profileId = "default",
+                    displayName = "Diagnostics",
+                    settings = settings,
+                    kind = ScanKind.CONNECTIVITY,
+                    family = DiagnosticProfileFamily.GENERAL,
+                    regionTag = null,
+                    executionPolicy =
+                        ExecutionPolicy(manualOnly = false, allowBackground = false, requiresRawPath = false),
+                    packRefs = emptyList(),
+                    domainTargets = emptyList(),
+                    dnsTargets = emptyList(),
+                    tcpTargets = emptyList(),
+                    quicTargets = emptyList(),
+                    serviceTargets = emptyList(),
+                    circumventionTargets = emptyList(),
+                    throughputTargets = emptyList(),
+                    whitelistSni = emptyList(),
+                    telegramTarget = null,
+                    strategyProbe = null,
+                    requestedPathMode = ScanPathMode.RAW_PATH,
+                ),
+            context =
+                ScanContext(
+                    settings = settings,
+                    pathMode = ScanPathMode.RAW_PATH,
+                    networkFingerprint = networkFingerprint,
+                    preferredDnsPath = null,
+                    networkSnapshot = null,
+                    serviceMode = Mode.VPN.name,
+                    contextSnapshot = FakeDiagnosticsContextProvider().captureContextForTest(),
+                    approachSnapshot =
+                        createStoredApproachSnapshot(
+                            diagnosticsTestJson(),
+                            settings,
+                            null,
+                            FakeDiagnosticsContextProvider().captureContextForTest(),
+                        ),
+                ),
+            proxyHost = null,
+            proxyPort = null,
+            dnsTargets = emptyList(),
+            probeTasks = emptyList(),
+        ),
     requestJson = "{}",
     exposeProgress = exposeProgress,
     registerActiveBridge = registerActiveBridge,

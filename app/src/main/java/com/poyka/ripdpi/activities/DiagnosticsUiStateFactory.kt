@@ -13,8 +13,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanProgress
-import com.poyka.ripdpi.diagnostics.ScanReport
-import com.poyka.ripdpi.diagnostics.ScanRequest
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.proto.AppSettings
 import javax.inject.Inject
 
@@ -288,7 +288,7 @@ internal class DiagnosticsUiStateFactory
                 ?: fallbackSession
 
         private fun DiagnosticScanSession?.toStrategyProbeReport(
-            latestProfileReport: ScanReport?,
+            latestProfileReport: DiagnosticsSessionProjection?,
         ): DiagnosticsStrategyProbeReportUiModel? =
             latestProfileReport?.strategyProbeReport?.let { report ->
                 support.toStrategyProbeReportUiModel(
@@ -301,13 +301,13 @@ internal class DiagnosticsUiStateFactory
 
 private data class ResolvedDiagnosticsUiInput(
     val activeProfile: DiagnosticProfile?,
-    val activeProfileRequest: ScanRequest?,
+    val activeProfileRequest: DiagnosticsProfileProjection?,
     val selectedProfileUi: DiagnosticsProfileOptionUiModel?,
     val latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     val latestContext: DiagnosticContextModel?,
     val latestCompletedSession: DiagnosticScanSession?,
     val latestProfileSession: DiagnosticScanSession?,
-    val latestReport: ScanReport?,
+    val latestReport: DiagnosticsSessionProjection?,
     val latestReportResults: List<DiagnosticsProbeResultUiModel>,
     val latestResolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
     val latestStrategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,

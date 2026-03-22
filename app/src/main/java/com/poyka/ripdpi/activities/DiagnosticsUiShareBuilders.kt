@@ -4,11 +4,10 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
-import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
-import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.SummaryMetric
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import java.util.Locale
 
 private const val ShareSessionIdPreviewLength = 8
@@ -19,7 +18,7 @@ internal fun DiagnosticsUiFactorySupport.buildSharePreview(
     latestContext: DiagnosticContextModel?,
     telemetry: DiagnosticTelemetrySample?,
     nativeEvents: List<DiagnosticEvent>,
-    latestReport: ScanReport?,
+    latestReport: DiagnosticsSessionProjection?,
 ): ShareSummary {
     val warningHeadline =
         nativeEvents.firstOrNull {
@@ -46,7 +45,7 @@ private fun DiagnosticsUiFactorySupport.buildSharePreviewBody(
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     latestContext: DiagnosticContextModel?,
     telemetry: DiagnosticTelemetrySample?,
-    latestReport: ScanReport?,
+    latestReport: DiagnosticsSessionProjection?,
     warningHeadline: DiagnosticEvent?,
 ): String =
     buildString {
@@ -107,7 +106,7 @@ private fun StringBuilder.appendShareTelemetry(telemetry: DiagnosticTelemetrySam
 
 private fun DiagnosticsUiFactorySupport.appendShareReport(
     builder: StringBuilder,
-    report: ScanReport,
+    report: DiagnosticsSessionProjection,
 ) {
     builder.appendLine("${report.results.size} probe results in the latest report")
     if (report.diagnoses.isNotEmpty()) {
@@ -122,28 +121,21 @@ private fun DiagnosticsUiFactorySupport.appendShareReport(
             "Packs: ${report.packVersions.entries.joinToString(" · ") { (packId, version) -> "$packId@$version" }}",
         )
     }
-    report.results.firstOrNull { it.probeType == "telegram_availability" }?.let {
-        appendTelegramProbeSummary(builder, it)
+    report.results.firstOrNull { it.probeType == "telegram_availability" }?.let { result ->
+        val details = result.details.associate { it.key to it.value }
+        builder.appendLine("Telegram: ${details["verdict"] ?: result.outcome}")
+        details["downloadAvgBps"]?.toLongOrNull()?.let { bps ->
+            builder.appendLine(
+                "  Download: ${formatBps(bps)} avg, ${formatBytes(details["downloadBytes"]?.toLongOrNull() ?: 0)}",
+            )
+        }
+        details["uploadAvgBps"]?.toLongOrNull()?.let { bps ->
+            builder.appendLine(
+                "  Upload: ${formatBps(bps)} avg, ${formatBytes(details["uploadBytes"]?.toLongOrNull() ?: 0)}",
+            )
+        }
+        builder.appendLine("  DCs: ${details["dcReachable"] ?: "?"}/${details["dcTotal"] ?: "?"} reachable")
     }
-}
-
-private fun DiagnosticsUiFactorySupport.appendTelegramProbeSummary(
-    builder: StringBuilder,
-    result: ProbeResult,
-) {
-    val details = result.details.associate { it.key to it.value }
-    builder.appendLine("Telegram: ${details["verdict"] ?: result.outcome}")
-    details["downloadAvgBps"]?.toLongOrNull()?.let { bps ->
-        builder.appendLine(
-            "  Download: ${formatBps(bps)} avg, ${formatBytes(details["downloadBytes"]?.toLongOrNull() ?: 0)}",
-        )
-    }
-    details["uploadAvgBps"]?.toLongOrNull()?.let { bps ->
-        builder.appendLine(
-            "  Upload: ${formatBps(bps)} avg, ${formatBytes(details["uploadBytes"]?.toLongOrNull() ?: 0)}",
-        )
-    }
-    builder.appendLine("  DCs: ${details["dcReachable"] ?: "?"}/${details["dcTotal"] ?: "?"} reachable")
 }
 
 private fun StringBuilder.appendShareWarning(warningHeadline: DiagnosticEvent) {

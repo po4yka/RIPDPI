@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -32,7 +33,7 @@ class DiagnosticsBoundaryMapper
                 name = entity.name,
                 source = entity.source,
                 version = entity.version,
-                request = decodeOrNull(ScanRequest.serializer(), entity.requestJson),
+                request = decodeProfileProjection(entity.requestJson),
                 updatedAt = entity.updatedAt,
             )
 
@@ -49,7 +50,7 @@ class DiagnosticsBoundaryMapper
                 serviceMode = entity.serviceMode,
                 status = entity.status,
                 summary = entity.summary,
-                report = decodeScanReport(entity.reportJson),
+                report = decodeScanProjection(entity.reportJson),
                 startedAt = entity.startedAt,
                 finishedAt = entity.finishedAt,
             )
@@ -208,7 +209,20 @@ class DiagnosticsBoundaryMapper
                 handoverClassification = policy.handoverClassification,
             )
 
-        fun decodeScanReport(payload: String?): ScanReport? = decodeOrNull(ScanReport.serializer(), payload)
+        fun decodeScanReport(payload: String?): ScanReport? =
+            payload
+                ?.takeIf { it.isNotBlank() }
+                ?.let { json.decodeEngineScanReportWireCompat(it).toLegacyScanReportCompat() }
+
+        fun decodeScanProjection(payload: String?): DiagnosticsSessionProjection? =
+            payload
+                ?.takeIf { it.isNotBlank() }
+                ?.let { json.decodeEngineScanReportWireCompat(it).toSessionProjection() }
+
+        fun decodeProfileProjection(payload: String?): com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection? =
+            payload
+                ?.takeIf { it.isNotBlank() }
+                ?.let { json.decodeProfileSpecWireCompat(it).toProfileProjection() }
 
         fun decodeStrategySignature(payload: String?): BypassStrategySignature? =
             decodeOrNull(BypassStrategySignature.serializer(), payload)
