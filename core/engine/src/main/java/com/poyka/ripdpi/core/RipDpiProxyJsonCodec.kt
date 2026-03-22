@@ -32,6 +32,7 @@ internal object RipDpiProxyJsonCodec {
             "quic",
             "hosts",
             "hostAutolearn",
+            "wsTunnel",
         )
     private val legacyFlatUiKeys =
         setOf(
@@ -123,6 +124,7 @@ internal object RipDpiProxyJsonCodec {
                 quic = EndpointCodec.toNative(preferences.quic),
                 hosts = EndpointCodec.toNative(preferences.hosts),
                 hostAutolearn = EndpointCodec.toNative(preferences.hostAutolearn),
+                wsTunnel = EndpointCodec.toNative(preferences.wsTunnel),
                 runtimeContext = ProxyRuntimeContextCodec.toNative(preferences.runtimeContext),
             ),
         )
@@ -324,6 +326,12 @@ internal object RipDpiProxyJsonCodec {
     )
 
     @Serializable
+    private data class NativeWsTunnelConfig(
+        val enabled: Boolean = false,
+        val mode: String? = null,
+    )
+
+    @Serializable
     private data class NativeHostAutolearnConfig(
         val enabled: Boolean = false,
         val penaltyTtlHours: Int = 6,
@@ -353,6 +361,7 @@ internal object RipDpiProxyJsonCodec {
             val quic: NativeQuicConfig = NativeQuicConfig(),
             val hosts: NativeHostsConfig = NativeHostsConfig(),
             val hostAutolearn: NativeHostAutolearnConfig = NativeHostAutolearnConfig(),
+            val wsTunnel: NativeWsTunnelConfig = NativeWsTunnelConfig(),
             val runtimeContext: NativeRuntimeContext? = null,
         ) : NativeProxyConfig
     }
@@ -650,6 +659,18 @@ internal object RipDpiProxyJsonCodec {
                 networkScopeKey = value.networkScopeKey,
             )
 
+        fun toModel(value: NativeWsTunnelConfig): RipDpiWsTunnelConfig =
+            RipDpiWsTunnelConfig(
+                enabled = value.enabled,
+                mode = value.mode,
+            )
+
+        fun toNative(value: RipDpiWsTunnelConfig): NativeWsTunnelConfig =
+            NativeWsTunnelConfig(
+                enabled = value.enabled,
+                mode = value.mode,
+            )
+
         fun toModel(value: NativeProxyConfig.Ui): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
                 listen = ConfigSectionCodec.toModel(value.listen),
@@ -660,6 +681,7 @@ internal object RipDpiProxyJsonCodec {
                 quic = toModel(value.quic),
                 hosts = toModel(value.hosts),
                 hostAutolearn = toModel(value.hostAutolearn),
+                wsTunnel = toModel(value.wsTunnel),
                 runtimeContext = ProxyRuntimeContextCodec.toModel(value.runtimeContext),
             )
     }

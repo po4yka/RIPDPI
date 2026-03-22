@@ -510,7 +510,22 @@ pub struct RuntimeConfig {
     pub host_autolearn_max_hosts: usize,
     pub host_autolearn_store_path: Option<String>,
     pub network_scope_key: Option<String>,
+    pub ws_tunnel_mode: WsTunnelMode,
     pub groups: Vec<DesyncGroup>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum WsTunnelMode {
+    #[default]
+    Off,
+    Always,
+    Fallback,
+}
+
+impl WsTunnelMode {
+    pub fn is_enabled(self) -> bool {
+        self != Self::Off
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -571,6 +586,7 @@ impl Default for RuntimeConfig {
             host_autolearn_max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
             host_autolearn_store_path: None,
             network_scope_key: None,
+            ws_tunnel_mode: WsTunnelMode::Off,
             groups: vec![DesyncGroup::new(0)],
         }
     }

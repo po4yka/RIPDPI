@@ -139,4 +139,6 @@ message AppSettings {
   int32 adaptive_fake_ttl_max = 109;
   int32 adaptive_fake_ttl_fallback = 110;
   bool network_strategy_memory_enabled = 111;
+  bool ws_tunnel_enabled = 112;
+  string ws_tunnel_mode = 113;
 }

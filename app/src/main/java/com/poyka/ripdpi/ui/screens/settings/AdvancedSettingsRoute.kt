@@ -56,6 +56,7 @@ fun AdvancedSettingsRoute(
         onRefreshHostPackCatalog = viewModel::refreshHostPackCatalog,
         onForgetLearnedHosts = viewModel::forgetLearnedHosts,
         onClearRememberedNetworks = viewModel::clearRememberedNetworks,
+        onWsTunnelModeChanged = { mode -> binder.onWsTunnelModeChanged(mode) },
         onRotateTelemetrySalt = viewModel::rotateTelemetrySalt,
         onSaveActivationRange = { dimension, start, end ->
             binder.onSaveActivationRange(
