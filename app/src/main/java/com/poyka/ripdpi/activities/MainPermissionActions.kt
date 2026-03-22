@@ -1,5 +1,3 @@
-@file:Suppress("TooManyFunctions")
-
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
@@ -100,39 +98,6 @@ internal class MainPermissionActions(
         }
 
         requestPermissionFor(action = action, blockedBy = blockedBy, snapshot = mergedSnapshot)
-    }
-
-    fun buildPermissionSummary(
-        snapshot: PermissionSnapshot,
-        issue: PermissionIssueUiState?,
-        configuredMode: Mode,
-    ): PermissionSummaryUiState {
-        val recommendedIssue =
-            if (
-                issue == null &&
-                snapshot.batteryOptimization != PermissionStatus.Granted &&
-                snapshot.batteryOptimization != PermissionStatus.NotApplicable
-            ) {
-                createPermissionIssue(
-                    kind = PermissionKind.BatteryOptimization,
-                    status = snapshot.batteryOptimization,
-                    blocking = false,
-                )
-            } else {
-                null
-            }
-
-        return PermissionSummaryUiState(
-            snapshot = snapshot,
-            issue = issue,
-            recommendedIssue = recommendedIssue,
-            items =
-                listOf(
-                    buildNotificationPermissionItem(snapshot.notifications),
-                    buildVpnPermissionItem(snapshot.vpnConsent, configuredMode),
-                    buildBatteryPermissionItem(snapshot.batteryOptimization),
-                ),
-        )
     }
 
     private fun requestPermissionFor(
@@ -547,3 +512,234 @@ internal class MainPermissionActions(
 
     private fun createBatteryOptimizationIntent(): Intent = permissionPlatformBridge.createBatteryOptimizationIntent()
 }
+
+internal fun buildPermissionSummary(
+    snapshot: PermissionSnapshot,
+    issue: PermissionIssueUiState?,
+    configuredMode: Mode,
+    stringResolver: StringResolver,
+    deviceManufacturer: String,
+): PermissionSummaryUiState {
+    val recommendedIssue =
+        if (
+            issue == null &&
+            snapshot.batteryOptimization != PermissionStatus.Granted &&
+            snapshot.batteryOptimization != PermissionStatus.NotApplicable
+        ) {
+            createPermissionIssue(
+                kind = PermissionKind.BatteryOptimization,
+                status = snapshot.batteryOptimization,
+                blocking = false,
+                stringResolver = stringResolver,
+                deviceManufacturer = deviceManufacturer,
+            )
+        } else {
+            null
+        }
+
+    return PermissionSummaryUiState(
+        snapshot = snapshot,
+        issue = issue,
+        recommendedIssue = recommendedIssue,
+        items =
+            listOf(
+                buildNotificationPermissionItem(snapshot.notifications, stringResolver),
+                buildVpnPermissionItem(snapshot.vpnConsent, configuredMode, stringResolver),
+                buildBatteryPermissionItem(snapshot.batteryOptimization, stringResolver, deviceManufacturer),
+            ),
+    )
+}
+
+private fun buildNotificationPermissionItem(
+    status: PermissionStatus,
+    stringResolver: StringResolver,
+): PermissionItemUiState =
+    when (status) {
+        PermissionStatus.Granted,
+        PermissionStatus.NotApplicable,
+        -> {
+            PermissionItemUiState(
+                kind = PermissionKind.Notifications,
+                title = stringResolver.getString(R.string.permissions_notifications_title),
+                subtitle = stringResolver.getString(R.string.settings_permissions_notifications_ready),
+                statusLabel = stringResolver.getString(R.string.settings_permission_status_granted),
+            )
+        }
+
+        PermissionStatus.RequiresSettings -> {
+            PermissionItemUiState(
+                kind = PermissionKind.Notifications,
+                title = stringResolver.getString(R.string.permissions_notifications_title),
+                subtitle = stringResolver.getString(R.string.settings_permissions_notifications_needed),
+                statusLabel = stringResolver.getString(R.string.settings_permission_status_required),
+                actionLabel = stringResolver.getString(R.string.settings_permission_action_open_settings),
+            )
+        }
+
+        PermissionStatus.Denied,
+        PermissionStatus.RequiresSystemPrompt,
+        -> {
+            PermissionItemUiState(
+                kind = PermissionKind.Notifications,
+                title = stringResolver.getString(R.string.permissions_notifications_title),
+                subtitle = stringResolver.getString(R.string.settings_permissions_notifications_needed),
+                statusLabel = stringResolver.getString(R.string.settings_permission_status_required),
+                actionLabel = stringResolver.getString(R.string.settings_permission_action_allow),
+            )
+        }
+    }
+
+private fun buildVpnPermissionItem(
+    status: PermissionStatus,
+    configuredMode: Mode,
+    stringResolver: StringResolver,
+): PermissionItemUiState =
+    when (status) {
+        PermissionStatus.Granted -> {
+            PermissionItemUiState(
+                kind = PermissionKind.VpnConsent,
+                title = stringResolver.getString(R.string.permissions_vpn_title),
+                subtitle =
+                    if (configuredMode == Mode.VPN) {
+                        stringResolver.getString(R.string.settings_permissions_vpn_active)
+                    } else {
+                        stringResolver.getString(R.string.settings_permissions_vpn_optional)
+                    },
+                statusLabel = stringResolver.getString(R.string.settings_permission_status_granted),
+            )
+        }
+
+        PermissionStatus.NotApplicable -> {
+            PermissionItemUiState(
+                kind = PermissionKind.VpnConsent,
+                title = stringResolver.getString(R.string.permissions_vpn_title),
+                subtitle = stringResolver.getString(R.string.settings_permissions_vpn_optional),
+                statusLabel = stringResolver.getString(R.string.settings_permission_status_not_needed),
+            )
+        }
+
+        PermissionStatus.Denied,
+        PermissionStatus.RequiresSettings,
+        PermissionStatus.RequiresSystemPrompt,
+        -> {
+            PermissionItemUiState(
+                kind = PermissionKind.VpnConsent,
+                title = stringResolver.getString(R.string.permissions_vpn_title),
+                subtitle =
+                    if (configuredMode == Mode.VPN) {
+                        stringResolver.getString(R.string.settings_permissions_vpn_needed)
+                    } else {
+                        stringResolver.getString(R.string.settings_permissions_vpn_optional)
+                    },
+                statusLabel =
+                    if (configuredMode == Mode.VPN) {
+                        stringResolver.getString(R.string.settings_permission_status_required)
+                    } else {
+                        stringResolver.getString(R.string.settings_permission_status_optional)
+                    },
+                actionLabel = stringResolver.getString(R.string.permissions_vpn_continue),
+            )
+        }
+    }
+
+private fun buildBatteryPermissionItem(
+    status: PermissionStatus,
+    stringResolver: StringResolver,
+    deviceManufacturer: String,
+): PermissionItemUiState =
+    when (status) {
+        PermissionStatus.Granted,
+        PermissionStatus.NotApplicable,
+        -> {
+            PermissionItemUiState(
+                kind = PermissionKind.BatteryOptimization,
+                title = stringResolver.getString(R.string.permissions_battery_title),
+                subtitle =
+                    stringResolver.getString(
+                        if (status == PermissionStatus.Granted) {
+                            BatteryOptimizationGuidance.readySubtitleRes(deviceManufacturer)
+                        } else {
+                            R.string.settings_permissions_battery_ready
+                        },
+                    ),
+                statusLabel =
+                    if (status == PermissionStatus.NotApplicable) {
+                        stringResolver.getString(R.string.settings_permission_status_not_needed)
+                    } else {
+                        stringResolver.getString(R.string.settings_permission_status_granted)
+                    },
+            )
+        }
+
+        PermissionStatus.Denied,
+        PermissionStatus.RequiresSystemPrompt,
+        PermissionStatus.RequiresSettings,
+        -> {
+            PermissionItemUiState(
+                kind = PermissionKind.BatteryOptimization,
+                title = stringResolver.getString(R.string.permissions_battery_title),
+                subtitle =
+                    stringResolver.getString(
+                        BatteryOptimizationGuidance.recommendedSubtitleRes(deviceManufacturer),
+                    ),
+                statusLabel = stringResolver.getString(R.string.settings_permission_status_recommended),
+                actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
+            )
+        }
+    }
+
+private fun createPermissionIssue(
+    kind: PermissionKind,
+    status: PermissionStatus,
+    blocking: Boolean,
+    stringResolver: StringResolver,
+    deviceManufacturer: String,
+): PermissionIssueUiState =
+    when (kind) {
+        PermissionKind.Notifications -> {
+            if (status == PermissionStatus.RequiresSettings) {
+                PermissionIssueUiState(
+                    kind = kind,
+                    title = stringResolver.getString(R.string.permissions_notifications_title),
+                    message = stringResolver.getString(R.string.permissions_notifications_open_settings),
+                    recovery = PermissionRecovery.OpenSettings,
+                    actionLabel = stringResolver.getString(R.string.settings_permission_action_open_settings),
+                    blocking = blocking,
+                )
+            } else {
+                PermissionIssueUiState(
+                    kind = kind,
+                    title = stringResolver.getString(R.string.permissions_notifications_title),
+                    message = stringResolver.getString(R.string.permissions_notifications_denied),
+                    recovery = PermissionRecovery.RetryPrompt,
+                    actionLabel = stringResolver.getString(R.string.settings_permission_action_allow),
+                    blocking = blocking,
+                )
+            }
+        }
+
+        PermissionKind.VpnConsent -> {
+            PermissionIssueUiState(
+                kind = kind,
+                title = stringResolver.getString(R.string.permissions_vpn_error_title),
+                message = stringResolver.getString(R.string.permissions_vpn_error_body),
+                recovery = PermissionRecovery.ShowVpnPermissionDialog,
+                actionLabel = stringResolver.getString(R.string.permissions_vpn_continue),
+                blocking = blocking,
+            )
+        }
+
+        PermissionKind.BatteryOptimization -> {
+            PermissionIssueUiState(
+                kind = kind,
+                title = stringResolver.getString(R.string.permissions_battery_title),
+                message =
+                    stringResolver.getString(
+                        BatteryOptimizationGuidance.issueMessageRes(deviceManufacturer),
+                    ),
+                recovery = PermissionRecovery.OpenBatteryOptimizationSettings,
+                actionLabel = stringResolver.getString(R.string.settings_permission_action_review),
+                blocking = blocking,
+            )
+        }
+    }

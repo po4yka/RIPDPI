@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod")
-
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.foundation.background
@@ -236,12 +234,7 @@ internal fun ActivationRangeEditorCard(
     val currentSummary =
         formatNumericRange(currentRange)
             ?: emptySummary
-    val statusLabel =
-        if (currentRange.isEmpty) {
-            stringResource(R.string.activation_window_range_status_open)
-        } else {
-            stringResource(R.string.activation_window_range_status_scoped)
-        }
+    val statusLabel = activationRangeStatusLabel(currentRange.isEmpty)
 
     RipDpiCard(
         modifier = modifier,
@@ -271,48 +264,90 @@ internal fun ActivationRangeEditorCard(
                 value = effectSummary,
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            verticalAlignment = Alignment.Top,
-        ) {
-            ActivationBoundaryField(
-                title = stringResource(R.string.activation_window_field_from),
-                value = startInput,
-                enabled = enabled,
-                minValue = minValue,
-                onValueChange = { startInput = it },
-                modifier = Modifier.weight(1f),
-                testTag = RipDpiTestTags.activationStart(dimension),
-            )
-            ActivationBoundaryField(
-                title = stringResource(R.string.activation_window_field_to),
-                value = endInput,
-                enabled = enabled,
-                minValue = minValue,
-                onValueChange = { endInput = it },
-                modifier = Modifier.weight(1f),
-                testTag = RipDpiTestTags.activationEnd(dimension),
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            RipDpiButton(
-                text = stringResource(R.string.config_save),
-                onClick = {
-                    onSave(
-                        parseOptionalRangeValue(startInput),
-                        parseOptionalRangeValue(endInput),
-                    )
-                },
-                enabled = enabled && isDirty && isValid,
-                variant = RipDpiButtonVariant.Outline,
-                trailingIcon = RipDpiIcons.Check,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.activationSave(dimension)),
-            )
-        }
+        ActivationRangeInputs(
+            dimension = dimension,
+            enabled = enabled,
+            minValue = minValue,
+            startInput = startInput,
+            endInput = endInput,
+            onStartChange = { startInput = it },
+            onEndChange = { endInput = it },
+        )
+        ActivationRangeSaveAction(
+            dimension = dimension,
+            enabled = enabled && isDirty && isValid,
+            startInput = startInput,
+            endInput = endInput,
+            onSave = onSave,
+        )
+    }
+}
+
+@Composable
+private fun activationRangeStatusLabel(isEmpty: Boolean): String =
+    if (isEmpty) {
+        stringResource(R.string.activation_window_range_status_open)
+    } else {
+        stringResource(R.string.activation_window_range_status_scoped)
+    }
+
+@Composable
+private fun ActivationRangeInputs(
+    dimension: ActivationWindowDimension,
+    enabled: Boolean,
+    minValue: Long,
+    startInput: String,
+    endInput: String,
+    onStartChange: (String) -> Unit,
+    onEndChange: (String) -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalAlignment = Alignment.Top,
+    ) {
+        ActivationBoundaryField(
+            title = stringResource(R.string.activation_window_field_from),
+            value = startInput,
+            enabled = enabled,
+            minValue = minValue,
+            onValueChange = onStartChange,
+            modifier = Modifier.weight(1f),
+            testTag = RipDpiTestTags.activationStart(dimension),
+        )
+        ActivationBoundaryField(
+            title = stringResource(R.string.activation_window_field_to),
+            value = endInput,
+            enabled = enabled,
+            minValue = minValue,
+            onValueChange = onEndChange,
+            modifier = Modifier.weight(1f),
+            testTag = RipDpiTestTags.activationEnd(dimension),
+        )
+    }
+}
+
+@Composable
+private fun ActivationRangeSaveAction(
+    dimension: ActivationWindowDimension,
+    enabled: Boolean,
+    startInput: String,
+    endInput: String,
+    onSave: (Long?, Long?) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        RipDpiButton(
+            text = stringResource(R.string.config_save),
+            onClick = { onSave(parseOptionalRangeValue(startInput), parseOptionalRangeValue(endInput)) },
+            enabled = enabled,
+            variant = RipDpiButtonVariant.Outline,
+            trailingIcon = RipDpiIcons.Check,
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.activationSave(dimension)),
+        )
     }
 }
 
@@ -379,13 +414,15 @@ internal fun ProfileSummaryLine(
     ) {
         Text(
             text = label,
-            modifier = Modifier.ripDpiTestTag(summaryKey?.let(RipDpiTestTags::advancedSummaryLabel)),
+            modifier =
+                Modifier.ripDpiTestTag(summaryKey?.let { RipDpiTestTags.advancedSummaryLabel(it) }),
             style = type.caption,
             color = colors.mutedForeground,
         )
         Text(
             text = value,
-            modifier = Modifier.ripDpiTestTag(summaryKey?.let(RipDpiTestTags::advancedSummaryValue)),
+            modifier =
+                Modifier.ripDpiTestTag(summaryKey?.let { RipDpiTestTags.advancedSummaryValue(it) }),
             style = type.secondaryBody,
             color = colors.foreground,
         )

@@ -153,11 +153,7 @@ pub(crate) fn wait_for_listener(addr: SocketAddr) -> Result<(), String> {
 
 // --- SOCKS5 TCP CONNECT ---
 
-pub(crate) fn negotiate_socks5(
-    mut proxy: TcpStream,
-    target: &TargetAddress,
-    port: u16,
-) -> Result<TcpStream, String> {
+pub(crate) fn negotiate_socks5(mut proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
     proxy.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     proxy.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     proxy.write_all(&[0x05, 0x01, 0x00]).map_err(|err| err.to_string())?;
@@ -325,11 +321,8 @@ pub(crate) fn relay_udp_payload(
 }
 
 pub(crate) fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<Vec<u8>, String> {
-    let bind_addr: SocketAddr = if server.is_ipv4() {
-        (Ipv4Addr::UNSPECIFIED, 0).into()
-    } else {
-        (std::net::Ipv6Addr::UNSPECIFIED, 0).into()
-    };
+    let bind_addr: SocketAddr =
+        if server.is_ipv4() { (Ipv4Addr::UNSPECIFIED, 0).into() } else { (std::net::Ipv6Addr::UNSPECIFIED, 0).into() };
     let socket = UdpSocket::bind(bind_addr).map_err(|err| err.to_string())?;
     socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;

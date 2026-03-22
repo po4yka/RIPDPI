@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod")
-
 package com.poyka.ripdpi.activities
 
 import javax.inject.Inject
@@ -19,46 +17,12 @@ internal class HistoryUiStateFactory
             detailState: HistoryDetailState,
         ): HistoryUiState {
             val connectionRows =
-                repositorySnapshot.connectionSessions.map(
-                    connectionDetailUiFactory::toConnectionRowUiModel,
-                )
-            val filteredConnections =
-                connectionRows.filter { session ->
-                    (connectionFilters.modeFilter == null || session.serviceMode == connectionFilters.modeFilter) &&
-                        (
-                            connectionFilters.statusFilter == null ||
-                                session.connectionState.equals(connectionFilters.statusFilter, ignoreCase = true)
-                        ) &&
-                        session.matchesQuery(connectionFilters.search)
-                }
-
+                repositorySnapshot.connectionSessions.map(connectionDetailUiFactory::toConnectionRowUiModel)
+            val filteredConnections = connectionRows.filter { it.matches(connectionFilters) }
             val diagnosticsRows = repositorySnapshot.scanSessions.map(coreSupport::toSessionRowUiModel)
-            val filteredDiagnostics =
-                diagnosticsRows.filter { session ->
-                    (
-                        diagnosticsFilters.pathModeFilter == null ||
-                            session.pathMode == diagnosticsFilters.pathModeFilter
-                    ) &&
-                        (
-                            diagnosticsFilters.statusFilter == null ||
-                                session.status.equals(diagnosticsFilters.statusFilter, ignoreCase = true)
-                        ) &&
-                        session.matchesQuery(diagnosticsFilters.search)
-                }
-
+            val filteredDiagnostics = diagnosticsRows.filter { it.matches(diagnosticsFilters) }
             val eventModels = repositorySnapshot.nativeEvents.map(coreSupport::toEventUiModel)
-            val filteredEvents =
-                eventModels.filter { event ->
-                    (
-                        eventFilters.sourceFilter == null ||
-                            event.source.equals(eventFilters.sourceFilter, ignoreCase = true)
-                    ) &&
-                        (
-                            eventFilters.severityFilter == null ||
-                                event.severity.equals(eventFilters.severityFilter, ignoreCase = true)
-                        ) &&
-                        event.matchesQuery(eventFilters.search)
-                }
+            val filteredEvents = eventModels.filter { it.matches(eventFilters) }
 
             return HistoryUiState(
                 selectedSection = selectedSection,
@@ -108,3 +72,18 @@ internal class HistoryUiStateFactory
             )
         }
     }
+
+private fun HistoryConnectionRowUiModel.matches(filters: HistoryConnectionFilterState): Boolean =
+    (filters.modeFilter == null || serviceMode == filters.modeFilter) &&
+        (filters.statusFilter == null || connectionState.equals(filters.statusFilter, ignoreCase = true)) &&
+        matchesQuery(filters.search)
+
+private fun DiagnosticsSessionRowUiModel.matches(filters: HistoryDiagnosticsFilterState): Boolean =
+    (filters.pathModeFilter == null || pathMode == filters.pathModeFilter) &&
+        (filters.statusFilter == null || status.equals(filters.statusFilter, ignoreCase = true)) &&
+        matchesQuery(filters.search)
+
+private fun DiagnosticsEventUiModel.matches(filters: HistoryEventFilterState): Boolean =
+    (filters.sourceFilter == null || source.equals(filters.sourceFilter, ignoreCase = true)) &&
+        (filters.severityFilter == null || severity.equals(filters.severityFilter, ignoreCase = true)) &&
+        matchesQuery(filters.search)

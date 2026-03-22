@@ -35,11 +35,7 @@ impl UdpSession {
         let udp = UdpSocket::bind(bind_addr).await?;
         udp.connect(relay_addr).await?;
 
-        Ok(Self {
-            _ctrl: Arc::new(Mutex::new(ctrl)),
-            udp: Arc::new(udp),
-            recv_timeout: DEFAULT_RECV_TIMEOUT,
-        })
+        Ok(Self { _ctrl: Arc::new(Mutex::new(ctrl)), udp: Arc::new(udp), recv_timeout: DEFAULT_RECV_TIMEOUT })
     }
 
     /// Override the receive timeout (default 10 s).
@@ -181,10 +177,8 @@ mod tests {
     async fn relay_once_round_trip() {
         let (proxy_addr, echo_addr, _accepted_tcp_connections) = spawn_stub_proxy(1, false).await;
 
-        let session = UdpSession::connect(proxy_addr, Auth::NoAuth)
-            .await
-            .unwrap()
-            .with_recv_timeout(Duration::from_secs(3));
+        let session =
+            UdpSession::connect(proxy_addr, Auth::NoAuth).await.unwrap().with_recv_timeout(Duration::from_secs(3));
 
         let cancel = CancellationToken::new();
         let result = session.relay_once(echo_addr, b"ping", cancel).await.unwrap();
@@ -199,10 +193,8 @@ mod tests {
     async fn relay_once_cancel_returns_none() {
         let (proxy_addr, echo_addr, _accepted_tcp_connections) = spawn_stub_proxy(1, false).await;
 
-        let session = UdpSession::connect(proxy_addr, Auth::NoAuth)
-            .await
-            .unwrap()
-            .with_recv_timeout(Duration::from_secs(5));
+        let session =
+            UdpSession::connect(proxy_addr, Auth::NoAuth).await.unwrap().with_recv_timeout(Duration::from_secs(5));
 
         let cancel = CancellationToken::new();
         cancel.cancel(); // cancel immediately
@@ -241,10 +233,8 @@ mod tests {
         });
 
         let dst: SocketAddr = "127.0.0.1:9999".parse().unwrap();
-        let session = UdpSession::connect(proxy_addr, Auth::NoAuth)
-            .await
-            .unwrap()
-            .with_recv_timeout(Duration::from_millis(100));
+        let session =
+            UdpSession::connect(proxy_addr, Auth::NoAuth).await.unwrap().with_recv_timeout(Duration::from_millis(100));
 
         let result = session.relay_once(dst, b"ping", CancellationToken::new()).await.unwrap();
         assert!(result.is_none(), "timed-out relay must return None");
@@ -262,10 +252,8 @@ mod tests {
     async fn send_to_and_recv_from_reuse_single_association() {
         let (proxy_addr, echo_addr, accepted_tcp_connections) = spawn_stub_proxy(2, false).await;
 
-        let session = UdpSession::connect(proxy_addr, Auth::NoAuth)
-            .await
-            .unwrap()
-            .with_recv_timeout(Duration::from_secs(3));
+        let session =
+            UdpSession::connect(proxy_addr, Auth::NoAuth).await.unwrap().with_recv_timeout(Duration::from_secs(3));
 
         session.send_to(echo_addr, b"first").await.unwrap();
         let first = session.recv_from(CancellationToken::new()).await.unwrap().unwrap();
@@ -282,10 +270,8 @@ mod tests {
     async fn recv_from_supports_multiple_replies_on_same_association() {
         let (proxy_addr, echo_addr, accepted_tcp_connections) = spawn_stub_proxy(1, true).await;
 
-        let session = UdpSession::connect(proxy_addr, Auth::NoAuth)
-            .await
-            .unwrap()
-            .with_recv_timeout(Duration::from_secs(3));
+        let session =
+            UdpSession::connect(proxy_addr, Auth::NoAuth).await.unwrap().with_recv_timeout(Duration::from_secs(3));
 
         session.send_to(echo_addr, b"ping").await.unwrap();
 

@@ -1,5 +1,3 @@
-@file:Suppress("LongParameterList")
-
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.foundation.BorderStroke
@@ -44,22 +42,28 @@ enum class RipDpiDialogTone {
     Info,
 }
 
+data class RipDpiDialogAction(
+    val label: String,
+    val onClick: () -> Unit,
+    val testTag: String? = null,
+)
+
+data class RipDpiDialogVisuals(
+    val message: String? = null,
+    val tone: RipDpiDialogTone = RipDpiDialogTone.Default,
+    val actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
+    val icon: ImageVector? = defaultDialogIcon(tone),
+)
+
 @Composable
 fun RipDpiDialog(
     onDismissRequest: () -> Unit,
     title: String,
-    dismissLabel: String,
-    onDismiss: () -> Unit,
+    dismissAction: RipDpiDialogAction,
     modifier: Modifier = Modifier,
     dialogTestTag: String? = null,
-    confirmTestTag: String? = null,
-    dismissTestTag: String? = null,
-    message: String? = null,
-    confirmLabel: String? = null,
-    onConfirm: (() -> Unit)? = null,
-    tone: RipDpiDialogTone = RipDpiDialogTone.Default,
-    actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
-    icon: ImageVector? = defaultDialogIcon(tone),
+    confirmAction: RipDpiDialogAction? = null,
+    visuals: RipDpiDialogVisuals = RipDpiDialogVisuals(),
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     val layout = RipDpiThemeTokens.layout
@@ -78,21 +82,14 @@ fun RipDpiDialog(
         ) {
             RipDpiDialogCard(
                 title = title,
-                dismissLabel = dismissLabel,
-                onDismiss = onDismiss,
+                dismissAction = dismissAction,
                 modifier =
                     modifier
                         .ripDpiTestTag(dialogTestTag)
                         .fillMaxWidth()
                         .widthIn(max = layout.dialogMaxWidth),
-                confirmTestTag = confirmTestTag,
-                dismissTestTag = dismissTestTag,
-                message = message,
-                confirmLabel = confirmLabel,
-                onConfirm = onConfirm,
-                tone = tone,
-                actionLayout = actionLayout,
-                icon = icon,
+                confirmAction = confirmAction,
+                visuals = visuals,
                 content = content,
             )
         }
@@ -102,23 +99,16 @@ fun RipDpiDialog(
 @Composable
 fun RipDpiDialogCard(
     title: String,
-    dismissLabel: String,
-    onDismiss: () -> Unit,
+    dismissAction: RipDpiDialogAction,
     modifier: Modifier = Modifier,
-    confirmTestTag: String? = null,
-    dismissTestTag: String? = null,
-    message: String? = null,
-    confirmLabel: String? = null,
-    onConfirm: (() -> Unit)? = null,
-    tone: RipDpiDialogTone = RipDpiDialogTone.Default,
-    actionLayout: RipDpiActionLayout = RipDpiActionLayout.Adaptive,
-    icon: ImageVector? = defaultDialogIcon(tone),
+    confirmAction: RipDpiDialogAction? = null,
+    visuals: RipDpiDialogVisuals = RipDpiDialogVisuals(),
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
-    val hasConfirmAction = confirmLabel != null && onConfirm != null
+    val hasConfirmAction = confirmAction != null
     val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Sheet)
 
     Surface(
@@ -136,10 +126,10 @@ fun RipDpiDialogCard(
                     .padding(horizontal = spacing.xxl, vertical = spacing.xxl),
             verticalArrangement = Arrangement.spacedBy(spacing.lg),
         ) {
-            icon?.let {
+            visuals.icon?.let {
                 RipDpiModalIconBadge(
                     icon = it,
-                    tone = tone,
+                    tone = visuals.tone,
                 )
             }
 
@@ -151,7 +141,7 @@ fun RipDpiDialogCard(
                     style = type.sheetTitle,
                     color = colors.foreground,
                 )
-                message?.let {
+                visuals.message?.let {
                     Text(
                         text = it,
                         style = type.body,
@@ -163,14 +153,14 @@ fun RipDpiDialogCard(
             content()
 
             DialogActionRow(
-                dismissLabel = dismissLabel,
-                onDismiss = onDismiss,
-                confirmLabel = confirmLabel,
-                onConfirm = onConfirm,
-                confirmTestTag = confirmTestTag,
-                dismissTestTag = dismissTestTag,
-                tone = tone,
-                actionLayout = actionLayout,
+                dismissLabel = dismissAction.label,
+                onDismiss = dismissAction.onClick,
+                confirmLabel = confirmAction?.label,
+                onConfirm = confirmAction?.onClick,
+                confirmTestTag = confirmAction?.testTag,
+                dismissTestTag = dismissAction.testTag,
+                tone = visuals.tone,
+                actionLayout = visuals.actionLayout,
                 hasConfirmAction = hasConfirmAction,
             )
         }
@@ -340,11 +330,12 @@ private fun RipDpiConfirmationDialogPreview() {
     RipDpiComponentPreview {
         RipDpiDialogCard(
             title = "Stop connection?",
-            message = "Active traffic may be interrupted until you reconnect the service.",
-            confirmLabel = "Stop",
-            dismissLabel = "Cancel",
-            onConfirm = {},
-            onDismiss = {},
+            dismissAction = RipDpiDialogAction(label = "Cancel", onClick = {}),
+            confirmAction = RipDpiDialogAction(label = "Stop", onClick = {}),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = "Active traffic may be interrupted until you reconnect the service.",
+                ),
         )
     }
 }
@@ -355,12 +346,13 @@ private fun RipDpiDestructiveDialogPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         RipDpiDialogCard(
             title = "Reset advanced flags?",
-            message = "Custom command line arguments and bypass rules will be removed.",
-            confirmLabel = "Reset",
-            dismissLabel = "Keep",
-            onConfirm = {},
-            onDismiss = {},
-            tone = RipDpiDialogTone.Destructive,
+            dismissAction = RipDpiDialogAction(label = "Keep", onClick = {}),
+            confirmAction = RipDpiDialogAction(label = "Reset", onClick = {}),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = "Custom command line arguments and bypass rules will be removed.",
+                    tone = RipDpiDialogTone.Destructive,
+                ),
         )
     }
 }
@@ -371,10 +363,14 @@ private fun RipDpiInfoDialogPreview() {
     RipDpiComponentPreview {
         RipDpiDialogCard(
             title = "Adaptive icons depend on the launcher",
-            message = "Android launchers control the mask shape, so the app can only preview the current icon family.",
-            dismissLabel = "Understood",
-            onDismiss = {},
-            tone = RipDpiDialogTone.Info,
+            dismissAction = RipDpiDialogAction(label = "Understood", onClick = {}),
+            visuals =
+                RipDpiDialogVisuals(
+                    message =
+                        "Android launchers control the mask shape, so the app can only preview " +
+                            "the current icon family.",
+                    tone = RipDpiDialogTone.Info,
+                ),
         )
     }
 }

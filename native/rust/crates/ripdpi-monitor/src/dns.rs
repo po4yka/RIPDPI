@@ -6,9 +6,7 @@ use ripdpi_dns_resolver::{
 
 use crate::transport::{relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, TransportConfig};
 use crate::types::DnsTarget;
-use crate::util::{
-    now_ms, DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_DOH_PORT, DEFAULT_DOH_URL,
-};
+use crate::util::{now_ms, DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_DOH_PORT, DEFAULT_DOH_URL};
 
 pub(crate) fn encrypted_dns_protocol(value: Option<&str>) -> EncryptedDnsProtocol {
     match value.unwrap_or_default().trim().to_ascii_lowercase().as_str() {
@@ -33,7 +31,9 @@ pub(crate) fn parse_url_host(value: &str) -> Option<String> {
     host_port.split(':').next().map(ToOwned::to_owned)
 }
 
-pub(crate) fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(EncryptedDnsEndpoint, Vec<String>), String> {
+pub(crate) fn encrypted_dns_endpoint_for_target(
+    target: &DnsTarget,
+) -> Result<(EncryptedDnsEndpoint, Vec<String>), String> {
     let protocol = encrypted_dns_protocol(target.encrypted_protocol.as_deref());
     let bootstrap_strings = if target.encrypted_bootstrap_ips.is_empty() {
         if target.doh_bootstrap_ips.is_empty() && target.doh_url.is_none() {
@@ -239,7 +239,7 @@ mod tests {
         packet.extend(1u16.to_be_bytes()); // ANCOUNT
         packet.extend(0u16.to_be_bytes()); // NSCOUNT
         packet.extend(0u16.to_be_bytes()); // ARCOUNT
-        // Question: example.com, type A, class IN
+                                           // Question: example.com, type A, class IN
         packet.push(7);
         packet.extend(b"example");
         packet.push(3);
@@ -247,7 +247,7 @@ mod tests {
         packet.push(0);
         packet.extend(1u16.to_be_bytes()); // QTYPE A
         packet.extend(1u16.to_be_bytes()); // QCLASS IN
-        // Answer: pointer to name at offset 12, type A, class IN, TTL, rdlength=4, rdata=1.2.3.4
+                                           // Answer: pointer to name at offset 12, type A, class IN, TTL, rdlength=4, rdata=1.2.3.4
         packet.extend(0xC00Cu16.to_be_bytes()); // Name pointer to offset 12
         packet.extend(1u16.to_be_bytes()); // TYPE A
         packet.extend(1u16.to_be_bytes()); // CLASS IN

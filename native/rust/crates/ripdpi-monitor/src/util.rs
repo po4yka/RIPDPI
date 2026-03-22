@@ -80,10 +80,7 @@ pub(crate) fn ranged_probe_delay(seed: u64, lhs: &str, rhs: &str, min_ms: u64, m
 }
 
 pub(crate) fn probe_session_seed(network_scope_key: Option<&str>, session_id: &str) -> u64 {
-    stable_probe_hash(
-        stable_probe_hash(0x9e37_79b9_7f4a_7c15, network_scope_key.unwrap_or("default")),
-        session_id,
-    )
+    stable_probe_hash(stable_probe_hash(0x9e37_79b9_7f4a_7c15, network_scope_key.unwrap_or("default")), session_id)
 }
 
 // --- Formatting helpers ---

@@ -1,5 +1,3 @@
-@file:Suppress("CyclomaticComplexMethod", "LongMethod")
-
 package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.animation.animateColorAsState
@@ -57,114 +55,119 @@ fun RipDpiSwitch(
     interactionSource: MutableInteractionSource? = null,
     testTag: String? = null,
 ) {
+    if (label != null || helperText != null || errorText != null) {
+        LabeledRipDpiSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = modifier,
+            label = label,
+            helperText = helperText,
+            errorText = errorText,
+            enabled = enabled,
+            readOnly = readOnly,
+            interactionSource = interactionSource,
+            testTag = testTag,
+        )
+        return
+    }
+
+    SwitchToggleControl(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = modifier,
+        enabled = enabled,
+        readOnly = readOnly,
+        interactionSource = interactionSource,
+        testTag = testTag,
+    )
+}
+
+@Composable
+private fun LabeledRipDpiSwitch(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier,
+    label: String?,
+    helperText: String?,
+    errorText: String?,
+    enabled: Boolean,
+    readOnly: Boolean,
+    interactionSource: MutableInteractionSource?,
+    testTag: String?,
+) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val labelColor = if (errorText != null) colors.destructive else colors.foreground
     val supportingColor = if (errorText != null) colors.destructive else colors.mutedForeground
-
-    if (label != null || helperText != null || errorText != null) {
-        Column(
-            modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(spacing.xs),
-                ) {
-                    label?.let {
-                        Text(
-                            text = it,
-                            style = type.body,
-                            color = labelColor,
-                        )
-                    }
-                    helperText?.takeIf { errorText == null }?.let {
-                        Text(
-                            text = it,
-                            style = type.caption,
-                            color = supportingColor,
-                        )
-                    }
-                }
-                RipDpiSwitch(
-                    checked = checked,
-                    onCheckedChange = onCheckedChange,
-                    enabled = enabled,
-                    readOnly = readOnly,
-                    interactionSource = interactionSource,
-                    testTag = testTag,
-                    modifier =
-                        Modifier.semantics {
-                            label?.let { contentDescription = it }
-                            stateDescription = if (checked) "On" else "Off"
-                            errorText?.let { error(it) }
-                        },
-                )
-            }
-            errorText?.let {
-                Text(
-                    text = it,
-                    style = type.caption,
-                    color = supportingColor,
-                )
-            }
-        }
-        return
-    }
-    val components = RipDpiThemeTokens.components
-    val scheme = MaterialTheme.colorScheme
-    val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
-    val isPressed by resolvedInteractionSource.collectIsPressedAsState()
-    val isDark = scheme.background.luminance() < 0.5f
-    val trackColor by animateColorAsState(
-        targetValue =
-            when {
-                isPressed && checked -> {
-                    lerp(colors.foreground, scheme.onSurfaceVariant, PressedCheckedTrackBlend)
-                }
-
-                isPressed -> {
-                    lerp(
-                        colors.background,
-                        colors.foreground,
-                        if (isDark) PressedDarkTrackBlend else PressedLightTrackBlend,
+                label?.let {
+                    Text(
+                        text = it,
+                        style = type.body,
+                        color = labelColor,
                     )
                 }
-
-                checked && isDark -> {
-                    colors.foreground
+                helperText?.takeIf { errorText == null }?.let {
+                    Text(
+                        text = it,
+                        style = type.caption,
+                        color = supportingColor,
+                    )
                 }
+            }
+            SwitchToggleControl(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                enabled = enabled,
+                readOnly = readOnly,
+                interactionSource = interactionSource,
+                testTag = testTag,
+                modifier =
+                    Modifier.semantics {
+                        label?.let { contentDescription = it }
+                        stateDescription = if (checked) "On" else "Off"
+                        errorText?.let { error(it) }
+                    },
+            )
+        }
+        errorText?.let {
+            Text(
+                text = it,
+                style = type.caption,
+                color = supportingColor,
+            )
+        }
+    }
+}
 
-                checked -> {
-                    colors.foreground
-                }
-
-                isDark -> {
-                    lerp(colors.background, colors.foreground, 0.25f)
-                }
-
-                else -> {
-                    lerp(colors.background, colors.foreground, 0.16f)
-                }
-            },
-        label = "switchTrack",
-    )
-    val thumbColor by animateColorAsState(
-        targetValue =
-            when {
-                checked && isDark -> colors.background
-                checked -> Color.White
-                isDark -> lerp(colors.background, colors.foreground, 0.5f)
-                else -> Color.White
-            },
-        label = "switchThumb",
-    )
+@Composable
+private fun SwitchToggleControl(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
+    enabled: Boolean,
+    readOnly: Boolean,
+    interactionSource: MutableInteractionSource?,
+    testTag: String?,
+) {
+    val components = RipDpiThemeTokens.components
+    val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
+    val isPressed by resolvedInteractionSource.collectIsPressedAsState()
+    val visualState = rememberSwitchVisualState(checked = checked, enabled = enabled, isPressed = isPressed)
+    val interactive = enabled && !readOnly && onCheckedChange != null
     val thumbTravel =
         components.switchWidth -
             components.switchThumbSize -
@@ -173,25 +176,98 @@ fun RipDpiSwitch(
         targetValue = if (checked) thumbTravel else 0.dp,
         label = "switchOffset",
     )
-    val alpha by animateFloatAsState(targetValue = if (enabled) 1f else 0.38f, label = "switchAlpha")
-    val interactive = enabled && !readOnly && onCheckedChange != null
+    val alpha by animateFloatAsState(targetValue = visualState.alpha, label = "switchAlpha")
 
+    SwitchLayout(
+        modifier = modifier,
+        testTag = testTag,
+        checked = checked,
+        interactive = interactive,
+        resolvedInteractionSource = resolvedInteractionSource,
+        onCheckedChange = onCheckedChange,
+        dimensions =
+            SwitchDimensions(
+                width = components.switchWidth,
+                height = components.switchHeight,
+                trackHeight = components.switchTrackHeight,
+                thumbPadding = components.switchThumbPadding,
+                thumbSize = components.switchThumbSize,
+            ),
+        trackColor = visualState.trackColor,
+        thumbColor = visualState.thumbColor,
+        thumbOffset = thumbOffset,
+        alpha = alpha,
+    )
+}
+
+@Composable
+private fun rememberSwitchVisualState(
+    checked: Boolean,
+    enabled: Boolean,
+    isPressed: Boolean,
+): SwitchVisualState {
+    val colors = RipDpiThemeTokens.colors
+    val scheme = MaterialTheme.colorScheme
+    val isDark = scheme.background.luminance() < 0.5f
+    val trackColor by animateColorAsState(
+        targetValue =
+            switchTrackColor(
+                backgroundColor = colors.background,
+                foregroundColor = colors.foreground,
+                onSurfaceVariant = scheme.onSurfaceVariant,
+                checked = checked,
+                isPressed = isPressed,
+                isDark = isDark,
+            ),
+        label = "switchTrack",
+    )
+    val thumbColor by animateColorAsState(
+        targetValue =
+            switchThumbColor(
+                backgroundColor = colors.background,
+                foregroundColor = colors.foreground,
+                checked = checked,
+                isDark = isDark,
+            ),
+        label = "switchThumb",
+    )
+    return SwitchVisualState(
+        trackColor = trackColor,
+        thumbColor = thumbColor,
+        alpha = if (enabled) 1f else 0.38f,
+    )
+}
+
+@Composable
+private fun SwitchLayout(
+    modifier: Modifier,
+    testTag: String?,
+    checked: Boolean,
+    interactive: Boolean,
+    resolvedInteractionSource: MutableInteractionSource,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    dimensions: SwitchDimensions,
+    trackColor: Color,
+    thumbColor: Color,
+    thumbOffset: androidx.compose.ui.unit.Dp,
+    alpha: Float,
+) {
     Box(
-        modifier =
-            modifier
-                .ripDpiTestTag(testTag)
-                .size(width = components.switchWidth, height = components.switchHeight)
-                .then(
-                    if (interactive) {
-                        Modifier.ripDpiToggleable(
-                            value = checked,
-                            enabled = true,
-                            role = Role.Switch,
-                            interactionSource = resolvedInteractionSource,
-                            onValueChange = { value -> onCheckedChange(value) },
-                        )
-                    } else {
-                        Modifier
+            modifier =
+                modifier
+                    .ripDpiTestTag(testTag)
+                    .size(width = dimensions.width, height = dimensions.height)
+                    .then(
+                        if (interactive) {
+                            Modifier.ripDpiToggleable(
+                                value = checked,
+                                enabled = true,
+                                role = Role.Switch,
+                                interactionSource = resolvedInteractionSource,
+                                onValueChange = { value -> onCheckedChange?.invoke(value) },
+                            )
+                        } else {
+                            Modifier
                     },
                 ),
         contentAlignment = Alignment.CenterStart,
@@ -199,21 +275,69 @@ fun RipDpiSwitch(
         Box(
             modifier =
                 Modifier
-                    .size(width = components.switchWidth, height = components.switchTrackHeight)
+                    .size(width = dimensions.width, height = dimensions.trackHeight)
                     .background(trackColor.copy(alpha = alpha), CircleShape),
             contentAlignment = Alignment.CenterStart,
         ) {
             Box(
                 modifier =
                     Modifier
-                        .offset(x = components.switchThumbPadding + thumbOffset)
-                        .size(components.switchThumbSize)
+                        .offset(x = dimensions.thumbPadding + thumbOffset)
+                        .size(dimensions.thumbSize)
                         .shadow(elevation = 3.dp, shape = CircleShape, clip = false)
                         .background(thumbColor.copy(alpha = alpha), CircleShape),
             )
         }
     }
 }
+
+private data class SwitchVisualState(
+    val trackColor: Color,
+    val thumbColor: Color,
+    val alpha: Float,
+)
+
+private data class SwitchDimensions(
+    val width: androidx.compose.ui.unit.Dp,
+    val height: androidx.compose.ui.unit.Dp,
+    val trackHeight: androidx.compose.ui.unit.Dp,
+    val thumbPadding: androidx.compose.ui.unit.Dp,
+    val thumbSize: androidx.compose.ui.unit.Dp,
+)
+
+private fun switchTrackColor(
+    backgroundColor: Color,
+    foregroundColor: Color,
+    onSurfaceVariant: Color,
+    checked: Boolean,
+    isPressed: Boolean,
+    isDark: Boolean,
+): Color =
+    when {
+        isPressed && checked -> lerp(foregroundColor, onSurfaceVariant, PressedCheckedTrackBlend)
+        isPressed ->
+            lerp(
+                backgroundColor,
+                foregroundColor,
+                if (isDark) PressedDarkTrackBlend else PressedLightTrackBlend,
+            )
+        checked -> foregroundColor
+        isDark -> lerp(backgroundColor, foregroundColor, 0.25f)
+        else -> lerp(backgroundColor, foregroundColor, 0.16f)
+    }
+
+private fun switchThumbColor(
+    backgroundColor: Color,
+    foregroundColor: Color,
+    checked: Boolean,
+    isDark: Boolean,
+): Color =
+    when {
+        checked && isDark -> backgroundColor
+        checked -> Color.White
+        isDark -> lerp(backgroundColor, foregroundColor, 0.5f)
+        else -> Color.White
+    }
 
 @Preview(showBackground = true)
 @Composable

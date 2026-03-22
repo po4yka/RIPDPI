@@ -78,9 +78,7 @@ impl ResolverPool {
                     .labels
                     .iter()
                     .enumerate()
-                    .filter_map(|(i, label)| {
-                        cache.peek(label.as_str()).map(|entry| (i, entry.last_success))
-                    })
+                    .filter_map(|(i, label)| cache.peek(label.as_str()).map(|entry| (i, entry.last_success)))
                     .max_by_key(|(_, t)| *t);
                 if let Some((cached_idx, _)) = best {
                     if ranked[0] != cached_idx {
@@ -241,8 +239,14 @@ impl ResolverPoolBuilder {
         let mut labels = Vec::with_capacity(self.endpoints.len());
 
         for (endpoint, transport) in self.endpoints {
-            let resolver =
-                EncryptedDnsResolver::with_health(endpoint, transport, self.timeout, self.tls_roots.clone(), Some(health.clone()), None)?;
+            let resolver = EncryptedDnsResolver::with_health(
+                endpoint,
+                transport,
+                self.timeout,
+                self.tls_roots.clone(),
+                Some(health.clone()),
+                None,
+            )?;
             labels.push(resolver.endpoint_label());
             resolvers.push(resolver);
         }
@@ -272,10 +276,7 @@ mod tests {
             host: "dns.google".to_string(),
             port: 0,
             tls_server_name: None,
-            bootstrap_ips: vec![
-                IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
-                IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)),
-            ],
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4))],
             doh_url: Some("https://dns.google/dns-query".to_string()),
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
@@ -289,10 +290,7 @@ mod tests {
             host: "cloudflare-dns.com".to_string(),
             port: 0,
             tls_server_name: None,
-            bootstrap_ips: vec![
-                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
-            ],
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1))],
             doh_url: Some("https://cloudflare-dns.com/dns-query".to_string()),
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
@@ -320,10 +318,8 @@ mod tests {
 
     #[test]
     fn shared_health_registry_has_same_arc_identity() {
-        let pool = ResolverPool::builder()
-            .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
-            .build()
-            .unwrap();
+        let pool =
+            ResolverPool::builder().add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct).build().unwrap();
         // Record an observation and verify it's visible on the returned registry.
         pool.health_registry().record_endpoint_outcome("test", true, 100);
         assert_eq!(pool.health_registry().observation_count("test"), 1);

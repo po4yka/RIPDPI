@@ -319,8 +319,7 @@ pub fn send_fake_tcp(
     let result = (|| {
         write_region(region, fake_prefix, region_len);
 
-        let (pipe_r, pipe_w) = nix::unistd::pipe()
-            .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+        let (pipe_r, pipe_w) = nix::unistd::pipe().map_err(|e| io::Error::from_raw_os_error(e as i32))?;
         // pipe_r and pipe_w are OwnedFd — closed automatically on drop.
 
         set_stream_ttl(stream, ttl)?;
@@ -331,9 +330,7 @@ pub fn send_fake_tcp(
         let iov = libc::iovec { iov_base: region.cast(), iov_len: original_prefix.len() };
         // SAFETY: `iov` references an anonymous writable mapping whose lifetime
         // extends until after the splice completes. vmsplice is not in nix 0.29.
-        let queued = unsafe {
-            libc::vmsplice(pipe_w.as_raw_fd(), &iov, 1, libc::SPLICE_F_GIFT as libc::c_uint)
-        };
+        let queued = unsafe { libc::vmsplice(pipe_w.as_raw_fd(), &iov, 1, libc::SPLICE_F_GIFT as libc::c_uint) };
         if queued < 0 {
             return Err(io::Error::last_os_error());
         }
@@ -511,11 +508,18 @@ fn alloc_region(len: usize) -> io::Result<*mut u8> {
     use nix::sys::mman::{mmap, MapFlags, ProtFlags};
     use std::num::NonZeroUsize;
     use std::os::fd::BorrowedFd;
-    let size = NonZeroUsize::new(len)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "zero-length mmap region"))?;
+    let size =
+        NonZeroUsize::new(len).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "zero-length mmap region"))?;
     // SAFETY: anonymous private mapping; no backing fd; no aliasing with existing mappings.
     let ptr = unsafe {
-        mmap::<BorrowedFd<'_>>(None, size, ProtFlags::PROT_READ | ProtFlags::PROT_WRITE, MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS, None, 0)
+        mmap::<BorrowedFd<'_>>(
+            None,
+            size,
+            ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+            MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+            None,
+            0,
+        )
     }
     .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
     Ok(ptr.as_ptr().cast())

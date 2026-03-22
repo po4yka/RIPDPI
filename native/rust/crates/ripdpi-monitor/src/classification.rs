@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 
 use ripdpi_failure_classifier::{classify_quic_probe, ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
+use crate::candidates::StrategyCandidateSpec;
 use crate::types::{ProbeDetail, ProbeResult};
 use crate::util::stable_probe_hash;
-use crate::candidates::StrategyCandidateSpec;
 
 // --- Functions ---
 
@@ -60,16 +60,14 @@ pub(crate) fn classify_strategy_probe_result(result: &ProbeResult) -> Option<Cla
             .and_then(|value| classify_transport_failure_text(value, FailureStage::FirstResponse)),
         ("strategy_https", "tls_handshake_failed") => {
             let error = failure_detail_value(result, "tlsError").unwrap_or("tls_handshake_failed");
-            Some(
-                classify_transport_failure_text(error, FailureStage::TlsHandshake).unwrap_or_else(|| {
-                    ClassifiedFailure::new(
-                        FailureClass::TlsHandshakeFailure,
-                        FailureStage::TlsHandshake,
-                        FailureAction::RetryWithMatchingGroup,
-                        error,
-                    )
-                }),
-            )
+            Some(classify_transport_failure_text(error, FailureStage::TlsHandshake).unwrap_or_else(|| {
+                ClassifiedFailure::new(
+                    FailureClass::TlsHandshakeFailure,
+                    FailureStage::TlsHandshake,
+                    FailureAction::RetryWithMatchingGroup,
+                    error,
+                )
+            }))
         }
         ("strategy_quic", outcome) => {
             let error = failure_detail_value(result, "error").filter(|value| *value != "none");
@@ -118,11 +116,10 @@ pub(crate) fn classify_strategy_probe_baseline_results(results: &[ProbeResult]) 
 }
 
 pub(crate) fn classified_failure_probe_result(target: &str, failure: &ClassifiedFailure) -> ProbeResult {
-    let evidence =
-        std::iter::once(failure.evidence.summary.as_str())
-            .chain(failure.evidence.tags.iter().map(String::as_str))
-            .collect::<Vec<_>>()
-            .join(" | ");
+    let evidence = std::iter::once(failure.evidence.summary.as_str())
+        .chain(failure.evidence.tags.iter().map(String::as_str))
+        .collect::<Vec<_>>()
+        .join(" | ");
     ProbeResult {
         probe_type: "strategy_failure_classification".to_string(),
         target: target.to_string(),
@@ -142,8 +139,12 @@ pub(crate) fn reorder_tcp_candidates_for_failure(
 ) -> Vec<StrategyCandidateSpec> {
     let preferred_ids: &[&str] = match failure_class {
         Some(FailureClass::HttpBlockpage) => &["baseline_current", "parser_only", "parser_unixeol", "split_host"],
-        Some(FailureClass::TcpReset) => &["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake_split"],
-        Some(FailureClass::SilentDrop) => &["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake", "tlsrec_hostfake_split"],
+        Some(FailureClass::TcpReset) => {
+            &["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake_split"]
+        }
+        Some(FailureClass::SilentDrop) => {
+            &["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake", "tlsrec_hostfake_split"]
+        }
         Some(FailureClass::TlsAlert) => &["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake"],
         _ => &[],
     };
@@ -169,13 +170,13 @@ pub(crate) fn filter_quic_candidates_for_failure(
         return candidates;
     }
     let allowed = ["quic_disabled", "quic_compat_burst", "quic_realistic_burst"];
-    candidates
-        .into_iter()
-        .filter(|candidate| allowed.contains(&candidate.id))
-        .collect()
+    candidates.into_iter().filter(|candidate| allowed.contains(&candidate.id)).collect()
 }
 
-pub(crate) fn interleave_candidate_families(mut candidates: Vec<StrategyCandidateSpec>, seed: u64) -> Vec<StrategyCandidateSpec> {
+pub(crate) fn interleave_candidate_families(
+    mut candidates: Vec<StrategyCandidateSpec>,
+    seed: u64,
+) -> Vec<StrategyCandidateSpec> {
     let mut families = BTreeMap::<&'static str, Vec<StrategyCandidateSpec>>::new();
     for candidate in candidates.drain(..) {
         families.entry(candidate.family).or_default().push(candidate);
@@ -208,9 +209,7 @@ pub(crate) fn interleave_candidate_families(mut candidates: Vec<StrategyCandidat
 }
 
 pub(crate) fn next_candidate_index(candidates: &[StrategyCandidateSpec], blocked_family: Option<&str>) -> usize {
-    blocked_family
-        .and_then(|blocked| candidates.iter().position(|candidate| candidate.family != blocked))
-        .unwrap_or(0)
+    blocked_family.and_then(|blocked| candidates.iter().position(|candidate| candidate.family != blocked)).unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -219,7 +218,8 @@ mod tests {
 
     #[test]
     fn classify_transport_failure_text_alert() {
-        let result = classify_transport_failure_text("received fatal alert: handshake_failure", FailureStage::TlsHandshake);
+        let result =
+            classify_transport_failure_text("received fatal alert: handshake_failure", FailureStage::TlsHandshake);
         assert!(result.is_some());
         assert_eq!(result.unwrap().class, FailureClass::TlsAlert);
     }
@@ -255,9 +255,18 @@ mod tests {
 
     #[test]
     fn strategy_probe_failure_priority_ordering() {
-        assert!(strategy_probe_failure_priority(FailureClass::HttpBlockpage) > strategy_probe_failure_priority(FailureClass::TcpReset));
-        assert!(strategy_probe_failure_priority(FailureClass::TcpReset) > strategy_probe_failure_priority(FailureClass::SilentDrop));
-        assert!(strategy_probe_failure_priority(FailureClass::SilentDrop) > strategy_probe_failure_priority(FailureClass::TlsAlert));
+        assert!(
+            strategy_probe_failure_priority(FailureClass::HttpBlockpage)
+                > strategy_probe_failure_priority(FailureClass::TcpReset)
+        );
+        assert!(
+            strategy_probe_failure_priority(FailureClass::TcpReset)
+                > strategy_probe_failure_priority(FailureClass::SilentDrop)
+        );
+        assert!(
+            strategy_probe_failure_priority(FailureClass::SilentDrop)
+                > strategy_probe_failure_priority(FailureClass::TlsAlert)
+        );
     }
 
     #[test]

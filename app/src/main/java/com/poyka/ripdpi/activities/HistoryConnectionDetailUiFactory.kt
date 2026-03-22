@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod", "MagicNumber")
-
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
@@ -59,100 +57,65 @@ internal class HistoryConnectionDetailUiFactory
             val latestTelemetry = detail.telemetry.maxByOrNull { it.createdAt }
             return HistoryConnectionDetailUiModel(
                 session = row,
-                highlights =
-                    buildList {
-                        add(DiagnosticsMetricUiModel("Network", detail.session.networkType, DiagnosticsTone.Info))
-                        add(
-                            DiagnosticsMetricUiModel(
-                                "Health",
-                                detail.session.health.replaceFirstChar { it.uppercase() },
-                                toneForConnection(detail.session),
-                            ),
-                        )
-                        add(
-                            DiagnosticsMetricUiModel(
-                                "TX",
-                                coreSupport.formatBytes(detail.session.txBytes),
-                                DiagnosticsTone.Info,
-                            ),
-                        )
-                        add(
-                            DiagnosticsMetricUiModel(
-                                "RX",
-                                coreSupport.formatBytes(detail.session.rxBytes),
-                                DiagnosticsTone.Positive,
-                            ),
-                        )
-                        add(
-                            DiagnosticsMetricUiModel(
-                                "Errors",
-                                detail.session.totalErrors.toString(),
-                                if (detail.session.totalErrors >
-                                    0
-                                ) {
-                                    DiagnosticsTone.Warning
-                                } else {
-                                    DiagnosticsTone.Neutral
-                                },
-                            ),
-                        )
-                        add(
-                            DiagnosticsMetricUiModel(
-                                "Route changes",
-                                detail.session.routeChanges.toString(),
-                                DiagnosticsTone.Info,
-                            ),
-                        )
-                        (latestTelemetry?.failureClass ?: detail.session.failureClass)?.let { failure ->
-                            add(DiagnosticsMetricUiModel("Failure class", failure, DiagnosticsTone.Warning))
-                        }
-                        (
-                            latestTelemetry?.winningStrategyFamily()
-                                ?: detail.session.winningStrategyFamily()
-                        )?.let { winningStrategy ->
-                            add(
-                                DiagnosticsMetricUiModel(
-                                    "Strategy",
-                                    winningStrategy,
-                                    DiagnosticsTone.Positive,
-                                ),
-                            )
-                        }
-                        add(
-                            DiagnosticsMetricUiModel(
-                                "RTT band",
-                                latestTelemetry?.rttBand() ?: detail.session.rttBand(),
-                                DiagnosticsTone.Info,
-                            ),
-                        )
-                        val retryCount = latestTelemetry?.retryCount() ?: detail.session.retryCount()
-                        add(
-                            DiagnosticsMetricUiModel(
-                                "Retries",
-                                retryCount.toString(),
-                                if (retryCount > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
-                            ),
-                        )
-                    },
-                contextGroups =
-                    buildList {
-                        addAll(
-                            detail.contexts
-                                .mapNotNull { it.context }
-                                .flatMap { context -> context.toContextGroups() }
-                                .distinctBy { group ->
-                                    group.title +
-                                        group.fields.joinToString { field ->
-                                            "${field.label}:${field.value}"
-                                        }
-                                },
-                        )
-                        buildFieldTelemetryGroup(detail.session, latestTelemetry)?.let(::add)
-                    },
+                highlights = buildConnectionHighlights(detail.session, latestTelemetry),
+                contextGroups = buildConnectionContextGroups(detail, latestTelemetry),
                 snapshots = detail.snapshots.mapNotNull(::toSnapshotUiModel),
                 events = detail.events.map(coreSupport::toEventUiModel),
             )
         }
+
+        private fun buildConnectionHighlights(
+            session: DiagnosticConnectionSession,
+            latestTelemetry: DiagnosticTelemetrySample?,
+        ): List<DiagnosticsMetricUiModel> {
+            val retryCount = latestTelemetry?.retryCount() ?: session.retryCount()
+            val retryTone = if (retryCount > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral
+            val errorTone = if (session.totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral
+            return buildList {
+                add(DiagnosticsMetricUiModel("Network", session.networkType, DiagnosticsTone.Info))
+                add(
+                    DiagnosticsMetricUiModel(
+                        "Health",
+                        session.health.replaceFirstChar { it.uppercase() },
+                        toneForConnection(session),
+                    ),
+                )
+                add(DiagnosticsMetricUiModel("TX", coreSupport.formatBytes(session.txBytes), DiagnosticsTone.Info))
+                add(DiagnosticsMetricUiModel("RX", coreSupport.formatBytes(session.rxBytes), DiagnosticsTone.Positive))
+                add(DiagnosticsMetricUiModel("Errors", session.totalErrors.toString(), errorTone))
+                add(DiagnosticsMetricUiModel("Route changes", session.routeChanges.toString(), DiagnosticsTone.Info))
+                (latestTelemetry?.failureClass ?: session.failureClass)?.let { failure ->
+                    add(DiagnosticsMetricUiModel("Failure class", failure, DiagnosticsTone.Warning))
+                }
+                (latestTelemetry?.winningStrategyFamily() ?: session.winningStrategyFamily())?.let { strategy ->
+                    add(DiagnosticsMetricUiModel("Strategy", strategy, DiagnosticsTone.Positive))
+                }
+                add(
+                    DiagnosticsMetricUiModel(
+                        "RTT band",
+                        latestTelemetry?.rttBand() ?: session.rttBand(),
+                        DiagnosticsTone.Info,
+                    ),
+                )
+                add(DiagnosticsMetricUiModel("Retries", retryCount.toString(), retryTone))
+            }
+        }
+
+        private fun buildConnectionContextGroups(
+            detail: DiagnosticConnectionDetail,
+            latestTelemetry: DiagnosticTelemetrySample?,
+        ): List<DiagnosticsContextGroupUiModel> =
+            buildList {
+                addAll(
+                    detail.contexts
+                        .mapNotNull { it.context }
+                        .flatMap { context -> context.toContextGroups() }
+                        .distinctBy { group ->
+                            group.title + group.fields.joinToString { field -> "${field.label}:${field.value}" }
+                        },
+                )
+                buildFieldTelemetryGroup(detail.session, latestTelemetry)?.let(::add)
+            }
 
         private fun toSnapshotUiModel(snapshotEntity: DiagnosticNetworkSnapshot): DiagnosticsNetworkSnapshotUiModel? {
             val snapshot = snapshotEntity.snapshot ?: return null
@@ -248,7 +211,11 @@ internal class HistoryConnectionDetailUiFactory
         }
 
         private fun formatTelemetryHash(value: String): String =
-            if (value.length <= 24) value else "${value.take(12)}...${value.takeLast(8)}"
+            if (value.length <= MaxTelemetryHashLength) {
+                value
+            } else {
+                "${value.take(TelemetryHashPrefixLength)}...${value.takeLast(TelemetryHashSuffixLength)}"
+            }
 
         private fun toneForConnection(session: DiagnosticConnectionSession): DiagnosticsTone =
             when {
@@ -259,10 +226,10 @@ internal class HistoryConnectionDetailUiFactory
             }
 
         private fun formatDurationMs(durationMs: Long): String {
-            val totalSeconds = (durationMs / 1_000L).coerceAtLeast(0L)
-            val hours = totalSeconds / 3_600L
-            val minutes = (totalSeconds % 3_600L) / 60L
-            val seconds = totalSeconds % 60L
+            val totalSeconds = (durationMs / MillisecondsPerSecond).coerceAtLeast(0L)
+            val hours = totalSeconds / SecondsPerHour
+            val minutes = (totalSeconds % SecondsPerHour) / SecondsPerMinute
+            val seconds = totalSeconds % SecondsPerMinute
             return when {
                 hours > 0L -> "${hours}h ${minutes}m"
                 minutes > 0L -> "${minutes}m ${seconds}s"
@@ -270,6 +237,13 @@ internal class HistoryConnectionDetailUiFactory
             }
         }
     }
+
+private const val MillisecondsPerSecond = 1_000L
+private const val SecondsPerMinute = 60L
+private const val SecondsPerHour = 3_600L
+private const val MaxTelemetryHashLength = 24
+private const val TelemetryHashPrefixLength = 12
+private const val TelemetryHashSuffixLength = 8
 
 internal fun HistoryConnectionRowUiModel.matchesQuery(query: String): Boolean {
     if (query.isBlank()) {

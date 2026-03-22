@@ -12,7 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
+import com.poyka.ripdpi.ui.navigation.RipDpiNavHostActions
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
+import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
@@ -75,18 +77,24 @@ internal fun MainActivityContent(
             ) {
                 RipDpiNavHost(
                     startDestination = initialStartDestination,
-                    onSaveLogs = controller::requestSaveLogs,
-                    onShareDebugBundle = controller::requestShareDebugBundle,
-                    onSaveDiagnosticsArchive = controller::requestSaveDiagnosticsArchive,
-                    onShareDiagnosticsArchive = controller::requestShareDiagnosticsArchive,
-                    onShareDiagnosticsSummary = controller::requestShareDiagnosticsSummary,
                     mainViewModel = viewModel,
-                    launchHomeRequested = shellState.launchHomeRequested,
-                    onLaunchHomeHandled = controller::consumeLaunchHomeRequest,
-                    launchRouteRequested = shellState.launchRouteRequested,
-                    onLaunchRouteHandled = controller::consumeLaunchRouteRequest,
-                    onStartConfiguredMode = viewModel::onPrimaryConnectionAction,
-                    onRepairPermission = { permission -> viewModel.onRepairPermissionRequested(permission) },
+                    actions =
+                        RipDpiNavHostActions(
+                            onSaveLogs = controller::requestSaveLogs,
+                            onShareDebugBundle = controller::requestShareDebugBundle,
+                            onSaveDiagnosticsArchive = controller::requestSaveDiagnosticsArchive,
+                            onShareDiagnosticsArchive = controller::requestShareDiagnosticsArchive,
+                            onShareDiagnosticsSummary = controller::requestShareDiagnosticsSummary,
+                            onStartConfiguredMode = viewModel::onPrimaryConnectionAction,
+                            onRepairPermission = { permission -> viewModel.onRepairPermissionRequested(permission) },
+                        ),
+                    launchRequests =
+                        RipDpiNavHostLaunchRequests(
+                            launchHomeRequested = shellState.launchHomeRequested,
+                            onLaunchHomeHandled = controller::consumeLaunchHomeRequest,
+                            launchRouteRequested = shellState.launchRouteRequested,
+                            onLaunchRouteHandled = controller::consumeLaunchRouteRequest,
+                        ),
                     snackbarHostState = snackbarHostState,
                 )
                 if (shellState.vpnPermissionDialogVisible) {

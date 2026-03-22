@@ -593,53 +593,38 @@ async fn create_udp_association(
     let worker_last_activity = Arc::clone(&last_activity);
     let worker_cancel = cancel.clone();
     let worker_udp_tx = udp_tx.clone();
-    let worker =
-        tokio::spawn(async move {
-            loop {
-                match worker_session.recv_from(worker_cancel.clone()).await {
-                    Ok(Some((resp_payload, from))) => {
-                        touch_udp_activity(&worker_last_activity);
-                        let raw = build_udp_response(from, src, &resp_payload);
-                        if raw.is_empty() {
-                            continue;
-                        }
-                        if worker_udp_tx
-                            .send(UdpEvent::Packet {
-                                src,
-                                association_id,
-                                raw,
-                            })
-                            .await
-                            .is_err()
-                        {
-                            break;
-                        }
+    let worker = tokio::spawn(async move {
+        loop {
+            match worker_session.recv_from(worker_cancel.clone()).await {
+                Ok(Some((resp_payload, from))) => {
+                    touch_udp_activity(&worker_last_activity);
+                    let raw = build_udp_response(from, src, &resp_payload);
+                    if raw.is_empty() {
+                        continue;
                     }
-                    Ok(None) => {
-                        if worker_cancel.is_cancelled() {
-                            break;
-                        }
-                        if udp_association_is_idle(&worker_last_activity, idle_timeout) {
-                            let _ = worker_udp_tx.send(UdpEvent::Closed { src, association_id }).await;
-                            break;
-                        }
+                    if worker_udp_tx.send(UdpEvent::Packet { src, association_id, raw }).await.is_err() {
+                        break;
                     }
-                    Err(err) => {
-                        debug!("UDP association {} for {} failed: {}", association_id, src, err);
+                }
+                Ok(None) => {
+                    if worker_cancel.is_cancelled() {
+                        break;
+                    }
+                    if udp_association_is_idle(&worker_last_activity, idle_timeout) {
                         let _ = worker_udp_tx.send(UdpEvent::Closed { src, association_id }).await;
                         break;
                     }
                 }
+                Err(err) => {
+                    debug!("UDP association {} for {} failed: {}", association_id, src, err);
+                    let _ = worker_udp_tx.send(UdpEvent::Closed { src, association_id }).await;
+                    break;
+                }
             }
-        });
+        }
+    });
 
-    Ok(UdpAssociation {
-        id: association_id,
-        session,
-        cancel,
-        last_activity,
-        worker,
-    })
+    Ok(UdpAssociation { id: association_id, session, cancel, last_activity, worker })
 }
 
 fn handle_udp_event(
@@ -649,22 +634,14 @@ fn handle_udp_event(
     event: UdpEvent,
 ) {
     match event {
-        UdpEvent::Packet {
-            src,
-            association_id,
-            raw,
-        } => {
+        UdpEvent::Packet { src, association_id, raw } => {
             let current_id = udp_associations.get(&src).map(|association| association.id);
             if current_id == Some(association_id) {
                 try_write_tun_packet(tun, stats, &raw, "udp");
             }
         }
         UdpEvent::Closed { src, association_id } => {
-            if udp_associations
-                .get(&src)
-                .map(|association| association.id == association_id)
-                .unwrap_or(false)
-            {
+            if udp_associations.get(&src).map(|association| association.id == association_id).unwrap_or(false) {
                 udp_associations.remove(&src);
             }
         }
