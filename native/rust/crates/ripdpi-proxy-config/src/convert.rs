@@ -289,7 +289,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     config.ws_tunnel_mode = match ws_tunnel.mode.as_deref() {
         Some("fallback") => ciadpi_config::WsTunnelMode::Fallback,
         Some("always") => ciadpi_config::WsTunnelMode::Always,
-        Some("off") | Some(_) => ciadpi_config::WsTunnelMode::Off,
+        Some("off" | _) => ciadpi_config::WsTunnelMode::Off,
         None => {
             if ws_tunnel.enabled { ciadpi_config::WsTunnelMode::Always } else { ciadpi_config::WsTunnelMode::Off }
         }

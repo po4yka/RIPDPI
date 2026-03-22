@@ -362,4 +362,159 @@ mod tests {
         assert_eq!(classified.class, FailureClass::QuicBreakage);
         assert_eq!(classified.action, FailureAction::DiagnosticsOnly);
     }
+
+    // ── Transport error classification completeness ──
+
+    #[test]
+    fn transport_errors_classify_connect_failures() {
+        let kinds = [
+            io::ErrorKind::ConnectionRefused,
+            io::ErrorKind::HostUnreachable,
+            io::ErrorKind::NetworkUnreachable,
+            io::ErrorKind::NotConnected,
+            io::ErrorKind::AddrNotAvailable,
+        ];
+        for kind in kinds {
+            let err = io::Error::new(kind, "test");
+            let f = classify_transport_error(FailureStage::Connect, &err);
+            assert_eq!(f.class, FailureClass::ConnectFailure, "expected ConnectFailure for {kind:?}");
+            assert_eq!(f.action, FailureAction::RetryWithMatchingGroup);
+        }
+    }
+
+    #[test]
+    fn transport_errors_classify_unknown_kinds() {
+        let err = io::Error::new(io::ErrorKind::PermissionDenied, "denied");
+        let f = classify_transport_error(FailureStage::Connect, &err);
+        assert_eq!(f.class, FailureClass::Unknown);
+        assert_eq!(f.action, FailureAction::SurfaceOnly);
+    }
+
+    // ── TLS alert parsing edge cases ──
+
+    #[test]
+    fn tls_alert_returns_none_for_short_input() {
+        assert!(classify_tls_alert(&[0x15, 0x03, 0x03, 0x00, 0x02, 0x02]).is_none());
+        assert!(classify_tls_alert(&[]).is_none());
+    }
+
+    #[test]
+    fn tls_alert_returns_none_for_wrong_record_type() {
+        // 0x16 is Handshake, not Alert (0x15)
+        let record = [0x16, 0x03, 0x03, 0x00, 0x02, 0x02, 0x28];
+        assert!(classify_tls_alert(&record).is_none());
+    }
+
+    #[test]
+    fn tls_alert_returns_none_for_invalid_tls_version() {
+        // Second byte != 0x03
+        let bad_major = [0x15, 0x02, 0x03, 0x00, 0x02, 0x02, 0x28];
+        assert!(classify_tls_alert(&bad_major).is_none());
+
+        // Third byte > 0x04
+        let bad_minor = [0x15, 0x03, 0x05, 0x00, 0x02, 0x02, 0x28];
+        assert!(classify_tls_alert(&bad_minor).is_none());
+    }
+
+    #[test]
+    fn tls_alert_identifies_known_alert_codes() {
+        let cases: &[(u8, &str)] = &[
+            (0, "close_notify"),
+            (10, "unexpected_message"),
+            (20, "bad_record_mac"),
+            (40, "handshake_failure"),
+            (42, "bad_certificate"),
+            (48, "unknown_ca"),
+            (70, "protocol_version"),
+            (80, "internal_error"),
+            (112, "unrecognized_name"),
+            (99, "other"),
+        ];
+        for &(code, expected_desc) in cases {
+            let record = [0x15, 0x03, 0x03, 0x00, 0x02, 0x02, code];
+            let f = classify_tls_alert(&record).expect("should classify valid TLS alert");
+            assert!(
+                f.evidence.tags.iter().any(|t| t == &format!("alert={expected_desc}")),
+                "alert code {code} should produce description '{expected_desc}', got tags {:?}",
+                f.evidence.tags,
+            );
+        }
+    }
+
+    // ── HTTP blockpage edge cases ──
+
+    #[test]
+    fn http_blockpage_detects_status_451() {
+        let response = b"HTTP/1.1 451 Unavailable For Legal Reasons\r\nServer: test\r\n\r\nblocked";
+        assert!(classify_http_blockpage(response).is_some());
+    }
+
+    #[test]
+    fn http_blockpage_detects_redirect_302() {
+        let response = b"HTTP/1.1 302 Found\r\nLocation: http://block.isp.net\r\n\r\n";
+        assert!(classify_http_blockpage(response).is_some());
+    }
+
+    #[test]
+    fn http_blockpage_detects_body_keywords_on_200() {
+        let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nThis page is subject to censorship.";
+        let f = classify_http_blockpage(response).expect("blockpage from keyword");
+        assert_eq!(f.class, FailureClass::HttpBlockpage);
+    }
+
+    #[test]
+    fn http_blockpage_returns_none_for_clean_200() {
+        let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nHello, world!";
+        assert!(classify_http_blockpage(response).is_none());
+    }
+
+    #[test]
+    fn http_blockpage_returns_none_for_missing_headers_end() {
+        let response = b"HTTP/1.1 403 Forbidden\r\nServer: test";
+        assert!(classify_http_blockpage(response).is_none());
+    }
+
+    #[test]
+    fn http_blockpage_returns_none_for_non_http() {
+        let response = b"\x00\x01\x02random binary data";
+        assert!(classify_http_blockpage(response).is_none());
+    }
+
+    // ── DNS tampering edge cases ──
+
+    #[test]
+    fn dns_tampering_returns_none_for_empty_answers() {
+        assert!(confirm_dns_tampering("example.org", "1.2.3.4".parse().unwrap(), &[], "cloudflare").is_none());
+    }
+
+    #[test]
+    fn dns_tampering_returns_none_when_target_in_answers() {
+        let target: IpAddr = "198.51.100.10".parse().unwrap();
+        assert!(confirm_dns_tampering("example.org", target, &[target], "cloudflare").is_none());
+    }
+
+    // ── classify_redirect_failure ──
+
+    #[test]
+    fn redirect_failure_produces_correct_class_and_stage() {
+        let f = classify_redirect_failure("redirected to block page");
+        assert_eq!(f.class, FailureClass::Redirect);
+        assert_eq!(f.stage, FailureStage::FirstResponse);
+        assert_eq!(f.action, FailureAction::RetryWithMatchingGroup);
+    }
+
+    // ── QUIC probe with initial_response success ──
+
+    #[test]
+    fn quic_probe_returns_none_for_initial_response() {
+        assert!(classify_quic_probe("quic_initial_response", None).is_none());
+    }
+
+    // ── FailureEvidence tag building ──
+
+    #[test]
+    fn evidence_tags_format_key_value_pairs() {
+        let e = FailureEvidence::new("test").with_tag("foo", "bar").with_tag("baz", "42");
+        assert_eq!(e.tags, vec!["foo=bar", "baz=42"]);
+    }
 }

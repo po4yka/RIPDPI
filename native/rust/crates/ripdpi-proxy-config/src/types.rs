@@ -25,6 +25,7 @@ pub enum ProxyConfigError {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum ProxyConfigPayload {
     CommandLine {
         args: Vec<String>,
