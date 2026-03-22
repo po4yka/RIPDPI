@@ -141,4 +141,8 @@ message AppSettings {
   bool network_strategy_memory_enabled = 111;
   bool ws_tunnel_enabled = 112;
   string ws_tunnel_mode = 113;
+
+  // Banner dismiss state
+  bool battery_banner_dismissed = 114;
+  bool background_guidance_dismissed = 115;
 }

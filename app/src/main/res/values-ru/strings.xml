@@ -3,6 +3,7 @@
     <string name="ripdpi_docs">https://github.com/hufrea/ripdpi/blob/v0.13/README.md</string>
     <string name="app_name">RIPDPI</string>
     <string name="navigation_back">Назад</string>
+    <string name="action_dismiss">Скрыть</string>
     <string name="vpn_connect">Подключить</string>
     <string name="vpn_disconnect">Отключить</string>
     <string name="vpn_connected">Подключено</string>
@@ -1091,6 +1092,9 @@ fakeddisorder endhost</string>
     <string name="permissions_background_activity_title">Фоновая работа</string>
     <string name="permissions_background_activity_body">Некоторые устройства добавляют собственные фоновые ограничения поверх системной оптимизации Android. Если RIPDPI останавливается в фоне, проверьте настройки батареи или фонового использования приложения.</string>
     <string name="permissions_background_activity_body_samsung">Устройства Samsung могут останавливать RIPDPI в фоне даже при отключённой системной оптимизации Android. Если сессии обрываются, откройте «Сведения о приложении &gt; Батарея», выберите режим «Без ограничений» и добавьте RIPDPI в список неспящих приложений.</string>
+    <string name="permissions_background_activity_body_xiaomi">Устройства Xiaomi/MIUI могут блокировать работу RIPDPI в фоне. Откройте Настройки &gt; Приложения &gt; Все приложения &gt; RIPDPI, установите режим батареи «Без ограничений» и включите автозапуск.</string>
+    <string name="permissions_background_activity_body_huawei">Устройства Huawei могут останавливать RIPDPI в фоне. Откройте Настройки &gt; Батарея &gt; Запуск приложений, найдите RIPDPI, отключите автоматическое управление и включите автозапуск, косвенный запуск и работу в фоне.</string>
+    <string name="permissions_background_activity_body_oneplus">Устройства OnePlus могут агрессивно закрывать фоновые приложения. Откройте Настройки &gt; Батарея &gt; Оптимизация батареи, найдите RIPDPI и выберите «Не оптимизировать». Также отключите «Глубокая оптимизация» и «Оптимизация в режиме ожидания», если доступны.</string>
     <string name="settings_connectivity_section">Подключение</string>
     <string name="settings_permissions_section">Разрешения</string>
     <string name="settings_permission_status_granted">Предоставлено</string>
