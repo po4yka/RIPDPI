@@ -28,6 +28,7 @@ class DefaultDiagnosticsBootstrapper
     constructor(
         private val archiveExporter: DiagnosticsArchiveExporter,
         private val profileImporter: BundledDiagnosticsProfileImporter,
+        private val runtimeHistoryStartup: RuntimeHistoryStartup,
         private val policyHandoverEventStore: PolicyHandoverEventStore,
         private val automaticProbeScheduler: AutomaticProbeScheduler,
         @param:Named("importBundledProfilesOnInitialize")
@@ -41,6 +42,11 @@ class DefaultDiagnosticsBootstrapper
             if (!initialized.compareAndSet(false, true)) {
                 return
             }
+            runCatching {
+                runtimeHistoryStartup.start()
+            }.onFailure { error ->
+                logRuntimeHistoryBootstrapFailure(error)
+            }
             archiveExporter.cleanupCache()
             if (importBundledProfilesOnInitialize) {
                 profileImporter.importProfiles()
@@ -50,6 +56,10 @@ class DefaultDiagnosticsBootstrapper
                     automaticProbeScheduler.schedule(event)
                 }
             }
+        }
+
+        private fun logRuntimeHistoryBootstrapFailure(error: Throwable) {
+            System.err.println("Runtime history bootstrap skipped")
         }
     }
 
