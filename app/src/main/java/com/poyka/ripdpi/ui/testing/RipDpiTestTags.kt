@@ -91,11 +91,21 @@ internal object RipDpiTestTags {
     const val DiagnosticsSharePreviewCard = "diagnostics-share-preview-card"
     const val DiagnosticsArchiveStateIndicator = "diagnostics-archive-state-indicator"
     const val DiagnosticsSessionDetailSheet = "diagnostics-session-detail-sheet"
+    const val DiagnosticsEventDetailSheet = "diagnostics-event-detail-sheet"
+    const val DiagnosticsApproachDetailSheet = "diagnostics-approach-detail-sheet"
     const val DiagnosticsProbeDetailSheet = "diagnostics-probe-detail-sheet"
     const val DiagnosticsStrategyCandidateDetailSheet = "diagnostics-strategy-candidate-detail-sheet"
     const val DiagnosticsStrategyCandidateNotesSection = "diagnostics-strategy-candidate-notes-section"
     const val DiagnosticsStrategyCandidateSignatureSection = "diagnostics-strategy-candidate-signature-section"
     const val DiagnosticsStrategyCandidateResultsSection = "diagnostics-strategy-candidate-results-section"
+    const val DiagnosticsScanStateIdle = "diagnostics-scan-state-idle"
+    const val DiagnosticsScanStateProgress = "diagnostics-scan-state-progress"
+    const val DiagnosticsScanStateContent = "diagnostics-scan-state-content"
+    const val DiagnosticsScanProgressCard = "diagnostics-scan-progress-card"
+    const val DiagnosticsScanRunRawAction = "diagnostics-scan-run-raw"
+    const val DiagnosticsScanRunInPathAction = "diagnostics-scan-run-in-path"
+    const val DiagnosticsScanCancelAction = "diagnostics-scan-cancel"
+    const val DiagnosticsSessionSensitiveToggle = "diagnostics-session-sensitive-toggle"
     const val DiagnosticsSessionsSearch = "diagnostics-sessions-search"
     const val DiagnosticsEventsSearch = "diagnostics-events-search"
     const val DiagnosticsEventsAutoScroll = "diagnostics-events-auto-scroll"
@@ -104,6 +114,10 @@ internal object RipDpiTestTags {
     const val DiagnosticsSaveLogs = "diagnostics-save-logs"
     const val DiagnosticsShareSummary = "diagnostics-share-summary"
     const val DiagnosticsStatusSnackbar = "diagnostics-status-snackbar"
+    const val DiagnosticsSessionsStateEmpty = "diagnostics-sessions-state-empty"
+    const val DiagnosticsSessionsStateContent = "diagnostics-sessions-state-content"
+    const val DiagnosticsEventsStateEmpty = "diagnostics-events-state-empty"
+    const val DiagnosticsEventsStateContent = "diagnostics-events-state-content"
 
     const val LogsScreen = "logs-screen"
     const val LogsAutoScroll = "logs-auto-scroll"
@@ -119,6 +133,24 @@ internal object RipDpiTestTags {
     const val HistoryDiagnosticsSearch = "history-diagnostics-search"
     const val HistoryEventsSearch = "history-events-search"
     const val HistoryEventsAutoScroll = "history-events-auto-scroll"
+    const val HistoryConnectionsStateEmpty = "history-connections-state-empty"
+    const val HistoryConnectionsStateContent = "history-connections-state-content"
+    const val HistoryDiagnosticsStateEmpty = "history-diagnostics-state-empty"
+    const val HistoryDiagnosticsStateContent = "history-diagnostics-state-content"
+    const val HistoryEventsStateEmpty = "history-events-state-empty"
+    const val HistoryEventsStateContent = "history-events-state-content"
+    const val HistoryConnectionDetailSheet = "history-connection-detail-sheet"
+    const val HistoryDiagnosticsDetailSheet = "history-diagnostics-detail-sheet"
+    const val HistoryEventDetailSheet = "history-event-detail-sheet"
+
+    const val CustomizationShapeInfoSheet = "customization-shape-info-sheet"
+    const val CustomizationShapeInfoSheetConfirm = "customization-shape-info-sheet-confirm"
+
+    const val HostPackApplyDialog = "host-pack-apply-dialog"
+    const val HostPackApplyDismiss = "host-pack-apply-dismiss"
+    const val HostPackApplyConfirm = "host-pack-apply-confirm"
+    const val HostPackTargetDropdown = "host-pack-target-dropdown"
+    const val HostPackApplyModeDropdown = "host-pack-apply-mode-dropdown"
 
     val screen: (Route) -> String = { route -> "${route.route}-screen" }
 
@@ -143,6 +175,21 @@ internal object RipDpiTestTags {
     val diagnosticsStrategyCandidate: (String) -> String =
         { candidateId -> "diagnostics-strategy-candidate-${sanitize(candidateId)}" }
 
+    val diagnosticsProfile: (String) -> String =
+        { profileId -> "diagnostics-profile-${sanitize(profileId)}" }
+
+    val diagnosticsSession: (String) -> String =
+        { sessionId -> "diagnostics-session-${sanitize(sessionId)}" }
+
+    val diagnosticsProbe: (String) -> String =
+        { probeId -> "diagnostics-probe-${sanitize(probeId)}" }
+
+    val diagnosticsEvent: (String) -> String =
+        { eventId -> "diagnostics-event-${sanitize(eventId)}" }
+
+    val diagnosticsLiveProbe: (String) -> String =
+        { probeKey -> "diagnostics-live-probe-${sanitize(probeKey)}" }
+
     val diagnosticsSessionPathFilter: (String) -> String =
         { pathMode -> "diagnostics-session-path-${sanitize(pathMode)}" }
 
@@ -161,6 +208,15 @@ internal object RipDpiTestTags {
 
     val historyConnectionsModeFilter: (String) -> String =
         { mode -> "history-connections-mode-${sanitize(mode)}" }
+
+    val historyConnection: (String) -> String =
+        { sessionId -> "history-connection-${sanitize(sessionId)}" }
+
+    val historyDiagnosticsSession: (String) -> String =
+        { sessionId -> "history-diagnostics-${sanitize(sessionId)}" }
+
+    val historyEvent: (String) -> String =
+        { eventId -> "history-event-${sanitize(eventId)}" }
 
     val historyConnectionsStatusFilter: (String) -> String =
         { status -> "history-connections-status-${sanitize(status)}" }
@@ -211,6 +267,12 @@ internal object RipDpiTestTags {
         { key -> "advanced-summary-value-${sanitize(key)}" }
 
     val advancedCapsule: (String) -> String = { key -> "advanced-capsule-${sanitize(key)}" }
+
+    val hostPackTargetOption: (String) -> String =
+        { value -> "host-pack-target-${sanitize(value)}" }
+
+    val hostPackApplyModeOption: (String) -> String =
+        { value -> "host-pack-apply-mode-${sanitize(value)}" }
 
     private fun sanitize(value: String): String =
         value

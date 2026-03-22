@@ -10,6 +10,17 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
 object AutomationLaunchContract {
+    const val LaunchAction = "com.poyka.ripdpi.automation.LAUNCH"
+    const val LaunchUriScheme = "ripdpi-debug"
+    const val LaunchUriHost = "automation"
+    const val LaunchUriPath = "/launch"
+    const val LaunchParamEnabled = "enabled"
+    const val LaunchParamResetState = "reset_state"
+    const val LaunchParamStartRoute = "start_route"
+    const val LaunchParamDisableMotion = "disable_motion"
+    const val LaunchParamPermissionPreset = "permission_preset"
+    const val LaunchParamServicePreset = "service_preset"
+    const val LaunchParamDataPreset = "data_preset"
     const val Enabled = "com.poyka.ripdpi.automation.ENABLED"
     const val ResetState = "com.poyka.ripdpi.automation.RESET_STATE"
     const val StartRoute = "com.poyka.ripdpi.automation.START_ROUTE"

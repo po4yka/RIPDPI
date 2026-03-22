@@ -61,6 +61,7 @@ fun <T> RipDpiDropdown(
     density: RipDpiControlDensity = RipDpiControlDensity.Default,
     interactionSource: MutableInteractionSource? = null,
     testTag: String? = null,
+    optionTagForValue: ((T) -> String)? = null,
 ) {
     val type = RipDpiThemeTokens.type
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
@@ -107,6 +108,7 @@ fun <T> RipDpiDropdown(
                 isInteractive = isInteractive,
                 onValueSelected = onValueSelected,
                 onDismiss = { setExpanded(false) },
+                optionTagForValue = optionTagForValue,
             )
         }
         visualState.supportingText?.let {
@@ -202,6 +204,7 @@ private fun <T> DropdownOptionsMenu(
     isInteractive: Boolean,
     onValueSelected: (T) -> Unit,
     onDismiss: () -> Unit,
+    optionTagForValue: ((T) -> String)?,
 ) {
     val colors = RipDpiThemeTokens.colors
     DropdownMenu(
@@ -214,6 +217,7 @@ private fun <T> DropdownOptionsMenu(
     ) {
         options.forEach { option ->
             DropdownMenuItem(
+                modifier = Modifier.ripDpiTestTag(optionTagForValue?.invoke(option.value)),
                 text = {
                     Text(
                         text = option.label,
