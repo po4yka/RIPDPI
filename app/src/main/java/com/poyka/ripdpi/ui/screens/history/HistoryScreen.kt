@@ -449,6 +449,7 @@ private fun DiagnosticsSection(
     }
 }
 
+@Suppress("LongMethod")
 @Composable
 private fun EventsSection(
     uiState: HistoryUiState,
@@ -459,6 +460,7 @@ private fun EventsSection(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
+    val motion = RipDpiThemeTokens.motion
     val listState = rememberLazyListState()
     val isAtLiveEdge by remember(listState) {
         derivedStateOf {
@@ -473,7 +475,11 @@ private fun EventsSection(
             ?.id,
     ) {
         if (uiState.events.filters.autoScroll && uiState.events.events.isNotEmpty() && isAtLiveEdge) {
-            listState.animateScrollToItem(0)
+            if (motion.animationsEnabled) {
+                listState.animateScrollToItem(0)
+            } else {
+                listState.scrollToItem(0)
+            }
         }
     }
 

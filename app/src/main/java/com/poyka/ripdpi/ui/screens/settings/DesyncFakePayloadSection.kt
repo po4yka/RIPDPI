@@ -17,6 +17,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private data class FakePayloadLibraryStatusContent(
@@ -190,6 +191,13 @@ internal fun FakePayloadProfileCard(
             selectedValue = value,
             onValueSelected = { selectedValue -> onSelected(setting, selectedValue) },
             enabled = enabled,
+            testTag = RipDpiTestTags.advancedOption(setting),
+            optionTagForValue = { selectedValue ->
+                RipDpiTestTags.dropdownOption(
+                    RipDpiTestTags.advancedOption(setting),
+                    selectedValue,
+                )
+            },
         )
     }
 }
