@@ -1,5 +1,3 @@
-@file:Suppress("LongMethod", "MaxLineLength")
-
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
@@ -212,89 +210,109 @@ class RipDpiProxyUIPreferences(
             runtimeContext: RipDpiRuntimeContext? = null,
         ): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
-                listen =
-                    RipDpiListenConfig(
-                        ip = settings.proxyIp.ifEmpty { "127.0.0.1" },
-                        port = settings.proxyPort.takeIf { it > 0 } ?: 1080,
-                        maxConnections = settings.maxConnections.takeIf { it > 0 } ?: 512,
-                        bufferSize = settings.bufferSize.takeIf { it > 0 } ?: 16384,
-                        tcpFastOpen = settings.tcpFastOpen,
-                        defaultTtl = if (settings.customTtl) settings.defaultTtl else 0,
-                        customTtl = settings.customTtl,
-                    ),
-                protocols =
-                    RipDpiProtocolConfig(
-                        resolveDomains = !settings.noDomain,
-                        desyncHttp = settings.desyncHttp,
-                        desyncHttps = settings.desyncHttps,
-                        desyncUdp = settings.desyncUdp,
-                    ),
-                chains =
-                    RipDpiChainConfig(
-                        groupActivationFilter = settings.effectiveGroupActivationFilter(),
-                        tcpSteps = settings.effectiveTcpChainSteps(),
-                        udpSteps = settings.effectiveUdpChainSteps(),
-                    ),
-                fakePackets =
-                    RipDpiFakePacketConfig(
-                        fakeTtl = settings.fakeTtl.takeIf { it > 0 } ?: 8,
-                        adaptiveFakeTtlEnabled = settings.adaptiveFakeTtlEnabled,
-                        adaptiveFakeTtlDelta = settings.effectiveAdaptiveFakeTtlDelta(),
-                        adaptiveFakeTtlMin = settings.effectiveAdaptiveFakeTtlMin(),
-                        adaptiveFakeTtlMax = settings.effectiveAdaptiveFakeTtlMax(),
-                        adaptiveFakeTtlFallback = settings.effectiveAdaptiveFakeTtlFallback(),
-                        fakeSni = settings.fakeSni.ifEmpty { DefaultFakeSni },
-                        httpFakeProfile = settings.effectiveHttpFakeProfile(),
-                        fakeTlsUseOriginal = settings.fakeTlsUseOriginal,
-                        fakeTlsRandomize = settings.fakeTlsRandomize,
-                        fakeTlsDupSessionId = settings.fakeTlsDupSessionId,
-                        fakeTlsPadEncap = settings.fakeTlsPadEncap,
-                        fakeTlsSize = settings.fakeTlsSize,
-                        fakeTlsSniMode = settings.effectiveFakeTlsSniMode(),
-                        tlsFakeProfile = settings.effectiveTlsFakeProfile(),
-                        udpFakeProfile = settings.effectiveUdpFakeProfile(),
-                        fakeOffsetMarker = settings.effectiveFakeOffsetMarker(),
-                        oobChar = settings.oobData.firstOrNull() ?: 'a',
-                        dropSack = settings.dropSack,
-                    ),
-                parserEvasions =
-                    RipDpiParserEvasionConfig(
-                        hostMixedCase = settings.hostMixedCase,
-                        domainMixedCase = settings.domainMixedCase,
-                        hostRemoveSpaces = settings.hostRemoveSpaces,
-                        httpMethodEol = settings.httpMethodEol,
-                        httpUnixEol = settings.httpUnixEol,
-                    ),
-                quic =
-                    RipDpiQuicConfig(
-                        initialMode = settings.effectiveQuicInitialMode(),
-                        supportV1 = settings.effectiveQuicSupportV1(),
-                        supportV2 = settings.effectiveQuicSupportV2(),
-                        fakeProfile = settings.effectiveQuicFakeProfile(),
-                        fakeHost = settings.effectiveQuicFakeHost(),
-                    ),
-                hosts =
-                    RipDpiHostsConfig(
-                        mode =
-                            settings.hostsMode
-                                .ifEmpty { RipDpiHostsConfig.Mode.Disable.wireName }
-                                .let(RipDpiHostsConfig.Mode::fromWireName),
-                        entries =
-                            when (settings.hostsMode) {
-                                "blacklist" -> settings.hostsBlacklist
-                                "whitelist" -> settings.hostsWhitelist
-                                else -> null
-                            },
-                    ),
-                hostAutolearn =
-                    RipDpiHostAutolearnConfig(
-                        enabled = settings.hostAutolearnEnabled,
-                        penaltyTtlHours = settings.hostAutolearnPenaltyTtlHours,
-                        maxHosts = settings.hostAutolearnMaxHosts,
-                        storePath = hostAutolearnStorePath,
-                        networkScopeKey = networkScopeKey,
-                    ),
+                listen = buildListenConfig(settings),
+                protocols = buildProtocolConfig(settings),
+                chains = buildChainConfig(settings),
+                fakePackets = buildFakePacketConfig(settings),
+                parserEvasions = buildParserEvasionConfig(settings),
+                quic = buildQuicConfig(settings),
+                hosts = buildHostsConfig(settings),
+                hostAutolearn = buildHostAutolearnConfig(settings, hostAutolearnStorePath, networkScopeKey),
                 runtimeContext = runtimeContext,
+            )
+
+        private fun buildListenConfig(settings: AppSettings): RipDpiListenConfig =
+            RipDpiListenConfig(
+                ip = settings.proxyIp.ifEmpty { "127.0.0.1" },
+                port = settings.proxyPort.takeIf { it > 0 } ?: 1080,
+                maxConnections = settings.maxConnections.takeIf { it > 0 } ?: 512,
+                bufferSize = settings.bufferSize.takeIf { it > 0 } ?: 16384,
+                tcpFastOpen = settings.tcpFastOpen,
+                defaultTtl = if (settings.customTtl) settings.defaultTtl else 0,
+                customTtl = settings.customTtl,
+            )
+
+        private fun buildProtocolConfig(settings: AppSettings): RipDpiProtocolConfig =
+            RipDpiProtocolConfig(
+                resolveDomains = !settings.noDomain,
+                desyncHttp = settings.desyncHttp,
+                desyncHttps = settings.desyncHttps,
+                desyncUdp = settings.desyncUdp,
+            )
+
+        private fun buildChainConfig(settings: AppSettings): RipDpiChainConfig =
+            RipDpiChainConfig(
+                groupActivationFilter = settings.effectiveGroupActivationFilter(),
+                tcpSteps = settings.effectiveTcpChainSteps(),
+                udpSteps = settings.effectiveUdpChainSteps(),
+            )
+
+        private fun buildFakePacketConfig(settings: AppSettings): RipDpiFakePacketConfig =
+            RipDpiFakePacketConfig(
+                fakeTtl = settings.fakeTtl.takeIf { it > 0 } ?: 8,
+                adaptiveFakeTtlEnabled = settings.adaptiveFakeTtlEnabled,
+                adaptiveFakeTtlDelta = settings.effectiveAdaptiveFakeTtlDelta(),
+                adaptiveFakeTtlMin = settings.effectiveAdaptiveFakeTtlMin(),
+                adaptiveFakeTtlMax = settings.effectiveAdaptiveFakeTtlMax(),
+                adaptiveFakeTtlFallback = settings.effectiveAdaptiveFakeTtlFallback(),
+                fakeSni = settings.fakeSni.ifEmpty { DefaultFakeSni },
+                httpFakeProfile = settings.effectiveHttpFakeProfile(),
+                fakeTlsUseOriginal = settings.fakeTlsUseOriginal,
+                fakeTlsRandomize = settings.fakeTlsRandomize,
+                fakeTlsDupSessionId = settings.fakeTlsDupSessionId,
+                fakeTlsPadEncap = settings.fakeTlsPadEncap,
+                fakeTlsSize = settings.fakeTlsSize,
+                fakeTlsSniMode = settings.effectiveFakeTlsSniMode(),
+                tlsFakeProfile = settings.effectiveTlsFakeProfile(),
+                udpFakeProfile = settings.effectiveUdpFakeProfile(),
+                fakeOffsetMarker = settings.effectiveFakeOffsetMarker(),
+                oobChar = settings.oobData.firstOrNull() ?: 'a',
+                dropSack = settings.dropSack,
+            )
+
+        private fun buildParserEvasionConfig(settings: AppSettings): RipDpiParserEvasionConfig =
+            RipDpiParserEvasionConfig(
+                hostMixedCase = settings.hostMixedCase,
+                domainMixedCase = settings.domainMixedCase,
+                hostRemoveSpaces = settings.hostRemoveSpaces,
+                httpMethodEol = settings.httpMethodEol,
+                httpUnixEol = settings.httpUnixEol,
+            )
+
+        private fun buildQuicConfig(settings: AppSettings): RipDpiQuicConfig =
+            RipDpiQuicConfig(
+                initialMode = settings.effectiveQuicInitialMode(),
+                supportV1 = settings.effectiveQuicSupportV1(),
+                supportV2 = settings.effectiveQuicSupportV2(),
+                fakeProfile = settings.effectiveQuicFakeProfile(),
+                fakeHost = settings.effectiveQuicFakeHost(),
+            )
+
+        private fun buildHostsConfig(settings: AppSettings): RipDpiHostsConfig =
+            RipDpiHostsConfig(
+                mode =
+                    settings.hostsMode
+                        .ifEmpty { RipDpiHostsConfig.Mode.Disable.wireName }
+                        .let(RipDpiHostsConfig.Mode::fromWireName),
+                entries =
+                    when (settings.hostsMode) {
+                        "blacklist" -> settings.hostsBlacklist
+                        "whitelist" -> settings.hostsWhitelist
+                        else -> null
+                    },
+            )
+
+        private fun buildHostAutolearnConfig(
+            settings: AppSettings,
+            hostAutolearnStorePath: String?,
+            networkScopeKey: String?,
+        ): RipDpiHostAutolearnConfig =
+            RipDpiHostAutolearnConfig(
+                enabled = settings.hostAutolearnEnabled,
+                penaltyTtlHours = settings.hostAutolearnPenaltyTtlHours,
+                maxHosts = settings.hostAutolearnMaxHosts,
+                storePath = hostAutolearnStorePath,
+                networkScopeKey = networkScopeKey,
             )
     }
 }

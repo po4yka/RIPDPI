@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
@@ -161,7 +162,7 @@ internal class ProxyServiceRuntimeCoordinator(
         statusReporter.reportStatus(
             newStatus = newStatus,
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
-            consumePendingNetworkHandoverClass = ::consumePendingNetworkHandoverClass,
+            consumePendingNetworkHandoverClass = consumePendingNetworkHandoverClass,
             tunnelRecoveryRetryCount = 0,
             failureReason = failureReason,
         )
@@ -194,7 +195,7 @@ internal class ProxyServiceRuntimeCoordinator(
         }
 
         proxyRuntimeSupervisor.detach()
-        requestAsyncStop(skipRuntimeShutdown = true)
+        host.serviceScope.launch(Dispatchers.IO) { stop(skipRuntimeShutdown = true) }
     }
 }
 

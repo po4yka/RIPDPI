@@ -1,5 +1,3 @@
-@file:Suppress("TooManyFunctions")
-
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
@@ -106,7 +104,7 @@ internal object RipDpiProxyJsonCodec {
         encode(
             NativeProxyConfig.CommandLine(
                 args = args,
-                runtimeContext = runtimeContext.toNative(),
+                runtimeContext = ProxyRuntimeContextCodec.toNative(runtimeContext),
             ),
         )
 
@@ -117,21 +115,21 @@ internal object RipDpiProxyJsonCodec {
         encode(
             NativeProxyConfig.Ui(
                 strategyPreset = strategyPreset,
-                listen = preferences.listen.toNative(),
-                protocols = preferences.protocols.toNative(),
-                chains = preferences.chains.toNative(),
-                fakePackets = preferences.fakePackets.toNative(),
-                parserEvasions = preferences.parserEvasions.toNative(),
-                quic = preferences.quic.toNative(),
-                hosts = preferences.hosts.toNative(),
-                hostAutolearn = preferences.hostAutolearn.toNative(),
-                runtimeContext = preferences.runtimeContext.toNative(),
+                listen = ConfigSectionCodec.toNative(preferences.listen),
+                protocols = ConfigSectionCodec.toNative(preferences.protocols),
+                chains = ChainCodec.toNative(preferences.chains),
+                fakePackets = PacketCodec.toNative(preferences.fakePackets),
+                parserEvasions = PacketCodec.toNative(preferences.parserEvasions),
+                quic = EndpointCodec.toNative(preferences.quic),
+                hosts = EndpointCodec.toNative(preferences.hosts),
+                hostAutolearn = EndpointCodec.toNative(preferences.hostAutolearn),
+                runtimeContext = ProxyRuntimeContextCodec.toNative(preferences.runtimeContext),
             ),
         )
 
     fun decodeUiPreferences(configJson: String): RipDpiProxyUIPreferences? {
         val payload = decodeOrNull(configJson) as? NativeProxyConfig.Ui ?: return null
-        return runCatching { payload.toModel() }.getOrNull()
+        return runCatching { EndpointCodec.toModel(payload) }.getOrNull()
     }
 
     fun stripRuntimeContext(configJson: String): String =
@@ -150,7 +148,7 @@ internal object RipDpiProxyJsonCodec {
             is NativeProxyConfig.CommandLine -> {
                 encode(
                     payload.copy(
-                        runtimeContext = runtimeContext.toNative() ?: payload.runtimeContext,
+                        runtimeContext = ProxyRuntimeContextCodec.toNative(runtimeContext) ?: payload.runtimeContext,
                     ),
                 )
             }
@@ -162,7 +160,7 @@ internal object RipDpiProxyJsonCodec {
                     }.withSessionOverrides(
                         hostAutolearnStorePath = hostAutolearnStorePath ?: payload.hostAutolearn.storePath,
                         networkScopeKey = networkScopeKey ?: payload.hostAutolearn.networkScopeKey,
-                        runtimeContext = runtimeContext ?: payload.runtimeContext.toModel(),
+                        runtimeContext = runtimeContext ?: ProxyRuntimeContextCodec.toModel(payload.runtimeContext),
                     )
                 encodeUiPreferences(preferences, strategyPreset = payload.strategyPreset)
             }
@@ -359,291 +357,310 @@ internal object RipDpiProxyJsonCodec {
         ) : NativeProxyConfig
     }
 
-    private fun NativeNumericRange.toModel(): NumericRangeModel = NumericRangeModel(start = start, end = end)
+    private object RangeCodec {
+        fun toModel(value: NativeNumericRange): NumericRangeModel =
+            NumericRangeModel(
+                start = value.start,
+                end = value.end,
+            )
 
-    private fun NumericRangeModel.toNative(): NativeNumericRange? =
-        if (start == null && end == null) {
-            null
-        } else {
-            NativeNumericRange(start = start, end = end)
-        }
-
-    private fun NativeActivationFilter.toModel(): ActivationFilterModel =
-        normalizeActivationFilter(
-            ActivationFilterModel(
-                round = round?.toModel() ?: NumericRangeModel(),
-                payloadSize = payloadSize?.toModel() ?: NumericRangeModel(),
-                streamBytes = streamBytes?.toModel() ?: NumericRangeModel(),
-            ),
-        )
-
-    private fun ActivationFilterModel.toNative(): NativeActivationFilter? =
-        normalizeActivationFilter(this).let { normalized ->
-            val round = normalized.round.toNative()
-            val payloadSize = normalized.payloadSize.toNative()
-            val streamBytes = normalized.streamBytes.toNative()
-            if (round == null && payloadSize == null && streamBytes == null) {
+        fun toNative(value: NumericRangeModel): NativeNumericRange? =
+            if (value.start == null && value.end == null) {
                 null
             } else {
-                NativeActivationFilter(round = round, payloadSize = payloadSize, streamBytes = streamBytes)
+                NativeNumericRange(start = value.start, end = value.end)
             }
-        }
 
-    private fun NativeRuntimeContext?.toModel(): RipDpiRuntimeContext? =
-        normalizeRuntimeContext(
-            RipDpiRuntimeContext(
-                encryptedDns =
-                    this?.encryptedDns?.let { value ->
-                        RipDpiEncryptedDnsContext(
-                            resolverId = value.resolverId,
-                            protocol = value.protocol,
-                            host = value.host,
-                            port = value.port,
-                            tlsServerName = value.tlsServerName,
-                            bootstrapIps = value.bootstrapIps,
-                            dohUrl = value.dohUrl,
-                            dnscryptProviderName = value.dnscryptProviderName,
-                            dnscryptPublicKey = value.dnscryptPublicKey,
+        fun toModel(value: NativeActivationFilter): ActivationFilterModel =
+            normalizeActivationFilter(
+                ActivationFilterModel(
+                    round = value.round?.let(::toModel) ?: NumericRangeModel(),
+                    payloadSize = value.payloadSize?.let(::toModel) ?: NumericRangeModel(),
+                    streamBytes = value.streamBytes?.let(::toModel) ?: NumericRangeModel(),
+                ),
+            )
+
+        fun toNative(value: ActivationFilterModel): NativeActivationFilter? =
+            normalizeActivationFilter(value).let { normalized ->
+                val round = toNative(normalized.round)
+                val payloadSize = toNative(normalized.payloadSize)
+                val streamBytes = toNative(normalized.streamBytes)
+                if (round == null && payloadSize == null && streamBytes == null) {
+                    null
+                } else {
+                    NativeActivationFilter(round = round, payloadSize = payloadSize, streamBytes = streamBytes)
+                }
+            }
+    }
+
+    private object ProxyRuntimeContextCodec {
+        fun toModel(value: NativeRuntimeContext?): RipDpiRuntimeContext? =
+            normalizeRuntimeContext(
+                RipDpiRuntimeContext(
+                    encryptedDns =
+                        value?.encryptedDns?.let {
+                            RipDpiEncryptedDnsContext(
+                                resolverId = it.resolverId,
+                                protocol = it.protocol,
+                                host = it.host,
+                                port = it.port,
+                                tlsServerName = it.tlsServerName,
+                                bootstrapIps = it.bootstrapIps,
+                                dohUrl = it.dohUrl,
+                                dnscryptProviderName = it.dnscryptProviderName,
+                                dnscryptPublicKey = it.dnscryptPublicKey,
+                            )
+                        },
+                ),
+            )
+
+        fun toNative(value: RipDpiRuntimeContext?): NativeRuntimeContext? =
+            normalizeRuntimeContext(value)?.let { context ->
+                NativeRuntimeContext(
+                    encryptedDns =
+                        context.encryptedDns?.let {
+                            NativeEncryptedDnsContext(
+                                resolverId = it.resolverId,
+                                protocol = it.protocol,
+                                host = it.host,
+                                port = it.port,
+                                tlsServerName = it.tlsServerName,
+                                bootstrapIps = it.bootstrapIps,
+                                dohUrl = it.dohUrl,
+                                dnscryptProviderName = it.dnscryptProviderName,
+                                dnscryptPublicKey = it.dnscryptPublicKey,
+                            )
+                        },
+                )
+            }
+    }
+
+    private object ConfigSectionCodec {
+        fun toModel(value: NativeListenConfig): RipDpiListenConfig =
+            RipDpiListenConfig(
+                ip = value.ip,
+                port = value.port,
+                maxConnections = value.maxConnections,
+                bufferSize = value.bufferSize,
+                tcpFastOpen = value.tcpFastOpen,
+                defaultTtl = value.defaultTtl,
+                customTtl = value.customTtl,
+            )
+
+        fun toNative(value: RipDpiListenConfig): NativeListenConfig =
+            NativeListenConfig(
+                ip = value.ip,
+                port = value.port,
+                maxConnections = value.maxConnections,
+                bufferSize = value.bufferSize,
+                tcpFastOpen = value.tcpFastOpen,
+                defaultTtl = value.defaultTtl,
+                customTtl = value.customTtl,
+            )
+
+        fun toModel(value: NativeProtocolConfig): RipDpiProtocolConfig =
+            RipDpiProtocolConfig(
+                resolveDomains = value.resolveDomains,
+                desyncHttp = value.desyncHttp,
+                desyncHttps = value.desyncHttps,
+                desyncUdp = value.desyncUdp,
+            )
+
+        fun toNative(value: RipDpiProtocolConfig): NativeProtocolConfig =
+            NativeProtocolConfig(
+                resolveDomains = value.resolveDomains,
+                desyncHttp = value.desyncHttp,
+                desyncHttps = value.desyncHttps,
+                desyncUdp = value.desyncUdp,
+            )
+    }
+
+    private object ChainCodec {
+        fun toModel(value: NativeChainConfig): RipDpiChainConfig =
+            RipDpiChainConfig(
+                groupActivationFilter =
+                    value.groupActivationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
+                tcpSteps =
+                    value.tcpSteps.mapNotNull { step ->
+                        val kind = TcpChainStepKind.fromWireName(step.kind) ?: return@mapNotNull null
+                        TcpChainStepModel(
+                            kind = kind,
+                            marker = step.marker,
+                            midhostMarker = step.midhostMarker,
+                            fakeHostTemplate = step.fakeHostTemplate,
+                            fragmentCount = step.fragmentCount,
+                            minFragmentSize = step.minFragmentSize,
+                            maxFragmentSize = step.maxFragmentSize,
+                            activationFilter =
+                                step.activationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
                         )
                     },
-            ),
-        )
-
-    private fun RipDpiRuntimeContext?.toNative(): NativeRuntimeContext? =
-        normalizeRuntimeContext(this)?.let { context ->
-            NativeRuntimeContext(
-                encryptedDns =
-                    context.encryptedDns?.let { value ->
-                        NativeEncryptedDnsContext(
-                            resolverId = value.resolverId,
-                            protocol = value.protocol,
-                            host = value.host,
-                            port = value.port,
-                            tlsServerName = value.tlsServerName,
-                            bootstrapIps = value.bootstrapIps,
-                            dohUrl = value.dohUrl,
-                            dnscryptProviderName = value.dnscryptProviderName,
-                            dnscryptPublicKey = value.dnscryptPublicKey,
+                udpSteps =
+                    value.udpSteps.mapNotNull { step ->
+                        val kind = UdpChainStepKind.fromWireName(step.kind) ?: return@mapNotNull null
+                        UdpChainStepModel(
+                            kind = kind,
+                            count = step.count,
+                            activationFilter =
+                                step.activationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
                         )
                     },
             )
-        }
 
-    private fun NativeListenConfig.toModel(): RipDpiListenConfig =
-        RipDpiListenConfig(
-            ip = ip,
-            port = port,
-            maxConnections = maxConnections,
-            bufferSize = bufferSize,
-            tcpFastOpen = tcpFastOpen,
-            defaultTtl = defaultTtl,
-            customTtl = customTtl,
-        )
+        fun toNative(value: RipDpiChainConfig): NativeChainConfig =
+            NativeChainConfig(
+                groupActivationFilter = RangeCodec.toNative(value.groupActivationFilter),
+                tcpSteps =
+                    value.tcpSteps.map {
+                        val step = normalizeTcpChainStepModel(it)
+                        NativeTcpChainStep(
+                            kind = step.kind.wireName,
+                            marker = step.marker,
+                            midhostMarker = step.midhostMarker,
+                            fakeHostTemplate = step.fakeHostTemplate,
+                            fragmentCount = step.fragmentCount,
+                            minFragmentSize = step.minFragmentSize,
+                            maxFragmentSize = step.maxFragmentSize,
+                            activationFilter = RangeCodec.toNative(step.activationFilter),
+                        )
+                    },
+                udpSteps =
+                    value.udpSteps.map {
+                        NativeUdpChainStep(
+                            kind = it.kind.wireName,
+                            count = it.count,
+                            activationFilter = RangeCodec.toNative(it.activationFilter),
+                        )
+                    },
+            )
+    }
 
-    private fun RipDpiListenConfig.toNative(): NativeListenConfig =
-        NativeListenConfig(
-            ip = ip,
-            port = port,
-            maxConnections = maxConnections,
-            bufferSize = bufferSize,
-            tcpFastOpen = tcpFastOpen,
-            defaultTtl = defaultTtl,
-            customTtl = customTtl,
-        )
+    private object PacketCodec {
+        fun toModel(value: NativeFakePacketConfig): RipDpiFakePacketConfig =
+            RipDpiFakePacketConfig(
+                fakeTtl = value.fakeTtl,
+                adaptiveFakeTtlEnabled = value.adaptiveFakeTtlEnabled,
+                adaptiveFakeTtlDelta = value.adaptiveFakeTtlDelta,
+                adaptiveFakeTtlMin = value.adaptiveFakeTtlMin,
+                adaptiveFakeTtlMax = value.adaptiveFakeTtlMax,
+                adaptiveFakeTtlFallback = value.adaptiveFakeTtlFallback,
+                fakeSni = value.fakeSni,
+                httpFakeProfile = value.httpFakeProfile,
+                fakeTlsUseOriginal = value.fakeTlsUseOriginal,
+                fakeTlsRandomize = value.fakeTlsRandomize,
+                fakeTlsDupSessionId = value.fakeTlsDupSessionId,
+                fakeTlsPadEncap = value.fakeTlsPadEncap,
+                fakeTlsSize = value.fakeTlsSize,
+                fakeTlsSniMode = value.fakeTlsSniMode,
+                tlsFakeProfile = value.tlsFakeProfile,
+                udpFakeProfile = value.udpFakeProfile,
+                fakeOffsetMarker = value.fakeOffsetMarker,
+                oobChar = value.oobChar.toChar(),
+                dropSack = value.dropSack,
+            )
 
-    private fun NativeProtocolConfig.toModel(): RipDpiProtocolConfig =
-        RipDpiProtocolConfig(
-            resolveDomains = resolveDomains,
-            desyncHttp = desyncHttp,
-            desyncHttps = desyncHttps,
-            desyncUdp = desyncUdp,
-        )
+        fun toNative(value: RipDpiFakePacketConfig): NativeFakePacketConfig =
+            NativeFakePacketConfig(
+                fakeTtl = value.fakeTtl,
+                adaptiveFakeTtlEnabled = value.adaptiveFakeTtlEnabled,
+                adaptiveFakeTtlDelta = value.adaptiveFakeTtlDelta,
+                adaptiveFakeTtlMin = value.adaptiveFakeTtlMin,
+                adaptiveFakeTtlMax = value.adaptiveFakeTtlMax,
+                adaptiveFakeTtlFallback = value.adaptiveFakeTtlFallback,
+                fakeSni = value.fakeSni,
+                httpFakeProfile = value.httpFakeProfile,
+                fakeTlsUseOriginal = value.fakeTlsUseOriginal,
+                fakeTlsRandomize = value.fakeTlsRandomize,
+                fakeTlsDupSessionId = value.fakeTlsDupSessionId,
+                fakeTlsPadEncap = value.fakeTlsPadEncap,
+                fakeTlsSize = value.fakeTlsSize,
+                fakeTlsSniMode = value.fakeTlsSniMode,
+                tlsFakeProfile = value.tlsFakeProfile,
+                udpFakeProfile = value.udpFakeProfile,
+                fakeOffsetMarker = value.fakeOffsetMarker,
+                oobChar = value.oobChar.code,
+                dropSack = value.dropSack,
+            )
 
-    private fun RipDpiProtocolConfig.toNative(): NativeProtocolConfig =
-        NativeProtocolConfig(
-            resolveDomains = resolveDomains,
-            desyncHttp = desyncHttp,
-            desyncHttps = desyncHttps,
-            desyncUdp = desyncUdp,
-        )
+        fun toModel(value: NativeParserEvasionConfig): RipDpiParserEvasionConfig =
+            RipDpiParserEvasionConfig(
+                hostMixedCase = value.hostMixedCase,
+                domainMixedCase = value.domainMixedCase,
+                hostRemoveSpaces = value.hostRemoveSpaces,
+                httpMethodEol = value.httpMethodEol,
+                httpUnixEol = value.httpUnixEol,
+            )
 
-    private fun NativeChainConfig.toModel(): RipDpiChainConfig =
-        RipDpiChainConfig(
-            groupActivationFilter = groupActivationFilter?.toModel() ?: ActivationFilterModel(),
-            tcpSteps =
-                tcpSteps.mapNotNull { step ->
-                    val kind = TcpChainStepKind.fromWireName(step.kind) ?: return@mapNotNull null
-                    TcpChainStepModel(
-                        kind = kind,
-                        marker = step.marker,
-                        midhostMarker = step.midhostMarker,
-                        fakeHostTemplate = step.fakeHostTemplate,
-                        fragmentCount = step.fragmentCount,
-                        minFragmentSize = step.minFragmentSize,
-                        maxFragmentSize = step.maxFragmentSize,
-                        activationFilter = step.activationFilter?.toModel() ?: ActivationFilterModel(),
-                    )
-                },
-            udpSteps =
-                udpSteps.mapNotNull { step ->
-                    val kind = UdpChainStepKind.fromWireName(step.kind) ?: return@mapNotNull null
-                    UdpChainStepModel(
-                        kind = kind,
-                        count = step.count,
-                        activationFilter = step.activationFilter?.toModel() ?: ActivationFilterModel(),
-                    )
-                },
-        )
+        fun toNative(value: RipDpiParserEvasionConfig): NativeParserEvasionConfig =
+            NativeParserEvasionConfig(
+                hostMixedCase = value.hostMixedCase,
+                domainMixedCase = value.domainMixedCase,
+                hostRemoveSpaces = value.hostRemoveSpaces,
+                httpMethodEol = value.httpMethodEol,
+                httpUnixEol = value.httpUnixEol,
+            )
+    }
 
-    private fun RipDpiChainConfig.toNative(): NativeChainConfig =
-        NativeChainConfig(
-            groupActivationFilter = groupActivationFilter.toNative(),
-            tcpSteps =
-                tcpSteps.map {
-                    val step = normalizeTcpChainStepModel(it)
-                    NativeTcpChainStep(
-                        kind = step.kind.wireName,
-                        marker = step.marker,
-                        midhostMarker = step.midhostMarker,
-                        fakeHostTemplate = step.fakeHostTemplate,
-                        fragmentCount = step.fragmentCount,
-                        minFragmentSize = step.minFragmentSize,
-                        maxFragmentSize = step.maxFragmentSize,
-                        activationFilter = step.activationFilter.toNative(),
-                    )
-                },
-            udpSteps =
-                udpSteps.map {
-                    NativeUdpChainStep(
-                        kind = it.kind.wireName,
-                        count = it.count,
-                        activationFilter = it.activationFilter.toNative(),
-                    )
-                },
-        )
+    private object EndpointCodec {
+        fun toModel(value: NativeQuicConfig): RipDpiQuicConfig =
+            RipDpiQuicConfig(
+                initialMode = value.initialMode,
+                supportV1 = value.supportV1,
+                supportV2 = value.supportV2,
+                fakeProfile = value.fakeProfile,
+                fakeHost = value.fakeHost,
+            )
 
-    private fun NativeFakePacketConfig.toModel(): RipDpiFakePacketConfig =
-        RipDpiFakePacketConfig(
-            fakeTtl = fakeTtl,
-            adaptiveFakeTtlEnabled = adaptiveFakeTtlEnabled,
-            adaptiveFakeTtlDelta = adaptiveFakeTtlDelta,
-            adaptiveFakeTtlMin = adaptiveFakeTtlMin,
-            adaptiveFakeTtlMax = adaptiveFakeTtlMax,
-            adaptiveFakeTtlFallback = adaptiveFakeTtlFallback,
-            fakeSni = fakeSni,
-            httpFakeProfile = httpFakeProfile,
-            fakeTlsUseOriginal = fakeTlsUseOriginal,
-            fakeTlsRandomize = fakeTlsRandomize,
-            fakeTlsDupSessionId = fakeTlsDupSessionId,
-            fakeTlsPadEncap = fakeTlsPadEncap,
-            fakeTlsSize = fakeTlsSize,
-            fakeTlsSniMode = fakeTlsSniMode,
-            tlsFakeProfile = tlsFakeProfile,
-            udpFakeProfile = udpFakeProfile,
-            fakeOffsetMarker = fakeOffsetMarker,
-            oobChar = oobChar.toChar(),
-            dropSack = dropSack,
-        )
+        fun toNative(value: RipDpiQuicConfig): NativeQuicConfig =
+            NativeQuicConfig(
+                initialMode = value.initialMode,
+                supportV1 = value.supportV1,
+                supportV2 = value.supportV2,
+                fakeProfile = value.fakeProfile,
+                fakeHost = value.fakeHost,
+            )
 
-    private fun RipDpiFakePacketConfig.toNative(): NativeFakePacketConfig =
-        NativeFakePacketConfig(
-            fakeTtl = fakeTtl,
-            adaptiveFakeTtlEnabled = adaptiveFakeTtlEnabled,
-            adaptiveFakeTtlDelta = adaptiveFakeTtlDelta,
-            adaptiveFakeTtlMin = adaptiveFakeTtlMin,
-            adaptiveFakeTtlMax = adaptiveFakeTtlMax,
-            adaptiveFakeTtlFallback = adaptiveFakeTtlFallback,
-            fakeSni = fakeSni,
-            httpFakeProfile = httpFakeProfile,
-            fakeTlsUseOriginal = fakeTlsUseOriginal,
-            fakeTlsRandomize = fakeTlsRandomize,
-            fakeTlsDupSessionId = fakeTlsDupSessionId,
-            fakeTlsPadEncap = fakeTlsPadEncap,
-            fakeTlsSize = fakeTlsSize,
-            fakeTlsSniMode = fakeTlsSniMode,
-            tlsFakeProfile = tlsFakeProfile,
-            udpFakeProfile = udpFakeProfile,
-            fakeOffsetMarker = fakeOffsetMarker,
-            oobChar = oobChar.code,
-            dropSack = dropSack,
-        )
+        fun toModel(value: NativeHostsConfig): RipDpiHostsConfig =
+            RipDpiHostsConfig(
+                mode = RipDpiHostsConfig.Mode.fromWireName(value.mode),
+                entries = value.entries,
+            )
 
-    private fun NativeParserEvasionConfig.toModel(): RipDpiParserEvasionConfig =
-        RipDpiParserEvasionConfig(
-            hostMixedCase = hostMixedCase,
-            domainMixedCase = domainMixedCase,
-            hostRemoveSpaces = hostRemoveSpaces,
-            httpMethodEol = httpMethodEol,
-            httpUnixEol = httpUnixEol,
-        )
+        fun toNative(value: RipDpiHostsConfig): NativeHostsConfig =
+            NativeHostsConfig(
+                mode = value.mode.wireName,
+                entries = value.entries,
+            )
 
-    private fun RipDpiParserEvasionConfig.toNative(): NativeParserEvasionConfig =
-        NativeParserEvasionConfig(
-            hostMixedCase = hostMixedCase,
-            domainMixedCase = domainMixedCase,
-            hostRemoveSpaces = hostRemoveSpaces,
-            httpMethodEol = httpMethodEol,
-            httpUnixEol = httpUnixEol,
-        )
+        fun toModel(value: NativeHostAutolearnConfig): RipDpiHostAutolearnConfig =
+            RipDpiHostAutolearnConfig(
+                enabled = value.enabled,
+                penaltyTtlHours = value.penaltyTtlHours,
+                maxHosts = value.maxHosts,
+                storePath = value.storePath,
+                networkScopeKey = value.networkScopeKey,
+            )
 
-    private fun NativeQuicConfig.toModel(): RipDpiQuicConfig =
-        RipDpiQuicConfig(
-            initialMode = initialMode,
-            supportV1 = supportV1,
-            supportV2 = supportV2,
-            fakeProfile = fakeProfile,
-            fakeHost = fakeHost,
-        )
+        fun toNative(value: RipDpiHostAutolearnConfig): NativeHostAutolearnConfig =
+            NativeHostAutolearnConfig(
+                enabled = value.enabled,
+                penaltyTtlHours = value.penaltyTtlHours,
+                maxHosts = value.maxHosts,
+                storePath = value.storePath,
+                networkScopeKey = value.networkScopeKey,
+            )
 
-    private fun RipDpiQuicConfig.toNative(): NativeQuicConfig =
-        NativeQuicConfig(
-            initialMode = initialMode,
-            supportV1 = supportV1,
-            supportV2 = supportV2,
-            fakeProfile = fakeProfile,
-            fakeHost = fakeHost,
-        )
-
-    private fun NativeHostsConfig.toModel(): RipDpiHostsConfig =
-        RipDpiHostsConfig(
-            mode = RipDpiHostsConfig.Mode.fromWireName(mode),
-            entries = entries,
-        )
-
-    private fun RipDpiHostsConfig.toNative(): NativeHostsConfig =
-        NativeHostsConfig(
-            mode = mode.wireName,
-            entries = entries,
-        )
-
-    private fun NativeHostAutolearnConfig.toModel(): RipDpiHostAutolearnConfig =
-        RipDpiHostAutolearnConfig(
-            enabled = enabled,
-            penaltyTtlHours = penaltyTtlHours,
-            maxHosts = maxHosts,
-            storePath = storePath,
-            networkScopeKey = networkScopeKey,
-        )
-
-    private fun RipDpiHostAutolearnConfig.toNative(): NativeHostAutolearnConfig =
-        NativeHostAutolearnConfig(
-            enabled = enabled,
-            penaltyTtlHours = penaltyTtlHours,
-            maxHosts = maxHosts,
-            storePath = storePath,
-            networkScopeKey = networkScopeKey,
-        )
-
-    private fun NativeProxyConfig.Ui.toModel(): RipDpiProxyUIPreferences =
-        RipDpiProxyUIPreferences(
-            listen = listen.toModel(),
-            protocols = protocols.toModel(),
-            chains = chains.toModel(),
-            fakePackets = fakePackets.toModel(),
-            parserEvasions = parserEvasions.toModel(),
-            quic = quic.toModel(),
-            hosts = hosts.toModel(),
-            hostAutolearn = hostAutolearn.toModel(),
-            runtimeContext = runtimeContext.toModel(),
-        )
+        fun toModel(value: NativeProxyConfig.Ui): RipDpiProxyUIPreferences =
+            RipDpiProxyUIPreferences(
+                listen = ConfigSectionCodec.toModel(value.listen),
+                protocols = ConfigSectionCodec.toModel(value.protocols),
+                chains = ChainCodec.toModel(value.chains),
+                fakePackets = PacketCodec.toModel(value.fakePackets),
+                parserEvasions = PacketCodec.toModel(value.parserEvasions),
+                quic = toModel(value.quic),
+                hosts = toModel(value.hosts),
+                hostAutolearn = toModel(value.hostAutolearn),
+                runtimeContext = ProxyRuntimeContextCodec.toModel(value.runtimeContext),
+            )
+    }
 }

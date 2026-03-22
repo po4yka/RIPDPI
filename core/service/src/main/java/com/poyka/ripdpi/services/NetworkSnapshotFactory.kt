@@ -1,5 +1,3 @@
-@file:Suppress("CyclomaticComplexMethod", "DEPRECATION", "MagicNumber", "MaxLineLength", "TooManyFunctions")
-
 package com.poyka.ripdpi.services
 
 import android.Manifest
@@ -32,6 +30,62 @@ import dagger.hilt.components.SingletonComponent
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val MinValidRssiDbm = -127
+private const val MaxValidRssiDbm = 0
+private const val MinimumLinkSpeedMbps = 1
+private const val HexNibbleBitShift = 4
+private const val HexNibbleMask = 0xF
+private const val HexRadix = 16
+private val WifiBandRanges =
+    listOf(
+        2400..2500 to "2.4ghz",
+        4900..5900 to "5ghz",
+        5925..7125 to "6ghz",
+    )
+private val WifiChannelWidthLabels =
+    mapOf(
+        0 to "20 MHz",
+        1 to "40 MHz",
+        2 to "80 MHz",
+        3 to "160 MHz",
+        4 to "80+80 MHz",
+        5 to "320 MHz",
+    )
+private val WifiStandardLabels =
+    mapOf(
+        1 to "legacy",
+        4 to "802.11n",
+        5 to "802.11ac",
+        6 to "802.11ax",
+        7 to "802.11ad",
+        8 to "802.11be",
+    )
+private val MobileNetworkTypeLabels =
+    mapOf(
+        TelephonyManager.NETWORK_TYPE_GPRS to "GPRS",
+        TelephonyManager.NETWORK_TYPE_EDGE to "EDGE",
+        TelephonyManager.NETWORK_TYPE_UMTS to "UMTS",
+        TelephonyManager.NETWORK_TYPE_CDMA to "CDMA",
+        TelephonyManager.NETWORK_TYPE_EVDO_0 to "EVDO_0",
+        TelephonyManager.NETWORK_TYPE_EVDO_A to "EVDO_A",
+        TelephonyManager.NETWORK_TYPE_1xRTT to "1xRTT",
+        TelephonyManager.NETWORK_TYPE_HSDPA to "HSDPA",
+        TelephonyManager.NETWORK_TYPE_HSUPA to "HSUPA",
+        TelephonyManager.NETWORK_TYPE_HSPA to "HSPA",
+        TelephonyManager.NETWORK_TYPE_IDEN to "IDEN",
+        TelephonyManager.NETWORK_TYPE_EVDO_B to "EVDO_B",
+        TelephonyManager.NETWORK_TYPE_LTE to "LTE",
+        TelephonyManager.NETWORK_TYPE_EHRPD to "EHRPD",
+        TelephonyManager.NETWORK_TYPE_HSPAP to "HSPAP",
+        TelephonyManager.NETWORK_TYPE_GSM to "GSM",
+        TelephonyManager.NETWORK_TYPE_TD_SCDMA to "TD_SCDMA",
+        TelephonyManager.NETWORK_TYPE_IWLAN to "IWLAN",
+        TelephonyManager.NETWORK_TYPE_NR to "NR",
+    )
+private val CanonicalMobileNetworkTypeLabels =
+    MobileNetworkTypeLabels.values.associateBy { it.lowercase() } +
+        mapOf("unknown" to "unknown", "" to "unknown")
 
 @Singleton
 class NetworkSnapshotFactory
@@ -96,8 +150,8 @@ class NetworkSnapshotFactory
                 frequencyBand = describeWifiBand(wifiInfo?.frequency),
                 ssidHash = hashSsid(wifiIdentity.ssid),
                 frequencyMhz = wifiInfo?.frequency?.takeIf { it > 0 },
-                rssiDbm = wifiInfo?.rssi?.takeIf { it in -127..0 },
-                linkSpeedMbps = wifiInfo?.linkSpeed?.takeIf { it > 0 },
+                rssiDbm = wifiInfo?.rssi?.takeIf { it in MinValidRssiDbm..MaxValidRssiDbm },
+                linkSpeedMbps = wifiInfo?.linkSpeed?.takeIf { it >= MinimumLinkSpeedMbps },
                 rxLinkSpeedMbps = resolveWifiRxLinkSpeed(wifiInfo),
                 txLinkSpeedMbps = resolveWifiTxLinkSpeed(wifiInfo),
                 channelWidth = describeWifiChannelWidth(wifiInfo?.let { invokeInt(it, "getChannelWidth") }),
@@ -133,7 +187,11 @@ class NetworkSnapshotFactory
                 operatorCode = cellularIdentity.operatorCode,
                 dataNetworkType = dataNetworkType,
                 serviceState = serviceState,
-                carrierId = telephony?.takeIf { canReadPhoneState }?.let { invokeInt(it, "getCarrierId") }?.takeIf { it >= 0 },
+                carrierId =
+                    telephony
+                        ?.takeIf { canReadPhoneState }
+                        ?.let { invokeInt(it, "getCarrierId") }
+                        ?.takeIf { it >= 0 },
                 signalLevel = signalStrength?.level,
                 signalDbm = resolveSignalDbm(signalStrength),
             )
@@ -181,8 +239,8 @@ class NetworkSnapshotFactory
             val bytes = MessageDigest.getInstance("SHA-256").digest(ssid.toByteArray())
             return buildString(bytes.size * 2) {
                 bytes.forEach { byte ->
-                    append(((byte.toInt() shr 4) and 0xF).toString(16))
-                    append((byte.toInt() and 0xF).toString(16))
+                    append(((byte.toInt() shr HexNibbleBitShift) and HexNibbleMask).toString(HexRadix))
+                    append((byte.toInt() and HexNibbleMask).toString(HexRadix))
                 }
             }
         }
@@ -239,59 +297,19 @@ internal fun buildNativeNetworkSnapshot(
     }
 
 internal fun describeWifiBand(frequencyMhz: Int?): String =
-    when (frequencyMhz) {
-        in 2400..2500 -> "2.4ghz"
-        in 4900..5900 -> "5ghz"
-        in 5925..7125 -> "6ghz"
-        else -> "unknown"
-    }
+    WifiBandRanges
+        .firstOrNull { (range, _) -> frequencyMhz in range }
+        ?.second
+        ?: "unknown"
 
 internal fun describeWifiChannelWidth(channelWidth: Int?): String =
-    when (channelWidth) {
-        0 -> "20 MHz"
-        1 -> "40 MHz"
-        2 -> "80 MHz"
-        3 -> "160 MHz"
-        4 -> "80+80 MHz"
-        5 -> "320 MHz"
-        else -> "unknown"
-    }
+    WifiChannelWidthLabels[channelWidth] ?: "unknown"
 
 internal fun describeWifiStandard(standard: Int?): String =
-    when (standard) {
-        1 -> "legacy"
-        4 -> "802.11n"
-        5 -> "802.11ac"
-        6 -> "802.11ax"
-        7 -> "802.11ad"
-        8 -> "802.11be"
-        else -> "unknown"
-    }
+    WifiStandardLabels[standard] ?: "unknown"
 
 internal fun describeMobileNetworkType(type: Int?): String =
-    when (type) {
-        TelephonyManager.NETWORK_TYPE_GPRS -> "GPRS"
-        TelephonyManager.NETWORK_TYPE_EDGE -> "EDGE"
-        TelephonyManager.NETWORK_TYPE_UMTS -> "UMTS"
-        TelephonyManager.NETWORK_TYPE_CDMA -> "CDMA"
-        TelephonyManager.NETWORK_TYPE_EVDO_0 -> "EVDO_0"
-        TelephonyManager.NETWORK_TYPE_EVDO_A -> "EVDO_A"
-        TelephonyManager.NETWORK_TYPE_1xRTT -> "1xRTT"
-        TelephonyManager.NETWORK_TYPE_HSDPA -> "HSDPA"
-        TelephonyManager.NETWORK_TYPE_HSUPA -> "HSUPA"
-        TelephonyManager.NETWORK_TYPE_HSPA -> "HSPA"
-        TelephonyManager.NETWORK_TYPE_IDEN -> "IDEN"
-        TelephonyManager.NETWORK_TYPE_EVDO_B -> "EVDO_B"
-        TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
-        TelephonyManager.NETWORK_TYPE_EHRPD -> "EHRPD"
-        TelephonyManager.NETWORK_TYPE_HSPAP -> "HSPAP"
-        TelephonyManager.NETWORK_TYPE_GSM -> "GSM"
-        TelephonyManager.NETWORK_TYPE_TD_SCDMA -> "TD_SCDMA"
-        TelephonyManager.NETWORK_TYPE_IWLAN -> "IWLAN"
-        TelephonyManager.NETWORK_TYPE_NR -> "NR"
-        TelephonyManager.NETWORK_TYPE_UNKNOWN, null -> "unknown"
-        else -> type.toString()
-    }
+    type?.let(MobileNetworkTypeLabels::get) ?: type?.toString() ?: "unknown"
 
 internal fun describeServiceState(state: Int?): String =
     when (state) {
@@ -303,29 +321,12 @@ internal fun describeServiceState(state: Int?): String =
     }
 
 internal fun canonicalMobileNetworkType(rawValue: String?): String =
-    when (rawValue?.trim()?.lowercase()) {
-        "gprs" -> "GPRS"
-        "edge" -> "EDGE"
-        "umts" -> "UMTS"
-        "cdma" -> "CDMA"
-        "evdo_0" -> "EVDO_0"
-        "evdo_a" -> "EVDO_A"
-        "1xrtt" -> "1xRTT"
-        "hsdpa" -> "HSDPA"
-        "hsupa" -> "HSUPA"
-        "hspa" -> "HSPA"
-        "iden" -> "IDEN"
-        "evdo_b" -> "EVDO_B"
-        "lte" -> "LTE"
-        "ehrpd" -> "EHRPD"
-        "hspap" -> "HSPAP"
-        "gsm" -> "GSM"
-        "td_scdma" -> "TD_SCDMA"
-        "iwlan" -> "IWLAN"
-        "nr" -> "NR"
-        "unknown", "", null -> "unknown"
-        else -> rawValue.trim().ifBlank { "unknown" }
-    }
+    rawValue
+        ?.trim()
+        ?.lowercase()
+        ?.let(CanonicalMobileNetworkTypeLabels::get)
+        ?: rawValue?.trim()?.ifBlank { "unknown" }
+        ?: "unknown"
 
 internal fun cellularGeneration(dataNetworkType: String): String =
     when (canonicalMobileNetworkType(dataNetworkType).lowercase()) {
