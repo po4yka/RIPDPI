@@ -63,7 +63,7 @@ RIPDPI's current Android and native strategy stack includes:
 - retry-stealth pacing with jitter, diversified candidate order, and adaptive tuning beyond fake TTL
 - diagnostics-side automatic probing with a candidate scoreboard and manual recommendation
 
-Implementation details and the native call path are documented in [docs/native/byedpi.md](docs/native/byedpi.md).
+Implementation details and the native call path are documented in [docs/native/proxy-engine.md](docs/native/proxy-engine.md).
 
 ## FAQ
 
@@ -80,8 +80,8 @@ Implementation details and the native call path are documented in [docs/native/b
 ## Documentation
 
 - [Native integration and module usage](docs/native/README.md)
-- [Proxy engine and current native strategy surface](docs/native/byedpi.md)
-- [TUN-to-SOCKS native bridge](docs/native/hev-socks5-tunnel.md)
+- [Proxy engine and current native strategy surface](docs/native/proxy-engine.md)
+- [TUN-to-SOCKS native bridge](docs/native/tunnel.md)
 - [Testing, E2E, golden contracts, and soak coverage](docs/testing.md)
 
 ## Building

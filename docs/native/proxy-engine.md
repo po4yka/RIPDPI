@@ -1,11 +1,11 @@
-# byedpi Usage
+# Proxy Engine
 
 ## Role in RIPDPI
 
 The local SOCKS5 proxy is implemented by the in-repo Rust native module.
 
 - Proxy mode: the app exposes the local SOCKS5 proxy directly.
-- VPN mode: the app starts the same local SOCKS5 proxy first, then routes TUN traffic through `hev-socks5-tunnel`.
+- VPN mode: the app starts the same local SOCKS5 proxy first, then routes TUN traffic through the TUN-to-SOCKS tunnel.
 
 The built shared library is `libripdpi.so`.
 
@@ -44,8 +44,8 @@ Relevant sources:
 
 | Method | Defined in | Reached from | When it is used | Purpose |
 | --- | --- | --- | --- | --- |
-| `ciadpi_config::parse_cli` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreate(configJson)` | Command-line mode only | Parses user-supplied CLI arguments into a `RuntimeConfig`. |
-| `ciadpi_config::parse_hosts_spec` | `native/rust/third_party/byedpi/crates/ciadpi-config/src/lib.rs` | `jniCreate(configJson)` | UI mode host list setup | Parses the app host list string into normalized host rules. |
+| `ripdpi_config::parse_cli` | `native/rust/crates/ripdpi-config/src/lib.rs` | `jniCreate(configJson)` | Command-line mode only | Parses user-supplied CLI arguments into a `RuntimeConfig`. |
+| `ripdpi_config::parse_hosts_spec` | `native/rust/crates/ripdpi-config/src/lib.rs` | `jniCreate(configJson)` | UI mode host list setup | Parses the app host list string into normalized host rules. |
 | `runtime::create_listener` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Start only | Opens the local listening socket for the proxy runtime. |
 | `runtime::run_proxy_with_embedded_control` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Always after session start | Runs the Rust proxy loop on the listener owned by the native session, with session-local shutdown state, telemetry sink, and runtime context. |
 | `EmbeddedProxyControl::request_shutdown` | `native/rust/crates/ripdpi-runtime/src/lib.rs` | `jniStop(handle)` | Stop path | Signals the active embedded proxy session to exit without relying on standalone daemon/process control. |
@@ -171,7 +171,7 @@ The drained event ring records:
 
 `RipDpiProxyCmdPreferences` now serializes a single JSON payload with `kind = "command_line"`.
 
-This path still goes through `ciadpi_config::parse_cli`, so CLI flags are interpreted by the in-repo Rust module.
+This path still goes through `ripdpi_config::parse_cli`, so CLI flags are interpreted by the in-repo Rust module.
 
 ## Current Test Coverage
 

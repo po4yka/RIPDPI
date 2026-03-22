@@ -138,10 +138,6 @@ jobs:
         with:
           manifest-path: native/rust/Cargo.toml
 
-      - name: Run cargo-deny (byedpi)
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          manifest-path: native/rust/third_party/byedpi/Cargo.toml
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
