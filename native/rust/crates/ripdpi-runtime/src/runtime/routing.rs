@@ -185,7 +185,7 @@ pub(super) fn classify_response_failure(
     response: &[u8],
     host: Option<&str>,
 ) -> Option<ClassifiedFailure> {
-    if response.starts_with(b"HTTP/1.") && ciadpi_packets::is_tls_client_hello(request) {
+    if response.starts_with(b"HTTP/1.") && ripdpi_packets::is_tls_client_hello(request) {
         if let Some(host) = host {
             if let Some(dns_tampering) = confirm_dns_tampering_for_host(state, host, target.ip()) {
                 return Some(dns_tampering);

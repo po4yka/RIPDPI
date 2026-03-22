@@ -409,7 +409,7 @@ struct TlsRecordTracker {
 impl TlsRecordTracker {
     fn new(request: &[u8], config: &RuntimeConfig) -> Self {
         Self {
-            enabled: ciadpi_packets::is_tls_client_hello(request) && config.partial_timeout_ms != 0,
+            enabled: ripdpi_packets::is_tls_client_hello(request) && config.partial_timeout_ms != 0,
             disabled: false,
             record_pos: 0,
             record_size: 0,
@@ -552,7 +552,7 @@ mod tests {
     use super::super::routing::trigger_flag;
     use super::*;
     use ciadpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT};
-    use ciadpi_packets::DEFAULT_FAKE_TLS;
+    use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_session::TriggerEvent;
 
     #[test]

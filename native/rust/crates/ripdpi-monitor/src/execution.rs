@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
+use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
 use ripdpi_proxy_config::{
     runtime_config_from_ui, ProxyConfigPayload, ProxyRuntimeContext, ProxyUiConfig, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
 };

@@ -3,7 +3,7 @@ use std::io::{ErrorKind, Read, Write};
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
-use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
+use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::dns::*;

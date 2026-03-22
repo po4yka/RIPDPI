@@ -10,7 +10,7 @@ use std::thread;
 use std::time::Duration;
 
 use ciadpi_config::{parse_cli, DesyncGroup, ParseResult, QuicInitialMode, RuntimeConfig, StartupEnv};
-use ciadpi_packets::IS_UDP;
+use ripdpi_packets::IS_UDP;
 use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
     FixtureStack,
