@@ -39,6 +39,28 @@ interface HostPackCatalogRepository {
     suspend fun refreshSnapshot(): HostPackCatalogSnapshot
 }
 
+fun interface HostPackCatalogClock {
+    fun nowEpochMillis(): Long
+}
+
+fun interface HostPackCatalogTempFileFactory {
+    fun create(cacheDir: File): File
+}
+
+@Singleton
+class SystemHostPackCatalogClock
+    @Inject
+    constructor() : HostPackCatalogClock {
+        override fun nowEpochMillis(): Long = System.currentTimeMillis()
+    }
+
+@Singleton
+class DefaultHostPackCatalogTempFileFactory
+    @Inject
+    constructor() : HostPackCatalogTempFileFactory {
+        override fun create(cacheDir: File): File = File.createTempFile("host-pack-geosite-", ".dat", cacheDir)
+    }
+
 open class HostPackRefreshException(
     message: String,
     cause: Throwable? = null,
@@ -66,6 +88,8 @@ class DefaultHostPackCatalogRepository
     constructor(
         @param:ApplicationContext private val context: Context,
         private val service: HostPackCatalogDownloadService,
+        private val clock: HostPackCatalogClock,
+        private val tempFileFactory: HostPackCatalogTempFileFactory,
     ) : HostPackCatalogRepository {
         override suspend fun loadSnapshot(): HostPackCatalogSnapshot =
             withContext(Dispatchers.IO) {
@@ -75,8 +99,8 @@ class DefaultHostPackCatalogRepository
         override suspend fun refreshSnapshot(): HostPackCatalogSnapshot =
             withContext(Dispatchers.IO) {
                 val expectedChecksum = parseHostPackChecksum(service.downloadChecksum().requireBodyText())
-                val downloadedAtEpochMillis = System.currentTimeMillis()
-                val tempFile = File.createTempFile("host-pack-geosite-", ".dat", context.cacheDir)
+                val downloadedAtEpochMillis = clock.nowEpochMillis()
+                val tempFile = tempFileFactory.create(context.cacheDir)
 
                 try {
                     val actualChecksum = service.downloadGeosite().writeToFileAndDigest(tempFile)
@@ -230,6 +254,16 @@ abstract class HostPackCatalogBindingsModule {
     @Binds
     @Singleton
     abstract fun bindHostPackCatalogRepository(repository: DefaultHostPackCatalogRepository): HostPackCatalogRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindHostPackCatalogClock(clock: SystemHostPackCatalogClock): HostPackCatalogClock
+
+    @Binds
+    @Singleton
+    abstract fun bindHostPackCatalogTempFileFactory(
+        factory: DefaultHostPackCatalogTempFileFactory,
+    ): HostPackCatalogTempFileFactory
 }
 
 const val HOST_PACK_CATALOG_ASSET_PATH = "host-packs/catalog.json"
