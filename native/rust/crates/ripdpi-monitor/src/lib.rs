@@ -2,10 +2,10 @@ mod candidates;
 mod classification;
 mod connectivity;
 mod dns;
-mod strategy;
 mod execution;
 mod fat_header;
 mod http;
+mod strategy;
 mod telegram;
 mod tls;
 mod transport;
@@ -25,19 +25,19 @@ use strategy::*;
 use types::SharedState;
 
 #[cfg(test)]
-use std::net::IpAddr;
-#[cfg(test)]
-use std::time::Duration;
-#[cfg(test)]
-use ripdpi_failure_classifier::FailureClass;
-#[cfg(test)]
-use ripdpi_proxy_config::ProxyRuntimeContext;
-#[cfg(test)]
 use candidates::*;
 #[cfg(test)]
 use classification::*;
 #[cfg(test)]
 use execution::*;
+#[cfg(test)]
+use ripdpi_failure_classifier::FailureClass;
+#[cfg(test)]
+use ripdpi_proxy_config::ProxyRuntimeContext;
+#[cfg(test)]
+use std::net::IpAddr;
+#[cfg(test)]
+use std::time::Duration;
 #[cfg(test)]
 use tls::*;
 #[cfg(test)]
@@ -185,7 +185,6 @@ fn validate_scan_request(request: &ScanRequest) -> Result<(), String> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,69 +194,11 @@ mod tests {
     use std::net::Ipv4Addr;
 
     fn minimal_ui_config() -> ProxyUiConfig {
-        ProxyUiConfig {
-            ip: "127.0.0.1".to_string(),
-            port: 1080,
-            max_connections: 512,
-            buffer_size: 16384,
-            default_ttl: 0,
-            custom_ttl: false,
-            no_domain: false,
-            desync_http: true,
-            desync_https: true,
-            desync_udp: true,
-            desync_method: "disorder".to_string(),
-            split_marker: Some("host+1".to_string()),
-            tcp_chain_steps: Vec::new(),
-            group_activation_filter: ripdpi_proxy_config::ProxyUiActivationFilter::default(),
-            split_position: 0,
-            split_at_host: false,
-            fake_ttl: 8,
-            adaptive_fake_ttl_enabled: false,
-            adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
-            adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
-            adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
-            adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
-            fake_sni: "www.wikipedia.org".to_string(),
-            http_fake_profile: "compat_default".to_string(),
-            fake_tls_use_original: false,
-            fake_tls_randomize: false,
-            fake_tls_dup_session_id: false,
-            fake_tls_pad_encap: false,
-            fake_tls_size: 0,
-            fake_tls_sni_mode: "fixed".to_string(),
-            tls_fake_profile: "compat_default".to_string(),
-            oob_char: b'a',
-            host_mixed_case: false,
-            domain_mixed_case: false,
-            host_remove_spaces: false,
-            http_method_eol: false,
-            http_unix_eol: false,
-            tls_record_split: false,
-            tls_record_split_marker: None,
-            tls_record_split_position: 0,
-            tls_record_split_at_sni: false,
-            hosts_mode: "disable".to_string(),
-            hosts: None,
-            tcp_fast_open: false,
-            udp_fake_count: 0,
-            udp_chain_steps: Vec::new(),
-            udp_fake_profile: "compat_default".to_string(),
-            drop_sack: false,
-            fake_offset_marker: Some("0".to_string()),
-            fake_offset: 0,
-            quic_initial_mode: Some("route_and_cache".to_string()),
-            quic_support_v1: true,
-            quic_support_v2: true,
-            quic_fake_profile: "disabled".to_string(),
-            quic_fake_host: String::new(),
-            host_autolearn_enabled: false,
-            host_autolearn_penalty_ttl_secs: ciadpi_config::HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
-            host_autolearn_max_hosts: ciadpi_config::HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
-            host_autolearn_store_path: None,
-            network_scope_key: None,
-            strategy_preset: None,
-        }
+        let mut config = ProxyUiConfig::default();
+        config.protocols.desync_udp = true;
+        config.chains.tcp_steps = vec![];
+        config.fake_packets.fake_sni = "www.wikipedia.org".to_string();
+        config
     }
 
     fn strategy_probe_request(base_ui: ProxyUiConfig) -> ScanRequest {
@@ -284,6 +225,7 @@ mod tests {
                 suite_id: "quick_v1".to_string(),
                 base_proxy_config_json: Some(
                     serde_json::to_string(&ProxyConfigPayload::Ui {
+                        strategy_preset: None,
                         config: base_ui,
                         runtime_context: None,
                     })
@@ -300,32 +242,32 @@ mod tests {
     #[test]
     fn probe_transport_freezes_adaptive_fake_ttl_to_seed() {
         let mut config = minimal_ui_config();
-        config.fake_ttl = 11;
-        config.adaptive_fake_ttl_enabled = true;
-        config.adaptive_fake_ttl_delta = -1;
-        config.adaptive_fake_ttl_min = 3;
-        config.adaptive_fake_ttl_max = 9;
-        config.adaptive_fake_ttl_fallback = 13;
+        config.fake_packets.fake_ttl = 11;
+        config.fake_packets.adaptive_fake_ttl_enabled = true;
+        config.fake_packets.adaptive_fake_ttl_delta = -1;
+        config.fake_packets.adaptive_fake_ttl_min = 3;
+        config.fake_packets.adaptive_fake_ttl_max = 9;
+        config.fake_packets.adaptive_fake_ttl_fallback = 13;
 
         freeze_adaptive_fake_ttl_for_probe(&mut config);
 
-        assert_eq!(config.fake_ttl, 9);
-        assert!(!config.adaptive_fake_ttl_enabled);
+        assert_eq!(config.fake_packets.fake_ttl, 9);
+        assert!(!config.fake_packets.adaptive_fake_ttl_enabled);
     }
 
     #[test]
     fn probe_transport_uses_fake_ttl_when_adaptive_fallback_is_invalid() {
         let mut config = minimal_ui_config();
-        config.fake_ttl = 7;
-        config.adaptive_fake_ttl_enabled = true;
-        config.adaptive_fake_ttl_min = 3;
-        config.adaptive_fake_ttl_max = 12;
-        config.adaptive_fake_ttl_fallback = 0;
+        config.fake_packets.fake_ttl = 7;
+        config.fake_packets.adaptive_fake_ttl_enabled = true;
+        config.fake_packets.adaptive_fake_ttl_min = 3;
+        config.fake_packets.adaptive_fake_ttl_max = 12;
+        config.fake_packets.adaptive_fake_ttl_fallback = 0;
 
         freeze_adaptive_fake_ttl_for_probe(&mut config);
 
-        assert_eq!(config.fake_ttl, 7);
-        assert!(!config.adaptive_fake_ttl_enabled);
+        assert_eq!(config.fake_packets.fake_ttl, 7);
+        assert!(!config.fake_packets.adaptive_fake_ttl_enabled);
     }
 
     #[test]
@@ -583,7 +525,10 @@ mod tests {
 
     #[test]
     fn http_blockpage_reorders_tcp_candidates_toward_parser_families() {
-        let ordered = reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::HttpBlockpage));
+        let ordered = reorder_tcp_candidates_for_failure(
+            &build_tcp_candidates(&minimal_ui_config()),
+            Some(FailureClass::HttpBlockpage),
+        );
         let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
         assert_eq!(ids, vec!["baseline_current", "parser_only", "parser_unixeol", "split_host"]);
@@ -591,7 +536,10 @@ mod tests {
 
     #[test]
     fn tcp_reset_reorders_tcp_candidates_toward_split_families() {
-        let ordered = reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::TcpReset));
+        let ordered = reorder_tcp_candidates_for_failure(
+            &build_tcp_candidates(&minimal_ui_config()),
+            Some(FailureClass::TcpReset),
+        );
         let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
         assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake_split"]);
@@ -599,7 +547,10 @@ mod tests {
 
     #[test]
     fn silent_drop_reorders_tcp_candidates_toward_fake_tls_families() {
-        let ordered = reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::SilentDrop));
+        let ordered = reorder_tcp_candidates_for_failure(
+            &build_tcp_candidates(&minimal_ui_config()),
+            Some(FailureClass::SilentDrop),
+        );
         let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
         assert_eq!(ids, vec!["baseline_current", "tlsrec_fake_rich", "tlsrec_hostfake", "tlsrec_hostfake_split"]);
@@ -607,7 +558,10 @@ mod tests {
 
     #[test]
     fn tls_alert_reorders_tcp_candidates_away_from_fake_heavy_paths() {
-        let ordered = reorder_tcp_candidates_for_failure(&build_tcp_candidates(&minimal_ui_config()), Some(FailureClass::TlsAlert));
+        let ordered = reorder_tcp_candidates_for_failure(
+            &build_tcp_candidates(&minimal_ui_config()),
+            Some(FailureClass::TlsAlert),
+        );
         let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
 
         assert_eq!(ids, vec!["baseline_current", "split_host", "tlsrec_split_host", "tlsrec_hostfake"]);
@@ -684,33 +638,31 @@ mod tests {
     #[test]
     fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
         let doh = HttpTextServer::start_dns_message("198.51.100.11");
-        let runtime_context =
-            ProxyRuntimeContext {
-                encrypted_dns: Some(ProxyEncryptedDnsContext {
-                    resolver_id: Some("doh".to_string()),
-                    protocol: "doh".to_string(),
-                    host: "127.0.0.1".to_string(),
-                    port: doh.port(),
-                    tls_server_name: None,
-                    bootstrap_ips: vec!["127.0.0.1".to_string()],
-                    doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
-                    dnscrypt_provider_name: None,
-                    dnscrypt_public_key: None,
-                }),
-            };
+        let runtime_context = ProxyRuntimeContext {
+            encrypted_dns: Some(ProxyEncryptedDnsContext {
+                resolver_id: Some("doh".to_string()),
+                protocol: "doh".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: doh.port(),
+                tls_server_name: None,
+                bootstrap_ips: vec!["127.0.0.1".to_string()],
+                doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            }),
+        };
 
-        let baseline =
-            detect_strategy_probe_dns_tampering(
-                &[DomainTarget {
-                    host: "blocked.example".to_string(),
-                    connect_ip: Some("203.0.113.10".to_string()),
-                    https_port: Some(443),
-                    http_port: Some(80),
-                    http_path: "/".to_string(),
-                }],
-                Some(&runtime_context),
-            )
-                .expect("dns tampering");
+        let baseline = detect_strategy_probe_dns_tampering(
+            &[DomainTarget {
+                host: "blocked.example".to_string(),
+                connect_ip: Some("203.0.113.10".to_string()),
+                https_port: Some(443),
+                http_port: Some(80),
+                http_path: "/".to_string(),
+            }],
+            Some(&runtime_context),
+        )
+        .expect("dns tampering");
 
         assert_eq!(baseline.failure.class, FailureClass::DnsTampering);
         assert_eq!(baseline.failure.action, FailureAction::ResolverOverrideRecommended);
@@ -719,16 +671,13 @@ mod tests {
 
     #[test]
     fn quic_probe_failures_are_surfaced_as_quic_breakage() {
-        let failure =
-            classify_strategy_probe_baseline_results(&[
-                ProbeResult {
-                    probe_type: "strategy_quic".to_string(),
-                    target: "Current QUIC strategy".to_string(),
-                    outcome: "quic_empty".to_string(),
-                    details: vec![ProbeDetail { key: "error".to_string(), value: "none".to_string() }],
-                },
-            ])
-                .expect("quic failure");
+        let failure = classify_strategy_probe_baseline_results(&[ProbeResult {
+            probe_type: "strategy_quic".to_string(),
+            target: "Current QUIC strategy".to_string(),
+            outcome: "quic_empty".to_string(),
+            details: vec![ProbeDetail { key: "error".to_string(), value: "none".to_string() }],
+        }])
+        .expect("quic failure");
 
         assert_eq!(failure.class, FailureClass::QuicBreakage);
         assert_eq!(failure.action, FailureAction::DiagnosticsOnly);
@@ -741,17 +690,17 @@ mod tests {
         let methodeol =
             candidates.iter().find(|candidate| candidate.id == "parser_methodeol").expect("methodeol candidate");
 
-        assert!(unixeol.config.host_mixed_case);
-        assert!(unixeol.config.domain_mixed_case);
-        assert!(unixeol.config.host_remove_spaces);
-        assert!(unixeol.config.http_unix_eol);
-        assert!(!unixeol.config.http_method_eol);
+        assert!(unixeol.config.parser_evasions.host_mixed_case);
+        assert!(unixeol.config.parser_evasions.domain_mixed_case);
+        assert!(unixeol.config.parser_evasions.host_remove_spaces);
+        assert!(unixeol.config.parser_evasions.http_unix_eol);
+        assert!(!unixeol.config.parser_evasions.http_method_eol);
 
-        assert!(methodeol.config.host_mixed_case);
-        assert!(methodeol.config.domain_mixed_case);
-        assert!(methodeol.config.host_remove_spaces);
-        assert!(methodeol.config.http_method_eol);
-        assert!(!methodeol.config.http_unix_eol);
+        assert!(methodeol.config.parser_evasions.host_mixed_case);
+        assert!(methodeol.config.parser_evasions.domain_mixed_case);
+        assert!(methodeol.config.parser_evasions.host_remove_spaces);
+        assert!(methodeol.config.parser_evasions.http_method_eol);
+        assert!(!methodeol.config.parser_evasions.http_unix_eol);
     }
 
     #[test]
@@ -760,11 +709,11 @@ mod tests {
         let parser_only =
             candidates.iter().find(|candidate| candidate.id == "parser_only").expect("parser_only candidate");
 
-        assert!(parser_only.config.host_mixed_case);
-        assert!(parser_only.config.domain_mixed_case);
-        assert!(parser_only.config.host_remove_spaces);
-        assert!(!parser_only.config.http_method_eol);
-        assert!(!parser_only.config.http_unix_eol);
+        assert!(parser_only.config.parser_evasions.host_mixed_case);
+        assert!(parser_only.config.parser_evasions.domain_mixed_case);
+        assert!(parser_only.config.parser_evasions.host_remove_spaces);
+        assert!(!parser_only.config.parser_evasions.http_method_eol);
+        assert!(!parser_only.config.parser_evasions.http_unix_eol);
     }
 
     #[test]

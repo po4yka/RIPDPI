@@ -28,12 +28,11 @@ class DefaultProxyPreferencesResolver
             return if (settings.enableCmdSettings) {
                 RipDpiProxyCmdPreferences(settings.cmdArgs)
             } else {
-                RipDpiProxyUIPreferences(
-                    settings = settings,
-                    hostAutolearnStorePath =
-                        settings
-                            .takeIf { it.hostAutolearnEnabled }
-                            ?.let { resolveHostAutolearnStorePath(context) },
+                RipDpiProxyUIPreferences.fromSettings(
+                    settings,
+                    settings
+                        .takeIf { it.hostAutolearnEnabled }
+                        ?.let { resolveHostAutolearnStorePath(context) },
                 )
             }
         }

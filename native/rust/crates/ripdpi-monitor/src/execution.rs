@@ -8,11 +8,11 @@ use rustls::client::danger::ServerCertVerifier;
 
 use ciadpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
 use ripdpi_proxy_config::{
-    runtime_config_from_ui, ProxyConfigPayload, ProxyRuntimeContext, ProxyUiConfig,
-    ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
+    runtime_config_from_ui, ProxyConfigPayload, ProxyRuntimeContext, ProxyUiConfig, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
 };
 use ripdpi_runtime::{runtime, EmbeddedProxyControl};
 
+use crate::candidates::target_probe_pause_ms;
 use crate::candidates::{CandidateWarmup, StrategyCandidateSpec};
 use crate::http::{is_blockpage, try_http_request};
 use crate::tls::{try_tls_handshake, TlsClientProfile};
@@ -20,7 +20,6 @@ use crate::transport::{
     domain_connect_target, quic_connect_target, relay_udp_payload, wait_for_listener, TransportConfig,
 };
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult, QuicTarget, StrategyProbeCandidateSummary};
-use crate::candidates::target_probe_pause_ms;
 use crate::util::{now_ms, stable_probe_hash};
 
 use ciadpi_config::RuntimeConfig;
@@ -128,7 +127,8 @@ pub(crate) fn execute_tcp_candidate(
             run_candidate_warmup(spec, &transport, targets, tls_verifier);
             let mut score = CandidateScore::default();
             let mut ordered_targets = targets.to_vec();
-            ordered_targets.sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
+            ordered_targets
+                .sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
             for (index, target) in ordered_targets.iter().enumerate() {
                 if index > 0 {
                     thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &target.host)));
@@ -157,7 +157,8 @@ pub(crate) fn execute_quic_candidate(
             let transport = runtime.transport();
             let mut score = CandidateScore::default();
             let mut ordered_targets = targets.to_vec();
-            ordered_targets.sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
+            ordered_targets
+                .sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
             for (index, target) in ordered_targets.iter().enumerate() {
                 if index > 0 {
                     thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &target.host)));
@@ -176,10 +177,10 @@ pub(crate) fn probe_runtime_transport(
     runtime_context: Option<&ProxyRuntimeContext>,
 ) -> Result<TemporaryProxyRuntime, String> {
     let mut runtime_config = spec.config.clone();
-    runtime_config.ip = "127.0.0.1".to_string();
-    runtime_config.port = 0;
-    runtime_config.host_autolearn_enabled = false;
-    runtime_config.host_autolearn_store_path = None;
+    runtime_config.listen.ip = "127.0.0.1".to_string();
+    runtime_config.listen.port = 0;
+    runtime_config.host_autolearn.enabled = false;
+    runtime_config.host_autolearn.store_path = None;
     if !spec.preserve_adaptive_fake_ttl {
         freeze_adaptive_fake_ttl_for_probe(&mut runtime_config);
     }
@@ -222,20 +223,20 @@ pub(crate) fn run_candidate_warmup(
 }
 
 pub(crate) fn freeze_adaptive_fake_ttl_for_probe(runtime_config: &mut ProxyUiConfig) {
-    if !runtime_config.adaptive_fake_ttl_enabled {
+    if !runtime_config.fake_packets.adaptive_fake_ttl_enabled {
         return;
     }
-    let min_ttl = runtime_config.adaptive_fake_ttl_min.clamp(1, 255);
-    let max_ttl = runtime_config.adaptive_fake_ttl_max.clamp(min_ttl, 255);
-    let fallback = if runtime_config.adaptive_fake_ttl_fallback > 0 {
-        runtime_config.adaptive_fake_ttl_fallback
-    } else if runtime_config.fake_ttl > 0 {
-        runtime_config.fake_ttl
+    let min_ttl = runtime_config.fake_packets.adaptive_fake_ttl_min.clamp(1, 255);
+    let max_ttl = runtime_config.fake_packets.adaptive_fake_ttl_max.clamp(min_ttl, 255);
+    let fallback = if runtime_config.fake_packets.adaptive_fake_ttl_fallback > 0 {
+        runtime_config.fake_packets.adaptive_fake_ttl_fallback
+    } else if runtime_config.fake_packets.fake_ttl > 0 {
+        runtime_config.fake_packets.fake_ttl
     } else {
         ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK
     };
-    runtime_config.fake_ttl = fallback.clamp(min_ttl, max_ttl);
-    runtime_config.adaptive_fake_ttl_enabled = false;
+    runtime_config.fake_packets.fake_ttl = fallback.clamp(min_ttl, max_ttl);
+    runtime_config.fake_packets.adaptive_fake_ttl_enabled = false;
 }
 
 pub(crate) fn build_candidate_execution(
@@ -352,6 +353,7 @@ pub(crate) fn skipped_candidate_summary(
 
 pub(crate) fn candidate_proxy_config_json(spec: &StrategyCandidateSpec) -> Option<String> {
     serde_json::to_string(&ProxyConfigPayload::Ui {
+        strategy_preset: None,
         config: spec.config.clone(),
         runtime_context: None,
     })
@@ -556,10 +558,7 @@ mod tests {
 
     #[test]
     fn winning_candidate_index_breaks_tie_with_quality_score() {
-        let candidates = vec![
-            summary_with("a", 3, 4, 5, false, None),
-            summary_with("b", 3, 4, 8, false, None),
-        ];
+        let candidates = vec![summary_with("a", 3, 4, 5, false, None), summary_with("b", 3, 4, 8, false, None)];
 
         assert_eq!(winning_candidate_index(&candidates), Some(1));
     }
@@ -577,10 +576,7 @@ mod tests {
 
     #[test]
     fn winning_candidate_index_skips_not_applicable_candidates() {
-        let mut candidates = vec![
-            summary_with("a", 2, 4, 3, false, None),
-            summary_with("b", 10, 10, 20, false, None),
-        ];
+        let mut candidates = vec![summary_with("a", 2, 4, 3, false, None), summary_with("b", 10, 10, 20, false, None)];
         candidates[1].outcome = "not_applicable".to_string();
 
         assert_eq!(winning_candidate_index(&candidates), Some(0));
@@ -593,10 +589,8 @@ mod tests {
 
     #[test]
     fn winning_candidate_index_prefers_lower_latency_on_tie() {
-        let candidates = vec![
-            summary_with("a", 3, 4, 5, false, Some(200)),
-            summary_with("b", 3, 4, 5, false, Some(100)),
-        ];
+        let candidates =
+            vec![summary_with("a", 3, 4, 5, false, Some(200)), summary_with("b", 3, 4, 5, false, Some(100))];
 
         assert_eq!(winning_candidate_index(&candidates), Some(1));
     }
@@ -666,42 +660,42 @@ mod tests {
     #[test]
     fn freeze_adaptive_fake_ttl_clamps_fallback_to_range() {
         let mut config = test_ui_config();
-        config.fake_ttl = 11;
-        config.adaptive_fake_ttl_enabled = true;
-        config.adaptive_fake_ttl_min = 3;
-        config.adaptive_fake_ttl_max = 9;
-        config.adaptive_fake_ttl_fallback = 13;
+        config.fake_packets.fake_ttl = 11;
+        config.fake_packets.adaptive_fake_ttl_enabled = true;
+        config.fake_packets.adaptive_fake_ttl_min = 3;
+        config.fake_packets.adaptive_fake_ttl_max = 9;
+        config.fake_packets.adaptive_fake_ttl_fallback = 13;
 
         freeze_adaptive_fake_ttl_for_probe(&mut config);
 
-        assert_eq!(config.fake_ttl, 9);
-        assert!(!config.adaptive_fake_ttl_enabled);
+        assert_eq!(config.fake_packets.fake_ttl, 9);
+        assert!(!config.fake_packets.adaptive_fake_ttl_enabled);
     }
 
     #[test]
     fn freeze_adaptive_fake_ttl_uses_fake_ttl_when_fallback_is_zero() {
         let mut config = test_ui_config();
-        config.fake_ttl = 7;
-        config.adaptive_fake_ttl_enabled = true;
-        config.adaptive_fake_ttl_min = 3;
-        config.adaptive_fake_ttl_max = 12;
-        config.adaptive_fake_ttl_fallback = 0;
+        config.fake_packets.fake_ttl = 7;
+        config.fake_packets.adaptive_fake_ttl_enabled = true;
+        config.fake_packets.adaptive_fake_ttl_min = 3;
+        config.fake_packets.adaptive_fake_ttl_max = 12;
+        config.fake_packets.adaptive_fake_ttl_fallback = 0;
 
         freeze_adaptive_fake_ttl_for_probe(&mut config);
 
-        assert_eq!(config.fake_ttl, 7);
-        assert!(!config.adaptive_fake_ttl_enabled);
+        assert_eq!(config.fake_packets.fake_ttl, 7);
+        assert!(!config.fake_packets.adaptive_fake_ttl_enabled);
     }
 
     #[test]
     fn freeze_adaptive_fake_ttl_noop_when_disabled() {
         let mut config = test_ui_config();
-        config.fake_ttl = 8;
-        config.adaptive_fake_ttl_enabled = false;
+        config.fake_packets.fake_ttl = 8;
+        config.fake_packets.adaptive_fake_ttl_enabled = false;
 
         freeze_adaptive_fake_ttl_for_probe(&mut config);
 
-        assert_eq!(config.fake_ttl, 8);
+        assert_eq!(config.fake_packets.fake_ttl, 8);
     }
 
     fn summary_with(
@@ -731,68 +725,10 @@ mod tests {
     }
 
     fn test_ui_config() -> ProxyUiConfig {
-        ProxyUiConfig {
-            ip: "127.0.0.1".to_string(),
-            port: 1080,
-            max_connections: 512,
-            buffer_size: 16384,
-            default_ttl: 0,
-            custom_ttl: false,
-            no_domain: false,
-            desync_http: true,
-            desync_https: true,
-            desync_udp: true,
-            desync_method: "disorder".to_string(),
-            split_marker: Some("host+1".to_string()),
-            tcp_chain_steps: Vec::new(),
-            group_activation_filter: ripdpi_proxy_config::ProxyUiActivationFilter::default(),
-            split_position: 0,
-            split_at_host: false,
-            fake_ttl: 8,
-            adaptive_fake_ttl_enabled: false,
-            adaptive_fake_ttl_delta: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
-            adaptive_fake_ttl_min: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
-            adaptive_fake_ttl_max: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
-            adaptive_fake_ttl_fallback: ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
-            fake_sni: "www.wikipedia.org".to_string(),
-            http_fake_profile: "compat_default".to_string(),
-            fake_tls_use_original: false,
-            fake_tls_randomize: false,
-            fake_tls_dup_session_id: false,
-            fake_tls_pad_encap: false,
-            fake_tls_size: 0,
-            fake_tls_sni_mode: "fixed".to_string(),
-            tls_fake_profile: "compat_default".to_string(),
-            oob_char: b'a',
-            host_mixed_case: false,
-            domain_mixed_case: false,
-            host_remove_spaces: false,
-            http_method_eol: false,
-            http_unix_eol: false,
-            tls_record_split: false,
-            tls_record_split_marker: None,
-            tls_record_split_position: 0,
-            tls_record_split_at_sni: false,
-            hosts_mode: "disable".to_string(),
-            hosts: None,
-            tcp_fast_open: false,
-            udp_fake_count: 0,
-            udp_chain_steps: Vec::new(),
-            udp_fake_profile: "compat_default".to_string(),
-            drop_sack: false,
-            fake_offset_marker: Some("0".to_string()),
-            fake_offset: 0,
-            quic_initial_mode: Some("route_and_cache".to_string()),
-            quic_support_v1: true,
-            quic_support_v2: true,
-            quic_fake_profile: "disabled".to_string(),
-            quic_fake_host: String::new(),
-            host_autolearn_enabled: false,
-            host_autolearn_penalty_ttl_secs: ciadpi_config::HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
-            host_autolearn_max_hosts: ciadpi_config::HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
-            host_autolearn_store_path: None,
-            network_scope_key: None,
-            strategy_preset: None,
-        }
+        let mut config = ProxyUiConfig::default();
+        config.protocols.desync_udp = true;
+        config.chains.tcp_steps = vec![];
+        config.fake_packets.fake_sni = "www.wikipedia.org".to_string();
+        config
     }
 }
