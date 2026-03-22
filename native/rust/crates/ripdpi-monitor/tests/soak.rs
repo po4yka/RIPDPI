@@ -171,8 +171,7 @@ fn wait_for_report_with_progress(
                 previous.completed_steps != progress.completed_steps
                     || previous.phase != progress.phase
                     || previous.message != progress.message
-            })
-            {
+            }) {
                 last_progress_change = Instant::now();
                 last_progress = Some(progress);
             }

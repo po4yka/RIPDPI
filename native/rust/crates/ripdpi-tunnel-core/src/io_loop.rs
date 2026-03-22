@@ -1014,10 +1014,7 @@ pub async fn io_loop_task(
             // Spawn a TcpSession for each newly active socket (Decision C).
             for (handle, remote_addr) in new_sessions {
                 // Remove the LISTEN tracking entry for this port.
-                let port = socket_set
-                    .get_mut::<TcpSocket>(handle)
-                    .local_endpoint()
-                    .map_or(0, |e| e.port);
+                let port = socket_set.get_mut::<TcpSocket>(handle).local_endpoint().map_or(0, |e| e.port);
                 pending_listens.remove(&port);
 
                 let resolved_remote = resolve_mapped_target(&stats, &mut dns_cache, remote_addr);
@@ -1148,9 +1145,7 @@ pub async fn io_loop_task(
         // ── Phase 6: wait for next event ──────────────────────────────────────
         let smol_delay = iface
             .poll_delay(Instant::now(), &socket_set)
-            .map_or(Duration::from_millis(DEFAULT_POLL_DELAY_MS), |d| {
-                Duration::from_micros(d.total_micros())
-            });
+            .map_or(Duration::from_millis(DEFAULT_POLL_DELAY_MS), |d| Duration::from_micros(d.total_micros()));
 
         // Drain any UDP response packets that arrived between loop iterations.
         while let Ok(event) = udp_rx.try_recv() {
