@@ -38,11 +38,11 @@ import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
 import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
+import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.PhaseState
 import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -66,7 +66,7 @@ private const val LiveProbePreviewCount = 8
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun ScanSection(
-    uiState: DiagnosticsUiState,
+    scan: DiagnosticsScanUiModel,
     onSelectProfile: (String) -> Unit,
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
@@ -79,16 +79,16 @@ internal fun ScanSection(
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
-    val selectedProfile = uiState.scan.selectedProfile
+    val selectedProfile = scan.selectedProfile
     val strategyProbeSelected = selectedProfile?.kind == com.poyka.ripdpi.diagnostics.ScanKind.STRATEGY_PROBE
     val scanStateTag =
         when {
-            uiState.scan.activeProgress != null -> RipDpiTestTags.DiagnosticsScanStateProgress
+            scan.activeProgress != null -> RipDpiTestTags.DiagnosticsScanStateProgress
 
-            uiState.scan.strategyProbeReport != null ||
-                uiState.scan.latestResults.isNotEmpty() ||
-                uiState.scan.latestSession != null ||
-                uiState.scan.resolverRecommendation != null
+            scan.strategyProbeReport != null ||
+                scan.latestResults.isNotEmpty() ||
+                scan.latestSession != null ||
+                scan.resolverRecommendation != null
             -> RipDpiTestTags.DiagnosticsScanStateContent
 
             else -> RipDpiTestTags.DiagnosticsScanStateIdle
@@ -102,12 +102,12 @@ internal fun ScanSection(
             ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        item { ScanProfilePickerCard(uiState = uiState, onSelectProfile = onSelectProfile) }
-        if (uiState.scan.diagnoses.isNotEmpty()) {
+        item { ScanProfilePickerCard(scan = scan, onSelectProfile = onSelectProfile) }
+        if (scan.diagnoses.isNotEmpty()) {
             item {
                 DiagnosisSummaryCard(
                     title = stringResource(R.string.diagnostics_diagnosis_summary_title),
-                    diagnoses = uiState.scan.diagnoses,
+                    diagnoses = scan.diagnoses,
                 )
             }
         }
@@ -124,7 +124,7 @@ internal fun ScanSection(
             item {
                 DiagnosticsScanWorkflowCard(
                     profile = profile,
-                    scan = uiState.scan,
+                    scan = scan,
                     strategyProbeSelected = strategyProbeSelected,
                     isFullAudit = profile.strategyProbeSuiteId == "full_matrix_v1",
                     onRunRawScan = onRunRawScan,
@@ -134,7 +134,7 @@ internal fun ScanSection(
                 )
             }
         }
-        uiState.scan.activeProgress?.let { progress ->
+        scan.activeProgress?.let { progress ->
             item {
                 ScanProgressCard(
                     progress = progress,
@@ -170,7 +170,7 @@ internal fun ScanSection(
                 }
             }
         }
-        uiState.scan.latestSession?.let { session ->
+        scan.latestSession?.let { session ->
             item {
                 SettingsCategoryHeader(
                     title =
@@ -187,16 +187,16 @@ internal fun ScanSection(
                 )
             }
         }
-        uiState.scan.resolverRecommendation?.let { recommendation ->
+        scan.resolverRecommendation?.let { recommendation ->
             item {
                 ResolverRecommendationCard(
                     recommendation = recommendation,
-                    onKeepForSession = { onKeepResolverRecommendation(uiState.scan.latestSession?.id) },
-                    onSaveAsSetting = { onSaveResolverRecommendation(uiState.scan.latestSession?.id) },
+                    onKeepForSession = { onKeepResolverRecommendation(scan.latestSession?.id) },
+                    onSaveAsSetting = { onSaveResolverRecommendation(scan.latestSession?.id) },
                 )
             }
         }
-        uiState.scan.strategyProbeReport?.let { report ->
+        scan.strategyProbeReport?.let { report ->
             item {
                 StrategyProbeReportCard(
                     report = report,
@@ -204,7 +204,7 @@ internal fun ScanSection(
                 )
             }
         }
-        if (uiState.scan.latestResults.isNotEmpty()) {
+        if (scan.latestResults.isNotEmpty()) {
             item {
                 SettingsCategoryHeader(
                     title =
@@ -215,7 +215,11 @@ internal fun ScanSection(
                         },
                 )
             }
-            items(uiState.scan.latestResults, key = { it.id }) { probe ->
+            items(
+                items = scan.latestResults,
+                key = { it.id },
+                contentType = { probe -> if (probe.probeType == "telegram_availability") "telegram_probe" else "probe" },
+            ) { probe ->
                 if (probe.probeType == "telegram_availability") {
                     TelegramResultCard(
                         probe = probe,
@@ -236,7 +240,7 @@ internal fun ScanSection(
 
 @Composable
 private fun ScanProfilePickerCard(
-    uiState: DiagnosticsUiState,
+    scan: DiagnosticsScanUiModel,
     onSelectProfile: (String) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -252,7 +256,7 @@ private fun ScanProfilePickerCard(
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            uiState.scan.profiles.groupBy { it.family }.forEach { (family, profiles) ->
+            scan.profiles.groupBy { it.family }.forEach { (family, profiles) ->
                 Text(
                     text = family.displayFamilyLabel(),
                     style = RipDpiThemeTokens.type.bodyEmphasis,
@@ -261,7 +265,7 @@ private fun ScanProfilePickerCard(
                 profiles.forEach { profile ->
                     DiagnosticsProfileCard(
                         profile = profile,
-                        selected = profile.id == uiState.scan.selectedProfileId,
+                        selected = profile.id == scan.selectedProfileId,
                         onClick = { onSelectProfile(profile.id) },
                     )
                 }

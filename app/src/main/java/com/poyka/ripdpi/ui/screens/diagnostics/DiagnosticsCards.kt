@@ -1,10 +1,8 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -161,24 +159,11 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
                 style = RipDpiThemeTokens.type.sectionTitle,
                 color = animatedContent.copy(alpha = 0.75f),
             )
-            AnimatedContent(
-                targetState = metric.value,
-                transitionSpec = {
-                    androidx.compose.animation.fadeIn(
-                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                    ) togetherWith
-                        androidx.compose.animation.fadeOut(
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                        )
-                },
-                label = "telemetryMetricValue",
-            ) { value ->
-                Text(
-                    text = value,
-                    style = RipDpiThemeTokens.type.monoValue,
-                    color = animatedContent,
-                )
-            }
+            Text(
+                text = metric.value,
+                style = RipDpiThemeTokens.type.monoValue,
+                color = animatedContent,
+            )
         }
     }
 }
@@ -219,8 +204,6 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
             label = trend.label,
             displayValue = sparklineState.displayValue,
             valueColor = palette.content,
-            stateDurationMillis = motion.duration(motion.stateDurationMillis),
-            quickDurationMillis = motion.duration(motion.quickDurationMillis),
             labelColor = colors.foreground,
         )
         SparklineChartRow(
@@ -247,8 +230,6 @@ private fun SparklineHeader(
     label: String,
     displayValue: Float,
     valueColor: androidx.compose.ui.graphics.Color,
-    stateDurationMillis: Int,
-    quickDurationMillis: Int,
     labelColor: androidx.compose.ui.graphics.Color,
 ) {
     Row(
@@ -261,24 +242,11 @@ private fun SparklineHeader(
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = labelColor,
         )
-        AnimatedContent(
-            targetState = formatSparklineValue(displayValue),
-            transitionSpec = {
-                androidx.compose.animation.fadeIn(
-                    animationSpec = tween(durationMillis = stateDurationMillis),
-                ) togetherWith
-                    androidx.compose.animation.fadeOut(
-                        animationSpec = tween(durationMillis = quickDurationMillis),
-                    )
-            },
-            label = "sparklineCurrentValue",
-        ) { value ->
-            Text(
-                text = value,
-                style = RipDpiThemeTokens.type.monoValue,
-                color = valueColor,
-            )
-        }
+        Text(
+            text = formatSparklineValue(displayValue),
+            style = RipDpiThemeTokens.type.monoValue,
+            color = valueColor,
+        )
     }
 }
 

@@ -34,11 +34,17 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
+import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEffect
+import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
+import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRememberedNetworkUiModel
+import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
+import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
@@ -66,6 +72,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import java.util.Locale
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -224,6 +231,7 @@ fun DiagnosticsScreen(
 ) {
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
+    val spacing = RipDpiThemeTokens.spacing
 
     RipDpiScreenScaffold(
         modifier =
@@ -265,6 +273,20 @@ fun DiagnosticsScreen(
                     onSelectSection = onSelectSection,
                     modifier = Modifier.padding(horizontal = layout.horizontalPadding),
                 )
+                if (BuildConfig.DEBUG) {
+                    uiState.performance?.let { performance ->
+                        DiagnosticsPerformanceCard(
+                            performance = performance,
+                            selectedSection = uiState.selectedSection,
+                            modifier =
+                                Modifier.padding(
+                                    start = layout.horizontalPadding,
+                                    end = layout.horizontalPadding,
+                                    bottom = spacing.xs,
+                                ),
+                        )
+                    }
+                }
                 HorizontalPager(
                     state = pagerState,
                     modifier =
@@ -275,7 +297,8 @@ fun DiagnosticsScreen(
                     when (DiagnosticsSection.entries[page]) {
                         DiagnosticsSection.Overview -> {
                             OverviewSection(
-                                uiState = uiState,
+                                overview = uiState.overview,
+                                isActiveScan = uiState.scan.activeProgress != null,
                                 onSelectSection = onSelectSection,
                                 onSelectSession = onSelectSession,
                                 onOpenHistory = onOpenHistory,
@@ -284,7 +307,7 @@ fun DiagnosticsScreen(
 
                         DiagnosticsSection.Scan -> {
                             ScanSection(
-                                uiState = uiState,
+                                scan = uiState.scan,
                                 onSelectProfile = onSelectProfile,
                                 onRunRawScan = onRunRawScan,
                                 onRunInPathScan = onRunInPathScan,
@@ -297,12 +320,15 @@ fun DiagnosticsScreen(
                         }
 
                         DiagnosticsSection.Live -> {
-                            LiveSection(uiState = uiState)
+                            LiveSection(
+                                live = uiState.live,
+                                health = uiState.overview.health,
+                            )
                         }
 
                         DiagnosticsSection.Approaches -> {
                             ApproachesSection(
-                                uiState = uiState,
+                                approaches = uiState.approaches,
                                 onSelectMode = onSelectApproachMode,
                                 onSelectApproach = onSelectApproach,
                             )
@@ -310,7 +336,7 @@ fun DiagnosticsScreen(
 
                         DiagnosticsSection.Share -> {
                             ShareSection(
-                                uiState = uiState,
+                                share = uiState.share,
                                 onShareSummary = onShareSummary,
                                 onShareArchive = onShareArchive,
                                 onSaveArchive = onSaveArchive,
@@ -324,7 +350,11 @@ fun DiagnosticsScreen(
     }
 
     DiagnosticsBottomSheetHost(
-        uiState = uiState,
+        selectedSessionDetail = uiState.selectedSessionDetail,
+        selectedApproachDetail = uiState.selectedApproachDetail,
+        selectedEvent = uiState.selectedEvent,
+        selectedProbe = uiState.selectedProbe,
+        selectedStrategyProbeCandidate = uiState.selectedStrategyProbeCandidate,
         onDismissSessionDetail = onDismissSessionDetail,
         onToggleSensitiveSessionDetails = onToggleSensitiveSessionDetails,
         onSelectStrategyProbeCandidate = onSelectStrategyProbeCandidate,
@@ -365,7 +395,8 @@ private fun DiagnosticsSectionSwitcher(
 
 @Composable
 private fun OverviewSection(
-    uiState: DiagnosticsUiState,
+    overview: DiagnosticsOverviewUiModel,
+    isActiveScan: Boolean,
     onSelectSection: (DiagnosticsSection) -> Unit,
     onSelectSession: (String) -> Unit,
     onOpenHistory: () -> Unit,
@@ -382,9 +413,13 @@ private fun OverviewSection(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         item {
-            DiagnosticsHealthHero(uiState = uiState, onSelectSection = onSelectSection)
+            DiagnosticsHealthHero(
+                overview = overview,
+                isActiveScan = isActiveScan,
+                onSelectSection = onSelectSection,
+            )
         }
-        uiState.overview.activeProfile?.let { profile ->
+        overview.activeProfile?.let { profile ->
             item {
                 RipDpiCard {
                     Text(
@@ -405,17 +440,17 @@ private fun OverviewSection(
                 }
             }
         }
-        uiState.overview.latestSnapshot?.let { snapshot ->
+        overview.latestSnapshot?.let { snapshot ->
             item {
                 SnapshotCard(snapshot = snapshot)
             }
         }
-        uiState.overview.contextSummary?.let { contextSummary ->
+        overview.contextSummary?.let { contextSummary ->
             item {
                 ContextGroupCard(group = contextSummary)
             }
         }
-        uiState.overview.latestSession?.let { session ->
+        overview.latestSession?.let { session ->
             item {
                 SessionRow(
                     session = session,
@@ -423,19 +458,19 @@ private fun OverviewSection(
                 )
             }
         }
-        if (uiState.overview.rememberedNetworks.isNotEmpty()) {
+        if (overview.rememberedNetworks.isNotEmpty()) {
             item {
-                RememberedNetworkPoliciesCard(policies = uiState.overview.rememberedNetworks)
+                RememberedNetworkPoliciesCard(policies = overview.rememberedNetworks)
             }
         }
         item {
             HistoryCalloutCard(onOpenHistory = onOpenHistory)
         }
-        if (uiState.overview.warnings.isNotEmpty()) {
+        if (overview.warnings.isNotEmpty()) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     SettingsCategoryHeader(title = stringResource(R.string.diagnostics_attention_section))
-                    uiState.overview.warnings.forEach { warning ->
+                    overview.warnings.forEach { warning ->
                         EventRow(event = warning, onClick = {})
                     }
                 }
@@ -531,14 +566,13 @@ private fun HistoryCalloutCard(onOpenHistory: () -> Unit) {
 
 @Composable
 private fun DiagnosticsHealthHero(
-    uiState: DiagnosticsUiState,
+    overview: DiagnosticsOverviewUiModel,
+    isActiveScan: Boolean,
     onSelectSection: (DiagnosticsSection) -> Unit,
 ) {
-    val overview = uiState.overview
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val tone = warningBannerTone(overview.health)
-    val isActiveScan = uiState.scan.activeProgress != null
 
     Column(
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsOverviewHero),
@@ -572,7 +606,7 @@ private fun DiagnosticsHealthHero(
 
 @Composable
 private fun ApproachesSection(
-    uiState: DiagnosticsUiState,
+    approaches: DiagnosticsApproachesUiModel,
     onSelectMode: (DiagnosticsApproachMode) -> Unit,
     onSelectApproach: (String) -> Unit,
 ) {
@@ -597,7 +631,7 @@ private fun ApproachesSection(
                 Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     RipDpiChip(
                         text = stringResource(R.string.diagnostics_approaches_profiles),
-                        selected = uiState.approaches.selectedMode == DiagnosticsApproachMode.Profiles,
+                        selected = approaches.selectedMode == DiagnosticsApproachMode.Profiles,
                         onClick = { onSelectMode(DiagnosticsApproachMode.Profiles) },
                         modifier =
                             Modifier.ripDpiTestTag(
@@ -606,7 +640,7 @@ private fun ApproachesSection(
                     )
                     RipDpiChip(
                         text = stringResource(R.string.diagnostics_approaches_strategies),
-                        selected = uiState.approaches.selectedMode == DiagnosticsApproachMode.Strategies,
+                        selected = approaches.selectedMode == DiagnosticsApproachMode.Strategies,
                         onClick = { onSelectMode(DiagnosticsApproachMode.Strategies) },
                         modifier =
                             Modifier.ripDpiTestTag(
@@ -616,13 +650,11 @@ private fun ApproachesSection(
                 }
             }
         }
-        items(uiState.approaches.rows, key = { it.id }) { row ->
+        items(items = approaches.rows, key = { it.id }, contentType = { "approach" }) { row ->
             RipDpiCard(
                 onClick = { onSelectApproach(row.id) },
                 variant =
-                    if (row.id ==
-                        uiState.approaches.focusedApproachId
-                    ) {
+                    if (row.id == approaches.focusedApproachId) {
                         RipDpiCardVariant.Elevated
                     } else {
                         RipDpiCardVariant.Outlined
@@ -786,7 +818,7 @@ private fun EventsSection(
 
 @Composable
 private fun ShareSection(
-    uiState: DiagnosticsUiState,
+    share: DiagnosticsShareUiModel,
     onShareSummary: (String?) -> Unit,
     onShareArchive: (String?) -> Unit,
     onSaveArchive: (String?) -> Unit,
@@ -805,11 +837,11 @@ private fun ShareSection(
     ) {
         item {
             DiagnosticsPreviewCard(
-                title = uiState.share.previewTitle,
-                body = uiState.share.previewBody,
-                metrics = uiState.share.metrics,
-                archiveStateMessage = uiState.share.archiveStateMessage,
-                archiveStateTone = uiState.share.archiveStateTone,
+                title = share.previewTitle,
+                body = share.previewBody,
+                metrics = share.metrics,
+                archiveStateMessage = share.archiveStateMessage,
+                archiveStateTone = share.archiveStateTone,
             )
         }
         item {
@@ -817,11 +849,11 @@ private fun ShareSection(
                 title = stringResource(R.string.diagnostics_share_archive_title),
                 body = stringResource(R.string.diagnostics_share_archive_body),
                 buttonLabel = stringResource(R.string.diagnostics_share_archive_action),
-                onClick = { onShareArchive(uiState.share.targetSessionId) },
+                onClick = { onShareArchive(share.targetSessionId) },
                 iconTint = RipDpiThemeTokens.colors.foreground,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareArchive),
                 variant = RipDpiButtonVariant.Primary,
-                enabled = !uiState.share.isArchiveBusy,
+                enabled = !share.isArchiveBusy,
             )
         }
         item {
@@ -830,14 +862,14 @@ private fun ShareSection(
                 body =
                     stringResource(
                         R.string.diagnostics_save_archive_body,
-                        uiState.share.latestArchiveFileName ?: "latest archive",
+                        share.latestArchiveFileName ?: "latest archive",
                     ),
                 buttonLabel = stringResource(R.string.diagnostics_save_archive_action),
-                onClick = { onSaveArchive(uiState.share.targetSessionId) },
+                onClick = { onSaveArchive(share.targetSessionId) },
                 iconTint = RipDpiThemeTokens.colors.info,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveArchive),
                 variant = RipDpiButtonVariant.Outline,
-                enabled = !uiState.share.isArchiveBusy,
+                enabled = !share.isArchiveBusy,
             )
         }
         item {
@@ -845,7 +877,7 @@ private fun ShareSection(
                 title = stringResource(R.string.diagnostics_share_summary_title),
                 body = stringResource(R.string.diagnostics_share_summary_body),
                 buttonLabel = stringResource(R.string.diagnostics_share_summary_action),
-                onClick = { onShareSummary(uiState.share.targetSessionId) },
+                onClick = { onShareSummary(share.targetSessionId) },
                 iconTint = RipDpiThemeTokens.colors.info,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareSummary),
                 variant = RipDpiButtonVariant.Outline,
@@ -864,3 +896,75 @@ private fun ShareSection(
         }
     }
 }
+
+@Composable
+private fun DiagnosticsPerformanceCard(
+    performance: DiagnosticsPerformanceUiModel,
+    selectedSection: DiagnosticsSection,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val timingBreakdown =
+        remember(performance) {
+            listOf(
+                "resolve" to performance.resolveDurationMillis,
+                "overview" to performance.overviewDurationMillis,
+                "scan" to performance.scanDurationMillis,
+                "live" to performance.liveDurationMillis,
+                "sessions" to performance.sessionsDurationMillis,
+                "approaches" to performance.approachesDurationMillis,
+                "events" to performance.eventsDurationMillis,
+                "share" to performance.shareDurationMillis,
+                "event-map" to performance.eventMappingDurationMillis,
+            ).sortedByDescending { it.second }
+        }
+    val slowestStage = timingBreakdown.firstOrNull()
+    val timingSummary =
+        remember(timingBreakdown) {
+            timingBreakdown.take(4).joinToString("  ") { (label, duration) ->
+                "$label ${formatDuration(duration)}"
+            }
+        }
+
+    RipDpiCard(
+        modifier = modifier,
+        variant = RipDpiCardVariant.Outlined,
+    ) {
+        Text(
+            text = "Debug performance",
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = colors.mutedForeground,
+        )
+        Text(
+            text =
+                "Build #${performance.buildSequence} · ${selectedSection.name.lowercase(Locale.US)} · total ${
+                    formatDuration(
+                        performance.totalDurationMillis,
+                    )
+                }",
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = colors.foreground,
+        )
+        slowestStage?.let { (label, duration) ->
+            Text(
+                text = "Slowest stage: $label ${formatDuration(duration)}",
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+        Text(
+            text =
+                "Input: ${performance.telemetryCount} telemetry · ${performance.nativeEventCount} events · " +
+                    "${performance.sessionCount} sessions",
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        Text(
+            text = timingSummary,
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = colors.foreground,
+        )
+    }
+}
+
+private fun formatDuration(durationMillis: Double): String = String.format(Locale.US, "%.1f ms", durationMillis)

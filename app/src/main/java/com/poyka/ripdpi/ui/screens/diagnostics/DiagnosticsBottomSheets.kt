@@ -7,16 +7,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.DiagnosticsApproachDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsContextGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
 import com.poyka.ripdpi.activities.DiagnosticsNetworkSnapshotUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
-import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -32,7 +33,11 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DiagnosticsBottomSheetHost(
-    uiState: DiagnosticsUiState,
+    selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
+    selectedApproachDetail: DiagnosticsApproachDetailUiModel?,
+    selectedEvent: DiagnosticsEventUiModel?,
+    selectedProbe: DiagnosticsProbeResultUiModel?,
+    selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,
     onDismissSessionDetail: () -> Unit,
     onToggleSensitiveSessionDetails: () -> Unit,
     onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
@@ -45,8 +50,8 @@ internal fun DiagnosticsBottomSheetHost(
 ) {
     val colors = RipDpiThemeTokens.colors
 
-    if (uiState.selectedStrategyProbeCandidate == null) {
-        uiState.selectedSessionDetail?.let { detail ->
+    if (selectedStrategyProbeCandidate == null) {
+        selectedSessionDetail?.let { detail ->
             RipDpiBottomSheet(
                 onDismissRequest = onDismissSessionDetail,
                 title = detail.session.title,
@@ -123,7 +128,7 @@ internal fun DiagnosticsBottomSheetHost(
             }
         }
     }
-    uiState.selectedEvent?.let { event ->
+    selectedEvent?.let { event ->
         RipDpiBottomSheet(
             onDismissRequest = onDismissEventDetail,
             title = event.source,
@@ -140,7 +145,7 @@ internal fun DiagnosticsBottomSheetHost(
         }
     }
 
-    uiState.selectedApproachDetail?.let { detail ->
+    selectedApproachDetail?.let { detail ->
         RipDpiBottomSheet(
             onDismissRequest = onDismissApproachDetail,
             title = detail.approach.title,
@@ -189,7 +194,7 @@ internal fun DiagnosticsBottomSheetHost(
         }
     }
 
-    uiState.selectedProbe?.let { probe ->
+    selectedProbe?.let { probe ->
         RipDpiBottomSheet(
             onDismissRequest = onDismissProbeDetail,
             title = probe.target,
@@ -208,7 +213,7 @@ internal fun DiagnosticsBottomSheetHost(
         }
     }
 
-    uiState.selectedStrategyProbeCandidate?.let { candidate ->
+    selectedStrategyProbeCandidate?.let { candidate ->
         RipDpiBottomSheet(
             onDismissRequest = onDismissStrategyProbeCandidate,
             title = candidate.label,
