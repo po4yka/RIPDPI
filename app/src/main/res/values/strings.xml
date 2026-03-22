@@ -2,6 +2,7 @@
     <string name="ripdpi_docs">https://github.com/hufrea/ripdpi/blob/v0.13/README.md</string>
     <string name="app_name">RIPDPI</string>
     <string name="navigation_back">Navigate back</string>
+    <string name="action_dismiss">Dismiss</string>
     <string name="vpn_connect">Connect</string>
     <string name="vpn_disconnect">Disconnect</string>
     <string name="vpn_connected">Connected</string>
@@ -1091,6 +1092,9 @@ Source: %2$s</string>
     <string name="permissions_background_activity_title">Background activity</string>
     <string name="permissions_background_activity_body">Some devices add extra background limits beyond Android battery optimization. If RIPDPI stops in the background, review the app battery or background usage settings.</string>
     <string name="permissions_background_activity_body_samsung">Samsung devices can still stop RIPDPI in the background even when Android battery optimization is disabled. If sessions stop, set App info &gt; Battery to Unrestricted and add RIPDPI to Never sleeping apps.</string>
+    <string name="permissions_background_activity_body_xiaomi">Xiaomi/MIUI devices may block RIPDPI from running in the background. Go to Settings &gt; Apps &gt; Manage apps &gt; RIPDPI, set Battery saver to No restrictions and enable Autostart.</string>
+    <string name="permissions_background_activity_body_huawei">Huawei devices may stop RIPDPI in the background. Go to Settings &gt; Battery &gt; App launch, find RIPDPI, disable automatic management, and enable Auto-launch, Secondary launch, and Run in background.</string>
+    <string name="permissions_background_activity_body_oneplus">OnePlus devices may aggressively stop background apps. Go to Settings &gt; Battery &gt; Battery optimization, find RIPDPI and select Don\'t optimize. Also disable Deep Optimization and Sleep Standby Optimization if available.</string>
     <string name="settings_connectivity_section">Connectivity</string>
     <string name="settings_permissions_section">Permissions</string>
     <string name="settings_permission_status_granted">Granted</string>

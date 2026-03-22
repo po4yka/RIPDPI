@@ -11,12 +11,22 @@ internal object BatteryOptimizationGuidance {
 
     fun backgroundGuidanceTitleRes(): Int = R.string.permissions_background_activity_title
 
-    fun backgroundGuidanceMessageRes(manufacturer: String): Int =
-        if (isSamsung(manufacturer)) {
-            R.string.permissions_background_activity_body_samsung
-        } else {
-            R.string.permissions_background_activity_body
+    fun backgroundGuidanceMessageRes(manufacturer: String): Int {
+        val normalized = manufacturer.trim().lowercase()
+        return when {
+            normalized == "samsung" ->
+                R.string.permissions_background_activity_body_samsung
+            normalized in XIAOMI_BRANDS ->
+                R.string.permissions_background_activity_body_xiaomi
+            normalized in HUAWEI_BRANDS ->
+                R.string.permissions_background_activity_body_huawei
+            normalized == "oneplus" ->
+                R.string.permissions_background_activity_body_oneplus
+            else ->
+                R.string.permissions_background_activity_body
         }
+    }
 
-    fun isSamsung(manufacturer: String): Boolean = manufacturer.trim().equals("samsung", ignoreCase = true)
+    private val XIAOMI_BRANDS = setOf("xiaomi", "redmi", "poco")
+    private val HUAWEI_BRANDS = setOf("huawei", "honor")
 }
