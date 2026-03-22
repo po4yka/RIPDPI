@@ -10,8 +10,7 @@ internal class MainMutationRunner(
     private val effects: SendChannel<MainEffect>,
     val currentUiState: () -> MainUiState,
 ) {
-    fun launch(block: suspend MainMutationRunner.() -> Unit): Job =
-        scope.launch { block() }
+    fun launch(block: suspend MainMutationRunner.() -> Unit): Job = scope.launch { block() }
 
     fun trySend(effect: MainEffect) {
         effects.trySend(effect)

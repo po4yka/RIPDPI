@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.poyka.ripdpi.diagnostics
 
 import android.content.ContextWrapper
@@ -24,8 +26,8 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
-import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
@@ -36,12 +38,12 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyRecordStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
@@ -338,8 +340,7 @@ internal class TestDiagnosticsHistoryClock(
 }
 
 internal class FakeNetworkMetadataProvider : NetworkMetadataProvider {
-    override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel =
-        networkSnapshotModelForTest()
+    override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel = networkSnapshotModelForTest()
 }
 
 internal class FakeNetworkFingerprintProvider : NetworkFingerprintProvider {
@@ -552,7 +553,9 @@ internal class FakeNetworkDiagnosticsBridge(
     }
 
     fun enqueueProgress(progress: ScanProgress) {
-        scriptedProgress.addLast(DiagnosticsBridgeStep.Payload(json.encodeToString(ScanProgress.serializer(), progress)))
+        scriptedProgress.addLast(
+            DiagnosticsBridgeStep.Payload(json.encodeToString(ScanProgress.serializer(), progress)),
+        )
     }
 
     fun enqueueProgress(value: String?) {

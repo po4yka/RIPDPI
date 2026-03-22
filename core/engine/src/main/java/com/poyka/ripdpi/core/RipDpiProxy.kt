@@ -30,6 +30,7 @@ interface RipDpiProxyRuntime {
 }
 
 internal const val DEFAULT_PROXY_READY_TIMEOUT_MS = 5_000L
+private const val readyLogPollInterval = 20L
 
 interface RipDpiProxyBindings {
     fun create(configJson: String): Long
@@ -204,7 +205,7 @@ class RipDpiProxy(
             }
 
             pollCount++
-            if (pollCount % 20 == 0L) {
+            if (pollCount % readyLogPollInterval == 0L) {
                 val elapsed = timeoutMillis - (deadline - System.currentTimeMillis())
                 logcat(LogPriority.DEBUG) { "Proxy readiness: state=${telemetry.state} elapsed=${elapsed}ms" }
             }

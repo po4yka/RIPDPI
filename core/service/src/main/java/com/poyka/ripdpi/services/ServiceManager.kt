@@ -15,9 +15,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import logcat.LogPriority
 import logcat.logcat
+import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Singleton
-import java.util.Optional
 
 interface ServiceController {
     fun start(mode: Mode)

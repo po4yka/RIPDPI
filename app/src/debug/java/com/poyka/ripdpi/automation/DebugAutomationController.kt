@@ -264,9 +264,51 @@ class DebugAutomationController
         @Suppress("DEPRECATION")
         private fun intentArgs(intent: Intent?): Map<String, Any?> =
             intent
-                ?.extras
-                ?.let { extras ->
-                    extras.keySet().associateWith { key -> extras.get(key) }
+                ?.let { source ->
+                    buildMap {
+                        if (source.hasExtra(AutomationLaunchContract.Enabled)) {
+                            put(
+                                AutomationLaunchContract.Enabled,
+                                source.getBooleanExtra(AutomationLaunchContract.Enabled, false),
+                            )
+                        }
+                        if (source.hasExtra(AutomationLaunchContract.ResetState)) {
+                            put(
+                                AutomationLaunchContract.ResetState,
+                                source.getBooleanExtra(AutomationLaunchContract.ResetState, false),
+                            )
+                        }
+                        if (source.hasExtra(AutomationLaunchContract.StartRoute)) {
+                            put(
+                                AutomationLaunchContract.StartRoute,
+                                source.getStringExtra(AutomationLaunchContract.StartRoute),
+                            )
+                        }
+                        if (source.hasExtra(AutomationLaunchContract.DisableMotion)) {
+                            put(
+                                AutomationLaunchContract.DisableMotion,
+                                source.getBooleanExtra(AutomationLaunchContract.DisableMotion, false),
+                            )
+                        }
+                        if (source.hasExtra(AutomationLaunchContract.PermissionPreset)) {
+                            put(
+                                AutomationLaunchContract.PermissionPreset,
+                                source.getStringExtra(AutomationLaunchContract.PermissionPreset),
+                            )
+                        }
+                        if (source.hasExtra(AutomationLaunchContract.ServicePreset)) {
+                            put(
+                                AutomationLaunchContract.ServicePreset,
+                                source.getStringExtra(AutomationLaunchContract.ServicePreset),
+                            )
+                        }
+                        if (source.hasExtra(AutomationLaunchContract.DataPreset)) {
+                            put(
+                                AutomationLaunchContract.DataPreset,
+                                source.getStringExtra(AutomationLaunchContract.DataPreset),
+                            )
+                        }
+                    }
                 }.orEmpty()
 
         private fun permissionSnapshotFor(preset: AutomationPermissionPreset): PermissionSnapshot =

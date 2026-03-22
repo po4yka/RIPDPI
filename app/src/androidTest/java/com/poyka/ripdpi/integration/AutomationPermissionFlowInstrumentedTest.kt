@@ -49,14 +49,20 @@ class AutomationPermissionFlowInstrumentedTest {
             serviceStateStore.status.value == (AppStatus.Running to Mode.VPN)
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(RipDpiTestTags.HomePermissionIssueBanner))
-                .fetchSemanticsNodes()
+            composeRule
+                .onAllNodes(
+                    androidx.compose.ui.test
+                        .hasTestTag(RipDpiTestTags.HomePermissionIssueBanner),
+                ).fetchSemanticsNodes()
                 .isEmpty()
         }
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(RipDpiTestTags.HomePermissionIssueBanner))
-                .fetchSemanticsNodes()
+            composeRule
+                .onAllNodes(
+                    androidx.compose.ui.test
+                        .hasTestTag(RipDpiTestTags.HomePermissionIssueBanner),
+                ).fetchSemanticsNodes()
                 .isEmpty()
         }
         assertEquals(AppStatus.Running to Mode.VPN, serviceStateStore.status.value)

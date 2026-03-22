@@ -153,8 +153,7 @@ internal class FakeDiagnosticsScanController : DiagnosticsScanController {
     var onCancel: (suspend () -> Unit)? = null
     var onSetActiveProfile: (suspend (String) -> Unit)? = null
 
-    override suspend fun startScan(pathMode: ScanPathMode): String =
-        onStartScan?.invoke(pathMode) ?: "session"
+    override suspend fun startScan(pathMode: ScanPathMode): String = onStartScan?.invoke(pathMode) ?: "session"
 
     override suspend fun cancelActiveScan() {
         onCancel?.invoke()
@@ -175,8 +174,7 @@ internal class FakeDiagnosticsDetailLoader : DiagnosticsDetailLoader {
     override suspend fun loadApproachDetail(
         kind: BypassApproachKind,
         id: String,
-    ): BypassApproachDetail =
-        requireNotNull(onLoadApproachDetail) { "Missing loadApproachDetail handler" }(kind, id)
+    ): BypassApproachDetail = requireNotNull(onLoadApproachDetail) { "Missing loadApproachDetail handler" }(kind, id)
 }
 
 internal class FakeDiagnosticsShareService : DiagnosticsShareService {

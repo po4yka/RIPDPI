@@ -174,9 +174,7 @@ class DiagnosticsScanControllerTest {
         }
 }
 
-private suspend inline fun <reified T : Throwable> assertSuspendFailsWith(
-    noinline block: suspend () -> Unit,
-): T {
+private suspend inline fun <reified T : Throwable> assertSuspendFailsWith(noinline block: suspend () -> Unit): T {
     try {
         block()
     } catch (error: Throwable) {

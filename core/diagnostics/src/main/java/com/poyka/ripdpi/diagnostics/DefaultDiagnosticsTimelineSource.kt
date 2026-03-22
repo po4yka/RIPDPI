@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
@@ -48,7 +50,9 @@ class DefaultDiagnosticsTimelineSource
         override val profiles: Flow<List<DiagnosticProfile>> =
             profileCatalog.observeProfiles().map { profiles -> profiles.map(mapper::toDiagnosticProfile) }
         override val sessions: Flow<List<DiagnosticScanSession>> =
-            scanRecordStore.observeRecentScanSessions().map { sessions -> sessions.map(mapper::toDiagnosticScanSession) }
+            scanRecordStore.observeRecentScanSessions().map { sessions ->
+                sessions.map(mapper::toDiagnosticScanSession)
+            }
         override val approachStats: Flow<List<BypassApproachSummary>> =
             combine(
                 scanRecordStore.observeRecentScanSessions(limit = 200),

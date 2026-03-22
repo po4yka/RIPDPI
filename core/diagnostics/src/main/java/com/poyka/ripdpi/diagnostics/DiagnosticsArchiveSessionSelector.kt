@@ -31,17 +31,23 @@ class DiagnosticsArchiveSessionSelector
         ): DiagnosticsArchiveSelection {
             val primaryReport = DiagnosticsSessionQueries.decodeScanReport(json, primarySession?.reportJson)
             val primarySnapshots =
-                primarySession?.id?.let { sessionId ->
-                    sourceData.snapshots.filter { it.sessionId == sessionId }
-                }.orEmpty()
+                primarySession
+                    ?.id
+                    ?.let { sessionId ->
+                        sourceData.snapshots.filter { it.sessionId == sessionId }
+                    }.orEmpty()
             val primaryContexts =
-                primarySession?.id?.let { sessionId ->
-                    sourceData.contexts.filter { it.sessionId == sessionId }
-                }.orEmpty()
+                primarySession
+                    ?.id
+                    ?.let { sessionId ->
+                        sourceData.contexts.filter { it.sessionId == sessionId }
+                    }.orEmpty()
             val primaryEvents =
-                primarySession?.id?.let { sessionId ->
-                    sourceData.events.filter { it.sessionId == sessionId }
-                }.orEmpty()
+                primarySession
+                    ?.id
+                    ?.let { sessionId ->
+                        sourceData.events.filter { it.sessionId == sessionId }
+                    }.orEmpty()
             val latestPassiveSnapshot = sourceData.snapshots.firstOrNull { it.sessionId == null }
             val latestPassiveContext = sourceData.contexts.firstOrNull { it.sessionId == null }
             val globalEvents =

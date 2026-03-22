@@ -461,8 +461,9 @@ internal fun DnsSettingsScreen(
         }
 
         AnimatedVisibility(
-            visible = uiState.dns.dnsMode == DnsModeEncrypted &&
-                uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh,
+            visible =
+                uiState.dns.dnsMode == DnsModeEncrypted &&
+                    uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh,
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
@@ -1300,17 +1301,18 @@ private fun DnsSettingsEncryptedPreview() {
             uiState =
                 SettingsUiState(
                     ripdpiMode = Mode.VPN.preferenceValue,
-                    dns = DnsUiState(
-                        dnsMode = DnsModeEncrypted,
-                        dnsProviderId = DnsProviderCloudflare,
-                        dnsSummary = "Encrypted DNS · Cloudflare (DoH)",
-                        encryptedDnsProtocol = EncryptedDnsProtocolDoh,
-                        encryptedDnsHost = "cloudflare-dns.com",
-                        encryptedDnsPort = 443,
-                        encryptedDnsTlsServerName = "cloudflare-dns.com",
-                        encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
-                        encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
-                    ),
+                    dns =
+                        DnsUiState(
+                            dnsMode = DnsModeEncrypted,
+                            dnsProviderId = DnsProviderCloudflare,
+                            dnsSummary = "Encrypted DNS · Cloudflare (DoH)",
+                            encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                            encryptedDnsHost = "cloudflare-dns.com",
+                            encryptedDnsPort = 443,
+                            encryptedDnsTlsServerName = "cloudflare-dns.com",
+                            encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                            encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
+                        ),
                     isVpn = true,
                 ),
             onBack = {},
@@ -1334,12 +1336,13 @@ private fun DnsSettingsPlainPreview() {
             uiState =
                 SettingsUiState(
                     ripdpiMode = Mode.VPN.preferenceValue,
-                    dns = DnsUiState(
-                        dnsMode = DnsModePlainUdp,
-                        dnsProviderId = DnsProviderCustom,
-                        dnsIp = "9.9.9.9",
-                        dnsSummary = "Plain DNS · 9.9.9.9",
-                    ),
+                    dns =
+                        DnsUiState(
+                            dnsMode = DnsModePlainUdp,
+                            dnsProviderId = DnsProviderCustom,
+                            dnsIp = "9.9.9.9",
+                            dnsSummary = "Plain DNS · 9.9.9.9",
+                        ),
                     isVpn = true,
                 ),
             onBack = {},

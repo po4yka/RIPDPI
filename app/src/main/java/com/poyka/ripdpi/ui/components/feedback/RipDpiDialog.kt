@@ -1,3 +1,5 @@
+@file:Suppress("LongParameterList")
+
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.foundation.BorderStroke

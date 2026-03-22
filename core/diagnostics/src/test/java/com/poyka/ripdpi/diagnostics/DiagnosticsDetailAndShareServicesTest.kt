@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "MaxLineLength")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -125,7 +127,11 @@ class DiagnosticsDetailAndShareServicesTest {
                         id = "snap-1",
                         sessionId = session.id,
                         snapshotKind = "post_scan",
-                        payloadJson = json.encodeToString(NetworkSnapshotModel.serializer(), networkSnapshotModelForTest()),
+                        payloadJson =
+                            json.encodeToString(
+                                NetworkSnapshotModel.serializer(),
+                                networkSnapshotModelForTest(),
+                            ),
                         capturedAt = 20L,
                     ),
                 )
@@ -204,8 +210,7 @@ private class RecordingDiagnosticsArchiveExporter(
     }
 }
 
-private fun captureContextForTest(): DiagnosticContextModel =
-    FakeDiagnosticsContextProvider().captureContextForTest()
+private fun captureContextForTest(): DiagnosticContextModel = FakeDiagnosticsContextProvider().captureContextForTest()
 
 private fun diagnosticsUsageSession(
     id: String,

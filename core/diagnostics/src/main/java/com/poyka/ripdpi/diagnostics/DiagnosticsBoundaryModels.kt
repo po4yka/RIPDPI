@@ -382,13 +382,11 @@ fun DiagnosticTelemetrySample.winningStrategyFamily(): String? =
 
 fun DiagnosticTelemetrySample.rttBand(): String = aggregateRttBand(proxyRttBand, resolverRttBand)
 
-fun DiagnosticTelemetrySample.retryCount(): Long =
-    aggregateRetryCount(proxyRouteRetryCount, tunnelRecoveryRetryCount)
+fun DiagnosticTelemetrySample.retryCount(): Long = aggregateRetryCount(proxyRouteRetryCount, tunnelRecoveryRetryCount)
 
 fun DiagnosticConnectionSession.winningStrategyFamily(): String? =
     aggregateWinningStrategyFamily(winningTcpStrategyFamily, winningQuicStrategyFamily)
 
 fun DiagnosticConnectionSession.rttBand(): String = aggregateRttBand(proxyRttBand, resolverRttBand)
 
-fun DiagnosticConnectionSession.retryCount(): Long =
-    aggregateRetryCount(proxyRouteRetryCount, tunnelRecoveryRetryCount)
+fun DiagnosticConnectionSession.retryCount(): Long = aggregateRetryCount(proxyRouteRetryCount, tunnelRecoveryRetryCount)

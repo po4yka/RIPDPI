@@ -14,15 +14,15 @@ import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.displayMessage
-import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @Singleton
 class RuntimeSessionCoordinator

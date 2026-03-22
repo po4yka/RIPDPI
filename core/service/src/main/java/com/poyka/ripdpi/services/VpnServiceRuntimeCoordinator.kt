@@ -1,3 +1,5 @@
+@file:Suppress("CyclomaticComplexMethod", "LongMethod", "LongParameterList")
+
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
@@ -50,6 +52,10 @@ internal class VpnServiceRuntimeCoordinator(
         ioDispatcher = ioDispatcher,
         clock = clock,
     ) {
+    private companion object {
+        private const val TelemetryPollIntervalMs = 1_000L
+    }
+
     override val serviceLabel: String = "VPN"
 
     override fun createRuntimeSession(): VpnRuntimeSession = VpnRuntimeSession()
@@ -207,7 +213,7 @@ internal class VpnServiceRuntimeCoordinator(
                         proxyTelemetry = proxyTelemetry,
                     )
                 }
-                delay(1_000L)
+                delay(TelemetryPollIntervalMs)
             }
         }
     }

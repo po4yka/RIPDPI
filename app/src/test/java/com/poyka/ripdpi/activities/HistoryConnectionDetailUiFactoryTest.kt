@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
-import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot as DiagnosticContextEntity
-import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot as NetworkSnapshotEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot as DiagnosticContextEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot as NetworkSnapshotEntity
 
 class HistoryConnectionDetailUiFactoryTest {
     private val factory = HistoryConnectionDetailUiFactory(DiagnosticsUiCoreSupport())
@@ -54,7 +54,12 @@ class HistoryConnectionDetailUiFactoryTest {
         assertEquals(1, detail.snapshots.size)
         assertEquals(4, detail.contextGroups.size)
         assertEquals("Field telemetry", detail.contextGroups.last().title)
-        assertTrue(detail.contextGroups.last().fields.any { it.label == "Network fingerprint" })
+        assertTrue(
+            detail.contextGroups
+                .last()
+                .fields
+                .any { it.label == "Network fingerprint" },
+        )
         assertEquals(1, detail.events.size)
     }
 

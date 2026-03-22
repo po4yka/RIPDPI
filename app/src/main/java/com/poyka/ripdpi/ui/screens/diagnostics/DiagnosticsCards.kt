@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod")
+
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.animation.AnimatedContent

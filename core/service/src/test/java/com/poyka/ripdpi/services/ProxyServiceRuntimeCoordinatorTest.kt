@@ -1,3 +1,5 @@
+@file:Suppress("MaxLineLength")
+
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppStatus
@@ -136,12 +138,18 @@ class ProxyServiceRuntimeCoordinatorTest {
 
             assertEquals(2, env.factory.runtimes.size)
             assertEquals(1, firstRuntime.stopCount)
-            assertEquals("handover", env.handoverEvents.published.single().policySignature)
+            assertEquals(
+                "handover",
+                env.handoverEvents.published
+                    .single()
+                    .policySignature,
+            )
         }
 
     private fun TestScope.newEnv(
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
-        resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> = listOf(sampleResolution(mode = Mode.Proxy)),
+        resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =
+            listOf(sampleResolution(mode = Mode.Proxy)),
         runtimeFactory: () -> TestProxyRuntime = { TestProxyRuntime() },
     ): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)

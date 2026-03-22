@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.activities
 
 import app.cash.turbine.test
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.BypassApproachId
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
@@ -22,6 +22,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -107,16 +108,18 @@ class MainViewModelTest {
             assertEquals(ConnectionState.Disconnected, viewModel.uiState.value.connectionState)
 
             viewModel.initialize()
-            advanceUntilIdle()
+            runCurrent()
 
             assertTrue(permissionStatusProvider.currentSnapshotCalls > 0)
             assertEquals(ConnectionState.Connected, viewModel.uiState.value.connectionState)
 
             val snapshotCallsAfterFirstInitialize = permissionStatusProvider.currentSnapshotCalls
             viewModel.initialize()
-            advanceUntilIdle()
+            runCurrent()
 
             assertEquals(snapshotCallsAfterFirstInitialize, permissionStatusProvider.currentSnapshotCalls)
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
             collector.cancel()
         }
 
@@ -523,9 +526,9 @@ private class FakeMainDiagnosticsTimelineSource : com.poyka.ripdpi.diagnostics.D
     override val activeScanProgress =
         kotlinx.coroutines.flow.MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(null)
     override val profiles =
-        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>())
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.diagnostics.DiagnosticProfile>())
     override val sessions =
-        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>())
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.diagnostics.DiagnosticScanSession>())
     override val approachStats =
         kotlinx.coroutines.flow.MutableStateFlow(
             listOf(
@@ -546,13 +549,13 @@ private class FakeMainDiagnosticsTimelineSource : com.poyka.ripdpi.diagnostics.D
             ),
         )
     override val snapshots =
-        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>())
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot>())
     override val contexts =
-        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>())
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot>())
     override val telemetry =
-        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>())
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample>())
     override val nativeEvents =
-        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>())
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.diagnostics.DiagnosticEvent>())
     override val exports =
-        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>())
+        kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.poyka.ripdpi.diagnostics.DiagnosticExportRecord>())
 }

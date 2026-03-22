@@ -35,11 +35,12 @@ class DnsSettingsScreenTest {
                 DnsSettingsScreen(
                     uiState =
                         SettingsUiState(
-                            dns = DnsUiState(
-                                dnsMode = DnsModeEncrypted,
-                                dnsProviderId = DnsProviderCloudflare,
-                                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
-                            ),
+                            dns =
+                                DnsUiState(
+                                    dnsMode = DnsModeEncrypted,
+                                    dnsProviderId = DnsProviderCloudflare,
+                                    encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                                ),
                         ),
                     onBack = {},
                     onModeSelected = {},
@@ -64,15 +65,16 @@ class DnsSettingsScreenTest {
                 DnsSettingsScreen(
                     uiState =
                         SettingsUiState(
-                            dns = DnsUiState(
-                                dnsMode = DnsModeEncrypted,
-                                dnsProviderId = DnsProviderCustom,
-                                encryptedDnsProtocol = EncryptedDnsProtocolDot,
-                                encryptedDnsHost = "",
-                                encryptedDnsPort = 0,
-                                encryptedDnsTlsServerName = "",
-                                encryptedDnsBootstrapIps = emptyList(),
-                            ),
+                            dns =
+                                DnsUiState(
+                                    dnsMode = DnsModeEncrypted,
+                                    dnsProviderId = DnsProviderCustom,
+                                    encryptedDnsProtocol = EncryptedDnsProtocolDot,
+                                    encryptedDnsHost = "",
+                                    encryptedDnsPort = 0,
+                                    encryptedDnsTlsServerName = "",
+                                    encryptedDnsBootstrapIps = emptyList(),
+                                ),
                         ),
                     onBack = {},
                     onModeSelected = {},

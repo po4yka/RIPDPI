@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
+import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity

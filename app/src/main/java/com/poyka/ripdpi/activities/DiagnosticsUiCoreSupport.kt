@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
@@ -99,9 +101,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
         details = result.details.map { DiagnosticsFieldUiModel(it.key, it.value) },
     )
 
-internal fun DiagnosticsUiCoreSupport.toEventUiModel(
-    event: DiagnosticEvent,
-): DiagnosticsEventUiModel =
+internal fun DiagnosticsUiCoreSupport.toEventUiModel(event: DiagnosticEvent): DiagnosticsEventUiModel =
     DiagnosticsEventUiModel(
         id = event.id,
         source = event.source.replaceFirstChar { it.uppercase(formatter.locale) },
@@ -147,20 +147,16 @@ internal fun DiagnosticsUiCoreSupport.toneForOutcome(value: String): Diagnostics
 internal fun DiagnosticsUiCoreSupport.parsePathMode(value: String): ScanPathMode =
     runCatching { ScanPathMode.valueOf(value) }.getOrDefault(ScanPathMode.RAW_PATH)
 
-internal fun DiagnosticsUiCoreSupport.formatTimestamp(timestamp: Long): String =
-    formatter.formatTimestamp(timestamp)
+internal fun DiagnosticsUiCoreSupport.formatTimestamp(timestamp: Long): String = formatter.formatTimestamp(timestamp)
 
-internal fun DiagnosticsUiCoreSupport.formatBytes(bytes: Long): String =
-    formatter.formatBytes(bytes)
+internal fun DiagnosticsUiCoreSupport.formatBytes(bytes: Long): String = formatter.formatBytes(bytes)
 
-internal fun DiagnosticsUiCoreSupport.formatBps(bps: Long): String =
-    formatter.formatBps(bps)
+internal fun DiagnosticsUiCoreSupport.formatBps(bps: Long): String = formatter.formatBps(bps)
 
 internal fun DiagnosticsUiCoreSupport.formatDurationMs(durationMs: Long): String =
     formatter.formatDurationMs(durationMs)
 
-internal fun DiagnosticsUiCoreSupport.redactValue(value: String?): String =
-    value?.let { "redacted" } ?: "Unknown"
+internal fun DiagnosticsUiCoreSupport.redactValue(value: String?): String = value?.let { "redacted" } ?: "Unknown"
 
 internal fun DiagnosticsUiCoreSupport.redactCollection(values: List<String>): String =
     if (values.isEmpty()) {

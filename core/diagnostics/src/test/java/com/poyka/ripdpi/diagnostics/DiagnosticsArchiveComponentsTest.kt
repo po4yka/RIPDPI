@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
@@ -208,11 +210,41 @@ class DiagnosticsArchiveComponentsTest {
         assertTrue(entries.containsKey("summary.txt"))
         assertTrue(entries.containsKey("report.json"))
         assertTrue(entries.containsKey("logcat.txt"))
-        assertTrue(entries.getValue("summary.txt").bytes.decodeToString().contains("generatedAt=42"))
-        assertTrue(entries.getValue("summary.txt").bytes.decodeToString().contains("publicIp=redacted"))
-        assertFalse(entries.getValue("report.json").bytes.decodeToString().contains("198.51.100.8"))
-        assertFalse(entries.getValue("report.json").bytes.decodeToString().contains("127.0.0.1:1080"))
-        assertTrue(entries.getValue("telemetry.csv").bytes.decodeToString().contains("redacted"))
+        assertTrue(
+            entries
+                .getValue("summary.txt")
+                .bytes
+                .decodeToString()
+                .contains("generatedAt=42"),
+        )
+        assertTrue(
+            entries
+                .getValue("summary.txt")
+                .bytes
+                .decodeToString()
+                .contains("publicIp=redacted"),
+        )
+        assertFalse(
+            entries
+                .getValue("report.json")
+                .bytes
+                .decodeToString()
+                .contains("198.51.100.8"),
+        )
+        assertFalse(
+            entries
+                .getValue("report.json")
+                .bytes
+                .decodeToString()
+                .contains("127.0.0.1:1080"),
+        )
+        assertTrue(
+            entries
+                .getValue("telemetry.csv")
+                .bytes
+                .decodeToString()
+                .contains("redacted"),
+        )
         assertEquals("session-1", manifest.includedSessionId)
         assertEquals(DiagnosticsArchiveFormat.includedFiles(logcatIncluded = true), manifest.includedFiles)
         assertEquals("redacted", manifest.networkSummary?.publicIp)

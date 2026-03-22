@@ -31,24 +31,27 @@ class HistoryViewModel
 
         private val mutations = HistoryMutationRunner(scope = viewModelScope)
 
-        private val connectionActions = HistoryConnectionActions(
-            mutations = mutations,
-            connectionFilters = connectionFilters,
-            detailState = detailState,
-            loadConnectionDetail = historyDetailLoader::loadConnectionDetail,
-        )
+        private val connectionActions =
+            HistoryConnectionActions(
+                mutations = mutations,
+                connectionFilters = connectionFilters,
+                detailState = detailState,
+                loadConnectionDetail = historyDetailLoader::loadConnectionDetail,
+            )
 
-        private val diagnosticsActions = HistoryDiagnosticsActions(
-            mutations = mutations,
-            diagnosticsFilters = diagnosticsFilters,
-            detailState = detailState,
-            loadSessionDetail = historyDetailLoader::loadDiagnosticsDetail,
-        )
+        private val diagnosticsActions =
+            HistoryDiagnosticsActions(
+                mutations = mutations,
+                diagnosticsFilters = diagnosticsFilters,
+                detailState = detailState,
+                loadSessionDetail = historyDetailLoader::loadDiagnosticsDetail,
+            )
 
-        private val eventActions = HistoryEventActions(
-            eventFilters = eventFilters,
-            detailState = detailState,
-        )
+        private val eventActions =
+            HistoryEventActions(
+                eventFilters = eventFilters,
+                detailState = detailState,
+            )
 
         private val repositorySnapshot =
             combine(
@@ -100,50 +103,36 @@ class HistoryViewModel
             selectedSectionRequest.value = section
         }
 
-        fun setConnectionModeFilter(mode: String?) =
-            connectionActions.setModeFilter(mode)
+        fun setConnectionModeFilter(mode: String?) = connectionActions.setModeFilter(mode)
 
-        fun setConnectionStatusFilter(status: String?) =
-            connectionActions.setStatusFilter(status)
+        fun setConnectionStatusFilter(status: String?) = connectionActions.setStatusFilter(status)
 
-        fun setConnectionSearch(query: String) =
-            connectionActions.setSearch(query)
+        fun setConnectionSearch(query: String) = connectionActions.setSearch(query)
 
-        fun setDiagnosticsPathModeFilter(pathMode: String?) =
-            diagnosticsActions.setPathModeFilter(pathMode)
+        fun setDiagnosticsPathModeFilter(pathMode: String?) = diagnosticsActions.setPathModeFilter(pathMode)
 
-        fun setDiagnosticsStatusFilter(status: String?) =
-            diagnosticsActions.setStatusFilter(status)
+        fun setDiagnosticsStatusFilter(status: String?) = diagnosticsActions.setStatusFilter(status)
 
-        fun setDiagnosticsSearch(query: String) =
-            diagnosticsActions.setSearch(query)
+        fun setDiagnosticsSearch(query: String) = diagnosticsActions.setSearch(query)
 
         fun toggleEventFilter(
             source: String? = null,
             severity: String? = null,
         ) = eventActions.toggleFilter(source, severity)
 
-        fun setEventSearch(query: String) =
-            eventActions.setSearch(query)
+        fun setEventSearch(query: String) = eventActions.setSearch(query)
 
-        fun setEventAutoScroll(enabled: Boolean) =
-            eventActions.setAutoScroll(enabled)
+        fun setEventAutoScroll(enabled: Boolean) = eventActions.setAutoScroll(enabled)
 
-        fun selectConnection(sessionId: String) =
-            connectionActions.selectConnection(sessionId)
+        fun selectConnection(sessionId: String) = connectionActions.selectConnection(sessionId)
 
-        fun dismissConnectionDetail() =
-            connectionActions.dismissDetail()
+        fun dismissConnectionDetail() = connectionActions.dismissDetail()
 
-        fun selectDiagnosticsSession(sessionId: String) =
-            diagnosticsActions.selectSession(sessionId)
+        fun selectDiagnosticsSession(sessionId: String) = diagnosticsActions.selectSession(sessionId)
 
-        fun dismissDiagnosticsDetail() =
-            diagnosticsActions.dismissDetail()
+        fun dismissDiagnosticsDetail() = diagnosticsActions.dismissDetail()
 
-        fun selectEvent(eventId: String) =
-            eventActions.selectEvent(eventId)
+        fun selectEvent(eventId: String) = eventActions.selectEvent(eventId)
 
-        fun dismissEventDetail() =
-            eventActions.dismissDetail()
+        fun dismissEventDetail() = eventActions.dismissDetail()
     }

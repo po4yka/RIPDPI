@@ -1,3 +1,5 @@
+@file:Suppress("TooGenericExceptionCaught")
+
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.Tun2SocksBridge
@@ -15,6 +17,7 @@ internal class VpnTunnelRuntime(
 ) {
     private companion object {
         private const val MapDnsAddress = "198.18.0.53"
+        private const val DefaultProxyPort = 1080
     }
 
     private var tun2SocksBridge: Tun2SocksBridge? = null
@@ -37,7 +40,7 @@ internal class VpnTunnelRuntime(
         check(tunSession == null) { "VPN field not null" }
 
         val settings = appSettingsRepository.snapshot()
-        val port = if (settings.proxyPort > 0) settings.proxyPort else 1080
+        val port = if (settings.proxyPort > 0) settings.proxyPort else DefaultProxyPort
         val dns = if (activeDns.mode == DnsModeEncrypted) MapDnsAddress else activeDns.dnsIp
         val ipv6 = settings.ipv6Enable
         val config = RipDpiVpnService.buildTun2SocksConfig(activeDns, overrideReason, port, ipv6)

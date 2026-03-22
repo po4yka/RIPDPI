@@ -1,3 +1,12 @@
+@file:Suppress(
+    "LongMethod",
+    "MagicNumber",
+    "MaxLineLength",
+    "ReturnCount",
+    "TooGenericExceptionCaught",
+    "UseCheckOrError",
+)
+
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
@@ -49,7 +58,8 @@ class DefaultDiagnosticsScanController
         private val timelineSource: DefaultDiagnosticsTimelineSource,
         @param:ApplicationIoScope
         private val scope: CoroutineScope,
-    ) : DiagnosticsScanController, AutomaticProbeLauncher {
+    ) : DiagnosticsScanController,
+        AutomaticProbeLauncher {
         private companion object {
             private const val AutomaticProbeProfileId = "automatic-probing"
         }
@@ -321,11 +331,12 @@ class DiagnosticsScanExecutionCoordinator
                             awaitFinishedReportJson(bridge)
                                 ?.let { json.decodeFromString(ScanReport.serializer(), it) }
                                 ?: throw IllegalStateException("Diagnostics scan completed without a report")
-                        val enrichedReport = DiagnosticsScanWorkflow.enrichScanReport(
-                            report = report,
-                            settings = prepared.settings,
-                            preferredDnsPath = runtimeState.preferredDnsPath(report.sessionId),
-                        )
+                        val enrichedReport =
+                            DiagnosticsScanWorkflow.enrichScanReport(
+                                report = report,
+                                settings = prepared.settings,
+                                preferredDnsPath = runtimeState.preferredDnsPath(report.sessionId),
+                            )
                         val finalReport = maybeApplyTemporaryResolverOverride(enrichedReport, prepared.settings)
                         DiagnosticsReportPersister.persistScanReport(
                             finalReport,
@@ -334,12 +345,18 @@ class DiagnosticsScanExecutionCoordinator
                             serviceStateStore,
                             json,
                         )
-                        rememberNetworkDnsPathPreference(runtimeState.fingerprint(prepared.sessionId), finalReport.resolverRecommendation)
+                        rememberNetworkDnsPathPreference(
+                            runtimeState.fingerprint(prepared.sessionId),
+                            finalReport.resolverRecommendation,
+                        )
                         rememberStrategyProbeRecommendation(finalReport, prepared.settings)
                         val now = System.currentTimeMillis()
                         artifactWriteStore.upsertSnapshot(
                             com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity(
-                                id = java.util.UUID.randomUUID().toString(),
+                                id =
+                                    java.util.UUID
+                                        .randomUUID()
+                                        .toString(),
                                 sessionId = prepared.sessionId,
                                 snapshotKind = "post_scan",
                                 payloadJson =
@@ -352,7 +369,10 @@ class DiagnosticsScanExecutionCoordinator
                         )
                         artifactWriteStore.upsertContextSnapshot(
                             com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity(
-                                id = java.util.UUID.randomUUID().toString(),
+                                id =
+                                    java.util.UUID
+                                        .randomUUID()
+                                        .toString(),
                                 sessionId = prepared.sessionId,
                                 contextKind = "post_scan",
                                 payloadJson =

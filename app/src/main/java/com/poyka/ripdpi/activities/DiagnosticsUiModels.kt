@@ -476,13 +476,14 @@ internal data class LiveDataSnapshot(
     val contexts: List<DiagnosticContextSnapshot>,
 ) {
     companion object {
-        val EMPTY = LiveDataSnapshot(
-            telemetry = emptyList(),
-            nativeEvents = emptyList(),
-            progress = null,
-            snapshots = emptyList(),
-            contexts = emptyList(),
-        )
+        val EMPTY =
+            LiveDataSnapshot(
+                telemetry = emptyList(),
+                nativeEvents = emptyList(),
+                progress = null,
+                snapshots = emptyList(),
+                contexts = emptyList(),
+            )
     }
 }
 
@@ -493,12 +494,13 @@ internal data class ScanDataSnapshot(
     val exports: List<DiagnosticExportRecord>,
 ) {
     companion object {
-        val EMPTY = ScanDataSnapshot(
-            profiles = emptyList(),
-            sessions = emptyList(),
-            approachStats = emptyList(),
-            exports = emptyList(),
-        )
+        val EMPTY =
+            ScanDataSnapshot(
+                profiles = emptyList(),
+                sessions = emptyList(),
+                approachStats = emptyList(),
+                exports = emptyList(),
+            )
     }
 }
 

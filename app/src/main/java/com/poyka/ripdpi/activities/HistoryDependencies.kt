@@ -38,9 +38,7 @@ internal class DefaultHistoryDetailLoader
 @InstallIn(ViewModelComponent::class)
 internal abstract class HistoryViewModelModule {
     @Binds
-    abstract fun bindHistoryDetailLoader(
-        loader: DefaultHistoryDetailLoader,
-    ): HistoryDetailLoader
+    abstract fun bindHistoryDetailLoader(loader: DefaultHistoryDetailLoader): HistoryDetailLoader
 
     @Binds
     abstract fun bindDiagnosticsSessionDetailUiMapper(

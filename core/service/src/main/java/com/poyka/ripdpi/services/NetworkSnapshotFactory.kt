@@ -1,4 +1,4 @@
-@file:Suppress("TooManyFunctions", "DEPRECATION")
+@file:Suppress("CyclomaticComplexMethod", "DEPRECATION", "MagicNumber", "MaxLineLength", "TooManyFunctions")
 
 package com.poyka.ripdpi.services
 
@@ -12,12 +12,13 @@ import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.telephony.ServiceState
+import android.telephony.SignalStrength
 import android.telephony.TelephonyManager
+import com.poyka.ripdpi.data.CellularNetworkIdentityTuple
 import com.poyka.ripdpi.data.NativeCellularSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeWifiSnapshot
-import com.poyka.ripdpi.data.CellularNetworkIdentityTuple
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
@@ -44,6 +45,7 @@ class NetworkSnapshotFactory
         private val telephonyManager =
             context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
 
+        @SuppressLint("MissingPermission")
         override fun capture(): NativeNetworkSnapshot {
             val fingerprint = fingerprintProvider.capture()
             val activeNetwork = connectivityManager.activeNetwork
@@ -88,8 +90,8 @@ class NetworkSnapshotFactory
                 frequencyMhz = wifiInfo?.frequency?.takeIf { it > 0 },
                 rssiDbm = wifiInfo?.rssi?.takeIf { it in -127..0 },
                 linkSpeedMbps = wifiInfo?.linkSpeed?.takeIf { it > 0 },
-                rxLinkSpeedMbps = wifiInfo?.takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q }?.rxLinkSpeedMbps?.takeIf { it > 0 },
-                txLinkSpeedMbps = wifiInfo?.takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q }?.txLinkSpeedMbps?.takeIf { it > 0 },
+                rxLinkSpeedMbps = resolveWifiRxLinkSpeed(wifiInfo),
+                txLinkSpeedMbps = resolveWifiTxLinkSpeed(wifiInfo),
                 channelWidth = describeWifiChannelWidth(wifiInfo?.let { invokeInt(it, "getChannelWidth") }),
                 wifiStandard = describeWifiStandard(wifiInfo?.let { invokeInt(it, "getWifiStandard") }),
             )
@@ -106,17 +108,20 @@ class NetworkSnapshotFactory
                     ?.let { describeMobileNetworkType(runCatching { it.dataNetworkType }.getOrNull()) }
                     ?.takeUnless { it == "unknown" }
                     ?: canonicalMobileNetworkType(cellularIdentity.dataNetworkType)
-            val serviceState = telephony?.let { describeServiceState(runCatching { it.serviceState?.state }.getOrNull()) } ?: "unknown"
-            val signalStrength = telephony?.let { runCatching { it.signalStrength }.getOrNull() }
+            val serviceState =
+                telephony?.let { describeServiceState(runCatching { it.serviceState?.state }.getOrNull()) } ?: "unknown"
+            val signalStrength = resolveSignalStrength(telephony)
             return NativeCellularSnapshot(
                 generation = cellularGeneration(dataNetworkType),
-                roaming = cellularIdentity.roaming ?: telephony?.let { runCatching { it.isNetworkRoaming }.getOrNull() } ?: false,
+                roaming =
+                    cellularIdentity.roaming ?: telephony?.let { runCatching { it.isNetworkRoaming }.getOrNull() }
+                        ?: false,
                 operatorCode = cellularIdentity.operatorCode,
                 dataNetworkType = dataNetworkType,
                 serviceState = serviceState,
                 carrierId = telephony?.let { invokeInt(it, "getCarrierId") }?.takeIf { it >= 0 },
                 signalLevel = signalStrength?.level,
-                signalDbm = signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm,
+                signalDbm = resolveSignalDbm(signalStrength),
             )
         }
 
@@ -125,6 +130,34 @@ class NetworkSnapshotFactory
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> capabilities?.transportInfo as? WifiInfo
                 else -> null
             } ?: wifiManager?.connectionInfo
+
+        private fun resolveWifiRxLinkSpeed(wifiInfo: WifiInfo?): Int? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                wifiInfo?.rxLinkSpeedMbps?.takeIf { it > 0 }
+            } else {
+                null
+            }
+
+        private fun resolveWifiTxLinkSpeed(wifiInfo: WifiInfo?): Int? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                wifiInfo?.txLinkSpeedMbps?.takeIf { it > 0 }
+            } else {
+                null
+            }
+
+        private fun resolveSignalStrength(telephony: TelephonyManager?): SignalStrength? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                telephony?.let { runCatching { it.signalStrength }.getOrNull() }
+            } else {
+                null
+            }
+
+        private fun resolveSignalDbm(signalStrength: SignalStrength?): Int? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm
+            } else {
+                null
+            }
 
         private fun hashSsid(ssid: String): String {
             if (ssid.isBlank() || ssid == "unknown") return ""

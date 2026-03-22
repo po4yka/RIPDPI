@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.DeviceContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
@@ -18,7 +19,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
-import com.poyka.ripdpi.diagnostics.DeviceContextModel
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
@@ -288,9 +288,7 @@ internal fun historyTelemetry(
         createdAt = createdAt,
     )
 
-internal fun historyProbeResult(
-    outcome: String = "ok",
-): ProbeResult =
+internal fun historyProbeResult(outcome: String = "ok"): ProbeResult =
     ProbeResult(
         probeType = "dns",
         target = "example.org",
@@ -298,9 +296,7 @@ internal fun historyProbeResult(
         details = listOf(ProbeDetail("resolver", "1.1.1.1")),
     )
 
-internal fun historyDiagnosticsDetail(
-    sessionId: String = "scan-1",
-): DiagnosticSessionDetail =
+internal fun historyDiagnosticsDetail(sessionId: String = "scan-1"): DiagnosticSessionDetail =
     DiagnosticSessionDetail(
         session = historyScanSession(id = sessionId),
         results = listOf(historyProbeResult()),
@@ -309,9 +305,7 @@ internal fun historyDiagnosticsDetail(
         context = historyContext(id = "context-$sessionId", sessionId = sessionId),
     )
 
-internal fun historyConnectionDetailUi(
-    id: String = "connection-1",
-): HistoryConnectionDetailUiModel =
+internal fun historyConnectionDetailUi(id: String = "connection-1"): HistoryConnectionDetailUiModel =
     HistoryConnectionDetailUiModel(
         session =
             HistoryConnectionRowUiModel(
@@ -332,9 +326,7 @@ internal fun historyConnectionDetailUi(
         events = emptyList(),
     )
 
-internal fun historyDiagnosticsDetailUi(
-    id: String = "scan-1",
-): DiagnosticsSessionDetailUiModel =
+internal fun historyDiagnosticsDetailUi(id: String = "scan-1"): DiagnosticsSessionDetailUiModel =
     DiagnosticsSessionDetailUiModel(
         session =
             DiagnosticsSessionRowUiModel(
@@ -370,7 +362,8 @@ internal class FakeDiagnosticsHistorySource : DiagnosticsHistorySource {
 
     override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> = nativeEvents
 
-    override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? = connectionDetails[sessionId]
+    override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? =
+        connectionDetails[sessionId]
 }
 
 internal class FakeHistoryDetailLoader : HistoryDetailLoader {

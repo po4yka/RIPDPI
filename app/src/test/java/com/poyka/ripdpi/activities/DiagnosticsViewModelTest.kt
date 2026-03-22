@@ -24,7 +24,6 @@ import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
-import com.poyka.ripdpi.diagnostics.ProbeResult as ProbeResultEntity
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -40,13 +39,6 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
-import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot as DiagnosticContextEntity
-import com.poyka.ripdpi.diagnostics.DiagnosticEvent as NativeSessionEventEntity
-import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord as ExportRecordEntity
-import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot as NetworkSnapshotEntity
-import com.poyka.ripdpi.diagnostics.DiagnosticProfile as DiagnosticProfileEntity
-import com.poyka.ripdpi.diagnostics.DiagnosticScanSession as ScanSessionEntity
-import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample as TelemetrySampleEntity
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -69,6 +61,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot as DiagnosticContextEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent as NativeSessionEventEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord as ExportRecordEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot as NetworkSnapshotEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile as DiagnosticProfileEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession as ScanSessionEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample as TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.ProbeResult as ProbeResultEntity
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)

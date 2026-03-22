@@ -53,6 +53,7 @@ internal class ServiceStatusReporter(
         val appStatus =
             when (newStatus) {
                 ServiceStatus.Connected -> AppStatus.Running
+
                 ServiceStatus.Failed,
                 ServiceStatus.Disconnected,
                 -> AppStatus.Halted

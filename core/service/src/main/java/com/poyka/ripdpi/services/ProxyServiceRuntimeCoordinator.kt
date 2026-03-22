@@ -43,6 +43,10 @@ internal class ProxyServiceRuntimeCoordinator(
         ioDispatcher = ioDispatcher,
         clock = clock,
     ) {
+    private companion object {
+        private const val TelemetryPollIntervalMs = 1_000L
+    }
+
     override val serviceLabel: String = "proxy"
 
     override fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
@@ -128,7 +132,7 @@ internal class ProxyServiceRuntimeCoordinator(
                         proxyTelemetry = proxyTelemetry,
                     )
                 }
-                delay(1_000L)
+                delay(TelemetryPollIntervalMs)
             }
         }
     }

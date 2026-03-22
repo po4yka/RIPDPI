@@ -24,6 +24,7 @@ internal class DiagnosticsShareActions(
     fun shareArchive(sessionId: String?) {
         mutations.launch {
             runArchiveAction(
+                sessionId = sessionId,
                 busyMessage = "Generating archive for sharing",
                 successMessage = "Archive ready to share",
                 failureMessage = "Failed to generate archive",
@@ -43,6 +44,7 @@ internal class DiagnosticsShareActions(
     fun saveArchive(sessionId: String?) {
         mutations.launch {
             runArchiveAction(
+                sessionId = sessionId,
                 busyMessage = "Preparing archive for saving",
                 successMessage = "Archive saved to export flow",
                 failureMessage = "Failed to prepare archive",
@@ -60,12 +62,13 @@ internal class DiagnosticsShareActions(
     }
 
     private suspend fun DiagnosticsMutationRunner.runArchiveAction(
+        sessionId: String?,
         busyMessage: String,
         successMessage: String,
         failureMessage: String,
         action: suspend DiagnosticsMutationRunner.(String?) -> DiagnosticsArchive,
     ) {
-        val targetSessionId = currentUiState().share.targetSessionId
+        val targetSessionId = sessionId ?: currentUiState().share.targetSessionId
         scanLifecycle.update {
             it.copy(
                 archiveActionState =

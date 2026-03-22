@@ -6,8 +6,8 @@ import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import java.util.Locale
 import kotlinx.serialization.json.Json
+import java.util.Locale
 
 internal val RuntimeHistoryJson =
     Json {

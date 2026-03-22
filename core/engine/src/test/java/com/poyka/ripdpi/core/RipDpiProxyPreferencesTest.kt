@@ -210,7 +210,13 @@ class RipDpiProxyPreferencesTest {
                     ),
             )
 
-        val step = preferences.toNativeConfigJson().parseJsonObject().objectAt("chains").array("tcpSteps")[0].jsonObject
+        val step =
+            preferences
+                .toNativeConfigJson()
+                .parseJsonObject()
+                .objectAt("chains")
+                .array("tcpSteps")[0]
+                .jsonObject
 
         assertEquals("hostfake", step.string("kind"))
         assertEquals("endhost+8", step.string("marker"))
@@ -329,7 +335,13 @@ class RipDpiProxyPreferencesTest {
                     ),
             )
 
-        val step = preferences.toNativeConfigJson().parseJsonObject().objectAt("chains").array("tcpSteps")[0].jsonObject
+        val step =
+            preferences
+                .toNativeConfigJson()
+                .parseJsonObject()
+                .objectAt("chains")
+                .array("tcpSteps")[0]
+                .jsonObject
 
         assertEquals("tlsrandrec", step.string("kind"))
         assertEquals("sniext+4", step.string("marker"))
@@ -408,8 +420,14 @@ class RipDpiProxyPreferencesTest {
 
         assertEquals(original.chains.groupActivationFilter, decoded?.chains?.groupActivationFilter)
         assertEquals(
-            original.chains.tcpSteps.first().activationFilter,
-            decoded?.chains?.tcpSteps?.first()?.activationFilter,
+            original.chains.tcpSteps
+                .first()
+                .activationFilter,
+            decoded
+                ?.chains
+                ?.tcpSteps
+                ?.first()
+                ?.activationFilter,
         )
     }
 
@@ -454,7 +472,14 @@ class RipDpiProxyPreferencesTest {
         val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
 
         assertEquals(AdaptiveMarkerMethod, payload.array("tcpSteps")[1].jsonObject.string("marker"))
-        assertEquals(AdaptiveMarkerMethod, decoded?.chains?.tcpSteps?.get(1)?.marker)
+        assertEquals(
+            AdaptiveMarkerMethod,
+            decoded
+                ?.chains
+                ?.tcpSteps
+                ?.get(1)
+                ?.marker,
+        )
     }
 }
 

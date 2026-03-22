@@ -177,9 +177,7 @@ private fun handoverEvent(currentFingerprintHash: String = "fingerprint-b") =
         occurredAt = 100L,
     )
 
-private fun constantProvider(
-    launcher: AutomaticProbeLauncher,
-): Provider<AutomaticProbeLauncher> =
+private fun constantProvider(launcher: AutomaticProbeLauncher): Provider<AutomaticProbeLauncher> =
     object : Provider<AutomaticProbeLauncher> {
         override fun get(): AutomaticProbeLauncher = launcher
     }

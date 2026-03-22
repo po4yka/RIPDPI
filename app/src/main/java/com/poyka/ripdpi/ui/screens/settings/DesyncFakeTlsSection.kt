@@ -64,11 +64,17 @@ internal fun FakeTlsProfileCard(
         }.joinToString(", ")
     val sizeSummary =
         when {
-            uiState.fake.fakeTlsSize > 0 ->
+            uiState.fake.fakeTlsSize > 0 -> {
                 stringResource(R.string.ripdpi_fake_tls_summary_size_exact, uiState.fake.fakeTlsSize)
-            uiState.fake.fakeTlsSize < 0 ->
+            }
+
+            uiState.fake.fakeTlsSize < 0 -> {
                 stringResource(R.string.ripdpi_fake_tls_summary_size_minus, -uiState.fake.fakeTlsSize)
-            else -> stringResource(R.string.ripdpi_fake_tls_summary_size_input)
+            }
+
+            else -> {
+                stringResource(R.string.ripdpi_fake_tls_summary_size_input)
+            }
         }
     val scopeSummary =
         when {
