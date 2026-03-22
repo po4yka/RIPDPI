@@ -1,4 +1,4 @@
-use ciadpi_config::{RuntimeConfig, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS};
+use ciadpi_config::{RuntimeConfig, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS};
 use serde::{Deserialize, Serialize};
 
 pub(crate) const HOSTS_DISABLE: &str = "disable";
@@ -15,6 +15,7 @@ pub const ADAPTIVE_FAKE_TTL_DEFAULT_DELTA: i32 = -1;
 pub const ADAPTIVE_FAKE_TTL_DEFAULT_MIN: i32 = 3;
 pub const ADAPTIVE_FAKE_TTL_DEFAULT_MAX: i32 = 12;
 pub const ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK: i32 = 8;
+pub const HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_HOURS: i64 = 6;
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum ProxyConfigError {
@@ -31,6 +32,8 @@ pub enum ProxyConfigPayload {
         runtime_context: Option<ProxyRuntimeContext>,
     },
     Ui {
+        #[serde(default)]
+        strategy_preset: Option<String>,
         #[serde(flatten)]
         config: ProxyUiConfig,
         #[serde(default)]
@@ -97,9 +100,9 @@ pub struct ProxyUiTcpChainStep {
     pub kind: String,
     pub marker: String,
     #[serde(default)]
-    pub midhost_marker: Option<String>,
+    pub midhost_marker: String,
     #[serde(default)]
-    pub fake_host_template: Option<String>,
+    pub fake_host_template: String,
     #[serde(default)]
     pub fragment_count: i32,
     #[serde(default)]
@@ -107,7 +110,7 @@ pub struct ProxyUiTcpChainStep {
     #[serde(default)]
     pub max_fragment_size: i32,
     #[serde(default)]
-    pub activation_filter: ProxyUiActivationFilter,
+    pub activation_filter: Option<ProxyUiActivationFilter>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -116,33 +119,81 @@ pub struct ProxyUiUdpChainStep {
     pub kind: String,
     pub count: i32,
     #[serde(default)]
-    pub activation_filter: ProxyUiActivationFilter,
+    pub activation_filter: Option<ProxyUiActivationFilter>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct ProxyUiConfig {
+pub struct ProxyUiListenConfig {
     pub ip: String,
     pub port: i32,
     pub max_connections: i32,
     pub buffer_size: i32,
+    #[serde(default)]
+    pub tcp_fast_open: bool,
     pub default_ttl: i32,
     pub custom_ttl: bool,
-    pub no_domain: bool,
+}
+
+impl Default for ProxyUiListenConfig {
+    fn default() -> Self {
+        Self {
+            ip: "127.0.0.1".to_string(),
+            port: 1080,
+            max_connections: 512,
+            buffer_size: 16384,
+            tcp_fast_open: false,
+            default_ttl: 0,
+            custom_ttl: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiProtocolConfig {
+    #[serde(default = "default_true")]
+    pub resolve_domains: bool,
     pub desync_http: bool,
     pub desync_https: bool,
     pub desync_udp: bool,
-    pub desync_method: String,
+}
+
+impl Default for ProxyUiProtocolConfig {
+    fn default() -> Self {
+        Self {
+            resolve_domains: true,
+            desync_http: true,
+            desync_https: true,
+            desync_udp: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiChainConfig {
+    #[serde(default = "default_tcp_chain_steps")]
+    pub tcp_steps: Vec<ProxyUiTcpChainStep>,
     #[serde(default)]
-    pub split_marker: Option<String>,
+    pub udp_steps: Vec<ProxyUiUdpChainStep>,
     #[serde(default)]
-    pub tcp_chain_steps: Vec<ProxyUiTcpChainStep>,
-    #[serde(default)]
-    pub group_activation_filter: ProxyUiActivationFilter,
-    #[serde(default)]
-    pub split_position: i32,
-    #[serde(default)]
-    pub split_at_host: bool,
+    pub group_activation_filter: Option<ProxyUiActivationFilter>,
+}
+
+impl Default for ProxyUiChainConfig {
+    fn default() -> Self {
+        Self {
+            tcp_steps: default_tcp_chain_steps(),
+            udp_steps: Vec::new(),
+            group_activation_filter: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiFakePacketConfig {
     pub fake_ttl: i32,
     #[serde(default)]
     pub adaptive_fake_ttl_enabled: bool,
@@ -171,7 +222,43 @@ pub struct ProxyUiConfig {
     pub fake_tls_sni_mode: String,
     #[serde(default = "default_fake_payload_profile")]
     pub tls_fake_profile: String,
+    #[serde(default = "default_fake_payload_profile")]
+    pub udp_fake_profile: String,
+    #[serde(default = "default_fake_offset_marker")]
+    pub fake_offset_marker: String,
     pub oob_char: u8,
+    pub drop_sack: bool,
+}
+
+impl Default for ProxyUiFakePacketConfig {
+    fn default() -> Self {
+        Self {
+            fake_ttl: 8,
+            adaptive_fake_ttl_enabled: false,
+            adaptive_fake_ttl_delta: default_adaptive_fake_ttl_delta(),
+            adaptive_fake_ttl_min: default_adaptive_fake_ttl_min(),
+            adaptive_fake_ttl_max: default_adaptive_fake_ttl_max(),
+            adaptive_fake_ttl_fallback: default_adaptive_fake_ttl_fallback(),
+            fake_sni: "www.iana.org".to_string(),
+            http_fake_profile: default_fake_payload_profile(),
+            fake_tls_use_original: false,
+            fake_tls_randomize: false,
+            fake_tls_dup_session_id: false,
+            fake_tls_pad_encap: false,
+            fake_tls_size: 0,
+            fake_tls_sni_mode: default_fake_tls_sni_mode(),
+            tls_fake_profile: default_fake_payload_profile(),
+            udp_fake_profile: default_fake_payload_profile(),
+            fake_offset_marker: default_fake_offset_marker(),
+            oob_char: b'a',
+            drop_sack: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiParserEvasionConfig {
     pub host_mixed_case: bool,
     pub domain_mixed_case: bool,
     pub host_remove_spaces: bool,
@@ -179,48 +266,95 @@ pub struct ProxyUiConfig {
     pub http_method_eol: bool,
     #[serde(default)]
     pub http_unix_eol: bool,
-    pub tls_record_split: bool,
-    #[serde(default)]
-    pub tls_record_split_marker: Option<String>,
-    #[serde(default)]
-    pub tls_record_split_position: i32,
-    #[serde(default)]
-    pub tls_record_split_at_sni: bool,
-    pub hosts_mode: String,
-    pub hosts: Option<String>,
-    pub tcp_fast_open: bool,
-    pub udp_fake_count: i32,
-    #[serde(default)]
-    pub udp_chain_steps: Vec<ProxyUiUdpChainStep>,
-    #[serde(default = "default_fake_payload_profile")]
-    pub udp_fake_profile: String,
-    pub drop_sack: bool,
-    #[serde(default)]
-    pub fake_offset_marker: Option<String>,
-    #[serde(default)]
-    pub fake_offset: i32,
-    #[serde(default)]
-    pub quic_initial_mode: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiQuicConfig {
+    #[serde(default = "default_quic_initial_mode")]
+    pub initial_mode: String,
     #[serde(default = "default_true")]
-    pub quic_support_v1: bool,
+    pub support_v1: bool,
     #[serde(default = "default_true")]
-    pub quic_support_v2: bool,
+    pub support_v2: bool,
     #[serde(default = "default_quic_fake_profile")]
-    pub quic_fake_profile: String,
+    pub fake_profile: String,
     #[serde(default)]
-    pub quic_fake_host: String,
+    pub fake_host: String,
+}
+
+impl Default for ProxyUiQuicConfig {
+    fn default() -> Self {
+        Self {
+            initial_mode: default_quic_initial_mode(),
+            support_v1: true,
+            support_v2: true,
+            fake_profile: default_quic_fake_profile(),
+            fake_host: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiHostsConfig {
+    pub mode: String,
     #[serde(default)]
-    pub host_autolearn_enabled: bool,
-    #[serde(default = "default_host_autolearn_penalty_ttl_secs")]
-    pub host_autolearn_penalty_ttl_secs: i64,
+    pub entries: Option<String>,
+}
+
+impl Default for ProxyUiHostsConfig {
+    fn default() -> Self {
+        Self { mode: HOSTS_DISABLE.to_string(), entries: None }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiHostAutolearnConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_host_autolearn_penalty_ttl_hours")]
+    pub penalty_ttl_hours: i64,
     #[serde(default = "default_host_autolearn_max_hosts")]
-    pub host_autolearn_max_hosts: usize,
+    pub max_hosts: usize,
     #[serde(default)]
-    pub host_autolearn_store_path: Option<String>,
+    pub store_path: Option<String>,
     #[serde(default)]
     pub network_scope_key: Option<String>,
+}
+
+impl Default for ProxyUiHostAutolearnConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            penalty_ttl_hours: default_host_autolearn_penalty_ttl_hours(),
+            max_hosts: default_host_autolearn_max_hosts(),
+            store_path: None,
+            network_scope_key: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyUiConfig {
     #[serde(default)]
-    pub strategy_preset: Option<String>,
+    pub listen: ProxyUiListenConfig,
+    #[serde(default)]
+    pub protocols: ProxyUiProtocolConfig,
+    #[serde(default)]
+    pub chains: ProxyUiChainConfig,
+    #[serde(default)]
+    pub fake_packets: ProxyUiFakePacketConfig,
+    #[serde(default)]
+    pub parser_evasions: ProxyUiParserEvasionConfig,
+    #[serde(default)]
+    pub quic: ProxyUiQuicConfig,
+    #[serde(default)]
+    pub hosts: ProxyUiHostsConfig,
+    #[serde(default)]
+    pub host_autolearn: ProxyUiHostAutolearnConfig,
 }
 
 // --- Android OS network state snapshot ---
@@ -336,8 +470,25 @@ fn default_true() -> bool {
     true
 }
 
+fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
+    vec![ProxyUiTcpChainStep {
+        kind: "disorder".to_string(),
+        marker: "1".to_string(),
+        midhost_marker: String::new(),
+        fake_host_template: String::new(),
+        fragment_count: 0,
+        min_fragment_size: 0,
+        max_fragment_size: 0,
+        activation_filter: None,
+    }]
+}
+
 fn default_fake_tls_sni_mode() -> String {
     FAKE_TLS_SNI_MODE_FIXED.to_string()
+}
+
+fn default_quic_initial_mode() -> String {
+    "route_and_cache".to_string()
 }
 
 fn default_quic_fake_profile() -> String {
@@ -346,6 +497,10 @@ fn default_quic_fake_profile() -> String {
 
 fn default_fake_payload_profile() -> String {
     FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT.to_string()
+}
+
+fn default_fake_offset_marker() -> String {
+    "0".to_string()
 }
 
 fn default_adaptive_fake_ttl_delta() -> i32 {
@@ -364,8 +519,8 @@ fn default_adaptive_fake_ttl_fallback() -> i32 {
     ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK
 }
 
-fn default_host_autolearn_penalty_ttl_secs() -> i64 {
-    HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS
+fn default_host_autolearn_penalty_ttl_hours() -> i64 {
+    HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_HOURS
 }
 
 fn default_host_autolearn_max_hosts() -> usize {

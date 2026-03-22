@@ -4,19 +4,20 @@ use std::str::FromStr;
 use ciadpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
     parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, NumericRange,
-    OffsetExpr, PartSpec, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
+    OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, StartupEnv, TcpChainStep, TcpChainStepKind,
     UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ciadpi_packets::{
     HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_METHODEOL,
     MH_SPACE, MH_UNIXEOL,
 };
+use serde_json::Value;
 
 use crate::presets;
 use crate::types::{
-    ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED, FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST,
-    HOSTS_DISABLE, HOSTS_WHITELIST, ProxyConfigError, ProxyConfigPayload, ProxyRuntimeContext,
-    ProxyUiActivationFilter, ProxyUiConfig, ProxyUiNumericRange, RuntimeConfigEnvelope, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
+    ProxyConfigError, ProxyConfigPayload, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
+    ProxyUiNumericRange, RuntimeConfigEnvelope, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED,
+    FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
     TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE,
 };
 
@@ -31,7 +32,8 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
             return None;
         }
         value.port = if value.port == 0 { 443 } else { value.port };
-        value.tls_server_name = value.tls_server_name.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
+        value.tls_server_name =
+            value.tls_server_name.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
         value.bootstrap_ips = value
             .bootstrap_ips
             .into_iter()
@@ -39,14 +41,10 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
             .filter(|entry| !entry.is_empty())
             .collect();
         value.doh_url = value.doh_url.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
-        value.dnscrypt_provider_name = value
-            .dnscrypt_provider_name
-            .map(|entry| entry.trim().to_string())
-            .filter(|entry| !entry.is_empty());
-        value.dnscrypt_public_key = value
-            .dnscrypt_public_key
-            .map(|entry| entry.trim().to_string())
-            .filter(|entry| !entry.is_empty());
+        value.dnscrypt_provider_name =
+            value.dnscrypt_provider_name.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
+        value.dnscrypt_public_key =
+            value.dnscrypt_public_key.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
         value.resolver_id = value.resolver_id.map(|entry| entry.trim().to_string()).filter(|entry| !entry.is_empty());
         Some(value)
     });
@@ -73,9 +71,12 @@ fn parse_proxy_numeric_range(
 }
 
 fn parse_proxy_activation_filter(
-    filter: &ProxyUiActivationFilter,
+    filter: Option<&ProxyUiActivationFilter>,
     field_name: &str,
 ) -> Result<Option<ActivationFilter>, ProxyConfigError> {
+    let Some(filter) = filter else {
+        return Ok(None);
+    };
     let round = filter
         .round
         .as_ref()
@@ -106,7 +107,10 @@ pub fn normalize_fake_tls_sni_mode(value: &str) -> &'static str {
 }
 
 pub fn parse_proxy_config_json(json: &str) -> Result<ProxyConfigPayload, ProxyConfigError> {
-    serde_json::from_str::<ProxyConfigPayload>(json)
+    let value = serde_json::from_str::<Value>(json)
+        .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid proxy config JSON: {err}")))?;
+    validate_ui_payload_shape(&value)?;
+    serde_json::from_value::<ProxyConfigPayload>(value)
         .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid proxy config JSON: {err}")))
 }
 
@@ -114,17 +118,110 @@ pub fn runtime_config_from_payload(payload: ProxyConfigPayload) -> Result<Runtim
     runtime_config_envelope_from_payload(payload).map(|envelope| envelope.config)
 }
 
-pub fn runtime_config_envelope_from_payload(payload: ProxyConfigPayload) -> Result<RuntimeConfigEnvelope, ProxyConfigError> {
+pub fn runtime_config_envelope_from_payload(
+    payload: ProxyConfigPayload,
+) -> Result<RuntimeConfigEnvelope, ProxyConfigError> {
     match payload {
         ProxyConfigPayload::CommandLine { args, runtime_context } => Ok(RuntimeConfigEnvelope {
             config: runtime_config_from_command_line(args)?,
             runtime_context: sanitize_runtime_context(runtime_context),
         }),
-        ProxyConfigPayload::Ui { config, runtime_context } => Ok(RuntimeConfigEnvelope {
-            config: runtime_config_from_ui(config)?,
-            runtime_context: sanitize_runtime_context(runtime_context),
-        }),
+        ProxyConfigPayload::Ui { strategy_preset, mut config, runtime_context } => {
+            if let Some(preset_id) = strategy_preset.as_deref().map(str::to_owned) {
+                presets::apply_preset(&preset_id, &mut config)?;
+            }
+            Ok(RuntimeConfigEnvelope {
+                config: runtime_config_from_ui(config)?,
+                runtime_context: sanitize_runtime_context(runtime_context),
+            })
+        }
     }
+}
+
+fn validate_ui_payload_shape(value: &Value) -> Result<(), ProxyConfigError> {
+    let Some(object) = value.as_object() else {
+        return Ok(());
+    };
+    if object.get("kind").and_then(Value::as_str) != Some("ui") {
+        return Ok(());
+    }
+
+    const GROUPED_UI_KEYS: &[&str] =
+        &["listen", "protocols", "chains", "fakePackets", "parserEvasions", "quic", "hosts", "hostAutolearn"];
+    const LEGACY_FLAT_UI_KEYS: &[&str] = &[
+        "ip",
+        "port",
+        "maxConnections",
+        "bufferSize",
+        "tcpFastOpen",
+        "defaultTtl",
+        "customTtl",
+        "noDomain",
+        "desyncHttp",
+        "desyncHttps",
+        "desyncUdp",
+        "desyncMethod",
+        "splitMarker",
+        "tcpChainSteps",
+        "groupActivationFilter",
+        "splitPosition",
+        "splitAtHost",
+        "fakeTtl",
+        "adaptiveFakeTtlEnabled",
+        "adaptiveFakeTtlDelta",
+        "adaptiveFakeTtlMin",
+        "adaptiveFakeTtlMax",
+        "adaptiveFakeTtlFallback",
+        "fakeSni",
+        "httpFakeProfile",
+        "fakeTlsUseOriginal",
+        "fakeTlsRandomize",
+        "fakeTlsDupSessionId",
+        "fakeTlsPadEncap",
+        "fakeTlsSize",
+        "fakeTlsSniMode",
+        "tlsFakeProfile",
+        "oobChar",
+        "hostMixedCase",
+        "domainMixedCase",
+        "hostRemoveSpaces",
+        "httpMethodEol",
+        "httpUnixEol",
+        "tlsRecordSplit",
+        "tlsRecordSplitMarker",
+        "tlsRecordSplitPosition",
+        "tlsRecordSplitAtSni",
+        "hostsMode",
+        "udpFakeCount",
+        "udpChainSteps",
+        "udpFakeProfile",
+        "dropSack",
+        "fakeOffsetMarker",
+        "fakeOffset",
+        "quicInitialMode",
+        "quicSupportV1",
+        "quicSupportV2",
+        "quicFakeProfile",
+        "quicFakeHost",
+        "hostAutolearnEnabled",
+        "hostAutolearnPenaltyTtlSecs",
+        "hostAutolearnPenaltyTtlHours",
+        "hostAutolearnMaxHosts",
+        "hostAutolearnStorePath",
+        "networkScopeKey",
+    ];
+
+    if let Some(legacy_key) = object.keys().find(|key| LEGACY_FLAT_UI_KEYS.contains(&key.as_str())) {
+        return Err(ProxyConfigError::InvalidConfig(format!(
+            "Legacy flat UI config JSON is not supported: {legacy_key}"
+        )));
+    }
+    if object.keys().all(|key| !GROUPED_UI_KEYS.contains(&key.as_str())) {
+        return Err(ProxyConfigError::InvalidConfig(
+            "Grouped UI config JSON must include at least one nested section".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 pub fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<RuntimeConfig, ProxyConfigError> {
@@ -143,50 +240,46 @@ pub fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<Runtime
     }
 }
 
-pub fn runtime_config_from_ui(mut payload: ProxyUiConfig) -> Result<RuntimeConfig, ProxyConfigError> {
-    if let Some(preset_id) = payload.strategy_preset.as_deref().map(str::to_owned) {
-        presets::apply_preset(&preset_id, &mut payload)?;
-    }
+pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, ProxyConfigError> {
+    let ProxyUiConfig { listen, protocols, chains, fake_packets, parser_evasions, quic, hosts, host_autolearn } =
+        payload;
+
     let listen_ip =
-        IpAddr::from_str(&payload.ip).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy IP".to_string()))?;
+        IpAddr::from_str(&listen.ip).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy IP".to_string()))?;
     let mut config = RuntimeConfig::default();
     config.listen.listen_ip = listen_ip;
     config.listen.listen_port =
-        u16::try_from(payload.port).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy port".to_string()))?;
+        u16::try_from(listen.port).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy port".to_string()))?;
     if config.listen.listen_port == 0 {
         return Err(ProxyConfigError::InvalidConfig("Invalid proxy port".to_string()));
     }
-    if payload.max_connections <= 0 {
+    if listen.max_connections <= 0 {
         return Err(ProxyConfigError::InvalidConfig("maxConnections must be positive".to_string()));
     }
-    config.max_open = payload.max_connections;
-    config.buffer_size = usize::try_from(payload.buffer_size)
+    config.max_open = listen.max_connections;
+    config.buffer_size = usize::try_from(listen.buffer_size)
         .map_err(|_| ProxyConfigError::InvalidConfig("Invalid bufferSize".to_string()))?;
     if config.buffer_size == 0 {
         return Err(ProxyConfigError::InvalidConfig("bufferSize must be positive".to_string()));
     }
-    if payload.udp_fake_count < 0 {
-        return Err(ProxyConfigError::InvalidConfig("udpFakeCount must be non-negative".to_string()));
-    }
-    config.resolve = !payload.no_domain;
-    config.tfo = payload.tcp_fast_open;
-    config.quic_initial_mode =
-        parse_quic_initial_mode(payload.quic_initial_mode.as_deref().unwrap_or("route_and_cache"))?;
-    config.quic_support_v1 = payload.quic_support_v1;
-    config.quic_support_v2 = payload.quic_support_v2;
-    config.host_autolearn_enabled = payload.host_autolearn_enabled;
-    config.host_autolearn_penalty_ttl_secs = payload.host_autolearn_penalty_ttl_secs.max(1);
-    config.host_autolearn_max_hosts = payload.host_autolearn_max_hosts.max(1);
-    config.host_autolearn_store_path = payload
-        .host_autolearn_store_path
+    config.resolve = protocols.resolve_domains;
+    config.tfo = listen.tcp_fast_open;
+    config.quic_initial_mode = parse_quic_initial_mode(&quic.initial_mode)?;
+    config.quic_support_v1 = quic.support_v1;
+    config.quic_support_v2 = quic.support_v2;
+    config.host_autolearn_enabled = host_autolearn.enabled;
+    config.host_autolearn_penalty_ttl_secs = host_autolearn.penalty_ttl_hours.max(1).saturating_mul(3600);
+    config.host_autolearn_max_hosts = host_autolearn.max_hosts.max(1);
+    config.host_autolearn_store_path =
+        host_autolearn.store_path.as_deref().map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned);
+    config.network_scope_key = host_autolearn
+        .network_scope_key
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned);
-    config.network_scope_key =
-        payload.network_scope_key.as_deref().map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned);
-    if payload.custom_ttl {
-        let ttl = u8::try_from(payload.default_ttl)
+    if listen.custom_ttl {
+        let ttl = u8::try_from(listen.default_ttl)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid defaultTtl".to_string()))?;
         if ttl == 0 {
             return Err(ProxyConfigError::InvalidConfig(
@@ -198,36 +291,36 @@ pub fn runtime_config_from_ui(mut payload: ProxyUiConfig) -> Result<RuntimeConfi
     }
 
     let mut groups = Vec::new();
-    if payload.hosts_mode == HOSTS_WHITELIST {
+    if hosts.mode == HOSTS_WHITELIST {
         let mut whitelist = DesyncGroup::new(0);
-        whitelist.filters.hosts = parse_hosts(payload.hosts.as_deref())?;
+        whitelist.filters.hosts = parse_hosts(hosts.entries.as_deref())?;
         groups.push(whitelist);
     }
 
     let mut group = DesyncGroup::new(groups.len());
-    match payload.hosts_mode.as_str() {
+    match hosts.mode.as_str() {
         HOSTS_DISABLE | HOSTS_WHITELIST => {}
         HOSTS_BLACKLIST => {
-            group.filters.hosts = parse_hosts(payload.hosts.as_deref())?;
+            group.filters.hosts = parse_hosts(hosts.entries.as_deref())?;
         }
         _ => return Err(ProxyConfigError::InvalidConfig("Unknown hostsMode".to_string())),
     }
 
-    if payload.adaptive_fake_ttl_enabled {
-        let delta = i8::try_from(payload.adaptive_fake_ttl_delta)
+    if fake_packets.adaptive_fake_ttl_enabled {
+        let delta = i8::try_from(fake_packets.adaptive_fake_ttl_delta)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid adaptiveFakeTtlDelta".to_string()))?;
-        let min_ttl = u8::try_from(payload.adaptive_fake_ttl_min)
+        let min_ttl = u8::try_from(fake_packets.adaptive_fake_ttl_min)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid adaptiveFakeTtlMin".to_string()))?;
-        let max_ttl = u8::try_from(payload.adaptive_fake_ttl_max)
+        let max_ttl = u8::try_from(fake_packets.adaptive_fake_ttl_max)
             .map_err(|_| ProxyConfigError::InvalidConfig("Invalid adaptiveFakeTtlMax".to_string()))?;
         if min_ttl == 0 || max_ttl == 0 || min_ttl > max_ttl {
             return Err(ProxyConfigError::InvalidConfig("Invalid adaptive fake TTL window".to_string()));
         }
         group.auto_ttl = Some(ciadpi_config::AutoTtlConfig { delta, min_ttl, max_ttl });
-        let fallback_ttl = if payload.adaptive_fake_ttl_fallback > 0 {
-            payload.adaptive_fake_ttl_fallback
-        } else if payload.fake_ttl > 0 {
-            payload.fake_ttl
+        let fallback_ttl = if fake_packets.adaptive_fake_ttl_fallback > 0 {
+            fake_packets.adaptive_fake_ttl_fallback
+        } else if fake_packets.fake_ttl > 0 {
+            fake_packets.fake_ttl
         } else {
             ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK
         };
@@ -235,146 +328,106 @@ pub fn runtime_config_from_ui(mut payload: ProxyUiConfig) -> Result<RuntimeConfi
             u8::try_from(fallback_ttl)
                 .map_err(|_| ProxyConfigError::InvalidConfig("Invalid adaptiveFakeTtlFallback".to_string()))?,
         );
-    } else if payload.fake_ttl > 0 {
+    } else if fake_packets.fake_ttl > 0 {
         group.ttl = Some(
-            u8::try_from(payload.fake_ttl)
+            u8::try_from(fake_packets.fake_ttl)
                 .map_err(|_| ProxyConfigError::InvalidConfig("Invalid fakeTtl".to_string()))?,
         );
     }
-    group.http_fake_profile = parse_http_fake_profile(&payload.http_fake_profile)?;
-    group.tls_fake_profile = parse_tls_fake_profile(&payload.tls_fake_profile)?;
-    group.udp_fake_profile = parse_udp_fake_profile(&payload.udp_fake_profile)?;
-    group.drop_sack = payload.drop_sack;
-    group.proto = (u32::from(payload.desync_http) * IS_HTTP)
-        | (u32::from(payload.desync_https) * IS_HTTPS)
-        | (u32::from(payload.desync_udp) * IS_UDP);
-    if let Some(filter) = parse_proxy_activation_filter(&payload.group_activation_filter, "groupActivationFilter")? {
+    group.http_fake_profile = parse_http_fake_profile(&fake_packets.http_fake_profile)?;
+    group.tls_fake_profile = parse_tls_fake_profile(&fake_packets.tls_fake_profile)?;
+    group.udp_fake_profile = parse_udp_fake_profile(&fake_packets.udp_fake_profile)?;
+    group.drop_sack = fake_packets.drop_sack;
+    group.proto = (u32::from(protocols.desync_http) * IS_HTTP)
+        | (u32::from(protocols.desync_https) * IS_HTTPS)
+        | (u32::from(protocols.desync_udp) * IS_UDP);
+    if let Some(filter) =
+        parse_proxy_activation_filter(chains.group_activation_filter.as_ref(), "chains.groupActivationFilter")?
+    {
         group.set_activation_filter(filter);
     }
-    group.quic_fake_profile = parse_quic_fake_profile(&payload.quic_fake_profile)?;
+    group.quic_fake_profile = parse_quic_fake_profile(&quic.fake_profile)?;
     group.quic_fake_host = {
-        let host = payload.quic_fake_host.trim();
+        let host = quic.fake_host.trim();
         if host.is_empty() {
             None
         } else {
             ciadpi_config::normalize_quic_fake_host(host).ok()
         }
     };
-    group.mod_http = (u32::from(payload.host_mixed_case) * MH_HMIX)
-        | (u32::from(payload.domain_mixed_case) * MH_DMIX)
-        | (u32::from(payload.host_remove_spaces) * MH_SPACE)
-        | (u32::from(payload.http_method_eol) * MH_METHODEOL)
-        | (u32::from(payload.http_unix_eol) * MH_UNIXEOL);
+    group.mod_http = (u32::from(parser_evasions.host_mixed_case) * MH_HMIX)
+        | (u32::from(parser_evasions.domain_mixed_case) * MH_DMIX)
+        | (u32::from(parser_evasions.host_remove_spaces) * MH_SPACE)
+        | (u32::from(parser_evasions.http_method_eol) * MH_METHODEOL)
+        | (u32::from(parser_evasions.http_unix_eol) * MH_UNIXEOL);
 
-    if !payload.tcp_chain_steps.is_empty() {
-        for step in &payload.tcp_chain_steps {
-            let kind = parse_tcp_chain_step_kind(&step.kind)?;
-            let offset = parse_offset_expr_field(Some(step.marker.as_str()), || "0".to_string(), "tcpChainSteps")?;
-            if kind == TcpChainStepKind::HostFake && offset.base.is_adaptive() {
-                return Err(ProxyConfigError::InvalidConfig(
-                    "Adaptive markers are not supported for tcpChainSteps kind=hostfake".to_string(),
-                ));
-            }
-            let midhost_offset = step
-                .midhost_marker
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(ciadpi_config::parse_offset_expr)
-                .transpose()
-                .map_err(|_| ProxyConfigError::InvalidConfig("Invalid tcpChainSteps midhostMarker".to_string()))?;
-            if kind == TcpChainStepKind::HostFake && midhost_offset.is_some_and(|value| value.base.is_adaptive()) {
-                return Err(ProxyConfigError::InvalidConfig(
-                    "Adaptive markers are not supported for tcpChainSteps midhostMarker".to_string(),
-                ));
-            }
-            let fake_host_template = step
-                .fake_host_template
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(ciadpi_config::normalize_fake_host_template)
-                .transpose()
-                .map_err(|_| ProxyConfigError::InvalidConfig("Invalid tcpChainSteps fakeHostTemplate".to_string()))?;
-            let (fragment_count, min_fragment_size, max_fragment_size) = match kind {
-                TcpChainStepKind::TlsRandRec => (
-                    normalize_tlsrandrec_step_field(step.fragment_count, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT),
-                    normalize_tlsrandrec_step_field(step.min_fragment_size, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE),
-                    normalize_tlsrandrec_step_field(step.max_fragment_size, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE),
-                ),
-                _ => {
-                    if step.fragment_count != 0 || step.min_fragment_size != 0 || step.max_fragment_size != 0 {
-                        return Err(ProxyConfigError::InvalidConfig(
-                            "tlsrandrec fragment fields are only supported for tcpChainSteps kind=tlsrandrec"
-                                .to_string(),
-                        ));
-                    }
-                    (0, 0, 0)
+    for step in &chains.tcp_steps {
+        let kind = parse_tcp_chain_step_kind(&step.kind)?;
+        let offset = parse_offset_expr_field(Some(step.marker.as_str()), || "0".to_string(), "chains.tcpSteps")?;
+        if kind == TcpChainStepKind::HostFake && offset.base.is_adaptive() {
+            return Err(ProxyConfigError::InvalidConfig(
+                "Adaptive markers are not supported for tcpChainSteps kind=hostfake".to_string(),
+            ));
+        }
+        let midhost_offset = Some(step.midhost_marker.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ciadpi_config::parse_offset_expr)
+            .transpose()
+            .map_err(|_| ProxyConfigError::InvalidConfig("Invalid tcpChainSteps midhostMarker".to_string()))?;
+        if kind == TcpChainStepKind::HostFake && midhost_offset.is_some_and(|value| value.base.is_adaptive()) {
+            return Err(ProxyConfigError::InvalidConfig(
+                "Adaptive markers are not supported for tcpChainSteps midhostMarker".to_string(),
+            ));
+        }
+        let fake_host_template = Some(step.fake_host_template.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ciadpi_config::normalize_fake_host_template)
+            .transpose()
+            .map_err(|_| ProxyConfigError::InvalidConfig("Invalid tcpChainSteps fakeHostTemplate".to_string()))?;
+        let (fragment_count, min_fragment_size, max_fragment_size) = match kind {
+            TcpChainStepKind::TlsRandRec => (
+                normalize_tlsrandrec_step_field(step.fragment_count, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT),
+                normalize_tlsrandrec_step_field(step.min_fragment_size, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE),
+                normalize_tlsrandrec_step_field(step.max_fragment_size, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE),
+            ),
+            _ => {
+                if step.fragment_count != 0 || step.min_fragment_size != 0 || step.max_fragment_size != 0 {
+                    return Err(ProxyConfigError::InvalidConfig(
+                        "tlsrandrec fragment fields are only supported for tcpChainSteps kind=tlsrandrec".to_string(),
+                    ));
                 }
-            };
-            let activation_filter =
-                parse_proxy_activation_filter(&step.activation_filter, "tcpChainSteps.activationFilter")?;
-            group.tcp_chain.push(TcpChainStep {
-                kind,
-                offset,
-                activation_filter,
-                midhost_offset,
-                fake_host_template,
-                fragment_count,
-                min_fragment_size,
-                max_fragment_size,
-            });
-        }
-        validate_tcp_chain(&group.tcp_chain)?;
-    } else {
-        if payload.tls_record_split {
-            let expr = parse_offset_expr_field(
-                payload.tls_record_split_marker.as_deref(),
-                || legacy_marker_expression(payload.tls_record_split_position, payload.tls_record_split_at_sni),
-                "tlsRecordSplitMarker",
-            )?;
-            group.tls_records.push(expr);
-            group.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, expr));
-        }
-
-        let part_offset = parse_offset_expr_field(
-            payload.split_marker.as_deref(),
-            || legacy_marker_expression(payload.split_position, payload.split_at_host),
-            "splitMarker",
-        )?;
-        let desync_mode = parse_desync_mode(&payload.desync_method)?;
-        if desync_mode != DesyncMode::None {
-            group.parts.push(PartSpec { mode: desync_mode, offset: part_offset });
-            if let Some(kind) = TcpChainStepKind::from_mode(desync_mode) {
-                group.tcp_chain.push(TcpChainStep::new(kind, part_offset));
+                (0, 0, 0)
             }
-        }
-        validate_tcp_chain(&group.tcp_chain)?;
+        };
+        let activation_filter =
+            parse_proxy_activation_filter(step.activation_filter.as_ref(), "chains.tcpSteps.activationFilter")?;
+        group.tcp_chain.push(TcpChainStep {
+            kind,
+            offset,
+            activation_filter,
+            midhost_offset,
+            fake_host_template,
+            fragment_count,
+            min_fragment_size,
+            max_fragment_size,
+        });
     }
+    validate_tcp_chain(&group.tcp_chain)?;
 
-    if !payload.udp_chain_steps.is_empty() {
-        for step in &payload.udp_chain_steps {
-            if step.count < 0 {
-                return Err(ProxyConfigError::InvalidConfig("udpChainSteps count must be non-negative".to_string()));
-            }
-            group.udp_chain.push(UdpChainStep {
-                kind: parse_udp_chain_step_kind(&step.kind)?,
-                count: step.count,
-                activation_filter: parse_proxy_activation_filter(
-                    &step.activation_filter,
-                    "udpChainSteps.activationFilter",
-                )?,
-            });
+    for step in &chains.udp_steps {
+        if step.count < 0 {
+            return Err(ProxyConfigError::InvalidConfig("udpChainSteps count must be non-negative".to_string()));
         }
-    } else {
-        group.udp_fake_count = payload.udp_fake_count;
-        if payload.udp_fake_count > 0 {
-            group.udp_chain.push(UdpChainStep {
-                kind: UdpChainStepKind::FakeBurst,
-                count: payload.udp_fake_count,
-                activation_filter: None,
-            });
-        }
+        group.udp_chain.push(UdpChainStep {
+            kind: parse_udp_chain_step_kind(&step.kind)?,
+            count: step.count,
+            activation_filter: parse_proxy_activation_filter(
+                step.activation_filter.as_ref(),
+                "chains.udpSteps.activationFilter",
+            )?,
+        });
     }
 
     let has_fake_step = group.effective_tcp_chain().iter().any(|step| {
@@ -386,11 +439,11 @@ pub fn runtime_config_from_ui(mut payload: ProxyUiConfig) -> Result<RuntimeConfi
         .any(|step| matches!(step.kind, TcpChainStepKind::Oob | TcpChainStepKind::Disoob));
 
     if has_fake_step {
-        let fake_tls_sni_mode = normalize_fake_tls_sni_mode(&payload.fake_tls_sni_mode);
+        let fake_tls_sni_mode = normalize_fake_tls_sni_mode(&fake_packets.fake_tls_sni_mode);
         let fake_offset = parse_offset_expr_field(
-            payload.fake_offset_marker.as_deref(),
-            || payload.fake_offset.to_string(),
-            "fakeOffsetMarker",
+            Some(fake_packets.fake_offset_marker.as_str()),
+            || "0".to_string(),
+            "fakePackets.fakeOffsetMarker",
         )?;
         if fake_offset.base.is_adaptive() {
             return Err(ProxyConfigError::InvalidConfig(
@@ -398,28 +451,28 @@ pub fn runtime_config_from_ui(mut payload: ProxyUiConfig) -> Result<RuntimeConfi
             ));
         }
         group.fake_offset = Some(fake_offset);
-        if payload.fake_tls_use_original {
+        if fake_packets.fake_tls_use_original {
             group.fake_mod |= FM_ORIG;
         }
-        if payload.fake_tls_randomize {
+        if fake_packets.fake_tls_randomize {
             group.fake_mod |= FM_RAND;
         }
-        if payload.fake_tls_dup_session_id {
+        if fake_packets.fake_tls_dup_session_id {
             group.fake_mod |= FM_DUPSID;
         }
-        if payload.fake_tls_pad_encap {
+        if fake_packets.fake_tls_pad_encap {
             group.fake_mod |= FM_PADENCAP;
         }
         if fake_tls_sni_mode == FAKE_TLS_SNI_MODE_RANDOMIZED {
             group.fake_mod |= FM_RNDSNI;
         } else {
-            group.fake_sni_list.push(payload.fake_sni);
+            group.fake_sni_list.push(fake_packets.fake_sni);
         }
-        group.fake_tls_size = payload.fake_tls_size;
+        group.fake_tls_size = fake_packets.fake_tls_size;
     }
 
     if has_oob_step {
-        group.oob_data = Some(payload.oob_char);
+        group.oob_data = Some(fake_packets.oob_char);
     }
 
     group.sync_legacy_views_from_chains();
@@ -436,7 +489,7 @@ pub fn runtime_config_from_ui(mut payload: ProxyUiConfig) -> Result<RuntimeConfi
     }
     if config.host_autolearn_enabled && config.host_autolearn_store_path.is_none() {
         return Err(ProxyConfigError::InvalidConfig(
-            "hostAutolearnStorePath is required when hostAutolearnEnabled is true".to_string(),
+            "hostAutolearn.storePath is required when hostAutolearn.enabled is true".to_string(),
         ));
     }
 
@@ -565,20 +618,4 @@ where
     let spec = marker.map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned).unwrap_or_else(legacy);
     ciadpi_config::parse_offset_expr(&spec)
         .map_err(|_| ProxyConfigError::InvalidConfig(format!("Invalid {field_name}")))
-}
-
-fn legacy_marker_expression(position: i32, use_host_marker: bool) -> String {
-    if use_host_marker {
-        marker_expression("host", position)
-    } else {
-        position.to_string()
-    }
-}
-
-fn marker_expression(base: &str, delta: i32) -> String {
-    match delta.cmp(&0) {
-        std::cmp::Ordering::Equal => base.to_string(),
-        std::cmp::Ordering::Greater => format!("{base}+{delta}"),
-        std::cmp::Ordering::Less => format!("{base}{delta}"),
-    }
 }

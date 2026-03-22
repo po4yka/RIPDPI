@@ -100,10 +100,11 @@ class DiagnosticsScanRequestFactory
                             "Automatic probing only supports UI-configured RIPDPI settings"
                         }
                         val baseProxyConfigJson =
-                            RipDpiProxyUIPreferences(
-                                settings = settings,
-                                hostAutolearnStorePath = resolveHostAutolearnStorePath(context),
-                                runtimeContext = settings.activeDnsSettings().toRipDpiRuntimeContext(),
+                            RipDpiProxyUIPreferences.fromSettings(
+                                settings,
+                                resolveHostAutolearnStorePath(context),
+                                null,
+                                settings.activeDnsSettings().toRipDpiRuntimeContext(),
                             ).toNativeConfigJson()
                         request.copy(
                             pathMode = ScanPathMode.RAW_PATH,

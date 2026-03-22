@@ -27,7 +27,7 @@ class NativeFaultInjectionTest {
 
             val firstError =
                 runCatching {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1080))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1080)))
                 }.exceptionOrNull()
             assertTrue(firstError is IOException)
             assertEquals(0L, currentHandle(proxy))
@@ -40,7 +40,7 @@ class NativeFaultInjectionTest {
             bindings.startedSignal = started
             val startJob =
                 async {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1081))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1081)))
                 }
 
             assertEquals(1L, started.await())
@@ -61,7 +61,7 @@ class NativeFaultInjectionTest {
             bindings.startedSignal = started
             val startJob =
                 async {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1082))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1082)))
                 }
 
             assertEquals(1L, started.await())

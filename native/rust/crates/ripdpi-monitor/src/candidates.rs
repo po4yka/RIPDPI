@@ -1,10 +1,9 @@
 use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_proxy_config::{
-    ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext,
-    ProxyUiActivationFilter, ProxyUiConfig, ProxyUiNumericRange, ProxyUiTcpChainStep, ProxyUiUdpChainStep,
-    ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
-    ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+    ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
+    ProxyUiNumericRange, ProxyUiTcpChainStep, ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
+    ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
 };
 
 use crate::dns::encrypted_dns_protocol;
@@ -55,6 +54,7 @@ pub(crate) struct StrategyProbeBaseline {
 
 pub(crate) fn strategy_probe_config_json(config: &ProxyUiConfig) -> String {
     serde_json::to_string(&ProxyConfigPayload::Ui {
+        strategy_preset: None,
         config: config.clone(),
         runtime_context: None,
     })
@@ -78,9 +78,7 @@ pub(crate) fn default_runtime_encrypted_dns_context() -> ProxyEncryptedDnsContex
 pub(crate) fn strategy_probe_encrypted_dns_context(
     runtime_context: Option<&ProxyRuntimeContext>,
 ) -> ProxyEncryptedDnsContext {
-    runtime_context
-        .and_then(|value| value.encrypted_dns.clone())
-        .unwrap_or_else(default_runtime_encrypted_dns_context)
+    runtime_context.and_then(|value| value.encrypted_dns.clone()).unwrap_or_else(default_runtime_encrypted_dns_context)
 }
 
 pub(crate) fn strategy_probe_encrypted_dns_endpoint(
@@ -119,10 +117,7 @@ pub(crate) fn target_probe_pause_ms(seed: u64, candidate: &StrategyCandidateSpec
     ranged_probe_delay(seed, candidate.id, target_key, 120, 350)
 }
 
-pub(crate) fn build_strategy_probe_suite(
-    suite_id: &str,
-    base: &ProxyUiConfig,
-) -> Result<StrategyProbeSuite, String> {
+pub(crate) fn build_strategy_probe_suite(suite_id: &str, base: &ProxyUiConfig) -> Result<StrategyProbeSuite, String> {
     match suite_id {
         STRATEGY_PROBE_SUITE_QUICK_V1 => Ok(StrategyProbeSuite {
             suite_id: STRATEGY_PROBE_SUITE_QUICK_V1,
@@ -292,94 +287,84 @@ pub(crate) fn candidate_spec_with_notes(
 
 pub(crate) fn sanitize_current_probe_config(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = base.clone();
-    config.host_autolearn_enabled = false;
-    config.host_autolearn_store_path = None;
+    config.host_autolearn.enabled = false;
+    config.host_autolearn.store_path = None;
     config
 }
 
 pub(crate) fn strategy_probe_base(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = sanitize_current_probe_config(base);
-    config.desync_http = true;
-    config.desync_https = true;
-    config.desync_udp = false;
-    config.desync_method = "none".to_string();
-    config.split_marker = Some("host+1".to_string());
-    config.tcp_chain_steps.clear();
-    config.split_position = 0;
-    config.split_at_host = false;
-    config.fake_ttl = 8;
-    config.fake_tls_use_original = false;
-    config.fake_tls_randomize = false;
-    config.fake_tls_dup_session_id = false;
-    config.fake_tls_pad_encap = false;
-    config.fake_tls_size = 0;
-    config.fake_tls_sni_mode = "fixed".to_string();
-    config.host_mixed_case = false;
-    config.domain_mixed_case = false;
-    config.host_remove_spaces = false;
-    config.http_method_eol = false;
-    config.http_unix_eol = false;
-    config.tls_record_split = false;
-    config.tls_record_split_marker = None;
-    config.tls_record_split_position = 0;
-    config.tls_record_split_at_sni = false;
-    config.udp_fake_count = 0;
-    config.udp_chain_steps.clear();
-    config.drop_sack = false;
-    config.fake_offset_marker = Some("0".to_string());
-    config.fake_offset = 0;
-    config.quic_fake_profile = "disabled".to_string();
-    config.quic_fake_host.clear();
+    config.protocols.desync_http = true;
+    config.protocols.desync_https = true;
+    config.protocols.desync_udp = false;
+    config.chains.tcp_steps.clear();
+    config.chains.udp_steps.clear();
+    config.fake_packets.fake_ttl = 8;
+    config.fake_packets.fake_tls_use_original = false;
+    config.fake_packets.fake_tls_randomize = false;
+    config.fake_packets.fake_tls_dup_session_id = false;
+    config.fake_packets.fake_tls_pad_encap = false;
+    config.fake_packets.fake_tls_size = 0;
+    config.fake_packets.fake_tls_sni_mode = "fixed".to_string();
+    config.fake_packets.drop_sack = false;
+    config.fake_packets.fake_offset_marker = "0".to_string();
+    config.parser_evasions.host_mixed_case = false;
+    config.parser_evasions.domain_mixed_case = false;
+    config.parser_evasions.host_remove_spaces = false;
+    config.parser_evasions.http_method_eol = false;
+    config.parser_evasions.http_unix_eol = false;
+    config.quic.fake_profile = "disabled".to_string();
+    config.quic.fake_host.clear();
     config
 }
 
 pub(crate) fn build_parser_only_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
-    config.host_mixed_case = true;
-    config.domain_mixed_case = true;
-    config.host_remove_spaces = true;
+    config.parser_evasions.host_mixed_case = true;
+    config.parser_evasions.domain_mixed_case = true;
+    config.parser_evasions.host_remove_spaces = true;
     config
 }
 
 pub(crate) fn build_parser_unixeol_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = build_parser_only_candidate(base);
-    config.http_unix_eol = true;
+    config.parser_evasions.http_unix_eol = true;
     config
 }
 
 pub(crate) fn build_parser_methodeol_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = build_parser_only_candidate(base);
-    config.http_method_eol = true;
+    config.parser_evasions.http_method_eol = true;
     config
 }
 
 pub(crate) fn build_split_host_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
-    config.tcp_chain_steps = vec![tcp_step("split", "host+2")];
+    config.chains.tcp_steps = vec![tcp_step("split", "host+2")];
     config
 }
 
 pub(crate) fn build_tlsrec_split_host_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
-    config.tcp_chain_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("split", "host+2")];
+    config.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("split", "host+2")];
     config
 }
 
 pub(crate) fn build_tlsrec_fake_rich_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
-    config.tcp_chain_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("fake", "host+1")];
-    config.fake_tls_use_original = true;
-    config.fake_tls_randomize = true;
-    config.fake_tls_dup_session_id = true;
-    config.fake_tls_pad_encap = true;
-    config.fake_tls_sni_mode = "randomized".to_string();
-    config.fake_offset_marker = Some("endhost-1".to_string());
+    config.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("fake", "host+1")];
+    config.fake_packets.fake_tls_use_original = true;
+    config.fake_packets.fake_tls_randomize = true;
+    config.fake_packets.fake_tls_dup_session_id = true;
+    config.fake_packets.fake_tls_pad_encap = true;
+    config.fake_packets.fake_tls_sni_mode = "randomized".to_string();
+    config.fake_packets.fake_offset_marker = "endhost-1".to_string();
     config
 }
 
 pub(crate) fn build_tlsrec_fake_approx_candidate(base: &ProxyUiConfig, kind: &str) -> ProxyUiConfig {
     let mut config = build_tlsrec_fake_rich_candidate(base);
-    config.tcp_chain_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step(kind, "host+1")];
+    config.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step(kind, "host+1")];
     config
 }
 
@@ -390,42 +375,41 @@ pub(crate) fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: 
         ProxyUiTcpChainStep {
             kind: "hostfake".to_string(),
             marker: "endhost+8".to_string(),
-            midhost_marker: Some("midsld".to_string()),
-            fake_host_template: Some("googlevideo.com".to_string()),
+            midhost_marker: "midsld".to_string(),
+            fake_host_template: "googlevideo.com".to_string(),
             fragment_count: 0,
             min_fragment_size: 0,
             max_fragment_size: 0,
-            activation_filter: ProxyUiActivationFilter::default(),
+            activation_filter: None,
         },
     ];
     if with_split {
         steps.push(tcp_step("split", "midsld"));
     }
-    config.tcp_chain_steps = steps;
+    config.chains.tcp_steps = steps;
     config
 }
 
 pub(crate) fn build_quic_candidate(base_tcp: &ProxyUiConfig, enabled: bool, profile: &str) -> ProxyUiConfig {
     let mut config = sanitize_current_probe_config(base_tcp);
-    config.desync_udp = enabled;
-    config.udp_fake_count = if enabled { 4 } else { 0 };
-    config.udp_chain_steps = if enabled {
+    config.protocols.desync_udp = enabled;
+    config.chains.udp_steps = if enabled {
         vec![ProxyUiUdpChainStep {
             kind: "fake_burst".to_string(),
             count: 4,
-            activation_filter: ProxyUiActivationFilter::default(),
+            activation_filter: None,
         }]
     } else {
         Vec::new()
     };
-    config.quic_fake_profile = profile.to_string();
-    config.quic_fake_host.clear();
+    config.quic.fake_profile = profile.to_string();
+    config.quic.fake_host.clear();
     config
 }
 
 pub(crate) fn build_activation_window_split_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
     let mut config = build_split_host_candidate(base);
-    config.group_activation_filter = default_audit_activation_filter();
+    config.chains.group_activation_filter = Some(default_audit_activation_filter());
     candidate_spec_with_notes(
         "activation_window_split",
         "Activation window + split host",
@@ -437,7 +421,7 @@ pub(crate) fn build_activation_window_split_spec(base: &ProxyUiConfig) -> Strate
 
 pub(crate) fn build_activation_window_hostfake_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
     let mut config = build_tlsrec_hostfake_candidate(base, false);
-    config.group_activation_filter = default_audit_activation_filter();
+    config.chains.group_activation_filter = Some(default_audit_activation_filter());
     candidate_spec_with_notes(
         "activation_window_hostfake",
         "Activation window + hostfake",
@@ -449,11 +433,11 @@ pub(crate) fn build_activation_window_hostfake_spec(base: &ProxyUiConfig) -> Str
 
 pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
     let mut config = build_tlsrec_fake_rich_candidate(base);
-    config.adaptive_fake_ttl_enabled = true;
-    config.adaptive_fake_ttl_delta = ADAPTIVE_FAKE_TTL_DEFAULT_DELTA;
-    config.adaptive_fake_ttl_min = ADAPTIVE_FAKE_TTL_DEFAULT_MIN;
-    config.adaptive_fake_ttl_max = ADAPTIVE_FAKE_TTL_DEFAULT_MAX;
-    config.adaptive_fake_ttl_fallback = ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK;
+    config.fake_packets.adaptive_fake_ttl_enabled = true;
+    config.fake_packets.adaptive_fake_ttl_delta = ADAPTIVE_FAKE_TTL_DEFAULT_DELTA;
+    config.fake_packets.adaptive_fake_ttl_min = ADAPTIVE_FAKE_TTL_DEFAULT_MIN;
+    config.fake_packets.adaptive_fake_ttl_max = ADAPTIVE_FAKE_TTL_DEFAULT_MAX;
+    config.fake_packets.adaptive_fake_ttl_fallback = ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK;
     StrategyCandidateSpec {
         id: "adaptive_fake_ttl",
         label: "Adaptive fake TTL",
@@ -470,9 +454,9 @@ pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCand
 
 pub(crate) fn build_fake_payload_library_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
     let mut config = build_tlsrec_fake_rich_candidate(base);
-    config.http_fake_profile = HTTP_FAKE_PROFILE_CLOUDFLARE_GET.to_string();
-    config.tls_fake_profile = TLS_FAKE_PROFILE_GOOGLE_CHROME.to_string();
-    config.udp_fake_profile = UDP_FAKE_PROFILE_DNS_QUERY.to_string();
+    config.fake_packets.http_fake_profile = HTTP_FAKE_PROFILE_CLOUDFLARE_GET.to_string();
+    config.fake_packets.tls_fake_profile = TLS_FAKE_PROFILE_GOOGLE_CHROME.to_string();
+    config.fake_packets.udp_fake_profile = UDP_FAKE_PROFILE_DNS_QUERY.to_string();
     candidate_spec_with_notes(
         "library_fake_payloads",
         "Library fake payload presets",
@@ -494,12 +478,12 @@ pub(crate) fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
     ProxyUiTcpChainStep {
         kind: kind.to_string(),
         marker: marker.to_string(),
-        midhost_marker: None,
-        fake_host_template: None,
+        midhost_marker: String::new(),
+        fake_host_template: String::new(),
         fragment_count: 0,
         min_fragment_size: 0,
         max_fragment_size: 0,
-        activation_filter: ProxyUiActivationFilter::default(),
+        activation_filter: None,
     }
 }
 
@@ -508,69 +492,11 @@ mod tests {
     use super::*;
 
     fn minimal_ui_config() -> ProxyUiConfig {
-        ProxyUiConfig {
-            ip: "127.0.0.1".to_string(),
-            port: 1080,
-            max_connections: 512,
-            buffer_size: 16384,
-            default_ttl: 0,
-            custom_ttl: false,
-            no_domain: false,
-            desync_http: true,
-            desync_https: true,
-            desync_udp: true,
-            desync_method: "disorder".to_string(),
-            split_marker: Some("host+1".to_string()),
-            tcp_chain_steps: Vec::new(),
-            group_activation_filter: ProxyUiActivationFilter::default(),
-            split_position: 0,
-            split_at_host: false,
-            fake_ttl: 8,
-            adaptive_fake_ttl_enabled: false,
-            adaptive_fake_ttl_delta: ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
-            adaptive_fake_ttl_min: ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
-            adaptive_fake_ttl_max: ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
-            adaptive_fake_ttl_fallback: ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
-            fake_sni: "www.wikipedia.org".to_string(),
-            http_fake_profile: "compat_default".to_string(),
-            fake_tls_use_original: false,
-            fake_tls_randomize: false,
-            fake_tls_dup_session_id: false,
-            fake_tls_pad_encap: false,
-            fake_tls_size: 0,
-            fake_tls_sni_mode: "fixed".to_string(),
-            tls_fake_profile: "compat_default".to_string(),
-            oob_char: b'a',
-            host_mixed_case: false,
-            domain_mixed_case: false,
-            host_remove_spaces: false,
-            http_method_eol: false,
-            http_unix_eol: false,
-            tls_record_split: false,
-            tls_record_split_marker: None,
-            tls_record_split_position: 0,
-            tls_record_split_at_sni: false,
-            hosts_mode: "disable".to_string(),
-            hosts: None,
-            tcp_fast_open: false,
-            udp_fake_count: 0,
-            udp_chain_steps: Vec::new(),
-            udp_fake_profile: "compat_default".to_string(),
-            drop_sack: false,
-            fake_offset_marker: Some("0".to_string()),
-            fake_offset: 0,
-            quic_initial_mode: Some("route_and_cache".to_string()),
-            quic_support_v1: true,
-            quic_support_v2: true,
-            quic_fake_profile: "disabled".to_string(),
-            quic_fake_host: String::new(),
-            host_autolearn_enabled: false,
-            host_autolearn_penalty_ttl_secs: ciadpi_config::HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
-            host_autolearn_max_hosts: ciadpi_config::HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
-            host_autolearn_store_path: None,
-            network_scope_key: None,
-            strategy_preset: None,
-        }
+        let mut config = ProxyUiConfig::default();
+        config.protocols.desync_udp = true;
+        config.chains.tcp_steps = vec![tcp_step("disorder", "host+1")];
+        config.fake_packets.fake_sni = "www.wikipedia.org".to_string();
+        config
     }
 
     #[test]
@@ -646,24 +572,22 @@ mod tests {
     #[test]
     fn sanitize_current_probe_config_disables_autolearn() {
         let mut base = minimal_ui_config();
-        base.host_autolearn_enabled = true;
-        base.host_autolearn_store_path = Some("/tmp/test".to_string());
+        base.host_autolearn.enabled = true;
+        base.host_autolearn.store_path = Some("/tmp/test".to_string());
         let sanitized = sanitize_current_probe_config(&base);
-        assert!(!sanitized.host_autolearn_enabled);
-        assert!(sanitized.host_autolearn_store_path.is_none());
+        assert!(!sanitized.host_autolearn.enabled);
+        assert!(sanitized.host_autolearn.store_path.is_none());
     }
 
     #[test]
     fn strategy_probe_base_resets_desync_fields() {
         let mut base = minimal_ui_config();
-        base.desync_method = "fake".to_string();
-        base.tcp_chain_steps = vec![tcp_step("split", "host+1")];
+        base.chains.tcp_steps = vec![tcp_step("fake", "host+1")];
         let probe = strategy_probe_base(&base);
-        assert_eq!(probe.desync_method, "none");
-        assert!(probe.tcp_chain_steps.is_empty());
-        assert!(probe.desync_http);
-        assert!(probe.desync_https);
-        assert!(!probe.desync_udp);
+        assert!(probe.chains.tcp_steps.is_empty());
+        assert!(probe.protocols.desync_http);
+        assert!(probe.protocols.desync_https);
+        assert!(!probe.protocols.desync_udp);
     }
 
     #[test]

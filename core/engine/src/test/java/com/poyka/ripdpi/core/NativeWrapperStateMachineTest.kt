@@ -161,7 +161,7 @@ class NativeWrapperStateMachineTest {
                 try {
                     val error =
                         runCatching {
-                            harness.proxy.startProxy(RipDpiProxyUIPreferences(port = 1100))
+                            harness.proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1100)))
                         }.exceptionOrNull()
                     when (state) {
                         ProxyState.IDLE -> assertTrue(error is IOException)
@@ -188,7 +188,7 @@ class NativeWrapperStateMachineTest {
                     -> {
                         val error =
                             runCatching {
-                                harness.proxy.startProxy(RipDpiProxyUIPreferences(port = 1101))
+                                harness.proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1101)))
                             }.exceptionOrNull()
                         assertTrue(error is NativeError.AlreadyRunning)
                         state
@@ -208,7 +208,7 @@ class NativeWrapperStateMachineTest {
                     -> {
                         val error =
                             runCatching {
-                                harness.proxy.startProxy(RipDpiProxyUIPreferences(port = 1102))
+                                harness.proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1102)))
                             }.exceptionOrNull()
                         assertTrue(error is NativeError.AlreadyRunning)
                         state
@@ -832,7 +832,7 @@ class NativeWrapperStateMachineTest {
             startJob =
                 scope.async {
                     runCatching {
-                        proxy.startProxy(RipDpiProxyUIPreferences(port = 1080))
+                        proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1080)))
                     }
                 }
             assertEquals(1L, startedSignal.await())

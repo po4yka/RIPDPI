@@ -11,6 +11,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -558,12 +560,19 @@ interface DiagnosticsDao {
         RememberedNetworkPolicyEntity::class,
         NetworkDnsPathPreferenceEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
     abstract fun diagnosticsDao(): DiagnosticsDao
 }
+
+val DiagnosticsMigration1To2 =
+    object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DELETE FROM remembered_network_policies")
+        }
+    }
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -577,7 +586,7 @@ object DiagnosticsDatabaseModule {
             context,
             DiagnosticsDatabase::class.java,
             "diagnostics.db",
-        ).fallbackToDestructiveMigration(true)
+        ).addMigrations(DiagnosticsMigration1To2)
             .fallbackToDestructiveMigrationOnDowngrade(true)
             .build()
 

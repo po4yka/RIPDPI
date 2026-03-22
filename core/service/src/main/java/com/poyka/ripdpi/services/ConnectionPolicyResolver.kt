@@ -86,11 +86,11 @@ class DefaultConnectionPolicyResolver
                 if (settings.enableCmdSettings) {
                     RipDpiProxyCmdPreferences(settings.cmdArgs, runtimeContext = runtimeContext)
                 } else {
-                    RipDpiProxyUIPreferences(
-                        settings = settings,
-                        hostAutolearnStorePath = hostAutolearnStorePath,
-                        networkScopeKey = networkScopeKey,
-                        runtimeContext = runtimeContext,
+                    RipDpiProxyUIPreferences.fromSettings(
+                        settings,
+                        hostAutolearnStorePath,
+                        networkScopeKey,
+                        runtimeContext,
                     )
                 }
             val baselineLaneFamilies =

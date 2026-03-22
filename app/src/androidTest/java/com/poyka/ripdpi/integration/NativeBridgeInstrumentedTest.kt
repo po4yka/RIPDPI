@@ -28,7 +28,7 @@ class NativeBridgeInstrumentedTest {
         runBlocking {
             val proxy = RipDpiProxy(RipDpiProxyNativeBindings())
             val port = reserveLoopbackPort()
-            val preferences = RipDpiProxyUIPreferences(port = port)
+            val preferences = RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = port))
 
             assertThrows(IllegalStateException::class.java) {
                 runBlocking { proxy.stopProxy() }
@@ -132,7 +132,11 @@ class NativeBridgeInstrumentedTest {
         val tunnelBindings = Tun2SocksNativeBindings()
 
         val proxyHandle =
-            proxyBindings.create(RipDpiProxyUIPreferences(port = reserveLoopbackPort()).toNativeConfigJson())
+            proxyBindings.create(
+                RipDpiProxyUIPreferences(
+                    listen = RipDpiListenConfig(port = reserveLoopbackPort()),
+                ).toNativeConfigJson(),
+            )
         val diagnosticsHandle = diagnosticsBindings.create()
         val tunnelHandle =
             tunnelBindings.create(

@@ -22,7 +22,7 @@ class NativeBridgeWrappersTest {
             val bindings = FakeRipDpiProxyBindings()
             val proxy = RipDpiProxy(bindings)
 
-            val exitCode = proxy.startProxy(RipDpiProxyUIPreferences(port = 1081))
+            val exitCode = proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1081)))
 
             assertEquals(0, exitCode)
             assertTrue(bindings.lastCreatePayload?.contains("\"kind\":\"ui\"") == true)
@@ -44,14 +44,14 @@ class NativeBridgeWrappersTest {
 
             val firstStart =
                 async {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1082))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1082)))
                 }
 
             assertEquals(1L, startedSignal.await())
 
             val error =
                 runCatching {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1083))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1083)))
                 }.exceptionOrNull()
 
             assertTrue(error is NativeError.AlreadyRunning)
@@ -75,7 +75,7 @@ class NativeBridgeWrappersTest {
 
             val start =
                 async {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1082))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1082)))
                 }
 
             assertEquals(1L, startedSignal.await())
@@ -105,7 +105,7 @@ class NativeBridgeWrappersTest {
             val start =
                 async {
                     runCatching {
-                        proxy.startProxy(RipDpiProxyUIPreferences(port = 1082))
+                        proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1082)))
                     }.exceptionOrNull()
                 }
 
@@ -128,7 +128,7 @@ class NativeBridgeWrappersTest {
 
             val error =
                 runCatching {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1084))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1084)))
                 }.exceptionOrNull()
 
             assertTrue(error is IOException)
@@ -160,7 +160,7 @@ class NativeBridgeWrappersTest {
 
             val error =
                 runCatching {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1085))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1085)))
                 }.exceptionOrNull()
 
             assertTrue(error is NativeError.SessionCreationFailed)
@@ -211,7 +211,7 @@ class NativeBridgeWrappersTest {
 
             val start =
                 async {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1081))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1081)))
                 }
             assertEquals(1L, startedSignal.await())
             val telemetry = proxy.pollTelemetry()
@@ -242,7 +242,7 @@ class NativeBridgeWrappersTest {
 
             val start =
                 async {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = 1081))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1081)))
                 }
             assertEquals(1L, startedSignal.await())
 

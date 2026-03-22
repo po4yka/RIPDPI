@@ -28,7 +28,7 @@ class NativeTelemetryGoldenSmokeTest {
             val port = reserveLoopbackPort()
             val proxyJob =
                 async(Dispatchers.IO) {
-                    proxy.startProxy(RipDpiProxyUIPreferences(port = port))
+                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = port)))
                 }
 
             val telemetry = awaitRunningTelemetry(proxy, port)

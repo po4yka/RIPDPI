@@ -359,10 +359,11 @@ private fun scanReportWithStrategyProbe(
     settings: com.poyka.ripdpi.proto.AppSettings,
 ): ScanReport {
     val proxyConfigJson =
-        RipDpiProxyUIPreferences(
-            settings = settings,
-            hostAutolearnStorePath = null,
-            runtimeContext = settings.activeDnsSettings().toRipDpiRuntimeContext(),
+        RipDpiProxyUIPreferences.fromSettings(
+            settings,
+            null,
+            null,
+            settings.activeDnsSettings().toRipDpiRuntimeContext(),
         ).toNativeConfigJson()
     return ScanReport(
         sessionId = sessionId,
