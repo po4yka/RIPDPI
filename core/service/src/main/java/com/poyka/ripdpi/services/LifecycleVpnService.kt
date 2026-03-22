@@ -14,8 +14,7 @@ import androidx.lifecycle.ServiceLifecycleDispatcher
 open class LifecycleVpnService :
     VpnService(),
     LifecycleOwner {
-    @Suppress("LeakingThis")
-    private val dispatcher = ServiceLifecycleDispatcher(this)
+    private val dispatcher by lazy(LazyThreadSafetyMode.NONE) { ServiceLifecycleDispatcher(this) }
 
     @CallSuper
     override fun onCreate() {
@@ -36,8 +35,7 @@ open class LifecycleVpnService :
         startId: Int,
     ) {
         dispatcher.onServicePreSuperOnStart()
-        @Suppress("DEPRECATION")
-        super.onStart(intent, startId)
+        invokeDeprecatedOnStart(intent, startId)
     }
 
     // this method is added only to annotate it with @CallSuper.
@@ -59,4 +57,12 @@ open class LifecycleVpnService :
 
     override val lifecycle: Lifecycle
         get() = dispatcher.lifecycle
+
+    @Deprecated("Deprecated in Java")
+    private fun invokeDeprecatedOnStart(
+        intent: Intent?,
+        startId: Int,
+    ) {
+        super.onStart(intent, startId)
+    }
 }

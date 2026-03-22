@@ -821,23 +821,26 @@ private val dataLinePrefixes =
         "Telegram",
     )
 
+private const val SparklineBytesPerKilobyte = 1_000L
+private const val SparklineBytesPerMegabyte = 1_000_000L
+private const val SparklineBytesPerGigabyte = 1_000_000_000L
+
 private fun isDataLine(line: String): Boolean =
     dataLinePrefixes.any { line.startsWith(it) } || line.contains("probe results")
 
-@Suppress("MagicNumber")
 private fun formatSparklineValue(value: Float): String {
     val longValue = value.toLong()
     return when {
-        longValue >= 1_000_000_000L -> {
-            String.format(java.util.Locale.US, "%.1f GB", longValue / 1_000_000_000.0)
+        longValue >= SparklineBytesPerGigabyte -> {
+            String.format(java.util.Locale.US, "%.1f GB", longValue / SparklineBytesPerGigabyte.toDouble())
         }
 
-        longValue >= 1_000_000L -> {
-            String.format(java.util.Locale.US, "%.1f MB", longValue / 1_000_000.0)
+        longValue >= SparklineBytesPerMegabyte -> {
+            String.format(java.util.Locale.US, "%.1f MB", longValue / SparklineBytesPerMegabyte.toDouble())
         }
 
-        longValue >= 1_000L -> {
-            String.format(java.util.Locale.US, "%.1f KB", longValue / 1_000.0)
+        longValue >= SparklineBytesPerKilobyte -> {
+            String.format(java.util.Locale.US, "%.1f KB", longValue / SparklineBytesPerKilobyte.toDouble())
         }
 
         longValue > 0L -> {

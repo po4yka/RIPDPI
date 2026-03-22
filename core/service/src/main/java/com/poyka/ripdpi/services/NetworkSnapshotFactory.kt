@@ -2,8 +2,9 @@
 
 package com.poyka.ripdpi.services
 
-import android.annotation.SuppressLint
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
@@ -14,6 +15,7 @@ import android.os.Build
 import android.telephony.ServiceState
 import android.telephony.SignalStrength
 import android.telephony.TelephonyManager
+import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.CellularNetworkIdentityTuple
 import com.poyka.ripdpi.data.NativeCellularSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
@@ -45,12 +47,11 @@ class NetworkSnapshotFactory
         private val telephonyManager =
             context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
 
-        @SuppressLint("MissingPermission")
         override fun capture(): NativeNetworkSnapshot {
             val fingerprint = fingerprintProvider.capture()
-            val activeNetwork = connectivityManager.activeNetwork
-            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
-            val linkProperties = connectivityManager.getLinkProperties(activeNetwork)
+            val activeNetwork = activeNetworkOrNull()
+            val capabilities = activeNetwork?.let(connectivityManager::getNetworkCapabilities)
+            val linkProperties = activeNetwork?.let(connectivityManager::getLinkProperties)
             val uid = context.applicationInfo.uid
             val txBytes = TrafficStats.getUidTxBytes(uid).takeIf { it >= 0 } ?: 0L
             val rxBytes = TrafficStats.getUidRxBytes(uid).takeIf { it >= 0 } ?: 0L
@@ -68,6 +69,13 @@ class NetworkSnapshotFactory
                 capturedAtMs = capturedAtMs,
             )
         }
+
+        private fun activeNetworkOrNull() =
+            if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
+                connectivityManager.activeNetwork
+            } else {
+                null
+            }
 
         private fun resolveMtu(linkProperties: LinkProperties?): Int? =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -97,29 +105,35 @@ class NetworkSnapshotFactory
             )
         }
 
-        @SuppressLint("MissingPermission")
         private fun resolveCellularSnapshot(cellularIdentity: CellularNetworkIdentityTuple?): NativeCellularSnapshot? {
             if (cellularIdentity == null) {
                 return null
             }
             val telephony = telephonyManager
+            val canReadPhoneState = hasPhoneStatePermission()
             val dataNetworkType =
                 telephony
+                    ?.takeIf { canReadPhoneState }
                     ?.let { describeMobileNetworkType(runCatching { it.dataNetworkType }.getOrNull()) }
                     ?.takeUnless { it == "unknown" }
                     ?: canonicalMobileNetworkType(cellularIdentity.dataNetworkType)
             val serviceState =
-                telephony?.let { describeServiceState(runCatching { it.serviceState?.state }.getOrNull()) } ?: "unknown"
-            val signalStrength = resolveSignalStrength(telephony)
+                telephony
+                    ?.takeIf { hasServiceStatePermission() }
+                    ?.let { describeServiceState(runCatching { it.serviceState?.state }.getOrNull()) }
+                    ?: "unknown"
+            val signalStrength = resolveSignalStrength(telephony, canReadPhoneState)
             return NativeCellularSnapshot(
                 generation = cellularGeneration(dataNetworkType),
                 roaming =
-                    cellularIdentity.roaming ?: telephony?.let { runCatching { it.isNetworkRoaming }.getOrNull() }
+                    cellularIdentity.roaming ?: telephony
+                        ?.takeIf { canReadPhoneState }
+                        ?.let { runCatching { it.isNetworkRoaming }.getOrNull() }
                         ?: false,
                 operatorCode = cellularIdentity.operatorCode,
                 dataNetworkType = dataNetworkType,
                 serviceState = serviceState,
-                carrierId = telephony?.let { invokeInt(it, "getCarrierId") }?.takeIf { it >= 0 },
+                carrierId = telephony?.takeIf { canReadPhoneState }?.let { invokeInt(it, "getCarrierId") }?.takeIf { it >= 0 },
                 signalLevel = signalStrength?.level,
                 signalDbm = resolveSignalDbm(signalStrength),
             )
@@ -145,8 +159,11 @@ class NetworkSnapshotFactory
                 null
             }
 
-        private fun resolveSignalStrength(telephony: TelephonyManager?): SignalStrength? =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        private fun resolveSignalStrength(
+            telephony: TelephonyManager?,
+            canReadPhoneState: Boolean,
+        ): SignalStrength? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && canReadPhoneState) {
                 telephony?.let { runCatching { it.signalStrength }.getOrNull() }
             } else {
                 null
@@ -174,6 +191,17 @@ class NetworkSnapshotFactory
             target: Any,
             methodName: String,
         ): Int? = runCatching { target.javaClass.getMethod(methodName).invoke(target) as Int }.getOrNull()
+
+        private fun hasPhoneStatePermission(): Boolean =
+            hasPermission(Manifest.permission.READ_PHONE_STATE) ||
+                hasPermission("android.permission.READ_BASIC_PHONE_STATE")
+
+        private fun hasServiceStatePermission(): Boolean =
+            hasPermission(Manifest.permission.READ_PHONE_STATE) &&
+                hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+
+        private fun hasPermission(permission: String): Boolean =
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
 
 internal fun buildNativeNetworkSnapshot(
