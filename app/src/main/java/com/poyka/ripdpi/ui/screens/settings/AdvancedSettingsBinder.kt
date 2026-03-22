@@ -95,6 +95,13 @@ internal class AdvancedSettingsBinder(
         writer.updateActivationRange(dimension, start, end, uiState)
     }
 
+    fun onWsTunnelModeChanged(mode: String) {
+        writer.updateValue("wsTunnelMode", mode) {
+            setWsTunnelMode(mode)
+                .setWsTunnelEnabled(mode != "off")
+        }
+    }
+
     fun onResetAdaptiveSplit(uiState: SettingsUiState) {
         writer.updatePrimarySplitMarker(
             uiState = uiState,
