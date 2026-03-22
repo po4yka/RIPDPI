@@ -34,7 +34,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,7 +54,6 @@ import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
-import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
@@ -85,28 +83,16 @@ import kotlin.time.Duration.Companion.ZERO
 @Composable
 fun HomeRoute(
     modifier: Modifier = Modifier,
-    onStartConfiguredMode: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
     viewModel: MainViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val currentUiState by rememberUpdatedState(uiState)
-
     HomeScreen(
         uiState = uiState,
         modifier = modifier,
-        onToggleConnection =
-            remember(onStartConfiguredMode, viewModel) {
-                {
-                    if (shouldStartConnection(currentUiState)) {
-                        onStartConfiguredMode()
-                    } else {
-                        viewModel.onPrimaryConnectionAction()
-                    }
-                }
-            },
+        onToggleConnection = remember(viewModel) { { viewModel.onPrimaryConnectionAction() } },
         onOpenDiagnostics = onOpenDiagnostics,
         onOpenHistory = onOpenHistory,
         onRepairPermission = viewModel::onRepairPermissionRequested,
@@ -404,17 +390,6 @@ private fun HomeStatusCard(
         )
     }
 }
-
-internal fun shouldStartConnection(uiState: MainUiState): Boolean =
-    when (uiState.connectionState) {
-        ConnectionState.Connecting,
-        ConnectionState.Connected,
-        -> false
-
-        ConnectionState.Disconnected,
-        ConnectionState.Error,
-        -> uiState.appStatus == AppStatus.Halted
-    }
 
 @Composable
 private fun HomeConnectionButton(
