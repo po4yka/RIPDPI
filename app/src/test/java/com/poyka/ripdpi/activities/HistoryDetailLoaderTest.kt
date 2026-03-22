@@ -12,12 +12,12 @@ class HistoryDetailLoaderTest {
     @Test
     fun `missing connection session returns null`() =
         kotlinx.coroutines.test.runTest {
-            val source = FakeHistoryConnectionDetailSource()
+            val source = FakeDiagnosticsHistorySource()
             val detailLoader = FakeHistoryDiagnosticsDetailLoader()
             val mapper = FakeDiagnosticsSessionDetailUiMapper()
             val loader =
                 DefaultHistoryDetailLoader(
-                    connectionDetailSource = source,
+                    diagnosticsHistorySource = source,
                     diagnosticsDetailLoader = detailLoader,
                     connectionDetailUiFactory = connectionDetailUiFactory,
                     diagnosticsSessionDetailUiMapper = mapper,
@@ -30,16 +30,19 @@ class HistoryDetailLoaderTest {
     fun `connection detail loader composes repository slices`() =
         kotlinx.coroutines.test.runTest {
             val source =
-                FakeHistoryConnectionDetailSource().apply {
-                    session = historyConnectionSession()
-                    snapshots = listOf(historySnapshot(connectionSessionId = "connection-1"))
-                    contexts = listOf(historyContext(connectionSessionId = "connection-1"))
-                    telemetry = listOf(historyTelemetry(connectionSessionId = "connection-1"))
-                    events = listOf(historyEvent(connectionSessionId = "connection-1"))
+                FakeDiagnosticsHistorySource().apply {
+                    connectionDetails["connection-1"] =
+                        com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail(
+                            session = historyConnectionSession(),
+                            snapshots = listOf(historySnapshot(connectionSessionId = "connection-1")),
+                            contexts = listOf(historyContext(connectionSessionId = "connection-1")),
+                            telemetry = listOf(historyTelemetry(connectionSessionId = "connection-1")),
+                            events = listOf(historyEvent(connectionSessionId = "connection-1")),
+                        )
                 }
             val loader =
                 DefaultHistoryDetailLoader(
-                    connectionDetailSource = source,
+                    diagnosticsHistorySource = source,
                     diagnosticsDetailLoader = FakeHistoryDiagnosticsDetailLoader(),
                     connectionDetailUiFactory = connectionDetailUiFactory,
                     diagnosticsSessionDetailUiMapper = FakeDiagnosticsSessionDetailUiMapper(),
@@ -66,7 +69,7 @@ class HistoryDetailLoaderTest {
                 }
             val loader =
                 DefaultHistoryDetailLoader(
-                    connectionDetailSource = FakeHistoryConnectionDetailSource(),
+                    diagnosticsHistorySource = FakeDiagnosticsHistorySource(),
                     diagnosticsDetailLoader = detailLoader,
                     connectionDetailUiFactory = connectionDetailUiFactory,
                     diagnosticsSessionDetailUiMapper = mapper,

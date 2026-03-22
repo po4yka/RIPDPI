@@ -1,33 +1,33 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
-import com.poyka.ripdpi.data.diagnostics.retryCount
-import com.poyka.ripdpi.data.diagnostics.rttBand
-import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
 import com.poyka.ripdpi.diagnostics.ShareSummary
+import com.poyka.ripdpi.diagnostics.retryCount
+import com.poyka.ripdpi.diagnostics.rttBand
+import com.poyka.ripdpi.diagnostics.winningStrategyFamily
 import java.util.Locale
 
 internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
     health: DiagnosticsHealth,
     progress: ScanProgress?,
-    latestSession: ScanSessionEntity?,
+    latestSession: DiagnosticScanSession?,
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     latestContext: DiagnosticContextModel?,
-    currentTelemetry: TelemetrySampleEntity?,
-    sessions: List<ScanSessionEntity>,
-    nativeEvents: List<NativeSessionEventEntity>,
+    currentTelemetry: DiagnosticTelemetrySample?,
+    sessions: List<DiagnosticScanSession>,
+    nativeEvents: List<DiagnosticEvent>,
     selectedProfile: DiagnosticsProfileOptionUiModel?,
     sessionRows: List<DiagnosticsSessionRowUiModel>,
     rememberedNetworkRows: List<DiagnosticsRememberedNetworkUiModel>,
@@ -47,10 +47,10 @@ internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
     )
 
 internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
-    profiles: List<DiagnosticProfileEntity>,
-    activeProfile: DiagnosticProfileEntity?,
+    profiles: List<DiagnosticProfile>,
+    activeProfile: DiagnosticProfile?,
     activeProfileRequest: com.poyka.ripdpi.diagnostics.ScanRequest?,
-    latestProfileSession: ScanSessionEntity?,
+    latestProfileSession: DiagnosticScanSession?,
     latestReportResults: List<DiagnosticsProbeResultUiModel>,
     latestResolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
     latestStrategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
@@ -124,9 +124,9 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(
 
 internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
     health: DiagnosticsHealth,
-    telemetry: List<TelemetrySampleEntity>,
-    currentTelemetry: TelemetrySampleEntity?,
-    nativeEvents: List<NativeSessionEventEntity>,
+    telemetry: List<DiagnosticTelemetrySample>,
+    currentTelemetry: DiagnosticTelemetrySample?,
+    nativeEvents: List<DiagnosticEvent>,
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     latestContext: DiagnosticContextModel?,
     eventModels: List<DiagnosticsEventUiModel>,
@@ -156,7 +156,7 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
     )
 
 internal fun DiagnosticsUiFactorySupport.buildSessionsUiModel(
-    sessions: List<ScanSessionEntity>,
+    sessions: List<DiagnosticScanSession>,
     sessionRows: List<DiagnosticsSessionRowUiModel>,
     sessionPathMode: String?,
     sessionStatus: String?,
@@ -235,16 +235,16 @@ internal fun DiagnosticsUiFactorySupport.buildEventsUiModel(
 }
 
 internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
-    latestCompletedSession: ScanSessionEntity?,
+    latestCompletedSession: DiagnosticScanSession?,
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     latestContext: DiagnosticContextModel?,
-    currentTelemetry: TelemetrySampleEntity?,
-    nativeEvents: List<NativeSessionEventEntity>,
+    currentTelemetry: DiagnosticTelemetrySample?,
+    nativeEvents: List<DiagnosticEvent>,
     latestReport: ScanReport?,
     approachStats: List<BypassApproachSummary>,
     selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
     archiveActionState: ArchiveActionState,
-    exports: List<ExportRecordEntity>,
+    exports: List<DiagnosticExportRecord>,
 ): DiagnosticsShareUiModel {
     val sharePreview =
         buildSharePreview(
@@ -296,9 +296,9 @@ internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
 
 internal fun DiagnosticsUiFactorySupport.deriveHealth(
     progress: ScanProgress?,
-    latestSession: ScanSessionEntity?,
-    latestTelemetry: TelemetrySampleEntity?,
-    nativeEvents: List<NativeSessionEventEntity>,
+    latestSession: DiagnosticScanSession?,
+    latestTelemetry: DiagnosticTelemetrySample?,
+    nativeEvents: List<DiagnosticEvent>,
 ): DiagnosticsHealth {
     if (progress != null) {
         return DiagnosticsHealth.Attention
@@ -320,9 +320,9 @@ internal fun DiagnosticsUiFactorySupport.deriveHealth(
 
 private fun DiagnosticsUiFactorySupport.buildOverviewMetrics(
     health: DiagnosticsHealth,
-    sessions: List<ScanSessionEntity>,
-    nativeEvents: List<NativeSessionEventEntity>,
-    currentTelemetry: TelemetrySampleEntity?,
+    sessions: List<DiagnosticScanSession>,
+    nativeEvents: List<DiagnosticEvent>,
+    currentTelemetry: DiagnosticTelemetrySample?,
 ): List<DiagnosticsMetricUiModel> =
     buildList {
         add(
@@ -365,7 +365,7 @@ private fun DiagnosticsUiFactorySupport.buildOverviewMetrics(
 private fun DiagnosticsUiFactorySupport.overviewHeadline(
     health: DiagnosticsHealth,
     progress: ScanProgress?,
-    latestSession: ScanSessionEntity?,
+    latestSession: DiagnosticScanSession?,
     selectedProfile: DiagnosticsProfileOptionUiModel? = null,
 ): String =
     when {
@@ -401,7 +401,7 @@ private fun DiagnosticsUiFactorySupport.overviewHeadline(
 private fun DiagnosticsUiFactorySupport.overviewBody(
     health: DiagnosticsHealth,
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
-    telemetry: TelemetrySampleEntity?,
+    telemetry: DiagnosticTelemetrySample?,
 ): String =
     when (health) {
         DiagnosticsHealth.Healthy -> {
@@ -422,8 +422,8 @@ private fun DiagnosticsUiFactorySupport.overviewBody(
     }
 
 private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
-    telemetry: TelemetrySampleEntity?,
-    events: List<NativeSessionEventEntity>,
+    telemetry: DiagnosticTelemetrySample?,
+    events: List<DiagnosticEvent>,
 ): List<DiagnosticsMetricUiModel> =
     buildList {
         if (telemetry != null) {
@@ -548,8 +548,8 @@ private fun DiagnosticsUiFactorySupport.buildLiveMetrics(
     }
 
 private fun DiagnosticsUiFactorySupport.buildLiveHighlights(
-    telemetry: TelemetrySampleEntity?,
-    events: List<NativeSessionEventEntity>,
+    telemetry: DiagnosticTelemetrySample?,
+    events: List<DiagnosticEvent>,
 ): List<DiagnosticsMetricUiModel> {
     val warningCount = events.count { it.level.equals("warn", ignoreCase = true) }
     val errorCount = events.count { it.level.equals("error", ignoreCase = true) }
@@ -629,7 +629,7 @@ private fun DiagnosticsUiFactorySupport.buildLiveHighlights(
 }
 
 private fun DiagnosticsUiFactorySupport.buildLiveTrends(
-    telemetry: List<TelemetrySampleEntity>,
+    telemetry: List<DiagnosticTelemetrySample>,
 ): List<DiagnosticsSparklineUiModel> {
     val samples = telemetry.take(24).reversed()
     if (samples.isEmpty()) {
@@ -663,8 +663,8 @@ private fun DiagnosticsUiFactorySupport.buildLiveTrends(
 
 private fun DiagnosticsUiFactorySupport.buildLiveHeadline(
     health: DiagnosticsHealth,
-    telemetry: TelemetrySampleEntity?,
-    events: List<NativeSessionEventEntity>,
+    telemetry: DiagnosticTelemetrySample?,
+    events: List<DiagnosticEvent>,
 ): String {
     val surfacedEvent =
         events.firstOrNull { it.level.equals("error", ignoreCase = true) }
@@ -689,8 +689,8 @@ private fun DiagnosticsUiFactorySupport.buildLiveHeadline(
 }
 
 private fun DiagnosticsUiFactorySupport.buildLiveBody(
-    telemetry: TelemetrySampleEntity?,
-    events: List<NativeSessionEventEntity>,
+    telemetry: DiagnosticTelemetrySample?,
+    events: List<DiagnosticEvent>,
 ): String {
     val surfacedEvent =
         events.firstOrNull { it.level.equals("error", ignoreCase = true) }
@@ -719,7 +719,7 @@ private fun DiagnosticsUiFactorySupport.buildLiveBody(
     return context.getString(R.string.diagnostics_live_mode_summary_format, modeLabel, totalBytes, packetCount)
 }
 
-private fun DiagnosticsUiFactorySupport.buildLiveSignalLabel(telemetry: TelemetrySampleEntity?): String =
+private fun DiagnosticsUiFactorySupport.buildLiveSignalLabel(telemetry: DiagnosticTelemetrySample?): String =
     telemetry?.let {
         context.getString(
             R.string.diagnostics_live_signal_format,
@@ -729,7 +729,7 @@ private fun DiagnosticsUiFactorySupport.buildLiveSignalLabel(telemetry: Telemetr
     }
         ?: context.getString(R.string.diagnostics_live_no_transfer)
 
-private fun DiagnosticsUiFactorySupport.buildLiveEventSummaryLabel(events: List<NativeSessionEventEntity>): String {
+private fun DiagnosticsUiFactorySupport.buildLiveEventSummaryLabel(events: List<DiagnosticEvent>): String {
     val warningCount = events.count { it.level.equals("warn", ignoreCase = true) }
     val errorCount = events.count { it.level.equals("error", ignoreCase = true) }
     return when {
@@ -764,11 +764,11 @@ private fun DiagnosticsUiFactorySupport.buildLiveEventSummaryLabel(events: List<
 private fun pluralSuffix(count: Int): String = if (count == 1) "" else "s"
 
 private fun DiagnosticsUiFactorySupport.buildSharePreview(
-    latestSession: ScanSessionEntity?,
+    latestSession: DiagnosticScanSession?,
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     latestContext: DiagnosticContextModel?,
-    telemetry: TelemetrySampleEntity?,
-    nativeEvents: List<NativeSessionEventEntity>,
+    telemetry: DiagnosticTelemetrySample?,
+    nativeEvents: List<DiagnosticEvent>,
     latestReport: ScanReport?,
 ): ShareSummary {
     val warningHeadline =

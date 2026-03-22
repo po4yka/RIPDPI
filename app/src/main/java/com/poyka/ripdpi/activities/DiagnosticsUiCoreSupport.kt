@@ -1,22 +1,10 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.diagnostics.BypassStrategySignature
-import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
-import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
-import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanPathMode
-import com.poyka.ripdpi.diagnostics.ScanReport
-import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -69,41 +57,12 @@ internal class DiagnosticsUiCoreSupport
         internal val formatter: DiagnosticsUiFormatter,
     ) {
         constructor() : this(DiagnosticsUiFormatter())
-
-        val json: Json = Json { ignoreUnknownKeys = true }
     }
-
-internal fun DiagnosticsUiCoreSupport.decodeReport(reportJson: String?): ScanReport? =
-    reportJson?.takeIf { it.isNotBlank() }?.let {
-        runCatching { json.decodeFromString(ScanReport.serializer(), it) }.getOrNull()
-    }
-
-internal fun DiagnosticsUiCoreSupport.decodeRequest(profile: DiagnosticProfileEntity): ScanRequest? =
-    runCatching { json.decodeFromString(ScanRequest.serializer(), profile.requestJson) }.getOrNull()
-
-internal fun DiagnosticsUiCoreSupport.decodeProbeDetails(detailJson: String): List<ProbeDetail> =
-    runCatching {
-        json.decodeFromString(
-            ListSerializer(ProbeDetail.serializer()),
-            detailJson,
-        )
-    }.getOrElse { emptyList() }
-
-internal fun DiagnosticsUiCoreSupport.decodeStrategySignature(payload: String?): BypassStrategySignature? =
-    payload?.takeIf { it.isNotBlank() }?.let {
-        runCatching { json.decodeFromString(BypassStrategySignature.serializer(), it) }.getOrNull()
-    }
-
-internal fun DiagnosticsUiCoreSupport.decodeContext(entity: DiagnosticContextEntity): DiagnosticContextModel? =
-    runCatching { json.decodeFromString(DiagnosticContextModel.serializer(), entity.payloadJson) }.getOrNull()
-
-internal fun DiagnosticsUiCoreSupport.decodeNetworkSnapshot(entity: NetworkSnapshotEntity): NetworkSnapshotModel? =
-    runCatching { json.decodeFromString(NetworkSnapshotModel.serializer(), entity.payloadJson) }.getOrNull()
 
 internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
-    session: ScanSessionEntity,
+    session: DiagnosticScanSession,
 ): DiagnosticsSessionRowUiModel {
-    val report = decodeReport(session.reportJson)
+    val report = session.report
     return DiagnosticsSessionRowUiModel(
         id = session.id,
         profileId = session.profileId,
@@ -128,22 +87,6 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
 
 internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
     index: Int,
-    result: ProbeResultEntity,
-): DiagnosticsProbeResultUiModel =
-    decodeProbeDetails(result.detailJson).let { details ->
-        DiagnosticsProbeResultUiModel(
-            id = "${result.sessionId}-$index-${result.probeType}-${result.target}",
-            probeType = result.probeType,
-            target = result.target,
-            outcome = result.outcome,
-            probeRetryCount = deriveProbeRetryCount(details),
-            tone = toneForOutcome(result.outcome),
-            details = details.map { DiagnosticsFieldUiModel(it.key, it.value) },
-        )
-    }
-
-internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
-    index: Int,
     result: ProbeResult,
 ): DiagnosticsProbeResultUiModel =
     DiagnosticsProbeResultUiModel(
@@ -157,7 +100,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
     )
 
 internal fun DiagnosticsUiCoreSupport.toEventUiModel(
-    event: NativeSessionEventEntity,
+    event: DiagnosticEvent,
 ): DiagnosticsEventUiModel =
     DiagnosticsEventUiModel(
         id = event.id,

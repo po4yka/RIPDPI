@@ -1,17 +1,17 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.permissions.BatteryOptimizationGuidance
 import java.util.Locale
 
 internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(
-    entity: NetworkSnapshotEntity,
+    entity: DiagnosticNetworkSnapshot,
     showSensitiveDetails: Boolean,
 ): DiagnosticsNetworkSnapshotUiModel? {
-    val snapshot = core.decodeNetworkSnapshot(entity) ?: return null
+    val snapshot = entity.snapshot ?: return null
     return DiagnosticsNetworkSnapshotUiModel(
         title = entity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
         subtitle = "${snapshot.transport} · ${formatTimestamp(snapshot.capturedAt)}",

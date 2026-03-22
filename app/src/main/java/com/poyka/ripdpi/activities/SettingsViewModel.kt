@@ -7,7 +7,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.hosts.HostPackCatalogRepository
 import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.LauncherIconController
@@ -29,7 +29,7 @@ class SettingsViewModel
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
-        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+        private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
         private val hostPackCatalogRepository: HostPackCatalogRepository,
         private val launcherIconController: LauncherIconController,
         private val serviceStateStore: ServiceStateStore,
@@ -50,7 +50,7 @@ class SettingsViewModel
                 appSettingsRepository.settings,
                 serviceStateStore.telemetry,
                 hostAutolearnStoreRefresh,
-                rememberedNetworkPolicyStore.observePolicies(limit = 64),
+                rememberedPolicySource.observePolicies(limit = 64),
             ) { settings, telemetry, _, rememberedPolicies ->
                 settings.toUiState(
                     serviceStatus = telemetry.status,
@@ -83,7 +83,7 @@ class SettingsViewModel
             SettingsMaintenanceActions(
                 stringResolver = stringResolver,
                 hostAutolearnStoreController = hostAutolearnStoreController,
-                rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+                rememberedPolicySource = rememberedPolicySource,
                 hostPackCatalogRepository = hostPackCatalogRepository,
                 mutations = mutations,
                 hostAutolearnStoreRefresh = hostAutolearnStoreRefresh,

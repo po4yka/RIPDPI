@@ -20,8 +20,8 @@ class DiagnosticsSessionDetailUiFactoryTest {
                     historyDiagnosticsDetail("scan-1").copy(
                         results =
                             listOf(
-                                historyProbeResult(id = "probe-1", sessionId = "scan-1"),
-                                historyProbeResult(id = "probe-2", sessionId = "scan-1").copy(probeType = "http"),
+                                historyProbeResult(),
+                                historyProbeResult().copy(probeType = "http"),
                             ),
                     ),
                 showSensitiveDetails = true,

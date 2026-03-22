@@ -5,11 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
@@ -37,8 +37,8 @@ class DiagnosticsViewModel
         diagnosticsShareService: DiagnosticsShareService,
         diagnosticsResolverActions: DiagnosticsResolverActions,
         appSettingsRepository: AppSettingsRepository,
-        rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-        activeConnectionPolicyStore: ActiveConnectionPolicyStore,
+        rememberedPolicySource: DiagnosticsRememberedPolicySource,
+        activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource,
         serviceStateStore: ServiceStateStore,
         uiStateFactory: DiagnosticsUiStateFactory,
     ) : ViewModel() {
@@ -77,14 +77,14 @@ class DiagnosticsViewModel
         private val configData: StateFlow<ConfigSnapshot> =
             combine(
                 appSettingsRepository.settings,
-                rememberedNetworkPolicyStore.observePolicies(limit = 64),
+                rememberedPolicySource.observePolicies(limit = 64),
                 serviceStateStore.status,
-                activeConnectionPolicyStore.activePolicies,
+                activeConnectionPolicySource.activePolicies,
             ) { settings, rememberedPolicies, serviceStatus, activePolicies ->
                 val (_, activeMode) = serviceStatus
                 val connectionPolicy =
                     activePolicies[activeMode]
-                        ?: activePolicies.values.maxByOrNull(ActiveConnectionPolicy::appliedAt)
+                        ?: activePolicies.values.maxByOrNull(DiagnosticActiveConnectionPolicy::appliedAt)
                 ConfigSnapshot(settings, rememberedPolicies, connectionPolicy)
             }.stateIn(
                 viewModelScope,

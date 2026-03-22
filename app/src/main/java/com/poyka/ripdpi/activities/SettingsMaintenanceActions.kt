@@ -13,7 +13,7 @@ import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.applyCuratedHostPack
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.hosts.HostPackCatalogBuildException
 import com.poyka.ripdpi.hosts.HostPackCatalogParseException
@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.update
 internal class SettingsMaintenanceActions(
     private val stringResolver: StringResolver,
     private val hostAutolearnStoreController: HostAutolearnStoreController,
-    private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+    private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
     private val hostPackCatalogRepository: HostPackCatalogRepository,
     private val mutations: SettingsMutationRunner,
     private val hostAutolearnStoreRefresh: MutableStateFlow<Int>,
@@ -194,7 +194,7 @@ internal class SettingsMaintenanceActions(
 
     fun clearRememberedNetworks() {
         mutations.launch {
-            rememberedNetworkPolicyStore.clearAll()
+            rememberedPolicySource.clearAll()
             emit(
                 SettingsEffect.Notice(
                     title = stringResolver.getString(R.string.notice_remembered_networks_cleared_title),

@@ -16,6 +16,7 @@ internal object DiagnosticsSessionQueries {
         sessionId: String,
         scanRecordStore: DiagnosticsScanRecordStore,
         artifactReadStore: DiagnosticsArtifactReadStore,
+        mapper: DiagnosticsBoundaryMapper,
     ): DiagnosticSessionDetail =
         withContext(Dispatchers.IO) {
             val session =
@@ -34,11 +35,11 @@ internal object DiagnosticsSessionQueries {
             val events =
                 artifactReadStore.observeNativeEvents(limit = 500).first().filter { it.sessionId == sessionId }
             DiagnosticSessionDetail(
-                session = session,
-                results = results,
-                snapshots = snapshots,
-                events = events,
-                context = latestContext,
+                session = mapper.toDiagnosticScanSession(session),
+                results = results.map(mapper::toProbeResult),
+                snapshots = snapshots.map(mapper::toDiagnosticNetworkSnapshot),
+                events = events.map(mapper::toDiagnosticEvent),
+                context = latestContext?.let(mapper::toDiagnosticContextSnapshot),
             )
         }
 
@@ -47,6 +48,7 @@ internal object DiagnosticsSessionQueries {
         id: String,
         scanRecordStore: DiagnosticsScanRecordStore,
         bypassUsageHistoryStore: BypassUsageHistoryStore,
+        mapper: DiagnosticsBoundaryMapper,
         json: Json,
     ): BypassApproachDetail =
         withContext(Dispatchers.IO) {
@@ -108,8 +110,8 @@ internal object DiagnosticsSessionQueries {
             BypassApproachDetail(
                 summary = summary,
                 strategySignature = strategySignature,
-                recentValidatedSessions = matchingSessions.take(6),
-                recentUsageSessions = matchingUsageSessions.take(6),
+                recentValidatedSessions = matchingSessions.take(6).map(mapper::toDiagnosticScanSession),
+                recentUsageSessions = matchingUsageSessions.take(6).map(mapper::toDiagnosticConnectionSession),
                 commonProbeFailures = summary.topFailureOutcomes,
                 recentFailureNotes = failureNotes,
             )

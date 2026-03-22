@@ -19,6 +19,13 @@ import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
@@ -170,21 +177,14 @@ class StubDiagnosticsBootstrapper : DiagnosticsBootstrapper {
 class StubDiagnosticsTimelineSource : DiagnosticsTimelineSource {
     override val activeScanProgress =
         MutableStateFlow<com.poyka.ripdpi.diagnostics.ScanProgress?>(null)
-    override val profiles =
-        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>())
-    override val sessions =
-        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>())
+    override val profiles = MutableStateFlow(emptyList<DiagnosticProfile>())
+    override val sessions = MutableStateFlow(emptyList<DiagnosticScanSession>())
     override val approachStats = MutableStateFlow(emptyList<BypassApproachSummary>())
-    override val snapshots =
-        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>())
-    override val contexts =
-        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>())
-    override val telemetry =
-        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>())
-    override val nativeEvents =
-        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>())
-    override val exports =
-        MutableStateFlow(emptyList<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>())
+    override val snapshots = MutableStateFlow(emptyList<DiagnosticNetworkSnapshot>())
+    override val contexts = MutableStateFlow(emptyList<DiagnosticContextSnapshot>())
+    override val telemetry = MutableStateFlow(emptyList<DiagnosticTelemetrySample>())
+    override val nativeEvents = MutableStateFlow(emptyList<DiagnosticEvent>())
+    override val exports = MutableStateFlow(emptyList<DiagnosticExportRecord>())
 }
 
 class StubDiagnosticsScanController : DiagnosticsScanController {

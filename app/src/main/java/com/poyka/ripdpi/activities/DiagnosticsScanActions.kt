@@ -60,7 +60,7 @@ internal class DiagnosticsScanActions(
                     return@collect
                 }
                 val session =
-                    sessions.firstOrNull { it.id == pendingSessionId && it.reportJson != null }
+                    sessions.firstOrNull { it.id == pendingSessionId && it.report != null }
                         ?: return@collect
                 loadSessionDetail(session.id, false)
                 scanLifecycle.update { it.copy(pendingAutoOpenAuditSessionId = null) }
