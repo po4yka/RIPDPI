@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
@@ -8,6 +10,7 @@ import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.telephony.ServiceState
+import androidx.core.content.ContextCompat
 import android.telephony.TelephonyManager
 import dagger.Binds
 import dagger.Module
@@ -72,9 +75,9 @@ class AndroidNetworkMetadataProvider
         private val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
 
         override suspend fun captureSnapshot(includePublicIp: Boolean): NetworkSnapshotModel {
-            val network = connectivityManager.activeNetwork
-            val capabilities = connectivityManager.getNetworkCapabilities(network)
-            val linkProperties = connectivityManager.getLinkProperties(network)
+            val network = activeNetworkOrNull()
+            val capabilities = network?.let(connectivityManager::getNetworkCapabilities)
+            val linkProperties = network?.let(connectivityManager::getLinkProperties)
             val publicIpInfo = if (includePublicIp) publicIpInfoResolver.resolve() else null
 
             return NetworkSnapshotModel(
@@ -82,7 +85,7 @@ class AndroidNetworkMetadataProvider
                 capabilities = resolveCapabilities(capabilities),
                 dnsServers = linkProperties?.dnsServers?.map { it.hostAddress.orEmpty() }.orEmpty(),
                 privateDnsMode = resolvePrivateDnsMode(linkProperties),
-                mtu = linkProperties?.mtu?.takeIf { it > 0 },
+                mtu = resolveMtu(linkProperties),
                 localAddresses = resolveLocalAddresses(linkProperties),
                 publicIp = publicIpInfo?.ip,
                 publicAsn = publicIpInfo?.asn,
@@ -128,13 +131,32 @@ class AndroidNetworkMetadataProvider
             return values
         }
 
+        private fun activeNetworkOrNull() =
+            if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
+                connectivityManager.activeNetwork
+            } else {
+                null
+            }
+
         private fun resolvePrivateDnsMode(linkProperties: LinkProperties?): String {
-            val privateDnsServerName = linkProperties?.privateDnsServerName
+            val privateDnsServerName =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    linkProperties?.privateDnsServerName
+                } else {
+                    null
+                }
             return when {
                 privateDnsServerName.isNullOrBlank() -> "system"
                 else -> privateDnsServerName
             }
         }
+
+        private fun resolveMtu(linkProperties: LinkProperties?): Int? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                linkProperties?.mtu?.takeIf { it > 0 }
+            } else {
+                null
+            }
 
         private fun resolveLocalAddresses(linkProperties: LinkProperties?): List<String> =
             linkProperties?.linkAddresses?.map { it.address.hostAddress.orEmpty() }.orEmpty()
@@ -191,12 +213,24 @@ class AndroidNetworkMetadataProvider
                 return null
             }
             val telephony = telephonyManager ?: return CellularNetworkDetails()
-            val serviceState = runCatching { telephony.serviceState }.getOrNull()
-            val signalStrength = runCatching { telephony.signalStrength }.getOrNull()
+            val canReadPhoneState = hasPhoneStatePermission()
+            val canReadServiceState = hasServiceStatePermission()
+            val serviceState =
+                if (canReadServiceState) {
+                    runCatching { telephony.serviceState }.getOrNull()
+                } else {
+                    null
+                }
+            val signalStrength =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && canReadPhoneState) {
+                    runCatching { telephony.signalStrength }.getOrNull()
+                } else {
+                    null
+                }
             return CellularNetworkDetails(
                 carrierName =
                     sanitizeTelephonyValue(
-                        telephony.simCarrierIdName?.toString() ?: telephony.networkOperatorName,
+                        simCarrierNameOrNull(telephony) ?: telephony.networkOperatorName,
                     ),
                 simOperatorName = sanitizeTelephonyValue(telephony.simOperatorName),
                 networkOperatorName = sanitizeTelephonyValue(telephony.networkOperatorName),
@@ -204,17 +238,51 @@ class AndroidNetworkMetadataProvider
                 simCountryIso = sanitizeTelephonyValue(telephony.simCountryIso),
                 operatorCode = sanitizeTelephonyValue(telephony.networkOperator),
                 simOperatorCode = sanitizeTelephonyValue(telephony.simOperator),
-                dataNetworkType = describeMobileNetworkType(telephony.dataNetworkType),
-                voiceNetworkType = describeMobileNetworkType(telephony.voiceNetworkType),
+                dataNetworkType = describeMobileNetworkType(readDataNetworkType(telephony, canReadPhoneState)),
+                voiceNetworkType = describeMobileNetworkType(readVoiceNetworkType(telephony, canReadPhoneState)),
                 dataState = describeDataState(telephony.dataState),
                 serviceState = describeServiceState(serviceState),
                 isNetworkRoaming = runCatching { telephony.isNetworkRoaming }.getOrNull(),
                 carrierId = invokeInt(telephony, "getCarrierId")?.takeIf { it >= 0 },
                 simCarrierId = invokeInt(telephony, "getSimCarrierId")?.takeIf { it >= 0 },
                 signalLevel = signalStrength?.level,
-                signalDbm = signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm,
+                signalDbm = resolveSignalDbm(signalStrength),
             )
         }
+
+        private fun simCarrierNameOrNull(telephony: TelephonyManager): String? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                telephony.simCarrierIdName?.toString()
+            } else {
+                null
+            }
+
+        private fun readDataNetworkType(
+            telephony: TelephonyManager,
+            canReadPhoneState: Boolean,
+        ): Int =
+            if (canReadPhoneState) {
+                runCatching { telephony.dataNetworkType }.getOrDefault(TelephonyManager.NETWORK_TYPE_UNKNOWN)
+            } else {
+                TelephonyManager.NETWORK_TYPE_UNKNOWN
+            }
+
+        private fun readVoiceNetworkType(
+            telephony: TelephonyManager,
+            canReadPhoneState: Boolean,
+        ): Int =
+            if (canReadPhoneState) {
+                runCatching { telephony.voiceNetworkType }.getOrDefault(TelephonyManager.NETWORK_TYPE_UNKNOWN)
+            } else {
+                TelephonyManager.NETWORK_TYPE_UNKNOWN
+            }
+
+        private fun resolveSignalDbm(signalStrength: android.telephony.SignalStrength?): Int? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm
+            } else {
+                null
+            }
 
         private fun sanitizeWifiValue(value: String?): String {
             val normalized = value?.trim()?.removePrefix("\"")?.removeSuffix("\"")
@@ -273,6 +341,17 @@ class AndroidNetworkMetadataProvider
             target: Any,
             methodName: String,
         ): Int? = runCatching { target.javaClass.getMethod(methodName).invoke(target) as Int }.getOrNull()
+
+        private fun hasPhoneStatePermission(): Boolean =
+            hasPermission(Manifest.permission.READ_PHONE_STATE) ||
+                hasPermission("android.permission.READ_BASIC_PHONE_STATE")
+
+        private fun hasServiceStatePermission(): Boolean =
+            hasPermission(Manifest.permission.READ_PHONE_STATE) &&
+                hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+
+        private fun hasPermission(permission: String): Boolean =
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
         private fun describeMobileNetworkType(type: Int): String =
             when (type) {

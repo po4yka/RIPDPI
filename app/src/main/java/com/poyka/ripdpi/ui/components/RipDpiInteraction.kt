@@ -66,11 +66,7 @@ private fun View.performRipDpiHapticFeedback(feedback: RipDpiHapticFeedback) {
             }
 
             RipDpiHapticFeedback.Acknowledge -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    HapticFeedbackConstants.CONTEXT_CLICK
-                } else {
-                    HapticFeedbackConstants.VIRTUAL_KEY
-                }
+                HapticFeedbackConstants.CONTEXT_CLICK
             }
         }
     performHapticFeedback(platformFeedback)

@@ -11,32 +11,6 @@
         <item name="dark">dark</item>
     </array>
 
-    <array name="ripdpi_modes">
-        <item name="vpn">VPN</item>
-        <item name="proxy">Proxy</item>
-    </array>
-    <array name="ripdpi_modes_entries">
-        <item name="vpn">vpn</item>
-        <item name="proxy">proxy</item>
-    </array>
-
-    <array name="ripdpi_desync_methods">
-        <item name="none">None</item>
-        <item name="split">Split</item>
-        <item name="disorder">Disorder</item>
-        <item name="fake">Fake</item>
-        <item name="oob">Out-of-band</item>
-        <item name="oob">Disordered out-of-band</item>
-    </array>
-    <array name="ripdpi_desync_methods_entries">
-        <item name="none">none</item>
-        <item name="split">split</item>
-        <item name="disorder">disorder</item>
-        <item name="fake">fake</item>
-        <item name="oob">oob</item>
-        <item name="oob">disoob</item>
-    </array>
-
     <array name="ripdpi_hosts_modes">
         <item name="disable">Disable</item>
         <item name="blacklist">Blacklist</item>
@@ -57,17 +31,6 @@
         <item name="disabled">disabled</item>
         <item name="route">route</item>
         <item name="route_and_cache">route_and_cache</item>
-    </array>
-
-    <array name="quic_fake_profiles">
-        <item name="disabled">Off</item>
-        <item name="compat_default">Zapret compatibility</item>
-        <item name="realistic_initial">Realistic Initial</item>
-    </array>
-    <array name="quic_fake_profiles_entries">
-        <item name="disabled">disabled</item>
-        <item name="compat_default">compat_default</item>
-        <item name="realistic_initial">realistic_initial</item>
     </array>
 
     <array name="fake_tls_base_modes">

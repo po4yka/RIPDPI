@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -31,6 +30,8 @@ import java.io.File
 import java.io.IOException
 import java.util.Optional
 import javax.inject.Inject
+
+private const val PostNotificationsPermission = "android.permission.POST_NOTIFICATIONS"
 
 internal sealed interface MainActivityHostCommand {
     data object RequestNotificationsPermission : MainActivityHostCommand
@@ -120,7 +121,7 @@ internal class DefaultMainActivityHost
                 activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                     val shouldShowRationale =
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            activity.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
+                            activity.shouldShowRequestPermissionRationale(PostNotificationsPermission)
                         } else {
                             true
                         }
@@ -159,7 +160,9 @@ internal class DefaultMainActivityHost
             }
             when (command) {
                 MainActivityHostCommand.RequestNotificationsPermission -> {
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationPermissionLauncher.launch(PostNotificationsPermission)
+                    }
                 }
 
                 is MainActivityHostCommand.RequestVpnConsent -> {

@@ -75,9 +75,9 @@ fun DiagnosticsRoute(
     onShareSummary: (String, String) -> Unit,
     onSaveLogs: () -> Unit,
     onOpenHistory: () -> Unit,
+    modifier: Modifier = Modifier,
     initialSection: DiagnosticsSection? = null,
     onInitialSectionHandled: () -> Unit = {},
-    modifier: Modifier = Modifier,
     viewModel: DiagnosticsViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(viewModel) {
@@ -189,6 +189,7 @@ fun DiagnosticsRoute(
 fun DiagnosticsScreen(
     uiState: DiagnosticsUiState,
     pagerState: androidx.compose.foundation.pager.PagerState,
+    modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     onSelectSection: (DiagnosticsSection) -> Unit,
     onSelectProfile: (String) -> Unit,
@@ -220,7 +221,6 @@ fun DiagnosticsScreen(
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
     onOpenHistory: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
@@ -819,9 +819,9 @@ private fun ShareSection(
                 buttonLabel = stringResource(R.string.diagnostics_share_archive_action),
                 onClick = { onShareArchive(uiState.share.targetSessionId) },
                 iconTint = RipDpiThemeTokens.colors.foreground,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareArchive),
                 variant = RipDpiButtonVariant.Primary,
                 enabled = !uiState.share.isArchiveBusy,
-                buttonModifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareArchive),
             )
         }
         item {
@@ -835,9 +835,9 @@ private fun ShareSection(
                 buttonLabel = stringResource(R.string.diagnostics_save_archive_action),
                 onClick = { onSaveArchive(uiState.share.targetSessionId) },
                 iconTint = RipDpiThemeTokens.colors.info,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveArchive),
                 variant = RipDpiButtonVariant.Outline,
                 enabled = !uiState.share.isArchiveBusy,
-                buttonModifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveArchive),
             )
         }
         item {
@@ -847,8 +847,8 @@ private fun ShareSection(
                 buttonLabel = stringResource(R.string.diagnostics_share_summary_action),
                 onClick = { onShareSummary(uiState.share.targetSessionId) },
                 iconTint = RipDpiThemeTokens.colors.info,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareSummary),
                 variant = RipDpiButtonVariant.Outline,
-                buttonModifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareSummary),
             )
         }
         item {
@@ -858,8 +858,8 @@ private fun ShareSection(
                 buttonLabel = stringResource(R.string.save_logs),
                 onClick = onSaveLogs,
                 iconTint = RipDpiThemeTokens.colors.warning,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveLogs),
                 variant = RipDpiButtonVariant.Outline,
-                buttonModifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveLogs),
             )
         }
     }
