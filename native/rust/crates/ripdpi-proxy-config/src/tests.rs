@@ -1,5 +1,5 @@
 use ripdpi_config::{
-    AutoTtlConfig, DesyncMode, QuicFakeProfile, TcpChainStepKind, WsTunnelMode, FM_DUPSID, FM_ORIG,
+    AutoTtlConfig, DesyncMode, QuicFakeProfile, TcpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG,
     HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
@@ -508,6 +508,18 @@ fn ui_udp_only_strategy_keeps_delay_connect_disabled() {
     let config = runtime_config_from_ui(ui).expect("runtime config");
 
     assert!(!config.delay_conn);
+}
+
+#[test]
+fn actionable_ui_strategy_synthesizes_detect_connect_plain_fallback_group() {
+    let config = runtime_config_from_ui(minimal_ui()).expect("runtime config");
+
+    assert_eq!(config.groups.len(), 2);
+    assert_eq!(config.groups[0].detect, 0);
+    assert_eq!(config.groups[1].detect, DETECT_CONNECT);
+    assert!(config.groups[1].tcp_chain.is_empty());
+    assert!(config.groups[1].udp_chain.is_empty());
+    assert_eq!(config.groups[1].proto, 0);
 }
 
 // --- Validation edge-case tests ---
