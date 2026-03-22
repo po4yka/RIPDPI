@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
@@ -24,17 +25,111 @@ internal class DiagnosticsUiStateFactory
         private val support: DiagnosticsUiFactorySupport,
         private val sessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
     ) {
+        private var buildSequence = 0L
+
         fun buildUiState(input: DiagnosticsUiStateInput): DiagnosticsUiState {
-            val eventModels = input.nativeEvents.map(support::toEventUiModel)
+            var eventMappingDurationNs = 0L
+            var resolveDurationNs = 0L
+            var overviewDurationNs = 0L
+            var scanDurationNs = 0L
+            var liveDurationNs = 0L
+            var sessionsDurationNs = 0L
+            var approachesDurationNs = 0L
+            var eventsDurationNs = 0L
+            var shareDurationNs = 0L
+            val buildStartedAtNs = System.nanoTime()
+
+            val eventModels =
+                measureDuration(record = { duration ->
+                    eventMappingDurationNs = duration
+                }) {
+                    input.nativeEvents.map(support::toEventUiModel)
+                }
             val sessionRows = input.sessions.map(support::toSessionRowUiModel)
-            val resolvedInput = resolveUiInput(input, eventModels)
-            val eventsState = buildEventsState(input, eventModels)
-            return buildUiState(
-                input = input,
-                resolvedInput = resolvedInput,
-                sessionRows = sessionRows,
-                eventModels = eventModels,
-                eventsState = eventsState,
+            val resolvedInput =
+                measureDuration(record = { duration ->
+                    resolveDurationNs = duration
+                }) {
+                    resolveUiInput(input, eventModels)
+                }
+            val eventsState =
+                measureDuration(record = { duration ->
+                    eventsDurationNs = duration
+                }) {
+                    buildEventsState(input, eventModels)
+                }
+            val overview =
+                measureDuration(record = { duration ->
+                    overviewDurationNs = duration
+                }) {
+                    buildOverviewState(input, resolvedInput, sessionRows)
+                }
+            val scan =
+                measureDuration(record = { duration ->
+                    scanDurationNs = duration
+                }) {
+                    buildScanState(input, resolvedInput)
+                }
+            val live =
+                measureDuration(record = { duration ->
+                    liveDurationNs = duration
+                }) {
+                    buildLiveState(input, resolvedInput, eventModels)
+                }
+            val sessions =
+                measureDuration(record = { duration ->
+                    sessionsDurationNs = duration
+                }) {
+                    buildSessionsState(input, sessionRows)
+                }
+            val approaches =
+                measureDuration(record = { duration ->
+                    approachesDurationNs = duration
+                }) {
+                    buildApproachesState(input)
+                }
+            val share =
+                measureDuration(record = { duration ->
+                    shareDurationNs = duration
+                }) {
+                    buildShareState(input, resolvedInput)
+                }
+
+            return DiagnosticsUiState(
+                selectedSection = resolvedInput.selectedSection,
+                overview = overview,
+                scan = scan,
+                live = live,
+                sessions = sessions,
+                approaches = approaches,
+                events = eventsState.model,
+                share = share,
+                selectedSessionDetail = resolvedInput.sessionDetailWithVisibility,
+                selectedApproachDetail = input.selectedApproachDetail,
+                selectedEvent = eventsState.selectedEvent,
+                selectedProbe = input.selectedProbe,
+                selectedStrategyProbeCandidate = resolvedInput.selectedStrategyProbeCandidate,
+                performance =
+                    if (BuildConfig.DEBUG) {
+                        DiagnosticsPerformanceUiModel(
+                            buildSequence = ++buildSequence,
+                            totalDurationMillis = nanosToMillis(System.nanoTime() - buildStartedAtNs),
+                            eventMappingDurationMillis = nanosToMillis(eventMappingDurationNs),
+                            resolveDurationMillis = nanosToMillis(resolveDurationNs),
+                            overviewDurationMillis = nanosToMillis(overviewDurationNs),
+                            scanDurationMillis = nanosToMillis(scanDurationNs),
+                            liveDurationMillis = nanosToMillis(liveDurationNs),
+                            sessionsDurationMillis = nanosToMillis(sessionsDurationNs),
+                            approachesDurationMillis = nanosToMillis(approachesDurationNs),
+                            eventsDurationMillis = nanosToMillis(eventsDurationNs),
+                            shareDurationMillis = nanosToMillis(shareDurationNs),
+                            telemetryCount = input.telemetry.size,
+                            nativeEventCount = input.nativeEvents.size,
+                            sessionCount = input.sessions.size,
+                        )
+                    } else {
+                        null
+                    },
             )
         }
 
@@ -123,29 +218,6 @@ internal class DiagnosticsUiStateFactory
                     ),
             )
         }
-
-        private fun buildUiState(
-            input: DiagnosticsUiStateInput,
-            resolvedInput: ResolvedDiagnosticsUiInput,
-            sessionRows: List<DiagnosticsSessionRowUiModel>,
-            eventModels: List<DiagnosticsEventUiModel>,
-            eventsState: DiagnosticsEventsState,
-        ): DiagnosticsUiState =
-            DiagnosticsUiState(
-                selectedSection = resolvedInput.selectedSection,
-                overview = buildOverviewState(input, resolvedInput, sessionRows),
-                scan = buildScanState(input, resolvedInput),
-                live = buildLiveState(input, resolvedInput, eventModels),
-                sessions = buildSessionsState(input, sessionRows),
-                approaches = buildApproachesState(input),
-                events = eventsState.model,
-                share = buildShareState(input, resolvedInput),
-                selectedSessionDetail = resolvedInput.sessionDetailWithVisibility,
-                selectedApproachDetail = input.selectedApproachDetail,
-                selectedEvent = eventsState.selectedEvent,
-                selectedProbe = input.selectedProbe,
-                selectedStrategyProbeCandidate = resolvedInput.selectedStrategyProbeCandidate,
-            )
 
         private fun buildOverviewState(
             input: DiagnosticsUiStateInput,
@@ -297,6 +369,16 @@ internal class DiagnosticsUiStateFactory
                     serviceMode = this?.serviceMode,
                 )
             }
+
+        private inline fun <T> measureDuration(
+            record: (Long) -> Unit,
+            block: () -> T,
+        ): T {
+            val startedAt = System.nanoTime()
+            return block().also { record(System.nanoTime() - startedAt) }
+        }
+
+        private fun nanosToMillis(durationNs: Long): Double = durationNs / 1_000_000.0
     }
 
 private data class ResolvedDiagnosticsUiInput(
