@@ -13,7 +13,7 @@ use once_cell::sync::{Lazy, OnceCell};
 use tokio::runtime::Runtime;
 use tokio_util::sync::CancellationToken;
 
-use crate::config::{config_from_payload, mapdns_resolver_protocol, parse_tunnel_config_json};
+use crate::config::{config_from_payload, mapdns_resolver_protocol, parse_tunnel_config_json, to_hs5t_config};
 use crate::telemetry::TunnelTelemetryState;
 use crate::to_handle;
 
@@ -22,7 +22,7 @@ static SHARED_TUNNEL_RUNTIME: OnceCell<Arc<Runtime>> = OnceCell::new();
 
 pub(crate) struct TunnelSession {
     pub(crate) runtime: Arc<Runtime>,
-    pub(crate) config: Arc<hs5t_config::Config>,
+    pub(crate) config: Arc<ripdpi_tunnel_config::Config>,
     pub(crate) last_error: Arc<Mutex<Option<String>>>,
     pub(crate) telemetry: Arc<TunnelTelemetryState>,
     pub(crate) state: Mutex<TunnelSessionState>,
@@ -192,7 +192,8 @@ fn start_session(env: &mut JNIEnv, handle: jlong, tun_fd: jint) {
     let worker_stats = stats.clone();
     let worker = match std::thread::Builder::new().name("hs5t-worker".into()).spawn(move || {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            runtime.block_on(hs5t_core::run_tunnel(config, owned_fd, (*worker_cancel).clone(), worker_stats.clone()))
+            let hs5t_cfg = Arc::new(to_hs5t_config(&config));
+            runtime.block_on(hs5t_core::run_tunnel(hs5t_cfg, owned_fd, (*worker_cancel).clone(), worker_stats.clone()))
         }));
 
         match result {
