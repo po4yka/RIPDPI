@@ -280,6 +280,7 @@ class ScanFinalizationService
         private val resolverOverrideStore: ResolverOverrideStore,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
+        private val findingProjector: DiagnosticsFindingProjector,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
@@ -288,10 +289,25 @@ class ScanFinalizationService
             reportJson: String,
         ): com.poyka.ripdpi.diagnostics.domain.DerivedScanReport {
             val rawReport = json.decodeEngineScanReportWireCompat(reportJson)
+            val finalizedWire =
+                rawReport.copy(
+                    diagnoses =
+                        if (rawReport.observations.isNotEmpty()) {
+                            findingProjector.classify(rawReport.toLegacyScanReportCompat())
+                        } else {
+                            rawReport.diagnoses
+                        },
+                    classifierVersion =
+                        if (rawReport.observations.isNotEmpty()) {
+                            DiagnosticsFindingProjector.ClassifierVersion
+                        } else {
+                            rawReport.classifierVersion
+                        },
+                )
             val finalReport =
                 maybeApplyTemporaryResolverOverride(
                     DiagnosticsScanWorkflow.enrichScanReport(
-                        report = rawReport.toLegacyScanReportCompat(),
+                        report = finalizedWire.toLegacyScanReportCompat(),
                         settings = prepared.settings,
                         preferredDnsPath = prepared.preferredDnsPath,
                     ),

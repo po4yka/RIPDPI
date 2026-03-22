@@ -3,7 +3,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use ripdpi_failure_classifier::{classify_quic_probe, ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
 use crate::candidates::StrategyCandidateSpec;
-use crate::types::{Diagnosis, ProbeDetail, ProbeResult, ScanRequest};
+use crate::observations::observation_for_probe;
+use crate::types::{
+    Diagnosis, ObservationKind, ProbeObservation, ProbeDetail, ProbeResult, ScanRequest, StrategyProbeProtocol,
+    TransportFailureKind,
+};
 use crate::util::stable_probe_hash;
 
 pub(crate) const CONNECTIVITY_CLASSIFIER_VERSION: &str = "ru_ooni_v1";
@@ -51,39 +55,14 @@ pub(crate) fn classify_transport_failure_text(text: &str, stage: FailureStage) -
 }
 
 pub(crate) fn classify_strategy_probe_result(result: &ProbeResult) -> Option<ClassifiedFailure> {
-    match (result.probe_type.as_str(), result.outcome.as_str()) {
-        ("strategy_http", "http_blockpage") => Some(ClassifiedFailure::new(
-            FailureClass::HttpBlockpage,
-            FailureStage::HttpResponse,
-            FailureAction::RetryWithMatchingGroup,
-            "HTTP blockpage observed during baseline candidate",
-        )),
-        ("strategy_http", "http_unreachable") => failure_detail_value(result, "error")
-            .and_then(|value| classify_transport_failure_text(value, FailureStage::FirstResponse)),
-        ("strategy_https", "tls_handshake_failed") => {
-            let error = failure_detail_value(result, "tlsError").unwrap_or("tls_handshake_failed");
-            Some(classify_transport_failure_text(error, FailureStage::TlsHandshake).unwrap_or_else(|| {
-                ClassifiedFailure::new(
-                    FailureClass::TlsHandshakeFailure,
-                    FailureStage::TlsHandshake,
-                    FailureAction::RetryWithMatchingGroup,
-                    error,
-                )
-            }))
-        }
-        ("strategy_quic", outcome) => {
-            let error = failure_detail_value(result, "error").filter(|value| *value != "none");
-            classify_quic_probe(outcome, error)
-        }
-        _ => None,
-    }
+    observation_for_probe(result).as_ref().and_then(classify_strategy_probe_observation)
 }
 
 pub(crate) fn strategy_probe_failure_weight(result: &ProbeResult) -> usize {
-    match result.probe_type.as_str() {
+    observation_for_probe(result).as_ref().map(strategy_probe_observation_weight).unwrap_or_else(|| match result.probe_type.as_str() {
         "strategy_https" | "strategy_quic" => 2,
         _ => 1,
-    }
+    })
 }
 
 pub(crate) fn strategy_probe_failure_priority(class: FailureClass) -> usize {
@@ -99,12 +78,63 @@ pub(crate) fn strategy_probe_failure_priority(class: FailureClass) -> usize {
 }
 
 pub(crate) fn classify_strategy_probe_baseline_results(results: &[ProbeResult]) -> Option<ClassifiedFailure> {
+    classify_strategy_probe_baseline_observations(
+        &results.iter().filter_map(observation_for_probe).collect::<Vec<_>>(),
+    )
+}
+
+pub(crate) fn classify_strategy_probe_observation(observation: &ProbeObservation) -> Option<ClassifiedFailure> {
+    let strategy = observation.strategy.as_ref()?;
+    if observation.kind != ObservationKind::Strategy {
+        return None;
+    }
+    match strategy.protocol {
+        StrategyProbeProtocol::Http if observation.evidence.iter().any(|value| value == "http_blockpage") => {
+            Some(ClassifiedFailure::new(
+                FailureClass::HttpBlockpage,
+                FailureStage::HttpResponse,
+                FailureAction::RetryWithMatchingGroup,
+                "HTTP blockpage observed during baseline candidate",
+            ))
+        }
+        StrategyProbeProtocol::Http => {
+            classify_failure_from_transport(strategy.transport_failure.clone(), FailureStage::FirstResponse)
+        }
+        StrategyProbeProtocol::Https => Some(
+            classify_failure_from_transport(strategy.transport_failure.clone(), FailureStage::TlsHandshake)
+                .unwrap_or_else(|| {
+                    ClassifiedFailure::new(
+                        FailureClass::TlsHandshakeFailure,
+                        FailureStage::TlsHandshake,
+                        FailureAction::RetryWithMatchingGroup,
+                        "tls_handshake_failed",
+                    )
+                }),
+        ),
+        StrategyProbeProtocol::Quic => classify_quic_probe(
+            observation.evidence.first().map(String::as_str).unwrap_or("quic_error"),
+            quic_error_from_failure(strategy.transport_failure.clone()),
+        ),
+        _ => None,
+    }
+}
+
+pub(crate) fn strategy_probe_observation_weight(observation: &ProbeObservation) -> usize {
+    match observation.strategy.as_ref().map(|value| value.protocol.clone()) {
+        Some(StrategyProbeProtocol::Https | StrategyProbeProtocol::Quic) => 2,
+        _ => 1,
+    }
+}
+
+pub(crate) fn classify_strategy_probe_baseline_observations(
+    observations: &[ProbeObservation],
+) -> Option<ClassifiedFailure> {
     let mut aggregated = Vec::<(FailureClass, usize, ClassifiedFailure)>::new();
-    for result in results {
-        let Some(failure) = classify_strategy_probe_result(result) else {
+    for observation in observations {
+        let Some(failure) = classify_strategy_probe_observation(observation) else {
             continue;
         };
-        let weight = strategy_probe_failure_weight(result);
+        let weight = strategy_probe_observation_weight(observation);
         if let Some(entry) = aggregated.iter_mut().find(|entry| entry.0 == failure.class) {
             entry.1 += weight;
         } else {
@@ -115,6 +145,60 @@ pub(crate) fn classify_strategy_probe_baseline_results(results: &[ProbeResult]) 
         .into_iter()
         .max_by_key(|(class, weight, _)| (*weight, strategy_probe_failure_priority(*class)))
         .map(|(_, _, failure)| failure)
+}
+
+fn classify_failure_from_transport(
+    failure: TransportFailureKind,
+    stage: FailureStage,
+) -> Option<ClassifiedFailure> {
+    let evidence = match failure {
+        TransportFailureKind::Alert => "alert",
+        TransportFailureKind::Reset => "reset",
+        TransportFailureKind::Close => "close",
+        TransportFailureKind::Timeout => "timeout",
+        TransportFailureKind::Certificate => "certificate",
+        TransportFailureKind::Other => "other",
+        TransportFailureKind::None => return None,
+    };
+    match failure {
+        TransportFailureKind::Alert => Some(ClassifiedFailure::new(
+            FailureClass::TlsAlert,
+            stage,
+            FailureAction::RetryWithMatchingGroup,
+            evidence,
+        )),
+        TransportFailureKind::Reset | TransportFailureKind::Close => Some(ClassifiedFailure::new(
+            FailureClass::TcpReset,
+            stage,
+            FailureAction::RetryWithMatchingGroup,
+            evidence,
+        )),
+        TransportFailureKind::Timeout => Some(ClassifiedFailure::new(
+            FailureClass::SilentDrop,
+            stage,
+            FailureAction::RetryWithMatchingGroup,
+            evidence,
+        )),
+        TransportFailureKind::Certificate | TransportFailureKind::Other => Some(ClassifiedFailure::new(
+            FailureClass::TlsHandshakeFailure,
+            stage,
+            FailureAction::RetryWithMatchingGroup,
+            evidence,
+        )),
+        TransportFailureKind::None => None,
+    }
+}
+
+fn quic_error_from_failure(failure: TransportFailureKind) -> Option<&'static str> {
+    match failure {
+        TransportFailureKind::Timeout => Some("timeout"),
+        TransportFailureKind::Reset => Some("reset"),
+        TransportFailureKind::Close => Some("close"),
+        TransportFailureKind::Alert => Some("alert"),
+        TransportFailureKind::Certificate => Some("certificate"),
+        TransportFailureKind::Other => Some("error"),
+        TransportFailureKind::None => None,
+    }
 }
 
 pub(crate) fn classified_failure_probe_result(target: &str, failure: &ClassifiedFailure) -> ProbeResult {

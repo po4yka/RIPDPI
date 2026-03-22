@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
+import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
@@ -19,7 +20,7 @@ import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
 import kotlinx.serialization.Serializable
 
-const val DiagnosticsEngineSchemaVersion = 1
+const val DiagnosticsEngineSchemaVersion = 2
 
 @Serializable
 enum class EngineProbeTaskFamily {
@@ -87,6 +88,8 @@ data class EngineScanReportWire(
     val results: List<EngineProbeResultWire> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
+    val observations: List<ObservationFact> = emptyList(),
+    val engineAnalysisVersion: String? = null,
     val diagnoses: List<Diagnosis> = emptyList(),
     val classifierVersion: String? = null,
     val packVersions: Map<String, Int> = emptyMap(),

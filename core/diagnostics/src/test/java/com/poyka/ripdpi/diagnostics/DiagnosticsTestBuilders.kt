@@ -161,6 +161,7 @@ internal fun createDiagnosticsServices(
                     resolverOverrideStore = resolverOverrideStore,
                     rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
                     networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
+                    findingProjector = DiagnosticsFindingProjector(),
                     json = json,
                 ),
         )

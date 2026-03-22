@@ -147,6 +147,225 @@ data class Diagnosis(
 )
 
 @Serializable
+enum class ObservationKind {
+    DNS,
+    DOMAIN,
+    TCP,
+    QUIC,
+    SERVICE,
+    CIRCUMVENTION,
+    TELEGRAM,
+    THROUGHPUT,
+    STRATEGY,
+}
+
+@Serializable
+enum class TransportFailureKind {
+    NONE,
+    TIMEOUT,
+    RESET,
+    CLOSE,
+    ALERT,
+    CERTIFICATE,
+    OTHER,
+}
+
+@Serializable
+enum class DnsObservationStatus {
+    MATCH,
+    EXPECTED_MISMATCH,
+    SUBSTITUTION,
+    ENCRYPTED_BLOCKED,
+    UDP_BLOCKED,
+    UNAVAILABLE,
+}
+
+@Serializable
+enum class HttpProbeStatus {
+    OK,
+    BLOCKPAGE,
+    UNREACHABLE,
+    NOT_RUN,
+}
+
+@Serializable
+enum class TlsProbeStatus {
+    OK,
+    HANDSHAKE_FAILED,
+    VERSION_SPLIT,
+    CERT_INVALID,
+    NOT_RUN,
+}
+
+@Serializable
+enum class TcpProbeStatus {
+    OK,
+    CONNECT_FAILED,
+    BLOCKED_16KB,
+    WHITELIST_SNI_OK,
+    ERROR,
+}
+
+@Serializable
+enum class QuicProbeStatus {
+    INITIAL_RESPONSE,
+    RESPONSE,
+    EMPTY,
+    ERROR,
+    NOT_RUN,
+}
+
+@Serializable
+enum class EndpointProbeStatus {
+    OK,
+    FAILED,
+    BLOCKED,
+    NOT_RUN,
+}
+
+@Serializable
+enum class TelegramVerdict {
+    OK,
+    SLOW,
+    PARTIAL,
+    BLOCKED,
+    ERROR,
+}
+
+@Serializable
+enum class TelegramTransferStatus {
+    OK,
+    SLOW,
+    STALLED,
+    BLOCKED,
+    ERROR,
+}
+
+@Serializable
+enum class ThroughputProbeStatus {
+    MEASURED,
+    HTTP_UNREACHABLE,
+    INVALID_TARGET,
+}
+
+@Serializable
+enum class StrategyProbeProtocol {
+    HTTP,
+    HTTPS,
+    QUIC,
+    CANDIDATE,
+    BASELINE,
+}
+
+@Serializable
+enum class StrategyProbeStatus {
+    SUCCESS,
+    PARTIAL,
+    FAILED,
+    SKIPPED,
+    NOT_APPLICABLE,
+}
+
+@Serializable
+data class DnsObservationFact(
+    val domain: String,
+    val status: DnsObservationStatus,
+    val udpAddresses: List<String> = emptyList(),
+    val encryptedAddresses: List<String> = emptyList(),
+)
+
+@Serializable
+data class DomainObservationFact(
+    val host: String,
+    val httpStatus: HttpProbeStatus = HttpProbeStatus.NOT_RUN,
+    val tls13Status: TlsProbeStatus = TlsProbeStatus.NOT_RUN,
+    val tls12Status: TlsProbeStatus = TlsProbeStatus.NOT_RUN,
+    val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
+    val certificateAnomaly: Boolean = false,
+)
+
+@Serializable
+data class TcpObservationFact(
+    val provider: String,
+    val status: TcpProbeStatus,
+    val selectedSni: String? = null,
+    val bytesSent: Int? = null,
+    val responsesSeen: Int? = null,
+)
+
+@Serializable
+data class QuicObservationFact(
+    val host: String,
+    val status: QuicProbeStatus,
+    val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
+)
+
+@Serializable
+data class ServiceObservationFact(
+    val service: String,
+    val bootstrapStatus: HttpProbeStatus = HttpProbeStatus.NOT_RUN,
+    val mediaStatus: HttpProbeStatus = HttpProbeStatus.NOT_RUN,
+    val endpointStatus: EndpointProbeStatus = EndpointProbeStatus.NOT_RUN,
+    val endpointFailure: TransportFailureKind = TransportFailureKind.NONE,
+    val quicStatus: QuicProbeStatus = QuicProbeStatus.NOT_RUN,
+    val quicFailure: TransportFailureKind = TransportFailureKind.NONE,
+)
+
+@Serializable
+data class CircumventionObservationFact(
+    val tool: String,
+    val bootstrapStatus: HttpProbeStatus = HttpProbeStatus.NOT_RUN,
+    val handshakeStatus: EndpointProbeStatus = EndpointProbeStatus.NOT_RUN,
+    val handshakeFailure: TransportFailureKind = TransportFailureKind.NONE,
+)
+
+@Serializable
+data class TelegramObservationFact(
+    val verdict: TelegramVerdict,
+    val qualityScore: Int = 0,
+    val downloadStatus: TelegramTransferStatus = TelegramTransferStatus.ERROR,
+    val uploadStatus: TelegramTransferStatus = TelegramTransferStatus.ERROR,
+    val dcReachable: Int = 0,
+    val dcTotal: Int = 0,
+)
+
+@Serializable
+data class ThroughputObservationFact(
+    val label: String,
+    val status: ThroughputProbeStatus,
+    val isControl: Boolean = false,
+    val medianBps: Long = 0,
+    val sampleBps: List<Long> = emptyList(),
+    val windowBytes: Int = 0,
+)
+
+@Serializable
+data class StrategyObservationFact(
+    val candidateId: String? = null,
+    val candidateLabel: String? = null,
+    val candidateFamily: String? = null,
+    val protocol: StrategyProbeProtocol = StrategyProbeProtocol.CANDIDATE,
+    val status: StrategyProbeStatus = StrategyProbeStatus.FAILED,
+    val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
+)
+
+@Serializable
+data class ObservationFact(
+    val kind: ObservationKind,
+    val target: String,
+    val dns: DnsObservationFact? = null,
+    val domain: DomainObservationFact? = null,
+    val tcp: TcpObservationFact? = null,
+    val quic: QuicObservationFact? = null,
+    val service: ServiceObservationFact? = null,
+    val circumvention: CircumventionObservationFact? = null,
+    val telegram: TelegramObservationFact? = null,
+    val throughput: ThroughputObservationFact? = null,
+    val strategy: StrategyObservationFact? = null,
+    val evidence: List<String> = emptyList(),
+)
+
+@Serializable
 data class ScanRequest(
     val profileId: String,
     val displayName: String,
@@ -225,6 +444,8 @@ data class ScanReport(
     val results: List<ProbeResult> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
+    val observations: List<ObservationFact> = emptyList(),
+    val engineAnalysisVersion: String? = null,
     val diagnoses: List<Diagnosis> = emptyList(),
     val classifierVersion: String? = null,
     val packVersions: Map<String, Int> = emptyMap(),

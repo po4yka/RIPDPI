@@ -304,7 +304,7 @@ private fun executionCoordinatorFixtures(
     val activeScanRegistry = ActiveScanRegistry(timelineSource)
     val bridgeExecutionService =
         BridgeExecutionService(
-            networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(FakeNetworkDiagnosticsBridge(json)),
+            networkDiagnosticsBridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json),
             activeScanRegistry = activeScanRegistry,
         )
     val passiveEventPersistenceService = PassiveEventPersistenceService(stores, json)
@@ -320,6 +320,7 @@ private fun executionCoordinatorFixtures(
             resolverOverrideStore = resolverOverrideStore,
             rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
             networkDnsPathPreferenceStore = preferredPathStore,
+            findingProjector = DiagnosticsFindingProjector(),
             json = json,
         )
     return ExecutionCoordinatorFixtures(

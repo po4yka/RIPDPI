@@ -3,9 +3,11 @@ mod classification;
 mod connectivity;
 mod dns;
 mod domain;
+mod engine;
 mod execution;
 mod fat_header;
 mod http;
+mod observations;
 mod strategy;
 mod telegram;
 mod tls;
@@ -22,10 +24,9 @@ use rustls::client::danger::ServerCertVerifier;
 
 use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
 
-use connectivity::*;
+use engine::*;
 use strategy::*;
 use types::SharedState;
-use wire::{EngineProgressWire, EngineScanReportWire, EngineScanRequestWire};
 
 #[cfg(test)]
 use candidates::*;
@@ -51,14 +52,18 @@ use util::*;
 mod test_fixtures;
 
 pub use types::{
-    CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsTarget, DomainTarget, NativeSessionEvent, ProbeDetail,
-    ProbeResult, ProbeTask, ProbeTaskFamily, QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest,
-    ServiceTarget, StrategyProbeCandidateSummary, StrategyProbeRecommendation, StrategyProbeReport,
-    StrategyProbeRequest, TcpTarget, TelegramDcEndpoint, TelegramTarget, ThroughputTarget,
+    CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsObservationFact, DnsObservationStatus, DnsTarget,
+    DomainObservationFact, DomainTarget, EndpointProbeStatus, HttpProbeStatus, NativeSessionEvent, ObservationKind,
+    ProbeDetail, ProbeObservation, ProbeResult, ProbeTask, ProbeTaskFamily, QuicObservationFact, QuicProbeStatus,
+    QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest, ServiceObservationFact, ServiceTarget,
+    StrategyObservationFact, StrategyProbeCandidateSummary, StrategyProbeProtocol, StrategyProbeRecommendation,
+    StrategyProbeReport, StrategyProbeRequest, StrategyProbeStatus, TcpObservationFact, TcpProbeStatus, TcpTarget,
+    TelegramDcEndpoint, TelegramObservationFact, TelegramTarget, TelegramTransferStatus, TelegramVerdict,
+    ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget, TlsProbeStatus, TransportFailureKind,
 };
 pub use wire::{
-    EngineProbeResultWire, EngineProbeTaskFamily, EngineProbeTaskWire, EngineProgressWire, EngineScanReportWire,
-    EngineScanRequestWire, ResolverRecommendationWire, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
+    EngineObservationWire, EngineProbeResultWire, EngineProbeTaskFamily, EngineProbeTaskWire, EngineProgressWire,
+    EngineScanReportWire, EngineScanRequestWire, ResolverRecommendationWire, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
 };
 
 pub struct MonitorSession {
@@ -171,10 +176,7 @@ fn run_scan(
     request: ScanRequest,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
 ) {
-    match request.kind {
-        ScanKind::Connectivity => run_connectivity_scan(shared, cancel, session_id, request, tls_verifier),
-        ScanKind::StrategyProbe => run_strategy_probe_scan(shared, cancel, session_id, request, tls_verifier),
-    }
+    run_engine_scan(shared, cancel, session_id, request, tls_verifier)
 }
 
 fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> {
@@ -207,6 +209,7 @@ fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::connectivity::{run_dns_probe, run_domain_probe, run_tcp_probe};
     use crate::test_fixtures::*;
     use ripdpi_failure_classifier::FailureAction;
     use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyUiConfig};
@@ -416,8 +419,7 @@ mod tests {
     fn try_tls_handshake_forces_tls_on_non_default_https_port() {
         let server = TlsHttpServer::start(TlsMode::Single("localhost".to_string()), FatServerMode::AlwaysOk);
         let target = TargetAddress::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST));
-
-        let tls = try_tls_handshake(
+        let mut tls = try_tls_handshake(
             &target,
             server.port(),
             &TransportConfig::Direct,
@@ -426,6 +428,21 @@ mod tests {
             TlsClientProfile::Tls13Only,
             None,
         );
+        for _ in 0..4 {
+            if tls.status == "tls_ok" {
+                break;
+            }
+            thread::sleep(Duration::from_millis(25));
+            tls = try_tls_handshake(
+                &target,
+                server.port(),
+                &TransportConfig::Direct,
+                "localhost",
+                false,
+                TlsClientProfile::Tls13Only,
+                None,
+            );
+        }
 
         assert_eq!(tls.status, "tls_ok");
         assert!(tls.version.is_some());
@@ -513,7 +530,7 @@ mod tests {
         let mut request = strategy_probe_request(minimal_ui_config());
         request.strategy_probe.as_mut().expect("strategy probe").base_proxy_config_json = None;
 
-        let err = validate_scan_request(&request).expect_err("missing base config should fail");
+        let err = validate_scan_request(&request.into()).expect_err("missing base config should fail");
 
         assert_eq!(err, "strategy_probe scan requires baseProxyConfigJson");
     }
@@ -532,7 +549,7 @@ mod tests {
             ),
         });
 
-        let err = validate_scan_request(&request).expect_err("command line payload should fail");
+        let err = validate_scan_request(&request.into()).expect_err("command line payload should fail");
 
         assert_eq!(err, "strategy_probe scans only support UI proxy config");
     }

@@ -5,9 +5,13 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticsSummaryTextRenderer
 import com.poyka.ripdpi.diagnostics.ShareSummary
 import com.poyka.ripdpi.diagnostics.SummaryMetric
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsHighlight
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryDocument
+import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummarySection
 import java.util.Locale
 
 private const val ShareSessionIdPreviewLength = 8
@@ -24,15 +28,7 @@ internal fun DiagnosticsUiFactorySupport.buildSharePreview(
         nativeEvents.firstOrNull {
             it.level.equals("warn", ignoreCase = true) || it.level.equals("error", ignoreCase = true)
         }
-    val body =
-        buildSharePreviewBody(
-            latestSession = latestSession,
-            latestSnapshot = latestSnapshot,
-            latestContext = latestContext,
-            telemetry = telemetry,
-            latestReport = latestReport,
-            warningHeadline = warningHeadline,
-        )
+    val body = DiagnosticsSummaryTextRenderer.render(buildSharePreviewDocument(latestSession, latestSnapshot, latestContext, telemetry, latestReport, warningHeadline))
     return ShareSummary(
         title = context.getString(R.string.diagnostics_share_title),
         body = body.ifBlank { context.getString(R.string.diagnostics_share_no_session) },
@@ -40,23 +36,68 @@ internal fun DiagnosticsUiFactorySupport.buildSharePreview(
     )
 }
 
-private fun DiagnosticsUiFactorySupport.buildSharePreviewBody(
+private fun DiagnosticsUiFactorySupport.buildSharePreviewDocument(
     latestSession: DiagnosticScanSession?,
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     latestContext: DiagnosticContextModel?,
     telemetry: DiagnosticTelemetrySample?,
     latestReport: DiagnosticsSessionProjection?,
     warningHeadline: DiagnosticEvent?,
-): String =
-    buildString {
-        appendShareIntro(this)
-        latestSession?.let { appendShareSession(it) }
-        latestSnapshot?.let { appendShareNetwork(it) }
-        latestContext?.let { appendShareContext(it) }
-        telemetry?.let { appendShareTelemetry(it) }
-        latestReport?.let { appendShareReport(this, it) }
-        warningHeadline?.let { appendShareWarning(it) }
-    }.trim()
+): DiagnosticsSummaryDocument =
+    DiagnosticsSummaryDocument(
+        header =
+            DiagnosticsSummarySection(
+                title = "Header",
+                lines =
+                    stringLines {
+                        appendShareIntro(this)
+                        latestSession?.let { appendShareSession(it) }
+                    },
+            ),
+        reportMetadata =
+            DiagnosticsSummarySection(
+                title = "Report",
+                lines = latestReport?.let(::shareReportLines).orEmpty(),
+            ),
+        environment =
+            DiagnosticsSummarySection(
+                title = "Environment",
+                lines =
+                    stringLines {
+                        latestSnapshot?.let { appendShareNetwork(it) }
+                        latestContext?.let { appendShareContext(it) }
+                    },
+            ),
+        telemetry =
+            DiagnosticsSummarySection(
+                title = "Telemetry",
+                lines =
+                    stringLines {
+                        telemetry?.let { appendShareTelemetry(it) }
+                    },
+            ),
+        warnings =
+            DiagnosticsSummarySection(
+                title = "Warnings",
+                lines =
+                    stringLines {
+                        warningHeadline?.let { appendShareWarning(it) }
+                    },
+            ),
+        diagnoses = latestReport?.diagnoses.orEmpty(),
+        highlights =
+            latestReport?.diagnoses
+                ?.take(3)
+                ?.map { diagnosis -> DiagnosticsHighlight(title = diagnosis.code, summary = diagnosis.summary) }
+                .orEmpty(),
+        observations = latestReport?.observations.orEmpty(),
+        engineAnalysisVersion = latestReport?.engineAnalysisVersion,
+        classifierVersion = latestReport?.classifierVersion,
+        packVersions = latestReport?.packVersions.orEmpty(),
+    )
+
+private fun stringLines(block: StringBuilder.() -> Unit): List<String> =
+    buildString(block).lines().filter { it.isNotBlank() }
 
 private fun DiagnosticsUiFactorySupport.buildShareMetrics(
     latestSession: DiagnosticScanSession?,
@@ -104,39 +145,28 @@ private fun StringBuilder.appendShareTelemetry(telemetry: DiagnosticTelemetrySam
     appendLine("Live ${telemetry.connectionState.lowercase(Locale.US)} · ${telemetry.networkType}")
 }
 
-private fun DiagnosticsUiFactorySupport.appendShareReport(
-    builder: StringBuilder,
+private fun DiagnosticsUiFactorySupport.shareReportLines(
     report: DiagnosticsSessionProjection,
-) {
-    builder.appendLine("${report.results.size} probe results in the latest report")
-    if (report.diagnoses.isNotEmpty()) {
-        builder.appendLine("Diagnoses:")
-        report.diagnoses.take(4).forEach { diagnosis ->
-            builder.appendLine("  - ${diagnosis.code}: ${diagnosis.summary}")
+): List<String> =
+    buildList {
+        add("${report.results.size} probe results in the latest report")
+        report.engineAnalysisVersion?.let { add("Engine analysis: $it") }
+        report.classifierVersion?.let { add("Classifier: $it") }
+        if (report.packVersions.isNotEmpty()) {
+            add("Packs: ${report.packVersions.entries.joinToString(" · ") { (packId, version) -> "$packId@$version" }}")
+        }
+        report.results.firstOrNull { it.probeType == "telegram_availability" }?.let { result ->
+            val details = result.details.associate { it.key to it.value }
+            add("Telegram: ${details["verdict"] ?: result.outcome}")
+            details["downloadAvgBps"]?.toLongOrNull()?.let { bps ->
+                add("Download: ${formatBps(bps)} avg, ${formatBytes(details["downloadBytes"]?.toLongOrNull() ?: 0)}")
+            }
+            details["uploadAvgBps"]?.toLongOrNull()?.let { bps ->
+                add("Upload: ${formatBps(bps)} avg, ${formatBytes(details["uploadBytes"]?.toLongOrNull() ?: 0)}")
+            }
+            add("DCs: ${details["dcReachable"] ?: "?"}/${details["dcTotal"] ?: "?"} reachable")
         }
     }
-    report.classifierVersion?.let { builder.appendLine("Classifier: $it") }
-    if (report.packVersions.isNotEmpty()) {
-        builder.appendLine(
-            "Packs: ${report.packVersions.entries.joinToString(" · ") { (packId, version) -> "$packId@$version" }}",
-        )
-    }
-    report.results.firstOrNull { it.probeType == "telegram_availability" }?.let { result ->
-        val details = result.details.associate { it.key to it.value }
-        builder.appendLine("Telegram: ${details["verdict"] ?: result.outcome}")
-        details["downloadAvgBps"]?.toLongOrNull()?.let { bps ->
-            builder.appendLine(
-                "  Download: ${formatBps(bps)} avg, ${formatBytes(details["downloadBytes"]?.toLongOrNull() ?: 0)}",
-            )
-        }
-        details["uploadAvgBps"]?.toLongOrNull()?.let { bps ->
-            builder.appendLine(
-                "  Upload: ${formatBps(bps)} avg, ${formatBytes(details["uploadBytes"]?.toLongOrNull() ?: 0)}",
-            )
-        }
-        builder.appendLine("  DCs: ${details["dcReachable"] ?: "?"}/${details["dcTotal"] ?: "?"} reachable")
-    }
-}
 
 private fun StringBuilder.appendShareWarning(warningHeadline: DiagnosticEvent) {
     appendLine("Top warning: ${warningHeadline.message}")
