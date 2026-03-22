@@ -17,16 +17,60 @@ import com.poyka.ripdpi.diagnostics.ScanRequest
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 
-internal class DiagnosticsUiCoreSupport
+internal open class DiagnosticsUiFormatter
     @Inject
     constructor() {
+        open val locale: Locale = Locale.US
+        open val zoneId: ZoneId = ZoneId.systemDefault()
+
+        open fun formatTimestamp(timestamp: Long): String =
+            DateTimeFormatter
+                .ofPattern("MMM d, HH:mm", locale)
+                .withZone(zoneId)
+                .format(Instant.ofEpochMilli(timestamp))
+
+        open fun formatBytes(bytes: Long): String =
+            when {
+                bytes >= 1_000_000_000L -> String.format(locale, "%.1f GB", bytes / 1_000_000_000f)
+                bytes >= 1_000_000L -> String.format(locale, "%.1f MB", bytes / 1_000_000f)
+                bytes >= 1_000L -> String.format(locale, "%.1f KB", bytes / 1_000f)
+                else -> "$bytes B"
+            }
+
+        open fun formatBps(bps: Long): String =
+            when {
+                bps >= 1_000_000L -> String.format(locale, "%.1f Mbps", bps / 1_000_000.0)
+                bps >= 1_000L -> String.format(locale, "%.1f Kbps", bps / 1_000.0)
+                else -> "$bps Bps"
+            }
+
+        open fun formatDurationMs(durationMs: Long): String {
+            val totalSeconds = (durationMs / 1_000L).coerceAtLeast(0L)
+            val hours = totalSeconds / 3_600L
+            val minutes = (totalSeconds % 3_600L) / 60L
+            val seconds = totalSeconds % 60L
+            return when {
+                hours > 0L -> String.format(locale, "%dh %02dm", hours, minutes)
+                minutes > 0L -> String.format(locale, "%dm %02ds", minutes, seconds)
+                else -> "${seconds}s"
+            }
+        }
+    }
+
+internal class DiagnosticsUiCoreSupport
+    @Inject
+    constructor(
+        internal val formatter: DiagnosticsUiFormatter,
+    ) {
+        constructor() : this(DiagnosticsUiFormatter())
+
         val json: Json = Json { ignoreUnknownKeys = true }
-        val timestampFormatter: SimpleDateFormat = SimpleDateFormat("MMM d, HH:mm", Locale.US)
     }
 
 internal fun DiagnosticsUiCoreSupport.decodeReport(reportJson: String?): ScanReport? =
@@ -117,15 +161,15 @@ internal fun DiagnosticsUiCoreSupport.toEventUiModel(
 ): DiagnosticsEventUiModel =
     DiagnosticsEventUiModel(
         id = event.id,
-        source = event.source.replaceFirstChar { it.uppercase() },
-        severity = event.level.uppercase(Locale.US),
+        source = event.source.replaceFirstChar { it.uppercase(formatter.locale) },
+        severity = event.level.uppercase(formatter.locale),
         message = event.message,
         createdAtLabel = formatTimestamp(event.createdAt),
         tone = toneForOutcome(event.level),
     )
 
 internal fun DiagnosticsUiCoreSupport.toneForOutcome(value: String): DiagnosticsTone {
-    val normalized = value.lowercase(Locale.US)
+    val normalized = value.lowercase(formatter.locale)
     return when {
         normalized.contains("ok") || normalized.contains("success") || normalized.contains("completed") -> {
             DiagnosticsTone.Positive
@@ -161,34 +205,16 @@ internal fun DiagnosticsUiCoreSupport.parsePathMode(value: String): ScanPathMode
     runCatching { ScanPathMode.valueOf(value) }.getOrDefault(ScanPathMode.RAW_PATH)
 
 internal fun DiagnosticsUiCoreSupport.formatTimestamp(timestamp: Long): String =
-    timestampFormatter.format(Date(timestamp))
+    formatter.formatTimestamp(timestamp)
 
 internal fun DiagnosticsUiCoreSupport.formatBytes(bytes: Long): String =
-    when {
-        bytes >= 1_000_000_000L -> String.format(Locale.US, "%.1f GB", bytes / 1_000_000_000f)
-        bytes >= 1_000_000L -> String.format(Locale.US, "%.1f MB", bytes / 1_000_000f)
-        bytes >= 1_000L -> String.format(Locale.US, "%.1f KB", bytes / 1_000f)
-        else -> "$bytes B"
-    }
+    formatter.formatBytes(bytes)
 
 internal fun DiagnosticsUiCoreSupport.formatBps(bps: Long): String =
-    when {
-        bps >= 1_000_000L -> String.format(Locale.US, "%.1f Mbps", bps / 1_000_000.0)
-        bps >= 1_000L -> String.format(Locale.US, "%.1f Kbps", bps / 1_000.0)
-        else -> "$bps Bps"
-    }
+    formatter.formatBps(bps)
 
-internal fun DiagnosticsUiCoreSupport.formatDurationMs(durationMs: Long): String {
-    val totalSeconds = (durationMs / 1_000L).coerceAtLeast(0L)
-    val hours = totalSeconds / 3_600L
-    val minutes = (totalSeconds % 3_600L) / 60L
-    val seconds = totalSeconds % 60L
-    return when {
-        hours > 0L -> String.format(Locale.US, "%dh %02dm", hours, minutes)
-        minutes > 0L -> String.format(Locale.US, "%dm %02ds", minutes, seconds)
-        else -> "${seconds}s"
-    }
-}
+internal fun DiagnosticsUiCoreSupport.formatDurationMs(durationMs: Long): String =
+    formatter.formatDurationMs(durationMs)
 
 internal fun DiagnosticsUiCoreSupport.redactValue(value: String?): String =
     value?.let { "redacted" } ?: "Unknown"

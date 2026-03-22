@@ -11,7 +11,7 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -24,6 +24,7 @@ import java.security.MessageDigest
 @RunWith(RobolectricTestRunner::class)
 class AssetHostPackCatalogRepositoryTest {
     private lateinit var application: Application
+    private val refreshClock = HostPackCatalogClock { 1_710_000_000_000L }
 
     @Before
     fun setUp() {
@@ -38,6 +39,8 @@ class AssetHostPackCatalogRepositoryTest {
                 DefaultHostPackCatalogRepository(
                     context = application,
                     service = FakeHostPackCatalogDownloadService(),
+                    clock = refreshClock,
+                    tempFileFactory = hostPackTempFileFactory("host-pack-bundled.dat"),
                 )
 
             val snapshot = repository.loadSnapshot()
@@ -52,6 +55,7 @@ class AssetHostPackCatalogRepositoryTest {
         runTest {
             val geositeBytes = curatedGeositeBytes()
             val checksum = geositeBytes.sha256()
+            val tempFile = application.cacheDir.resolve("host-pack-refresh-success.dat")
             val repository =
                 DefaultHostPackCatalogRepository(
                     context = application,
@@ -60,6 +64,8 @@ class AssetHostPackCatalogRepositoryTest {
                             checksumPayload = "$checksum  geosite.dat\n",
                             geositePayload = geositeBytes,
                         ),
+                    clock = refreshClock,
+                    tempFileFactory = hostPackTempFileFactory(tempFile.name),
                 )
 
             val snapshot = repository.refreshSnapshot()
@@ -67,9 +73,10 @@ class AssetHostPackCatalogRepositoryTest {
 
             assertEquals(HostPackCatalogSourceDownloaded, snapshot.source)
             assertEquals(checksum, snapshot.verifiedChecksumSha256)
-            assertNotNull(snapshot.lastFetchedAtEpochMillis)
+            assertEquals(refreshClock.nowEpochMillis(), snapshot.lastFetchedAtEpochMillis)
             assertEquals(HostPackCatalogSourceDownloaded, reloaded.source)
             assertEquals(checksum, reloaded.verifiedChecksumSha256)
+            assertFalse(tempFile.exists())
             assertEquals(
                 HostPackCatalogRemoteSourceUrl,
                 reloaded.packs
@@ -94,6 +101,7 @@ class AssetHostPackCatalogRepositoryTest {
     @Test
     fun `refresh keeps current snapshot when checksum verification fails`() =
         runTest {
+            val tempFile = application.cacheDir.resolve("host-pack-refresh-failed.dat")
             val repository =
                 DefaultHostPackCatalogRepository(
                     context = application,
@@ -103,6 +111,8 @@ class AssetHostPackCatalogRepositoryTest {
                                 "96b19c3ec2011e4e5ec87dd54b3c209f1e0efaa36fe8b5dd275129b032a01438  geosite.dat\n",
                             geositePayload = curatedGeositeBytes(),
                         ),
+                    clock = refreshClock,
+                    tempFileFactory = hostPackTempFileFactory(tempFile.name),
                 )
 
             runCatching { repository.refreshSnapshot() }
@@ -115,6 +125,7 @@ class AssetHostPackCatalogRepositoryTest {
 
             assertEquals(HostPackCatalogSourceBundled, fallbackSnapshot.source)
             assertTrue(fallbackSnapshot.lastFetchedAtEpochMillis == null)
+            assertFalse(tempFile.exists())
         }
 
     private class FakeHostPackCatalogDownloadService(
@@ -127,6 +138,14 @@ class AssetHostPackCatalogRepositoryTest {
         override suspend fun downloadChecksum() =
             Response.success(checksumPayload.toResponseBody("text/plain".toMediaType()))
     }
+
+    private fun hostPackTempFileFactory(fileName: String): HostPackCatalogTempFileFactory =
+        HostPackCatalogTempFileFactory { cacheDir ->
+            cacheDir.resolve(fileName).apply {
+                parentFile?.mkdirs()
+                delete()
+            }
+        }
 }
 
 private fun curatedGeositeBytes(): ByteArray =
