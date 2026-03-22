@@ -23,13 +23,13 @@ use tokio::io::{AsyncRead, AsyncWriteExt, Interest, ReadBuf};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
 
-use hs5t_config::Config;
-use hs5t_dns_cache::DnsCache;
-use hs5t_session::{Auth, TargetAddr, TcpSession, UdpSession};
+use crate::dns_cache::DnsCache;
+use crate::session::{Auth, TargetAddr, TcpSession, UdpSession};
 use ripdpi_dns_resolver::{
     EncryptedDnsEndpoint, EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol,
     EncryptedDnsResolver, EncryptedDnsTransport,
 };
+use ripdpi_tunnel_config::Config;
 
 use crate::classify::classify_ip_packet;
 use crate::{ActiveSessions, IpClass, SessionEntry, Stats, TunDevice};
@@ -641,7 +641,7 @@ fn handle_udp_event(
             }
         }
         UdpEvent::Closed { src, association_id } => {
-            if udp_associations.get(&src).map(|association| association.id == association_id).unwrap_or(false) {
+            if udp_associations.get(&src).is_some_and(|association| association.id == association_id) {
                 udp_associations.remove(&src);
             }
         }
@@ -846,7 +846,7 @@ pub async fn io_loop_task(
                                                 try_write_tun_packet(tun, &stats, &raw, "dns-servfail");
                                             }
                                             Err(err) => {
-                                                debug!("failed to synthesize unavailable-worker SERVFAIL: {err}")
+                                                debug!("failed to synthesize unavailable-worker SERVFAIL: {err}");
                                             }
                                         }
                                     }
@@ -874,6 +874,7 @@ pub async fn io_loop_task(
                 IpClass::Udp { src, dst, payload } => {
                     let resolved_dst = resolve_mapped_target(&stats, &mut dns_cache, dst);
 
+                    #[allow(clippy::map_entry)] // async creation prevents entry API
                     if !udp_associations.contains_key(&src) {
                         let association_id = next_udp_association_id;
                         next_udp_association_id = next_udp_association_id.wrapping_add(1);
@@ -977,7 +978,7 @@ pub async fn io_loop_task(
 
         // ── Phase 2.5: GC stale pending LISTEN sockets ──────────────────────
         loop_iteration = loop_iteration.wrapping_add(1);
-        if loop_iteration % PENDING_LISTEN_GC_INTERVAL == 0 {
+        if loop_iteration.is_multiple_of(PENDING_LISTEN_GC_INTERVAL) {
             let now = StdInstant::now();
             pending_listens.retain(|port, (handle, created_at)| {
                 if now.duration_since(*created_at) > PENDING_LISTEN_TIMEOUT {
@@ -1013,7 +1014,10 @@ pub async fn io_loop_task(
             // Spawn a TcpSession for each newly active socket (Decision C).
             for (handle, remote_addr) in new_sessions {
                 // Remove the LISTEN tracking entry for this port.
-                let port = socket_set.get_mut::<TcpSocket>(handle).local_endpoint().map(|e| e.port).unwrap_or(0);
+                let port = socket_set
+                    .get_mut::<TcpSocket>(handle)
+                    .local_endpoint()
+                    .map_or(0, |e| e.port);
                 pending_listens.remove(&port);
 
                 let resolved_remote = resolve_mapped_target(&stats, &mut dns_cache, remote_addr);
@@ -1144,8 +1148,9 @@ pub async fn io_loop_task(
         // ── Phase 6: wait for next event ──────────────────────────────────────
         let smol_delay = iface
             .poll_delay(Instant::now(), &socket_set)
-            .map(|d| Duration::from_micros(d.total_micros()))
-            .unwrap_or(Duration::from_millis(DEFAULT_POLL_DELAY_MS));
+            .map_or(Duration::from_millis(DEFAULT_POLL_DELAY_MS), |d| {
+                Duration::from_micros(d.total_micros())
+            });
 
         // Drain any UDP response packets that arrived between loop iterations.
         while let Ok(event) = udp_rx.try_recv() {

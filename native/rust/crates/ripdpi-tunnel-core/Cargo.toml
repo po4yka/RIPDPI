@@ -1,0 +1,28 @@
+[package]
+name = "ripdpi-tunnel-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-tunnel-config = { workspace = true }
+ripdpi-tun-driver = { workspace = true }
+ripdpi-dns-resolver = { workspace = true }
+smoltcp = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+nix = { workspace = true }
+hickory-proto = { workspace = true }
+lru = { workspace = true }
+fast-socks5 = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }
+tokio-test = "0.4"
+proptest = { workspace = true }
