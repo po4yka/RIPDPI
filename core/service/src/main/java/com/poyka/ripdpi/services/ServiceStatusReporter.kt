@@ -59,6 +59,13 @@ internal class ServiceStatusReporter(
                 -> AppStatus.Halted
             }
 
+        if (newStatus == ServiceStatus.Failed) {
+            serviceStateStore.emitFailed(
+                sender,
+                failureReason ?: FailureReason.Unexpected(IllegalStateException("Unknown failure")),
+            )
+        }
+
         serviceStateStore.setStatus(appStatus, mode)
         serviceStateStore.updateTelemetry(
             ServiceTelemetrySnapshot(
@@ -82,13 +89,6 @@ internal class ServiceStatusReporter(
                 updatedAt = clock.nowMillis(),
             ),
         )
-
-        if (newStatus == ServiceStatus.Failed) {
-            serviceStateStore.emitFailed(
-                sender,
-                failureReason ?: FailureReason.Unexpected(IllegalStateException("Unknown failure")),
-            )
-        }
     }
 
     fun reportTelemetry(
