@@ -1,0 +1,38 @@
+use std::io;
+
+/// Protect a socket from being routed through the Android VPN tunnel.
+///
+/// On Android, VPN apps must "protect" outgoing sockets so traffic does not
+/// loop back through the TUN interface. This sends the socket FD to the Java
+/// VpnService via a Unix socket at `path`, which calls `VpnService.protect()`.
+#[cfg(target_os = "linux")]
+pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
+    use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags};
+    use std::io::IoSlice;
+    use std::io::Read;
+    use std::os::unix::net::UnixStream;
+    use std::time::Duration;
+
+    let stream = UnixStream::connect(path)?;
+    stream.set_read_timeout(Some(Duration::from_secs(1)))?;
+    stream.set_write_timeout(Some(Duration::from_secs(1)))?;
+
+    let payload = [b'1'];
+    let iov = [IoSlice::new(&payload)];
+    let fd = socket.as_raw_fd();
+    let cmsg = [ControlMessage::ScmRights(&[fd])];
+    sendmsg::<()>(stream.as_raw_fd(), &iov, &cmsg, MsgFlags::empty(), None)
+        .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+
+    let mut ack = [0u8; 1];
+    (&stream).read_exact(&mut ack)?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn protect_socket<T>(_socket: &T, _path: &str) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "socket protection is only supported on Linux/Android",
+    ))
+}

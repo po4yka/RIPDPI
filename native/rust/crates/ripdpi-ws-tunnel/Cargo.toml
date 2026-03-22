@@ -1,0 +1,18 @@
+[package]
+name = "ripdpi-ws-tunnel"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+aes = { workspace = true }
+ctr = "0.9"
+cipher = "0.4"
+log = { workspace = true }
+tungstenite = { version = "0.24", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { workspace = true }
+
+[lints]
+workspace = true

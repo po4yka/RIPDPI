@@ -10,10 +10,18 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class DiagnosticsExecutionPolicyProjection(
+    val manualOnly: Boolean = false,
+    val allowBackground: Boolean = false,
+    val requiresRawPath: Boolean = false,
+)
+
+@Serializable
 data class DiagnosticsProfileProjection(
     val kind: ScanKind,
     val family: DiagnosticProfileFamily,
     val regionTag: String? = null,
+    val executionPolicy: DiagnosticsExecutionPolicyProjection = DiagnosticsExecutionPolicyProjection(),
     val manualOnly: Boolean = false,
     val packRefs: List<String> = emptyList(),
     val strategyProbeSuiteId: String? = null,

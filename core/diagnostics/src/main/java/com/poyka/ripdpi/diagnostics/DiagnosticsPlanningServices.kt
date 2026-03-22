@@ -63,7 +63,7 @@ internal class DefaultDiagnosticsIntentResolver
             val profile = requireNotNull(profileCatalog.getProfile(profileId)) { "Unknown diagnostics profile: $profileId" }
             val settings = appSettingsRepository.snapshot()
             val spec = json.decodeProfileSpecWireCompat(profile.requestJson)
-            val requiresRawPath = spec.kind == ScanKind.STRATEGY_PROBE
+            val executionPolicy = spec.executionPolicyOrCompat()
             return DiagnosticsIntent(
                 profileId = spec.profileId,
                 displayName = spec.displayName,
@@ -73,9 +73,9 @@ internal class DefaultDiagnosticsIntentResolver
                 regionTag = spec.regionTag,
                 executionPolicy =
                     ExecutionPolicy(
-                        manualOnly = spec.manualOnly,
-                        allowBackground = !spec.manualOnly && requiresRawPath,
-                        requiresRawPath = requiresRawPath,
+                        manualOnly = executionPolicy.manualOnly,
+                        allowBackground = executionPolicy.allowBackground,
+                        requiresRawPath = executionPolicy.requiresRawPath,
                     ),
                 packRefs = spec.packRefs,
                 domainTargets = spec.domainTargets,
@@ -114,9 +114,15 @@ internal class DefaultScanContextCollector
                     ?.let { fingerprintHash -> networkDnsPathPreferenceStore.getPreferredPath(fingerprintHash) }
             val contextSnapshot = diagnosticsContextProvider.captureContext()
             val profile = profileCatalog.getProfile(intent.profileId)
+            val pathMode =
+                if (intent.executionPolicy.requiresRawPath) {
+                    ScanPathMode.RAW_PATH
+                } else {
+                    intent.requestedPathMode
+                }
             return ScanContext(
                 settings = intent.settings,
-                pathMode = intent.requestedPathMode,
+                pathMode = pathMode,
                 networkFingerprint = networkFingerprint,
                 preferredDnsPath = preferredDnsPath,
                 networkSnapshot = nativeNetworkSnapshotProvider.capture(),

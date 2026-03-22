@@ -26,7 +26,13 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
         strategyProbeSuiteId = request?.strategyProbeSuiteId,
         family = request?.family ?: com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.GENERAL,
         regionTag = request?.regionTag,
-        manualOnly = request?.manualOnly == true,
+        executionPolicy =
+            DiagnosticsExecutionPolicyUiModel(
+                manualOnly = request?.executionPolicy?.manualOnly == true,
+                allowBackground = request?.executionPolicy?.allowBackground == true,
+                requiresRawPath = request?.executionPolicy?.requiresRawPath == true,
+            ),
+        manualOnly = request?.executionPolicy?.manualOnly == true,
         packRefs = request?.packRefs.orEmpty(),
     )
 }

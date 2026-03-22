@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 2,
+  "profileId": "automatic-probing",
+  "displayName": "Automatic probing",
+  "pathMode": "RAW_PATH",
+  "kind": "STRATEGY_PROBE",
+  "family": "AUTOMATIC_PROBING",
+  "packRefs": [
+    "ru-control@1"
+  ],
+  "proxyHost": null,
+  "proxyPort": null,
+  "probeTasks": [
+    {
+      "family": "WEB",
+      "targetId": "www.youtube.com",
+      "label": "www.youtube.com"
+    }
+  ],
+  "domainTargets": [
+    {
+      "host": "www.youtube.com"
+    }
+  ],
+  "dnsTargets": [],
+  "tcpTargets": [],
+  "quicTargets": [
+    {
+      "host": "www.youtube.com",
+      "port": 443
+    }
+  ],
+  "serviceTargets": [],
+  "circumventionTargets": [],
+  "throughputTargets": [],
+  "whitelistSni": [],
+  "strategyProbe": {
+    "suiteId": "quick_v1"
+  }
+}

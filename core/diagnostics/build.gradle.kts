@@ -1,6 +1,7 @@
 import com.android.build.api.dsl.LibraryExtension
 
 plugins {
+    id("ripdpi.diagnostics.catalog")
     id("ripdpi.android.coverage")
     id("ripdpi.android.library")
     id("ripdpi.android.hilt")

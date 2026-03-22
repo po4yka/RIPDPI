@@ -394,11 +394,7 @@ pub(crate) fn build_quic_candidate(base_tcp: &ProxyUiConfig, enabled: bool, prof
     let mut config = sanitize_current_probe_config(base_tcp);
     config.protocols.desync_udp = enabled;
     config.chains.udp_steps = if enabled {
-        vec![ProxyUiUdpChainStep {
-            kind: "fake_burst".to_string(),
-            count: 4,
-            activation_filter: None,
-        }]
+        vec![ProxyUiUdpChainStep { kind: "fake_burst".to_string(), count: 4, activation_filter: None }]
     } else {
         Vec::new()
     };
