@@ -1874,7 +1874,6 @@ dependencies = [
  "android-support",
  "ciadpi-config",
  "ciadpi-desync",
- "ciadpi-packets",
  "golden-test-support",
  "jni",
  "libc",
@@ -1885,6 +1884,7 @@ dependencies = [
  "proptest",
  "ripdpi-failure-classifier",
  "ripdpi-monitor",
+ "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime",
  "ripdpi-session",
@@ -1929,7 +1929,6 @@ name = "ripdpi-monitor"
 version = "0.1.0"
 dependencies = [
  "ciadpi-config",
- "ciadpi-packets",
  "golden-test-support",
  "local-network-fixture",
  "loom",
@@ -1937,6 +1936,7 @@ dependencies = [
  "rcgen",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
+ "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime",
  "ripdpi-ws-tunnel",
@@ -1947,12 +1947,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-packets"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "aes-gcm",
+ "hkdf",
+ "proptest",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "ripdpi-proxy-config"
 version = "0.1.0"
 dependencies = [
  "ciadpi-config",
  "ciadpi-packets",
  "proptest",
+ "ripdpi-packets",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -1977,6 +1990,7 @@ dependencies = [
  "nix",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
+ "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-session",
  "ripdpi-ws-tunnel",
@@ -1991,7 +2005,7 @@ dependencies = [
 name = "ripdpi-session"
 version = "0.1.0"
 dependencies = [
- "ciadpi-packets",
+ "ripdpi-packets",
 ]
 
 [[package]]
