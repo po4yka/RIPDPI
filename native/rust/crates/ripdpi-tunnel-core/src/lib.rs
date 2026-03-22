@@ -1,3 +1,9 @@
+mod dns_cache;
+#[allow(dead_code)]
+mod ring_buffer;
+#[allow(dead_code)]
+pub(crate) mod session;
+
 pub mod classify;
 pub mod device;
 pub mod io_loop;

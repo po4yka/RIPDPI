@@ -4,7 +4,6 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
 
 workspace_manifest="$repo_root/native/rust/Cargo.toml"
-hev_manifest="$repo_root/native/rust/third_party/hev-socks5-tunnel/Cargo.toml"
 export RIPDPI_GOLDEN_ARTIFACT_DIR="${RIPDPI_GOLDEN_ARTIFACT_DIR:-$repo_root/native/rust/target/golden-diffs}"
 
 echo "==> rustfmt"
@@ -46,9 +45,6 @@ cargo nextest run --manifest-path "$workspace_manifest" -p local-network-fixture
 cargo nextest run --manifest-path "$workspace_manifest" -p hs5t-android "${NEXTEST_ARGS[@]}"
 cargo nextest run --manifest-path "$workspace_manifest" -p ripdpi-android "${NEXTEST_ARGS[@]}"
 cargo nextest run --manifest-path "$workspace_manifest" --workspace "${NEXTEST_ARGS[@]}"
-
-echo "==> tests (hev-socks5-tunnel)"
-cargo nextest run --manifest-path "$hev_manifest" --workspace "${NEXTEST_ARGS[@]}"
 
 echo "==> tests (ignored / smoke)"
 cargo nextest run --manifest-path "$workspace_manifest" -p hs5t-android -E 'test(startup_latency_smoke)' --run-ignored ignored-only --no-capture "${NEXTEST_ARGS[@]}"

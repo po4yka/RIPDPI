@@ -4,7 +4,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 
-use crate::socks5::{Auth, TargetAddr};
+use super::socks5::{Auth, TargetAddr};
 
 /// High-level TCP session: connect to SOCKS5 proxy, perform handshake,
 /// issue CONNECT to the target, then bidirectionally relay bytes until
@@ -32,8 +32,8 @@ impl TcpSession {
         L: AsyncRead + AsyncWrite + Unpin,
     {
         let mut proxy = TcpStream::connect(self.proxy_addr).await?;
-        crate::socks5::handshake(&mut proxy, &self.auth).await?;
-        crate::socks5::connect(&mut proxy, &self.target).await?;
+        super::socks5::handshake(&mut proxy, &self.auth).await?;
+        super::socks5::connect(&mut proxy, &self.target).await?;
         tokio::select! {
             result = splice(local, &mut proxy) => result.map(|_| ()),
             _ = cancel.cancelled() => Ok(()),

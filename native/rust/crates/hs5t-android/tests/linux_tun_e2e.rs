@@ -8,10 +8,10 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use hs5t_config::{Config, MapDnsConfig, MiscConfig, Socks5Config, TunnelConfig};
-use hs5t_core::{run_tunnel, Stats};
-use ripdpi_tun_driver::{LinuxTunnel, TunnelDriver};
 use local_network_fixture::{FixtureConfig, FixtureStack};
+use ripdpi_tun_driver::{LinuxTunnel, TunnelDriver};
+use ripdpi_tunnel_config::{Config, MapDnsConfig, MiscConfig, Socks5Config, TunnelConfig};
+use ripdpi_tunnel_core::{run_tunnel, Stats};
 use tokio_util::sync::CancellationToken;
 
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();

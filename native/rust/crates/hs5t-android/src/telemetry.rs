@@ -2,8 +2,8 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 
-use hs5t_core::DnsStatsSnapshot;
 use ripdpi_telemetry::{LatencyDistributions, LatencyHistogram};
+use ripdpi_tunnel_core::DnsStatsSnapshot;
 use serde::Serialize;
 
 pub(crate) const MAX_TUNNEL_EVENTS: usize = 128;

@@ -7,7 +7,7 @@ use tokio::net::{TcpStream, UdpSocket};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
-use crate::socks5::{associate, decode_udp_frame, encode_udp_frame, handshake, Auth};
+use super::socks5::{associate, decode_udp_frame, encode_udp_frame, handshake, Auth};
 
 /// Default timeout waiting for a UDP response from the relay.
 const DEFAULT_RECV_TIMEOUT: Duration = Duration::from_secs(10);
