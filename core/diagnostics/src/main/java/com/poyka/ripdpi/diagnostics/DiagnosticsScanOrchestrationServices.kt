@@ -41,6 +41,8 @@ class ScanAdmissionService
         private val appSettingsRepository: com.poyka.ripdpi.data.AppSettingsRepository,
         private val profileCatalog: DiagnosticsProfileCatalog,
         private val activeScanRegistry: ActiveScanRegistry,
+        @param:Named("diagnosticsJson")
+        private val json: Json,
     ) {
         private companion object {
             const val AutomaticProbeProfileId = "automatic-probing"
@@ -63,7 +65,9 @@ class ScanAdmissionService
             if (activeScanRegistry.hasActiveScan()) {
                 return null
             }
-            return profileCatalog.getProfile(AutomaticProbeProfileId)
+            val profile = profileCatalog.getProfile(AutomaticProbeProfileId) ?: return null
+            val request = json.decodeProfileSpecWireCompat(profile.requestJson)
+            return profile.takeIf { request.executionPolicyOrCompat().allowBackground }
         }
 
         suspend fun assertProfileExists(profileId: String) {

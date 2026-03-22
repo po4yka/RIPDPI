@@ -2,7 +2,11 @@ package com.poyka.ripdpi.diagnostics
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.builtins.ListSerializer
+import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticProfileWire
+import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
+import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsPackWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
+import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -90,20 +94,32 @@ class DiagnosticsBootstrapperTest {
 
     private fun sampleBundledProfilesJson(): String =
         json.encodeToString(
-            ListSerializer(BundledDiagnosticProfile.serializer()),
-            listOf(
-                BundledDiagnosticProfile(
-                    id = "default",
-                    name = "Default",
-                    version = 3,
-                    request =
-                        ScanRequest(
-                            profileId = "default",
-                            displayName = "Default",
-                            pathMode = ScanPathMode.RAW_PATH,
-                            domainTargets = listOf(DomainTarget(host = "example.org")),
+            BundledDiagnosticsCatalogWire.serializer(),
+            BundledDiagnosticsCatalogWire(
+                schemaVersion = 2,
+                generatedAt = "2026-03-22",
+                packs = listOf(BundledDiagnosticsPackWire(id = "default-pack", version = 3)),
+                profiles =
+                    listOf(
+                        BundledDiagnosticProfileWire(
+                            id = "default",
+                            name = "Default",
+                            version = 3,
+                            request =
+                                ProfileSpecWire(
+                                    profileId = "default",
+                                    displayName = "Default",
+                                    executionPolicy =
+                                        ProfileExecutionPolicyWire(
+                                            manualOnly = false,
+                                            allowBackground = false,
+                                            requiresRawPath = false,
+                                        ),
+                                    packRefs = listOf("default-pack@3"),
+                                    domainTargets = listOf(DomainTarget(host = "example.org")),
+                                ),
                         ),
-                ),
+                    ),
             ),
         )
 }

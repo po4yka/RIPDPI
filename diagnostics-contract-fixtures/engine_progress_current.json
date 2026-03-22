@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 2,
+  "sessionId": "session-1",
+  "phase": "dns",
+  "completedSteps": 1,
+  "totalSteps": 4,
+  "message": "DNS probe running",
+  "isFinished": false,
+  "latestProbeTarget": "meduza.io",
+  "latestProbeOutcome": "substitution"
+}
