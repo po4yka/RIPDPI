@@ -12,7 +12,7 @@
 - встроенной диагностикой и пассивной telemetry
 - in-repository Rust native modules
 
-RIPDPI локально запускает SOCKS5-прокси на основе [ByeDPI](https://github.com/hufrea/byedpi). В VPN mode Android-трафик перенаправляется в этот локальный прокси через локальный TUN-to-SOCKS bridge на основе [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel).
+RIPDPI локально запускает SOCKS5-прокси из встроенных Rust-модулей. В VPN mode Android-трафик перенаправляется в этот локальный прокси через локальный TUN-to-SOCKS bridge.
 
 ## Диагностика
 
@@ -44,7 +44,7 @@ RIPDPI локально запускает SOCKS5-прокси на основе
 
 ## Настройки
 
-RIPDPI сохраняет совместимость с legacy ByeDPI CLI, но Android UI теперь покрывает заметно более широкий typed strategy surface, чем исходный command-line путь.
+Android UI покрывает широкий typed strategy surface за пределами command-line пути.
 
 ## Расширенные стратегии
 
@@ -83,7 +83,6 @@ RIPDPI сохраняет совместимость с legacy ByeDPI CLI, но 
 - [Proxy engine и текущая native strategy surface](docs/native/byedpi.md)
 - [TUN-to-SOCKS native bridge](docs/native/hev-socks5-tunnel.md)
 - [Тесты, E2E, golden contracts и soak coverage](docs/testing.md)
-- [Анализ внешних проектов и идеи для развития](docs/external-projects-analysis.md)
 
 ## Сборка
 

@@ -81,7 +81,7 @@ Service startup and live restarts now resolve connection policy through one Kotl
 
 ## Current Proxy Strategy Surface
 
-The local proxy runtime is no longer limited to a small set of legacy ByeDPI toggles. The in-repo Rust stack currently exposes:
+The in-repo Rust stack currently exposes:
 
 - semantic marker offsets such as `host`, `endhost`, `midsld`, `method`, `extlen`, and `sniext`
 - adaptive `auto(...)` split markers backed by `TCP_INFO` hints (`snd_mss`, `advmss`, `pmtu`)
