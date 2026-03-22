@@ -4,7 +4,6 @@ import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.buildEncryptedDnsCandidatePlan
 
-@Suppress("ComplexCondition")
 internal object ConnectivityDnsTargetPlanner {
     fun expandTargets(
         targets: List<DnsTarget>,
@@ -13,13 +12,7 @@ internal object ConnectivityDnsTargetPlanner {
     ): List<DnsTarget> {
         val plan = buildEncryptedDnsCandidatePlan(activeDns = activeDns, preferredPath = preferredPath)
         return targets.flatMap { target ->
-            if (
-                target.encryptedResolverId != null ||
-                target.encryptedProtocol != null ||
-                target.encryptedHost != null ||
-                target.encryptedDohUrl != null ||
-                target.encryptedBootstrapIps.isNotEmpty()
-            ) {
+            if (target.hasExplicitEncryptedConfig()) {
                 listOf(target)
             } else {
                 plan.map { candidate ->
@@ -39,3 +32,10 @@ internal object ConnectivityDnsTargetPlanner {
         }
     }
 }
+
+private fun DnsTarget.hasExplicitEncryptedConfig(): Boolean =
+    encryptedResolverId != null ||
+        encryptedProtocol != null ||
+        encryptedHost != null ||
+        encryptedDohUrl != null ||
+        encryptedBootstrapIps.isNotEmpty()

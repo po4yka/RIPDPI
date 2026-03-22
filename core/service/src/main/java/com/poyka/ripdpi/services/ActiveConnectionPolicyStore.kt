@@ -29,7 +29,6 @@ class DefaultActiveConnectionPolicyStore
     private constructor(
         serviceRuntimeRegistry: ServiceRuntimeRegistry,
         scope: CoroutineScope,
-        @Suppress("UNUSED_PARAMETER")
         constructorToken: Any,
     ) : ActiveConnectionPolicyStore {
         companion object {
@@ -44,6 +43,12 @@ class DefaultActiveConnectionPolicyStore
                     scope = scope,
                     constructorToken = ConstructionToken,
                 )
+        }
+
+        init {
+            require(constructorToken === ConstructionToken) {
+                "Use the injected constructor or createForTests() factory."
+            }
         }
 
         @Inject

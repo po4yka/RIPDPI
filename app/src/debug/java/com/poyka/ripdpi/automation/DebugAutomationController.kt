@@ -252,16 +252,12 @@ class DebugAutomationController
                     }
                 }.build()
 
-        @Suppress("DEPRECATION")
         private fun instrumentationArgs(): Map<String, Any?> =
             runCatching {
-                InstrumentationRegistry
-                    .getArguments()
-                    .keySet()
-                    .associateWith { key -> InstrumentationRegistry.getArguments().get(key) }
+                val arguments = InstrumentationRegistry.getArguments()
+                arguments.keySet().associateWith(arguments::getString)
             }.getOrDefault(emptyMap())
 
-        @Suppress("DEPRECATION")
         private fun intentArgs(intent: Intent?): Map<String, Any?> =
             intent
                 ?.let { source ->
