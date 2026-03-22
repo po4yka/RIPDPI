@@ -96,13 +96,13 @@ private class EmptyRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
     override suspend fun upsertObservedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: String,
-        now: Long?,
+        observedAt: Long?,
     ): RememberedNetworkPolicyEntity = error("EmptyRememberedNetworkPolicyStore does not support persistence")
 
     override suspend fun rememberValidatedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: String,
-        now: Long?,
+        validatedAt: Long?,
     ): RememberedNetworkPolicyEntity = error("EmptyRememberedNetworkPolicyStore does not support persistence")
 
     override suspend fun recordApplied(

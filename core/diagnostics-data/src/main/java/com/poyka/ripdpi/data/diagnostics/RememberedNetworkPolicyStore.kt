@@ -31,13 +31,13 @@ interface RememberedNetworkPolicyStore {
     suspend fun upsertObservedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: String = RememberedNetworkPolicySourceManualSession,
-        now: Long? = null,
+        observedAt: Long? = null,
     ): RememberedNetworkPolicyEntity
 
     suspend fun rememberValidatedPolicy(
         policy: RememberedNetworkPolicyJson,
         source: String,
-        now: Long? = null,
+        validatedAt: Long? = null,
     ): RememberedNetworkPolicyEntity
 
     suspend fun recordApplied(
@@ -90,7 +90,7 @@ class DefaultRememberedNetworkPolicyStore
         override suspend fun upsertObservedPolicy(
             policy: RememberedNetworkPolicyJson,
             source: String,
-            now: Long?,
+            observedAt: Long?,
         ): RememberedNetworkPolicyEntity =
             upsertInternal(
                 existing =
@@ -102,15 +102,15 @@ class DefaultRememberedNetworkPolicyStore
                 source = source,
                 status = RememberedNetworkPolicyStatusObserved,
                 validatedAt = null,
-                now = now ?: clock.now(),
+                now = observedAt ?: clock.now(),
             )
 
         override suspend fun rememberValidatedPolicy(
             policy: RememberedNetworkPolicyJson,
             source: String,
-            now: Long?,
+            validatedAt: Long?,
         ): RememberedNetworkPolicyEntity {
-            val effectiveNow = now ?: clock.now()
+            val effectiveValidatedAt = validatedAt ?: clock.now()
             return upsertInternal(
                 existing =
                 recordStore.getRememberedNetworkPolicy(
@@ -120,8 +120,8 @@ class DefaultRememberedNetworkPolicyStore
                 policy = policy,
                 source = source,
                 status = RememberedNetworkPolicyStatusValidated,
-                validatedAt = effectiveNow,
-                now = effectiveNow,
+                validatedAt = effectiveValidatedAt,
+                now = effectiveValidatedAt,
             )
         }
 
