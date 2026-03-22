@@ -19,7 +19,7 @@ internal class DiagnosticsSessionDetailUiFactory
             detail: DiagnosticSessionDetail,
             showSensitiveDetails: Boolean,
         ): DiagnosticsSessionDetailUiModel {
-            val report = detail.session.reportJson?.let(support::decodeReport)
+            val report = detail.session.report
             val probeGroups =
                 detail.results
                     .mapIndexed(support::toProbeResultUiModel)
@@ -43,7 +43,7 @@ internal class DiagnosticsSessionDetailUiFactory
                 events = detail.events.map(support::toEventUiModel),
                 contextGroups =
                     detail.context
-                        ?.let(support::decodeContext)
+                        ?.context
                         ?.let { context -> support.toContextUiGroups(context, showSensitiveDetails) }
                         .orEmpty(),
                 strategyProbeReport =

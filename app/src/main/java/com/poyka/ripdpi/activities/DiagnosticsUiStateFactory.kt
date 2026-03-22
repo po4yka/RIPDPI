@@ -1,16 +1,16 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.proto.AppSettings
 import javax.inject.Inject
@@ -22,18 +22,18 @@ internal class DiagnosticsUiStateFactory
         private val sessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
     ) {
         fun buildUiState(
-            profiles: List<DiagnosticProfileEntity>,
+            profiles: List<DiagnosticProfile>,
             settings: AppSettings,
             progress: ScanProgress?,
-            sessions: List<ScanSessionEntity>,
+            sessions: List<DiagnosticScanSession>,
             approachStats: List<BypassApproachSummary>,
-            snapshots: List<NetworkSnapshotEntity>,
-            contexts: List<DiagnosticContextEntity>,
-            telemetry: List<TelemetrySampleEntity>,
-            nativeEvents: List<NativeSessionEventEntity>,
-            exports: List<ExportRecordEntity>,
-            rememberedPolicies: List<RememberedNetworkPolicyEntity>,
-            activeConnectionPolicy: ActiveConnectionPolicy?,
+            snapshots: List<DiagnosticNetworkSnapshot>,
+            contexts: List<DiagnosticContextSnapshot>,
+            telemetry: List<DiagnosticTelemetrySample>,
+            nativeEvents: List<DiagnosticEvent>,
+            exports: List<DiagnosticExportRecord>,
+            rememberedPolicies: List<DiagnosticsRememberedPolicy>,
+            activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
             selectedSectionRequest: DiagnosticsSection,
             selectedProfileId: String?,
             selectedApproachMode: DiagnosticsApproachMode,
@@ -55,23 +55,23 @@ internal class DiagnosticsUiStateFactory
             completedProbes: List<CompletedProbeUiModel> = emptyList(),
         ): DiagnosticsUiState {
             val activeProfile = profiles.firstOrNull { it.id == selectedProfileId } ?: profiles.firstOrNull()
-            val activeProfileRequest = activeProfile?.let(support::decodeRequest)
+            val activeProfileRequest = activeProfile?.request
             val selectedProfileUi = activeProfile?.let(support::toProfileOptionUiModel)
 
             val latestSnapshot =
                 snapshots.firstOrNull()?.let { support.toNetworkSnapshotUiModel(it, showSensitiveDetails = false) }
             val latestContext =
-                (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.let(support::decodeContext)
+                (contexts.firstOrNull { it.sessionId == null } ?: contexts.firstOrNull())?.context
             val eventModels = nativeEvents.map(support::toEventUiModel)
             val sessionRows = sessions.map(support::toSessionRowUiModel)
 
-            val latestCompletedSession = sessions.firstOrNull { it.reportJson != null } ?: sessions.firstOrNull()
+            val latestCompletedSession = sessions.firstOrNull { it.report != null } ?: sessions.firstOrNull()
             val latestProfileSession =
-                sessions.firstOrNull { it.profileId == activeProfile?.id && it.reportJson != null }
+                sessions.firstOrNull { it.profileId == activeProfile?.id && it.report != null }
                     ?: sessions.firstOrNull { it.profileId == activeProfile?.id }
                     ?: latestCompletedSession
-            val latestProfileReport = latestProfileSession?.reportJson?.let(support::decodeReport)
-            val latestReport = latestCompletedSession?.reportJson?.let(support::decodeReport)
+            val latestProfileReport = latestProfileSession?.report
+            val latestReport = latestCompletedSession?.report
             val latestReportResults = latestProfileReport?.results?.mapIndexed(support::toProbeResultUiModel).orEmpty()
             val latestResolverRecommendation =
                 latestProfileReport?.resolverRecommendation?.let(support::toResolverRecommendationUiModel)

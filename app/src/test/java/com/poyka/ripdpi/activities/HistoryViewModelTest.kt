@@ -25,30 +25,30 @@ class HistoryViewModelTest {
     @Test
     fun `initializer runs once and timeline emissions rebuild ui state`() =
         runTest {
-            val timeline = FakeHistoryTimelineDataSource().apply {
+            val timeline = FakeDiagnosticsHistorySource().apply {
                 connectionSessions.value = listOf(historyConnectionSession(id = "connection-1"))
                 diagnosticsSessions.value = listOf(historyScanSession(id = "scan-1"))
                 nativeEvents.value = emptyList()
             }
             val detailLoader = FakeHistoryDetailLoader()
-            val initializer = RecordingHistoryInitializer()
+            val diagnosticsBootstrapper = FakeHistoryDiagnosticsBootstrapper()
             val viewModel =
                 HistoryViewModel(
-                    historyTimelineDataSource = timeline,
+                    diagnosticsHistorySource = timeline,
                     historyDetailLoader = detailLoader,
-                    historyInitializer = initializer,
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
                     historyUiStateFactory = uiStateFactory,
                 )
 
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            assertEquals(0, initializer.calls)
+            assertEquals(0, diagnosticsBootstrapper.initializeCalls)
             viewModel.initialize()
             viewModel.initialize()
             advanceUntilIdle()
 
-            assertEquals(1, initializer.calls)
+            assertEquals(1, diagnosticsBootstrapper.initializeCalls)
             assertEquals(listOf("connection-1"), viewModel.uiState.value.connections.sessions.map { it.id })
             assertEquals(listOf("scan-1"), viewModel.uiState.value.diagnostics.sessions.map { it.id })
 
@@ -62,7 +62,7 @@ class HistoryViewModelTest {
     @Test
     fun `selecting history details uses the injected loader`() =
         runTest {
-            val timeline = FakeHistoryTimelineDataSource().apply {
+            val timeline = FakeDiagnosticsHistorySource().apply {
                 connectionSessions.value = listOf(historyConnectionSession(id = "connection-1"))
                 diagnosticsSessions.value = listOf(historyScanSession(id = "scan-1"))
             }
@@ -73,9 +73,9 @@ class HistoryViewModelTest {
                 }
             val viewModel =
                 HistoryViewModel(
-                    historyTimelineDataSource = timeline,
+                    diagnosticsHistorySource = timeline,
                     historyDetailLoader = detailLoader,
-                    historyInitializer = RecordingHistoryInitializer(),
+                    diagnosticsBootstrapper = FakeHistoryDiagnosticsBootstrapper(),
                     historyUiStateFactory = uiStateFactory,
                 )
 

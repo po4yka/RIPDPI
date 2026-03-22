@@ -3,9 +3,16 @@ package com.poyka.ripdpi.activities
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 
 internal const val StrategyProbeSuiteQuickV1 = "quick_v1"
@@ -462,11 +469,11 @@ internal data class ScanLifecycleState(
 // -- Intermediate snapshot data classes for layered combine architecture --
 
 internal data class LiveDataSnapshot(
-    val telemetry: List<com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity>,
-    val nativeEvents: List<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>,
+    val telemetry: List<DiagnosticTelemetrySample>,
+    val nativeEvents: List<DiagnosticEvent>,
     val progress: com.poyka.ripdpi.diagnostics.ScanProgress?,
-    val snapshots: List<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>,
-    val contexts: List<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>,
+    val snapshots: List<DiagnosticNetworkSnapshot>,
+    val contexts: List<DiagnosticContextSnapshot>,
 ) {
     companion object {
         val EMPTY = LiveDataSnapshot(
@@ -480,10 +487,10 @@ internal data class LiveDataSnapshot(
 }
 
 internal data class ScanDataSnapshot(
-    val profiles: List<com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity>,
-    val sessions: List<com.poyka.ripdpi.data.diagnostics.ScanSessionEntity>,
+    val profiles: List<DiagnosticProfile>,
+    val sessions: List<DiagnosticScanSession>,
     val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
-    val exports: List<com.poyka.ripdpi.data.diagnostics.ExportRecordEntity>,
+    val exports: List<DiagnosticExportRecord>,
 ) {
     companion object {
         val EMPTY = ScanDataSnapshot(
@@ -497,8 +504,8 @@ internal data class ScanDataSnapshot(
 
 internal data class ConfigSnapshot(
     val settings: com.poyka.ripdpi.proto.AppSettings,
-    val rememberedPolicies: List<com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity>,
-    val activeConnectionPolicy: com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy?,
+    val rememberedPolicies: List<DiagnosticsRememberedPolicy>,
+    val activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
 )
 
 internal data class UiControlState(

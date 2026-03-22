@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 
 internal data class HistoryConnectionFilterState(
     val modeFilter: String? = null,
@@ -30,7 +30,7 @@ internal data class HistoryDetailState(
 )
 
 internal data class HistoryRepositorySnapshot(
-    val connectionSessions: List<BypassUsageSessionEntity> = emptyList(),
-    val scanSessions: List<ScanSessionEntity> = emptyList(),
-    val nativeEvents: List<NativeSessionEventEntity> = emptyList(),
+    val connectionSessions: List<DiagnosticConnectionSession> = emptyList(),
+    val scanSessions: List<DiagnosticScanSession> = emptyList(),
+    val nativeEvents: List<DiagnosticEvent> = emptyList(),
 )

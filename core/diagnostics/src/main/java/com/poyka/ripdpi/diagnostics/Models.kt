@@ -2,6 +2,8 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 
 @Serializable
 enum class ScanPathMode {
@@ -128,7 +130,23 @@ data class ProbeResult(
     val outcome: String,
     val details: List<ProbeDetail> = emptyList(),
     val probeRetryCount: Int? = null,
-)
+) {
+    constructor(
+        id: String,
+        sessionId: String,
+        probeType: String,
+        target: String,
+        outcome: String,
+        detailJson: String,
+        createdAt: Long,
+    ) : this(
+        probeType = probeType,
+        target = target,
+        outcome = outcome,
+        details = decodeProbeDetailsCompat(detailJson),
+        probeRetryCount = null,
+    )
+}
 
 @Serializable
 data class ScanReport(
@@ -361,11 +379,11 @@ data class SummaryMetric(
 )
 
 data class DiagnosticSessionDetail(
-    val session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
-    val results: List<com.poyka.ripdpi.data.diagnostics.ProbeResultEntity>,
-    val snapshots: List<com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity>,
-    val events: List<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>,
-    val context: com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity?,
+    val session: DiagnosticScanSession,
+    val results: List<ProbeResult>,
+    val snapshots: List<DiagnosticNetworkSnapshot>,
+    val events: List<DiagnosticEvent>,
+    val context: DiagnosticContextSnapshot?,
 )
 
 data class ShareSummary(
@@ -398,3 +416,18 @@ fun deriveProbeRetryCount(details: List<ProbeDetail>): Int? {
 
 fun ProbeResult.withDerivedProbeRetryCount(): ProbeResult =
     copy(probeRetryCount = probeRetryCount ?: deriveProbeRetryCount(details))
+
+private val modelsCompatibilityJson =
+    Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+        explicitNulls = false
+    }
+
+private fun decodeProbeDetailsCompat(payload: String): List<ProbeDetail> =
+    runCatching {
+        modelsCompatibilityJson.decodeFromString(
+            ListSerializer(ProbeDetail.serializer()),
+            payload,
+        )
+    }.getOrElse { emptyList() }

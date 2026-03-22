@@ -1,35 +1,20 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
-import com.poyka.ripdpi.data.diagnostics.decodeSummary
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import java.util.Locale
 import com.poyka.ripdpi.data.displayLabel as displayNetworkLabel
 import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
 
-internal fun DiagnosticsUiFactorySupport.decodeReport(reportJson: String?): com.poyka.ripdpi.diagnostics.ScanReport? =
-    core.decodeReport(reportJson)
-
-internal fun DiagnosticsUiFactorySupport.decodeRequest(profile: DiagnosticProfileEntity) =
-    core.decodeRequest(profile)
-
-internal fun DiagnosticsUiFactorySupport.decodeProbeDetails(detailJson: String) =
-    core.decodeProbeDetails(detailJson)
-
-internal fun DiagnosticsUiFactorySupport.decodeStrategySignature(payload: String?) =
-    core.decodeStrategySignature(payload)
-
-internal fun DiagnosticsUiFactorySupport.decodeContext(entity: com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity) =
-    core.decodeContext(entity)
-
 internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
-    profile: DiagnosticProfileEntity,
+    profile: DiagnosticProfile,
 ): DiagnosticsProfileOptionUiModel {
-    val request = decodeRequest(profile)
+    val request = profile.request
     return DiagnosticsProfileOptionUiModel(
         id = profile.id,
         name = profile.name,
@@ -40,13 +25,8 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
 }
 
 internal fun DiagnosticsUiFactorySupport.toSessionRowUiModel(
-    session: com.poyka.ripdpi.data.diagnostics.ScanSessionEntity,
+    session: com.poyka.ripdpi.diagnostics.DiagnosticScanSession,
 ): DiagnosticsSessionRowUiModel = core.toSessionRowUiModel(session)
-
-internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
-    index: Int,
-    result: com.poyka.ripdpi.data.diagnostics.ProbeResultEntity,
-): DiagnosticsProbeResultUiModel = core.toProbeResultUiModel(index, result)
 
 internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
     index: Int,
@@ -54,11 +34,11 @@ internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
 ): DiagnosticsProbeResultUiModel = core.toProbeResultUiModel(index, result)
 
 internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
-    policy: RememberedNetworkPolicyEntity,
-    activeConnectionPolicy: ActiveConnectionPolicy?,
+    policy: DiagnosticsRememberedPolicy,
+    activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
 ): DiagnosticsRememberedNetworkUiModel {
-    val summary = policy.decodeSummary(core.json)
-    val signature = decodeStrategySignature(policy.strategySignatureJson)
+    val summary = policy.summary
+    val signature = policy.strategySignature
     val isCurrentMatch = activeConnectionPolicy?.matchedPolicy?.id == policy.id
     return DiagnosticsRememberedNetworkUiModel(
         id = policy.id,
@@ -82,7 +62,7 @@ internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
 }
 
 internal fun DiagnosticsUiFactorySupport.toEventUiModel(
-    event: com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity,
+    event: DiagnosticEvent,
 ): DiagnosticsEventUiModel = core.toEventUiModel(event)
 
 private val connectivityPhaseOrder = listOf("dns", "reachability", "tcp", "telegram")

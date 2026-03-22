@@ -11,8 +11,6 @@ import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.activeHttpParserEvasions
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
-import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
@@ -131,8 +129,8 @@ data class BypassApproachSummary(
 data class BypassApproachDetail(
     val summary: BypassApproachSummary,
     val strategySignature: BypassStrategySignature? = null,
-    val recentValidatedSessions: List<ScanSessionEntity> = emptyList(),
-    val recentUsageSessions: List<BypassUsageSessionEntity> = emptyList(),
+    val recentValidatedSessions: List<DiagnosticScanSession> = emptyList(),
+    val recentUsageSessions: List<DiagnosticConnectionSession> = emptyList(),
     val commonProbeFailures: List<String> = emptyList(),
     val recentFailureNotes: List<String> = emptyList(),
 )
@@ -293,15 +291,15 @@ fun deriveBypassStrategySignature(
     routeGroup: String?,
     modeOverride: Mode,
 ): BypassStrategySignature {
-    val tcpSteps = preferences.tcpChainSteps
-    val udpSteps = preferences.udpChainSteps
+    val tcpSteps = preferences.chains.tcpSteps
+    val udpSteps = preferences.chains.udpSteps
     val primaryTcpStep = primaryTcpChainStep(tcpSteps)
     val tlsRecStep = tlsPreludeTcpChainStep(tcpSteps)
     val protocols =
         buildList {
-            if (preferences.desyncHttp) add("HTTP")
-            if (preferences.desyncHttps) add("HTTPS")
-            if (preferences.desyncUdp) add("UDP")
+            if (preferences.protocols.desyncHttp) add("HTTP")
+            if (preferences.protocols.desyncHttps) add("HTTPS")
+            if (preferences.protocols.desyncUdp) add("UDP")
         }.ifEmpty {
             listOf("NONE")
         }
@@ -312,47 +310,48 @@ fun deriveBypassStrategySignature(
                 step.kind == TcpChainStepKind.FakeDisorder
         }
     val hasCustomFakeTlsProfile =
-        preferences.fakeTlsUseOriginal ||
-            preferences.fakeTlsRandomize ||
-            preferences.fakeTlsDupSessionId ||
-            preferences.fakeTlsPadEncap ||
-            preferences.fakeTlsSize != 0 ||
-            preferences.fakeTlsSniMode != FakeTlsSniModeFixed ||
+        preferences.fakePackets.fakeTlsUseOriginal ||
+            preferences.fakePackets.fakeTlsRandomize ||
+            preferences.fakePackets.fakeTlsDupSessionId ||
+            preferences.fakePackets.fakeTlsPadEncap ||
+            preferences.fakePackets.fakeTlsSize != 0 ||
+            preferences.fakePackets.fakeTlsSniMode != FakeTlsSniModeFixed ||
             (
-                preferences.fakeTlsSniMode == FakeTlsSniModeFixed &&
-                    preferences.fakeSni.isNotBlank() &&
-                    preferences.fakeSni != com.poyka.ripdpi.data.DefaultFakeSni
+                preferences.fakePackets.fakeTlsSniMode == FakeTlsSniModeFixed &&
+                    preferences.fakePackets.fakeSni.isNotBlank() &&
+                    preferences.fakePackets.fakeSni != com.poyka.ripdpi.data.DefaultFakeSni
             )
-    val fakeTlsProfileActive = hasFakeStep && preferences.desyncHttps && hasCustomFakeTlsProfile
-    val quicFakeProfileActive = preferences.desyncUdp && preferences.quicFakeProfile != QuicFakeProfileDisabled
-    val adaptiveFakeTtlActive = preferences.adaptiveFakeTtlEnabled
+    val fakeTlsProfileActive = hasFakeStep && preferences.protocols.desyncHttps && hasCustomFakeTlsProfile
+    val quicFakeProfileActive =
+        preferences.protocols.desyncUdp && preferences.quic.fakeProfile != QuicFakeProfileDisabled
+    val adaptiveFakeTtlActive = preferences.fakePackets.adaptiveFakeTtlEnabled
     val fakeTlsMods =
         buildList {
-            if (preferences.fakeTlsRandomize) add("rand")
-            if (preferences.fakeTlsDupSessionId) add("dupsid")
-            if (preferences.fakeTlsPadEncap) add("padencap")
+            if (preferences.fakePackets.fakeTlsRandomize) add("rand")
+            if (preferences.fakePackets.fakeTlsDupSessionId) add("dupsid")
+            if (preferences.fakePackets.fakeTlsPadEncap) add("padencap")
         }
     val laneFamilies =
         deriveStrategyLaneFamilies(
             tcpSteps = tcpSteps,
-            desyncUdp = preferences.desyncUdp,
-            quicInitialMode = preferences.quicInitialMode,
-            quicFakeProfile = preferences.quicFakeProfile,
+            desyncUdp = preferences.protocols.desyncUdp,
+            quicInitialMode = preferences.quic.initialMode,
+            quicFakeProfile = preferences.quic.fakeProfile,
         )
     val httpParserEvasions =
         activeHttpParserEvasions(
-            hostMixedCase = preferences.hostMixedCase,
-            domainMixedCase = preferences.domainMixedCase,
-            hostRemoveSpaces = preferences.hostRemoveSpaces,
-            httpMethodEol = preferences.httpMethodEol,
-            httpUnixEol = preferences.httpUnixEol,
+            hostMixedCase = preferences.parserEvasions.hostMixedCase,
+            domainMixedCase = preferences.parserEvasions.domainMixedCase,
+            hostRemoveSpaces = preferences.parserEvasions.hostRemoveSpaces,
+            httpMethodEol = preferences.parserEvasions.httpMethodEol,
+            httpUnixEol = preferences.parserEvasions.httpUnixEol,
         )
 
     return BypassStrategySignature(
         mode = modeOverride.name,
         configSource = "ui",
-        hostAutolearn = if (preferences.hostAutolearnEnabled) "enabled" else "disabled",
-        desyncMethod = preferences.desyncMethod.wireName,
+        hostAutolearn = if (preferences.hostAutolearn.enabled) "enabled" else "disabled",
+        desyncMethod = legacyDesyncMethod(tcpSteps).ifEmpty { "none" },
         chainSummary = preferences.chainSummary,
         tcpStrategyFamily = laneFamilies.tcpStrategyFamily,
         quicStrategyFamily = laneFamilies.quicStrategyFamily,
@@ -363,35 +362,39 @@ fun deriveBypassStrategySignature(
         tlsRecordSplitEnabled = tlsRecStep != null,
         tlsRecordMarker = tlsRecStep?.marker,
         splitMarker = primaryTcpStep?.marker,
-        activationRound = formatNumericRange(preferences.groupActivationFilter.round),
-        activationPayloadSize = formatNumericRange(preferences.groupActivationFilter.payloadSize),
-        activationStreamBytes = formatNumericRange(preferences.groupActivationFilter.streamBytes),
+        activationRound = formatNumericRange(preferences.chains.groupActivationFilter.round),
+        activationPayloadSize = formatNumericRange(preferences.chains.groupActivationFilter.payloadSize),
+        activationStreamBytes = formatNumericRange(preferences.chains.groupActivationFilter.streamBytes),
         fakeTtlMode =
-            if (preferences.adaptiveFakeTtlEnabled) {
-                if (preferences.adaptiveFakeTtlDelta == DefaultAdaptiveFakeTtlDelta) "adaptive" else "adaptive_custom"
+            if (preferences.fakePackets.adaptiveFakeTtlEnabled) {
+                if (preferences.fakePackets.adaptiveFakeTtlDelta == DefaultAdaptiveFakeTtlDelta) {
+                    "adaptive"
+                } else {
+                    "adaptive_custom"
+                }
             } else {
                 "fixed"
             },
         adaptiveFakeTtlWindow =
             if (adaptiveFakeTtlActive) {
-                "${preferences.adaptiveFakeTtlMin}-${preferences.adaptiveFakeTtlMax}"
+                "${preferences.fakePackets.adaptiveFakeTtlMin}-${preferences.fakePackets.adaptiveFakeTtlMax}"
             } else {
                 null
             },
-        adaptiveFakeTtlFallback = preferences.adaptiveFakeTtlFallback.takeIf { adaptiveFakeTtlActive },
+        adaptiveFakeTtlFallback = preferences.fakePackets.adaptiveFakeTtlFallback.takeIf { adaptiveFakeTtlActive },
         adaptiveFakeTtlBias =
-            preferences.adaptiveFakeTtlDelta.takeIf {
+            preferences.fakePackets.adaptiveFakeTtlDelta.takeIf {
                 adaptiveFakeTtlActive && it != DefaultAdaptiveFakeTtlDelta
             },
-        fakeSniMode = preferences.fakeTlsSniMode.takeIf { fakeTlsProfileActive },
+        fakeSniMode = preferences.fakePackets.fakeTlsSniMode.takeIf { fakeTlsProfileActive },
         fakeSniValue =
-            preferences.fakeSni.takeIf {
+            preferences.fakePackets.fakeSni.takeIf {
                 fakeTlsProfileActive &&
-                    preferences.fakeTlsSniMode == FakeTlsSniModeFixed
+                    preferences.fakePackets.fakeTlsSniMode == FakeTlsSniModeFixed
             },
         fakeTlsBaseMode =
             if (fakeTlsProfileActive) {
-                if (preferences.fakeTlsUseOriginal) {
+                if (preferences.fakePackets.fakeTlsUseOriginal) {
                     "original"
                 } else {
                     "default"
@@ -400,19 +403,20 @@ fun deriveBypassStrategySignature(
                 null
             },
         fakeTlsMods = fakeTlsMods.takeIf { fakeTlsProfileActive }.orEmpty(),
-        fakeTlsSize = preferences.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
-        httpFakeProfile = preferences.httpFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
-        tlsFakeProfile = preferences.tlsFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
-        udpFakeProfile = preferences.udpFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
-        quicFakeProfile = preferences.quicFakeProfile.takeIf { quicFakeProfileActive },
+        fakeTlsSize = preferences.fakePackets.fakeTlsSize.takeIf { fakeTlsProfileActive && it != 0 },
+        httpFakeProfile = preferences.fakePackets.httpFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
+        tlsFakeProfile = preferences.fakePackets.tlsFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
+        udpFakeProfile = preferences.fakePackets.udpFakeProfile.takeIf { it != FakePayloadProfileCompatDefault },
+        quicFakeProfile = preferences.quic.fakeProfile.takeIf { quicFakeProfileActive },
         quicFakeHost =
             preferences
-                .quicFakeHost
+                .quic
+                .fakeHost
                 .takeIf {
-                    quicFakeProfileActive && preferences.quicFakeProfile == QuicFakeProfileRealisticInitial &&
+                    quicFakeProfileActive && preferences.quic.fakeProfile == QuicFakeProfileRealisticInitial &&
                         it.isNotBlank()
                 },
-        fakeOffsetMarker = preferences.fakeOffsetMarker.takeUnless { it == DefaultFakeOffsetMarker },
+        fakeOffsetMarker = preferences.fakePackets.fakeOffsetMarker.takeUnless { it == DefaultFakeOffsetMarker },
         routeGroup = routeGroup?.takeUnless { it.isBlank() || it == "unknown" },
     )
 }

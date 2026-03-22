@@ -1,7 +1,8 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot as DiagnosticContextEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot as NetworkSnapshotEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,34 +14,36 @@ class HistoryConnectionDetailUiFactoryTest {
     fun `connection detail maps highlights dedupes contexts and ignores malformed payloads`() {
         val detail =
             factory.toConnectionDetail(
-                session = historyConnectionSession(finishedAt = null, health = "degraded"),
-                snapshots =
-                    listOf(
-                        historySnapshot(connectionSessionId = "connection-1"),
-                        NetworkSnapshotEntity(
-                            id = "broken",
-                            sessionId = null,
-                            connectionSessionId = "connection-1",
-                            snapshotKind = "passive",
-                            payloadJson = "{broken",
-                            capturedAt = 1L,
+                DiagnosticConnectionDetail(
+                    session = historyConnectionSession(finishedAt = null, health = "degraded"),
+                    snapshots =
+                        listOf(
+                            historySnapshot(connectionSessionId = "connection-1"),
+                            NetworkSnapshotEntity(
+                                id = "broken",
+                                sessionId = null,
+                                connectionSessionId = "connection-1",
+                                snapshotKind = "passive",
+                                payloadJson = "{broken",
+                                capturedAt = 1L,
+                            ),
                         ),
-                    ),
-                contexts =
-                    listOf(
-                        historyContext(id = "context-1", connectionSessionId = "connection-1"),
-                        historyContext(id = "context-2", connectionSessionId = "connection-1"),
-                        DiagnosticContextEntity(
-                            id = "broken",
-                            sessionId = null,
-                            connectionSessionId = "connection-1",
-                            contextKind = "post_scan",
-                            payloadJson = "{broken",
-                            capturedAt = 1L,
+                    contexts =
+                        listOf(
+                            historyContext(id = "context-1", connectionSessionId = "connection-1"),
+                            historyContext(id = "context-2", connectionSessionId = "connection-1"),
+                            DiagnosticContextEntity(
+                                id = "broken",
+                                sessionId = null,
+                                connectionSessionId = "connection-1",
+                                contextKind = "post_scan",
+                                payloadJson = "{broken",
+                                capturedAt = 1L,
+                            ),
                         ),
-                    ),
-                telemetry = listOf(historyTelemetry(connectionSessionId = "connection-1", createdAt = 999L)),
-                events = listOf(historyEvent(connectionSessionId = "connection-1")),
+                    telemetry = listOf(historyTelemetry(connectionSessionId = "connection-1", createdAt = 999L)),
+                    events = listOf(historyEvent(connectionSessionId = "connection-1")),
+                ),
             )
 
         assertEquals("connection-1", detail.session.id)

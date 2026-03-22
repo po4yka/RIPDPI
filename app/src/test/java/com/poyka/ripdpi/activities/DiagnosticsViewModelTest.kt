@@ -1,19 +1,13 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.core.RipDpiChainConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiQuicConfig
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachId
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
@@ -30,6 +24,7 @@ import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.ProbeResult as ProbeResultEntity
 import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -45,6 +40,13 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
 import com.poyka.ripdpi.diagnostics.SummaryMetric
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
+import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot as DiagnosticContextEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent as NativeSessionEventEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord as ExportRecordEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot as NetworkSnapshotEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile as DiagnosticProfileEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession as ScanSessionEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample as TelemetrySampleEntity
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -751,16 +753,22 @@ class DiagnosticsViewModelTest {
             val profileId = "automatic-audit"
             val hostfakeConfigJson =
                 RipDpiProxyUIPreferences(
-                    tcpChainSteps =
-                        listOf(
-                            TcpChainStepModel(kind = TcpChainStepKind.TlsRec, marker = "extlen"),
-                            TcpChainStepModel(
-                                kind = TcpChainStepKind.HostFake,
-                                marker = "endhost+8",
-                                fakeHostTemplate = "googlevideo.com",
-                            ),
+                    chains =
+                        RipDpiChainConfig(
+                            tcpSteps =
+                                listOf(
+                                    TcpChainStepModel(kind = TcpChainStepKind.TlsRec, marker = "extlen"),
+                                    TcpChainStepModel(
+                                        kind = TcpChainStepKind.HostFake,
+                                        marker = "endhost+8",
+                                        fakeHostTemplate = "googlevideo.com",
+                                    ),
+                                ),
                         ),
-                    quicFakeProfile = "realistic_initial",
+                    quic =
+                        RipDpiQuicConfig(
+                            fakeProfile = "realistic_initial",
+                        ),
                 ).toNativeConfigJson()
             val manager =
                 FakeDiagnosticsManager().apply {

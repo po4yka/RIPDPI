@@ -1,11 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachId
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
@@ -13,7 +7,15 @@ import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassOutcomeBreakdown
 import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
+import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
@@ -39,14 +41,14 @@ internal class FakeDiagnosticsManager(
     val resolverActions = FakeDiagnosticsResolverActions()
 
     val progressState: MutableStateFlow<ScanProgress?> = timelineSource.activeScanProgress
-    val profilesState: MutableStateFlow<List<DiagnosticProfileEntity>> = timelineSource.profiles
-    val sessionsState: MutableStateFlow<List<ScanSessionEntity>> = timelineSource.sessions
-    val snapshotsState: MutableStateFlow<List<NetworkSnapshotEntity>> = timelineSource.snapshots
-    val contextsState: MutableStateFlow<List<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>> =
+    val profilesState: MutableStateFlow<List<DiagnosticProfile>> = timelineSource.profiles
+    val sessionsState: MutableStateFlow<List<DiagnosticScanSession>> = timelineSource.sessions
+    val snapshotsState: MutableStateFlow<List<DiagnosticNetworkSnapshot>> = timelineSource.snapshots
+    val contextsState: MutableStateFlow<List<DiagnosticContextSnapshot>> =
         timelineSource.contexts
-    val telemetryState: MutableStateFlow<List<TelemetrySampleEntity>> = timelineSource.telemetry
-    val nativeEventsState: MutableStateFlow<List<NativeSessionEventEntity>> = timelineSource.nativeEvents
-    val exportsState: MutableStateFlow<List<ExportRecordEntity>> = timelineSource.exports
+    val telemetryState: MutableStateFlow<List<DiagnosticTelemetrySample>> = timelineSource.telemetry
+    val nativeEventsState: MutableStateFlow<List<DiagnosticEvent>> = timelineSource.nativeEvents
+    val exportsState: MutableStateFlow<List<DiagnosticExportRecord>> = timelineSource.exports
     val approachStatsState: MutableStateFlow<List<BypassApproachSummary>> = timelineSource.approachStats
 
     var initializeCalls: Int = 0
@@ -96,7 +98,7 @@ internal class FakeDiagnosticsManager(
                         routeGroup = "3",
                     ),
                 recentValidatedSessions = sessionsState.value.take(2),
-                recentUsageSessions = emptyList(),
+                recentUsageSessions = emptyList<DiagnosticConnectionSession>(),
                 commonProbeFailures = listOf("dns_blocked (2)"),
                 recentFailureNotes = listOf("dns:example.org=blocked"),
             )
@@ -136,14 +138,14 @@ internal class FakeDiagnosticsBootstrapper : DiagnosticsBootstrapper {
 
 internal class FakeDiagnosticsTimelineSource : DiagnosticsTimelineSource {
     override val activeScanProgress = MutableStateFlow<ScanProgress?>(null)
-    override val profiles = MutableStateFlow<List<DiagnosticProfileEntity>>(emptyList())
-    override val sessions = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
+    override val profiles = MutableStateFlow<List<DiagnosticProfile>>(emptyList())
+    override val sessions = MutableStateFlow<List<DiagnosticScanSession>>(emptyList())
     override val approachStats = MutableStateFlow<List<BypassApproachSummary>>(emptyList())
-    override val snapshots = MutableStateFlow<List<NetworkSnapshotEntity>>(emptyList())
-    override val contexts = MutableStateFlow<List<com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity>>(emptyList())
-    override val telemetry = MutableStateFlow<List<TelemetrySampleEntity>>(emptyList())
-    override val nativeEvents = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
-    override val exports = MutableStateFlow<List<ExportRecordEntity>>(emptyList())
+    override val snapshots = MutableStateFlow<List<DiagnosticNetworkSnapshot>>(emptyList())
+    override val contexts = MutableStateFlow<List<DiagnosticContextSnapshot>>(emptyList())
+    override val telemetry = MutableStateFlow<List<DiagnosticTelemetrySample>>(emptyList())
+    override val nativeEvents = MutableStateFlow<List<DiagnosticEvent>>(emptyList())
+    override val exports = MutableStateFlow<List<DiagnosticExportRecord>>(emptyList())
 }
 
 internal class FakeDiagnosticsScanController : DiagnosticsScanController {

@@ -1,13 +1,14 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
-import com.poyka.ripdpi.data.diagnostics.retryCount
-import com.poyka.ripdpi.data.diagnostics.rttBand
-import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
+import com.poyka.ripdpi.diagnostics.retryCount
+import com.poyka.ripdpi.diagnostics.rttBand
+import com.poyka.ripdpi.diagnostics.winningStrategyFamily
 import java.util.Locale
 import javax.inject.Inject
 
@@ -16,7 +17,7 @@ internal class HistoryConnectionDetailUiFactory
     constructor(
         private val coreSupport: DiagnosticsUiCoreSupport,
     ) {
-        fun toConnectionRowUiModel(session: BypassUsageSessionEntity): HistoryConnectionRowUiModel {
+        fun toConnectionRowUiModel(session: DiagnosticConnectionSession): HistoryConnectionRowUiModel {
             val durationMs =
                 (session.finishedAt ?: session.updatedAt).coerceAtLeast(session.startedAt) - session.startedAt
             val summary =
@@ -47,51 +48,57 @@ internal class HistoryConnectionDetailUiFactory
             )
         }
 
-        fun toConnectionDetail(
-            session: BypassUsageSessionEntity,
-            snapshots: List<NetworkSnapshotEntity>,
-            contexts: List<DiagnosticContextEntity>,
-            telemetry: List<TelemetrySampleEntity>,
-            events: List<com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity>,
-        ): HistoryConnectionDetailUiModel {
-            val row = toConnectionRowUiModel(session)
-            val latestTelemetry = telemetry.maxByOrNull { it.createdAt }
+        fun toConnectionDetail(detail: DiagnosticConnectionDetail): HistoryConnectionDetailUiModel {
+            val row = toConnectionRowUiModel(detail.session)
+            val latestTelemetry = detail.telemetry.maxByOrNull { it.createdAt }
             return HistoryConnectionDetailUiModel(
                 session = row,
                 highlights =
                     buildList {
-                        add(DiagnosticsMetricUiModel("Network", session.networkType, DiagnosticsTone.Info))
+                        add(DiagnosticsMetricUiModel("Network", detail.session.networkType, DiagnosticsTone.Info))
                         add(
                             DiagnosticsMetricUiModel(
                                 "Health",
-                                session.health.replaceFirstChar { it.uppercase() },
-                                toneForConnection(session),
+                                detail.session.health.replaceFirstChar { it.uppercase() },
+                                toneForConnection(detail.session),
                             ),
                         )
-                        add(DiagnosticsMetricUiModel("TX", coreSupport.formatBytes(session.txBytes), DiagnosticsTone.Info))
-                        add(DiagnosticsMetricUiModel("RX", coreSupport.formatBytes(session.rxBytes), DiagnosticsTone.Positive))
+                        add(DiagnosticsMetricUiModel("TX", coreSupport.formatBytes(detail.session.txBytes), DiagnosticsTone.Info))
+                        add(
+                            DiagnosticsMetricUiModel(
+                                "RX",
+                                coreSupport.formatBytes(detail.session.rxBytes),
+                                DiagnosticsTone.Positive,
+                            ),
+                        )
                         add(
                             DiagnosticsMetricUiModel(
                                 "Errors",
-                                session.totalErrors.toString(),
-                                if (session.totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
+                                detail.session.totalErrors.toString(),
+                                if (detail.session.totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
                             ),
                         )
-                        add(DiagnosticsMetricUiModel("Route changes", session.routeChanges.toString(), DiagnosticsTone.Info))
-                        (latestTelemetry?.failureClass ?: session.failureClass)?.let { failure ->
+                        add(
+                            DiagnosticsMetricUiModel(
+                                "Route changes",
+                                detail.session.routeChanges.toString(),
+                                DiagnosticsTone.Info,
+                            ),
+                        )
+                        (latestTelemetry?.failureClass ?: detail.session.failureClass)?.let { failure ->
                             add(DiagnosticsMetricUiModel("Failure class", failure, DiagnosticsTone.Warning))
                         }
-                        (latestTelemetry?.winningStrategyFamily() ?: session.winningStrategyFamily())?.let { winningStrategy ->
+                        (latestTelemetry?.winningStrategyFamily() ?: detail.session.winningStrategyFamily())?.let { winningStrategy ->
                             add(DiagnosticsMetricUiModel("Strategy", winningStrategy, DiagnosticsTone.Positive))
                         }
                         add(
                             DiagnosticsMetricUiModel(
                                 "RTT band",
-                                latestTelemetry?.rttBand() ?: session.rttBand(),
+                                latestTelemetry?.rttBand() ?: detail.session.rttBand(),
                                 DiagnosticsTone.Info,
                             ),
                         )
-                        val retryCount = latestTelemetry?.retryCount() ?: session.retryCount()
+                        val retryCount = latestTelemetry?.retryCount() ?: detail.session.retryCount()
                         add(
                             DiagnosticsMetricUiModel(
                                 "Retries",
@@ -103,8 +110,8 @@ internal class HistoryConnectionDetailUiFactory
                 contextGroups =
                     buildList {
                         addAll(
-                            contexts
-                                .mapNotNull(coreSupport::decodeContext)
+                            detail.contexts
+                                .mapNotNull { it.context }
                                 .flatMap { context -> context.toContextGroups() }
                                 .distinctBy { group ->
                                     group.title +
@@ -113,15 +120,15 @@ internal class HistoryConnectionDetailUiFactory
                                         }
                                 },
                         )
-                        buildFieldTelemetryGroup(session, latestTelemetry)?.let(::add)
+                        buildFieldTelemetryGroup(detail.session, latestTelemetry)?.let(::add)
                     },
-                snapshots = snapshots.mapNotNull(::toSnapshotUiModel),
-                events = events.map(coreSupport::toEventUiModel),
+                snapshots = detail.snapshots.mapNotNull(::toSnapshotUiModel),
+                events = detail.events.map(coreSupport::toEventUiModel),
             )
         }
 
-        private fun toSnapshotUiModel(snapshotEntity: NetworkSnapshotEntity): DiagnosticsNetworkSnapshotUiModel? {
-            val snapshot = coreSupport.decodeNetworkSnapshot(snapshotEntity) ?: return null
+        private fun toSnapshotUiModel(snapshotEntity: DiagnosticNetworkSnapshot): DiagnosticsNetworkSnapshotUiModel? {
+            val snapshot = snapshotEntity.snapshot ?: return null
             return DiagnosticsNetworkSnapshotUiModel(
                 title = snapshotEntity.snapshotKind.replace('_', ' ').replaceFirstChar { it.uppercase() },
                 subtitle = "${snapshot.transport} · ${coreSupport.formatTimestamp(snapshot.capturedAt)}",
@@ -177,8 +184,8 @@ internal class HistoryConnectionDetailUiFactory
             )
 
         private fun buildFieldTelemetryGroup(
-            session: BypassUsageSessionEntity,
-            telemetry: TelemetrySampleEntity?,
+            session: DiagnosticConnectionSession,
+            telemetry: DiagnosticTelemetrySample?,
         ): DiagnosticsContextGroupUiModel? {
             val failureClass = telemetry?.failureClass ?: session.failureClass
             val winningTcpStrategyFamily = telemetry?.winningTcpStrategyFamily ?: session.winningTcpStrategyFamily
@@ -216,7 +223,7 @@ internal class HistoryConnectionDetailUiFactory
         private fun formatTelemetryHash(value: String): String =
             if (value.length <= 24) value else "${value.take(12)}...${value.takeLast(8)}"
 
-        private fun toneForConnection(session: BypassUsageSessionEntity): DiagnosticsTone =
+        private fun toneForConnection(session: DiagnosticConnectionSession): DiagnosticsTone =
             when {
                 session.connectionState.equals("failed", ignoreCase = true) -> DiagnosticsTone.Negative
                 session.health.equals("degraded", ignoreCase = true) -> DiagnosticsTone.Warning

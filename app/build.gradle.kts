@@ -82,7 +82,6 @@ dependencies {
     // Modules
     implementation(project(":core:data"))
     implementation(project(":core:diagnostics"))
-    implementation(project(":core:diagnostics-data"))
     implementation(project(":core:engine"))
     implementation(project(":core:service"))
 
@@ -97,6 +96,7 @@ dependencies {
     testImplementation(libs.bundles.unit.test)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(project(":core:diagnostics-data"))
     androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
@@ -105,5 +105,6 @@ dependencies {
     androidTestImplementation(libs.androidx.test.uiautomator)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(project(":core:diagnostics-data"))
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

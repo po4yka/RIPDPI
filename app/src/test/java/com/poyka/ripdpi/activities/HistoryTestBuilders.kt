@@ -1,27 +1,29 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
-import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
-import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
+import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
+import com.poyka.ripdpi.diagnostics.DiagnosticProfile
+import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
+import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
 import com.poyka.ripdpi.diagnostics.DeviceContextModel
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ProbeDetail
+import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ScanReport
@@ -31,9 +33,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.json.Json
-
-private val historyJson = Json
 
 internal fun historyConnectionSession(
     id: String = "connection-1",
@@ -45,8 +44,8 @@ internal fun historyConnectionSession(
     finishedAt: Long? = 61_000L,
     updatedAt: Long = finishedAt ?: startedAt,
     failureMessage: String? = null,
-): BypassUsageSessionEntity =
-    BypassUsageSessionEntity(
+): DiagnosticConnectionSession =
+    DiagnosticConnectionSession(
         id = id,
         startedAt = startedAt,
         finishedAt = finishedAt,
@@ -58,7 +57,7 @@ internal fun historyConnectionSession(
         approachProfileName = "Default",
         strategyId = "strategy-1",
         strategyLabel = "Strategy 1",
-        strategyJson = "{}",
+        strategySignature = null,
         networkType = networkType,
         publicIp = "198.51.100.8",
         failureClass = "dns_tampering",
@@ -84,35 +83,33 @@ internal fun historyScanSession(
     pathMode: String = "RAW_PATH",
     serviceMode: String? = "VPN",
     summary: String = "Scan summary",
-    reportJson: String? =
-        historyJson.encodeToString(
-            ScanReport(
-                sessionId = id,
-                profileId = "default",
-                pathMode = ScanPathMode.RAW_PATH,
-                startedAt = 1L,
-                finishedAt = 2L,
-                summary = summary,
-                results =
-                    listOf(
-                        com.poyka.ripdpi.diagnostics.ProbeResult(
-                            probeType = "dns",
-                            target = "example.org",
-                            outcome = "ok",
-                            details = listOf(ProbeDetail("resolver", "1.1.1.1")),
-                        ),
+    report: ScanReport? =
+        ScanReport(
+            sessionId = id,
+            profileId = "default",
+            pathMode = ScanPathMode.RAW_PATH,
+            startedAt = 1L,
+            finishedAt = 2L,
+            summary = summary,
+            results =
+                listOf(
+                    ProbeResult(
+                        probeType = "dns",
+                        target = "example.org",
+                        outcome = "ok",
+                        details = listOf(ProbeDetail("resolver", "1.1.1.1")),
                     ),
-            ),
+                ),
         ),
-): ScanSessionEntity =
-    ScanSessionEntity(
+): DiagnosticScanSession =
+    DiagnosticScanSession(
         id = id,
         profileId = "default",
         pathMode = pathMode,
         serviceMode = serviceMode,
         status = status,
         summary = summary,
-        reportJson = reportJson,
+        report = report,
         startedAt = 1L,
         finishedAt = 2L,
     )
@@ -125,8 +122,8 @@ internal fun historyEvent(
     createdAt: Long = 5L,
     sessionId: String? = null,
     connectionSessionId: String? = null,
-): NativeSessionEventEntity =
-    NativeSessionEventEntity(
+): DiagnosticEvent =
+    DiagnosticEvent(
         id = id,
         sessionId = sessionId,
         connectionSessionId = connectionSessionId,
@@ -141,50 +138,48 @@ internal fun historySnapshot(
     sessionId: String? = null,
     connectionSessionId: String? = null,
     transport: String = "wifi",
-): NetworkSnapshotEntity =
-    NetworkSnapshotEntity(
+): DiagnosticNetworkSnapshot =
+    DiagnosticNetworkSnapshot(
         id = id,
         sessionId = sessionId,
         connectionSessionId = connectionSessionId,
         snapshotKind = "passive",
-        payloadJson =
-            historyJson.encodeToString(
-                NetworkSnapshotModel(
-                    transport = transport,
-                    capabilities = listOf("validated"),
-                    dnsServers = listOf("1.1.1.1"),
-                    privateDnsMode = "strict",
-                    mtu = 1500,
-                    localAddresses = listOf("192.168.1.4"),
-                    publicIp = "198.51.100.8",
-                    publicAsn = "AS64500",
-                    captivePortalDetected = false,
-                    networkValidated = true,
-                    wifiDetails =
-                        WifiNetworkDetails(
-                            ssid = "RIPDPI Lab",
-                            bssid = "aa:bb:cc:dd:ee:ff",
-                            frequencyMhz = 5180,
-                            band = "5 GHz",
-                            channelWidth = "80 MHz",
-                            wifiStandard = "802.11ax",
-                            rssiDbm = -53,
-                            linkSpeedMbps = 866,
-                            rxLinkSpeedMbps = 780,
-                            txLinkSpeedMbps = 720,
-                            hiddenSsid = false,
-                            networkId = 7,
-                            isPasspoint = false,
-                            isOsuAp = false,
-                            gateway = "192.168.1.1",
-                            dhcpServer = "192.168.1.2",
-                            ipAddress = "192.168.1.4",
-                            subnetMask = "255.255.255.0",
-                            leaseDurationSeconds = 3600,
-                        ),
-                    cellularDetails = null,
-                    capturedAt = 10L,
-                ),
+        snapshot =
+            NetworkSnapshotModel(
+                transport = transport,
+                capabilities = listOf("validated"),
+                dnsServers = listOf("1.1.1.1"),
+                privateDnsMode = "strict",
+                mtu = 1500,
+                localAddresses = listOf("192.168.1.4"),
+                publicIp = "198.51.100.8",
+                publicAsn = "AS64500",
+                captivePortalDetected = false,
+                networkValidated = true,
+                wifiDetails =
+                    WifiNetworkDetails(
+                        ssid = "RIPDPI Lab",
+                        bssid = "aa:bb:cc:dd:ee:ff",
+                        frequencyMhz = 5180,
+                        band = "5 GHz",
+                        channelWidth = "80 MHz",
+                        wifiStandard = "802.11ax",
+                        rssiDbm = -53,
+                        linkSpeedMbps = 866,
+                        rxLinkSpeedMbps = 780,
+                        txLinkSpeedMbps = 720,
+                        hiddenSsid = false,
+                        networkId = 7,
+                        isPasspoint = false,
+                        isOsuAp = false,
+                        gateway = "192.168.1.1",
+                        dhcpServer = "192.168.1.2",
+                        ipAddress = "192.168.1.4",
+                        subnetMask = "255.255.255.0",
+                        leaseDurationSeconds = 3600,
+                    ),
+                cellularDetails = null,
+                capturedAt = 10L,
             ),
         capturedAt = 10L,
     )
@@ -193,65 +188,63 @@ internal fun historyContext(
     id: String = "context-1",
     sessionId: String? = null,
     connectionSessionId: String? = null,
-): DiagnosticContextEntity =
-    DiagnosticContextEntity(
+): DiagnosticContextSnapshot =
+    DiagnosticContextSnapshot(
         id = id,
         sessionId = sessionId,
         connectionSessionId = connectionSessionId,
         contextKind = if (sessionId == null && connectionSessionId == null) "passive" else "post_scan",
-        payloadJson =
-            historyJson.encodeToString(
-                DiagnosticContextModel(
-                    service =
-                        ServiceContextModel(
-                            serviceStatus = "Running",
-                            configuredMode = "VPN",
-                            activeMode = "VPN",
-                            selectedProfileId = "default",
-                            selectedProfileName = "Default",
-                            configSource = "ui",
-                            proxyEndpoint = "127.0.0.1:1080",
-                            desyncMethod = "split",
-                            chainSummary = "tcp: split(1)",
-                            routeGroup = "3",
-                            sessionUptimeMs = 20_000L,
-                            lastNativeErrorHeadline = "none",
-                            restartCount = 2,
-                            hostAutolearnEnabled = "enabled",
-                            learnedHostCount = 3,
-                            penalizedHostCount = 1,
-                            lastAutolearnHost = "example.org",
-                            lastAutolearnGroup = "2",
-                            lastAutolearnAction = "host_promoted",
-                        ),
-                    permissions =
-                        PermissionContextModel(
-                            vpnPermissionState = "enabled",
-                            notificationPermissionState = "enabled",
-                            batteryOptimizationState = "disabled",
-                            dataSaverState = "disabled",
-                        ),
-                    device =
-                        DeviceContextModel(
-                            appVersionName = "0.0.1",
-                            appVersionCode = 1L,
-                            buildType = "debug",
-                            androidVersion = "16",
-                            apiLevel = 36,
-                            manufacturer = "Google",
-                            model = "Pixel",
-                            primaryAbi = "arm64-v8a",
-                            locale = "en-US",
-                            timezone = "UTC",
-                        ),
-                    environment =
-                        EnvironmentContextModel(
-                            batterySaverState = "disabled",
-                            powerSaveModeState = "disabled",
-                            networkMeteredState = "disabled",
-                            roamingState = "disabled",
-                        ),
-                ),
+        context =
+            DiagnosticContextModel(
+                service =
+                    ServiceContextModel(
+                        serviceStatus = "Running",
+                        configuredMode = "VPN",
+                        activeMode = "VPN",
+                        selectedProfileId = "default",
+                        selectedProfileName = "Default",
+                        configSource = "ui",
+                        proxyEndpoint = "127.0.0.1:1080",
+                        desyncMethod = "split",
+                        chainSummary = "tcp: split(1)",
+                        routeGroup = "3",
+                        sessionUptimeMs = 20_000L,
+                        lastNativeErrorHeadline = "none",
+                        restartCount = 2,
+                        hostAutolearnEnabled = "enabled",
+                        learnedHostCount = 3,
+                        penalizedHostCount = 1,
+                        lastAutolearnHost = "example.org",
+                        lastAutolearnGroup = "2",
+                        lastAutolearnAction = "host_promoted",
+                    ),
+                permissions =
+                    PermissionContextModel(
+                        vpnPermissionState = "enabled",
+                        notificationPermissionState = "enabled",
+                        batteryOptimizationState = "disabled",
+                        dataSaverState = "disabled",
+                    ),
+                device =
+                    DeviceContextModel(
+                        appVersionName = "0.0.1",
+                        appVersionCode = 1L,
+                        buildType = "debug",
+                        androidVersion = "16",
+                        apiLevel = 36,
+                        manufacturer = "Google",
+                        model = "Pixel",
+                        primaryAbi = "arm64-v8a",
+                        locale = "en-US",
+                        timezone = "UTC",
+                    ),
+                environment =
+                    EnvironmentContextModel(
+                        batterySaverState = "disabled",
+                        powerSaveModeState = "disabled",
+                        networkMeteredState = "disabled",
+                        roamingState = "disabled",
+                    ),
             ),
         capturedAt = 12L,
     )
@@ -261,8 +254,8 @@ internal fun historyTelemetry(
     connectionSessionId: String? = "connection-1",
     createdAt: Long = 30L,
     failureClass: String? = "dns_tampering",
-): TelemetrySampleEntity =
-    TelemetrySampleEntity(
+): DiagnosticTelemetrySample =
+    DiagnosticTelemetrySample(
         id = id,
         sessionId = null,
         connectionSessionId = connectionSessionId,
@@ -296,18 +289,13 @@ internal fun historyTelemetry(
     )
 
 internal fun historyProbeResult(
-    id: String = "probe-1",
-    sessionId: String = "scan-1",
     outcome: String = "ok",
-): ProbeResultEntity =
-    ProbeResultEntity(
-        id = id,
-        sessionId = sessionId,
+): ProbeResult =
+    ProbeResult(
         probeType = "dns",
         target = "example.org",
         outcome = outcome,
-        detailJson = historyJson.encodeToString(listOf(ProbeDetail("resolver", "1.1.1.1"))),
-        createdAt = 1L,
+        details = listOf(ProbeDetail("resolver", "1.1.1.1")),
     )
 
 internal fun historyDiagnosticsDetail(
@@ -315,7 +303,7 @@ internal fun historyDiagnosticsDetail(
 ): DiagnosticSessionDetail =
     DiagnosticSessionDetail(
         session = historyScanSession(id = sessionId),
-        results = listOf(historyProbeResult(sessionId = sessionId)),
+        results = listOf(historyProbeResult()),
         snapshots = listOf(historySnapshot(id = "snapshot-$sessionId", sessionId = sessionId)),
         events = listOf(historyEvent(id = "event-$sessionId", sessionId = sessionId)),
         context = historyContext(id = "context-$sessionId", sessionId = sessionId),
@@ -370,16 +358,19 @@ internal fun historyDiagnosticsDetailUi(
         sensitiveDetailsVisible = false,
     )
 
-internal class FakeHistoryTimelineDataSource : HistoryTimelineDataSource {
-    val connectionSessions = MutableStateFlow<List<BypassUsageSessionEntity>>(emptyList())
-    val diagnosticsSessions = MutableStateFlow<List<ScanSessionEntity>>(emptyList())
-    val nativeEvents = MutableStateFlow<List<NativeSessionEventEntity>>(emptyList())
+internal class FakeDiagnosticsHistorySource : DiagnosticsHistorySource {
+    val connectionSessions = MutableStateFlow<List<DiagnosticConnectionSession>>(emptyList())
+    val diagnosticsSessions = MutableStateFlow<List<DiagnosticScanSession>>(emptyList())
+    val nativeEvents = MutableStateFlow<List<DiagnosticEvent>>(emptyList())
+    val connectionDetails = mutableMapOf<String, DiagnosticConnectionDetail?>()
 
-    override fun observeConnectionSessions(): Flow<List<BypassUsageSessionEntity>> = connectionSessions
+    override fun observeConnectionSessions(limit: Int): Flow<List<DiagnosticConnectionSession>> = connectionSessions
 
-    override fun observeDiagnosticsSessions(): Flow<List<ScanSessionEntity>> = diagnosticsSessions
+    override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> = diagnosticsSessions
 
-    override fun observeNativeEvents(): Flow<List<NativeSessionEventEntity>> = nativeEvents
+    override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> = nativeEvents
+
+    override suspend fun loadConnectionDetail(sessionId: String): DiagnosticConnectionDetail? = connectionDetails[sessionId]
 }
 
 internal class FakeHistoryDetailLoader : HistoryDetailLoader {
@@ -391,33 +382,6 @@ internal class FakeHistoryDetailLoader : HistoryDetailLoader {
 
     override suspend fun loadDiagnosticsDetail(sessionId: String): DiagnosticsSessionDetailUiModel? =
         diagnosticsDetails[sessionId]
-}
-
-internal class RecordingHistoryInitializer : HistoryInitializer {
-    var calls: Int = 0
-        private set
-
-    override suspend fun initialize() {
-        calls += 1
-    }
-}
-
-internal class FakeHistoryConnectionDetailSource : HistoryConnectionDetailSource {
-    var session: BypassUsageSessionEntity? = null
-    var snapshots: List<NetworkSnapshotEntity> = emptyList()
-    var contexts: List<DiagnosticContextEntity> = emptyList()
-    var telemetry: List<TelemetrySampleEntity> = emptyList()
-    var events: List<NativeSessionEventEntity> = emptyList()
-
-    override suspend fun getConnectionSession(sessionId: String): BypassUsageSessionEntity? = session
-
-    override suspend fun getConnectionSnapshots(sessionId: String): List<NetworkSnapshotEntity> = snapshots
-
-    override suspend fun getConnectionContexts(sessionId: String): List<DiagnosticContextEntity> = contexts
-
-    override suspend fun getConnectionTelemetry(sessionId: String): List<TelemetrySampleEntity> = telemetry
-
-    override suspend fun getConnectionNativeEvents(sessionId: String): List<NativeSessionEventEntity> = events
 }
 
 internal class FakeDiagnosticsSessionDetailUiMapper : DiagnosticsSessionDetailUiMapper {
