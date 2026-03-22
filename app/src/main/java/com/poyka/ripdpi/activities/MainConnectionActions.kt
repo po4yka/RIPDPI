@@ -37,9 +37,11 @@ internal class MainConnectionActions(
 ) {
     private companion object {
         private const val PercentScale = 100
+        private val CONNECTING_TIMEOUT = 30.seconds
     }
 
     private var connectionMetricsJob: Job? = null
+    private var connectingTimeoutJob: Job? = null
 
     fun initialize() {
         observeStatus()
@@ -145,7 +147,23 @@ internal class MainConnectionActions(
         }
     }
 
+    private fun startConnectingTimeout() {
+        connectingTimeoutJob?.cancel()
+        connectingTimeoutJob = mutations.launch {
+            delay(CONNECTING_TIMEOUT)
+            if (runtimeState.value.connectionState == ConnectionState.Connecting) {
+                showError(stringResolver.getString(R.string.connection_timed_out))
+            }
+        }
+    }
+
+    private fun cancelConnectingTimeout() {
+        connectingTimeoutJob?.cancel()
+        connectingTimeoutJob = null
+    }
+
     private fun onConnected() {
+        cancelConnectingTimeout()
         val baselineBytes = currentTransferredBytes()
         val connectedAtMs = SystemClock.elapsedRealtime()
 
@@ -167,6 +185,7 @@ internal class MainConnectionActions(
     }
 
     private fun onHalted() {
+        cancelConnectingTimeout()
         stopConnectionMetricsPolling()
         runtimeState.update { current ->
             if (current.connectionState == ConnectionState.Error) {
@@ -192,6 +211,7 @@ internal class MainConnectionActions(
     }
 
     private fun showError(message: String) {
+        cancelConnectingTimeout()
         stopConnectionMetricsPolling()
         runtimeState.update {
             it.copy(
@@ -218,6 +238,7 @@ internal class MainConnectionActions(
                 connectionDuration = ZERO,
             )
         }
+        startConnectingTimeout()
     }
 
     private fun startConnectionMetricsPolling() {
